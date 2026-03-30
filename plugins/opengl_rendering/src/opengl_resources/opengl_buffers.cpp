@@ -7,7 +7,7 @@
 
 namespace opengl_rendering
 {
-    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    static uint32 take_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -23,11 +23,11 @@ namespace opengl_rendering
     };
 
     static void add_attribute(
-        const tbx::uint32 vertex_array_id,
-        const tbx::uint32 index,
-        const tbx::uint32 size,
-        const tbx::uint32 type,
-        const tbx::uint32 offset,
+        const uint32 vertex_array_id,
+        const uint32 index,
+        const uint32 size,
+        const uint32 type,
+        const uint32 offset,
         const bool normalized)
     {
         glEnableVertexArrayAttrib(vertex_array_id, index);
@@ -130,10 +130,10 @@ namespace opengl_rendering
     }
 
     void OpenGlVertexBuffer::upload(
-        const tbx::uint32 vertex_array_id,
+        const uint32 vertex_array_id,
         const tbx::VertexBuffer& buffer)
     {
-        _count = static_cast<tbx::uint32>(buffer.vertices.size());
+        _count = static_cast<uint32>(buffer.vertices.size());
         glNamedBufferData(
             _buffer_id,
             static_cast<GLsizeiptr>(_count * sizeof(float)),
@@ -146,7 +146,7 @@ namespace opengl_rendering
             "OpenGL rendering: vertex buffer layout stride must be greater than zero.");
         glVertexArrayVertexBuffer(vertex_array_id, 0, _buffer_id, 0, layout.stride);
 
-        tbx::uint32 index = 0;
+        uint32 index = 0;
         for (const auto& element : layout.elements)
         {
             const auto type = vertex_type_to_gl_type(element.type);
@@ -171,7 +171,7 @@ namespace opengl_rendering
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    tbx::uint32 OpenGlVertexBuffer::get_count() const
+    uint32 OpenGlVertexBuffer::get_count() const
     {
         return _count;
     }
@@ -211,13 +211,13 @@ namespace opengl_rendering
     }
 
     void OpenGlIndexBuffer::upload(
-        const tbx::uint32 vertex_array_id,
+        const uint32 vertex_array_id,
         const tbx::IndexBuffer& buffer)
     {
-        _count = static_cast<tbx::uint32>(buffer.size());
+        _count = static_cast<uint32>(buffer.size());
         glNamedBufferData(
             _buffer_id,
-            static_cast<GLsizeiptr>(_count * sizeof(tbx::uint32)),
+            static_cast<GLsizeiptr>(_count * sizeof(uint32)),
             buffer.data(),
             GL_STATIC_DRAW);
         glVertexArrayElementBuffer(vertex_array_id, _buffer_id);
@@ -233,7 +233,7 @@ namespace opengl_rendering
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
-    tbx::uint32 OpenGlIndexBuffer::get_count() const
+    uint32 OpenGlIndexBuffer::get_count() const
     {
         return _count;
     }
@@ -379,8 +379,8 @@ namespace opengl_rendering
 
     GLuint OpenGlGBuffer::create_color_attachment(
         const GLenum internal_format,
-        const tbx::uint32 width,
-        const tbx::uint32 height)
+        const uint32 width,
+        const uint32 height)
     {
         auto texture_id = GLuint {0U};
         glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
@@ -397,7 +397,7 @@ namespace opengl_rendering
         return texture_id;
     }
 
-    GLuint OpenGlGBuffer::create_depth_attachment(const tbx::uint32 width, const tbx::uint32 height)
+    GLuint OpenGlGBuffer::create_depth_attachment(const uint32 width, const uint32 height)
     {
         auto texture_id = GLuint {0U};
         glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);

@@ -16,7 +16,7 @@ namespace tbx::tests::async
         auto worker_count = job_system.get_worker_count();
 
         // Assert
-        EXPECT_GE(worker_count, static_cast<std::size_t>(1));
+        EXPECT_GE(worker_count, static_cast<size>(1));
     }
 
     TEST(job_system, honors_explicit_worker_count)
@@ -29,7 +29,7 @@ namespace tbx::tests::async
         JobSystem job_system(configuration);
 
         // Assert
-        EXPECT_EQ(job_system.get_worker_count(), static_cast<std::size_t>(2));
+        EXPECT_EQ(job_system.get_worker_count(), static_cast<size>(2));
     }
 
     TEST(job_system, executes_scheduled_jobs)
@@ -105,7 +105,7 @@ namespace tbx::tests::async
         job_system.stop();
 
         // Assert
-        EXPECT_EQ(job_system.get_worker_count(), static_cast<std::size_t>(0));
+        EXPECT_EQ(job_system.get_worker_count(), static_cast<size>(0));
         EXPECT_THROW(
             job_system.schedule(
                 []()

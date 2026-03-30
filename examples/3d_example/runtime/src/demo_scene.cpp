@@ -1,6 +1,7 @@
 #include "demo_scene.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/light.h"
 #include "tbx/graphics/material.h"
@@ -43,6 +44,13 @@ namespace three_d_example
         _sun.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F))),
+            tbx::Vec3(1.0F, 1.0F, 1.0F));
+
+        _area_light = tbx::Entity("AreaLight", entity_registry);
+        _area_light.add_component(tbx::AreaLight());
+        _area_light.add_component<tbx::Transform>(
+            tbx::Vec3(0.0F, 5.0F, 0.0F),
+            tbx::Quat(tbx::to_radians(tbx::Vec3(-180.0F, 0.0F, 0.0F))),
             tbx::Vec3(1.0F, 1.0F, 1.0F));
 
         _trigger_zone = tbx::Entity("TriggerZone", entity_registry);

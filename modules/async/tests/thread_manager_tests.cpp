@@ -19,7 +19,7 @@ namespace tbx::tests::async
         // Assert
         EXPECT_TRUE(did_create_lane);
         EXPECT_TRUE(thread_manager.has_lane("render"));
-        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<std::size_t>(1));
+        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<size>(1));
     }
 
     TEST(thread_manager, rejects_duplicate_lane_names)
@@ -34,7 +34,7 @@ namespace tbx::tests::async
 
         // Assert
         EXPECT_FALSE(did_create_duplicate_lane);
-        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<std::size_t>(1));
+        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<size>(1));
     }
 
     TEST(thread_manager, post_executes_on_lane_thread)
@@ -119,7 +119,7 @@ namespace tbx::tests::async
         thread_manager.stop_all();
 
         // Assert
-        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<std::size_t>(0));
+        EXPECT_EQ(thread_manager.get_lane_count(), static_cast<size>(0));
         EXPECT_FALSE(thread_manager.has_lane("render"));
         EXPECT_FALSE(thread_manager.has_lane("physics"));
     }

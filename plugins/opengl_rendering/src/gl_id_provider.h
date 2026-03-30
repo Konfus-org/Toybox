@@ -1,5 +1,5 @@
-﻿#pragma once
-#include "tbx/common/int.h"
+#pragma once
+#include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 
@@ -18,6 +18,6 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a value type; the caller owns the copy.
         /// Thread Safety: Safe to call concurrently.
-        tbx::Uuid provide(const tbx::Uuid& first, tbx::uint32 second) const;
+        tbx::Uuid provide(const tbx::Uuid& first, uint32 second) const;
     };
 }

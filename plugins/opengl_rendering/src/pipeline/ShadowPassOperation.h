@@ -33,28 +33,28 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-        tbx::uint32 get_directional_shadow_texture() const;
+        uint32 get_directional_shadow_texture() const;
 
         /// @brief
         /// Purpose: Returns the cube-map array used for point-light shadows.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-        tbx::uint32 get_point_shadow_texture() const;
+        uint32 get_point_shadow_texture() const;
 
         /// @brief
         /// Purpose: Returns the layered depth texture used for spot-light shadows.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-        tbx::uint32 get_spot_shadow_texture() const;
+        uint32 get_spot_shadow_texture() const;
 
         /// @brief
         /// Purpose: Returns the layered depth texture used for area-light shadows.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle managed by this pass.
         /// Thread Safety: Not thread-safe; render-thread only.
-        tbx::uint32 get_area_shadow_texture() const;
+        uint32 get_area_shadow_texture() const;
 
       private:
         bool ensure_initialized();
@@ -62,19 +62,19 @@ namespace opengl_rendering
       private:
         OpenGlResourceManager& _resource_manager;
         std::shared_ptr<OpenGlShaderProgram> _shader_program = nullptr;
-        tbx::uint32 _framebuffer = 0U;
-        tbx::uint32 _directional_shadow_texture = 0U;
-        tbx::uint32 _point_shadow_texture = 0U;
-        tbx::uint32 _spot_shadow_texture = 0U;
-        tbx::uint32 _area_shadow_texture = 0U;
-        tbx::uint32 _directional_shadow_resolution = 0U;
-        tbx::uint32 _point_shadow_resolution = 0U;
-        tbx::uint32 _spot_shadow_resolution = 0U;
-        tbx::uint32 _area_shadow_resolution = 0U;
-        tbx::uint32 _directional_shadow_layer_capacity = 0U;
-        tbx::uint32 _point_shadow_light_capacity = 0U;
-        tbx::uint32 _spot_shadow_layer_capacity = 0U;
-        tbx::uint32 _area_shadow_layer_capacity = 0U;
+        uint32 _framebuffer = 0U;
+        uint32 _directional_shadow_texture = 0U;
+        uint32 _point_shadow_texture = 0U;
+        uint32 _spot_shadow_texture = 0U;
+        uint32 _area_shadow_texture = 0U;
+        uint32 _directional_shadow_resolution = 0U;
+        uint32 _point_shadow_resolution = 0U;
+        uint32 _spot_shadow_resolution = 0U;
+        uint32 _area_shadow_resolution = 0U;
+        uint32 _directional_shadow_layer_capacity = 0U;
+        uint32 _point_shadow_light_capacity = 0U;
+        uint32 _spot_shadow_layer_capacity = 0U;
+        uint32 _area_shadow_layer_capacity = 0U;
         bool _has_reported_initialization_failure = false;
     };
 }

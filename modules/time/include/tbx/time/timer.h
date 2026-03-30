@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/async/cancellation_token.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/time_span.h"
 #include <functional>

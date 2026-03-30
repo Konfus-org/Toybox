@@ -232,6 +232,17 @@ float tbx_sample_projected_shadow(
     return visibility / 9.0;
 }
 
+bool tbx_try_project_shadow_position(vec4 shadow_position, out vec3 projected)
+{
+    if (shadow_position.w <= 0.0)
+        return false;
+
+    projected = shadow_position.xyz / shadow_position.w;
+    projected = (projected * 0.5) + 0.5;
+    return projected.x > 0.0 && projected.x < 1.0 && projected.y > 0.0 && projected.y < 1.0
+           && projected.z > 0.0 && projected.z < 1.0;
+}
+
 float tbx_sample_directional_shadow(
     DirectionalLight light,
     vec3 world_position,
@@ -254,6 +265,8 @@ float tbx_sample_directional_shadow(
             cascade.split_and_bias.y);
         vec4 shadow_position = cascade.light_view_projection
                                * vec4(world_position + (normal * normal_offset), 1.0);
+        vec3 projected = vec3(0.0);
+        bool is_inside_cascade = tbx_try_project_shadow_position(shadow_position, projected);
         float visibility = tbx_sample_projected_shadow(
             u_directional_shadows,
             shadow_position,
@@ -273,11 +286,22 @@ float tbx_sample_directional_shadow(
                 next_cascade.split_and_bias.y);
             vec4 next_shadow_position = next_cascade.light_view_projection
                                         * vec4(world_position + (normal * next_normal_offset), 1.0);
+            vec3 next_projected = vec3(0.0);
+            bool is_inside_next_cascade =
+                tbx_try_project_shadow_position(next_shadow_position, next_projected);
             float next_visibility = tbx_sample_projected_shadow(
                 u_directional_shadows,
                 next_shadow_position,
                 next_cascade.texture_layer.x,
                 next_cascade.split_and_bias.z);
+            if (!is_inside_cascade)
+            {
+                if (is_inside_next_cascade)
+                    return next_visibility;
+                continue;
+            }
+            if (!is_inside_next_cascade)
+                return visibility;
             float blend = clamp(
                 (view_depth - (split_depth - blend_distance)) / max(blend_distance, 0.0001),
                 0.0,
@@ -286,7 +310,11 @@ float tbx_sample_directional_shadow(
         }
 
         if (view_depth <= split_depth || is_last_cascade)
-            return visibility;
+        {
+            if (is_inside_cascade)
+                return visibility;
+            continue;
+        }
     }
 
     return 1.0;

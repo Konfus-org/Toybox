@@ -86,7 +86,7 @@ namespace sdl_windowing
         const bool use_opengl,
         SDL_Surface* icon_surface)
     {
-        tbx::uint flags = use_opengl ? SDL_WINDOW_OPENGL : 0;
+        uint flags = use_opengl ? SDL_WINDOW_OPENGL : 0;
         if (tbx_window->mode == tbx::WindowMode::BORDERLESS)
             flags |= SDL_WINDOW_BORDERLESS;
         else if (tbx_window->mode == tbx::WindowMode::FULLSCREEN)
@@ -182,8 +182,8 @@ namespace sdl_windowing
                     if (record && record->tbx_window)
                     {
                         auto new_size = tbx::Size(
-                            static_cast<tbx::uint>(event.window.data1),
-                            static_cast<tbx::uint>(event.window.data2));
+                            static_cast<uint>(event.window.data1),
+                            static_cast<uint>(event.window.data2));
                         record->tbx_window->size = new_size;
                     }
                     break;

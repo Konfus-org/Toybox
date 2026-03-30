@@ -2,13 +2,13 @@
 #include "camera_controller.h"
 #include "demo_room.h"
 #include "projectile_system.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/material.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/physics/collider.h"
 #include "tbx/time/delta_time.h"
-#include <cstddef>
 
 namespace three_d_example
 {
@@ -41,9 +41,10 @@ namespace three_d_example
         ProjectileSystem _projectile_system;
         CameraController _camera_controller;
         tbx::Entity _sun = {};
+        tbx::Entity _area_light = {};
         tbx::Entity _trigger_zone = {};
         tbx::Entity _falling_sphere = {};
         tbx::Entity _falling_box = {};
-        size_t _trigger_overlap_count = 0U;
+        size _trigger_overlap_count = 0U;
     };
 }

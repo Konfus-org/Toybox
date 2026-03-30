@@ -63,8 +63,8 @@ namespace opengl_rendering
         float ambient_intensity = 0.03F;
         tbx::Vec3 radiance = tbx::Vec3(1.0F, 1.0F, 1.0F);
         float casts_shadows = 0.0F;
-        tbx::uint32 shadow_cascade_offset = 0U;
-        tbx::uint32 shadow_cascade_count = 0U;
+        uint32 shadow_cascade_offset = 0U;
+        uint32 shadow_cascade_count = 0U;
         float padding0 = 0.0F;
         float padding1 = 0.0F;
     };
@@ -81,7 +81,7 @@ namespace opengl_rendering
         float normal_bias = 0.0F;
         float depth_bias = 0.0F;
         float blend_distance = 0.0F;
-        tbx::uint32 texture_layer = 0U;
+        uint32 texture_layer = 0U;
         float padding0 = 0.0F;
         float padding1 = 0.0F;
     };
@@ -98,7 +98,7 @@ namespace opengl_rendering
         float far_plane = 10.0F;
         float normal_bias = 0.0F;
         float depth_bias = 0.0F;
-        tbx::uint32 texture_layer = 0U;
+        uint32 texture_layer = 0U;
         float padding0 = 0.0F;
         float padding1 = 0.0F;
         float padding2 = 0.0F;
@@ -111,9 +111,9 @@ namespace opengl_rendering
     /// Thread Safety: Safe to copy between threads; render-thread mutation only.
     struct ShadowFrameData
     {
-        tbx::uint32 directional_map_resolution = 2048U;
-        tbx::uint32 local_map_resolution = 1024U;
-        tbx::uint32 point_map_resolution = 1024U;
+        uint32 directional_map_resolution = 2048U;
+        uint32 local_map_resolution = 1024U;
+        uint32 point_map_resolution = 1024U;
         float softness = 1.0F;
         float max_distance = 90.0F;
         std::vector<ShadowCascadeFrameData> directional_cascades = {};

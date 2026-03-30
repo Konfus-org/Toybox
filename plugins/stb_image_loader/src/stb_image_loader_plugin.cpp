@@ -1,4 +1,4 @@
-﻿#include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
+#include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
 #include "tbx/app/app_settings.h"
 #include "tbx/assets/asset_requests.h"
 #include "tbx/files/file_ops.h"
@@ -153,8 +153,8 @@ namespace stb_image_loader
         stbi_image_free(raw_data);
 
         const tbx::Size resolution = {
-            static_cast<tbx::uint32>(width),
-            static_cast<tbx::uint32>(height)};
+            static_cast<uint32>(width),
+            static_cast<uint32>(height)};
         const tbx::Texture texture(
             resolution,
             load_settings.wrap,

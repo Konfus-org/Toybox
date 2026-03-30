@@ -1,94 +1,15 @@
 #pragma once
 #include "tbx/app/application.h"
 #include "tbx/assets/asset_manager.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/tests/in_memory_file_ops.h"
 #include "tbx/input/input_manager.h"
 #include <filesystem>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace tbx::tests::plugin_api
 {
-    /// @brief
-    /// Purpose: Provides an in-memory implementation of file operations for plugin tests.
-    /// @details
-    /// Ownership: Owns all staged file contents internally; callers pass paths/data by value and
-    /// receive copied data.
-    /// Thread Safety: Not thread-safe; use on a single thread or protect with external
-    /// synchronization.
-    class InMemoryFileOps final : public IFileOps
-    {
-      public:
-        InMemoryFileOps(std::filesystem::path working_directory)
-            : _working_directory(std::move(working_directory))
-        {
-        }
-
-        std::filesystem::path get_working_directory() const override
-        {
-            return _working_directory;
-        }
-
-        std::filesystem::path resolve(const std::filesystem::path& path) const override
-        {
-            if (path.is_absolute())
-                return path.lexically_normal();
-            return (_working_directory / path).lexically_normal();
-        }
-
-        bool exists(const std::filesystem::path& path) const override
-        {
-            return _files.contains(resolve(path));
-        }
-
-        FileType get_type(const std::filesystem::path& path) const override
-        {
-            if (_files.contains(resolve(path)))
-                return FileType::FILE;
-            return FileType::NONE;
-        }
-
-        std::vector<std::filesystem::path> read_directory(
-            const std::filesystem::path&) const override
-        {
-            return {};
-        }
-
-        bool read_file(const std::filesystem::path& path, FileDataFormat, std::string& out_data)
-            const override
-        {
-            auto iterator = _files.find(resolve(path));
-            if (iterator == _files.end())
-                return false;
-            out_data = iterator->second;
-            return true;
-        }
-
-        bool write_file(const std::filesystem::path& path, FileDataFormat, const std::string& data)
-            override
-        {
-            _files[resolve(path)] = data;
-            return true;
-        }
-
-        void set_text(std::filesystem::path path, std::string data)
-        {
-            _files[resolve(path)] = std::move(data);
-        }
-
-        void set_binary(std::filesystem::path path, const std::vector<unsigned char>& data)
-        {
-            auto encoded = std::string(
-                reinterpret_cast<const char*>(data.data()),
-                reinterpret_cast<const char*>(data.data() + data.size()));
-            _files[resolve(path)] = std::move(encoded);
-        }
-
-      private:
-        std::filesystem::path _working_directory = {};
-        std::unordered_map<std::filesystem::path, std::string> _files = {};
-    };
+    using InMemoryFileOps = ::tbx::tests::file_system::InMemoryFileOps;
 
     /// @brief
     /// Purpose: Returns a deterministic absolute-style working directory path for tests on each

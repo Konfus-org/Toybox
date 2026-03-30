@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/vectors.h"

@@ -6,6 +6,7 @@
 - Do not use `explicit` on constructors.
 - Prefer copy-style initialization.
 - Do not use blanket namespace imports.
+- Do not use the std::size_t or uints, instead prefer the simpler using signatures in common/typedefs.h such as `size` or `uint`
 
 ## Documentation
 - Use Doxygen `///` summaries only for:

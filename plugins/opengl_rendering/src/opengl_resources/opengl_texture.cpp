@@ -7,7 +7,7 @@
 
 namespace opengl_rendering
 {
-    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    static uint32 take_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -228,7 +228,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlTexture::set_slot(tbx::uint32 slot)
+    void OpenGlTexture::set_slot(uint32 slot)
     {
         _slot = slot;
     }
@@ -243,17 +243,17 @@ namespace opengl_rendering
         glBindTextureUnit(_slot, 0);
     }
 
-    tbx::uint32 OpenGlTexture::get_texture_id() const
+    uint32 OpenGlTexture::get_texture_id() const
     {
         return _texture_id;
     }
 
-    tbx::uint64 OpenGlTexture::get_bindless_handle() const
+    uint64 OpenGlTexture::get_bindless_handle() const
     {
         if (_bindless_handle != 0)
             return _bindless_handle;
 
-        auto handle = tbx::uint64 {};
+        auto handle = uint64 {};
         if (!try_make_bindless_handle_resident(_texture_id, handle))
             return 0;
 

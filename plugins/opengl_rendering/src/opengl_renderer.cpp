@@ -30,10 +30,10 @@
 
 namespace opengl_rendering
 {
-    static constexpr tbx::uint32 ShadowCascadeCount = 3U;
-    static constexpr tbx::uint32 DirectionalShadowMapResolution = 2048U;
-    static constexpr tbx::uint32 LocalShadowMapResolution = 1024U;
-    static constexpr tbx::uint32 PointShadowMapResolution = 512U;
+    static constexpr uint32 ShadowCascadeCount = 3U;
+    static constexpr uint32 DirectionalShadowMapResolution = 2048U;
+    static constexpr uint32 LocalShadowMapResolution = 1024U;
+    static constexpr uint32 PointShadowMapResolution = 512U;
     static constexpr float ShadowRenderDistance = 90.0F;
     static constexpr float ShadowFilterSoftness = 0.6F;
     static constexpr float ShadowNearPlane = 0.1F;
@@ -394,7 +394,7 @@ namespace opengl_rendering
     static std::vector<float> build_shadow_splits(const float near_plane, const float max_distance)
     {
         auto splits = std::vector<float>(ShadowCascadeCount, max_distance);
-        for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
+        for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
         {
             const auto ratio =
                 static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
@@ -419,7 +419,7 @@ namespace opengl_rendering
 
     static ProjectedShadowFrameData build_spot_shadow_map(
         const SpotLightFrameData& light,
-        const tbx::uint32 texture_layer)
+        const uint32 texture_layer)
     {
         const auto direction = tbx::normalize(light.direction);
         const auto light_view = build_local_light_view(light.position, direction);
@@ -440,7 +440,7 @@ namespace opengl_rendering
 
     static ProjectedShadowFrameData build_area_shadow_map(
         const AreaLightFrameData& light,
-        const tbx::uint32 texture_layer)
+        const uint32 texture_layer)
     {
         const auto direction = tbx::normalize(light.direction);
         const auto emitter_radius = tbx::sqrt(
@@ -734,7 +734,7 @@ namespace opengl_rendering
             point_light.shadow_index = point_shadow_index++;
         }
 
-        auto spot_shadow_layer = tbx::uint32 {0U};
+        auto spot_shadow_layer = uint32 {0U};
         for (auto& spot_light : frame_context.spot_lights)
         {
             if (spot_light.shadow_index < 0)
@@ -745,7 +745,7 @@ namespace opengl_rendering
                 build_spot_shadow_map(spot_light, spot_shadow_layer++));
         }
 
-        auto area_shadow_layer = tbx::uint32 {0U};
+        auto area_shadow_layer = uint32 {0U};
         for (auto& area_light : frame_context.area_lights)
         {
             if (area_light.shadow_index < 0)
@@ -788,7 +788,7 @@ namespace opengl_rendering
         frame_context.shadows.directional_cascades.reserve(
             frame_context.directional_lights.size() * ShadowCascadeCount);
 
-        auto directional_shadow_layer = tbx::uint32 {0U};
+        auto directional_shadow_layer = uint32 {0U};
         for (auto& directional_light : frame_context.directional_lights)
         {
             if (directional_light.casts_shadows <= 0.5F)
@@ -802,9 +802,9 @@ namespace opengl_rendering
             }
 
             directional_light.shadow_cascade_offset =
-                static_cast<tbx::uint32>(frame_context.shadows.directional_cascades.size());
+                static_cast<uint32>(frame_context.shadows.directional_cascades.size());
             auto previous_split = frame_context.camera_near_plane;
-            for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount;
+            for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount;
                  ++cascade_index)
             {
                 const auto cascade_far = tbx::clamp(

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <cstddef>
 #include <functional>
@@ -58,7 +58,7 @@ namespace std
     template <>
     struct hash<tbx::Uuid>
     {
-        std::size_t operator()(const tbx::Uuid& value) const;
+        ::size operator()(const tbx::Uuid& value) const;
     };
 }
 

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 

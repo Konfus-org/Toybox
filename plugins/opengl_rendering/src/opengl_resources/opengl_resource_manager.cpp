@@ -16,10 +16,10 @@
 
 namespace opengl_rendering
 {
-    constexpr tbx::uint32 DynamicMeshSalt = 0xD1A60001U;
-    constexpr tbx::uint32 StaticMeshSalt = 0x57A71C01U;
-    constexpr tbx::uint32 TextureSalt = 0x7EAE0001U;
-    constexpr tbx::uint32 MaterialProgramSalt = 0xAA110001U;
+    constexpr uint32 DynamicMeshSalt = 0xD1A60001U;
+    constexpr uint32 StaticMeshSalt = 0x57A71C01U;
+    constexpr uint32 TextureSalt = 0x7EAE0001U;
+    constexpr uint32 MaterialProgramSalt = 0xAA110001U;
 
     struct MeshPartQueueEntry final
     {
@@ -29,13 +29,13 @@ namespace opengl_rendering
 
     tbx::Uuid make_non_zero_uuid_from_hash(const std::size_t hash_value)
     {
-        auto hashed = static_cast<tbx::uint32>(hash_value);
+        auto hashed = static_cast<uint32>(hash_value);
         if (hashed == 0U)
             hashed = 1U;
         return tbx::Uuid(hashed);
     }
 
-    tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const tbx::uint32 salt)
+    tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const uint32 salt)
     {
         if (!base_key.is_valid())
             return {};
@@ -110,7 +110,7 @@ namespace opengl_rendering
         const tbx::Mesh& mesh,
         const tbx::Mat4& transform,
         std::vector<float>& out_vertices,
-        std::vector<tbx::uint32>& out_indices,
+        std::vector<uint32>& out_indices,
         tbx::VertexBufferLayout& out_layout,
         bool& out_has_layout)
     {
@@ -146,7 +146,7 @@ namespace opengl_rendering
         }
 
         const auto base_vertex_index =
-            static_cast<tbx::uint32>(out_vertices.size() / stride_floats);
+            static_cast<uint32>(out_vertices.size() / stride_floats);
         out_vertices.reserve(out_vertices.size() + source_vertices.size());
 
         const auto vertex_count = source_vertices.size() / stride_floats;
@@ -215,7 +215,7 @@ namespace opengl_rendering
             return false;
 
         auto flattened_vertices = std::vector<float> {};
-        auto flattened_indices = std::vector<tbx::uint32> {};
+        auto flattened_indices = std::vector<uint32> {};
         auto flattened_layout = tbx::VertexBufferLayout {};
         auto has_layout = false;
         auto appended_any_mesh = false;

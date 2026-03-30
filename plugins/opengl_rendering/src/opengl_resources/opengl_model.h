@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
 #include "tbx/math/matrices.h"
 #include <vector>
@@ -16,7 +16,7 @@ namespace opengl_rendering
         tbx::Mat4 transform = tbx::Mat4(1.0f);
         tbx::Uuid mesh_id = {};
         tbx::Uuid material_id = {};
-        std::vector<tbx::uint32> children = {};
+        std::vector<uint32> children = {};
     };
 
     /// @brief

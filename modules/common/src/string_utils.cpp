@@ -1,5 +1,5 @@
 #include "tbx/common/string_utils.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include <algorithm>
 #include <cctype>
 

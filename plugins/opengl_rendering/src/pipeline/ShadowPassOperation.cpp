@@ -16,14 +16,14 @@ namespace opengl_rendering
     static constexpr auto WriteLinearDepthUniformName = "u_write_linear_depth";
     static constexpr auto PointLightPositionUniformName = "u_point_light_position";
     static constexpr auto PointLightFarPlaneUniformName = "u_point_light_far_plane";
-    static constexpr auto ShadowPointFaceCount = tbx::uint32 {6U};
+    static constexpr auto ShadowPointFaceCount = uint32 {6U};
 
-    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    static uint32 take_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0U);
     }
 
-    static void delete_texture(tbx::uint32& texture_id) noexcept
+    static void delete_texture(uint32& texture_id) noexcept
     {
         if (texture_id == 0U)
             return;
@@ -89,11 +89,11 @@ void main()
     }
 
     static void configure_shadow_depth_array(
-        tbx::uint32& texture_id,
-        tbx::uint32& cached_resolution,
-        tbx::uint32& cached_layer_capacity,
-        const tbx::uint32 required_resolution,
-        const tbx::uint32 required_layers)
+        uint32& texture_id,
+        uint32& cached_resolution,
+        uint32& cached_layer_capacity,
+        const uint32 required_resolution,
+        const uint32 required_layers)
     {
         if (required_layers == 0U)
             return;
@@ -122,11 +122,11 @@ void main()
     }
 
     static void configure_shadow_cube_array(
-        tbx::uint32& texture_id,
-        tbx::uint32& cached_resolution,
-        tbx::uint32& cached_light_capacity,
-        const tbx::uint32 required_resolution,
-        const tbx::uint32 required_light_count)
+        uint32& texture_id,
+        uint32& cached_resolution,
+        uint32& cached_light_capacity,
+        const uint32 required_resolution,
+        const uint32 required_light_count)
     {
         if (required_light_count == 0U)
             return;
@@ -153,7 +153,7 @@ void main()
         cached_light_capacity = required_light_count;
     }
 
-    static bool is_shadow_framebuffer_complete(const tbx::uint32 framebuffer)
+    static bool is_shadow_framebuffer_complete(const uint32 framebuffer)
     {
         return glCheckNamedFramebufferStatus(framebuffer, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     }
@@ -298,16 +298,16 @@ void main()
             return;
 
         const auto directional_layer_count =
-            static_cast<tbx::uint32>(frame_context.shadows.directional_cascades.size());
+            static_cast<uint32>(frame_context.shadows.directional_cascades.size());
         const auto spot_layer_count =
-            static_cast<tbx::uint32>(frame_context.shadows.spot_maps.size());
+            static_cast<uint32>(frame_context.shadows.spot_maps.size());
         const auto area_layer_count =
-            static_cast<tbx::uint32>(frame_context.shadows.area_maps.size());
-        auto point_shadow_count = tbx::uint32 {0U};
+            static_cast<uint32>(frame_context.shadows.area_maps.size());
+        auto point_shadow_count = uint32 {0U};
         for (const auto& point_light : frame_context.point_lights)
             if (point_light.shadow_index >= 0)
                 point_shadow_count =
-                    tbx::max(point_shadow_count, static_cast<tbx::uint32>(point_light.shadow_index + 1));
+                    tbx::max(point_shadow_count, static_cast<uint32>(point_light.shadow_index + 1));
 
         if (directional_layer_count == 0U && spot_layer_count == 0U && area_layer_count == 0U
             && point_shadow_count == 0U)
@@ -375,13 +375,12 @@ void main()
                     continue;
 
                 glClear(GL_DEPTH_BUFFER_BIT);
-                const auto shadow_frustum = tbx::Frustum(shadow_cascade.light_view_projection);
                 render_shadow_batches(
                     frame_context,
                     _resource_manager,
                     _shader_program,
                     shadow_cascade.light_view_projection,
-                    &shadow_frustum,
+                    nullptr,
                     nullptr,
                     0.0F,
                     mesh_cache);
@@ -490,7 +489,7 @@ void main()
                     1.0F,
                     0.05F,
                     point_light.range);
-                for (tbx::uint32 face_index = 0U; face_index < ShadowPointFaceCount; ++face_index)
+                for (uint32 face_index = 0U; face_index < ShadowPointFaceCount; ++face_index)
                 {
                     const auto light_view = tbx::look_at(
                         point_light.position,
@@ -498,7 +497,7 @@ void main()
                         point_face_up_vectors[face_index]);
                     const auto light_view_projection = point_projection * light_view;
                     const auto texture_layer =
-                        static_cast<tbx::uint32>(point_light.shadow_index) * ShadowPointFaceCount
+                        static_cast<uint32>(point_light.shadow_index) * ShadowPointFaceCount
                         + face_index;
                     glNamedFramebufferTextureLayer(
                         _framebuffer,
@@ -543,22 +542,22 @@ void main()
             previous_viewport[3]);
     }
 
-    tbx::uint32 ShadowPassOperation::get_directional_shadow_texture() const
+    uint32 ShadowPassOperation::get_directional_shadow_texture() const
     {
         return _directional_shadow_texture;
     }
 
-    tbx::uint32 ShadowPassOperation::get_point_shadow_texture() const
+    uint32 ShadowPassOperation::get_point_shadow_texture() const
     {
         return _point_shadow_texture;
     }
 
-    tbx::uint32 ShadowPassOperation::get_spot_shadow_texture() const
+    uint32 ShadowPassOperation::get_spot_shadow_texture() const
     {
         return _spot_shadow_texture;
     }
 
-    tbx::uint32 ShadowPassOperation::get_area_shadow_texture() const
+    uint32 ShadowPassOperation::get_area_shadow_texture() const
     {
         return _area_shadow_texture;
     }

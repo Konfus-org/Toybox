@@ -1,6 +1,6 @@
 #include "opengl_shader.h"
 #include "opengl_bindless.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <cstddef>
@@ -15,7 +15,7 @@
 
 namespace opengl_rendering
 {
-    static constexpr auto MATERIAL_SURFACE_UBO_BINDING = tbx::uint32 {9U};
+    static constexpr auto MATERIAL_SURFACE_UBO_BINDING = uint32 {9U};
 
     static std::string normalize_uniform_name(const std::string& name)
     {
@@ -24,7 +24,7 @@ namespace opengl_rendering
         return name;
     }
 
-    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    static uint32 take_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -49,11 +49,11 @@ namespace opengl_rendering
         }
     }
 
-    static void handle_shader_compile_error(tbx::uint32 shader_id, tbx::ShaderType type)
+    static void handle_shader_compile_error(uint32 shader_id, tbx::ShaderType type)
     {
         GLint length = 0;
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<tbx::uint64>(length), '\0');
+        std::string error_log(static_cast<uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
         TBX_TRACE_WARNING(
             "OpenGL rendering: shader compilation failure (type {}). {}",
@@ -61,16 +61,16 @@ namespace opengl_rendering
             error_log);
     }
 
-    static void handle_program_link_error(tbx::uint32 program_id)
+    static void handle_program_link_error(uint32 program_id)
     {
         GLint length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
-        std::string error_log(static_cast<tbx::uint64>(length), '\0');
+        std::string error_log(static_cast<uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
         TBX_TRACE_WARNING("OpenGL rendering: shader program link failure. {}", error_log);
     }
 
-    static GLint uniform_location(tbx::uint32 program_id, const std::string& name)
+    static GLint uniform_location(uint32 program_id, const std::string& name)
     {
         return glGetUniformLocation(program_id, name.c_str());
     }
@@ -388,7 +388,7 @@ namespace opengl_rendering
 
     void OpenGlShader::unbind() {}
 
-    tbx::uint32 OpenGlShader::get_shader_id() const
+    uint32 OpenGlShader::get_shader_id() const
     {
         return _shader_id;
     }
@@ -442,9 +442,8 @@ namespace opengl_rendering
                 material_surface_block_index,
                 GL_UNIFORM_BLOCK_DATA_SIZE,
                 &block_size);
-            _material_uniform_block_size = block_size > 0
-                                               ? block_size
-                                               : static_cast<int>(sizeof(tbx::Vec4) * 3U);
+            _material_uniform_block_size =
+                block_size > 0 ? block_size : static_cast<int>(sizeof(tbx::Vec4) * 3U);
             auto active_uniform_count = GLint {0};
             glGetActiveUniformBlockiv(
                 _program_id,
@@ -453,9 +452,8 @@ namespace opengl_rendering
                 &active_uniform_count);
             if (active_uniform_count > 0)
             {
-                auto active_uniform_indices = std::vector<GLint>(
-                    static_cast<std::size_t>(active_uniform_count),
-                    0);
+                auto active_uniform_indices =
+                    std::vector<GLint>(static_cast<std::size_t>(active_uniform_count), 0);
                 glGetActiveUniformBlockiv(
                     _program_id,
                     material_surface_block_index,
@@ -464,9 +462,8 @@ namespace opengl_rendering
 
                 auto max_uniform_name_length = GLint {0};
                 glGetProgramiv(_program_id, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_uniform_name_length);
-                const auto uniform_name_buffer_size = max_uniform_name_length > 0
-                                                          ? max_uniform_name_length
-                                                          : 256;
+                const auto uniform_name_buffer_size =
+                    max_uniform_name_length > 0 ? max_uniform_name_length : 256;
 
                 _material_uniforms.reserve(static_cast<std::size_t>(active_uniform_count));
                 for (const auto uniform_index_value : active_uniform_indices)
@@ -494,9 +491,8 @@ namespace opengl_rendering
                         GL_UNIFORM_SIZE,
                         &uniform_size);
 
-                    auto uniform_name = std::string(
-                        static_cast<std::size_t>(uniform_name_buffer_size),
-                        '\0');
+                    auto uniform_name =
+                        std::string(static_cast<std::size_t>(uniform_name_buffer_size), '\0');
                     auto written_name_length = GLsizei {0};
                     glGetActiveUniformName(
                         _program_id,
@@ -509,7 +505,7 @@ namespace opengl_rendering
                     _material_uniforms.push_back(
                         OpenGlMaterialBlockUniform {
                             .name = get_material_block_parameter_name(uniform_name),
-                            .type = static_cast<tbx::uint32>(uniform_type),
+                            .type = static_cast<uint32>(uniform_type),
                             .offset = uniform_offset,
                             .size = uniform_size,
                         });
@@ -517,7 +513,8 @@ namespace opengl_rendering
                 std::sort(
                     _material_uniforms.begin(),
                     _material_uniforms.end(),
-                    [](const OpenGlMaterialBlockUniform& left, const OpenGlMaterialBlockUniform& right)
+                    [](const OpenGlMaterialBlockUniform& left,
+                       const OpenGlMaterialBlockUniform& right)
                     {
                         return left.offset < right.offset;
                     });
@@ -701,7 +698,7 @@ namespace opengl_rendering
         return true;
     }
 
-    tbx::uint32 OpenGlShaderProgram::get_program_id() const
+    uint32 OpenGlShaderProgram::get_program_id() const
     {
         return _program_id;
     }

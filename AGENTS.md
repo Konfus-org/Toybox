@@ -3,7 +3,7 @@
 This file defines contributor workflow rules for agents working in `/workspace/Toybox`.
 
 ## Primary coding standard
-- Follow `CodeStandard.md` for all C++ style, formatting, class layout, and documentation expectations.
+- Follow `CODE_STANDARDS.md` for all C++ style, formatting, class layout, and documentation expectations.
 
 ## Agent workflow
 - Follow DRY principles; avoid duplicated logic and duplicated data transformations.

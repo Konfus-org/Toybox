@@ -71,6 +71,14 @@ namespace tbx
         virtual FileType get_type(const std::filesystem::path& path) const = 0;
 
         /// @brief
+        /// Purpose: Returns the last write timestamp for a file path.
+        /// @details
+        /// Ownership: Returns a value type owned by the caller.
+        /// Thread Safety: Depends on the implementation.
+        virtual std::filesystem::file_time_type get_last_write_time(
+            const std::filesystem::path& path) const = 0;
+
+        /// @brief
         /// Purpose: Enumerates entries beneath the provided root path.
         /// @details
         /// Ownership: Returns a caller-owned collection of paths.
@@ -143,6 +151,14 @@ namespace tbx
         /// Ownership: Returns a value classification owned by the caller.
         /// Thread Safety: Safe to call concurrently.
         FileType get_type(const std::filesystem::path& path) const override;
+
+        /// @brief
+        /// Purpose: Returns the last write timestamp for a file path.
+        /// @details
+        /// Ownership: Returns a caller-owned timestamp value.
+        /// Thread Safety: Safe to call concurrently.
+        std::filesystem::file_time_type get_last_write_time(
+            const std::filesystem::path& path) const override;
 
         /// @brief
         /// Purpose: Recursively lists entries beneath the specified root.

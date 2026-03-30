@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <condition_variable>
-#include <cstddef>
 #include <deque>
 #include <functional>
 #include <future>
@@ -21,7 +21,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent use because it stores only plain data.
     struct TBX_API JobSystemConfiguration
     {
-        std::size_t worker_count = {};
+        size worker_count = {};
     };
 
     /// @brief
@@ -80,7 +80,7 @@ namespace tbx
         /// @details
         /// Ownership: Returns a value copy.
         /// Thread Safety: Thread-safe.
-        std::size_t get_worker_count() const;
+        size get_worker_count() const;
 
       private:
         void run_worker(std::stop_token stop_token);
@@ -91,7 +91,7 @@ namespace tbx
         std::condition_variable _queued_job_signal = {};
         std::condition_variable _idle_signal = {};
         std::deque<Job> _queued_jobs = {};
-        std::size_t _active_jobs = {};
+        size _active_jobs = {};
         bool _accepting_jobs = true;
     };
 }

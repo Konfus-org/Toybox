@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/handle.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/tbx_api.h"
 #include <memory>

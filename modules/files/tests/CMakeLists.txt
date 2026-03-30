@@ -12,7 +12,10 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 
 target_precompile_headers(TbxFileSystemTests PRIVATE "pch.h")
 target_sources(TbxFileSystemTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxFileSystemTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(TbxFileSystemTests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
 target_link_libraries(TbxFileSystemTests PRIVATE
     Tbx::Files

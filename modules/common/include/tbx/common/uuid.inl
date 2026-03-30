@@ -2,8 +2,8 @@
 
 namespace std
 {
-    inline std::size_t hash<tbx::Uuid>::operator()(const tbx::Uuid& value) const
+    inline ::size hash<tbx::Uuid>::operator()(const tbx::Uuid& value) const
     {
-        return hash<tbx::uint32>()(static_cast<tbx::uint32>(value));
+        return hash<::uint32>()(static_cast<::uint32>(value));
     }
 }

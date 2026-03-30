@@ -117,7 +117,7 @@ namespace three_d_example
             return;
 
         const auto delta_seconds = dt.seconds;
-        auto projectile_index = size_t {0U};
+        auto projectile_index = size {0U};
         while (projectile_index < _active_projectiles.size())
         {
             _active_projectile_lifetimes[projectile_index] -= delta_seconds;

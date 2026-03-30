@@ -58,6 +58,14 @@ namespace tbx
         TextureFormat format = TextureFormat::RGB;
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
         TextureCompression compression = TextureCompression::DISABLED;
+
+        bool operator==(const TextureSettings& other) const
+        {
+            return resolution.width == other.resolution.width
+                   && resolution.height == other.resolution.height && wrap == other.wrap
+                   && filter == other.filter && format == other.format
+                   && mipmaps == other.mipmaps && compression == other.compression;
+        }
     };
 
     struct TBX_API Texture : TextureSettings

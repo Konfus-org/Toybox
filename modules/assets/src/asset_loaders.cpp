@@ -135,7 +135,9 @@ namespace tbx
         return promise.get_future().share();
     }
 
-    AssetPromise<Model> load_model_async(const std::filesystem::path& asset_path)
+    AssetPromise<Model> load_model_async(
+        const std::filesystem::path& asset_path,
+        const ModelLoadParameters&)
     {
         auto asset = create_model_data();
         auto* dispatcher = get_global_dispatcher();
@@ -157,7 +159,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Model> load_model(const std::filesystem::path& asset_path)
+    std::shared_ptr<Model> load_model(
+        const std::filesystem::path& asset_path,
+        const ModelLoadParameters&)
     {
         auto asset = create_model_data();
         auto* dispatcher = get_global_dispatcher();
@@ -175,13 +179,15 @@ namespace tbx
 
     AssetPromise<Texture> load_texture_async(
         const std::filesystem::path& asset_path,
-        TextureWrap wrap,
-        TextureFilter filter,
-        TextureFormat format,
-        TextureMipmaps mipmaps,
-        TextureCompression compression)
+        const TextureLoadParameters& parameters)
     {
-        auto asset = create_fallback_texture(wrap, filter, format, mipmaps, compression);
+        const TextureSettings& settings = parameters.settings;
+        auto asset = create_fallback_texture(
+            settings.wrap,
+            settings.filter,
+            settings.format,
+            settings.mipmaps,
+            settings.compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -193,7 +199,14 @@ namespace tbx
         }
 
         LoadTextureRequest
-            message(asset_path, asset.get(), wrap, filter, format, mipmaps, compression);
+            message(
+                asset_path,
+                asset.get(),
+                settings.wrap,
+                settings.filter,
+                settings.format,
+                settings.mipmaps,
+                settings.compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
@@ -204,13 +217,15 @@ namespace tbx
 
     std::shared_ptr<Texture> load_texture(
         const std::filesystem::path& asset_path,
-        TextureWrap wrap,
-        TextureFilter filter,
-        TextureFormat format,
-        TextureMipmaps mipmaps,
-        TextureCompression compression)
+        const TextureLoadParameters& parameters)
     {
-        auto asset = create_fallback_texture(wrap, filter, format, mipmaps, compression);
+        const TextureSettings& settings = parameters.settings;
+        auto asset = create_fallback_texture(
+            settings.wrap,
+            settings.filter,
+            settings.format,
+            settings.mipmaps,
+            settings.compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -219,7 +234,14 @@ namespace tbx
         }
 
         LoadTextureRequest
-            message(asset_path, asset.get(), wrap, filter, format, mipmaps, compression);
+            message(
+                asset_path,
+                asset.get(),
+                settings.wrap,
+                settings.filter,
+                settings.format,
+                settings.mipmaps,
+                settings.compression);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto result = dispatcher->send(message);
         if (!result.succeeded())
@@ -232,7 +254,9 @@ namespace tbx
         return asset;
     }
 
-    AssetPromise<AudioClip> load_audio_async(const std::filesystem::path& asset_path)
+    AssetPromise<AudioClip> load_audio_async(
+        const std::filesystem::path& asset_path,
+        const AudioLoadParameters&)
     {
         auto asset = create_audio_data();
         auto* dispatcher = get_global_dispatcher();
@@ -254,7 +278,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<AudioClip> load_audio(const std::filesystem::path& asset_path)
+    std::shared_ptr<AudioClip> load_audio(
+        const std::filesystem::path& asset_path,
+        const AudioLoadParameters&)
     {
         auto asset = create_audio_data();
         auto* dispatcher = get_global_dispatcher();
@@ -270,7 +296,9 @@ namespace tbx
         return asset;
     }
 
-    AssetPromise<Shader> load_shader_async(const std::filesystem::path& asset_path)
+    AssetPromise<Shader> load_shader_async(
+        const std::filesystem::path& asset_path,
+        const ShaderLoadParameters&)
     {
         auto asset = create_shader_data();
         auto* dispatcher = get_global_dispatcher();
@@ -292,7 +320,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Shader> load_shader(const std::filesystem::path& asset_path)
+    std::shared_ptr<Shader> load_shader(
+        const std::filesystem::path& asset_path,
+        const ShaderLoadParameters&)
     {
         auto asset = create_shader_data();
         auto* dispatcher = get_global_dispatcher();
@@ -315,7 +345,9 @@ namespace tbx
         return asset;
     }
 
-    AssetPromise<Material> load_material_async(const std::filesystem::path& asset_path)
+    AssetPromise<Material> load_material_async(
+        const std::filesystem::path& asset_path,
+        const MaterialLoadParameters&)
     {
         auto asset = create_material_data();
         auto* dispatcher = get_global_dispatcher();
@@ -337,7 +369,9 @@ namespace tbx
         return result;
     }
 
-    std::shared_ptr<Material> load_material(const std::filesystem::path& asset_path)
+    std::shared_ptr<Material> load_material(
+        const std::filesystem::path& asset_path,
+        const MaterialLoadParameters&)
     {
         auto asset = create_material_data();
         auto* dispatcher = get_global_dispatcher();

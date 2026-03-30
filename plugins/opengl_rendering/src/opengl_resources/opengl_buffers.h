@@ -1,6 +1,6 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/graphics/graphics_settings.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
@@ -25,15 +25,15 @@ namespace opengl_rendering
         OpenGlVertexBuffer& operator=(OpenGlVertexBuffer&& other) noexcept;
         ~OpenGlVertexBuffer() noexcept override;
 
-        void upload(tbx::uint32 vertex_array_id, const tbx::VertexBuffer& buffer);
+        void upload(uint32 vertex_array_id, const tbx::VertexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
-        tbx::uint32 get_count() const;
+        uint32 get_count() const;
 
       private:
-        tbx::uint32 _buffer_id = 0;
-        tbx::uint32 _count = 0;
+        uint32 _buffer_id = 0;
+        uint32 _count = 0;
     };
 
     /// @brief
@@ -51,15 +51,15 @@ namespace opengl_rendering
         OpenGlIndexBuffer& operator=(OpenGlIndexBuffer&& other) noexcept;
         ~OpenGlIndexBuffer() noexcept override;
 
-        void upload(tbx::uint32 vertex_array_id, const tbx::IndexBuffer& buffer);
+        void upload(uint32 vertex_array_id, const tbx::IndexBuffer& buffer);
         void bind() override;
         void unbind() override;
 
-        tbx::uint32 get_count() const;
+        uint32 get_count() const;
 
       private:
-        tbx::uint32 _buffer_id = 0;
-        tbx::uint32 _count = 0;
+        uint32 _buffer_id = 0;
+        uint32 _count = 0;
     };
 
     /// @brief
@@ -149,9 +149,9 @@ namespace opengl_rendering
       private:
         static GLuint create_color_attachment(
             GLenum internal_format,
-            tbx::uint32 width,
-            tbx::uint32 height);
-        static GLuint create_depth_attachment(tbx::uint32 width, tbx::uint32 height);
+            uint32 width,
+            uint32 height);
+        static GLuint create_depth_attachment(uint32 width, uint32 height);
         static void delete_texture(GLuint& texture_id);
         void destroy();
 

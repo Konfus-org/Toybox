@@ -1,69 +1,12 @@
 #include "pch.h"
 #include "tbx/assets/asset_handle_serializer.h"
+#include "tbx/files/tests/in_memory_file_ops.h"
 #include <filesystem>
-#include <unordered_map>
 
 namespace tbx::tests::assets
 {
-    class InMemoryFileOps final : public IFileOps
-    {
-      public:
-        InMemoryFileOps(std::filesystem::path working_directory)
-            : _working_directory(std::move(working_directory))
-        {
-        }
+    using InMemoryFileOps = ::tbx::tests::file_system::InMemoryFileOps;
 
-        std::filesystem::path get_working_directory() const override
-        {
-            return _working_directory;
-        }
-
-        std::filesystem::path resolve(const std::filesystem::path& path) const override
-        {
-            if (path.is_absolute())
-                return path.lexically_normal();
-            return (_working_directory / path).lexically_normal();
-        }
-
-        bool exists(const std::filesystem::path& path) const override
-        {
-            return _files.contains(resolve(path));
-        }
-
-        FileType get_type(const std::filesystem::path& path) const override
-        {
-            if (_files.contains(resolve(path)))
-                return FileType::FILE;
-            return FileType::NONE;
-        }
-
-        std::vector<std::filesystem::path> read_directory(
-            const std::filesystem::path&) const override
-        {
-            return {};
-        }
-
-        bool read_file(const std::filesystem::path& path, FileDataFormat, std::string& out_data)
-            const override
-        {
-            auto iterator = _files.find(resolve(path));
-            if (iterator == _files.end())
-                return false;
-            out_data = iterator->second;
-            return true;
-        }
-
-        bool write_file(const std::filesystem::path& path, FileDataFormat, const std::string& data)
-            override
-        {
-            _files[resolve(path)] = data;
-            return true;
-        }
-
-      private:
-        std::filesystem::path _working_directory;
-        std::unordered_map<std::filesystem::path, std::string> _files = {};
-    };
     TEST(asset_handle_serializer, reads_handle_from_ifileops_without_disk_io)
     {
         // Arrange

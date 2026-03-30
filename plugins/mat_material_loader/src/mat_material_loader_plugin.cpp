@@ -46,7 +46,7 @@ namespace mat_material_loader
                 return {};
         }
 
-        tbx::uint32 parsed = 0U;
+        uint32 parsed = 0U;
         auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
         if (result.ec != std::errc())
         {

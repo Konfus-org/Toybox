@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/graphics/messages.h"
 
 namespace opengl_rendering
@@ -23,14 +23,14 @@ namespace opengl_rendering
     /// @details
     /// Ownership: The caller owns texture lifetime; handle residency is tied to that lifetime.
     /// Thread Safety: Render thread only.
-    bool try_make_bindless_handle_resident(tbx::uint32 texture_id, tbx::uint64& out_handle);
+    bool try_make_bindless_handle_resident(uint32 texture_id, uint64& out_handle);
 
     /// @brief
     /// Purpose: Drops bindless residency before destroying texture resources.
     /// @details
     /// Ownership: Does not destroy the texture object itself.
     /// Thread Safety: Render thread only.
-    void release_bindless_handle(tbx::uint64 handle);
+    void release_bindless_handle(uint64 handle);
 
     /// @brief
     /// Purpose: Binds a texture to a shader sampler without texture units.
@@ -38,7 +38,7 @@ namespace opengl_rendering
     /// Ownership: Does not transfer ownership of shader or texture resources.
     /// Thread Safety: Render thread only.
     bool try_upload_bindless_sampler(
-        tbx::uint32 program_id,
+        uint32 program_id,
         int uniform_location,
-        tbx::uint64 handle);
+        uint64 handle);
 }

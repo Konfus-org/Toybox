@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <condition_variable>
-#include <cstddef>
 #include <deque>
 #include <functional>
 #include <future>
@@ -85,7 +85,7 @@ namespace tbx
         /// @details
         /// Ownership: Returns value only; no ownership transfer.
         /// Thread Safety: Thread-safe.
-        std::size_t get_lane_count() const;
+        size get_lane_count() const;
 
       private:
         class ThreadLane final
