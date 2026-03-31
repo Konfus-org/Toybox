@@ -21,7 +21,7 @@ namespace tbx
         TBX_ASSERT(instance, "LoadedPlugin requires a plugin instance.");
         TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
         IMessageCoordinator& coordinator = host.get_message_coordinator();
-        message_handler_token = coordinator.register_handler(
+        _message_handler_token = coordinator.register_handler(
             [plugin = instance.get()](Message& msg)
             {
                 plugin->receive_message(msg);
@@ -43,10 +43,10 @@ namespace tbx
             instance->detach();
             IMessageCoordinator& coordinator = _host->get_message_coordinator();
             coordinator.flush();
-            if (message_handler_token.is_valid())
+            if (_message_handler_token.is_valid())
             {
-                coordinator.deregister_handler(message_handler_token);
-                message_handler_token = {};
+                coordinator.deregister_handler(_message_handler_token);
+                _message_handler_token = {};
             }
         }
     }

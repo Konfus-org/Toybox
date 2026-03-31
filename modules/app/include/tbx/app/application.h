@@ -20,6 +20,7 @@ namespace tbx
         Application(const AppDescription& desc);
         ~Application() noexcept override;
 
+      public:
         /// @brief
         /// Purpose: Runs the application main loop and returns the process exit code.
         /// @details
@@ -91,6 +92,7 @@ namespace tbx
         InputManager& get_input_manager() override;
 
       private:
+        void add_default_asset_directory();
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
         void fixed_update(const DeltaTime& dt);
@@ -110,6 +112,7 @@ namespace tbx
         ThreadManager _thread_manager;
         Window _main_window;
         AssetManager _asset_manager;
+
         uint _update_count = 0;
         double _time_running = 0;
 

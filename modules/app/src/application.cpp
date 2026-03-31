@@ -11,6 +11,17 @@
 
 namespace tbx
 {
+    static std::filesystem::path get_default_asset_directory()
+    {
+#if defined(TBX_RELEASE)
+        return std::filesystem::path("resources");
+#elif defined(TBX_RESOURCES)
+        return std::filesystem::path(TBX_RESOURCES).lexically_normal();
+#else
+        return {};
+#endif
+    }
+
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _icon_handle(desc.icon)
@@ -22,7 +33,7 @@ namespace tbx
               {1280, 720},
               WindowMode::WINDOWED,
               false)
-        , _asset_manager(desc.working_root)
+        , _asset_manager(&_msg_coordinator, desc.working_root)
     {
         const auto file_operator = FileOperator(desc.working_root);
         _settings.paths.working_directory = file_operator.get_working_directory();
@@ -30,6 +41,8 @@ namespace tbx
             _settings.paths.logs_directory = file_operator.resolve("logs");
         else
             _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
+
+        add_default_asset_directory();
 
         for (auto& arg : desc.args)
         {
@@ -121,6 +134,15 @@ namespace tbx
         return _thread_manager;
     }
 
+    void Application::add_default_asset_directory()
+    {
+        const auto resource_directory = get_default_asset_directory();
+        if (resource_directory.empty())
+            return;
+
+        _asset_manager.add_asset_directory(resource_directory);
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
@@ -165,8 +187,10 @@ namespace tbx
                 for (const auto& root : asset_roots)
                     TBX_TRACE_INFO("    -'{}'", root.string());
             }
-            else
+            else if (!asset_roots.empty())
                 TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
+            else
+                TBX_TRACE_INFO("Asset Directory: <none>");
 
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);

@@ -22,7 +22,7 @@ namespace tbx::tests::plugin_loader
     {
       public:
         TestPluginHost(const std::filesystem::path& working_directory)
-            : _asset_manager(working_directory)
+            : _asset_manager(&_coordinator, working_directory)
             , _settings(_coordinator, true, ::tbx::GraphicsApi::OPEN_GL, {1280, 720})
         {
             _settings.paths.working_directory = working_directory;

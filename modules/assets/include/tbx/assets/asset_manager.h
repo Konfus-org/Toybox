@@ -4,6 +4,7 @@
 #include "tbx/common/handle.h"
 #include "tbx/common/typedefs.h"
 #include "tbx/files/file_ops.h"
+#include "tbx/files/file_watcher.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <filesystem>
@@ -16,6 +17,18 @@
 
 namespace tbx
 {
+    using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
+
+    struct AssetRegistryEntry;
+    class AssetRegistry;
+    class IMessageDispatcher;
+    struct IAssetStore;
+
+    template <typename TAsset>
+    struct AssetRecord;
+    template <typename TAsset>
+    struct AssetStore;
+
     /// @brief
     /// Purpose: Describes the streaming state for an asset record.
     /// @details
@@ -42,23 +55,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Supplies asset metadata without requiring disk access.
-    /// @details
-    /// Ownership: The manager stores a copy of the callable.
-    /// Thread Safety: The callable must be safe to invoke concurrently.
-    using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
-
-    struct AssetRegistryEntry;
-    class AssetRegistry;
-    struct IAssetStore;
-
-    template <typename TAsset>
-    struct AssetRecord;
-
-    template <typename TAsset>
-    struct AssetStore;
-
-    /// @brief
     /// Purpose: Tracks streamed assets by canonical asset id and maintains usage metadata.
     /// @details
     /// Ownership: Owns shared asset instances for loaded assets and releases them when streamed
@@ -67,10 +63,10 @@ namespace tbx
     {
       public:
         AssetManager(
+            IMessageDispatcher* dispatcher,
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
             HandleSource handle_source = {},
-            bool include_default_resources = true,
             std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer = {},
             std::shared_ptr<IFileOps> file_ops = {});
         ~AssetManager();
@@ -191,6 +187,12 @@ namespace tbx
         void set_pinned(const Handle& handle, bool is_pinned);
 
       private:
+        void on_asset_changed(
+            const std::filesystem::path& watched_path,
+            const FileWatchChange& change);
+        void watch_asset_directory(const std::filesystem::path& resolved_path);
+
+      private:
         template <typename TAsset>
         AssetStore<TAsset>* get_store(bool create_if_missing = false);
 
@@ -212,10 +214,12 @@ namespace tbx
 
       private:
         mutable std::mutex _mutex = {};
+        IMessageDispatcher* _dispatcher = nullptr;
+        std::shared_ptr<IFileOps> _file_ops = nullptr;
         std::unique_ptr<AssetRegistry> _registry = nullptr;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores = {};
+        std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
     };
 }
 
-#include "tbx/assets/asset_manager_state.h"
 #include "tbx/assets/asset_manager.inl"

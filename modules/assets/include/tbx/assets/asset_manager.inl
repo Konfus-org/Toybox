@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset_registry.h"
 
 namespace tbx
 {

@@ -33,7 +33,7 @@ namespace tbx::tests::plugin_api
     {
       public:
         TestPluginHost(const std::filesystem::path& working_directory)
-            : _asset_manager(working_directory, {}, {}, false)
+            : _asset_manager(&_coordinator, working_directory)
             , _settings(_coordinator, true, GraphicsApi::OPEN_GL, {640, 480})
         {
             _settings.paths.working_directory = working_directory;

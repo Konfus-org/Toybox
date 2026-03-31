@@ -6,9 +6,9 @@
 #include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
 #include "tbx/debugging/macros.h"
+#include <future>
 #include <chrono>
 #include <filesystem>
-#include <future>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -39,8 +39,16 @@ namespace tbx
         const AssetRegistryEntry* ensure_entry(const Handle& handle);
         const AssetRegistryEntry* find_entry(const Handle& handle) const;
         std::vector<std::filesystem::path> get_asset_directories() const;
+        bool register_discovered_asset(
+            const std::filesystem::path& asset_path,
+            AssetRegistryEntry* out_entry = nullptr);
+        bool unregister_asset(
+            const std::filesystem::path& asset_path,
+            AssetRegistryEntry* out_removed_entry = nullptr);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
+        void scan_asset_directory(const std::filesystem::path& root);
+        static bool should_track_asset_path(const std::filesystem::path& asset_path);
 
       private:
         AssetRegistryEntry* find_entry_by_id(Uuid asset_id);
@@ -56,7 +64,6 @@ namespace tbx
         Uuid resolve_or_repair_asset_id(const AssetRegistryEntry& entry);
         bool try_assign_asset_id(AssetRegistryEntry& entry, Uuid asset_id);
         bool write_meta_with_id(const std::filesystem::path& asset_path, Uuid asset_id) const;
-        void scan_asset_directory(const std::filesystem::path& root);
 
       private:
         std::filesystem::path _working_directory = {};
@@ -71,6 +78,7 @@ namespace tbx
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
+        virtual void erase(Uuid asset_id) = 0;
         virtual void unload_unreferenced() = 0;
         virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
     };
@@ -93,6 +101,11 @@ namespace tbx
     struct AssetStore final : IAssetStore
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records = {};
+
+        void erase(Uuid asset_id) override
+        {
+            records.erase(asset_id);
+        }
 
         void unload_unreferenced() override
         {

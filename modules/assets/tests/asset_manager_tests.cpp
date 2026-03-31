@@ -1,9 +1,14 @@
 #include "tbx/assets/asset_manager.h"
+#include "tbx/assets/asset_events.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/result.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
+#include "tbx/messages/dispatcher.h"
+#include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <future>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -99,6 +104,125 @@ namespace tbx
 namespace tbx::tests::assets
 {
     using InMemoryFileOps = ::tbx::tests::file_system::InMemoryFileOps;
+
+    struct CapturedAssetEvent
+    {
+        std::filesystem::path watched_path = {};
+        std::filesystem::path asset_path = {};
+        Handle affected_asset = {};
+    };
+
+    class CapturingAssetEventDispatcher final : public IMessageDispatcher
+    {
+      public:
+        std::vector<CapturedAssetEvent> get_created_events() const
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            return _created_events;
+        }
+
+        std::vector<CapturedAssetEvent> get_modified_events() const
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            return _modified_events;
+        }
+
+        std::vector<CapturedAssetEvent> get_removed_events() const
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            return _removed_events;
+        }
+
+        bool wait_for_created_event_count(size_t count, std::chrono::milliseconds timeout) const
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            return _signal.wait_for(
+                lock,
+                timeout,
+                [this, count]()
+                {
+                    return _created_events.size() >= count;
+                });
+        }
+
+        bool wait_for_modified_event_count(size_t count, std::chrono::milliseconds timeout) const
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            return _signal.wait_for(
+                lock,
+                timeout,
+                [this, count]()
+                {
+                    return _modified_events.size() >= count;
+                });
+        }
+
+        bool wait_for_removed_event_count(size_t count, std::chrono::milliseconds timeout) const
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            return _signal.wait_for(
+                lock,
+                timeout,
+                [this, count]()
+                {
+                    return _removed_events.size() >= count;
+                });
+        }
+
+      protected:
+        Result send(Message& msg) const override
+        {
+            {
+                std::lock_guard<std::mutex> lock(_mutex);
+
+                if (const auto* created = handle_message<AssetCreatedEvent>(msg))
+                {
+                    _created_events.push_back(
+                        CapturedAssetEvent {
+                            .watched_path = created->watched_asset_directory,
+                            .asset_path = created->asset_path,
+                            .affected_asset = created->affected_asset,
+                        });
+                }
+                else if (const auto* modified = handle_message<AssetModifiedEvent>(msg))
+                {
+                    _modified_events.push_back(
+                        CapturedAssetEvent {
+                            .watched_path = modified->watched_asset_directory,
+                            .asset_path = modified->asset_path,
+                            .affected_asset = modified->affected_asset,
+                        });
+                }
+                else if (const auto* removed = handle_message<AssetRemovedEvent>(msg))
+                {
+                    _removed_events.push_back(
+                        CapturedAssetEvent {
+                            .watched_path = removed->watched_asset_directory,
+                            .asset_path = removed->asset_path,
+                            .affected_asset = removed->affected_asset,
+                        });
+                }
+            }
+
+            _signal.notify_all();
+            msg.state = MessageState::HANDLED;
+            return {};
+        }
+
+        std::shared_future<Result> post(std::unique_ptr<Message>) const override
+        {
+            std::promise<Result> promise = {};
+            promise.set_value(Result());
+            return promise.get_future().share();
+        }
+
+      private:
+        mutable std::mutex _mutex = {};
+        mutable std::condition_variable _signal = {};
+        mutable std::vector<CapturedAssetEvent> _created_events = {};
+        mutable std::vector<CapturedAssetEvent> _modified_events = {};
+        mutable std::vector<CapturedAssetEvent> _removed_events = {};
+    };
 
     struct InMemoryHandleSource final
     {
@@ -206,6 +330,7 @@ namespace tbx::tests::assets
     };
 
     static AssetManager make_manager(
+        IMessageDispatcher* dispatcher,
         const std::filesystem::path& working_directory,
         const InMemoryHandleSource& handle_source = {})
     {
@@ -213,19 +338,21 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        return AssetManager(working_directory, {}, provider, false);
+        return AssetManager(dispatcher, working_directory, {}, provider);
     }
 
-    static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
+    static AssetManager make_disk_backed_manager(
+        IMessageDispatcher* dispatcher,
+        const std::filesystem::path& working_directory)
     {
-        return AssetManager(working_directory, {}, {}, false);
+        return AssetManager(dispatcher, working_directory);
     }
 
     TEST(asset_manager, resolves_handle_by_path)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle path_handle("stone.asset");
 
         // Act
@@ -250,7 +377,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "ore.asset", Uuid(0x2fU));
-        AssetManager manager = make_manager(working_directory, handle_source);
+        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
         Handle path_handle("ore.asset");
 
         // Act
@@ -274,7 +401,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("sync_params.asset");
         TestAssetLoadParameters parameters = {.value = 17};
 
@@ -295,7 +422,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("crate.asset");
 
         // Act
@@ -317,7 +444,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("async_params.asset");
         TestAssetLoadParameters parameters = {.value = 29};
 
@@ -338,7 +465,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("async.asset");
 
         // Act
@@ -365,7 +492,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle keep_handle("keep.asset");
         Handle drop_handle("drop.asset");
 
@@ -403,7 +530,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "id.asset", Uuid(0x7aU));
-        AssetManager manager = make_manager(working_directory, handle_source);
+        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
         Handle handle("id.asset");
 
         // Act
@@ -417,7 +544,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_disk_backed_manager(working_directory);
+        AssetManager manager = make_disk_backed_manager(nullptr, working_directory);
         Handle handle("missing_meta.asset");
 
         // Act
@@ -435,7 +562,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "invalid_id.asset", Uuid());
-        AssetManager manager = make_manager(working_directory, handle_source);
+        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
         Handle handle("invalid_id.asset");
 
         // Act
@@ -452,7 +579,7 @@ namespace tbx::tests::assets
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "alpha.asset", Uuid(0x44U));
         handle_source.add(working_directory / "beta.asset", Uuid(0x44U));
-        AssetManager manager = make_manager(working_directory, handle_source);
+        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
         Handle first_path("alpha.asset");
         Handle second_path("beta.asset");
         Handle shared_id(Uuid(0x44U));
@@ -475,7 +602,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         std::filesystem::path relative_path = "relative.asset";
 
         // Act
@@ -484,14 +611,14 @@ namespace tbx::tests::assets
         // Assert
         EXPECT_EQ(resolved, working_directory / relative_path);
     }
-    TEST(asset_manager, constructor_keeps_explicit_directories_when_defaults_are_disabled)
+    TEST(asset_manager, constructor_keeps_explicit_directories)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
 
         // Act
-        AssetManager manager(working_directory, {"content"}, {}, false, {}, file_ops);
+        AssetManager manager(nullptr, working_directory, {"content"}, {}, {}, file_ops);
         auto directories = manager.get_asset_directories();
 
         // Assert
@@ -503,7 +630,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
 
         // Act
         manager.add_asset_directory("content");
@@ -524,10 +651,10 @@ namespace tbx::tests::assets
 
         // Act
         AssetManager manager(
+            nullptr,
             working_directory,
             {"content"},
             {},
-            false,
             std::make_unique<TrackingHandleSerializer>(serializer_state),
             file_ops);
         auto discovered_write_count = serializer_state->write_count;
@@ -557,10 +684,10 @@ namespace tbx::tests::assets
 
         // Act
         AssetManager manager(
+            nullptr,
             working_directory,
             {"content"},
             {},
-            false,
             std::make_unique<TrackingHandleSerializer>(serializer_state),
             file_ops);
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x2U)));
@@ -574,7 +701,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("cleanup.asset");
 
         // Act
@@ -593,7 +720,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(working_directory);
+        AssetManager manager = make_manager(nullptr, working_directory);
         Handle handle("reload.asset");
 
         // Act
@@ -604,5 +731,97 @@ namespace tbx::tests::assets
         // Assert
         ASSERT_NE(asset, nullptr);
         EXPECT_TRUE(reloaded);
+    }
+
+    TEST(asset_manager, sends_created_event_for_new_asset_files)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "created.asset", Uuid(0x90U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        CapturingAssetEventDispatcher dispatcher = {};
+        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+
+        // Act
+        file_ops->write_file("content/created.asset", FileDataFormat::UTF8_TEXT, "created");
+
+        // Assert
+        ASSERT_TRUE(
+            dispatcher.wait_for_created_event_count(1U, std::chrono::milliseconds(1500)));
+        const auto events = dispatcher.get_created_events();
+        ASSERT_EQ(events.size(), 1U);
+        EXPECT_EQ(events[0].watched_path, working_directory / "content");
+        EXPECT_EQ(events[0].asset_path, working_directory / "content" / "created.asset");
+        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x90U));
+
+        auto asset = manager.load<TestAsset>(Handle(Uuid(0x90U)));
+        EXPECT_NE(asset, nullptr);
+    }
+
+    TEST(asset_manager, sends_modified_event_for_changed_asset_files)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        const auto base_time = std::filesystem::file_time_type::clock::now();
+        file_ops->write_file_entry("content/modified.asset", "modified", base_time);
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "modified.asset", Uuid(0x91U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        CapturingAssetEventDispatcher dispatcher = {};
+        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+
+        // Act
+        file_ops->touch("content/modified.asset", base_time + std::chrono::seconds(1));
+
+        // Assert
+        ASSERT_TRUE(
+            dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        const auto events = dispatcher.get_modified_events();
+        ASSERT_EQ(events.size(), 1U);
+        EXPECT_EQ(events[0].watched_path, working_directory / "content");
+        EXPECT_EQ(events[0].asset_path, working_directory / "content" / "modified.asset");
+        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x91U));
+    }
+
+    TEST(asset_manager, sends_removed_event_and_drops_registry_entry_for_deleted_assets)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        file_ops->write_file("content/removed.asset", FileDataFormat::UTF8_TEXT, "removed");
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "removed.asset", Uuid(0x92U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        CapturingAssetEventDispatcher dispatcher = {};
+        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        auto initial_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
+        ASSERT_NE(initial_asset, nullptr);
+
+        // Act
+        file_ops->erase("content/removed.asset");
+
+        // Assert
+        ASSERT_TRUE(
+            dispatcher.wait_for_removed_event_count(1U, std::chrono::milliseconds(1500)));
+        const auto events = dispatcher.get_removed_events();
+        ASSERT_EQ(events.size(), 1U);
+        EXPECT_EQ(events[0].watched_path, working_directory / "content");
+        EXPECT_EQ(events[0].asset_path, working_directory / "content" / "removed.asset");
+        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x92U));
+
+        auto removed_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
+        EXPECT_EQ(removed_asset, nullptr);
     }
 }
