@@ -102,42 +102,42 @@ namespace tbx
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        Uuid ensure_asset_id(const Handle& handle);
+        Uuid ensure(const Handle& handle);
 
         /// @brief
         /// Purpose: Resolves a handle to the registered asset UUID for caching or lookup.
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        Uuid resolve_asset_id(const Handle& handle);
+        Uuid resolve(const Handle& handle);
 
         /// @brief
         /// Purpose: Resolves an asset path against the configured asset roots.
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
+        std::filesystem::path resolve(const std::filesystem::path& asset_path) const;
 
         /// @brief
         /// Purpose: Resolves a handle to its registered absolute asset path when available.
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve_asset_path(const Handle& handle) const;
+        std::filesystem::path resolve(const Handle& handle) const;
 
         /// @brief
         /// Purpose: Adds an asset directory to the search list.
         /// @details
         /// Ownership: Copies the provided path into internal storage.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        void add_asset_directory(const std::filesystem::path& path);
+        void add_directory(const std::filesystem::path& path);
 
         /// @brief
         /// Purpose: Returns the ordered list of asset search roots.
         /// @details
         /// Ownership: Returns a copy; callers own the returned paths.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::vector<std::filesystem::path> get_asset_directories() const;
+        std::vector<std::filesystem::path> get_directories() const;
 
         /// @brief
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.

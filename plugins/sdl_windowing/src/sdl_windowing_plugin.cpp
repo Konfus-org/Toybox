@@ -126,8 +126,8 @@ namespace sdl_windowing
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
         _use_opengl = host.get_settings().graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
 
-        const std::filesystem::path icon_path =
-            host.get_asset_manager().resolve_asset_path(host.get_icon_handle());
+        const tbx::AssetManager& asset_manager = host.get_asset_manager();
+        const std::filesystem::path icon_path = asset_manager.resolve(host.get_icon_handle());
         if (icon_path.empty())
         {
             TBX_TRACE_WARNING(

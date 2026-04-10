@@ -534,7 +534,7 @@ namespace tbx::tests::assets
         Handle handle("id.asset");
 
         // Act
-        auto resolved_id = manager.resolve_asset_id(handle);
+        auto resolved_id = manager.resolve(handle);
 
         // Assert
         EXPECT_EQ(resolved_id.value, 0x7aU);
@@ -548,8 +548,8 @@ namespace tbx::tests::assets
         Handle handle("missing_meta.asset");
 
         // Act
-        auto first = manager.resolve_asset_id(handle);
-        auto second = manager.resolve_asset_id(handle);
+        auto first = manager.resolve(handle);
+        auto second = manager.resolve(handle);
 
         // Assert
         EXPECT_TRUE(first.is_valid());
@@ -566,7 +566,7 @@ namespace tbx::tests::assets
         Handle handle("invalid_id.asset");
 
         // Act
-        auto resolved_id = manager.resolve_asset_id(handle);
+        auto resolved_id = manager.resolve(handle);
 
         // Assert
         EXPECT_TRUE(resolved_id.is_valid());
@@ -588,7 +588,7 @@ namespace tbx::tests::assets
         reset_test_asset_loader_state();
         auto first_asset = manager.load<TestAsset>(first_path);
         auto conflicting_asset = manager.load<TestAsset>(second_path);
-        auto conflicting_id = manager.resolve_asset_id(second_path);
+        auto conflicting_id = manager.resolve(second_path);
         auto by_id_asset = manager.load<TestAsset>(shared_id);
 
         // Assert
@@ -606,7 +606,7 @@ namespace tbx::tests::assets
         std::filesystem::path relative_path = "relative.asset";
 
         // Act
-        auto resolved = manager.resolve_asset_path(relative_path);
+        auto resolved = manager.resolve(relative_path);
 
         // Assert
         EXPECT_EQ(resolved, working_directory / relative_path);
@@ -619,7 +619,7 @@ namespace tbx::tests::assets
 
         // Act
         AssetManager manager(nullptr, working_directory, {"content"}, {}, {}, file_ops);
-        auto directories = manager.get_asset_directories();
+        auto directories = manager.get_directories();
 
         // Assert
         ASSERT_EQ(directories.size(), 1U);
@@ -633,8 +633,8 @@ namespace tbx::tests::assets
         AssetManager manager = make_manager(nullptr, working_directory);
 
         // Act
-        manager.add_asset_directory("content");
-        auto directories = manager.get_asset_directories();
+        manager.add_directory("content");
+        auto directories = manager.get_directories();
 
         // Assert
         ASSERT_EQ(directories.size(), 1U);
@@ -658,8 +658,8 @@ namespace tbx::tests::assets
             std::make_unique<TrackingHandleSerializer>(serializer_state),
             file_ops);
         auto discovered_write_count = serializer_state->write_count;
-        auto ensured_id = manager.ensure_asset_id(Handle("stone.asset"));
-        auto resolved_id = manager.resolve_asset_id(Handle("stone.asset"));
+        auto ensured_id = manager.ensure(Handle("stone.asset"));
+        auto resolved_id = manager.resolve(Handle("stone.asset"));
 
         // Assert
         EXPECT_EQ(discovered_write_count, 0);

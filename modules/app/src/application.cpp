@@ -4,7 +4,6 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>
@@ -26,6 +25,8 @@ namespace tbx
         : _name(desc.name)
         , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
+        , _asset_manager(&_msg_coordinator, desc.working_root)
+        , _plugin_manager(*this)
         , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0})
         , _main_window(
               _msg_coordinator,
@@ -33,7 +34,6 @@ namespace tbx
               {1280, 720},
               WindowMode::WINDOWED,
               false)
-        , _asset_manager(&_msg_coordinator, desc.working_root)
     {
         const auto file_operator = FileOperator(desc.working_root);
         _settings.paths.working_directory = file_operator.get_working_directory();
@@ -140,7 +140,7 @@ namespace tbx
         if (resource_directory.empty())
             return;
 
-        _asset_manager.add_asset_directory(resource_directory);
+        _asset_manager.add_directory(resource_directory);
     }
 
     void Application::initialize(const std::vector<std::string>& requested_plugins)
@@ -165,22 +165,15 @@ namespace tbx
                 });
 
             // Load requested plugins
-            _loaded = load_plugins(
+            _plugin_manager.load(
                 _settings.paths.working_directory,
                 requested_plugins,
-                _settings.paths.working_directory,
-                *this);
+                _settings.paths.working_directory);
 
-#ifdef TBX_DEBUG
-            // Only add extra dirs in debug mode, in release they are compiled into one dir in the
-            // release build dir.
-            for (const auto& loaded : _loaded)
-                _asset_manager.add_asset_directory(loaded.meta.resource_directory);
-#endif
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
             TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
-            auto asset_roots = _asset_manager.get_asset_directories();
+            auto asset_roots = _asset_manager.get_directories();
             if (asset_roots.size() > 1)
             {
                 TBX_TRACE_INFO("Asset Directories:");
@@ -240,7 +233,7 @@ namespace tbx
         fixed_update(dt);
 
         // Update all loaded plugins
-        update_plugins(_loaded, dt);
+        _plugin_manager.update(dt);
 
         _input_manager.update(dt);
 
@@ -333,7 +326,7 @@ namespace tbx
                 .milliseconds = fixed_step_seconds * 1000.0,
             };
 
-            update_plugins_fixed(_loaded, fixed_dt);
+            _plugin_manager.fixed_update(fixed_dt);
 
             _fixed_update_accumulator_seconds -= fixed_step_seconds;
             ++sub_step_count;
@@ -372,7 +365,7 @@ namespace tbx
             _asset_manager.unload_all();
 
             // 4. Detach and unload plugins using dependency-aware unload ordering.
-            unload_plugins(_loaded);
+            _plugin_manager.unload_all();
 
             // 5. Stop dedicated thread lanes after plugin teardown.
             _thread_manager.stop_all();
@@ -425,8 +418,9 @@ namespace tbx
         {
             if (open_event->owner == &_main_window && !open_event->current)
                 _should_exit = true;
-            return;
         }
+
+        _plugin_manager.receive_message(msg);
     }
 
 }

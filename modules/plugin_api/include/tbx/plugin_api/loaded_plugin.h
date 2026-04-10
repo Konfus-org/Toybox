@@ -1,7 +1,5 @@
 #pragma once
-#include "tbx/common/uuid.h"
 #include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/plugin_api/plugin_meta.h"
 #include "tbx/plugin_api/shared_library.h"
 #include "tbx/tbx_api.h"
@@ -12,6 +10,12 @@
 namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
+    enum class LoadedPluginState
+    {
+        UNATTACHED,
+        ATTACHED,
+        DETACHED
+    };
 
     /// @brief
     /// Represents an owned plugin instance along with its loading metadata
@@ -26,8 +30,7 @@ namespace tbx
         LoadedPlugin(
             PluginMeta meta_data,
             std::unique_ptr<SharedLibrary> plugin_library,
-            std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
-            IPluginHost& host);
+            std::unique_ptr<Plugin, PluginDeleter> plugin_instance);
         ~LoadedPlugin() noexcept;
 
       public:
@@ -43,14 +46,28 @@ namespace tbx
         /// Thread Safety: Not thread-safe.
         bool is_valid() const;
 
+        /// @brief Purpose: Attaches the loaded plugin instance to a host.
+        /// @details Ownership: Does not take ownership of the host reference.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void attach(IPluginHost& host);
+
+        /// @brief Purpose: Detaches the loaded plugin instance from its current host.
+        /// @details Ownership: Does not transfer ownership.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void detach();
+
+        /// @brief Purpose: Forwards a dispatched message to the loaded plugin instance.
+        /// @details Ownership: Does not take ownership of the message.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void receive_message(Message& msg);
+
       public:
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library;
         std::unique_ptr<Plugin, PluginDeleter> instance;
 
       private:
-        Uuid _message_handler_token = {};
-        IPluginHost* _host = nullptr;
+        LoadedPluginState _state = LoadedPluginState::UNATTACHED;
     };
 
     /// @brief Purpose: Formats a LoadedPlugin summary string.

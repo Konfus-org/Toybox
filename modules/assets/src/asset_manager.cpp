@@ -37,7 +37,7 @@ namespace tbx
                   _file_ops))
     {
         for (const auto& directory : asset_directories)
-            add_asset_directory(directory);
+            add_directory(directory);
     }
 
     AssetManager::~AssetManager() = default;
@@ -58,25 +58,24 @@ namespace tbx
         }
     }
 
-    Uuid AssetManager::ensure_asset_id(const Handle& handle)
+    Uuid AssetManager::ensure(const Handle& handle)
     {
         std::lock_guard lock(_mutex);
         return _registry->ensure_asset_id(handle);
     }
 
-    Uuid AssetManager::resolve_asset_id(const Handle& handle)
+    Uuid AssetManager::resolve(const Handle& handle)
     {
-        return ensure_asset_id(handle);
+        return ensure(handle);
     }
 
-    std::filesystem::path AssetManager::resolve_asset_path(
-        const std::filesystem::path& asset_path) const
+    std::filesystem::path AssetManager::resolve(const std::filesystem::path& asset_path) const
     {
         std::lock_guard lock(_mutex);
         return _registry->resolve_asset_path(asset_path);
     }
 
-    std::filesystem::path AssetManager::resolve_asset_path(const Handle& handle) const
+    std::filesystem::path AssetManager::resolve(const Handle& handle) const
     {
         std::lock_guard lock(_mutex);
         return _registry->resolve_asset_path(handle);
@@ -93,7 +92,7 @@ namespace tbx
             store.second->set_pinned(entry->asset_id, is_pinned);
     }
 
-    void AssetManager::add_asset_directory(const std::filesystem::path& path)
+    void AssetManager::add_directory(const std::filesystem::path& path)
     {
         if (path.empty())
             return;
@@ -109,7 +108,7 @@ namespace tbx
         watch_asset_directory(directories.back());
     }
 
-    std::vector<std::filesystem::path> AssetManager::get_asset_directories() const
+    std::vector<std::filesystem::path> AssetManager::get_directories() const
     {
         std::lock_guard lock(_mutex);
         return _registry->get_asset_directories();

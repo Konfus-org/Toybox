@@ -35,12 +35,12 @@ namespace three_d_example
                   .initial_position = tbx::Vec3(0.0F, 2.01F, 11.0F),
                   .initial_yaw = 0.0F,
                   .initial_pitch = tbx::to_radians(-8.0F),
-                  .move_speed = 6.0F,
-                  .look_sensitivity = 0.0025F,
+                  .move_speed = 20.0F,
+                  .look_sensitivity = 0.0035F,
               })
     {
         _sun = tbx::Entity("Sun", entity_registry);
-        _sun.add_component<tbx::DirectionalLight>(tbx::Color::WHITE, 1.0F, 0.15F);
+        _sun.add_component<tbx::DirectionalLight>(tbx::Color::BLUE, 1.0F, 0.15F);
         _sun.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F))),

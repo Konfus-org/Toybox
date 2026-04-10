@@ -1,12 +1,13 @@
 #pragma once
 #include "tbx/app/app_description.h"
 #include "tbx/app/app_message_coordinator.h"
+#include "tbx/app/plugin_manager.h"
 #include "tbx/app/app_settings.h"
 #include "tbx/assets/asset_manager.h"
+#include "tbx/assets/builtin_assets.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/window.h"
 #include "tbx/input/input_manager.h"
-#include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/plugin_api/plugin_host.h"
 #include "tbx/time/delta_time.h"
 #include <string>
@@ -102,16 +103,16 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        Handle _icon_handle = BoxIcon::HANDLE;
+        Handle _icon_handle = ToyboxIcon::HANDLE;
         EntityRegistry _entity_registry = {};
         AppMessageCoordinator _msg_coordinator = {};
         InputManager _input_manager;
-        std::vector<LoadedPlugin> _loaded = {};
+        AssetManager _asset_manager;
+        PluginManager _plugin_manager;
         AppSettings _settings;
         JobSystem _job_manager;
         ThreadManager _thread_manager;
         Window _main_window;
-        AssetManager _asset_manager;
 
         uint _update_count = 0;
         double _time_running = 0;

@@ -13,7 +13,7 @@ namespace three_d_example
 
     void ThreeDExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
     {
-        host.get_asset_manager().add_asset_directory(get_three_d_example_asset_directory());
+        host.get_asset_manager().add_directory(get_three_d_example_asset_directory());
         _scene = std::make_unique<DemoScene>(host.get_entity_registry(), host.get_input_manager());
     }
 
