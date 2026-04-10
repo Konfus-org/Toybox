@@ -108,6 +108,9 @@ namespace tbx
         if (!_file_ops)
             return false;
 
+        // Ensure prior instances are fully detached/destroyed before creating a replacement.
+        unload(meta.name);
+
         auto loaded_plugins = load_plugins(std::vector<PluginMeta> {meta}, *_file_ops);
         if (loaded_plugins.empty())
             return false;

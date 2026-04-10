@@ -1,5 +1,6 @@
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/ecs/entity.h"
+#include "tbx/debugging/macros.h"
 
 namespace tbx
 {
@@ -121,7 +122,10 @@ namespace tbx
 
         auto handle = to_entity_handle(entity._id);
         if (!_impl->valid(handle))
+        {
+            TBX_ASSERT(false, "Attempted to remove a stale entity handle from the registry.");
             return;
+        }
 
         _impl->destroy(handle);
         entity._id = {};
@@ -212,3 +216,5 @@ namespace tbx
         set_component_value<EntityLayerComponent>(*_impl, id, layer);
     }
 }
+
+

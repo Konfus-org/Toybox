@@ -24,6 +24,9 @@ namespace three_d_example
 
     void ThreeDExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
+        if (!_scene)
+            return;
+
         _scene->update(dt);
     }
 }

@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/debugging/logging.h"
 
+#define TBX_TRACE_FLUSH() ::tbx::Log::flush()
+
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \
@@ -15,6 +17,7 @@
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
         }                                                                                          \
     } while (0)
+
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \
@@ -29,6 +32,7 @@
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
         }                                                                                          \
     } while (0)
+
 #define TBX_TRACE_ERROR(msg, ...)                                                                  \
     do                                                                                             \
     {                                                                                              \
@@ -43,6 +47,7 @@
                 msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
         }                                                                                          \
     } while (0)
+
 #define TBX_TRACE_CRITICAL(msg, ...)                                                               \
     do                                                                                             \
     {                                                                                              \
