@@ -77,11 +77,9 @@ namespace tbx
         if (_registry == nullptr)
             return {};
 
+        // Callers commonly use `get_id().is_valid()` as a safe validity probe.
         if (!_registry->has(_id))
-        {
-            TBX_ASSERT(false, "Attempted to access a stale entity handle.");
             return {};
-        }
 
         return _id;
     }
