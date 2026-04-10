@@ -40,7 +40,7 @@ namespace three_d_example
               })
     {
         _sun = tbx::Entity("Sun", entity_registry);
-        _sun.add_component<tbx::DirectionalLight>(tbx::Color::BLUE, 1.0F, 0.15F);
+        _sun.add_component<tbx::DirectionalLight>(tbx::Color::WHITE, 1.0F, 0.15F);
         _sun.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F))),

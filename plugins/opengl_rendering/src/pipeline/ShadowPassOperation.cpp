@@ -5,8 +5,10 @@
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <array>
+#include <cstdint>
 #include <glad/glad.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace opengl_rendering
@@ -153,9 +155,83 @@ void main()
         cached_light_capacity = required_light_count;
     }
 
-    static bool is_shadow_framebuffer_complete(const uint32 framebuffer)
+    enum class ShadowFramebufferPass : uint8_t
     {
-        return glCheckNamedFramebufferStatus(framebuffer, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+        Directional = 0U,
+        Spot = 1U,
+        Area = 2U,
+        Point = 3U,
+    };
+
+    static const char* to_string(const ShadowFramebufferPass pass)
+    {
+        switch (pass)
+        {
+            case ShadowFramebufferPass::Directional:
+                return "directional";
+            case ShadowFramebufferPass::Spot:
+                return "spot";
+            case ShadowFramebufferPass::Area:
+                return "area";
+            case ShadowFramebufferPass::Point:
+                return "point";
+            default:
+                return "unknown";
+        }
+    }
+
+    static const char* to_string(const GLenum framebuffer_status)
+    {
+        switch (framebuffer_status)
+        {
+            case GL_FRAMEBUFFER_COMPLETE:
+                return "GL_FRAMEBUFFER_COMPLETE";
+            case GL_FRAMEBUFFER_UNDEFINED:
+                return "GL_FRAMEBUFFER_UNDEFINED";
+            case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                return "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+            case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                return "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+            case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+                return "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER";
+            case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+                return "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER";
+            case GL_FRAMEBUFFER_UNSUPPORTED:
+                return "GL_FRAMEBUFFER_UNSUPPORTED";
+            case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+                return "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
+            case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+                return "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS";
+            default:
+                return "GL_FRAMEBUFFER_STATUS_UNKNOWN";
+        }
+    }
+
+    static bool is_shadow_framebuffer_complete(
+        const uint32 framebuffer,
+        const ShadowFramebufferPass pass,
+        const int layer_index)
+    {
+        const auto status = glCheckNamedFramebufferStatus(framebuffer, GL_FRAMEBUFFER);
+        if (status == GL_FRAMEBUFFER_COMPLETE)
+            return true;
+
+        // Keep logs actionable without flooding every frame.
+        static auto reported_failures = std::unordered_set<std::uint64_t> {};
+        const auto key = (static_cast<std::uint64_t>(pass) << 32U)
+                         | static_cast<std::uint64_t>(status);
+        if (reported_failures.emplace(key).second)
+        {
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: shadow framebuffer incomplete for {} shadows "
+                "(example layer {}). Status: {} ({:#x}).",
+                to_string(pass),
+                layer_index,
+                to_string(status),
+                static_cast<uint32>(status));
+        }
+
+        return false;
     }
 
     static float get_distance_squared(const tbx::Vec3& a, const tbx::Vec3& b)
@@ -371,7 +447,10 @@ void main()
                     _directional_shadow_texture,
                     0,
                     static_cast<GLint>(shadow_cascade.texture_layer));
-                if (!is_shadow_framebuffer_complete(_framebuffer))
+                if (!is_shadow_framebuffer_complete(
+                        _framebuffer,
+                        ShadowFramebufferPass::Directional,
+                        static_cast<int>(shadow_cascade.texture_layer)))
                     continue;
 
                 glClear(GL_DEPTH_BUFFER_BIT);
@@ -404,7 +483,10 @@ void main()
                     _spot_shadow_texture,
                     0,
                     static_cast<GLint>(spot_map.texture_layer));
-                if (!is_shadow_framebuffer_complete(_framebuffer))
+                if (!is_shadow_framebuffer_complete(
+                        _framebuffer,
+                        ShadowFramebufferPass::Spot,
+                        static_cast<int>(spot_map.texture_layer)))
                     continue;
 
                 glClear(GL_DEPTH_BUFFER_BIT);
@@ -438,7 +520,10 @@ void main()
                     _area_shadow_texture,
                     0,
                     static_cast<GLint>(area_map.texture_layer));
-                if (!is_shadow_framebuffer_complete(_framebuffer))
+                if (!is_shadow_framebuffer_complete(
+                        _framebuffer,
+                        ShadowFramebufferPass::Area,
+                        static_cast<int>(area_map.texture_layer)))
                     continue;
 
                 glClear(GL_DEPTH_BUFFER_BIT);
@@ -505,7 +590,10 @@ void main()
                         _point_shadow_texture,
                         0,
                         static_cast<GLint>(texture_layer));
-                    if (!is_shadow_framebuffer_complete(_framebuffer))
+                    if (!is_shadow_framebuffer_complete(
+                            _framebuffer,
+                            ShadowFramebufferPass::Point,
+                            static_cast<int>(texture_layer)))
                         continue;
 
                     glClear(GL_DEPTH_BUFFER_BIT);

@@ -1199,6 +1199,18 @@ namespace opengl_rendering
             major_version > 4 || (major_version == 4 && minor_version >= 5),
             "Requires OpenGL 4.5 or newer.");
 
+        const auto* vendor_string = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+        const auto* renderer_string = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        const auto* version_string = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+        const auto* glsl_version_string =
+            reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION));
+        TBX_TRACE_INFO(
+            "OpenGL runtime info: vendor='{}', renderer='{}', version='{}', GLSL='{}'.",
+            vendor_string != nullptr ? vendor_string : "unknown",
+            renderer_string != nullptr ? renderer_string : "unknown",
+            version_string != nullptr ? version_string : "unknown",
+            glsl_version_string != nullptr ? glsl_version_string : "unknown");
+
 #if defined(TBX_DEBUG)
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
