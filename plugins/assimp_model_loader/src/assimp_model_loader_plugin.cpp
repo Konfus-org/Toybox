@@ -220,7 +220,8 @@ namespace assimp_model_loader
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
-                             | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs;
+                             | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices
+                             | aiProcess_FlipUVs;
         // Load the scene with Assimp.
         const aiScene* scene = importer.ReadFile(request.path.string(), flags);
         if (!scene || !scene->HasMeshes())
@@ -295,7 +296,12 @@ namespace assimp_model_loader
                 if (mesh->HasTangentsAndBitangents())
                 {
                     const auto tangent = to_vec3(mesh->mTangents[vertex_index]);
-                    vertex.tangent = tbx::Vec4(tangent.x, tangent.y, tangent.z, 1.0f);
+                    const auto bitangent = to_vec3(mesh->mBitangents[vertex_index]);
+                    auto tangent_handedness = 1.0F;
+                    if (tbx::dot(tbx::cross(vertex.normal, tangent), bitangent) < 0.0F)
+                        tangent_handedness = -1.0F;
+                    vertex.tangent =
+                        tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
                 }
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);

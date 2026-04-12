@@ -6,6 +6,7 @@
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
+#include "tbx/math/matrices.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -73,37 +74,49 @@ namespace opengl_rendering
         return make_typed_key(material_handle.id, MaterialProgramSalt);
     }
 
-    static bool try_get_vec3_attribute_offsets(
+    static bool try_get_mesh_attribute_offsets(
         const tbx::VertexBufferLayout& layout,
         size_t& out_position_offset_floats,
         size_t& out_normal_offset_floats,
-        bool& out_has_normal)
+        bool& out_has_normal,
+        size_t& out_tangent_offset_floats,
+        bool& out_has_tangent)
     {
         out_position_offset_floats = 0U;
         out_normal_offset_floats = 0U;
         out_has_normal = false;
+        out_tangent_offset_floats = 0U;
+        out_has_tangent = false;
 
         auto vec3_attribute_index = size_t {0U};
+        auto has_position = false;
         for (const auto& attribute : layout.elements)
         {
-            if (!std::holds_alternative<tbx::Vec3>(attribute.type))
-                continue;
-
             const auto attribute_offset_floats =
                 static_cast<size_t>(attribute.offset) / sizeof(float);
-            if (vec3_attribute_index == 0U)
-                out_position_offset_floats = attribute_offset_floats;
-            else if (vec3_attribute_index == 1U)
+            if (std::holds_alternative<tbx::Vec3>(attribute.type))
             {
-                out_normal_offset_floats = attribute_offset_floats;
-                out_has_normal = true;
-                return true;
-            }
+                if (vec3_attribute_index == 0U)
+                {
+                    out_position_offset_floats = attribute_offset_floats;
+                    has_position = true;
+                }
+                else if (vec3_attribute_index == 1U)
+                {
+                    out_normal_offset_floats = attribute_offset_floats;
+                    out_has_normal = true;
+                }
 
-            vec3_attribute_index += 1U;
+                vec3_attribute_index += 1U;
+            }
+            else if (std::holds_alternative<tbx::Vec4>(attribute.type) && !out_has_tangent)
+            {
+                out_tangent_offset_floats = attribute_offset_floats;
+                out_has_tangent = true;
+            }
         }
 
-        return vec3_attribute_index > 0U;
+        return has_position;
     }
 
     static bool append_transformed_mesh(
@@ -126,11 +139,15 @@ namespace opengl_rendering
         auto position_offset_floats = size_t {0U};
         auto normal_offset_floats = size_t {0U};
         auto has_normal = false;
-        if (!try_get_vec3_attribute_offsets(
+        auto tangent_offset_floats = size_t {0U};
+        auto has_tangent = false;
+        if (!try_get_mesh_attribute_offsets(
                 source_layout,
                 position_offset_floats,
                 normal_offset_floats,
-                has_normal))
+                has_normal,
+                tangent_offset_floats,
+                has_tangent))
             return false;
 
         if (!out_has_layout)
@@ -148,6 +165,10 @@ namespace opengl_rendering
         const auto base_vertex_index =
             static_cast<uint32>(out_vertices.size() / stride_floats);
         out_vertices.reserve(out_vertices.size() + source_vertices.size());
+        const auto transform_matrix = tbx::Mat3(transform);
+        const auto normal_matrix = tbx::inverse_transpose(transform_matrix);
+        const auto transform_determinant = glm::determinant(transform_matrix);
+        const auto tangent_handedness_sign = transform_determinant < 0.0F ? -1.0F : 1.0F;
 
         const auto vertex_count = source_vertices.size() / stride_floats;
         for (size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
@@ -177,12 +198,11 @@ namespace opengl_rendering
                 continue;
 
             auto transformed_normal =
-                transform
-                * tbx::Vec4(
+                normal_matrix
+                * tbx::Vec3(
                     source_vertices[source_base_index + normal_offset_floats],
                     source_vertices[source_base_index + normal_offset_floats + 1U],
-                    source_vertices[source_base_index + normal_offset_floats + 2U],
-                    0.0F);
+                    source_vertices[source_base_index + normal_offset_floats + 2U]);
             const auto normal_length_squared =
                 (transformed_normal.x * transformed_normal.x)
                 + (transformed_normal.y * transformed_normal.y)
@@ -198,6 +218,39 @@ namespace opengl_rendering
                 transformed_normal.y;
             out_vertices[destination_base_index + normal_offset_floats + 2U] =
                 transformed_normal.z;
+
+            if (!has_tangent)
+                continue;
+
+            auto transformed_tangent =
+                transform_matrix
+                * tbx::Vec3(
+                    source_vertices[source_base_index + tangent_offset_floats],
+                    source_vertices[source_base_index + tangent_offset_floats + 1U],
+                    source_vertices[source_base_index + tangent_offset_floats + 2U]);
+            transformed_tangent -= transformed_normal * tbx::dot(transformed_tangent, transformed_normal);
+            const auto tangent_length_squared =
+                (transformed_tangent.x * transformed_tangent.x)
+                + (transformed_tangent.y * transformed_tangent.y)
+                + (transformed_tangent.z * transformed_tangent.z);
+            if (tangent_length_squared > 0.000001F)
+            {
+                const auto inverse_tangent_length = 1.0F / std::sqrt(tangent_length_squared);
+                transformed_tangent *= inverse_tangent_length;
+            }
+            else
+            {
+                transformed_tangent = tbx::Vec3(1.0F, 0.0F, 0.0F);
+            }
+
+            out_vertices[destination_base_index + tangent_offset_floats] = transformed_tangent.x;
+            out_vertices[destination_base_index + tangent_offset_floats + 1U] =
+                transformed_tangent.y;
+            out_vertices[destination_base_index + tangent_offset_floats + 2U] =
+                transformed_tangent.z;
+            out_vertices[destination_base_index + tangent_offset_floats + 3U] =
+                source_vertices[source_base_index + tangent_offset_floats + 3U]
+                * tangent_handedness_sign;
         }
 
         out_indices.reserve(out_indices.size() + mesh.indices.size());

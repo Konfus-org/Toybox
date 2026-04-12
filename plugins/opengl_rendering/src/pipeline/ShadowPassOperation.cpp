@@ -19,6 +19,9 @@ namespace opengl_rendering
     static constexpr auto PointLightPositionUniformName = "u_point_light_position";
     static constexpr auto PointLightFarPlaneUniformName = "u_point_light_far_plane";
     static constexpr auto ShadowPointFaceCount = uint32 {6U};
+    static constexpr auto MinimumDirectionalShadowResolution = uint32 {128U};
+    static constexpr auto MinimumLocalShadowResolution = uint32 {128U};
+    static constexpr auto MinimumPointShadowResolution = uint32 {64U};
 
     static uint32 take_gl_handle(uint32& id) noexcept
     {
@@ -65,9 +68,13 @@ uniform float u_point_light_far_plane;
 
 void main()
 {
+    float depth_value = gl_FragCoord.z;
     if (u_write_linear_depth != 0)
-        gl_FragDepth =
+    {
+        depth_value =
             length(v_world_position - u_point_light_position) / max(u_point_light_far_plane, 0.0001);
+    }
+    gl_FragDepth = depth_value;
 }
 )",
                 tbx::ShaderType::FRAGMENT),
@@ -90,28 +97,136 @@ void main()
         return shader_program;
     }
 
-    static void configure_shadow_depth_array(
-        uint32& texture_id,
-        uint32& cached_resolution,
-        uint32& cached_layer_capacity,
+    static void clear_gl_errors()
+    {
+        while (glGetError() != GL_NO_ERROR)
+        {
+        }
+    }
+
+    struct ShadowDepthAllocationResult
+    {
+        GLenum internal_format = 0U;
+        GLenum framebuffer_status = GL_FRAMEBUFFER_COMPLETE;
+    };
+
+    static ShadowDepthAllocationResult allocate_shadow_depth_storage(
+        const uint32 texture_id,
+        const uint32 framebuffer,
         const uint32 required_resolution,
         const uint32 required_layers)
     {
-        if (required_layers == 0U)
-            return;
-        if (texture_id != 0U && cached_resolution == required_resolution
-            && cached_layer_capacity == required_layers)
-            return;
+        constexpr auto preferred_format = GLenum {GL_DEPTH_COMPONENT32F};
+        constexpr auto fallback_format = GLenum {GL_DEPTH_COMPONENT24};
+        constexpr auto compatibility_format = GLenum {GL_DEPTH_COMPONENT16};
 
-        delete_texture(texture_id);
-        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &texture_id);
-        glTextureStorage3D(
-            texture_id,
-            1,
-            GL_DEPTH_COMPONENT32F,
-            static_cast<GLsizei>(required_resolution),
-            static_cast<GLsizei>(required_resolution),
-            static_cast<GLsizei>(required_layers));
+        auto result = ShadowDepthAllocationResult {};
+
+        auto try_allocate = [&](const GLenum depth_format)
+        {
+            clear_gl_errors();
+            glTextureStorage3D(
+                texture_id,
+                1,
+                depth_format,
+                static_cast<GLsizei>(required_resolution),
+                static_cast<GLsizei>(required_resolution),
+                static_cast<GLsizei>(required_layers));
+            if (glGetError() != GL_NO_ERROR)
+                return false;
+
+            glNamedFramebufferTextureLayer(
+                framebuffer,
+                GL_DEPTH_ATTACHMENT,
+                texture_id,
+                0,
+                0);
+            result.framebuffer_status = glCheckNamedFramebufferStatus(framebuffer, GL_FRAMEBUFFER);
+            if (result.framebuffer_status != GL_FRAMEBUFFER_COMPLETE)
+                return false;
+
+            result.internal_format = depth_format;
+            return true;
+        };
+
+        if (try_allocate(preferred_format))
+        {
+            glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, 0, 0);
+            return result;
+        }
+
+        if (try_allocate(fallback_format))
+        {
+            glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, 0, 0);
+            return result;
+        }
+
+        if (try_allocate(compatibility_format))
+        {
+            glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, 0, 0);
+            return result;
+        }
+
+        clear_gl_errors();
+        glNamedFramebufferTexture(framebuffer, GL_DEPTH_ATTACHMENT, 0, 0);
+        return result;
+    }
+
+    static bool configure_shadow_depth_array(
+        uint32& texture_id,
+        uint32& cached_resolution,
+        uint32& cached_layer_capacity,
+        uint32& cached_internal_format,
+        const uint32 framebuffer,
+        const uint32 required_resolution,
+        const uint32 required_layers,
+        const uint32 minimum_resolution)
+    {
+        if (required_layers == 0U)
+            return true;
+        if (texture_id != 0U && cached_layer_capacity == required_layers
+            && cached_internal_format != 0U)
+            return true;
+
+        auto max_texture_size = GLint {0};
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+        auto requested_resolution = required_resolution;
+        if (max_texture_size > 0)
+            requested_resolution =
+                tbx::min(required_resolution, static_cast<uint32>(max_texture_size));
+        auto target_resolution = tbx::max(requested_resolution, 1U);
+        const auto minimum_supported_resolution =
+            tbx::max(1U, tbx::min(target_resolution, minimum_resolution));
+
+        auto depth_allocation_result = ShadowDepthAllocationResult {};
+        while (true)
+        {
+            delete_texture(texture_id);
+            glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &texture_id);
+            if (texture_id == 0U)
+                break;
+
+            depth_allocation_result = allocate_shadow_depth_storage(
+                texture_id,
+                framebuffer,
+                target_resolution,
+                required_layers);
+            if (depth_allocation_result.internal_format != 0U
+                || target_resolution <= minimum_supported_resolution)
+                break;
+
+            target_resolution = tbx::max(target_resolution / 2U, minimum_supported_resolution);
+        }
+
+        if (depth_allocation_result.internal_format == 0U)
+        {
+            delete_texture(texture_id);
+            cached_resolution = 0U;
+            cached_layer_capacity = 0U;
+            cached_internal_format = 0U;
+            return false;
+        }
+
         glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -119,40 +234,92 @@ void main()
         glTextureParameteri(texture_id, GL_TEXTURE_COMPARE_MODE, GL_NONE);
         const auto border_color = std::array {1.0F, 1.0F, 1.0F, 1.0F};
         glTextureParameterfv(texture_id, GL_TEXTURE_BORDER_COLOR, border_color.data());
-        cached_resolution = required_resolution;
+        cached_resolution = target_resolution;
         cached_layer_capacity = required_layers;
+        cached_internal_format = static_cast<uint32>(depth_allocation_result.internal_format);
+        return true;
     }
 
-    static void configure_shadow_cube_array(
+    static bool configure_shadow_cube_array(
         uint32& texture_id,
         uint32& cached_resolution,
         uint32& cached_light_capacity,
+        uint32& cached_internal_format,
+        const uint32 framebuffer,
         const uint32 required_resolution,
-        const uint32 required_light_count)
+        const uint32 required_light_count,
+        const uint32 minimum_resolution)
     {
         if (required_light_count == 0U)
-            return;
-        if (texture_id != 0U && cached_resolution == required_resolution
-            && cached_light_capacity == required_light_count)
-            return;
+            return true;
+        if (texture_id != 0U && cached_light_capacity == required_light_count
+            && cached_internal_format != 0U)
+            return true;
 
-        delete_texture(texture_id);
-        glCreateTextures(GL_TEXTURE_CUBE_MAP_ARRAY, 1, &texture_id);
-        glTextureStorage3D(
-            texture_id,
-            1,
-            GL_DEPTH_COMPONENT32F,
-            static_cast<GLsizei>(required_resolution),
-            static_cast<GLsizei>(required_resolution),
-            static_cast<GLsizei>(required_light_count * ShadowPointFaceCount));
+        auto max_cube_map_texture_size = GLint {0};
+        glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &max_cube_map_texture_size);
+        auto requested_resolution = required_resolution;
+        if (max_cube_map_texture_size > 0)
+            requested_resolution =
+                tbx::min(required_resolution, static_cast<uint32>(max_cube_map_texture_size));
+        auto target_resolution = tbx::max(requested_resolution, 1U);
+        const auto minimum_supported_resolution =
+            tbx::max(1U, tbx::min(target_resolution, minimum_resolution));
+
+        auto depth_allocation_result = ShadowDepthAllocationResult {};
+        while (true)
+        {
+            delete_texture(texture_id);
+            glCreateTextures(GL_TEXTURE_CUBE_MAP_ARRAY, 1, &texture_id);
+            if (texture_id == 0U)
+                break;
+
+            depth_allocation_result = allocate_shadow_depth_storage(
+                texture_id,
+                framebuffer,
+                target_resolution,
+                required_light_count * ShadowPointFaceCount);
+            if (depth_allocation_result.internal_format != 0U
+                || target_resolution <= minimum_supported_resolution)
+                break;
+
+            target_resolution = tbx::max(target_resolution / 2U, minimum_supported_resolution);
+        }
+
+        if (depth_allocation_result.internal_format == 0U)
+        {
+            delete_texture(texture_id);
+            cached_resolution = 0U;
+            cached_light_capacity = 0U;
+            cached_internal_format = 0U;
+            return false;
+        }
+
         glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTextureParameteri(texture_id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
         glTextureParameteri(texture_id, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-        cached_resolution = required_resolution;
+        cached_resolution = target_resolution;
         cached_light_capacity = required_light_count;
+        cached_internal_format = static_cast<uint32>(depth_allocation_result.internal_format);
+        return true;
+    }
+
+    static const char* to_depth_format_string(const uint32 depth_format)
+    {
+        switch (depth_format)
+        {
+            case GL_DEPTH_COMPONENT32F:
+                return "GL_DEPTH_COMPONENT32F";
+            case GL_DEPTH_COMPONENT24:
+                return "GL_DEPTH_COMPONENT24";
+            case GL_DEPTH_COMPONENT16:
+                return "GL_DEPTH_COMPONENT16";
+            default:
+                return "GL_DEPTH_COMPONENT_UNKNOWN";
+        }
     }
 
     enum class ShadowFramebufferPass : uint8_t
@@ -389,30 +556,143 @@ void main()
             && point_shadow_count == 0U)
             return;
 
-        configure_shadow_depth_array(
+        const auto directional_ready = configure_shadow_depth_array(
             _directional_shadow_texture,
             _directional_shadow_resolution,
             _directional_shadow_layer_capacity,
+            _directional_shadow_internal_format,
+            _framebuffer,
             frame_context.shadows.directional_map_resolution,
-            directional_layer_count);
-        configure_shadow_cube_array(
+            directional_layer_count,
+            MinimumDirectionalShadowResolution);
+        const auto point_ready = configure_shadow_cube_array(
             _point_shadow_texture,
             _point_shadow_resolution,
             _point_shadow_light_capacity,
+            _point_shadow_internal_format,
+            _framebuffer,
             frame_context.shadows.point_map_resolution,
-            point_shadow_count);
-        configure_shadow_depth_array(
+            point_shadow_count,
+            MinimumPointShadowResolution);
+        const auto spot_ready = configure_shadow_depth_array(
             _spot_shadow_texture,
             _spot_shadow_resolution,
             _spot_shadow_layer_capacity,
+            _spot_shadow_internal_format,
+            _framebuffer,
             frame_context.shadows.local_map_resolution,
-            spot_layer_count);
-        configure_shadow_depth_array(
+            spot_layer_count,
+            MinimumLocalShadowResolution);
+        const auto area_ready = configure_shadow_depth_array(
             _area_shadow_texture,
             _area_shadow_resolution,
             _area_shadow_layer_capacity,
+            _area_shadow_internal_format,
+            _framebuffer,
             frame_context.shadows.local_map_resolution,
-            area_layer_count);
+            area_layer_count,
+            MinimumLocalShadowResolution);
+
+        auto maybe_report_depth_format_fallback = [this](const char* pass_name, const uint32 format)
+        {
+            if (_has_reported_depth_format_fallback || format == 0U
+                || format == GL_DEPTH_COMPONENT32F)
+                return;
+
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: {} shadow maps are using {} fallback because "
+                "GL_DEPTH_COMPONENT32F allocation failed on this driver.",
+                pass_name,
+                to_depth_format_string(format));
+            _has_reported_depth_format_fallback = true;
+        };
+
+        auto maybe_report_depth_format_failure = [this](const char* pass_name)
+        {
+            if (_has_reported_depth_format_failure)
+                return;
+
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: failed to allocate {} shadow depth textures after trying "
+                "GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT16, and "
+                "progressively lower shadow resolutions. "
+                "{} shadows are disabled.",
+                pass_name,
+                pass_name);
+            _has_reported_depth_format_failure = true;
+        };
+
+        auto maybe_report_resolution_fallback =
+            [this](const char* pass_name, const uint32 requested_resolution, const uint32 actual_resolution)
+        {
+            if (_has_reported_resolution_fallback || requested_resolution == 0U
+                || actual_resolution == 0U || actual_resolution >= requested_resolution)
+                return;
+
+            TBX_TRACE_WARNING(
+                "OpenGL rendering: {} shadow resolution reduced from {} to {} to satisfy GPU "
+                "allocation limits.",
+                pass_name,
+                requested_resolution,
+                actual_resolution);
+            _has_reported_resolution_fallback = true;
+        };
+
+        if (directional_layer_count > 0U)
+        {
+            if (directional_ready)
+            {
+                maybe_report_depth_format_fallback("directional", _directional_shadow_internal_format);
+                maybe_report_resolution_fallback(
+                    "directional",
+                    frame_context.shadows.directional_map_resolution,
+                    _directional_shadow_resolution);
+            }
+            else
+                maybe_report_depth_format_failure("directional");
+        }
+
+        if (point_shadow_count > 0U)
+        {
+            if (point_ready)
+            {
+                maybe_report_depth_format_fallback("point", _point_shadow_internal_format);
+                maybe_report_resolution_fallback(
+                    "point",
+                    frame_context.shadows.point_map_resolution,
+                    _point_shadow_resolution);
+            }
+            else
+                maybe_report_depth_format_failure("point");
+        }
+
+        if (spot_layer_count > 0U)
+        {
+            if (spot_ready)
+            {
+                maybe_report_depth_format_fallback("spot", _spot_shadow_internal_format);
+                maybe_report_resolution_fallback(
+                    "spot",
+                    frame_context.shadows.local_map_resolution,
+                    _spot_shadow_resolution);
+            }
+            else
+                maybe_report_depth_format_failure("spot");
+        }
+
+        if (area_layer_count > 0U)
+        {
+            if (area_ready)
+            {
+                maybe_report_depth_format_fallback("area", _area_shadow_internal_format);
+                maybe_report_resolution_fallback(
+                    "area",
+                    frame_context.shadows.local_map_resolution,
+                    _area_shadow_resolution);
+            }
+            else
+                maybe_report_depth_format_failure("area");
+        }
 
         auto previous_viewport = std::array<GLint, 4U> {};
         glGetIntegerv(GL_VIEWPORT, previous_viewport.data());
@@ -437,8 +717,8 @@ void main()
             glViewport(
                 0,
                 0,
-                static_cast<GLsizei>(frame_context.shadows.directional_map_resolution),
-                static_cast<GLsizei>(frame_context.shadows.directional_map_resolution));
+                static_cast<GLsizei>(_directional_shadow_resolution),
+                static_cast<GLsizei>(_directional_shadow_resolution));
             for (const auto& shadow_cascade : frame_context.shadows.directional_cascades)
             {
                 glNamedFramebufferTextureLayer(
@@ -473,8 +753,8 @@ void main()
             glViewport(
                 0,
                 0,
-                static_cast<GLsizei>(frame_context.shadows.local_map_resolution),
-                static_cast<GLsizei>(frame_context.shadows.local_map_resolution));
+                static_cast<GLsizei>(_spot_shadow_resolution),
+                static_cast<GLsizei>(_spot_shadow_resolution));
             for (const auto& spot_map : frame_context.shadows.spot_maps)
             {
                 glNamedFramebufferTextureLayer(
@@ -510,8 +790,8 @@ void main()
             glViewport(
                 0,
                 0,
-                static_cast<GLsizei>(frame_context.shadows.local_map_resolution),
-                static_cast<GLsizei>(frame_context.shadows.local_map_resolution));
+                static_cast<GLsizei>(_area_shadow_resolution),
+                static_cast<GLsizei>(_area_shadow_resolution));
             for (const auto& area_map : frame_context.shadows.area_maps)
             {
                 glNamedFramebufferTextureLayer(
@@ -562,8 +842,8 @@ void main()
             glViewport(
                 0,
                 0,
-                static_cast<GLsizei>(frame_context.shadows.point_map_resolution),
-                static_cast<GLsizei>(frame_context.shadows.point_map_resolution));
+                static_cast<GLsizei>(_point_shadow_resolution),
+                static_cast<GLsizei>(_point_shadow_resolution));
             for (const auto& point_light : frame_context.point_lights)
             {
                 if (point_light.shadow_index < 0)

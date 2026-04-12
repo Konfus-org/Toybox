@@ -361,12 +361,12 @@ namespace tbx
             //_main_window.is_open = false;
             _should_exit = true;
 
-            // 3. Unregister all entities
+            // 3. Detach and unload plugins using dependency-aware unload ordering.
+            _plugin_manager.unload_all();
+
+            // 4. Unregister all entities and unload assets after plugin teardown.
             _entity_registry.clear();
             _asset_manager.unload_all();
-
-            // 4. Detach and unload plugins using dependency-aware unload ordering.
-            _plugin_manager.unload_all();
 
             // 5. Stop dedicated thread lanes after plugin teardown.
             _thread_manager.stop_all();

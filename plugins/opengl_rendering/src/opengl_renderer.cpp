@@ -7,6 +7,7 @@
 #include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
 #include "tbx/assets/builtin_assets.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
@@ -285,6 +286,48 @@ namespace opengl_rendering
             tbx::CheckerboardTexture::HANDLE);
         material_instance.clear_dirty();
         return material_instance;
+    }
+
+    static bool contains_case_insensitive(std::string_view text, std::string_view token)
+    {
+        const auto normalized_text = tbx::to_lower(text);
+        const auto normalized_token = tbx::to_lower(token);
+        return normalized_text.find(normalized_token) != std::string::npos;
+    }
+
+    static bool should_warn_about_integrated_or_software_gpu(
+        const std::string_view vendor_text,
+        const std::string_view renderer_text)
+    {
+        const auto is_software_renderer =
+            contains_case_insensitive(renderer_text, "llvmpipe")
+            || contains_case_insensitive(renderer_text, "softpipe")
+            || contains_case_insensitive(renderer_text, "software rasterizer");
+        if (is_software_renderer)
+            return true;
+
+        const auto is_intel_vendor = contains_case_insensitive(vendor_text, "intel");
+        const auto is_discrete_arc = contains_case_insensitive(renderer_text, "arc");
+        if (is_intel_vendor && !is_discrete_arc)
+            return true;
+
+        return contains_case_insensitive(renderer_text, "integrated");
+    }
+
+    static void maybe_warn_about_gpu_selection(
+        const std::string_view vendor_text,
+        const std::string_view renderer_text)
+    {
+        if (!should_warn_about_integrated_or_software_gpu(vendor_text, renderer_text))
+            return;
+
+        TBX_TRACE_WARNING(
+            "OpenGL rendering appears to be running on an integrated/software GPU "
+            "(vendor='{}', renderer='{}'). If a discrete GPU is available, prefer launching "
+            "this app on the high-performance GPU. This can reduce performance and may affect "
+            "shadow quality or availability on some drivers.",
+            vendor_text,
+            renderer_text);
     }
 
     static tbx::MaterialInstance create_default_pbr_material_instance(
@@ -804,8 +847,7 @@ namespace opengl_rendering
             directional_light.shadow_cascade_offset =
                 static_cast<uint32>(frame_context.shadows.directional_cascades.size());
             auto previous_split = frame_context.camera_near_plane;
-            for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount;
-                 ++cascade_index)
+            for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
             {
                 const auto cascade_far = tbx::clamp(
                     split_depths[cascade_index],
@@ -1204,12 +1246,15 @@ namespace opengl_rendering
         const auto* version_string = reinterpret_cast<const char*>(glGetString(GL_VERSION));
         const auto* glsl_version_string =
             reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION));
+        const auto* vendor_text = vendor_string != nullptr ? vendor_string : "unknown";
+        const auto* renderer_text = renderer_string != nullptr ? renderer_string : "unknown";
         TBX_TRACE_INFO(
             "OpenGL runtime info: vendor='{}', renderer='{}', version='{}', GLSL='{}'.",
-            vendor_string != nullptr ? vendor_string : "unknown",
-            renderer_string != nullptr ? renderer_string : "unknown",
+            vendor_text,
+            renderer_text,
             version_string != nullptr ? version_string : "unknown",
             glsl_version_string != nullptr ? glsl_version_string : "unknown");
+        maybe_warn_about_gpu_selection(vendor_text, renderer_text);
 
 #if defined(TBX_DEBUG)
         glEnable(GL_DEBUG_OUTPUT);

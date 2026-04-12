@@ -71,15 +71,27 @@ void main()
             tangent_space_normal.xy * normal_strength,
             max(tangent_space_normal.z, 0.0001)));
     vec3 normalized_world_normal = normalize(v_world_normal);
-    vec3 normalized_world_tangent =
-        normalize(v_world_tangent - normalized_world_normal * dot(v_world_tangent, normalized_world_normal));
-    vec3 normalized_world_bitangent =
-        normalize(cross(normalized_world_normal, normalized_world_tangent)) * v_world_tangent_sign;
-    mat3 tangent_to_world = mat3(
-        normalized_world_tangent,
-        normalized_world_bitangent,
-        normalized_world_normal);
-    vec3 mapped_world_normal = normalize(tangent_to_world * tangent_space_normal);
+    vec3 mapped_world_normal = normalized_world_normal;
+    vec3 orthogonal_tangent =
+        v_world_tangent - normalized_world_normal * dot(v_world_tangent, normalized_world_normal);
+    float orthogonal_tangent_length_squared = dot(orthogonal_tangent, orthogonal_tangent);
+    if (orthogonal_tangent_length_squared > 0.000001)
+    {
+        vec3 normalized_world_tangent =
+            orthogonal_tangent * inversesqrt(orthogonal_tangent_length_squared);
+        vec3 normalized_world_bitangent = cross(normalized_world_normal, normalized_world_tangent);
+        float bitangent_length_squared = dot(normalized_world_bitangent, normalized_world_bitangent);
+        if (bitangent_length_squared > 0.000001)
+        {
+            normalized_world_bitangent *=
+                inversesqrt(bitangent_length_squared) * (v_world_tangent_sign < 0.0 ? -1.0 : 1.0);
+            mat3 tangent_to_world = mat3(
+                normalized_world_tangent,
+                normalized_world_bitangent,
+                normalized_world_normal);
+            mapped_world_normal = normalize(tangent_to_world * tangent_space_normal);
+        }
+    }
     vec3 preview_light_direction = normalize(vec3(0.35, 0.8, 0.45));
     vec3 preview_view_direction = normalize(vec3(0.15, 0.3, 1.0) - v_world_position);
     float preview_n_dot_l = max(dot(mapped_world_normal, preview_light_direction), 0.0);

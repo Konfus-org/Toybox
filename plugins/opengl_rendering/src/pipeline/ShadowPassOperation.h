@@ -75,6 +75,13 @@ namespace opengl_rendering
         uint32 _point_shadow_light_capacity = 0U;
         uint32 _spot_shadow_layer_capacity = 0U;
         uint32 _area_shadow_layer_capacity = 0U;
+        uint32 _directional_shadow_internal_format = 0U;
+        uint32 _point_shadow_internal_format = 0U;
+        uint32 _spot_shadow_internal_format = 0U;
+        uint32 _area_shadow_internal_format = 0U;
         bool _has_reported_initialization_failure = false;
+        bool _has_reported_depth_format_fallback = false;
+        bool _has_reported_resolution_fallback = false;
+        bool _has_reported_depth_format_failure = false;
     };
 }

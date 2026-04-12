@@ -216,7 +216,7 @@ namespace tbx
         mutable std::mutex _mutex = {};
         IMessageDispatcher* _dispatcher = nullptr;
         std::shared_ptr<IFileOps> _file_ops = nullptr;
-        std::unique_ptr<AssetRegistry> _registry = nullptr;
+        std::unique_ptr<AssetRegistry> _registry;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores = {};
         std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
     };

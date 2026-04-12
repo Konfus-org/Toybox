@@ -553,7 +553,5 @@ void main()
     hdr_lighting_color *= exposure;
 
     vec3 presented_color = tbx_linear_to_srgb(tbx_tonemap_aces(hdr_lighting_color));
-    float dither = tbx_interleaved_gradient_noise(gl_FragCoord.xy) - 0.5;
-    presented_color += vec3(dither / 255.0);
     o_final_color = vec4(clamp(presented_color, 0.0, 1.0), albedo_sample.a);
 }

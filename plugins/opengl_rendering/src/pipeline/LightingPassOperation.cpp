@@ -14,6 +14,7 @@ namespace opengl_rendering
 {
     static constexpr int MaxDirectionalLights = 4;
     static constexpr uint32 TileSize = 16U;
+    static constexpr float TileCullingGuardBandTiles = 1.0F;
 
     struct alignas(16) GpuDirectionalLight
     {
@@ -211,14 +212,17 @@ namespace opengl_rendering
                                  * static_cast<float>(frame_context.render_size.height);
 
         const auto tile_size = static_cast<float>(TileSize);
-        auto min_tile_x = static_cast<int>(tbx::floor(min_pixel_x / tile_size));
-        auto min_tile_y = static_cast<int>(tbx::floor(min_pixel_y / tile_size));
-        auto max_tile_x_inclusive = static_cast<int>(tbx::ceil(max_pixel_x / tile_size)) - 1;
-        auto max_tile_y_inclusive = static_cast<int>(tbx::ceil(max_pixel_y / tile_size)) - 1;
+        const auto guard_band_pixels = tile_size * TileCullingGuardBandTiles;
+        auto min_tile_x = static_cast<int>(tbx::floor((min_pixel_x - guard_band_pixels) / tile_size));
+        auto min_tile_y = static_cast<int>(tbx::floor((min_pixel_y - guard_band_pixels) / tile_size));
+        auto max_tile_x_inclusive =
+            static_cast<int>(tbx::ceil((max_pixel_x + guard_band_pixels) / tile_size)) - 1;
+        auto max_tile_y_inclusive =
+            static_cast<int>(tbx::ceil((max_pixel_y + guard_band_pixels) / tile_size)) - 1;
 
         if (max_tile_x_inclusive < 0 || max_tile_y_inclusive < 0)
             return false;
-        if (min_tile_x > max_tile_x || min_tile_y > max_tile_y)
+        if (min_tile_x > max_tile_x_inclusive || min_tile_y > max_tile_y_inclusive)
             return false;
 
         min_tile_x = clamp_tile_index(min_tile_x, max_tile_x);
