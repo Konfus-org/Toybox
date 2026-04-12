@@ -35,12 +35,12 @@ namespace three_d_example
                   .initial_position = tbx::Vec3(0.0F, 2.01F, 11.0F),
                   .initial_yaw = 0.0F,
                   .initial_pitch = tbx::to_radians(-8.0F),
-                  .move_speed = 20.0F,
+                  .move_speed = 10.0F,
                   .look_sensitivity = 0.0035F,
               })
     {
         _sun = tbx::Entity("Sun", entity_registry);
-        _sun.add_component<tbx::DirectionalLight>(tbx::Color::BLUE, 1.0F, 0.15F);
+        _sun.add_component<tbx::DirectionalLight>(tbx::Color::WHITE, 1.0F, 0.15F);
         _sun.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::to_radians(tbx::Vec3(-45.0F, 45.0F, 0.0F))),
@@ -103,14 +103,26 @@ namespace three_d_example
 
     DemoScene::~DemoScene()
     {
+        if (_trigger_zone.get_id().is_valid() && _trigger_zone.has_component<tbx::CubeCollider>())
+        {
+            auto& collider = _trigger_zone.get_component<tbx::CubeCollider>();
+            collider.trigger.is_overlap_enabled = false;
+            collider.trigger.overlap_begin_callbacks.clear();
+            collider.trigger.overlap_stay_callbacks.clear();
+            collider.trigger.overlap_end_callbacks.clear();
+        }
+
         _sun.destroy();
         _sun = {};
+        _area_light.destroy();
+        _area_light = {};
         _trigger_zone.destroy();
         _trigger_zone = {};
         _falling_box.destroy();
         _falling_box = {};
         _falling_sphere.destroy();
         _falling_sphere = {};
+        _trigger_overlap_count = 0U;
         _entity_registry = nullptr;
     }
 

@@ -240,6 +240,7 @@ namespace tbx
         // End update
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
 
+        // Gather metrics
         ++_update_count;
         if (_asset_unload_elapsed_seconds >= 1.0)
         {
@@ -340,12 +341,12 @@ namespace tbx
 
     void Application::shutdown()
     {
+        GlobalDispatcherScope scope(_msg_coordinator);
         const auto shutdown_begin = std::chrono::steady_clock::now();
+
         try
         {
             // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
-
-            GlobalDispatcherScope scope(_msg_coordinator);
 
             TBX_TRACE_INFO("Shutting down application: {}", _name);
             TBX_TRACE_INFO(
@@ -370,17 +371,9 @@ namespace tbx
             // 5. Stop dedicated thread lanes after plugin teardown.
             _thread_manager.stop_all();
 
-            // 6. Process any remaining messages that may have been posted during shutdown
-            auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                           std::chrono::steady_clock::now() - shutdown_begin)
-                                           .count();
-
-            // 7. Process any remaining posted messages and clear handlers
+            // 6. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
-
-            // 8. Log shutdown metrics
-            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
         }
         catch (const std::exception& ex)
         {
@@ -403,6 +396,13 @@ namespace tbx
                 shutdown_elapsed_ms);
             TBX_ASSERT(false, "Unknown exception during application shutdown.");
         }
+
+        // 7. Log shutdown metrics
+        auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                       std::chrono::steady_clock::now() - shutdown_begin)
+                                       .count();
+        TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
+        TBX_TRACE_FLUSH();
     }
 
     void Application::recieve_message(Message& msg)

@@ -189,6 +189,34 @@ namespace tbx
         }
 
         auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        if (!lib->is_valid() && load_path != library_path)
+        {
+            auto shadow_copy_error_message = std::string {};
+            const bool has_shadow_copy_error_message =
+                lib->try_get_load_error_message(shadow_copy_error_message);
+
+            if (has_shadow_copy_error_message)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin shadow copy '{}': {}. Retrying with original module "
+                    "'{}'.",
+                    load_path.string(),
+                    shadow_copy_error_message,
+                    library_path.string());
+            }
+            else
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin shadow copy '{}'. Retrying with original module '{}'.",
+                    load_path.string(),
+                    library_path.string());
+            }
+
+            load_path = library_path;
+            cleanup_path.clear();
+            lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        }
+
         if (!lib->is_valid())
         {
             auto load_error_message = std::string {};

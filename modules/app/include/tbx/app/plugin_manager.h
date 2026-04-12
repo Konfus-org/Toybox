@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -99,7 +100,9 @@ namespace tbx
         void process_pending_file_changes();
         bool try_parse_plugin_meta(const std::filesystem::path& manifest_path, PluginMeta& out_meta)
             const;
-        void process_file_change(const FileWatchChange& change);
+        void process_file_change(
+            const FileWatchChange& change,
+            std::unordered_set<std::string>& processed_plugin_names);
 
       private:
         std::mutex _pending_file_changes_mutex = {};

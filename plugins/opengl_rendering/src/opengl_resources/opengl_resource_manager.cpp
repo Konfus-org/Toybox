@@ -324,6 +324,35 @@ namespace opengl_rendering
         if (!key.is_valid())
             return {};
 
+        if (!dynamic_mesh.data)
+            return {};
+
+        if (const auto existing = _resources.find(key); existing != _resources.end())
+        {
+            auto keep_existing = false;
+            if (const auto source_it = _dynamic_mesh_sources.find(key);
+                source_it != _dynamic_mesh_sources.end())
+            {
+                if (const auto source_mesh = source_it->second.lock())
+                    keep_existing = source_mesh.get() == dynamic_mesh.data.get();
+            }
+
+            if (!keep_existing)
+            {
+                _resources.erase(key);
+                _pinned_resources.erase(key);
+                _last_access.erase(key);
+                _dynamic_mesh_sources.erase(key);
+            }
+            else
+            {
+                _last_access.insert_or_assign(key, now);
+                if (pin)
+                    _pinned_resources.insert_or_assign(key, existing->second);
+                return key;
+            }
+        }
+
         if (const auto existing = _resources.find(key); existing != _resources.end())
         {
             _last_access.insert_or_assign(key, now);
@@ -332,12 +361,10 @@ namespace opengl_rendering
             return key;
         }
 
-        if (!dynamic_mesh.data)
-            return {};
-
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(*dynamic_mesh.data));
         _resources.insert_or_assign(key, resource);
+        _dynamic_mesh_sources.insert_or_assign(key, dynamic_mesh.data);
         _last_access.insert_or_assign(key, now);
         if (pin)
             _pinned_resources.insert_or_assign(key, resource);
@@ -629,6 +656,7 @@ namespace opengl_rendering
     void OpenGlResourceManager::clear()
     {
         _resources.clear();
+        _dynamic_mesh_sources.clear();
         _material_assets.clear();
         _pinned_resources.clear();
         _last_access.clear();
@@ -652,6 +680,14 @@ namespace opengl_rendering
             [this](const auto& entry)
             {
                 return !_resources.contains(entry.first);
+            });
+
+        std::erase_if(
+            _dynamic_mesh_sources,
+            [this](const auto& entry)
+            {
+                const auto key = entry.first;
+                return !_resources.contains(key) || entry.second.expired();
             });
 
         std::erase_if(

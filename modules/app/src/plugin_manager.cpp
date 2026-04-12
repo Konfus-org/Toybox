@@ -108,6 +108,9 @@ namespace tbx
         if (!_file_ops)
             return false;
 
+        // Ensure prior instances are fully detached/destroyed before creating a replacement.
+        unload(meta.name);
+
         auto loaded_plugins = load_plugins(std::vector<PluginMeta> {meta}, *_file_ops);
         if (loaded_plugins.empty())
             return false;
@@ -233,8 +236,10 @@ namespace tbx
             pending_changes.swap(_pending_file_changes);
         }
 
+        auto processed_plugin_names = std::unordered_set<std::string> {};
+        processed_plugin_names.reserve(pending_changes.size());
         for (const auto& change : pending_changes)
-            process_file_change(change);
+            process_file_change(change, processed_plugin_names);
     }
 
     bool PluginManager::try_parse_plugin_meta(
@@ -255,10 +260,25 @@ namespace tbx
             out_meta);
     }
 
-    void PluginManager::process_file_change(const FileWatchChange& change)
+    void PluginManager::process_file_change(
+        const FileWatchChange& change,
+        std::unordered_set<std::string>& processed_plugin_names)
     {
         if (!_file_ops)
             return;
+
+        const auto mark_processed_or_skip =
+            [&processed_plugin_names](const std::string& plugin_name)
+        {
+            const auto lowered_name = to_lower(trim(plugin_name));
+            if (lowered_name.empty())
+                return false;
+            if (processed_plugin_names.contains(lowered_name))
+                return true;
+
+            processed_plugin_names.insert(lowered_name);
+            return false;
+        };
 
         const auto changed_path = _file_ops->resolve(change.path).lexically_normal();
         if (path_contains_directory_token(changed_path, "resources"))
@@ -279,7 +299,11 @@ namespace tbx
             if (change.type == FileWatchChangeType::REMOVED)
             {
                 if (existing_index != invalid_plugin_index)
+                {
+                    if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                        return;
                     unload(_loaded[existing_index].meta.name);
+                }
                 return;
             }
 
@@ -287,22 +311,32 @@ namespace tbx
             if (!try_parse_plugin_meta(changed_path, meta))
             {
                 if (existing_index != invalid_plugin_index)
+                {
+                    if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                        return;
                     unload(_loaded[existing_index].meta.name);
+                }
                 return;
             }
 
             if (existing_index != invalid_plugin_index
                 && to_lower(_loaded[existing_index].meta.name) != to_lower(meta.name))
             {
+                if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                    return;
                 unload(_loaded[existing_index].meta.name);
             }
 
             if (!should_load_plugin(meta.name))
             {
+                if (mark_processed_or_skip(meta.name))
+                    return;
                 unload(meta.name);
                 return;
             }
 
+            if (mark_processed_or_skip(meta.name))
+                return;
             load(meta);
             return;
         }
@@ -325,6 +359,9 @@ namespace tbx
 
         const auto manifest_path = _loaded[existing_index].meta.manifest_path;
         const auto plugin_name = _loaded[existing_index].meta.name;
+        if (mark_processed_or_skip(plugin_name))
+            return;
+
         if (change.type == FileWatchChangeType::REMOVED)
         {
             unload(plugin_name);

@@ -48,6 +48,7 @@ namespace opengl_rendering
       private:
         tbx::AssetManager& _asset_manager;
         std::unordered_map<tbx::Uuid, std::shared_ptr<IOpenGlResource>> _resources = {};
+        std::unordered_map<tbx::Uuid, std::weak_ptr<tbx::Mesh>> _dynamic_mesh_sources = {};
         std::unordered_map<tbx::Uuid, std::shared_ptr<tbx::Material>> _material_assets = {};
         std::unordered_map<tbx::Uuid, std::shared_ptr<IOpenGlResource>> _pinned_resources = {};
         std::unordered_map<tbx::Uuid, std::chrono::steady_clock::time_point> _last_access = {};

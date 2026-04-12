@@ -1,12 +1,8 @@
 #pragma once
 #include "tbx/debugging/log_level.h"
 #include "tbx/messages/dispatcher.h"
-#include <format>
 #include <string>
 #include <string_view>
-#include <tuple>
-#include <type_traits>
-#include <utility>
 
 namespace tbx
 {
@@ -21,6 +17,8 @@ namespace tbx
             int line,
             std::string_view fmt,
             Args&&... args);
+
+        static void flush();
 
       private:
         static void write_internal(
