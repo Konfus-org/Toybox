@@ -14,7 +14,7 @@ namespace opengl_rendering
     const auto TransparentViewProjUniformName = "u_view_proj";
     const auto TransparentModelUniformName = "u_model";
 
-    static GLenum to_gl_depth_function(const tbx::MaterialDepthFunction function)
+    static GLenum transparent_to_gl_depth_function(const tbx::MaterialDepthFunction function)
     {
         switch (function)
         {
@@ -29,7 +29,7 @@ namespace opengl_rendering
         }
     }
 
-    static void apply_depth_config(const tbx::MaterialDepthConfig& depth_config)
+    static void apply_transparent_depth_config(const tbx::MaterialDepthConfig& depth_config)
     {
         if (depth_config.is_test_enabled)
             glEnable(GL_DEPTH_TEST);
@@ -37,17 +37,17 @@ namespace opengl_rendering
             glDisable(GL_DEPTH_TEST);
 
         glDepthMask(depth_config.is_write_enabled ? GL_TRUE : GL_FALSE);
-        glDepthFunc(to_gl_depth_function(depth_config.function));
+        glDepthFunc(transparent_to_gl_depth_function(depth_config.function));
     }
 
-    static bool are_texture_bindings_equal(
+    static bool are_transparent_texture_bindings_equal(
         const std::vector<GLuint>& current_texture_ids,
         const std::vector<GLuint>& previous_texture_ids)
     {
         return current_texture_ids == previous_texture_ids;
     }
 
-    static void bind_textures(
+    static void bind_transparent_textures(
         const OpenGlMaterialParams& material,
         std::vector<GLuint>& texture_ids,
         std::vector<GLuint>& previous_texture_ids,
@@ -62,7 +62,7 @@ namespace opengl_rendering
         const auto current_count = texture_ids.size();
         const auto layout_matches_previous =
             current_count == last_bound_count
-            && are_texture_bindings_equal(texture_ids, previous_texture_ids);
+            && are_transparent_texture_bindings_equal(texture_ids, previous_texture_ids);
         if (!layout_matches_previous && current_count > 0)
             glBindTextures(0, static_cast<GLsizei>(current_count), texture_ids.data());
 
@@ -184,7 +184,7 @@ namespace opengl_rendering
                     draw_call.shader_program.value);
             }
 
-            bind_textures(
+            bind_transparent_textures(
                 draw_call.material,
                 texture_ids,
                 previous_texture_ids,
@@ -200,7 +200,7 @@ namespace opengl_rendering
 
                 const auto fallback_material_params =
                     create_magenta_fallback_material_params(draw_call.material.material_handle);
-                bind_textures(
+                bind_transparent_textures(
                     fallback_material_params,
                     texture_ids,
                     previous_texture_ids,
@@ -240,7 +240,7 @@ namespace opengl_rendering
                 currently_bound_mesh = draw_call.mesh;
             }
 
-            apply_depth_config(draw_call.material.render_config.depth);
+            apply_transparent_depth_config(draw_call.material.render_config.depth);
             mesh->draw_bound();
             drew_mesh = true;
         }

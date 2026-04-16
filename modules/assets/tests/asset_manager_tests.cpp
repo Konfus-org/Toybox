@@ -133,6 +133,12 @@ namespace tbx::tests::assets
             return _removed_events;
         }
 
+        std::vector<CapturedAssetEvent> get_reloaded_events() const
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            return _reloaded_events;
+        }
+
         bool wait_for_created_event_count(size_t count, std::chrono::milliseconds timeout) const
         {
             std::unique_lock<std::mutex> lock(_mutex);
@@ -169,6 +175,18 @@ namespace tbx::tests::assets
                 });
         }
 
+        bool wait_for_reloaded_event_count(size_t count, std::chrono::milliseconds timeout) const
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            return _signal.wait_for(
+                lock,
+                timeout,
+                [this, count]()
+                {
+                    return _reloaded_events.size() >= count;
+                });
+        }
+
       protected:
         Result send(Message& msg) const override
         {
@@ -202,6 +220,15 @@ namespace tbx::tests::assets
                             .affected_asset = removed->affected_asset,
                         });
                 }
+                else if (const auto* reloaded = handle_message<AssetReloadedEvent>(msg))
+                {
+                    _reloaded_events.push_back(
+                        CapturedAssetEvent {
+                            .watched_path = {},
+                            .asset_path = {},
+                            .affected_asset = reloaded->affected_asset,
+                        });
+                }
             }
 
             _signal.notify_all();
@@ -209,10 +236,18 @@ namespace tbx::tests::assets
             return {};
         }
 
-        std::shared_future<Result> post(std::unique_ptr<Message>) const override
+        std::shared_future<Result> post(std::unique_ptr<Message> msg) const override
         {
             std::promise<Result> promise = {};
-            promise.set_value(Result());
+            if (msg)
+            {
+                auto result = send(*msg);
+                promise.set_value(result);
+            }
+            else
+            {
+                promise.set_value(Result());
+            }
             return promise.get_future().share();
         }
 
@@ -222,6 +257,7 @@ namespace tbx::tests::assets
         mutable std::vector<CapturedAssetEvent> _created_events = {};
         mutable std::vector<CapturedAssetEvent> _modified_events = {};
         mutable std::vector<CapturedAssetEvent> _removed_events = {};
+        mutable std::vector<CapturedAssetEvent> _reloaded_events = {};
     };
 
     struct InMemoryHandleSource final
@@ -334,18 +370,20 @@ namespace tbx::tests::assets
         const std::filesystem::path& working_directory,
         const InMemoryHandleSource& handle_source = {})
     {
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
         auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        return AssetManager(dispatcher, working_directory, {}, provider);
+        return AssetManager(dispatcher, working_directory, {}, provider, {}, file_ops);
     }
 
     static AssetManager make_disk_backed_manager(
         IMessageDispatcher* dispatcher,
         const std::filesystem::path& working_directory)
     {
-        return AssetManager(dispatcher, working_directory);
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        return AssetManager(dispatcher, working_directory, {}, {}, {}, file_ops);
     }
 
     TEST(asset_manager, resolves_handle_by_path)
@@ -790,6 +828,92 @@ namespace tbx::tests::assets
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "modified.asset");
         EXPECT_EQ(events[0].affected_asset.id, Uuid(0x91U));
+    }
+
+    TEST(asset_manager, reloads_loaded_assets_when_watched_file_changes)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        const auto base_time = std::filesystem::file_time_type::clock::now();
+        file_ops->write_file_entry("content/reload.asset", "reload", base_time);
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "reload.asset", Uuid(0x95U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        CapturingAssetEventDispatcher dispatcher = {};
+        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(Handle(Uuid(0x95U)));
+        ASSERT_NE(asset, nullptr);
+
+        // Act
+        file_ops->touch("content/reload.asset", base_time + std::chrono::seconds(1));
+
+        // Assert
+        ASSERT_TRUE(
+            dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(
+            dispatcher.wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
+
+        const auto modified_events = dispatcher.get_modified_events();
+        ASSERT_EQ(modified_events.size(), 1U);
+        EXPECT_EQ(modified_events[0].affected_asset.id, Uuid(0x95U));
+
+        const auto reloaded_events = dispatcher.get_reloaded_events();
+        ASSERT_EQ(reloaded_events.size(), 1U);
+        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x95U));
+
+        const auto& loader_state = get_test_asset_loader_state();
+        EXPECT_EQ(loader_state.sync_load_count, 1);
+        EXPECT_EQ(loader_state.async_load_count, 1);
+    }
+
+    TEST(asset_manager, reloads_tracked_unloaded_assets_when_watched_file_changes)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        const auto base_time = std::filesystem::file_time_type::clock::now();
+        file_ops->write_file_entry("content/reload_unloaded.asset", "reload", base_time);
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "reload_unloaded.asset", Uuid(0x96U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        CapturingAssetEventDispatcher dispatcher = {};
+        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(Handle(Uuid(0x96U)));
+        ASSERT_NE(asset, nullptr);
+        asset.reset();
+        manager.unload_unreferenced();
+
+        auto usage_before = manager.get_usage<TestAsset>(Handle(Uuid(0x96U)));
+        EXPECT_EQ(usage_before.stream_state, AssetStreamState::UNLOADED);
+
+        // Act
+        file_ops->touch("content/reload_unloaded.asset", base_time + std::chrono::seconds(1));
+
+        // Assert
+        ASSERT_TRUE(
+            dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(
+            dispatcher.wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
+
+        const auto reloaded_events = dispatcher.get_reloaded_events();
+        ASSERT_EQ(reloaded_events.size(), 1U);
+        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x96U));
+
+        const auto& loader_state = get_test_asset_loader_state();
+        EXPECT_EQ(loader_state.sync_load_count, 1);
+        EXPECT_EQ(loader_state.async_load_count, 1);
+
+        auto usage_after = manager.get_usage<TestAsset>(Handle(Uuid(0x96U)));
+        EXPECT_EQ(usage_after.stream_state, AssetStreamState::LOADED);
     }
 
     TEST(asset_manager, sends_removed_event_and_drops_registry_entry_for_deleted_assets)

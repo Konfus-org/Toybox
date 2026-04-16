@@ -18,29 +18,35 @@ namespace opengl_rendering
         OpenGlResourceManager(tbx::AssetManager& asset_manager);
 
         tbx::Uuid add_dynamic_mesh(const tbx::DynamicMesh& dynamic_mesh, bool pin = false);
-        tbx::Uuid add_static_mesh(const tbx::StaticMesh& static_mesh, bool pin = false);
         tbx::Uuid add_material(const tbx::MaterialInstance& material, bool pin = false);
-        std::shared_ptr<tbx::Material> get_material_asset(const tbx::Handle& material_handle);
         tbx::Uuid add_material(
             const std::shared_ptr<OpenGlShaderProgram>& shader_program,
             const tbx::Uuid& resource_uuid,
             bool pin = false);
+        tbx::Uuid add_static_mesh(const tbx::StaticMesh& static_mesh, bool pin = false);
+        tbx::Uuid add_texture(const tbx::Handle& texture_handle, bool pin = false);
         tbx::Uuid add_texture(
             const tbx::Texture& texture,
             const tbx::Uuid& resource_uuid,
             bool pin = false);
-        tbx::Uuid add_texture(const tbx::Handle& texture_handle, bool pin = false);
+        void clear();
+        void clear_unused();
+        std::shared_ptr<tbx::Material> get_material_asset(const tbx::Handle& material_handle);
+        void on_asset_reloaded(const tbx::Handle& asset_handle);
+        void pin(const tbx::Uuid& resource_uuid);
 
         template <typename TResource>
         bool try_get(const tbx::Uuid& resource_uuid, std::shared_ptr<TResource>& out_resource) const;
 
-        void pin(const tbx::Uuid& resource_uuid);
         void unpin(const tbx::Uuid& resource_uuid);
 
-        void clear();
-        void clear_unused();
-
       private:
+        void clear_shader_dependencies(const tbx::Uuid& program_key);
+        void invalidate_material_program(const tbx::Uuid& program_key);
+        void invalidate_resource(const tbx::Uuid& resource_uuid);
+        void store_shader_dependencies(
+            const tbx::Uuid& program_key,
+            const std::vector<tbx::Handle>& shader_handles);
         bool try_get_raw(
             const tbx::Uuid& resource_uuid,
             std::shared_ptr<IOpenGlResource>& out_resource) const;
@@ -52,6 +58,8 @@ namespace opengl_rendering
         std::unordered_map<tbx::Uuid, std::shared_ptr<tbx::Material>> _material_assets = {};
         std::unordered_map<tbx::Uuid, std::shared_ptr<IOpenGlResource>> _pinned_resources = {};
         std::unordered_map<tbx::Uuid, std::chrono::steady_clock::time_point> _last_access = {};
+        std::unordered_map<tbx::Uuid, std::vector<tbx::Uuid>> _programs_by_shader = {};
+        std::unordered_map<tbx::Uuid, std::vector<tbx::Uuid>> _shaders_by_program = {};
     };
 }
 

@@ -36,6 +36,13 @@ namespace tbx::tests::common
         EXPECT_EQ(upper, "MIXED");
     }
 
+    TEST(StringUtilsTests, ContainsCaseInsensitiveToken)
+    {
+        EXPECT_TRUE(contains_case_insensitive("Integrated Graphics", "integrated"));
+        EXPECT_TRUE(contains_case_insensitive("llvmpipe", "LLV"));
+        EXPECT_FALSE(contains_case_insensitive("Discrete GPU", "software"));
+    }
+
     TEST(StringUtilsTests, ReplacesSubstringsAndCharacters)
     {
         const std::string value = "prefix-body-suffix";

@@ -47,7 +47,7 @@ namespace opengl_rendering
         glVertexArrayBindingDivisor(vertex_array_id, 1, 1);
     }
 
-    static uint32 take_gl_handle(uint32& id) noexcept
+    static uint32 take_mesh_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -61,8 +61,8 @@ namespace opengl_rendering
     }
 
     OpenGlMesh::OpenGlMesh(OpenGlMesh&& other) noexcept
-        : _vertex_array_id(take_gl_handle(other._vertex_array_id))
-        , _instance_buffer_id(take_gl_handle(other._instance_buffer_id))
+        : _vertex_array_id(take_mesh_gl_handle(other._vertex_array_id))
+        , _instance_buffer_id(take_mesh_gl_handle(other._instance_buffer_id))
         , _instance_model_attribute_location(other._instance_model_attribute_location)
         , _instance_id_attribute_location(other._instance_id_attribute_location)
         , _vertex_buffer(std::move(other._vertex_buffer))
@@ -82,8 +82,8 @@ namespace opengl_rendering
         if (_instance_buffer_id != 0)
             glDeleteBuffers(1, &_instance_buffer_id);
 
-        _vertex_array_id = take_gl_handle(other._vertex_array_id);
-        _instance_buffer_id = take_gl_handle(other._instance_buffer_id);
+        _vertex_array_id = take_mesh_gl_handle(other._vertex_array_id);
+        _instance_buffer_id = take_mesh_gl_handle(other._instance_buffer_id);
         _instance_model_attribute_location = other._instance_model_attribute_location;
         _instance_id_attribute_location = other._instance_id_attribute_location;
         other._instance_model_attribute_location = -1;

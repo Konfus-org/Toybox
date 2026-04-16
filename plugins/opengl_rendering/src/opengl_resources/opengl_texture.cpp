@@ -7,7 +7,7 @@
 
 namespace opengl_rendering
 {
-    static uint32 take_gl_handle(uint32& id) noexcept
+    static uint32 take_texture_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -187,7 +187,7 @@ namespace opengl_rendering
     }
 
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
-        : _texture_id(take_gl_handle(other._texture_id))
+        : _texture_id(take_texture_gl_handle(other._texture_id))
         , _slot(other._slot)
         , _bindless_handle(other._bindless_handle)
     {
@@ -206,7 +206,7 @@ namespace opengl_rendering
         if (_bindless_handle != 0)
             release_bindless_handle(_bindless_handle);
 
-        _texture_id = take_gl_handle(other._texture_id);
+        _texture_id = take_texture_gl_handle(other._texture_id);
         _slot = other._slot;
         _bindless_handle = other._bindless_handle;
         other._slot = 0;

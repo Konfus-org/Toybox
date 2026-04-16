@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_registry.h"
+#include "tbx/debugging/macros.h"
 
 namespace tbx
 {
@@ -10,10 +11,20 @@ namespace tbx
     {
         auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
-        auto* entry = _registry->ensure_entry(handle);
-        if (!entry)
+        const AssetRegistryEntry* entry = nullptr;
+        const auto ensure_result = _registry->ensure_entry(handle, &entry);
+        if (!ensure_result.succeeded() || !entry)
         {
+            TBX_TRACE_WARNING(
+                "Failed to ensure asset entry for handle (name='{}', id={}): {}",
+                handle.name,
+                to_string(handle.id),
+                ensure_result.get_report());
             return {};
+        }
+        if (!ensure_result.get_report().empty())
+        {
+            TBX_TRACE_INFO("Asset registry: {}", ensure_result.get_report());
         }
 
         auto* store = get_store<TAsset>(true);
@@ -78,10 +89,20 @@ namespace tbx
         auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
         AssetPromise<TAsset> result = {};
-        auto* entry = _registry->ensure_entry(handle);
-        if (!entry)
+        const AssetRegistryEntry* entry = nullptr;
+        const auto ensure_result = _registry->ensure_entry(handle, &entry);
+        if (!ensure_result.succeeded() || !entry)
         {
+            TBX_TRACE_WARNING(
+                "Failed to ensure asset entry for handle (name='{}', id={}): {}",
+                handle.name,
+                to_string(handle.id),
+                ensure_result.get_report());
             return result;
+        }
+        if (!ensure_result.get_report().empty())
+        {
+            TBX_TRACE_INFO("Asset registry: {}", ensure_result.get_report());
         }
 
         auto* store = get_store<TAsset>(true);
@@ -151,46 +172,47 @@ namespace tbx
     template <typename TAsset>
     bool AssetManager::reload(const Handle& handle)
     {
-        auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
-        auto* entry = _registry->ensure_entry(handle);
-        if (!entry)
+        const AssetRegistryEntry* entry = nullptr;
+        const auto ensure_result = _registry->ensure_entry(handle, &entry);
+        if (!ensure_result.succeeded() || !entry)
         {
+            TBX_TRACE_WARNING(
+                "Failed to ensure asset entry for reload handle (name='{}', id={}): {}",
+                handle.name,
+                to_string(handle.id),
+                ensure_result.get_report());
             return false;
+        }
+        if (!ensure_result.get_report().empty())
+        {
+            TBX_TRACE_INFO("Asset registry: {}", ensure_result.get_report());
         }
 
         auto* store = get_store<TAsset>(true);
-        auto* record = get_record(*store, *entry, true);
-        if (!record)
+        if (!store)
         {
             return false;
         }
 
-        TBX_TRACE_INFO(
-            "Reloading asset: '{}' (id={}, type={})",
-            record->normalized_path,
-            to_string(record->asset_id),
-            typeid(TAsset).name());
-        record->stream_state = AssetStreamState::LOADING;
-        auto parameters =
-            record->has_load_parameters ? record->load_parameters : AssetLoadParameters<TAsset> {};
-        auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path, parameters);
-        record->asset = std::move(promise.asset);
-        record->pending_load = promise.promise;
-        store_asset_load_parameters(*record, parameters);
-        update_asset_stream_state(*record);
-        record->last_access = now;
-        const bool succeeded = record->asset != nullptr;
-        if (!succeeded)
+        const auto reload_result = store->reload(*entry, std::chrono::steady_clock::now());
+        if (reload_result.attempted)
         {
-            TBX_TRACE_WARNING(
-                "Failed to reload asset: '{}' (id={}, type={})",
-                record->normalized_path,
-                to_string(record->asset_id),
+            TBX_TRACE_INFO(
+                "Reloading asset: '{}' (id={}, type={})",
+                entry->normalized_path,
+                to_string(entry->asset_id),
                 typeid(TAsset).name());
+            if (!reload_result.succeeded)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to reload asset: '{}' (id={}, type={})",
+                    entry->normalized_path,
+                    to_string(entry->asset_id),
+                    typeid(TAsset).name());
+            }
         }
-
-        return succeeded;
+        return reload_result.attempted && reload_result.succeeded;
     }
 
     template <typename TAsset>

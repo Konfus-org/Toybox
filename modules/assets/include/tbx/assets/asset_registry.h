@@ -5,12 +5,12 @@
 #include "tbx/common/result.h"
 #include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
-#include "tbx/debugging/macros.h"
-#include <future>
 #include <chrono>
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <string>
+#include <typeinfo>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -34,36 +34,39 @@ namespace tbx
             std::shared_ptr<IFileOps> file_ops);
 
       public:
-        void add_asset_directory(const std::filesystem::path& path);
-        Uuid ensure_asset_id(const Handle& handle);
-        const AssetRegistryEntry* ensure_entry(const Handle& handle);
+        Result add_asset_directory(const std::filesystem::path& path);
+        Result ensure_asset_id(const Handle& handle, Uuid* out_asset_id);
+        Result ensure_entry(
+            const Handle& handle,
+            const AssetRegistryEntry** out_entry);
         const AssetRegistryEntry* find_entry(const Handle& handle) const;
         std::vector<std::filesystem::path> get_asset_directories() const;
-        bool register_discovered_asset(
+        Result register_discovered_asset(
             const std::filesystem::path& asset_path,
             AssetRegistryEntry* out_entry = nullptr);
-        bool unregister_asset(
+        Result unregister_asset(
             const std::filesystem::path& asset_path,
             AssetRegistryEntry* out_removed_entry = nullptr);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
-        void scan_asset_directory(const std::filesystem::path& root);
+        Result scan_asset_directory(const std::filesystem::path& root);
         static bool should_track_asset_path(const std::filesystem::path& asset_path);
 
       private:
         AssetRegistryEntry* find_entry_by_id(Uuid asset_id);
         const AssetRegistryEntry* find_entry_by_id(Uuid asset_id) const;
         AssetRegistryEntry* find_entry_by_path(const std::filesystem::path& asset_path);
-        const AssetRegistryEntry* find_entry_by_path(const std::filesystem::path& asset_path)
-            const;
+        const AssetRegistryEntry* find_entry_by_path(const std::filesystem::path& asset_path) const;
         static Uuid make_runtime_asset_id(const std::string& normalized_path);
         Uuid generate_unique_asset_id() const;
         AssetRegistryEntry& get_or_create_path_entry(const std::filesystem::path& asset_path);
         std::string normalize_path_string(const std::filesystem::path& asset_path) const;
         Uuid try_resolve_discovered_asset_id(const AssetRegistryEntry& entry) const;
-        Uuid resolve_or_repair_asset_id(const AssetRegistryEntry& entry);
-        bool try_assign_asset_id(AssetRegistryEntry& entry, Uuid asset_id);
-        bool write_meta_with_id(const std::filesystem::path& asset_path, Uuid asset_id) const;
+        Result resolve_or_repair_asset_id(
+            const AssetRegistryEntry& entry,
+            Uuid* out_asset_id) const;
+        Result try_assign_asset_id(AssetRegistryEntry& entry, Uuid asset_id);
+        Result write_meta_with_id(const std::filesystem::path& asset_path, Uuid asset_id) const;
 
       private:
         std::filesystem::path _working_directory = {};
@@ -75,11 +78,21 @@ namespace tbx
         std::unordered_map<Uuid, std::string> _path_by_id = {};
     };
 
+    struct AssetStoreReloadResult
+    {
+        bool attempted = false;
+        bool succeeded = true;
+    };
+
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
+        virtual const char* get_asset_type_name() const = 0;
         virtual void erase(Uuid asset_id) = 0;
-        virtual void unload_unreferenced() = 0;
+        virtual AssetStoreReloadResult reload(
+            const AssetRegistryEntry& entry,
+            std::chrono::steady_clock::time_point timestamp) = 0;
+        virtual uint unload_unreferenced() = 0;
         virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
     };
 
@@ -107,22 +120,65 @@ namespace tbx
             records.erase(asset_id);
         }
 
-        void unload_unreferenced() override
+        const char* get_asset_type_name() const override
         {
+            return typeid(TAsset).name();
+        }
+
+        AssetStoreReloadResult reload(
+            const AssetRegistryEntry& entry,
+            const std::chrono::steady_clock::time_point timestamp) override
+        {
+            auto iterator = records.find(entry.asset_id);
+            if (iterator == records.end())
+            {
+                return {};
+            }
+
+            auto& record = iterator->second;
+
+            auto parameters = record.has_load_parameters ? record.load_parameters
+                                                         : AssetLoadParameters<TAsset> {};
+            auto promise = AssetLoader<TAsset>::load_async(entry.resolved_path, parameters);
+            record.asset = std::move(promise.asset);
+            record.pending_load = promise.promise;
+            record.load_parameters = parameters;
+            record.has_load_parameters = true;
+            record.stream_state =
+                record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
+            record.last_access = timestamp;
+            if (record.stream_state == AssetStreamState::LOADING && record.pending_load.valid())
+            {
+                if (record.pending_load.wait_for(std::chrono::seconds(0))
+                    == std::future_status::ready)
+                {
+                    record.stream_state =
+                        record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+                    record.pending_load = {};
+                }
+            }
+
+            auto result = AssetStoreReloadResult {
+                .attempted = true,
+                .succeeded = record.asset != nullptr,
+            };
+            return result;
+        }
+
+        uint unload_unreferenced() override
+        {
+            uint unloaded_count = 0U;
             for (auto& entry : records)
             {
                 auto& record = entry.second;
                 if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
                 {
-                    TBX_TRACE_INFO(
-                        "Unloaded asset: '{}' (id={}, type={})",
-                        record.normalized_path,
-                        to_string(record.asset_id),
-                        typeid(TAsset).name());
                     record.asset.reset();
                     record.stream_state = AssetStreamState::UNLOADED;
+                    unloaded_count += 1U;
                 }
             }
+            return unloaded_count;
         }
 
         void set_pinned(Uuid asset_id, bool is_pinned) override
@@ -181,7 +237,8 @@ namespace tbx
         using namespace std::chrono_literals;
         if (record.pending_load.wait_for(0s) == std::future_status::ready)
         {
-            record.stream_state = record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+            record.stream_state =
+                record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
             record.pending_load = {};
         }
     }

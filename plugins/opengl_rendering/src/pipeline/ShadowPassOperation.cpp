@@ -23,7 +23,7 @@ namespace opengl_rendering
     static constexpr auto MinimumLocalShadowResolution = uint32 {128U};
     static constexpr auto MinimumPointShadowResolution = uint32 {64U};
 
-    static uint32 take_gl_handle(uint32& id) noexcept
+    static uint32 take_shadow_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0U);
     }
@@ -33,7 +33,7 @@ namespace opengl_rendering
         if (texture_id == 0U)
             return;
 
-        auto texture = take_gl_handle(texture_id);
+        auto texture = take_shadow_gl_handle(texture_id);
         glDeleteTextures(1, &texture);
     }
 
@@ -529,7 +529,7 @@ void main()
         delete_texture(_directional_shadow_texture);
         if (_framebuffer != 0U)
         {
-            auto framebuffer = take_gl_handle(_framebuffer);
+            auto framebuffer = take_shadow_gl_handle(_framebuffer);
             glDeleteFramebuffers(1, &framebuffer);
         }
     }

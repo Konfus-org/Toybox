@@ -38,8 +38,15 @@ namespace tbx
         using AssetFileEvent::AssetFileEvent;
     };
 
-    struct AssetReloadedEvent : Event
+    struct TBX_API AssetReloadedEvent : Event
     {
-        Handle affected_asset;
+        AssetReloadedEvent(Handle handle = {}, bool was_successful = false)
+            : affected_asset(std::move(handle))
+            , succeeded(was_successful)
+        {
+        }
+
+        Handle affected_asset = {};
+        bool succeeded = false;
     };
 }

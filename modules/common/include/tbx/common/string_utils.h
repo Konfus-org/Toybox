@@ -28,6 +28,13 @@ namespace tbx
     TBX_API std::string to_lower(std::string_view value);
 
     /// @brief
+    /// Purpose: Returns true when the provided token appears within the text, ignoring case.
+    /// @details
+    /// Ownership: Does not transfer ownership.
+    /// Thread Safety: Thread-safe; does not mutate shared state.
+    TBX_API bool contains_case_insensitive(std::string_view value, std::string_view token);
+
+    /// @brief
     /// Purpose: Returns an uppercase copy of the provided text.
     /// @details
     /// Ownership: Returns an owned std::string copy in uppercase form.

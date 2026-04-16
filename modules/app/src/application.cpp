@@ -269,7 +269,7 @@ namespace tbx
 #ifdef TBX_DEBUG
         constexpr double performance_log_interval_seconds = 10.0;
 #else
-        constexpr double performance_log_interval_seconds = 10.0;
+        constexpr double performance_log_interval_seconds = 60.0;
 #endif
         if (_performance_sample_elapsed_seconds >= performance_log_interval_seconds)
         {
