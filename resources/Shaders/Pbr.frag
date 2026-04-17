@@ -29,6 +29,7 @@ layout(std140, binding = 9) uniform MaterialSurfaceBlock
     float u_diffuse_strength;
     float u_normal_strength;
     float u_emissive_strength;
+    float u_color_texture_blend;
     vec3 u_material_surface_padding1;
 };
 
@@ -48,6 +49,7 @@ void main()
     float diffuse_strength = max(u_diffuse_strength, 0.0);
     float normal_strength = max(u_normal_strength, 0.0);
     float emissive_strength = max(u_emissive_strength, 0.0);
+    float color_texture_blend = clamp(u_color_texture_blend, 0.0, 1.0);
 
     vec4 diffuse_sample = texture(u_diffuse_map, v_tex_coord);
     vec3 normal_sample = texture(u_normal_map, v_tex_coord).xyz;
@@ -55,8 +57,10 @@ void main()
     float shininess_sample = texture(u_shininess_map, v_tex_coord).r;
     vec3 emissive_sample = texture(u_emissive_map, v_tex_coord).rgb;
 
-    vec4 texture_color =
-        (v_color * u_color) * (vec4(1.0) + ((diffuse_sample - vec4(1.0)) * diffuse_strength));
+    vec4 base_diffuse_color = vec4(1.0) + ((diffuse_sample - vec4(1.0)) * diffuse_strength);
+    vec4 tinted_diffuse_color = (v_color * u_color) * base_diffuse_color;
+    vec4 untinted_diffuse_color = v_color * base_diffuse_color;
+    vec4 texture_color = mix(untinted_diffuse_color, tinted_diffuse_color, color_texture_blend);
     if (texture_color.a < alpha_cutoff)
         discard;
     float surface_alpha = texture_color.a * (1.0 - transparency_amount);

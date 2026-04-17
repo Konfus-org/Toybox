@@ -2,6 +2,7 @@
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
 #include "tbx/app/application.h"
+#include "tbx/assets/asset_events.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
@@ -721,6 +722,7 @@ namespace jolt_physics
                     return;
 
                 apply_world_settings();
+                process_pending_mesh_collider_refreshes();
                 sync_entities_to_world(static_cast<float>(dt.seconds));
 
                 JPH::EPhysicsUpdateError update_error = _physics_system.Update(
@@ -740,6 +742,20 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::on_recieve_message(tbx::Message& msg)
     {
+        if (const auto* asset_reloaded = handle_message<tbx::AssetReloadedEvent>(msg))
+        {
+            if (!asset_reloaded->affected_asset.is_valid())
+                return;
+
+            const tbx::Handle reloaded_asset = asset_reloaded->affected_asset;
+            run_on_physics_lane_and_wait(
+                [this, reloaded_asset]()
+                {
+                    _pending_mesh_collider_refresh_asset_ids.insert(reloaded_asset.id);
+                });
+            return;
+        }
+
         if (auto* raycast_request = handle_message<tbx::RaycastRequest>(msg))
         {
             run_on_physics_lane_and_wait(
@@ -748,6 +764,59 @@ namespace jolt_physics
                     handle_raycast_request(*raycast_request);
                 });
             return;
+        }
+    }
+
+    void JoltPhysicsPlugin::process_pending_mesh_collider_refreshes()
+    {
+        if (_pending_mesh_collider_refresh_asset_ids.empty())
+            return;
+
+        auto completed_asset_ids = std::vector<tbx::Uuid> {};
+        completed_asset_ids.reserve(_pending_mesh_collider_refresh_asset_ids.size());
+        for (const tbx::Uuid& asset_id : _pending_mesh_collider_refresh_asset_ids)
+        {
+            const auto usage = get_host().get_asset_manager().get_usage<tbx::Model>(asset_id);
+            if (usage.stream_state == tbx::AssetStreamState::LOADING)
+                continue;
+
+            invalidate_mesh_collider_bodies_for_asset(asset_id);
+            completed_asset_ids.push_back(asset_id);
+        }
+
+        for (const tbx::Uuid& completed_asset_id : completed_asset_ids)
+            _pending_mesh_collider_refresh_asset_ids.erase(completed_asset_id);
+    }
+
+    void JoltPhysicsPlugin::invalidate_mesh_collider_bodies_for_asset(
+        const tbx::Handle& asset_handle)
+    {
+        if (!_is_ready || !asset_handle.is_valid())
+            return;
+
+        auto& registry = get_host().get_entity_registry();
+        auto entities = registry.get_with<tbx::Transform, tbx::MeshCollider, tbx::StaticMesh>();
+        auto& body_interface = _physics_system.GetBodyInterface();
+        for (auto& entity : entities)
+        {
+            const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
+            if (!static_mesh.handle.is_valid() || static_mesh.handle.id != asset_handle.id)
+                continue;
+
+            const tbx::Uuid entity_id = entity.get_id();
+            auto body_it = _bodies_by_entity.find(entity_id);
+            if (body_it == _bodies_by_entity.end())
+                continue;
+
+            const JPH::BodyID body_id = body_it->second.body_id;
+            if (body_interface.IsAdded(body_id))
+            {
+                body_interface.RemoveBody(body_id);
+                body_interface.DestroyBody(body_id);
+            }
+
+            _entity_by_body_key.erase(get_body_key(body_id));
+            _bodies_by_entity.erase(body_it);
         }
     }
 

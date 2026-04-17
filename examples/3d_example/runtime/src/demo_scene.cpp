@@ -97,7 +97,7 @@ namespace three_d_example
         _falling_box.add_component<tbx::MaterialInstance>(create_falling_box_material());
         _falling_box.add_component<tbx::StaticMesh>(tbx::Handle("Models/Green_Cube.fbx"));
         _falling_box.add_component<tbx::Transform>(tbx::Vec3(0.0F, 10.0F, -4.9F));
-        _falling_box.add_component<tbx::CubeCollider>(tbx::Vec3(1.0F, 1.0F, 1.0F));
+        _falling_box.add_component<tbx::MeshCollider>();
         _falling_box.add_component<tbx::Physics>();
     }
 
@@ -176,6 +176,7 @@ namespace three_d_example
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
         material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color::GREEN);
+        material.set_parameter(tbx::PbrMaterial::COLOR_TEXTURE_BLEND, 0.45F);
         material.set_parameter(tbx::PbrMaterial::ALPHA_CUTOFF, 0.0F);
         material.set_texture(tbx::PbrMaterial::DIFFUSE_MAP, tbx::Handle("Textures/Smily.png"));
         return material;
