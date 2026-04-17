@@ -346,6 +346,12 @@ namespace opengl_rendering
         return {};
     }
 
+    static std::shared_ptr<tbx::Mesh> get_sky_dome_mesh_data()
+    {
+        static auto sky_dome_mesh = std::make_shared<tbx::Mesh>(tbx::sky_dome);
+        return sky_dome_mesh;
+    }
+
     static tbx::Uuid resolve_shader_program_for_material(
         const tbx::MaterialInstance& material_instance,
         OpenGlResourceManager& resource_manager,
@@ -1292,6 +1298,99 @@ namespace opengl_rendering
                 std::move(material_params),
                 transform_matrix,
                 camera_distance_squared);
+        }
+
+        const auto sky_entities = _entity_registry.get_with<tbx::Sky>();
+        for (const auto& sky_entity : sky_entities)
+        {
+            auto sky_material_instance = sky_entity.get_component<tbx::Sky>().material;
+            const auto& sky_handle = sky_material_instance.get_handle();
+            if (sky_handle.name.empty() && !sky_handle.id.is_valid())
+                continue;
+
+            const auto material_asset =
+                _resource_manager.get_material_asset(sky_material_instance.material);
+
+            auto material_config = resolve_material_config(sky_material_instance, material_asset);
+            material_config.depth = tbx::MaterialDepthConfig {
+                .is_test_enabled = true,
+                .is_write_enabled = false,
+                .is_prepass_enabled = false,
+                .function = tbx::MaterialDepthFunction::LessEqual,
+            };
+            material_config.transparency.blend_mode = tbx::MaterialBlendMode::AlphaBlend;
+            material_config.is_two_sided = true;
+            material_config.is_cullable = false;
+            material_config.shadow_mode = tbx::ShadowMode::None;
+
+            auto material_parameters =
+                resolve_material_parameters(sky_material_instance, material_asset);
+            auto material_textures =
+                resolve_material_textures(sky_material_instance, material_asset);
+
+            if (!material_parameters.has("color"))
+                material_parameters.set("color", tbx::Color(1.0F, 1.0F, 1.0F, 1.0F));
+            if (!material_parameters.has("emissive"))
+                material_parameters.set("emissive", tbx::Color(0.0F, 0.0F, 0.0F, 1.0F));
+            if (!material_parameters.has("alpha_cutoff"))
+                material_parameters.set("alpha_cutoff", 0.0F);
+            if (!material_parameters.has("transparency_amount"))
+                material_parameters.set("transparency_amount", 0.0F);
+            if (!material_parameters.has("exposure"))
+                material_parameters.set("exposure", 1.0F);
+
+            if (!material_textures.has("diffuse_map"))
+            {
+                if (const auto* legacy_diffuse = material_textures.get("diffuse");
+                    legacy_diffuse != nullptr)
+                {
+                    material_textures.set("diffuse_map", legacy_diffuse->texture);
+                }
+            }
+
+            auto use_fallback_material_params = false;
+            const auto shader_program_key = resolve_shader_program_for_material(
+                sky_material_instance,
+                _resource_manager,
+                use_fallback_material_params);
+            if (!shader_program_key.is_valid())
+                continue;
+
+            const auto sky_mesh_key = _resource_manager.add_dynamic_mesh(
+                tbx::DynamicMesh(get_sky_dome_mesh_data()),
+                true);
+            if (!sky_mesh_key.is_valid())
+                continue;
+
+            auto sky_material_params = build_material_params(
+                sky_material_instance,
+                material_config,
+                material_parameters,
+                material_textures,
+                use_fallback_material_params,
+                _resource_manager);
+
+            auto sky_transform = sky_entity.has_component<tbx::Transform>()
+                                     ? tbx::get_world_space_transform(sky_entity)
+                                     : tbx::Transform();
+            sky_transform.position = frame_context.camera_position;
+            const auto base_sky_scale = tbx::max(frame_context.camera_far_plane * 0.45F, 10.0F);
+            const auto sky_scale_multiplier =
+                tbx::max(get_max_component(sky_transform.scale), 1.0F);
+            const auto sky_scale = base_sky_scale * sky_scale_multiplier;
+            sky_transform.scale = tbx::Vec3(sky_scale, sky_scale, sky_scale);
+
+            append_visible_draw_call(
+                frame_context,
+                draw_call_lookup,
+                shader_program_key,
+                true,
+                tbx::MaterialBlendMode::AlphaBlend,
+                sky_mesh_key,
+                std::move(sky_material_params),
+                tbx::build_transform_matrix(sky_transform),
+                std::numeric_limits<float>::max());
+            break;
         }
 
         std::sort(

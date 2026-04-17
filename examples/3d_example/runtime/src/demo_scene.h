@@ -42,6 +42,7 @@ namespace three_d_example
         CameraController _camera_controller;
         tbx::Entity _sun = {};
         tbx::Entity _area_light = {};
+        tbx::Entity _sky = {};
         tbx::Entity _trigger_zone = {};
         tbx::Entity _falling_sphere = {};
         tbx::Entity _falling_box = {};
