@@ -2,11 +2,15 @@
   "shaders": { "vertex": "00000006", "fragment": "00000007" },
   "textures": [
     {
-      "name": "diffuse",
+      "name": "diffuse_map",
       "value": "10343045"
     }
   ],
   "parameters": [
-    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] }
+    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "alpha_cutoff", "type": "float", "value": 0.0 },
+    { "name": "transparency_amount", "type": "float", "value": 0.0 },
+    { "name": "exposure", "type": "float", "value": 1.0 }
   ]
 }

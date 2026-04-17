@@ -1,6 +1,7 @@
 #pragma once
 #include "GeometryPassOperation.h"
 #include "LightingPassOperation.h"
+#include "PostProcessingPassOperation.h"
 #include "ShadowPassOperation.h"
 #include "TransparentPassOperation.h"
 #include "opengl_resources/opengl_buffers.h"
@@ -33,6 +34,7 @@ namespace opengl_rendering
         std::unique_ptr<GeometryPassOperation> _geometry_pass_operation = nullptr;
         std::unique_ptr<LightingPassOperation> _lighting_pass_operation = nullptr;
         std::unique_ptr<TransparentPassOperation> _transparent_pass_operation = nullptr;
+        std::unique_ptr<PostProcessingPassOperation> _post_processing_pass_operation = nullptr;
         bool _has_reported_pipeline_failure = false;
     };
 }

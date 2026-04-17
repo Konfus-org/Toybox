@@ -129,9 +129,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlVertexBuffer::upload(
-        const uint32 vertex_array_id,
-        const tbx::VertexBuffer& buffer)
+    void OpenGlVertexBuffer::upload(const uint32 vertex_array_id, const tbx::VertexBuffer& buffer)
     {
         _count = static_cast<uint32>(buffer.vertices.size());
         glNamedBufferData(
@@ -210,9 +208,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlIndexBuffer::upload(
-        const uint32 vertex_array_id,
-        const tbx::IndexBuffer& buffer)
+    void OpenGlIndexBuffer::upload(const uint32 vertex_array_id, const tbx::IndexBuffer& buffer)
     {
         _count = static_cast<uint32>(buffer.size());
         glNamedBufferData(
@@ -248,8 +244,8 @@ namespace opengl_rendering
         if (size.width == 0U || size.height == 0U)
             return;
 
-        if (_size.width == size.width && _size.height == size.height
-            && _geometry_framebuffer != 0U && _final_color_framebuffer != 0U)
+        if (_size.width == size.width && _size.height == size.height && _geometry_framebuffer != 0U
+            && _final_color_framebuffer != 0U)
             return;
 
         destroy();
@@ -267,11 +263,7 @@ namespace opengl_rendering
         _material = create_color_attachment(GL_RGBA16F, _size.width, _size.height);
         _depth = create_depth_attachment(_size.width, _size.height);
 
-        glNamedFramebufferTexture(
-            _geometry_framebuffer,
-            GL_COLOR_ATTACHMENT0,
-            _final_color,
-            0);
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT0, _final_color, 0);
         glNamedFramebufferTexture(
             _geometry_framebuffer,
             GL_COLOR_ATTACHMENT1,
@@ -279,11 +271,7 @@ namespace opengl_rendering
             0);
         glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT2, _albedo, 0);
         glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT3, _normal, 0);
-        glNamedFramebufferTexture(
-            _geometry_framebuffer,
-            GL_COLOR_ATTACHMENT4,
-            _depth_preview,
-            0);
+        glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT4, _depth_preview, 0);
         glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT5, _emissive, 0);
         glNamedFramebufferTexture(_geometry_framebuffer, GL_COLOR_ATTACHMENT6, _material, 0);
         glNamedFramebufferTexture(_geometry_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
@@ -292,11 +280,7 @@ namespace opengl_rendering
             static_cast<GLsizei>(GeometryPassDrawBuffers.size()),
             GeometryPassDrawBuffers.data());
 
-        glNamedFramebufferTexture(
-            _final_color_framebuffer,
-            GL_COLOR_ATTACHMENT0,
-            _final_color,
-            0);
+        glNamedFramebufferTexture(_final_color_framebuffer, GL_COLOR_ATTACHMENT0, _final_color, 0);
         glNamedFramebufferTexture(_final_color_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
         glNamedFramebufferDrawBuffer(_final_color_framebuffer, GL_COLOR_ATTACHMENT0);
 
@@ -375,6 +359,38 @@ namespace opengl_rendering
     GLuint OpenGlGBuffer::get_depth_texture() const
     {
         return _depth;
+    }
+
+    GLuint OpenGlGBuffer::get_final_color_texture() const
+    {
+        return _final_color;
+    }
+
+    void OpenGlGBuffer::apply_to_final_color(const GLuint source_texture) const
+    {
+        if (source_texture == 0U || _final_color == 0U)
+            return;
+        if (source_texture == _final_color)
+            return;
+        if (_size.width == 0U || _size.height == 0U)
+            return;
+
+        glCopyImageSubData(
+            source_texture,
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            0,
+            _final_color,
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            0,
+            static_cast<GLsizei>(_size.width),
+            static_cast<GLsizei>(_size.height),
+            1);
     }
 
     GLuint OpenGlGBuffer::create_color_attachment(

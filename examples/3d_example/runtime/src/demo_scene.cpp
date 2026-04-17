@@ -53,6 +53,21 @@ namespace three_d_example
             tbx::Quat(tbx::to_radians(tbx::Vec3(-180.0F, 0.0F, 0.0F))),
             tbx::Vec3(1.0F, 1.0F, 1.0F));
 
+        _sky = tbx::Entity("Sky", entity_registry);
+        _sky.add_component<tbx::Sky>(
+            tbx::MaterialInstance(tbx::Handle("Materials/AnimeSkybox.mat")));
+
+        _post_processing = tbx::Entity("PostProcessing", entity_registry);
+        auto lut_post_process_material =
+            tbx::MaterialInstance(tbx::Handle("Materials/LutPostProcess.mat"));
+        auto lut_effect = tbx::PostProcessingEffect {};
+        lut_effect.material = lut_post_process_material;
+        lut_effect.blend = 1.0F;
+        _post_processing.add_component<tbx::PostProcessing>(tbx::PostProcessing {
+            .effects = {lut_effect},
+            .is_enabled = true,
+        });
+
         _trigger_zone = tbx::Entity("TriggerZone", entity_registry);
         _trigger_zone.add_component<tbx::MaterialInstance>(
             create_trigger_zone_material(tbx::Color::RED));
@@ -116,6 +131,10 @@ namespace three_d_example
         _sun = {};
         _area_light.destroy();
         _area_light = {};
+        _sky.destroy();
+        _sky = {};
+        _post_processing.destroy();
+        _post_processing = {};
         _trigger_zone.destroy();
         _trigger_zone = {};
         _falling_box.destroy();
