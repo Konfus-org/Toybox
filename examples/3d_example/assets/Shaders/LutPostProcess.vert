@@ -5,11 +5,8 @@ layout(location = 3) in vec2 a_texcoord;
 
 out vec2 v_tex_coord;
 
-layout(std140, binding = 1) uniform MaterialParams
-{
-    vec4 u_color;
-    vec4 u_emissive;
-};
+uniform vec4 u_color;
+uniform vec4 u_emissive;
 
 void main()
 {

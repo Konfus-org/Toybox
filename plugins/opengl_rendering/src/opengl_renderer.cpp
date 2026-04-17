@@ -13,6 +13,7 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/frustum.h"
 #include "tbx/graphics/light.h"
+#include "tbx/graphics/post_processing.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/texture.h"
 #include "tbx/math/matrices.h"
@@ -913,6 +914,7 @@ namespace opengl_rendering
         frame_context.inverse_view_projection = tbx::inverse(frame_context.view_projection);
         build_light_data(frame_context);
         build_shadow_data(frame_context);
+        build_post_processing_data(frame_context);
 
         return frame_context;
     }
@@ -1018,6 +1020,41 @@ namespace opengl_rendering
             _resource_manager.on_asset_reloaded(handle);
 
         _pending_asset_reloads.clear();
+    }
+
+    void OpenGlRenderer::build_post_processing_data(OpenGlFrameContext& frame_context) const
+    {
+        frame_context.has_post_processing = false;
+        frame_context.post_processing = {};
+
+        const auto post_processing_entities = _entity_registry.get_with<tbx::PostProcessing>();
+        for (const auto& entity : post_processing_entities)
+        {
+            const auto& post_processing = entity.get_component<tbx::PostProcessing>();
+            if (!post_processing.is_enabled)
+                continue;
+
+            auto has_enabled_effect = false;
+            for (const auto& effect : post_processing.effects)
+            {
+                if (!effect.is_enabled)
+                    continue;
+
+                const auto& effect_handle = effect.material.get_handle();
+                if (effect_handle.name.empty() && !effect_handle.id.is_valid())
+                    continue;
+
+                has_enabled_effect = true;
+                break;
+            }
+
+            if (!has_enabled_effect)
+                continue;
+
+            frame_context.post_processing = post_processing;
+            frame_context.has_post_processing = true;
+            break;
+        }
     }
 
     void OpenGlRenderer::build_shadow_data(OpenGlFrameContext& frame_context) const

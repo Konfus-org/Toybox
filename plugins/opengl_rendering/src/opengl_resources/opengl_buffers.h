@@ -146,11 +146,22 @@ namespace opengl_rendering
         /// Thread Safety: Not thread-safe; render-thread only.
         GLuint get_depth_texture() const;
 
+        /// @brief
+        /// Purpose: Returns the resolved scene-color texture used by late render passes.
+        /// @details
+        /// Ownership: Returns a non-owning OpenGL texture handle.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        GLuint get_final_color_texture() const;
+
+        /// @brief
+        /// Purpose: Applies an external color texture to the final-color target.
+        /// @details
+        /// Ownership: Does not transfer ownership of either OpenGL texture.
+        /// Thread Safety: Not thread-safe; render-thread only.
+        void apply_to_final_color(GLuint source_texture) const;
+
       private:
-        static GLuint create_color_attachment(
-            GLenum internal_format,
-            uint32 width,
-            uint32 height);
+        static GLuint create_color_attachment(GLenum internal_format, uint32 width, uint32 height);
         static GLuint create_depth_attachment(uint32 width, uint32 height);
         static void delete_texture(GLuint& texture_id);
         void destroy();

@@ -6,6 +6,7 @@
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/material.h"
+#include "tbx/graphics/post_processing.h"
 #include "tbx/input/input_manager.h"
 #include "tbx/physics/collider.h"
 #include "tbx/time/delta_time.h"
@@ -43,6 +44,7 @@ namespace three_d_example
         tbx::Entity _sun = {};
         tbx::Entity _area_light = {};
         tbx::Entity _sky = {};
+        tbx::Entity _post_processing = {};
         tbx::Entity _trigger_zone = {};
         tbx::Entity _falling_sphere = {};
         tbx::Entity _falling_box = {};

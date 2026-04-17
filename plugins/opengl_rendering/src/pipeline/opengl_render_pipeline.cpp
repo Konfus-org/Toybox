@@ -26,6 +26,8 @@ namespace opengl_rendering
                   *_shadow_pass_operation))
         , _transparent_pass_operation(
               std::make_unique<TransparentPassOperation>(_resource_manager, gbuffer))
+        , _post_processing_pass_operation(
+              std::make_unique<PostProcessingPassOperation>(_resource_manager, gbuffer))
     {
     }
 
@@ -42,6 +44,7 @@ namespace opengl_rendering
         _geometry_pass_operation->execute(payload);
         _lighting_pass_operation->execute(payload);
         _transparent_pass_operation->execute(payload);
+        _post_processing_pass_operation->execute(payload);
         if (!has_render_pipeline_failure())
         {
             _has_reported_pipeline_failure = false;
