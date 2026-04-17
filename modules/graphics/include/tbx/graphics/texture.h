@@ -44,14 +44,12 @@ namespace tbx
         AUTO
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores texture sampling and surface settings shared by texture data and texture
     /// instances.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Value type settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
     struct TBX_API TextureSettings
     {
         Size resolution = {1, 1};
@@ -60,6 +58,14 @@ namespace tbx
         TextureFormat format = TextureFormat::RGB;
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
         TextureCompression compression = TextureCompression::DISABLED;
+
+        bool operator==(const TextureSettings& other) const
+        {
+            return resolution.width == other.resolution.width
+                   && resolution.height == other.resolution.height && wrap == other.wrap
+                   && filter == other.filter && format == other.format
+                   && mipmaps == other.mipmaps && compression == other.compression;
+        }
     };
 
     struct TBX_API Texture : TextureSettings
@@ -98,13 +104,11 @@ namespace tbx
         std::vector<Pixel> pixels = {255, 255, 255};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Stores a texture asset handle with optional runtime texture settings values.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Stores a non-owning handle reference and optional value settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    /// </remarks>
     struct TBX_API TextureInstance
     {
         Handle handle = {};

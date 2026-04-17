@@ -1,6 +1,6 @@
 #include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
 #include "tbx/app/app_settings.h"
-#include "tbx/assets/messages.h"
+#include "tbx/assets/asset_requests.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/graphics/shader.h"
 #include <algorithm>
@@ -128,7 +128,7 @@ namespace glsl_shader_loader
         }
 
         const std::filesystem::path asset_candidate =
-            asset_manager.resolve_asset_path(include_path).lexically_normal();
+            asset_manager.resolve(include_path).lexically_normal();
         if (std::string asset_data;
             file_operator.read_file(asset_candidate, tbx::FileDataFormat::UTF8_TEXT, asset_data))
             return make_shader_load_success(std::move(asset_data), asset_candidate);

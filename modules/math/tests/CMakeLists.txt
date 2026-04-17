@@ -1,4 +1,4 @@
-include(TbxTestOutput)
+include(test_output)
 add_executable(TbxMathTests)
 tbx_set_test_output(TbxMathTests)
 

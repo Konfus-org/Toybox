@@ -1,20 +1,23 @@
 #include "tbx/plugin_api/plugin_loader.h"
-#include "tbx/common/int.h"
 #include "tbx/common/string_utils.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include <algorithm>
+#include <chrono>
 #include <deque>
 #include <filesystem>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
 
 namespace tbx
 {
@@ -34,7 +37,7 @@ namespace tbx
         return false;
     }
 
-    static bool is_plugin_manifest_file(const std::filesystem::path& path)
+    bool is_plugin_manifest_path(const std::filesystem::path& path)
     {
         const std::string lowered_name = to_lower(path.filename().string());
 #if defined(TBX_PLATFORM_WINDOWS)
@@ -60,9 +63,9 @@ namespace tbx
         return library_path.parent_path() / debug_name;
     }
 
-    static std::filesystem::path resolve_library_path(
+    std::filesystem::path resolve_plugin_library_path(
         const PluginMeta& meta,
-        FileOperator& file_ops)
+        IFileOps& file_ops)
     {
         std::filesystem::path library_path = meta.library_path;
 
@@ -101,7 +104,7 @@ namespace tbx
 
     static std::filesystem::path make_plugin_shadow_copy_path(
         const std::filesystem::path& library_path,
-        FileOperator& file_ops)
+        IFileOps& file_ops)
     {
         static uint64 next_shadow_copy_index = 0U;
 
@@ -111,9 +114,8 @@ namespace tbx
 
         for (auto attempt = 0U; attempt < 128U; ++attempt)
         {
-            const auto copy_name =
-                copy_stem + ".load_copy_" + std::to_string(++next_shadow_copy_index)
-                + copy_extension;
+            const auto copy_name = copy_stem + ".load_copy_"
+                                   + std::to_string(++next_shadow_copy_index) + copy_extension;
             const auto copy_path = copy_directory / copy_name;
             if (!file_ops.exists(copy_path))
                 return copy_path;
@@ -124,7 +126,7 @@ namespace tbx
 
     static std::filesystem::path try_create_plugin_shadow_copy(
         const std::filesystem::path& library_path,
-        FileOperator& file_ops)
+        IFileOps& file_ops)
     {
         if (file_ops.get_type(library_path) != FileType::FILE)
             return {};
@@ -136,13 +138,21 @@ namespace tbx
         const auto resolved_library_path = file_ops.resolve(library_path);
         const auto resolved_shadow_copy_path = file_ops.resolve(shadow_copy_path);
         auto copy_error = std::error_code {};
-        std::filesystem::copy_file(
-            resolved_library_path,
-            resolved_shadow_copy_path,
-            std::filesystem::copy_options::overwrite_existing,
-            copy_error);
-        if (!copy_error)
-            return shadow_copy_path;
+        constexpr uint max_copy_attempts = 20U;
+        constexpr auto copy_retry_delay = std::chrono::milliseconds(50);
+        for (uint attempt = 0U; attempt < max_copy_attempts; ++attempt)
+        {
+            copy_error.clear();
+            std::filesystem::copy_file(
+                resolved_library_path,
+                resolved_shadow_copy_path,
+                std::filesystem::copy_options::overwrite_existing,
+                copy_error);
+            if (!copy_error)
+                return shadow_copy_path;
+
+            std::this_thread::sleep_for(copy_retry_delay);
+        }
 
         TBX_TRACE_WARNING(
             "Failed to create plugin shadow copy '{}' from '{}': {}. Falling back to the "
@@ -155,8 +165,7 @@ namespace tbx
 
     static LoadedPlugin load_plugin_internal(
         const PluginMeta& meta,
-        FileOperator& file_ops,
-        IPluginHost& host)
+        IFileOps& file_ops)
     {
         if (meta.abi_version != PluginAbiVersion)
         {
@@ -168,7 +177,7 @@ namespace tbx
             return {};
         }
 
-        const std::filesystem::path library_path = resolve_library_path(meta, file_ops);
+        const std::filesystem::path library_path = resolve_plugin_library_path(meta, file_ops);
         auto load_path = library_path;
         auto cleanup_path = std::filesystem::path {};
 
@@ -180,6 +189,34 @@ namespace tbx
         }
 
         auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        if (!lib->is_valid() && load_path != library_path)
+        {
+            auto shadow_copy_error_message = std::string {};
+            const bool has_shadow_copy_error_message =
+                lib->try_get_load_error_message(shadow_copy_error_message);
+
+            if (has_shadow_copy_error_message)
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin shadow copy '{}': {}. Retrying with original module "
+                    "'{}'.",
+                    load_path.string(),
+                    shadow_copy_error_message,
+                    library_path.string());
+            }
+            else
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to load plugin shadow copy '{}'. Retrying with original module '{}'.",
+                    load_path.string(),
+                    library_path.string());
+            }
+
+            load_path = library_path;
+            cleanup_path.clear();
+            lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        }
+
         if (!lib->is_valid())
         {
             auto load_error_message = std::string {};
@@ -192,9 +229,7 @@ namespace tbx
             }
             else
             {
-                TBX_TRACE_WARNING(
-                    "Failed to load plugin module '{}'.",
-                    load_path.string());
+                TBX_TRACE_WARNING("Failed to load plugin module '{}'.", load_path.string());
             }
             return {};
         }
@@ -229,7 +264,7 @@ namespace tbx
         }
 
         auto instance = std::unique_ptr<Plugin, PluginDeleter>(plugin_instance, destroy);
-        return LoadedPlugin(meta, std::move(lib), std::move(instance), host);
+        return LoadedPlugin(meta, std::move(lib), std::move(instance));
     }
 
     static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
@@ -334,10 +369,8 @@ namespace tbx
     std::vector<LoadedPlugin> load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
-        const std::filesystem::path& working_directory,
-        IPluginHost& host)
+        IFileOps& file_ops)
     {
-        FileOperator file_ops = FileOperator(working_directory);
         std::vector<LoadedPlugin> loaded;
 
         std::vector<PluginMeta> discovered;
@@ -356,7 +389,7 @@ namespace tbx
 
                 // Only treat manifests as plugin metadata when their filename also contains the
                 // platform's dynamic library extension (e.g. `Foo.dll.meta`, `libFoo.so.meta`).
-                if (!is_plugin_manifest_file(entry))
+                if (!is_plugin_manifest_path(entry))
                     continue;
 
                 std::string manifest_data;
@@ -447,7 +480,7 @@ namespace tbx
             return loaded;
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops, host);
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
             if (plug.is_valid())
                 loaded.push_back(std::move(plug));
             else
@@ -458,21 +491,36 @@ namespace tbx
     }
 
     std::vector<LoadedPlugin> load_plugins(
-        const std::vector<PluginMeta>& metas,
-        const std::filesystem::path& working_directory,
-        IPluginHost& host)
+        const std::filesystem::path& directory,
+        const std::vector<std::string>& requested_ids,
+        const std::filesystem::path& working_directory)
     {
-        FileOperator file_ops = FileOperator(working_directory);
+        auto file_ops = FileOperator(working_directory);
+        return load_plugins(directory, requested_ids, file_ops);
+    }
+
+    std::vector<LoadedPlugin> load_plugins(
+        const std::vector<PluginMeta>& metas,
+        IFileOps& file_ops)
+    {
         std::vector<LoadedPlugin> loaded;
 
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops, host);
+            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
             if (plug.is_valid())
                 loaded.push_back(std::move(plug));
         }
 
         return loaded;
+    }
+
+    std::vector<LoadedPlugin> load_plugins(
+        const std::vector<PluginMeta>& metas,
+        const std::filesystem::path& working_directory)
+    {
+        auto file_ops = FileOperator(working_directory);
+        return load_plugins(metas, file_ops);
     }
 
     static bool is_windowing_plugin(const PluginMeta& meta)
@@ -526,17 +574,17 @@ namespace tbx
         }
     }
 
-    static std::vector<size_t> build_update_order(
+    static std::vector<size> build_update_order(
         const std::vector<LoadedPlugin>& loaded_plugins,
         bool is_fixed_update)
     {
-        auto ordered_indices = std::vector<size_t>(loaded_plugins.size(), 0U);
-        std::iota(ordered_indices.begin(), ordered_indices.end(), 0U);
+        auto ordered_indices = std::vector<size>(loaded_plugins.size(), size {0});
+        std::iota(ordered_indices.begin(), ordered_indices.end(), size {0});
 
         std::stable_sort(
             ordered_indices.begin(),
             ordered_indices.end(),
-            [&loaded_plugins, is_fixed_update](size_t left_index, size_t right_index)
+            [&loaded_plugins, is_fixed_update](size left_index, size right_index)
             {
                 const auto& left = loaded_plugins[left_index].meta;
                 const auto& right = loaded_plugins[right_index].meta;
@@ -558,7 +606,7 @@ namespace tbx
     void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
     {
         auto ordered_indices = build_update_order(loaded_plugins, false);
-        for (size_t index : ordered_indices)
+        for (size index : ordered_indices)
         {
             auto& plugin = loaded_plugins[index];
             if (!plugin.instance)
@@ -571,7 +619,7 @@ namespace tbx
     void update_plugins_fixed(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
     {
         auto ordered_indices = build_update_order(loaded_plugins, true);
-        for (size_t index : ordered_indices)
+        for (size index : ordered_indices)
         {
             auto& plugin = loaded_plugins[index];
             if (!plugin.instance)
@@ -581,20 +629,22 @@ namespace tbx
         }
     }
 
-    void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins)
+    void unload_plugins(
+        std::vector<LoadedPlugin>& loaded_plugins,
+        IMessageCoordinator* coordinator)
     {
         while (!loaded_plugins.empty())
         {
-            const auto plugin_count = loaded_plugins.size();
-            auto name_to_index = std::unordered_map<std::string, size_t> {};
+            const size plugin_count = static_cast<size>(loaded_plugins.size());
+            auto name_to_index = std::unordered_map<std::string, size> {};
             name_to_index.reserve(plugin_count);
-            for (size_t index = 0; index < plugin_count; ++index)
+            for (size index = 0; index < plugin_count; ++index)
             {
                 name_to_index.emplace(to_lower(loaded_plugins[index].meta.name), index);
             }
 
-            auto dependents_count = std::vector<size_t>(plugin_count, 0U);
-            for (size_t index = 0; index < plugin_count; ++index)
+            auto dependents_count = std::vector<size>(plugin_count, size {0});
+            for (size index = 0; index < plugin_count; ++index)
             {
                 for (const std::string& dependency : loaded_plugins[index].meta.dependencies)
                 {
@@ -607,9 +657,9 @@ namespace tbx
                 }
             }
 
-            auto candidates = std::vector<size_t> {};
+            auto candidates = std::vector<size> {};
             candidates.reserve(plugin_count);
-            for (size_t index = 0; index < plugin_count; ++index)
+            for (size index = 0; index < plugin_count; ++index)
             {
                 if (dependents_count[index] == 0U)
                     candidates.push_back(index);
@@ -619,6 +669,9 @@ namespace tbx
             {
                 TBX_TRACE_WARNING(
                     "Plugin unload dependency cycle detected. Falling back to stack order.");
+                loaded_plugins.back().detach();
+                if (coordinator)
+                    coordinator->flush();
                 loaded_plugins.pop_back();
                 continue;
             }
@@ -626,19 +679,22 @@ namespace tbx
             std::sort(
                 candidates.begin(),
                 candidates.end(),
-                [&loaded_plugins](size_t left_index, size_t right_index)
+                [&loaded_plugins](size left_index, size right_index)
                 {
                     const PluginMeta& left = loaded_plugins[left_index].meta;
                     const PluginMeta& right = loaded_plugins[right_index].meta;
                     return should_unload_before(left, right);
                 });
 
-            const size_t selected_index = candidates.front();
-            const size_t last_index = plugin_count - 1U;
+            const size selected_index = candidates.front();
+            const size last_index = plugin_count - 1U;
             if (selected_index != last_index)
             {
                 std::swap(loaded_plugins[selected_index], loaded_plugins[last_index]);
             }
+            loaded_plugins.back().detach();
+            if (coordinator)
+                coordinator->flush();
             loaded_plugins.pop_back();
         }
     }

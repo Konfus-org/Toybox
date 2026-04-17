@@ -80,7 +80,7 @@ namespace tbx
                 lane->stop();
     }
 
-    std::size_t ThreadManager::get_lane_count() const
+    size ThreadManager::get_lane_count() const
     {
         auto lock = std::scoped_lock(_lanes_mutex);
         return _lanes.size();

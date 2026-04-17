@@ -15,8 +15,6 @@ tbx_register_plugin(
     NAME "TwoDExampleRuntime"
     VERSION "1.0.0"
     CATEGORY "gameplay"
-    RESOURCES
-        "${PROJECT_SOURCE_DIR}/resources"
 )
 
 add_library(Tbx::Examples::TwoDExampleRuntime ALIAS TwoDExampleRuntime)

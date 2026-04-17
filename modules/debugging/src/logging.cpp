@@ -5,6 +5,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
 #ifdef TBX_PLATFORM_WINDOWS
     #include <spdlog/sinks/msvc_sink.h>
 #endif
@@ -12,8 +13,8 @@
 
 namespace tbx
 {
-    static std::mutex g_logger_mutex = {};
-    static std::shared_ptr<spdlog::logger> g_logger = {};
+    static std::mutex logger_mutex = {};
+    static std::shared_ptr<spdlog::logger> logger = {};
 
     static std::shared_ptr<spdlog::logger> create_default_logger()
     {
@@ -43,12 +44,17 @@ namespace tbx
 
     static std::shared_ptr<spdlog::logger> get_or_create_default_logger()
     {
-        std::lock_guard<std::mutex> lock(g_logger_mutex);
-        if (g_logger)
-            return g_logger;
+        std::lock_guard<std::mutex> lock(logger_mutex);
+        if (logger)
+            return logger;
 
-        g_logger = create_default_logger();
-        return g_logger;
+        logger = create_default_logger();
+        return logger;
+    }
+
+    void Log::flush()
+    {
+        logger->flush();
     }
 
     std::string Log::format(std::string_view message)

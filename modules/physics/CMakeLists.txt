@@ -19,6 +19,9 @@ target_link_libraries(${module_name}
         Tbx::Common
         Tbx::Math
         Tbx::Messaging
+    PRIVATE
+        glm
+        Tbx::Async
 )
 
 tbx_setup_module(${module_name})

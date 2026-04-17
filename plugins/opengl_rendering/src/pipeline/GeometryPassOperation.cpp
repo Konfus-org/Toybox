@@ -15,6 +15,32 @@ namespace opengl_rendering
     const auto VIEW_PROJ_UNIFORM_NAME = "u_view_proj";
     const auto MODEL_UNIFORM_NAME = "u_model";
 
+    static GLenum to_gl_depth_function(const tbx::MaterialDepthFunction function)
+    {
+        switch (function)
+        {
+            case tbx::MaterialDepthFunction::Less:
+                return GL_LESS;
+            case tbx::MaterialDepthFunction::LessEqual:
+                return GL_LEQUAL;
+            case tbx::MaterialDepthFunction::Always:
+                return GL_ALWAYS;
+            default:
+                return GL_LESS;
+        }
+    }
+
+    static void apply_depth_config(const tbx::MaterialDepthConfig& depth_config)
+    {
+        if (depth_config.is_test_enabled)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+
+        glDepthMask(depth_config.is_write_enabled ? GL_TRUE : GL_FALSE);
+        glDepthFunc(to_gl_depth_function(depth_config.function));
+    }
+
     static bool are_texture_bindings_equal(
         const std::vector<GLuint>& current_texture_ids,
         const std::vector<GLuint>& previous_texture_ids)
@@ -72,6 +98,7 @@ namespace opengl_rendering
         bool drew_mesh = false;
 
         glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
         glEnable(GL_CULL_FACE);
@@ -185,7 +212,8 @@ namespace opengl_rendering
                 // Draw mesh
                 const auto& mesh_key = meshes_ids[draw_index];
                 auto mesh = std::shared_ptr<OpenGlMesh> {};
-                if (const auto cached_mesh = mesh_cache.find(mesh_key); cached_mesh != mesh_cache.end())
+                if (const auto cached_mesh = mesh_cache.find(mesh_key);
+                    cached_mesh != mesh_cache.end())
                 {
                     mesh = cached_mesh->second;
                 }
@@ -208,6 +236,19 @@ namespace opengl_rendering
                     currently_bound_mesh = mesh_key;
                 }
 
+                const auto& material_params = material_ids[draw_index];
+                const auto& render_config = material_params.render_config;
+                if (render_config.depth.is_prepass_enabled)
+                {
+                    auto prepass_depth_config = render_config.depth;
+                    prepass_depth_config.is_write_enabled = true;
+                    apply_depth_config(prepass_depth_config);
+                    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                    mesh->draw_bound();
+                    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                }
+
+                apply_depth_config(render_config.depth);
                 mesh->draw_bound();
                 drew_mesh = true;
             }

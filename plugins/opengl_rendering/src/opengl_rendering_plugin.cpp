@@ -1,6 +1,7 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
 #include "opengl_renderer.h"
 #include "tbx/app/application.h"
+#include "tbx/assets/asset_events.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/graphics_settings.h"
 #include "tbx/messages/observable.h"
@@ -58,6 +59,29 @@ namespace opengl_rendering
 
     void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {
+        if (const auto* asset_reloaded = tbx::handle_message<tbx::AssetReloadedEvent>(msg))
+        {
+            auto& thread_manager = get_host().get_thread_manager();
+            if (!thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+                return;
+
+            for (auto& renderer_entry : _renderers | std::views::values)
+            {
+                auto* renderer = renderer_entry.get();
+                if (!renderer)
+                    continue;
+
+                auto reloaded_asset = asset_reloaded->affected_asset;
+                thread_manager.post(
+                    OPENGL_RENDER_LANE_NAME,
+                    [renderer, reloaded_asset]
+                    {
+                        renderer->on_asset_reloaded(reloaded_asset);
+                    });
+            }
+            return;
+        }
+
         if (auto* ready_event = tbx::handle_message<tbx::WindowContextReadyEvent>(msg))
         {
             auto context = OpenGlContext(get_host().get_message_coordinator(), ready_event->window);

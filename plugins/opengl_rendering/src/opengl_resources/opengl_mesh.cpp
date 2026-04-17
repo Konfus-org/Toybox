@@ -7,8 +7,8 @@
 namespace opengl_rendering
 {
     static void setup_instance_attributes(
-        const tbx::uint32 vertex_array_id,
-        const tbx::uint32 instance_buffer_id,
+        const uint32 vertex_array_id,
+        const uint32 instance_buffer_id,
         const int instance_model_attribute_location,
         const int instance_id_attribute_location)
     {
@@ -19,10 +19,10 @@ namespace opengl_rendering
             0,
             static_cast<GLsizei>(sizeof(OpenGlMeshInstanceData)));
 
-        for (tbx::uint32 row = 0; row < 4; ++row)
+        for (uint32 row = 0; row < 4; ++row)
         {
             const auto location =
-                static_cast<tbx::uint32>(instance_model_attribute_location + static_cast<int>(row));
+                static_cast<uint32>(instance_model_attribute_location + static_cast<int>(row));
             glEnableVertexArrayAttrib(vertex_array_id, location);
             glVertexArrayAttribFormat(
                 vertex_array_id,
@@ -35,7 +35,7 @@ namespace opengl_rendering
             glVertexArrayBindingDivisor(vertex_array_id, 1, 1);
         }
 
-        const auto id_location = static_cast<tbx::uint32>(instance_id_attribute_location);
+        const auto id_location = static_cast<uint32>(instance_id_attribute_location);
         glEnableVertexArrayAttrib(vertex_array_id, id_location);
         glVertexArrayAttribIFormat(
             vertex_array_id,
@@ -47,7 +47,7 @@ namespace opengl_rendering
         glVertexArrayBindingDivisor(vertex_array_id, 1, 1);
     }
 
-    static tbx::uint32 take_gl_handle(tbx::uint32& id) noexcept
+    static uint32 take_mesh_gl_handle(uint32& id) noexcept
     {
         return std::exchange(id, 0);
     }
@@ -61,8 +61,8 @@ namespace opengl_rendering
     }
 
     OpenGlMesh::OpenGlMesh(OpenGlMesh&& other) noexcept
-        : _vertex_array_id(take_gl_handle(other._vertex_array_id))
-        , _instance_buffer_id(take_gl_handle(other._instance_buffer_id))
+        : _vertex_array_id(take_mesh_gl_handle(other._vertex_array_id))
+        , _instance_buffer_id(take_mesh_gl_handle(other._instance_buffer_id))
         , _instance_model_attribute_location(other._instance_model_attribute_location)
         , _instance_id_attribute_location(other._instance_id_attribute_location)
         , _vertex_buffer(std::move(other._vertex_buffer))
@@ -82,8 +82,8 @@ namespace opengl_rendering
         if (_instance_buffer_id != 0)
             glDeleteBuffers(1, &_instance_buffer_id);
 
-        _vertex_array_id = take_gl_handle(other._vertex_array_id);
-        _instance_buffer_id = take_gl_handle(other._instance_buffer_id);
+        _vertex_array_id = take_mesh_gl_handle(other._vertex_array_id);
+        _instance_buffer_id = take_mesh_gl_handle(other._instance_buffer_id);
         _instance_model_attribute_location = other._instance_model_attribute_location;
         _instance_id_attribute_location = other._instance_id_attribute_location;
         other._instance_model_attribute_location = -1;
@@ -166,7 +166,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlMesh::draw_instanced(tbx::uint32 instance_count) const
+    void OpenGlMesh::draw_instanced(uint32 instance_count) const
     {
         if (instance_count == 0)
             return;
@@ -175,7 +175,7 @@ namespace opengl_rendering
         draw_instanced_bound(instance_count);
     }
 
-    void OpenGlMesh::draw_instanced_bound(const tbx::uint32 instance_count) const
+    void OpenGlMesh::draw_instanced_bound(const uint32 instance_count) const
     {
         if (instance_count == 0)
             return;

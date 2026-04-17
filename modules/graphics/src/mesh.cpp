@@ -53,7 +53,8 @@ namespace tbx
                 const auto index0 = static_cast<size_t>(indices[triangle_index + 0U]);
                 const auto index1 = static_cast<size_t>(indices[triangle_index + 1U]);
                 const auto index2 = static_cast<size_t>(indices[triangle_index + 2U]);
-                if (index0 >= vertices.size() || index1 >= vertices.size() || index2 >= vertices.size())
+                if (index0 >= vertices.size() || index1 >= vertices.size()
+                    || index2 >= vertices.size())
                     continue;
 
                 const auto& vertex0 = vertices[index0];
@@ -65,8 +66,7 @@ namespace tbx
                 const auto uv_delta0 = vertex1.uv - vertex0.uv;
                 const auto uv_delta1 = vertex2.uv - vertex0.uv;
 
-                const float determinant =
-                    (uv_delta0.x * uv_delta1.y) - (uv_delta1.x * uv_delta0.y);
+                const float determinant = (uv_delta0.x * uv_delta1.y) - (uv_delta1.x * uv_delta0.y);
                 if (determinant >= -0.000001F && determinant <= 0.000001F)
                     continue;
 
@@ -96,8 +96,7 @@ namespace tbx
                 const auto bitangent = bitangent_sums[vertex_index];
                 const float handedness =
                     dot(cross(normal, tangent), bitangent) < 0.0F ? -1.0F : 1.0F;
-                vertices[vertex_index].tangent =
-                    Vec4(tangent.x, tangent.y, tangent.z, handedness);
+                vertices[vertex_index].tangent = Vec4(tangent.x, tangent.y, tangent.z, handedness);
             }
         }
 

@@ -12,11 +12,22 @@ namespace tbx
 
     void PluginRegistry::register_plugin(const std::string& name, Plugin* plugin)
     {
-        if (std::ranges::find(_plugins, plugin) == _plugins.end())
+        if (!plugin || name.empty())
+            return;
+
+        const std::string lowered_name = to_lower(name);
+        auto named_plugin_it = _plugins_by_name.find(lowered_name);
+        if (named_plugin_it != _plugins_by_name.end() && named_plugin_it->second != plugin)
         {
-            _plugins.push_back(plugin);
-            _plugins_by_name[to_lower(name)] = plugin;
+            auto existing_plugin_it = std::ranges::find(_plugins, named_plugin_it->second);
+            if (existing_plugin_it != _plugins.end())
+                _plugins.erase(existing_plugin_it);
         }
+
+        if (std::ranges::find(_plugins, plugin) == _plugins.end())
+            _plugins.push_back(plugin);
+
+        _plugins_by_name[lowered_name] = plugin;
     }
 
     void PluginRegistry::unregister_plugin(const std::string& name)

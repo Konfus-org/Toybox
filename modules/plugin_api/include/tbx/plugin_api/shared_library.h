@@ -14,9 +14,7 @@ namespace tbx
     class TBX_API SharedLibrary
     {
       public:
-        SharedLibrary(
-            std::filesystem::path path,
-            std::filesystem::path cleanup_path = {});
+        SharedLibrary(std::filesystem::path path, std::filesystem::path cleanup_path = {});
         ~SharedLibrary() noexcept;
 
         SharedLibrary(const SharedLibrary&) = delete;
@@ -34,23 +32,19 @@ namespace tbx
         // Returns the symbol cast to the requested pointer type `T`.
         // `T` must be a pointer (typically a function pointer).
         template <typename T>
-        T get_symbol(const char* name) const
-        {
-            static_assert(std::is_pointer_v<T>, "get_symbol<T> requires a pointer type");
-            return reinterpret_cast<T>(get_symbol_raw(name));
-        }
+        T get_symbol(const char* name) const;
 
         const std::filesystem::path& get_path() const
         {
             return _path;
         }
 
-        /// <summary>
+        /// @brief
         /// Purpose: Returns the operating-system error captured during the last library load
         /// attempt.
+        /// @details
         /// Ownership: Writes a copy of the stored message into the caller-provided string.
         /// Thread Safety: Not thread-safe; synchronize external access if shared.
-        /// </summary>
         bool try_get_load_error_message(std::string& out_error_message) const;
 
       private:
@@ -64,3 +58,5 @@ namespace tbx
         std::string _load_error_message = {};
     };
 }
+
+#include "tbx/plugin_api/shared_library.inl"

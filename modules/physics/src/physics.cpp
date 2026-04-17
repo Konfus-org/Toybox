@@ -22,10 +22,10 @@ namespace tbx
         if (!std::isfinite(restitution) || restitution < 0.0F)
             return false;
 
-        if (!std::isfinite(default_linear_damping) || default_linear_damping < 0.0F)
+        if (!std::isfinite(linear_damping) || linear_damping < 0.0F)
             return false;
 
-        if (!std::isfinite(default_angular_damping) || default_angular_damping < 0.0F)
+        if (!std::isfinite(angular_damping) || angular_damping < 0.0F)
             return false;
 
         if (!std::isfinite(sleep_velocity_threshold) || sleep_velocity_threshold < 0.0F)

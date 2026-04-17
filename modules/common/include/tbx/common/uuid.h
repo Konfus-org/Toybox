@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <cstddef>
 #include <functional>
@@ -14,22 +14,18 @@ namespace tbx
 
         TBX_API static Uuid generate();
 
-        /// <summary>
+        /// @brief
         /// Purpose: Combines a base UUID with an additional value into a new UUID.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Returns a value type; no ownership transfer.
         /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
         TBX_API static Uuid combine(Uuid base, uint32 value);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Combines an additional value into this UUID.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Mutates this UUID in place.
         /// Thread Safety: Not thread-safe; synchronize mutation externally.
-        /// </remarks>
         TBX_API void combine(uint32 value);
 
         TBX_API bool is_valid() const;
@@ -51,9 +47,9 @@ namespace tbx
 
     inline const Uuid Uuid::NONE = {};
 
-    /// <summary>Purpose: Formats a UUID value as a hex string.</summary>
-    /// <remarks>Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
-    /// concurrent use.</remarks>
+    /// @brief Purpose: Formats a UUID value as a hex string.
+    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
+    /// concurrent use.
     TBX_API std::string to_string(const Uuid& value);
 }
 
@@ -62,9 +58,8 @@ namespace std
     template <>
     struct hash<tbx::Uuid>
     {
-        std::size_t operator()(const tbx::Uuid& value) const
-        {
-            return hash<tbx::uint32>()(static_cast<tbx::uint32>(value));
-        }
+        ::size operator()(const tbx::Uuid& value) const;
     };
 }
+
+#include "tbx/common/uuid.inl"

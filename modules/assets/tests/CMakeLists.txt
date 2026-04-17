@@ -1,5 +1,5 @@
 set(CMAKE_FOLDER "tests")
-include(TbxTestOutput)
+include(test_output)
 add_executable(TbxAssetsTests)
 tbx_set_test_output(TbxAssetsTests)
 
@@ -10,7 +10,10 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 
 target_precompile_headers(TbxAssetsTests PRIVATE "pch.h")
 target_sources(TbxAssetsTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxAssetsTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(TbxAssetsTests PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/modules/files/tests/include"
+)
 
 target_link_libraries(TbxAssetsTests PRIVATE
     Tbx::Assets

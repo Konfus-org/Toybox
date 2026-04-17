@@ -9,9 +9,19 @@ target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/sr
 
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
+        Tbx::Common
         Jolt::Jolt
         Tbx::App
+        Tbx::PluginApi
+        Tbx::Time
+        EnTT::EnTT
+        Tbx::Debugging
+        Tbx::Assets
+        Tbx::Async
+        Tbx::Input
+        Tbx::ECS
         Tbx::Math
+        glm
         Tbx::Physics
 )
 

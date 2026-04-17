@@ -14,12 +14,14 @@
       "cacheVariables": {
         "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
+        "TBX_ENABLE_COMPILER_CACHE": "ON",
         "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
-        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/TbxPresetCompileDefinitions.cmake;${sourceDir}/cmake/TbxPresetMsvcOptions.cmake",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
-        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb"
+        "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
+        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
       },
       "hidden": true
     },
@@ -49,12 +51,31 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
+    },
+    {
+      "name": "msvc-dev",
+      "displayName": "Toybox (MSVC Dev Fast)",
+      "description": "MSVC local dev preset with unity builds for faster iteration",
+      "inherits": "msvc",
+      "cacheVariables": {
+        "CMAKE_UNITY_BUILD": "ON"
+      }
+    },
+    {
+      "name": "clang-dev",
+      "displayName": "Toybox (Clang Dev Fast)",
+      "description": "Clang local dev preset with unity builds for faster iteration",
+      "inherits": "clang",
+      "cacheVariables": {
+        "CMAKE_UNITY_BUILD": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "build-base",
-      "hidden": true
+      "hidden": true,
+      "jobs": 0
     },
     {
       "name": "msvc-debug",
@@ -79,6 +100,20 @@
       "inherits": "build-base",
       "configurePreset": "clang",
       "configuration": "Release"
+    },
+    {
+      "name": "msvc-dev-debug",
+      "inherits": "build-base",
+      "configurePreset": "msvc-dev",
+      "configuration": "Debug",
+      "jobs": 0
+    },
+    {
+      "name": "clang-dev-debug",
+      "inherits": "build-base",
+      "configurePreset": "clang-dev",
+      "configuration": "Debug",
+      "jobs": 0
     }
   ],
   "testPresets": [
@@ -115,6 +150,18 @@
       "inherits": "test-base",
       "configurePreset": "clang",
       "configuration": "Release"
+    },
+    {
+      "name": "test-msvc-dev-debug",
+      "inherits": "test-base",
+      "configurePreset": "msvc-dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "test-clang-dev-debug",
+      "inherits": "test-base",
+      "configurePreset": "clang-dev",
+      "configuration": "Debug"
     }
   ]
 }

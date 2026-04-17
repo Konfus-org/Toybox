@@ -5,13 +5,12 @@ namespace tbx
 {
     namespace
     {
-        std::size_t resolve_worker_count(std::size_t configured_worker_count)
+        size resolve_worker_count(size configured_worker_count)
         {
             if (configured_worker_count > 0)
                 return configured_worker_count;
 
-            auto detected_worker_count =
-                static_cast<std::size_t>(std::thread::hardware_concurrency());
+            auto detected_worker_count = static_cast<size>(std::thread::hardware_concurrency());
 
             if (detected_worker_count == 0)
                 return 1;
@@ -25,7 +24,7 @@ namespace tbx
         auto worker_count = resolve_worker_count(configuration.worker_count);
         _workers.reserve(worker_count);
 
-        for (std::size_t index = 0; index < worker_count; ++index)
+        for (size index = 0; index < worker_count; ++index)
         {
             _workers.emplace_back(
                 [this](std::stop_token stop_token)
@@ -95,7 +94,7 @@ namespace tbx
         _idle_signal.notify_all();
     }
 
-    std::size_t JobSystem::get_worker_count() const
+    size JobSystem::get_worker_count() const
     {
         auto lock = std::scoped_lock(_queue_mutex);
         return _workers.size();

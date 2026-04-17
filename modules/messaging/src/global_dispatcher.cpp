@@ -1,5 +1,5 @@
-#include <atomic>
 #include "tbx/messages/dispatcher.h"
+#include <atomic>
 
 namespace tbx
 {

@@ -1,5 +1,4 @@
 #include "opengl_renderer.h"
-#include "builtin_assets.generated.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_bindless.h"
 #include "opengl_resources/opengl_resource.h"
@@ -7,6 +6,8 @@
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/graphics/camera.h"
@@ -30,10 +31,10 @@
 
 namespace opengl_rendering
 {
-    static constexpr tbx::uint32 ShadowCascadeCount = 3U;
-    static constexpr tbx::uint32 DirectionalShadowMapResolution = 2048U;
-    static constexpr tbx::uint32 LocalShadowMapResolution = 1024U;
-    static constexpr tbx::uint32 PointShadowMapResolution = 512U;
+    static constexpr uint32 ShadowCascadeCount = 3U;
+    static constexpr uint32 DirectionalShadowMapResolution = 2048U;
+    static constexpr uint32 LocalShadowMapResolution = 1024U;
+    static constexpr uint32 PointShadowMapResolution = 512U;
     static constexpr float ShadowRenderDistance = 90.0F;
     static constexpr float ShadowFilterSoftness = 0.6F;
     static constexpr float ShadowNearPlane = 0.1F;
@@ -94,27 +95,6 @@ namespace opengl_rendering
             default:
                 break;
         }
-    }
-
-    static const tbx::Material* try_get_material_defaults(
-        const tbx::Handle& material_handle,
-        tbx::AssetManager& asset_manager,
-        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
-    {
-        if (!material_handle.is_valid())
-            return nullptr;
-
-        if (const auto cached_material = material_defaults_cache.find(material_handle.id);
-            cached_material != material_defaults_cache.end())
-            return &cached_material->second;
-
-        const auto material_asset = asset_manager.load<tbx::Material>(material_handle);
-        if (!material_asset)
-            return nullptr;
-
-        const auto cache_it =
-            material_defaults_cache.emplace(material_handle.id, *material_asset).first;
-        return &cache_it->second;
     }
 
     static tbx::Vec3 to_vec3(const tbx::Color& color)
@@ -191,15 +171,15 @@ namespace opengl_rendering
     }
 
     static tbx::Handle resolve_renderer_mesh_handle(
-        const tbx::Renderer& renderer,
+        const tbx::Lods* lods,
         const float camera_distance)
     {
-        if (renderer.lods.empty())
+        if (lods == nullptr || lods->values.empty())
             return {};
 
-        auto selected_handle = renderer.lods.back().handle;
+        auto selected_handle = lods->values.back().handle;
         auto selected_max_distance = std::numeric_limits<float>::max();
-        for (const auto& lod : renderer.lods)
+        for (const auto& lod : lods->values)
         {
             if (!lod.handle.is_valid())
                 continue;
@@ -232,23 +212,379 @@ namespace opengl_rendering
         return get_fallback_texture(resource_manager);
     }
 
-    static float get_material_float_parameter_or_default(
-        const tbx::MaterialParameterBindings& parameters,
-        const std::string_view name,
-        const float fallback)
+    static tbx::MaterialConfig get_default_material_config()
     {
-        const auto* parameter = parameters.get(name);
-        if (!parameter)
-            return fallback;
+        return tbx::MaterialConfig {
+            .depth =
+                tbx::MaterialDepthConfig {
+                    .is_test_enabled = true,
+                    .is_write_enabled = true,
+                    .is_prepass_enabled = false,
+                    .function = tbx::MaterialDepthFunction::Less,
+                },
+            .transparency =
+                tbx::MaterialTransparencyConfig {
+                    .blend_mode = tbx::MaterialBlendMode::Opaque,
+                },
+            .is_two_sided = false,
+            .is_cullable = true,
+            .shadow_mode = tbx::ShadowMode::Standard,
+        };
+    }
 
-        if (const auto* value = std::get_if<float>(&parameter->data))
-            return *value;
-        if (const auto* value = std::get_if<double>(&parameter->data))
-            return static_cast<float>(*value);
-        if (const auto* value = std::get_if<int>(&parameter->data))
-            return static_cast<float>(*value);
+    static tbx::MaterialConfig resolve_material_config(
+        const tbx::MaterialInstance& material_instance,
+        const std::shared_ptr<tbx::Material>& material_asset)
+    {
+        auto config = get_default_material_config();
 
-        return fallback;
+        if (material_asset)
+            config = material_asset->config;
+
+        if (material_instance.has_depth_override_enabled())
+            config.depth = material_instance.depth;
+
+        return config;
+    }
+
+    static tbx::ParamBindings resolve_material_parameters(
+        const tbx::MaterialInstance& material_instance,
+        const std::shared_ptr<tbx::Material>& material_asset)
+    {
+        auto parameters = tbx::ParamBindings {};
+        if (material_asset)
+            parameters = material_asset->parameters;
+
+        for (const auto& parameter : material_instance.param_overrides.values)
+            parameters.set(parameter.name, parameter.data);
+
+        return parameters;
+    }
+
+    static tbx::TextureBindings resolve_material_textures(
+        const tbx::MaterialInstance& material_instance,
+        const std::shared_ptr<tbx::Material>& material_asset)
+    {
+        auto textures = tbx::TextureBindings {};
+        if (material_asset)
+            textures = material_asset->textures;
+
+        for (const auto& texture : material_instance.texture_overrides.values)
+            textures.set(texture.name, texture.texture);
+
+        return textures;
+    }
+
+    static tbx::MaterialInstance build_default_pbr_material_instance()
+    {
+        // Baseline fallback used whenever an entity's material handle is missing/invalid.
+        auto material_instance = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        material_instance.set_parameter(
+            tbx::PbrMaterial::COLOR,
+            tbx::Color(0.6F, 0.6F, 0.6F, 1.0F));
+        material_instance.set_texture(
+            tbx::PbrMaterial::DIFFUSE_MAP,
+            tbx::CheckerboardTexture::HANDLE);
+        material_instance.clear_dirty();
+        return material_instance;
+    }
+
+    static void apply_material_instance_overrides(
+        const tbx::MaterialInstance& source_instance,
+        tbx::MaterialInstance& destination_instance)
+    {
+        for (const auto& parameter : source_instance.param_overrides.values)
+            destination_instance.param_overrides.set(parameter.name, parameter.data);
+        for (const auto& texture : source_instance.texture_overrides.values)
+            destination_instance.texture_overrides.set(texture.name, texture.texture);
+
+        if (source_instance.has_depth_override_enabled())
+            destination_instance.set_depth(source_instance.depth);
+    }
+
+    static tbx::MaterialInstance* resolve_effective_material_instance(
+        const tbx::Entity& entity,
+        tbx::MaterialInstance& fallback_material_instance)
+    {
+        if (!entity.has_component<tbx::MaterialInstance>())
+        {
+            fallback_material_instance = build_default_pbr_material_instance();
+            return &fallback_material_instance;
+        }
+
+        auto* material_instance = &entity.get_component<tbx::MaterialInstance>();
+        if (material_instance->get_handle().is_valid())
+            return material_instance;
+
+        // Material overrides are still valid authoring data even when the handle is missing.
+        fallback_material_instance = build_default_pbr_material_instance();
+        apply_material_instance_overrides(*material_instance, fallback_material_instance);
+        return &fallback_material_instance;
+    }
+
+    static tbx::Uuid resolve_mesh_key_for_entity(
+        const tbx::Entity& entity,
+        const tbx::Lods* lods,
+        const float camera_distance,
+        OpenGlResourceManager& resource_manager)
+    {
+        if (entity.has_component<tbx::DynamicMesh>())
+        {
+            const auto& dynamic_mesh = entity.get_component<tbx::DynamicMesh>();
+            return resource_manager.add_dynamic_mesh(dynamic_mesh);
+        }
+
+        if (entity.has_component<tbx::StaticMesh>())
+        {
+            auto static_mesh = entity.get_component<tbx::StaticMesh>();
+            const auto lod_mesh_handle = resolve_renderer_mesh_handle(lods, camera_distance);
+            if (lod_mesh_handle.is_valid())
+                static_mesh.handle = lod_mesh_handle;
+            return resource_manager.add_static_mesh(static_mesh);
+        }
+
+        return {};
+    }
+
+    static tbx::Uuid resolve_shader_program_for_material(
+        const tbx::MaterialInstance& material_instance,
+        OpenGlResourceManager& resource_manager,
+        bool& use_fallback_material_params)
+    {
+        use_fallback_material_params = false;
+        auto shader_program_key = resource_manager.add_material(material_instance);
+        if (shader_program_key.is_valid())
+            return shader_program_key;
+
+        TBX_TRACE_WARNING(
+            "Failed to cache shader program for material '{}'. Using "
+            "fallback magenta material.",
+            material_instance.material.id.value);
+        shader_program_key = get_fallback_material(resource_manager);
+        use_fallback_material_params = true;
+        if (shader_program_key.is_valid())
+            return shader_program_key;
+
+        TBX_ASSERT(false, "Fallback magenta material program is unavailable.");
+        return {};
+    }
+
+    static bool try_append_material_texture(
+        OpenGlMaterialParams& material_params,
+        const std::string& binding_name,
+        const tbx::TextureInstance& texture_instance,
+        const tbx::Handle& material_handle,
+        OpenGlResourceManager& resource_manager)
+    {
+        auto texture_id = tbx::Uuid {};
+        if (texture_instance.handle.is_valid())
+            texture_id = resource_manager.add_texture(texture_instance.handle);
+        else
+            texture_id = get_default_texture_for_binding(binding_name, resource_manager);
+
+        if (!texture_id.is_valid())
+        {
+            TBX_TRACE_WARNING(
+                "Failed to cache texture '{}' for material '{}'. "
+                "Using fallback texture.",
+                texture_instance.handle.id.value,
+                material_handle.id.value);
+            texture_id = get_default_texture_for_binding(binding_name, resource_manager);
+        }
+
+        if (!texture_id.is_valid())
+            return false;
+
+        auto texture_resource = std::shared_ptr<OpenGlTexture>();
+        if (!resource_manager.try_get<OpenGlTexture>(texture_id, texture_resource))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to fetch texture resource '{}' for material "
+                "'{}'. Using fallback texture.",
+                texture_id.value,
+                material_handle.id.value);
+            return false;
+        }
+
+        // Material upload stores both OpenGL texture id and bindless handle for the shader path.
+        material_params.textures.push_back(
+            OpenGlMaterialTexture {
+                .name = binding_name,
+                .texture_id = texture_id,
+                .gl_texture_id = texture_resource->get_texture_id(),
+                .bindless_handle = texture_resource->get_bindless_handle(),
+            });
+        return true;
+    }
+
+    static void append_default_material_texture_if_needed(
+        OpenGlMaterialParams& material_params,
+        OpenGlResourceManager& resource_manager)
+    {
+        if (!material_params.textures.empty())
+            return;
+
+        const auto fallback_texture_id = get_fallback_texture(resource_manager);
+        auto fallback_texture_resource = std::shared_ptr<OpenGlTexture>();
+        if (!fallback_texture_id.is_valid()
+            || !resource_manager.try_get<OpenGlTexture>(
+                fallback_texture_id,
+                fallback_texture_resource))
+            return;
+
+        material_params.textures.push_back(
+            OpenGlMaterialTexture {
+                .name = "diffuse_map",
+                .texture_id = fallback_texture_id,
+                .gl_texture_id = fallback_texture_resource->get_texture_id(),
+                .bindless_handle = fallback_texture_resource->get_bindless_handle(),
+            });
+    }
+
+    static OpenGlMaterialParams build_material_params(
+        const tbx::MaterialInstance& material_instance,
+        const tbx::MaterialConfig& material_config,
+        const tbx::ParamBindings& material_parameters,
+        const tbx::TextureBindings& material_textures,
+        const bool use_fallback_material_params,
+        OpenGlResourceManager& resource_manager)
+    {
+        auto material_params = OpenGlMaterialParams {};
+        if (use_fallback_material_params)
+        {
+            material_params = create_magenta_fallback_material_params(material_instance.material);
+        }
+        else
+        {
+            material_params.material_handle = material_instance.material;
+            material_params.parameters.reserve(material_parameters.values.size());
+            for (const auto& [name, value] : material_parameters.values)
+                material_params.parameters.push_back(tbx::MaterialParameter(name, value));
+        }
+        material_params.render_config = tbx::MaterialRenderConfig {
+            .depth = material_config.depth,
+            .transparency = material_config.transparency,
+        };
+
+        material_params.textures.reserve(material_textures.values.size());
+        for (const auto& binding : material_textures.values)
+            try_append_material_texture(
+                material_params,
+                binding.name,
+                binding.texture,
+                material_instance.material,
+                resource_manager);
+
+        append_default_material_texture_if_needed(material_params, resource_manager);
+        return material_params;
+    }
+
+    static void append_shadow_draw_call(
+        OpenGlFrameContext& frame_context,
+        std::unordered_map<std::uint64_t, std::size_t>& shadow_draw_call_lookup,
+        const bool is_two_sided,
+        const tbx::Uuid& mesh_key,
+        const tbx::Mat4& transform_matrix,
+        const tbx::Vec3& bounds_center,
+        const float bounds_radius)
+    {
+        const auto shadow_draw_call_key = is_two_sided ? 1ULL : 0ULL;
+        auto shadow_draw_call_it = shadow_draw_call_lookup.find(shadow_draw_call_key);
+        if (shadow_draw_call_it == shadow_draw_call_lookup.end())
+        {
+            frame_context.shadow_draw_calls.push_back(
+                ShadowDrawCall {.is_two_sided = is_two_sided});
+            shadow_draw_call_it =
+                shadow_draw_call_lookup
+                    .emplace(shadow_draw_call_key, frame_context.shadow_draw_calls.size() - 1U)
+                    .first;
+        }
+
+        auto& shadow_draw_call = frame_context.shadow_draw_calls[shadow_draw_call_it->second];
+        shadow_draw_call.meshes.push_back(mesh_key);
+        shadow_draw_call.transforms.push_back(transform_matrix);
+        shadow_draw_call.bounds_centers.push_back(bounds_center);
+        shadow_draw_call.bounds_radii.push_back(bounds_radius);
+    }
+
+    static void append_visible_draw_call(
+        OpenGlFrameContext& frame_context,
+        std::unordered_map<std::uint64_t, std::size_t>& draw_call_lookup,
+        const tbx::Uuid& shader_program_key,
+        const bool is_two_sided,
+        const tbx::MaterialBlendMode blend_mode,
+        const tbx::Uuid& mesh_key,
+        OpenGlMaterialParams&& material_params,
+        const tbx::Mat4& transform_matrix,
+        const float camera_distance_squared)
+    {
+        if (blend_mode == tbx::MaterialBlendMode::AlphaBlend)
+        {
+            frame_context.transparent_draw_calls.push_back(
+                TransparentDrawCall {
+                    .shader_program = shader_program_key,
+                    .is_two_sided = is_two_sided,
+                    .mesh = mesh_key,
+                    .material = std::move(material_params),
+                    .transform = transform_matrix,
+                    .camera_distance_squared = camera_distance_squared,
+                });
+            return;
+        }
+
+        // Opaque geometry is batched by shader + cull mode to reduce state changes.
+        const auto draw_call_key = (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
+                                   | (is_two_sided ? 1ULL : 0ULL);
+        auto draw_call_it = draw_call_lookup.find(draw_call_key);
+        if (draw_call_it == draw_call_lookup.end())
+        {
+            frame_context.draw_calls.emplace_back(shader_program_key, is_two_sided);
+            frame_context.draw_calls.back().meshes.reserve(8U);
+            frame_context.draw_calls.back().materials.reserve(8U);
+            frame_context.draw_calls.back().transforms.reserve(8U);
+            draw_call_it =
+                draw_call_lookup.emplace(draw_call_key, frame_context.draw_calls.size() - 1U).first;
+        }
+
+        auto& draw_call = frame_context.draw_calls[draw_call_it->second];
+        draw_call.meshes.push_back(mesh_key);
+        draw_call.materials.push_back(std::move(material_params));
+        draw_call.transforms.push_back(transform_matrix);
+    }
+
+    static bool should_warn_about_integrated_or_software_gpu(
+        const std::string_view vendor_text,
+        const std::string_view renderer_text)
+    {
+        const auto is_software_renderer =
+            tbx::contains_case_insensitive(renderer_text, "llvmpipe")
+            || tbx::contains_case_insensitive(renderer_text, "softpipe")
+            || tbx::contains_case_insensitive(renderer_text, "software rasterizer");
+        if (is_software_renderer)
+            return true;
+
+        const auto is_intel_vendor = tbx::contains_case_insensitive(vendor_text, "intel");
+        const auto is_discrete_arc = tbx::contains_case_insensitive(renderer_text, "arc");
+        if (is_intel_vendor && !is_discrete_arc)
+            return true;
+
+        return tbx::contains_case_insensitive(renderer_text, "integrated");
+    }
+
+    static void maybe_warn_about_gpu_selection(
+        const std::string_view vendor_text,
+        const std::string_view renderer_text)
+    {
+        if (!should_warn_about_integrated_or_software_gpu(vendor_text, renderer_text))
+            return;
+
+        TBX_TRACE_WARNING(
+            "OpenGL rendering appears to be running on an integrated/software GPU "
+            "(vendor='{}', renderer='{}'). If a discrete GPU is available, prefer launching "
+            "this app on the high-performance GPU. This can reduce performance and may affect "
+            "shadow quality or availability on some drivers.",
+            vendor_text,
+            renderer_text);
     }
 
     template <typename TLight>
@@ -343,7 +679,7 @@ namespace opengl_rendering
     static std::vector<float> build_shadow_splits(const float near_plane, const float max_distance)
     {
         auto splits = std::vector<float>(ShadowCascadeCount, max_distance);
-        for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
+        for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
         {
             const auto ratio =
                 static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
@@ -368,7 +704,7 @@ namespace opengl_rendering
 
     static ProjectedShadowFrameData build_spot_shadow_map(
         const SpotLightFrameData& light,
-        const tbx::uint32 texture_layer)
+        const uint32 texture_layer)
     {
         const auto direction = tbx::normalize(light.direction);
         const auto light_view = build_local_light_view(light.position, direction);
@@ -389,7 +725,7 @@ namespace opengl_rendering
 
     static ProjectedShadowFrameData build_area_shadow_map(
         const AreaLightFrameData& light,
-        const tbx::uint32 texture_layer)
+        const uint32 texture_layer)
     {
         const auto direction = tbx::normalize(light.direction);
         const auto emitter_radius = tbx::sqrt(
@@ -425,39 +761,6 @@ namespace opengl_rendering
         glClear(GL_COLOR_BUFFER_BIT);
     }
 
-    static void hydrate_material_instance_defaults(
-        tbx::MaterialInstance& material_instance,
-        tbx::AssetManager& asset_manager,
-        std::unordered_map<tbx::Uuid, tbx::Material>& material_defaults_cache)
-    {
-        if (!material_instance.has_loaded_defaults)
-        {
-            const auto* defaults = try_get_material_defaults(
-                material_instance.handle,
-                asset_manager,
-                material_defaults_cache);
-            if (defaults == nullptr)
-                return;
-
-            for (const auto& [name, value] : defaults->parameters.values)
-            {
-                if (material_instance.parameters.get(name) != nullptr)
-                    continue;
-                material_instance.parameters.set(name, value);
-            }
-
-            for (const auto& [name, texture] : defaults->textures.values)
-            {
-                const auto* existing_texture = material_instance.textures.get(name);
-                if (existing_texture != nullptr && existing_texture->texture.handle.is_valid())
-                    continue;
-                material_instance.textures.set(name, texture);
-            }
-
-            material_instance.has_loaded_defaults = true;
-        }
-    }
-
     OpenGlRenderer::OpenGlRenderer(
         const tbx::GraphicsProcAddress loader,
         tbx::EntityRegistry& entity_registry,
@@ -490,6 +793,8 @@ namespace opengl_rendering
                 make_current_result.get_report());
             return false;
         }
+
+        process_pending_asset_reloads();
 
         if (_pending_render_resolution.has_value())
         {
@@ -543,6 +848,14 @@ namespace opengl_rendering
         }
 
         return true;
+    }
+
+    void OpenGlRenderer::on_asset_reloaded(const tbx::Handle& asset_handle)
+    {
+        if (!asset_handle.id.is_valid())
+            return;
+
+        _pending_asset_reloads.push_back(asset_handle);
     }
 
     OpenGlFrameContext OpenGlRenderer::build_frame_context() const
@@ -690,6 +1003,17 @@ namespace opengl_rendering
         }
     }
 
+    void OpenGlRenderer::process_pending_asset_reloads()
+    {
+        if (_pending_asset_reloads.empty())
+            return;
+
+        for (const auto& handle : _pending_asset_reloads)
+            _resource_manager.on_asset_reloaded(handle);
+
+        _pending_asset_reloads.clear();
+    }
+
     void OpenGlRenderer::build_shadow_data(OpenGlFrameContext& frame_context) const
     {
         frame_context.shadows.directional_map_resolution = DirectionalShadowMapResolution;
@@ -716,7 +1040,7 @@ namespace opengl_rendering
             point_light.shadow_index = point_shadow_index++;
         }
 
-        auto spot_shadow_layer = tbx::uint32 {0U};
+        auto spot_shadow_layer = uint32 {0U};
         for (auto& spot_light : frame_context.spot_lights)
         {
             if (spot_light.shadow_index < 0)
@@ -727,7 +1051,7 @@ namespace opengl_rendering
                 build_spot_shadow_map(spot_light, spot_shadow_layer++));
         }
 
-        auto area_shadow_layer = tbx::uint32 {0U};
+        auto area_shadow_layer = uint32 {0U};
         for (auto& area_light : frame_context.area_lights)
         {
             if (area_light.shadow_index < 0)
@@ -770,7 +1094,7 @@ namespace opengl_rendering
         frame_context.shadows.directional_cascades.reserve(
             frame_context.directional_lights.size() * ShadowCascadeCount);
 
-        auto directional_shadow_layer = tbx::uint32 {0U};
+        auto directional_shadow_layer = uint32 {0U};
         for (auto& directional_light : frame_context.directional_lights)
         {
             if (directional_light.casts_shadows <= 0.5F)
@@ -784,10 +1108,9 @@ namespace opengl_rendering
             }
 
             directional_light.shadow_cascade_offset =
-                static_cast<tbx::uint32>(frame_context.shadows.directional_cascades.size());
+                static_cast<uint32>(frame_context.shadows.directional_cascades.size());
             auto previous_split = frame_context.camera_near_plane;
-            for (tbx::uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount;
-                 ++cascade_index)
+            for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
             {
                 const auto cascade_far = tbx::clamp(
                     split_depths[cascade_index],
@@ -857,7 +1180,7 @@ namespace opengl_rendering
 
     void OpenGlRenderer::build_draw_calls(OpenGlFrameContext& frame_context)
     {
-        const auto entities = _entity_registry.get_with<tbx::Renderer>();
+        const auto entities = _entity_registry.get_all();
         frame_context.draw_calls.reserve(entities.size());
         frame_context.shadow_draw_calls.reserve(entities.size());
         frame_context.transparent_draw_calls.reserve(entities.size());
@@ -870,77 +1193,59 @@ namespace opengl_rendering
 
         for (const auto& entity : entities)
         {
-            auto& renderer = entity.get_component<tbx::Renderer>();
+            if (!entity.has_component<tbx::DynamicMesh>()
+                && !entity.has_component<tbx::StaticMesh>())
+                continue;
+
+            auto fallback_material_instance = tbx::MaterialInstance {};
+            auto* material_instance =
+                resolve_effective_material_instance(entity, fallback_material_instance);
+
             const auto world_transform = entity.has_component<tbx::Transform>()
                                              ? tbx::get_world_space_transform(entity)
                                              : tbx::Transform();
-            const auto can_cast_shadows = renderer.shadow_mode != tbx::ShadowMode::None;
+            const auto* lods =
+                entity.has_component<tbx::Lods>() ? &entity.get_component<tbx::Lods>() : nullptr;
 
             const auto bounds_radius = tbx::max(get_max_component(world_transform.scale), 0.001F);
             const auto camera_distance_squared =
                 get_distance_squared(world_transform.position, frame_context.camera_position);
             const auto camera_distance = tbx::sqrt(camera_distance_squared);
 
-            if (renderer.render_distance > 0.0F && camera_distance > renderer.render_distance)
+            const auto material_asset =
+                _resource_manager.get_material_asset(material_instance->material);
+
+            const auto material_config =
+                resolve_material_config(*material_instance, material_asset);
+            const auto material_parameters =
+                resolve_material_parameters(*material_instance, material_asset);
+            const auto material_textures =
+                resolve_material_textures(*material_instance, material_asset);
+            const auto can_cast_shadows = material_config.shadow_mode != tbx::ShadowMode::None;
+
+            if (lods != nullptr && lods->render_distance > 0.0F
+                && camera_distance > lods->render_distance)
                 continue;
 
             const auto is_visible_to_camera =
-                !renderer.is_cullable
+                !material_config.is_cullable
                 || view_frustum.intersects(
                     tbx::Sphere {.center = world_transform.position, .radius = bounds_radius});
             if (!is_visible_to_camera && !can_cast_shadows)
                 continue;
 
-            auto& material_instance = renderer.material;
-            if (!material_instance.handle.is_valid())
-                material_instance.handle = tbx::lit_material;
-            hydrate_material_instance_defaults(
-                material_instance,
-                _asset_manager,
-                _material_defaults_cache);
-            const auto transparency_amount = get_material_float_parameter_or_default(
-                material_instance.parameters,
-                "transparency_amount",
-                0.0F);
-
-            // Add shader program
+            // Materials and meshes are cached in the resource manager; these helpers only
+            // rebuild when cache entries are missing/invalidated.
             auto use_fallback_material_params = false;
-            tbx::Uuid shader_program_key;
-            {
-                shader_program_key = _resource_manager.add_material(material_instance);
+            const auto shader_program_key = resolve_shader_program_for_material(
+                *material_instance,
+                _resource_manager,
+                use_fallback_material_params);
+            if (!shader_program_key.is_valid())
+                continue;
 
-                if (!shader_program_key.is_valid())
-                {
-                    TBX_TRACE_WARNING(
-                        "Failed to cache shader program for material '{}'. Using "
-                        "fallback magenta material.",
-                        material_instance.handle.id.value);
-                    shader_program_key = get_fallback_material(_resource_manager);
-                    use_fallback_material_params = true;
-                }
-                if (!shader_program_key.is_valid())
-                {
-                    TBX_ASSERT(false, "Fallback magenta material program is unavailable.");
-                    continue;
-                }
-            }
-
-            // Add mesh
-            tbx::Uuid mesh_key;
-            if (entity.has_component<tbx::DynamicMesh>())
-            {
-                const auto& dynamic_mesh = entity.get_component<tbx::DynamicMesh>();
-                mesh_key = _resource_manager.add_dynamic_mesh(dynamic_mesh);
-            }
-            else if (entity.has_component<tbx::StaticMesh>())
-            {
-                auto static_mesh = entity.get_component<tbx::StaticMesh>();
-                const auto lod_mesh_handle =
-                    resolve_renderer_mesh_handle(renderer, camera_distance);
-                if (lod_mesh_handle.is_valid())
-                    static_mesh.handle = lod_mesh_handle;
-                mesh_key = _resource_manager.add_static_mesh(static_mesh);
-            }
+            const auto mesh_key =
+                resolve_mesh_key_for_entity(entity, lods, camera_distance, _resource_manager);
             if (!mesh_key.is_valid())
             {
                 TBX_TRACE_WARNING(
@@ -949,147 +1254,44 @@ namespace opengl_rendering
                 continue;
             }
 
-            // Add material params
-            auto material_params = OpenGlMaterialParams();
-            if (use_fallback_material_params)
-            {
-                material_params = create_magenta_fallback_material_params(material_instance.handle);
-            }
-            else
-            {
-                material_params.material_handle = material_instance.handle;
-                material_params.parameters.reserve(material_instance.parameters.values.size());
-                for (const auto& [name, value] : material_instance.parameters.values)
-                    material_params.parameters.push_back(
-                        tbx::MaterialParameter {.name = name, .data = value});
-            }
+            auto material_params = build_material_params(
+                *material_instance,
+                material_config,
+                material_parameters,
+                material_textures,
+                use_fallback_material_params,
+                _resource_manager);
 
-            // Add textures
-            material_params.textures.reserve(material_instance.textures.values.size());
-            for (const auto& [name, texture] : material_instance.textures.values)
-            {
-                tbx::Uuid texture_id;
-                if (texture.handle.is_valid())
-                    texture_id = _resource_manager.add_texture(texture.handle);
-                else
-                    texture_id = get_default_texture_for_binding(name, _resource_manager);
+            if (entity.has_component<tbx::MaterialInstance>())
+                entity.get_component<tbx::MaterialInstance>().clear_dirty();
 
-                if (!texture_id.is_valid())
-                {
-                    TBX_TRACE_WARNING(
-                        "Failed to cache texture '{}' for material '{}'. "
-                        "Using fallback texture.",
-                        texture.handle.id.value,
-                        material_instance.handle.id.value);
-                    texture_id = get_default_texture_for_binding(name, _resource_manager);
-                }
-
-                if (!texture_id.is_valid())
-                {
-                    continue;
-                }
-
-                auto texture_resource = std::shared_ptr<OpenGlTexture>();
-                if (!_resource_manager.try_get<OpenGlTexture>(texture_id, texture_resource))
-                {
-                    TBX_TRACE_WARNING(
-                        "Failed to fetch texture resource '{}' for material "
-                        "'{}'. Using fallback texture.",
-                        texture_id.value,
-                        material_instance.handle.id.value);
-                    continue;
-                }
-
-                material_params.textures.push_back(
-                    OpenGlMaterialTexture {
-                        .name = name,
-                        .texture_id = texture_id,
-                        .gl_texture_id = texture_resource->get_texture_id(),
-                        .bindless_handle = texture_resource->get_bindless_handle(),
-                    });
-            }
-
-            // Use white fallback texture
-            if (material_params.textures.empty())
-            {
-                const auto fallback_texture_id = get_fallback_texture(_resource_manager);
-                if (auto fallback_texture_resource = std::shared_ptr<OpenGlTexture>();
-                    fallback_texture_id.is_valid()
-                    && _resource_manager.try_get<OpenGlTexture>(
-                        fallback_texture_id,
-                        fallback_texture_resource))
-                    material_params.textures.push_back(
-                        OpenGlMaterialTexture {
-                            .name = "diffuse_map",
-                            .texture_id = fallback_texture_id,
-                            .gl_texture_id = fallback_texture_resource->get_texture_id(),
-                            .bindless_handle = fallback_texture_resource->get_bindless_handle(),
-                        });
-            }
-
-            // Add transform matrix
             const auto transform_matrix = tbx::build_transform_matrix(world_transform);
 
             if (can_cast_shadows)
             {
-                const auto shadow_draw_call_key = renderer.is_two_sided ? 1ULL : 0ULL;
-                auto shadow_draw_call_it = shadow_draw_call_lookup.find(shadow_draw_call_key);
-                if (shadow_draw_call_it == shadow_draw_call_lookup.end())
-                {
-                    frame_context.shadow_draw_calls.push_back(
-                        ShadowDrawCall {.is_two_sided = renderer.is_two_sided});
-                    shadow_draw_call_it = shadow_draw_call_lookup
-                                              .emplace(
-                                                  shadow_draw_call_key,
-                                                  frame_context.shadow_draw_calls.size() - 1U)
-                                              .first;
-                }
-
-                auto& shadow_draw_call =
-                    frame_context.shadow_draw_calls[shadow_draw_call_it->second];
-                shadow_draw_call.meshes.push_back(mesh_key);
-                shadow_draw_call.transforms.push_back(transform_matrix);
-                shadow_draw_call.bounds_centers.push_back(world_transform.position);
-                shadow_draw_call.bounds_radii.push_back(bounds_radius);
+                append_shadow_draw_call(
+                    frame_context,
+                    shadow_draw_call_lookup,
+                    material_config.is_two_sided,
+                    mesh_key,
+                    transform_matrix,
+                    world_transform.position,
+                    bounds_radius);
             }
 
             if (!is_visible_to_camera)
                 continue;
 
-            if (transparency_amount > 0.0001F)
-            {
-                frame_context.transparent_draw_calls.push_back(
-                    TransparentDrawCall {
-                        .shader_program = shader_program_key,
-                        .is_two_sided = renderer.is_two_sided,
-                        .mesh = mesh_key,
-                        .material = std::move(material_params),
-                        .transform = transform_matrix,
-                        .camera_distance_squared = camera_distance_squared,
-                    });
-                continue;
-            }
-
-            // Push back new draw call
-            const auto draw_call_key = (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
-                                       | (renderer.is_two_sided ? 1ULL : 0ULL);
-            auto draw_call_it = draw_call_lookup.find(draw_call_key);
-            if (draw_call_it == draw_call_lookup.end())
-            {
-                frame_context.draw_calls.emplace_back(shader_program_key, renderer.is_two_sided);
-                frame_context.draw_calls.back().meshes.reserve(8U);
-                frame_context.draw_calls.back().materials.reserve(8U);
-                frame_context.draw_calls.back().transforms.reserve(8U);
-                draw_call_it =
-                    draw_call_lookup.emplace(draw_call_key, frame_context.draw_calls.size() - 1U)
-                        .first;
-            }
-
-            // Update draw call with new mesh
-            auto& draw_call = frame_context.draw_calls[draw_call_it->second];
-            draw_call.meshes.push_back(mesh_key);
-            draw_call.materials.push_back(std::move(material_params));
-            draw_call.transforms.push_back(transform_matrix);
+            append_visible_draw_call(
+                frame_context,
+                draw_call_lookup,
+                shader_program_key,
+                material_config.is_two_sided,
+                material_config.transparency.blend_mode,
+                mesh_key,
+                std::move(material_params),
+                transform_matrix,
+                camera_distance_squared);
         }
 
         std::sort(
@@ -1158,6 +1360,21 @@ namespace opengl_rendering
         TBX_ASSERT(
             major_version > 4 || (major_version == 4 && minor_version >= 5),
             "Requires OpenGL 4.5 or newer.");
+
+        const auto* vendor_string = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+        const auto* renderer_string = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        const auto* version_string = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+        const auto* glsl_version_string =
+            reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION));
+        const auto* vendor_text = vendor_string != nullptr ? vendor_string : "unknown";
+        const auto* renderer_text = renderer_string != nullptr ? renderer_string : "unknown";
+        TBX_TRACE_INFO(
+            "OpenGL runtime info: vendor='{}', renderer='{}', version='{}', GLSL='{}'.",
+            vendor_text,
+            renderer_text,
+            version_string != nullptr ? version_string : "unknown",
+            glsl_version_string != nullptr ? glsl_version_string : "unknown");
+        maybe_warn_about_gpu_selection(vendor_text, renderer_text);
 
 #if defined(TBX_DEBUG)
         glEnable(GL_DEBUG_OUTPUT);

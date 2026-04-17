@@ -18,6 +18,8 @@ target_link_libraries(${module_name}
     PUBLIC
         Tbx::Common
         Tbx::Messaging
+    PRIVATE
+        Tbx::Async
         Tbx::Files
         spdlog::spdlog
 )

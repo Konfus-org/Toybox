@@ -3,13 +3,13 @@
 #include "tbx/plugin_api/plugin_export.h"
 #include <SDL3/SDL_log.h>
 
-
 namespace sdl_base_systems
 {
-    /// <summary>Initializes shared SDL subsystems used by other plugins.</summary>
-    /// <remarks>Purpose: Owns SDL initialization for core SDL subsystems used engine-wide.
+    /// @brief
+    /// Purpose: Owns SDL initialization for core SDL subsystems used engine-wide.
+    /// @details
     /// Ownership: Owns the SDL subsystems it initializes and shuts them down on detach.
-    /// Thread Safety: Expected to be used on the main thread.</remarks>
+    /// Thread Safety: Expected to be used on the main thread.
     class TBX_PLUGIN_API SdlBaseSystemsPlugin final : public tbx::Plugin
     {
       public:

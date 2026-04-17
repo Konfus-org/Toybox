@@ -4,11 +4,11 @@
 
 namespace opengl_rendering
 {
-    using GlGetTextureHandleArbFn = tbx::uint64 (*)(tbx::uint32 texture);
-    using GlMakeTextureHandleResidentArbFn = void (*)(tbx::uint64 handle);
-    using GlMakeTextureHandleNonResidentArbFn = void (*)(tbx::uint64 handle);
+    using GlGetTextureHandleArbFn = uint64 (*)(uint32 texture);
+    using GlMakeTextureHandleResidentArbFn = void (*)(uint64 handle);
+    using GlMakeTextureHandleNonResidentArbFn = void (*)(uint64 handle);
     using GlProgramUniformHandleUi64ArbFn =
-        void (*)(tbx::uint32 program, int location, tbx::uint64 value);
+        void (*)(uint32 program, int location, uint64 value);
 
     struct BindlessApi final
     {
@@ -87,7 +87,7 @@ namespace opengl_rendering
         return bindless_api().supported;
     }
 
-    bool try_make_bindless_handle_resident(const tbx::uint32 texture_id, tbx::uint64& out_handle)
+    bool try_make_bindless_handle_resident(const uint32 texture_id, uint64& out_handle)
     {
         const auto& api = bindless_api();
         if (!api.supported || texture_id == 0)
@@ -102,7 +102,7 @@ namespace opengl_rendering
         return true;
     }
 
-    void release_bindless_handle(const tbx::uint64 handle)
+    void release_bindless_handle(const uint64 handle)
     {
         const auto& api = bindless_api();
         if (!api.supported || handle == 0)
@@ -112,9 +112,9 @@ namespace opengl_rendering
     }
 
     bool try_upload_bindless_sampler(
-        const tbx::uint32 program_id,
+        const uint32 program_id,
         const int uniform_location,
-        const tbx::uint64 handle)
+        const uint64 handle)
     {
         const auto& api = bindless_api();
         if (!api.supported || program_id == 0 || uniform_location < 0 || handle == 0)

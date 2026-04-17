@@ -13,7 +13,8 @@
 namespace opengl_rendering
 {
     static constexpr int MaxDirectionalLights = 4;
-    static constexpr tbx::uint32 TileSize = 16U;
+    static constexpr uint32 TileSize = 16U;
+    static constexpr float TileCullingGuardBandTiles = 1.0F;
 
     struct alignas(16) GpuDirectionalLight
     {
@@ -90,18 +91,18 @@ namespace opengl_rendering
     {
         std::vector<TileBounds> projected_bounds = {};
         std::vector<bool> has_projection = {};
-        std::vector<tbx::uint32> tile_counts = {};
-        std::vector<tbx::uint32> tile_indices = {};
+        std::vector<uint32> tile_counts = {};
+        std::vector<uint32> tile_indices = {};
     };
 
-    static ParallelTileBuildResult create_empty_tile_build_result(const tbx::uint32 tile_count)
+    static ParallelTileBuildResult create_empty_tile_build_result(const uint32 tile_count)
     {
         auto result = ParallelTileBuildResult();
         result.tile_counts.resize(tile_count, 0U);
         return result;
     }
 
-    static tbx::uint32 divide_round_up(const tbx::uint32 numerator, const tbx::uint32 denominator)
+    static uint32 divide_round_up(const uint32 numerator, const uint32 denominator)
     {
         if (denominator == 0U)
             return 0U;
@@ -120,7 +121,7 @@ namespace opengl_rendering
         return value;
     }
 
-    static void ensure_buffer_created(tbx::uint32& buffer_id)
+    static void ensure_buffer_created(uint32& buffer_id)
     {
         if (buffer_id == 0U)
             glCreateBuffers(1, &buffer_id);
@@ -137,12 +138,12 @@ namespace opengl_rendering
     }
 
     static void upload_storage_buffer(
-        const tbx::uint32 buffer_id,
+        const uint32 buffer_id,
         std::size_t& buffer_capacity,
         const void* data,
         const std::size_t size_in_bytes)
     {
-        static const tbx::uint32 FallbackValue = 0U;
+        static const uint32 FallbackValue = 0U;
         const auto upload_size = size_in_bytes > 0U
                                      ? static_cast<GLsizeiptr>(size_in_bytes)
                                      : static_cast<GLsizeiptr>(sizeof(FallbackValue));
@@ -165,8 +166,8 @@ namespace opengl_rendering
         const tbx::Vec3& world_position,
         const float range,
         const OpenGlFrameContext& frame_context,
-        const tbx::uint32 tile_count_x,
-        const tbx::uint32 tile_count_y,
+        const uint32 tile_count_x,
+        const uint32 tile_count_y,
         TileBounds& out_bounds)
     {
         if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
@@ -211,14 +212,17 @@ namespace opengl_rendering
                                  * static_cast<float>(frame_context.render_size.height);
 
         const auto tile_size = static_cast<float>(TileSize);
-        auto min_tile_x = static_cast<int>(tbx::floor(min_pixel_x / tile_size));
-        auto min_tile_y = static_cast<int>(tbx::floor(min_pixel_y / tile_size));
-        auto max_tile_x_inclusive = static_cast<int>(tbx::ceil(max_pixel_x / tile_size)) - 1;
-        auto max_tile_y_inclusive = static_cast<int>(tbx::ceil(max_pixel_y / tile_size)) - 1;
+        const auto guard_band_pixels = tile_size * TileCullingGuardBandTiles;
+        auto min_tile_x = static_cast<int>(tbx::floor((min_pixel_x - guard_band_pixels) / tile_size));
+        auto min_tile_y = static_cast<int>(tbx::floor((min_pixel_y - guard_band_pixels) / tile_size));
+        auto max_tile_x_inclusive =
+            static_cast<int>(tbx::ceil((max_pixel_x + guard_band_pixels) / tile_size)) - 1;
+        auto max_tile_y_inclusive =
+            static_cast<int>(tbx::ceil((max_pixel_y + guard_band_pixels) / tile_size)) - 1;
 
         if (max_tile_x_inclusive < 0 || max_tile_y_inclusive < 0)
             return false;
-        if (min_tile_x > max_tile_x || min_tile_y > max_tile_y)
+        if (min_tile_x > max_tile_x_inclusive || min_tile_y > max_tile_y_inclusive)
             return false;
 
         min_tile_x = clamp_tile_index(min_tile_x, max_tile_x);
@@ -247,8 +251,8 @@ namespace opengl_rendering
     static ParallelTileBuildResult build_parallel_tile_data(
         const std::vector<TLight>& lights,
         const OpenGlFrameContext& frame_context,
-        const tbx::uint32 tile_count_x,
-        const tbx::uint32 tile_count_y,
+        const uint32 tile_count_x,
+        const uint32 tile_count_y,
         TRangeResolver&& range_resolver)
     {
         const auto tile_count = tile_count_x * tile_count_y;
@@ -257,7 +261,7 @@ namespace opengl_rendering
         result.has_projection.resize(lights.size(), false);
         result.tile_counts.resize(tile_count, 0U);
 
-        for (tbx::uint32 light_index = 0U; light_index < lights.size(); ++light_index)
+        for (uint32 light_index = 0U; light_index < lights.size(); ++light_index)
         {
             auto tile_bounds = TileBounds();
             if (!try_project_sphere_to_tiles(
@@ -275,15 +279,15 @@ namespace opengl_rendering
             for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
                 for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
                 {
-                    const auto tile_index = static_cast<tbx::uint32>(tile_y) * tile_count_x
-                                            + static_cast<tbx::uint32>(tile_x);
+                    const auto tile_index = static_cast<uint32>(tile_y) * tile_count_x
+                                            + static_cast<uint32>(tile_x);
                     ++result.tile_counts[tile_index];
                 }
         }
 
-        auto total_index_count = tbx::uint32 {0U};
-        auto write_offsets = std::vector<tbx::uint32>(tile_count, 0U);
-        for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
+        auto total_index_count = uint32 {0U};
+        auto write_offsets = std::vector<uint32>(tile_count, 0U);
+        for (uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
         {
             write_offsets[tile_index] = total_index_count;
             total_index_count += result.tile_counts[tile_index];
@@ -291,7 +295,7 @@ namespace opengl_rendering
 
         result.tile_indices.resize(total_index_count, 0U);
         auto live_write_offsets = write_offsets;
-        for (tbx::uint32 light_index = 0U; light_index < lights.size(); ++light_index)
+        for (uint32 light_index = 0U; light_index < lights.size(); ++light_index)
         {
             if (!result.has_projection[light_index])
                 continue;
@@ -300,8 +304,8 @@ namespace opengl_rendering
             for (int tile_y = tile_bounds.min_y; tile_y <= tile_bounds.max_y; ++tile_y)
                 for (int tile_x = tile_bounds.min_x; tile_x <= tile_bounds.max_x; ++tile_x)
                 {
-                    const auto tile_index = static_cast<tbx::uint32>(tile_y) * tile_count_x
-                                            + static_cast<tbx::uint32>(tile_x);
+                    const auto tile_index = static_cast<uint32>(tile_y) * tile_count_x
+                                            + static_cast<uint32>(tile_x);
                     result.tile_indices[live_write_offsets[tile_index]++] = light_index;
                 }
         }
@@ -424,8 +428,8 @@ namespace opengl_rendering
         if (_shader_program)
             return true;
 
-        auto deferred_lighting_material = tbx::MaterialInstance();
-        deferred_lighting_material.handle = tbx::deferred_lighting_material;
+        auto deferred_lighting_material =
+            tbx::MaterialInstance(tbx::DeferredLightingMaterial::HANDLE);
 
         const auto program_id = _resource_manager.add_material(deferred_lighting_material, true);
         if (!program_id.is_valid())
@@ -518,8 +522,11 @@ namespace opengl_rendering
             const auto& light =
                 frame_context.directional_lights[static_cast<std::size_t>(light_index)];
             lighting_info.directional_lights[light_index] = GpuDirectionalLight {
-                .direction_ambient =
-                    tbx::Vec4(light.direction.x, light.direction.y, light.direction.z, light.ambient_intensity),
+                .direction_ambient = tbx::Vec4(
+                    light.direction.x,
+                    light.direction.y,
+                    light.direction.z,
+                    light.ambient_intensity),
                 .radiance_shadowed = tbx::Vec4(
                     light.radiance.x,
                     light.radiance.y,
@@ -609,13 +616,9 @@ namespace opengl_rendering
                         area_light.radiance.y,
                         area_light.radiance.z,
                         area_light.half_height),
-                    .right = tbx::Vec4(
-                        area_light.right.x,
-                        area_light.right.y,
-                        area_light.right.z,
-                        0.0F),
-                    .up =
-                        tbx::Vec4(area_light.up.x, area_light.up.y, area_light.up.z, 0.0F),
+                    .right =
+                        tbx::Vec4(area_light.right.x, area_light.right.y, area_light.right.z, 0.0F),
+                    .up = tbx::Vec4(area_light.up.x, area_light.up.y, area_light.up.z, 0.0F),
                     .shadow_info = glm::ivec4(area_light.shadow_index, 0, 0, 0),
                 });
 
@@ -713,19 +716,17 @@ namespace opengl_rendering
         if (area_future.has_value())
             area_tile_data = area_future->get();
 
-        for (tbx::uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
+        for (uint32 tile_index = 0U; tile_index < tile_count; ++tile_index)
         {
             tile_spans[tile_index].point_and_spot.x =
-                tile_index == 0U
-                    ? 0U
-                    : tile_spans[tile_index - 1U].point_and_spot.x
-                          + tile_spans[tile_index - 1U].point_and_spot.y;
+                tile_index == 0U ? 0U
+                                 : tile_spans[tile_index - 1U].point_and_spot.x
+                                       + tile_spans[tile_index - 1U].point_and_spot.y;
             tile_spans[tile_index].point_and_spot.y = point_tile_data.tile_counts[tile_index];
             tile_spans[tile_index].point_and_spot.z =
-                tile_index == 0U
-                    ? 0U
-                    : tile_spans[tile_index - 1U].point_and_spot.z
-                          + tile_spans[tile_index - 1U].point_and_spot.w;
+                tile_index == 0U ? 0U
+                                 : tile_spans[tile_index - 1U].point_and_spot.z
+                                       + tile_spans[tile_index - 1U].point_and_spot.w;
             tile_spans[tile_index].point_and_spot.w = spot_tile_data.tile_counts[tile_index];
             tile_spans[tile_index].area.x =
                 tile_index == 0U
@@ -778,16 +779,16 @@ namespace opengl_rendering
             _tile_point_light_indices_buffer,
             _tile_point_light_indices_buffer_capacity,
             point_tile_data.tile_indices.data(),
-            point_tile_data.tile_indices.size() * sizeof(tbx::uint32));
+            point_tile_data.tile_indices.size() * sizeof(uint32));
         upload_storage_buffer(
             _tile_spot_light_indices_buffer,
             _tile_spot_light_indices_buffer_capacity,
             spot_tile_data.tile_indices.data(),
-            spot_tile_data.tile_indices.size() * sizeof(tbx::uint32));
+            spot_tile_data.tile_indices.size() * sizeof(uint32));
         upload_storage_buffer(
             _tile_area_light_indices_buffer,
             _tile_area_light_indices_buffer_capacity,
             area_tile_data.tile_indices.data(),
-            area_tile_data.tile_indices.size() * sizeof(tbx::uint32));
+            area_tile_data.tile_indices.size() * sizeof(uint32));
     }
 }

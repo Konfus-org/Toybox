@@ -6,13 +6,11 @@
 
 namespace opengl_rendering
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Draws transparent surfaces into the resolved final-color target after lighting.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: References shared render resources and the g-buffer owned by the renderer.
     /// Thread Safety: Not thread-safe; render-thread only.
-    /// </remarks>
     class TransparentPassOperation final
     {
       public:
@@ -23,11 +21,11 @@ namespace opengl_rendering
         TransparentPassOperation& operator=(const TransparentPassOperation&) = delete;
         ~TransparentPassOperation() noexcept;
 
-        /// <summary>
+        /// @brief
         /// Purpose: Draws the current frame's transparent surfaces with alpha blending.
+        /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        /// </summary>
         void execute(const std::any& payload);
 
       private:

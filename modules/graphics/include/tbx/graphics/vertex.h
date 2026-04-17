@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/color.h"
 #include "tbx/math/vectors.h"
@@ -10,8 +10,7 @@
 
 namespace tbx
 {
-    ///////////// VERTEX DATA //////////////////
-
+    /// ////////// VERTEX DATA //////////////////
     using VertexData = std::variant<int, float, Vec2, Vec3, Vec4, Color>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
@@ -80,8 +79,7 @@ namespace tbx
         }
     }
 
-    ///////////// VERTEX //////////////////
-
+    /// ////////// VERTEX //////////////////
     struct TBX_API Vertex
     {
         // (x, y, z) in 3D space
@@ -96,8 +94,7 @@ namespace tbx
         Vec4 tangent = Vec4(1.0f, 0.0f, 0.0f, 1.0f);
     };
 
-    ///////////// VERTEX BUFFER //////////////////
-
+    /// ////////// VERTEX BUFFER //////////////////
     inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
     {
         const auto vertex_count = vertices.size();

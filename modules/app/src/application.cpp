@@ -4,17 +4,29 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/files/file_ops.h"
 #include "tbx/messages/dispatcher.h"
-#include "tbx/plugin_api/plugin_loader.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>
 
 namespace tbx
 {
+    static std::filesystem::path get_default_asset_directory()
+    {
+#if defined(TBX_RELEASE)
+        return std::filesystem::path("resources");
+#elif defined(TBX_RESOURCES)
+        return std::filesystem::path(TBX_RESOURCES).lexically_normal();
+#else
+        return {};
+#endif
+    }
+
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
         , _icon_handle(desc.icon)
         , _input_manager(_msg_coordinator)
+        , _asset_manager(&_msg_coordinator, desc.working_root)
+        , _plugin_manager(*this)
         , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0})
         , _main_window(
               _msg_coordinator,
@@ -22,7 +34,6 @@ namespace tbx
               {1280, 720},
               WindowMode::WINDOWED,
               false)
-        , _asset_manager(desc.working_root)
     {
         const auto file_operator = FileOperator(desc.working_root);
         _settings.paths.working_directory = file_operator.get_working_directory();
@@ -30,6 +41,8 @@ namespace tbx
             _settings.paths.logs_directory = file_operator.resolve("logs");
         else
             _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
+
+        add_default_asset_directory();
 
         for (auto& arg : desc.args)
         {
@@ -121,6 +134,15 @@ namespace tbx
         return _thread_manager;
     }
 
+    void Application::add_default_asset_directory()
+    {
+        const auto resource_directory = get_default_asset_directory();
+        if (resource_directory.empty())
+            return;
+
+        _asset_manager.add_directory(resource_directory);
+    }
+
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
@@ -143,30 +165,25 @@ namespace tbx
                 });
 
             // Load requested plugins
-            _loaded = load_plugins(
+            _plugin_manager.load(
                 _settings.paths.working_directory,
                 requested_plugins,
-                _settings.paths.working_directory,
-                *this);
+                _settings.paths.working_directory);
 
-#ifdef TBX_DEBUG
-            // Only add extra dirs in debug mode, in release they are compiled into one dir in the
-            // release build dir.
-            for (const auto& loaded : _loaded)
-                _asset_manager.add_asset_directory(loaded.meta.resource_directory);
-#endif
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
             TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
-            auto asset_roots = _asset_manager.get_asset_directories();
+            auto asset_roots = _asset_manager.get_directories();
             if (asset_roots.size() > 1)
             {
                 TBX_TRACE_INFO("Asset Directories:");
                 for (const auto& root : asset_roots)
                     TBX_TRACE_INFO("    -'{}'", root.string());
             }
-            else
+            else if (!asset_roots.empty())
                 TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
+            else
+                TBX_TRACE_INFO("Asset Directory: <none>");
 
             // Tell everyone we're initialized
             _msg_coordinator.send<ApplicationInitializedEvent>(this);
@@ -216,13 +233,14 @@ namespace tbx
         fixed_update(dt);
 
         // Update all loaded plugins
-        update_plugins(_loaded, dt);
+        _plugin_manager.update(dt);
 
         _input_manager.update(dt);
 
         // End update
         _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
 
+        // Gather metrics
         ++_update_count;
         if (_asset_unload_elapsed_seconds >= 1.0)
         {
@@ -251,7 +269,7 @@ namespace tbx
 #ifdef TBX_DEBUG
         constexpr double performance_log_interval_seconds = 10.0;
 #else
-        constexpr double performance_log_interval_seconds = 10.0;
+        constexpr double performance_log_interval_seconds = 60.0;
 #endif
         if (_performance_sample_elapsed_seconds >= performance_log_interval_seconds)
         {
@@ -309,7 +327,7 @@ namespace tbx
                 .milliseconds = fixed_step_seconds * 1000.0,
             };
 
-            update_plugins_fixed(_loaded, fixed_dt);
+            _plugin_manager.fixed_update(fixed_dt);
 
             _fixed_update_accumulator_seconds -= fixed_step_seconds;
             ++sub_step_count;
@@ -323,12 +341,12 @@ namespace tbx
 
     void Application::shutdown()
     {
+        GlobalDispatcherScope scope(_msg_coordinator);
         const auto shutdown_begin = std::chrono::steady_clock::now();
+
         try
         {
             // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
-
-            GlobalDispatcherScope scope(_msg_coordinator);
 
             TBX_TRACE_INFO("Shutting down application: {}", _name);
             TBX_TRACE_INFO(
@@ -343,27 +361,19 @@ namespace tbx
             //_main_window.is_open = false;
             _should_exit = true;
 
-            // 3. Unregister all entities
+            // 3. Detach and unload plugins using dependency-aware unload ordering.
+            _plugin_manager.unload_all();
+
+            // 4. Unregister all entities and unload assets after plugin teardown.
             _entity_registry.clear();
             _asset_manager.unload_all();
-
-            // 4. Detach and unload plugins using dependency-aware unload ordering.
-            unload_plugins(_loaded);
 
             // 5. Stop dedicated thread lanes after plugin teardown.
             _thread_manager.stop_all();
 
-            // 6. Process any remaining messages that may have been posted during shutdown
-            auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
-                                           std::chrono::steady_clock::now() - shutdown_begin)
-                                           .count();
-
-            // 7. Process any remaining posted messages and clear handlers
+            // 6. Process any remaining posted messages and clear handlers
             _msg_coordinator.flush();
             _msg_coordinator.clear_handlers();
-
-            // 8. Log shutdown metrics
-            TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
         }
         catch (const std::exception& ex)
         {
@@ -386,6 +396,13 @@ namespace tbx
                 shutdown_elapsed_ms);
             TBX_ASSERT(false, "Unknown exception during application shutdown.");
         }
+
+        // 7. Log shutdown metrics
+        auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
+                                       std::chrono::steady_clock::now() - shutdown_begin)
+                                       .count();
+        TBX_TRACE_INFO("Application shutdown completed in {:.2f} ms.", shutdown_elapsed_ms);
+        TBX_TRACE_FLUSH();
     }
 
     void Application::recieve_message(Message& msg)
@@ -401,8 +418,9 @@ namespace tbx
         {
             if (open_event->owner == &_main_window && !open_event->current)
                 _should_exit = true;
-            return;
         }
+
+        _plugin_manager.receive_message(msg);
     }
 
 }

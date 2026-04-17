@@ -1,25 +1,23 @@
-﻿#pragma once
-#include "tbx/common/int.h"
+#pragma once
+#include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
 #include "tbx/tbx_api.h"
 
 namespace opengl_rendering
 {
-    /// <summary>Provides OpenGL cache keys for Toybox identifiers.</summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Centralizes ID translation rules between TBX assets and OpenGL caches.
+    /// @details
     /// Ownership: Stateless; does not own external resources.
     /// Thread Safety: Safe to call concurrently.
-    /// </remarks>
     class GlIdProvider final
     {
       public:
-        /// <summary>Provides a cache key for an identifier pair.</summary>
-        /// <remarks>
+        /// @brief
         /// Purpose: Combines the provided identifiers into a stable cache key.
+        /// @details
         /// Ownership: Returns a value type; the caller owns the copy.
         /// Thread Safety: Safe to call concurrently.
-        /// </remarks>
-        tbx::Uuid provide(const tbx::Uuid& first, tbx::uint32 second) const;
+        tbx::Uuid provide(const tbx::Uuid& first, uint32 second) const;
     };
 }

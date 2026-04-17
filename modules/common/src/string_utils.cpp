@@ -1,5 +1,5 @@
 #include "tbx/common/string_utils.h"
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include <algorithm>
 #include <cctype>
 
@@ -53,6 +53,13 @@ namespace tbx
             });
 
         return result;
+    }
+
+    bool contains_case_insensitive(std::string_view value, std::string_view token)
+    {
+        const auto normalized_value = to_lower(value);
+        const auto normalized_token = to_lower(token);
+        return normalized_value.find(normalized_token) != std::string::npos;
     }
 
     std::string to_upper(std::string_view value)

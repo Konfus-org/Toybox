@@ -180,6 +180,17 @@ namespace tbx
         return FileType::OTHER;
     }
 
+    std::filesystem::file_time_type FileOperator::get_last_write_time(
+        const std::filesystem::path& path) const
+    {
+        const std::filesystem::path resolved = resolve(path);
+        std::error_code ec;
+        const auto last_write_time = std::filesystem::last_write_time(resolved, ec);
+        if (ec)
+            return {};
+        return last_write_time;
+    }
+
     std::vector<std::filesystem::path> FileOperator::read_directory(
         const std::filesystem::path& root) const
     {

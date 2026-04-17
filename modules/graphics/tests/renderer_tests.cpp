@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "tbx/assets/builtin_assets.h"
+#include "tbx/graphics/post_processing.h"
 #include "tbx/graphics/renderer.h"
 
 namespace tbx::tests::graphics
@@ -11,7 +12,7 @@ namespace tbx::tests::graphics
         Sky sky = {};
 
         // Act
-        const bool is_material_valid = sky.material.handle.is_valid();
+        const bool is_material_valid = sky.material.get_handle().is_valid();
 
         // Assert
         EXPECT_FALSE(is_material_valid);
@@ -39,7 +40,7 @@ namespace tbx::tests::graphics
         PostProcessingEffect effect = {};
 
         // Act
-        const bool is_material_valid = effect.material.handle.is_valid();
+        const bool is_material_valid = effect.material.get_handle().is_valid();
         const bool is_enabled = effect.is_enabled;
         const float blend = effect.blend;
 
@@ -49,21 +50,53 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(blend, 1.0f);
     }
 
-    // Validates that MaterialInstance defaults to an unset base material and empty values.
+    // Validates that MaterialInstance defaults to an unset material and empty override sets.
     TEST(RendererTests, MaterialInstance_Constructor_InitializesWithDefaults)
     {
         // Arrange
         MaterialInstance material_instance = {};
 
         // Act
-        const bool is_base_material_valid = material_instance.handle.is_valid();
-        const bool has_parameters = !material_instance.parameters.values.empty();
-        const bool has_textures = !material_instance.textures.values.empty();
+        const bool is_material_valid = material_instance.get_handle().is_valid();
+        const bool has_parameters = !material_instance.param_overrides.values.empty();
+        const bool has_textures = !material_instance.texture_overrides.values.empty();
 
         // Assert
-        EXPECT_FALSE(is_base_material_valid);
+        EXPECT_FALSE(is_material_valid);
         EXPECT_FALSE(has_parameters);
         EXPECT_FALSE(has_textures);
+    }
+
+    // Validates that MaterialInstance can be created with a fixed material handle.
+    TEST(RendererTests, MaterialInstance_HandleCtor_InitializesWithProvidedHandle)
+    {
+        // Arrange
+        auto material_instance = MaterialInstance(FlatMaterial::HANDLE);
+
+        // Act
+        const auto& handle = material_instance.get_handle();
+
+        // Assert
+        EXPECT_EQ(handle.id, FlatMaterial::HANDLE.id);
+    }
+
+    // Validates that material mutations toggle the dirty bit used by GPU upload paths.
+    TEST(RendererTests, MaterialInstance_Mutations_MarkDirty)
+    {
+        // Arrange
+        auto material_instance = MaterialInstance(FlatMaterial::HANDLE);
+        material_instance.clear_dirty();
+
+        // Act
+        material_instance.set_parameter(tbx::FlatMaterial::COLOR, Color(1.0f, 0.5f, 0.25f, 1.0f));
+        const auto dirty_after_parameter_set = material_instance.is_dirty();
+        material_instance.clear_dirty();
+        material_instance.set_texture(tbx::FlatMaterial::DIFFUSE_MAP, Handle("Diffuse"));
+        const auto dirty_after_texture_set = material_instance.is_dirty();
+
+        // Assert
+        EXPECT_TRUE(dirty_after_parameter_set);
+        EXPECT_TRUE(dirty_after_texture_set);
     }
 
     // Validates MaterialParameterBindings supports normalized lookup and iteration.
@@ -117,187 +150,40 @@ namespace tbx::tests::graphics
         EXPECT_NE(textures.begin(), textures.end());
     }
 
-    // Validates PbrMaterialInstance writes directly to inherited bindings on set.
-    TEST(RendererTests, PbrMaterialInstance_Setters_PopulateBindings)
+    // Validates generated material keys expose stable handles and binding names.
+    TEST(RendererTests, MaterialKeys_ExposeTypedHandlesAndNames)
     {
         // Arrange
-        auto material = PbrMaterialInstance {};
-        material.set_diffuse_map(Handle("Diffuse"));
-        material.set_normal_map(Handle("Normal"));
-        material.set_specular_map(Handle("Specular"));
-        material.set_shininess_map(Handle("Shininess"));
-        material.set_emissive_map(Handle("Emissive"));
-        material.set_color(Color(0.25f, 0.5f, 0.75f, 1.0f));
-        material.set_diffuse_strength(0.9f);
-        material.set_normal_strength(0.8f);
-        material.set_specular_strength(0.2f);
-        material.set_shininess_strength(64.0f);
-        material.set_emissive_color(Color(0.1f, 0.2f, 0.3f, 1.0f));
-        material.set_emissive_strength(0.5f);
-        material.set_alpha_cutoff(0.15f);
-        material.set_transparency_amount(0.35f);
-        material.set_exposure(1.5f);
+        auto material = MaterialInstance(PbrMaterial::HANDLE);
+        material.set_parameter(PbrMaterial::COLOR, Color::RED);
+        material.set_texture(PbrMaterial::DIFFUSE_MAP, CheckerboardTexture::HANDLE);
 
         // Act
-        const auto* diffuse_map = material.textures.get("diffuse_map");
-        const auto* normal_map = material.textures.get("normal_map");
-        const auto* specular_map = material.textures.get("specular_map");
-        const auto* shininess_map = material.textures.get("shininess_map");
-        const auto* emissive_map = material.textures.get("emissive_map");
-        const auto* color = material.parameters.get("color");
-        const auto* diffuse_strength = material.parameters.get("diffuse_strength");
-        const auto* normal_strength = material.parameters.get("normal_strength");
-        const auto* specular_strength = material.parameters.get("specular_strength");
-        const auto* shininess_strength = material.parameters.get("shininess_strength");
-        const auto* emissive = material.parameters.get("emissive");
-        const auto* emissive_strength = material.parameters.get("emissive_strength");
-        const auto* alpha_cutoff = material.parameters.get("alpha_cutoff");
-        const auto* transparency_amount = material.parameters.get("transparency_amount");
-        const auto* exposure = material.parameters.get("exposure");
+        const auto color = material.get_parameter_or(PbrMaterial::COLOR, Color::BLACK);
+        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::DIFFUSE_MAP);
 
         // Assert
-        ASSERT_NE(diffuse_map, nullptr);
-        ASSERT_NE(normal_map, nullptr);
-        ASSERT_NE(specular_map, nullptr);
-        ASSERT_NE(shininess_map, nullptr);
-        ASSERT_NE(emissive_map, nullptr);
-        ASSERT_NE(color, nullptr);
-        ASSERT_NE(diffuse_strength, nullptr);
-        ASSERT_NE(normal_strength, nullptr);
-        ASSERT_NE(specular_strength, nullptr);
-        ASSERT_NE(shininess_strength, nullptr);
-        ASSERT_NE(emissive, nullptr);
-        ASSERT_NE(emissive_strength, nullptr);
-        ASSERT_NE(alpha_cutoff, nullptr);
-        ASSERT_NE(transparency_amount, nullptr);
-        ASSERT_NE(exposure, nullptr);
-        EXPECT_EQ(diffuse_map->name, "u_diffuse_map");
-        EXPECT_EQ(normal_map->name, "u_normal_map");
-        EXPECT_EQ(specular_map->name, "u_specular_map");
-        EXPECT_EQ(shininess_map->name, "u_shininess_map");
-        EXPECT_EQ(emissive_map->name, "u_emissive_map");
+        EXPECT_TRUE(PbrMaterial::HANDLE.is_valid());
+        EXPECT_TRUE(FlatMaterial::HANDLE.is_valid());
+        EXPECT_FLOAT_EQ(color.r, Color::RED.r);
+        EXPECT_FLOAT_EQ(color.g, Color::RED.g);
+        EXPECT_FLOAT_EQ(color.b, Color::RED.b);
+        EXPECT_FLOAT_EQ(color.a, Color::RED.a);
+        EXPECT_EQ(diffuse_map.id, CheckerboardTexture::HANDLE.id);
     }
 
-    // Validates PbrMaterialInstance default getters return expected fallback values.
-    TEST(RendererTests, PbrMaterialInstance_DefaultGetters_ReturnExpectedDefaults)
+    // Validates Lods defaults to no LOD entries and no render-distance cap.
+    TEST(RendererTests, Lods_Constructor_InitializesWithDefaults)
     {
         // Arrange
-        const auto material = PbrMaterialInstance {};
+        Lods lods = {};
 
         // Act
-        const auto color = material.get_color();
-        const auto emissive = material.get_emissive_color();
+        const bool has_values = !lods.values.empty();
+        const float render_distance = lods.render_distance;
 
         // Assert
-        EXPECT_FLOAT_EQ(color.r, 1.0f);
-        EXPECT_FLOAT_EQ(color.g, 1.0f);
-        EXPECT_FLOAT_EQ(color.b, 1.0f);
-        EXPECT_FLOAT_EQ(color.a, 1.0f);
-        EXPECT_FLOAT_EQ(material.get_diffuse_strength(), 1.0f);
-        EXPECT_FALSE(material.get_normal_map().is_valid());
-        EXPECT_FLOAT_EQ(material.get_normal_strength(), 1.0f);
-        EXPECT_FALSE(material.get_specular_map().is_valid());
-        EXPECT_FLOAT_EQ(material.get_specular_strength(), 0.5f);
-        EXPECT_FALSE(material.get_shininess_map().is_valid());
-        EXPECT_FLOAT_EQ(material.get_shininess_strength(), 32.0f);
-        EXPECT_FLOAT_EQ(emissive.r, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.g, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.b, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.a, 1.0f);
-        EXPECT_FALSE(material.get_emissive_map().is_valid());
-        EXPECT_FLOAT_EQ(material.get_emissive_strength(), 1.0f);
-        EXPECT_FLOAT_EQ(material.get_alpha_cutoff(), 0.1f);
-        EXPECT_FLOAT_EQ(material.get_transparency_amount(), 0.0f);
-        EXPECT_FLOAT_EQ(material.get_exposure(), 1.0f);
-    }
-
-    // Validates Renderer can return a typed PBR material view from its stored MaterialInstance.
-    TEST(RendererTests, Renderer_GetMaterial_ReturnsTypedPbrMaterial)
-    {
-        // Arrange
-        auto renderer = Renderer {};
-        renderer.material = PbrMaterialInstance(Color(0.2f, 0.4f, 0.6f, 1.0f));
-
-        // Act
-        const auto material = renderer.get_material<PbrMaterialInstance>();
-
-        // Assert
-        EXPECT_FLOAT_EQ(material.get_color().r, 0.2f);
-        EXPECT_FLOAT_EQ(material.get_color().g, 0.4f);
-        EXPECT_FLOAT_EQ(material.get_color().b, 0.6f);
-    }
-
-    // Validates Renderer can return a typed flat material view from its stored MaterialInstance.
-    TEST(RendererTests, Renderer_GetMaterial_ReturnsTypedFlatMaterial)
-    {
-        // Arrange
-        auto renderer = Renderer {};
-        renderer.material = FlatMaterialInstance(Color(0.8f, 0.6f, 0.4f, 1.0f));
-
-        // Act
-        const auto material = renderer.get_material<FlatMaterialInstance>();
-
-        // Assert
-        EXPECT_EQ(material.handle.id, unlit_material.id);
-        EXPECT_FLOAT_EQ(material.get_color().r, 0.8f);
-        EXPECT_FLOAT_EQ(material.get_color().g, 0.6f);
-        EXPECT_FLOAT_EQ(material.get_color().b, 0.4f);
-    }
-
-    // Validates FlatMaterialInstance writes directly to inherited bindings on set.
-    TEST(RendererTests, FlatMaterialInstance_Setters_PopulateBindings)
-    {
-        // Arrange
-        auto material = FlatMaterialInstance {};
-        material.set_diffuse_map(Handle("Diffuse"));
-        material.set_color(Color(0.2f, 0.4f, 0.6f, 1.0f));
-        material.set_emissive_color(Color(0.1f, 0.2f, 0.3f, 1.0f));
-        material.set_alpha_cutoff(0.2f);
-        material.set_transparency_amount(0.45f);
-        material.set_exposure(1.25f);
-
-        // Act
-        const auto* diffuse_map = material.textures.get("diffuse_map");
-        const auto* color = material.parameters.get("color");
-        const auto* emissive = material.parameters.get("emissive");
-        const auto* alpha_cutoff = material.parameters.get("alpha_cutoff");
-        const auto* transparency_amount = material.parameters.get("transparency_amount");
-        const auto* exposure = material.parameters.get("exposure");
-
-        // Assert
-        EXPECT_EQ(material.handle.id, unlit_material.id);
-        ASSERT_NE(diffuse_map, nullptr);
-        ASSERT_NE(color, nullptr);
-        ASSERT_NE(emissive, nullptr);
-        ASSERT_NE(alpha_cutoff, nullptr);
-        ASSERT_NE(transparency_amount, nullptr);
-        ASSERT_NE(exposure, nullptr);
-        EXPECT_EQ(diffuse_map->name, "u_diffuse_map");
-    }
-
-    // Validates FlatMaterialInstance default getters return expected fallback values.
-    TEST(RendererTests, FlatMaterialInstance_DefaultGetters_ReturnExpectedDefaults)
-    {
-        // Arrange
-        const auto material = FlatMaterialInstance {};
-
-        // Act
-        const auto color = material.get_color();
-        const auto emissive = material.get_emissive_color();
-
-        // Assert
-        EXPECT_EQ(material.handle.id, unlit_material.id);
-        EXPECT_FLOAT_EQ(color.r, 1.0f);
-        EXPECT_FLOAT_EQ(color.g, 1.0f);
-        EXPECT_FLOAT_EQ(color.b, 1.0f);
-        EXPECT_FLOAT_EQ(color.a, 1.0f);
-        EXPECT_FLOAT_EQ(emissive.r, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.g, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.b, 0.0f);
-        EXPECT_FLOAT_EQ(emissive.a, 1.0f);
-        EXPECT_FALSE(material.get_diffuse_map().is_valid());
-        EXPECT_FLOAT_EQ(material.get_alpha_cutoff(), 0.1f);
-        EXPECT_FLOAT_EQ(material.get_transparency_amount(), 0.0f);
-        EXPECT_FLOAT_EQ(material.get_exposure(), 1.0f);
+        EXPECT_FALSE(has_values);
+        EXPECT_FLOAT_EQ(render_distance, 0.0f);
     }
 }

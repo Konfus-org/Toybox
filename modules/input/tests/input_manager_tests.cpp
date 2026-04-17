@@ -107,12 +107,6 @@ namespace tbx::tests::input
             return promise.get_future().share();
         }
     };
-
-    /// <summary>
-    /// Purpose: Validates typed action getters and callback transitions for an action value update.
-    /// Ownership: Uses only stack-local test data and dispatcher stubs.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, action_typed_getters_and_callbacks_follow_lifecycle)
     {
         // Arrange
@@ -162,12 +156,6 @@ namespace tbx::tests::input
         ASSERT_FALSE(performed);
         ASSERT_TRUE(cancelled);
     }
-
-    /// <summary>
-    /// Purpose: Validates action construction can preload bindings and callbacks.
-    /// Ownership: Uses stack-local action state only.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, action_constructor_accepts_bindings_and_callbacks)
     {
         // Arrange
@@ -214,12 +202,6 @@ namespace tbx::tests::input
         ASSERT_TRUE(performed);
         ASSERT_TRUE(cancelled);
     }
-
-    /// <summary>
-    /// Purpose: Validates keyboard vector2 composite bindings produce a single move vector.
-    /// Ownership: Uses in-memory dispatcher state and action/scheme instances.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, keyboard_vector2_composite_produces_expected_move_axis)
     {
         // Arrange
@@ -263,12 +245,6 @@ namespace tbx::tests::input
         ASSERT_FLOAT_EQ(axis.x, 1.0F);
         ASSERT_FLOAT_EQ(axis.y, 1.0F);
     }
-
-    /// <summary>
-    /// Purpose: Validates scheme construction can preload actions with initializer-list syntax.
-    /// Ownership: Uses stack-local scheme/action state only.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, scheme_constructor_accepts_actions)
     {
         // Arrange
@@ -288,12 +264,6 @@ namespace tbx::tests::input
         ASSERT_NE(look_action, nullptr);
         ASSERT_EQ(scheme.get_all_actions().size(), 2U);
     }
-
-    /// <summary>
-    /// Purpose: Validates only one input scheme is active after activation requests.
-    /// Ownership: Uses in-memory action/scheme setup only.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, activate_scheme_makes_single_scheme_active)
     {
         // Arrange
@@ -320,12 +290,6 @@ namespace tbx::tests::input
         ASSERT_FALSE(first_scheme->get_is_active());
         ASSERT_TRUE(second_scheme->get_is_active());
     }
-
-    /// <summary>
-    /// Purpose: Validates mouse lock requests and lock mode queries route through the dispatcher.
-    /// Ownership: Uses stack-local dispatcher and manager instances only.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, mouse_lock_requests_and_mode_queries_are_forwarded)
     {
         // Arrange
@@ -342,12 +306,6 @@ namespace tbx::tests::input
         ASSERT_EQ(locked_mode, MouseLockMode::RELATIVE);
         ASSERT_EQ(unlocked_mode, MouseLockMode::UNLOCKED);
     }
-
-    /// <summary>
-    /// Purpose: Validates update emits one warning when active actions have no input handlers.
-    /// Ownership: Uses stack-local dispatcher and manager instances only.
-    /// Thread Safety: Single-threaded unit test.
-    /// </summary>
     TEST(input_manager, update_warns_once_when_action_inputs_are_unhandled)
     {
         // Arrange

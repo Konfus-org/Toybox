@@ -6,6 +6,7 @@
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
+#include "tbx/math/matrices.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -16,10 +17,10 @@
 
 namespace opengl_rendering
 {
-    constexpr tbx::uint32 DynamicMeshSalt = 0xD1A60001U;
-    constexpr tbx::uint32 StaticMeshSalt = 0x57A71C01U;
-    constexpr tbx::uint32 TextureSalt = 0x7EAE0001U;
-    constexpr tbx::uint32 MaterialProgramSalt = 0xAA110001U;
+    constexpr uint32 DynamicMeshSalt = 0xD1A60001U;
+    constexpr uint32 StaticMeshSalt = 0x57A71C01U;
+    constexpr uint32 TextureSalt = 0x7EAE0001U;
+    constexpr uint32 MaterialProgramSalt = 0xAA110001U;
 
     struct MeshPartQueueEntry final
     {
@@ -29,13 +30,13 @@ namespace opengl_rendering
 
     tbx::Uuid make_non_zero_uuid_from_hash(const std::size_t hash_value)
     {
-        auto hashed = static_cast<tbx::uint32>(hash_value);
+        auto hashed = static_cast<uint32>(hash_value);
         if (hashed == 0U)
             hashed = 1U;
         return tbx::Uuid(hashed);
     }
 
-    tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const tbx::uint32 salt)
+    tbx::Uuid make_typed_key(const tbx::Uuid& base_key, const uint32 salt)
     {
         if (!base_key.is_valid())
             return {};
@@ -73,44 +74,84 @@ namespace opengl_rendering
         return make_typed_key(material_handle.id, MaterialProgramSalt);
     }
 
-    static bool try_get_vec3_attribute_offsets(
+    tbx::Handle resolve_asset_handle(
+        const tbx::Handle& handle,
+        tbx::AssetManager& asset_manager)
+    {
+        if (handle.name.empty() && !handle.id.is_valid())
+            return {};
+
+        auto resolved_handle = handle;
+        const auto resolved_id = asset_manager.ensure(handle);
+        if (resolved_id.is_valid())
+            resolved_handle.id = resolved_id;
+        return resolved_handle;
+    }
+
+    void append_unique_uuid(std::vector<tbx::Uuid>& values, const tbx::Uuid& value)
+    {
+        if (!value.is_valid())
+            return;
+
+        for (const auto& existing : values)
+        {
+            if (existing == value)
+                return;
+        }
+
+        values.push_back(value);
+    }
+
+    static bool try_get_mesh_attribute_offsets(
         const tbx::VertexBufferLayout& layout,
         size_t& out_position_offset_floats,
         size_t& out_normal_offset_floats,
-        bool& out_has_normal)
+        bool& out_has_normal,
+        size_t& out_tangent_offset_floats,
+        bool& out_has_tangent)
     {
         out_position_offset_floats = 0U;
         out_normal_offset_floats = 0U;
         out_has_normal = false;
+        out_tangent_offset_floats = 0U;
+        out_has_tangent = false;
 
         auto vec3_attribute_index = size_t {0U};
+        auto has_position = false;
         for (const auto& attribute : layout.elements)
         {
-            if (!std::holds_alternative<tbx::Vec3>(attribute.type))
-                continue;
-
             const auto attribute_offset_floats =
                 static_cast<size_t>(attribute.offset) / sizeof(float);
-            if (vec3_attribute_index == 0U)
-                out_position_offset_floats = attribute_offset_floats;
-            else if (vec3_attribute_index == 1U)
+            if (std::holds_alternative<tbx::Vec3>(attribute.type))
             {
-                out_normal_offset_floats = attribute_offset_floats;
-                out_has_normal = true;
-                return true;
-            }
+                if (vec3_attribute_index == 0U)
+                {
+                    out_position_offset_floats = attribute_offset_floats;
+                    has_position = true;
+                }
+                else if (vec3_attribute_index == 1U)
+                {
+                    out_normal_offset_floats = attribute_offset_floats;
+                    out_has_normal = true;
+                }
 
-            vec3_attribute_index += 1U;
+                vec3_attribute_index += 1U;
+            }
+            else if (std::holds_alternative<tbx::Vec4>(attribute.type) && !out_has_tangent)
+            {
+                out_tangent_offset_floats = attribute_offset_floats;
+                out_has_tangent = true;
+            }
         }
 
-        return vec3_attribute_index > 0U;
+        return has_position;
     }
 
     static bool append_transformed_mesh(
         const tbx::Mesh& mesh,
         const tbx::Mat4& transform,
         std::vector<float>& out_vertices,
-        std::vector<tbx::uint32>& out_indices,
+        std::vector<uint32>& out_indices,
         tbx::VertexBufferLayout& out_layout,
         bool& out_has_layout)
     {
@@ -126,11 +167,15 @@ namespace opengl_rendering
         auto position_offset_floats = size_t {0U};
         auto normal_offset_floats = size_t {0U};
         auto has_normal = false;
-        if (!try_get_vec3_attribute_offsets(
+        auto tangent_offset_floats = size_t {0U};
+        auto has_tangent = false;
+        if (!try_get_mesh_attribute_offsets(
                 source_layout,
                 position_offset_floats,
                 normal_offset_floats,
-                has_normal))
+                has_normal,
+                tangent_offset_floats,
+                has_tangent))
             return false;
 
         if (!out_has_layout)
@@ -146,8 +191,12 @@ namespace opengl_rendering
         }
 
         const auto base_vertex_index =
-            static_cast<tbx::uint32>(out_vertices.size() / stride_floats);
+            static_cast<uint32>(out_vertices.size() / stride_floats);
         out_vertices.reserve(out_vertices.size() + source_vertices.size());
+        const auto transform_matrix = tbx::Mat3(transform);
+        const auto normal_matrix = tbx::inverse_transpose(transform_matrix);
+        const auto transform_determinant = glm::determinant(transform_matrix);
+        const auto tangent_handedness_sign = transform_determinant < 0.0F ? -1.0F : 1.0F;
 
         const auto vertex_count = source_vertices.size() / stride_floats;
         for (size_t vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
@@ -177,12 +226,11 @@ namespace opengl_rendering
                 continue;
 
             auto transformed_normal =
-                transform
-                * tbx::Vec4(
+                normal_matrix
+                * tbx::Vec3(
                     source_vertices[source_base_index + normal_offset_floats],
                     source_vertices[source_base_index + normal_offset_floats + 1U],
-                    source_vertices[source_base_index + normal_offset_floats + 2U],
-                    0.0F);
+                    source_vertices[source_base_index + normal_offset_floats + 2U]);
             const auto normal_length_squared =
                 (transformed_normal.x * transformed_normal.x)
                 + (transformed_normal.y * transformed_normal.y)
@@ -198,6 +246,39 @@ namespace opengl_rendering
                 transformed_normal.y;
             out_vertices[destination_base_index + normal_offset_floats + 2U] =
                 transformed_normal.z;
+
+            if (!has_tangent)
+                continue;
+
+            auto transformed_tangent =
+                transform_matrix
+                * tbx::Vec3(
+                    source_vertices[source_base_index + tangent_offset_floats],
+                    source_vertices[source_base_index + tangent_offset_floats + 1U],
+                    source_vertices[source_base_index + tangent_offset_floats + 2U]);
+            transformed_tangent -= transformed_normal * tbx::dot(transformed_tangent, transformed_normal);
+            const auto tangent_length_squared =
+                (transformed_tangent.x * transformed_tangent.x)
+                + (transformed_tangent.y * transformed_tangent.y)
+                + (transformed_tangent.z * transformed_tangent.z);
+            if (tangent_length_squared > 0.000001F)
+            {
+                const auto inverse_tangent_length = 1.0F / std::sqrt(tangent_length_squared);
+                transformed_tangent *= inverse_tangent_length;
+            }
+            else
+            {
+                transformed_tangent = tbx::Vec3(1.0F, 0.0F, 0.0F);
+            }
+
+            out_vertices[destination_base_index + tangent_offset_floats] = transformed_tangent.x;
+            out_vertices[destination_base_index + tangent_offset_floats + 1U] =
+                transformed_tangent.y;
+            out_vertices[destination_base_index + tangent_offset_floats + 2U] =
+                transformed_tangent.z;
+            out_vertices[destination_base_index + tangent_offset_floats + 3U] =
+                source_vertices[source_base_index + tangent_offset_floats + 3U]
+                * tangent_handedness_sign;
         }
 
         out_indices.reserve(out_indices.size() + mesh.indices.size());
@@ -215,7 +296,7 @@ namespace opengl_rendering
             return false;
 
         auto flattened_vertices = std::vector<float> {};
-        auto flattened_indices = std::vector<tbx::uint32> {};
+        auto flattened_indices = std::vector<uint32> {};
         auto flattened_layout = tbx::VertexBufferLayout {};
         auto has_layout = false;
         auto appended_any_mesh = false;
@@ -324,6 +405,35 @@ namespace opengl_rendering
         if (!key.is_valid())
             return {};
 
+        if (!dynamic_mesh.data)
+            return {};
+
+        if (const auto existing = _resources.find(key); existing != _resources.end())
+        {
+            auto keep_existing = false;
+            if (const auto source_it = _dynamic_mesh_sources.find(key);
+                source_it != _dynamic_mesh_sources.end())
+            {
+                if (const auto source_mesh = source_it->second.lock())
+                    keep_existing = source_mesh.get() == dynamic_mesh.data.get();
+            }
+
+            if (!keep_existing)
+            {
+                _resources.erase(key);
+                _pinned_resources.erase(key);
+                _last_access.erase(key);
+                _dynamic_mesh_sources.erase(key);
+            }
+            else
+            {
+                _last_access.insert_or_assign(key, now);
+                if (pin)
+                    _pinned_resources.insert_or_assign(key, existing->second);
+                return key;
+            }
+        }
+
         if (const auto existing = _resources.find(key); existing != _resources.end())
         {
             _last_access.insert_or_assign(key, now);
@@ -332,12 +442,10 @@ namespace opengl_rendering
             return key;
         }
 
-        if (!dynamic_mesh.data)
-            return {};
-
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(*dynamic_mesh.data));
         _resources.insert_or_assign(key, resource);
+        _dynamic_mesh_sources.insert_or_assign(key, dynamic_mesh.data);
         _last_access.insert_or_assign(key, now);
         if (pin)
             _pinned_resources.insert_or_assign(key, resource);
@@ -349,7 +457,8 @@ namespace opengl_rendering
         const bool pin)
     {
         const auto now = std::chrono::steady_clock::now();
-        const auto key = make_static_mesh_key(static_mesh.handle);
+        const auto resolved_mesh_handle = resolve_asset_handle(static_mesh.handle, _asset_manager);
+        const auto key = make_static_mesh_key(resolved_mesh_handle);
         if (!key.is_valid())
             return {};
 
@@ -361,7 +470,7 @@ namespace opengl_rendering
             return key;
         }
 
-        const auto model = _asset_manager.load<tbx::Model>(static_mesh.handle);
+        const auto model = _asset_manager.load<tbx::Model>(resolved_mesh_handle);
         if (!model || model->meshes.empty())
             return {};
 
@@ -370,7 +479,7 @@ namespace opengl_rendering
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to build render geometry for model '{}'.",
-                static_mesh.handle.name.c_str());
+                resolved_mesh_handle.name.c_str());
             return {};
         }
 
@@ -387,14 +496,16 @@ namespace opengl_rendering
         const tbx::MaterialInstance& material_instance,
         const bool pin)
     {
-        if (!material_instance.handle.is_valid())
+        const auto resolved_material_handle =
+            resolve_asset_handle(material_instance.material, _asset_manager);
+        if (!resolved_material_handle.is_valid())
         {
             TBX_TRACE_WARNING("OpenGL rendering: material handle is invalid.");
             return {};
         }
 
         const auto now = std::chrono::steady_clock::now();
-        const auto program_key = make_material_program_key(material_instance.handle);
+        const auto program_key = make_material_program_key(resolved_material_handle);
         if (!program_key.is_valid())
             return {};
 
@@ -406,9 +517,10 @@ namespace opengl_rendering
                 _pinned_resources.insert_or_assign(program_key, existing->second);
             has_program = true;
         }
-        else if (const auto material = _asset_manager.load<tbx::Material>(material_instance.handle))
+        else if (const auto material = get_material_asset(resolved_material_handle))
         {
             auto shader_resources = std::vector<std::shared_ptr<OpenGlShader>>();
+            auto shader_handles = std::vector<tbx::Handle> {};
             auto try_append_shader = [&](const tbx::Handle& shader_handle)
             {
                 if (!shader_handle.is_valid())
@@ -418,9 +530,9 @@ namespace opengl_rendering
                 if (!shader)
                 {
                     TBX_TRACE_WARNING(
-                        "OpenGL rendering: failed to load shader '{}' for material '{}'.",
-                        shader_handle.id.value,
-                        material_instance.handle.id.value);
+                            "OpenGL rendering: failed to load shader '{}' for material '{}'.",
+                            shader_handle.id.value,
+                            resolved_material_handle.id.value);
                     return false;
                 }
 
@@ -433,7 +545,7 @@ namespace opengl_rendering
                             "OpenGL rendering: failed to compile shader stage (type {}) for "
                             "material '{}'.",
                             static_cast<int>(source.type),
-                            material_instance.handle.id.value);
+                            resolved_material_handle.id.value);
                         return false;
                     }
                     shader_resources.emplace_back(std::move(shader_resource));
@@ -443,10 +555,11 @@ namespace opengl_rendering
                     TBX_TRACE_WARNING(
                         "OpenGL rendering: shader '{}' has no stages for material '{}'.",
                         shader_handle.id.value,
-                        material_instance.handle.id.value);
+                        resolved_material_handle.id.value);
                     return false;
                 }
 
+                shader_handles.push_back(shader_handle);
                 return true;
             };
 
@@ -471,6 +584,7 @@ namespace opengl_rendering
                     const auto resource = std::shared_ptr<IOpenGlResource>(shader_program);
                     _resources.insert_or_assign(program_key, resource);
                     _last_access.insert_or_assign(program_key, now);
+                    store_shader_dependencies(program_key, shader_handles);
                     if (pin)
                         _pinned_resources.insert_or_assign(program_key, resource);
                     has_program = true;
@@ -481,47 +595,42 @@ namespace opengl_rendering
             {
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: failed to build shader program for material '{}'.",
-                    material_instance.handle.id.value);
+                    resolved_material_handle.id.value);
             }
         }
         else
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to load material '{}'.",
-                material_instance.handle.id.value);
-        }
-
-        for (const auto& texture_binding : material_instance.textures.values)
-        {
-            const auto texture_key = make_texture_key(texture_binding.texture.handle);
-            if (!texture_key.is_valid())
-                continue;
-
-            if (const auto texture_it = _resources.find(texture_key);
-                texture_it != _resources.end())
-            {
-                _last_access.insert_or_assign(texture_key, now);
-                if (pin)
-                    _pinned_resources.insert_or_assign(texture_key, texture_it->second);
-                continue;
-            }
-
-            if (const auto texture =
-                    _asset_manager.load<tbx::Texture>(texture_binding.texture.handle))
-            {
-                const auto resource =
-                    std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlTexture>(*texture));
-                _resources.insert_or_assign(texture_key, resource);
-                _last_access.insert_or_assign(texture_key, now);
-                if (pin)
-                    _pinned_resources.insert_or_assign(texture_key, resource);
-            }
+                resolved_material_handle.id.value);
         }
 
         if (has_program)
             return program_key;
 
         return {};
+    }
+
+    std::shared_ptr<tbx::Material> OpenGlResourceManager::get_material_asset(
+        const tbx::Handle& material_handle)
+    {
+        const auto resolved_material_handle = resolve_asset_handle(material_handle, _asset_manager);
+        if (!resolved_material_handle.is_valid())
+            return {};
+
+        const auto program_key = make_material_program_key(resolved_material_handle);
+        if (!program_key.is_valid())
+            return {};
+
+        if (const auto existing = _material_assets.find(program_key); existing != _material_assets.end())
+            return existing->second;
+
+        const auto material = _asset_manager.load<tbx::Material>(resolved_material_handle);
+        if (!material)
+            return {};
+
+        _material_assets.insert_or_assign(program_key, material);
+        return material;
     }
 
     tbx::Uuid OpenGlResourceManager::add_material(
@@ -580,7 +689,8 @@ namespace opengl_rendering
 
     tbx::Uuid OpenGlResourceManager::add_texture(const tbx::Handle& texture_handle, const bool pin)
     {
-        const auto key = make_texture_key(texture_handle);
+        const auto resolved_texture_handle = resolve_asset_handle(texture_handle, _asset_manager);
+        const auto key = make_texture_key(resolved_texture_handle);
         if (!key.is_valid())
             return {};
 
@@ -593,7 +703,7 @@ namespace opengl_rendering
             return key;
         }
 
-        const auto texture = _asset_manager.load<tbx::Texture>(texture_handle);
+        const auto texture = _asset_manager.load<tbx::Texture>(resolved_texture_handle);
         if (!texture)
             return {};
 
@@ -604,6 +714,89 @@ namespace opengl_rendering
         if (pin)
             _pinned_resources.insert_or_assign(key, resource);
         return key;
+    }
+
+    void OpenGlResourceManager::on_asset_reloaded(const tbx::Handle& asset_handle)
+    {
+        if (!asset_handle.id.is_valid())
+            return;
+
+        invalidate_resource(make_static_mesh_key(asset_handle));
+        invalidate_resource(make_texture_key(asset_handle));
+        invalidate_material_program(make_material_program_key(asset_handle));
+
+        const auto shader_iterator = _programs_by_shader.find(asset_handle.id);
+        if (shader_iterator == _programs_by_shader.end())
+            return;
+
+        const auto dependent_programs = shader_iterator->second;
+        for (const auto& program_key : dependent_programs)
+            invalidate_material_program(program_key);
+    }
+
+    void OpenGlResourceManager::invalidate_material_program(const tbx::Uuid& program_key)
+    {
+        if (!program_key.is_valid())
+            return;
+
+        clear_shader_dependencies(program_key);
+        _material_assets.erase(program_key);
+        invalidate_resource(program_key);
+    }
+
+    void OpenGlResourceManager::invalidate_resource(const tbx::Uuid& resource_uuid)
+    {
+        if (!resource_uuid.is_valid())
+            return;
+
+        _resources.erase(resource_uuid);
+        _pinned_resources.erase(resource_uuid);
+        _last_access.erase(resource_uuid);
+    }
+
+    void OpenGlResourceManager::clear_shader_dependencies(const tbx::Uuid& program_key)
+    {
+        const auto shader_list_iterator = _shaders_by_program.find(program_key);
+        if (shader_list_iterator == _shaders_by_program.end())
+            return;
+
+        for (const auto& shader_id : shader_list_iterator->second)
+        {
+            const auto programs_iterator = _programs_by_shader.find(shader_id);
+            if (programs_iterator == _programs_by_shader.end())
+                continue;
+
+            auto& programs = programs_iterator->second;
+            std::erase(programs, program_key);
+            if (programs.empty())
+                _programs_by_shader.erase(programs_iterator);
+        }
+
+        _shaders_by_program.erase(shader_list_iterator);
+    }
+
+    void OpenGlResourceManager::store_shader_dependencies(
+        const tbx::Uuid& program_key,
+        const std::vector<tbx::Handle>& shader_handles)
+    {
+        clear_shader_dependencies(program_key);
+
+        auto shader_ids = std::vector<tbx::Uuid> {};
+        shader_ids.reserve(shader_handles.size());
+        for (const auto& shader_handle : shader_handles)
+        {
+            if (!shader_handle.id.is_valid())
+                continue;
+
+            append_unique_uuid(shader_ids, shader_handle.id);
+            auto& programs = _programs_by_shader[shader_handle.id];
+            append_unique_uuid(programs, program_key);
+        }
+
+        if (shader_ids.empty())
+            return;
+
+        _shaders_by_program.insert_or_assign(program_key, std::move(shader_ids));
     }
 
     bool OpenGlResourceManager::try_get_raw(
@@ -635,8 +828,12 @@ namespace opengl_rendering
     void OpenGlResourceManager::clear()
     {
         _resources.clear();
+        _dynamic_mesh_sources.clear();
+        _material_assets.clear();
         _pinned_resources.clear();
         _last_access.clear();
+        _programs_by_shader.clear();
+        _shaders_by_program.clear();
     }
 
     void OpenGlResourceManager::clear_unused()
@@ -649,7 +846,26 @@ namespace opengl_rendering
                 const auto& resource = entry.second;
                 if (_pinned_resources.contains(key))
                     return false;
-                return !resource || resource.use_count() <= 1;
+
+                const auto should_remove = !resource || resource.use_count() <= 1;
+                if (should_remove)
+                    clear_shader_dependencies(key);
+                return should_remove;
+            });
+
+        std::erase_if(
+            _material_assets,
+            [this](const auto& entry)
+            {
+                return !_resources.contains(entry.first);
+            });
+
+        std::erase_if(
+            _dynamic_mesh_sources,
+            [this](const auto& entry)
+            {
+                const auto key = entry.first;
+                return !_resources.contains(key) || entry.second.expired();
             });
 
         std::erase_if(
@@ -659,5 +875,32 @@ namespace opengl_rendering
                 const auto key = entry.first;
                 return !_resources.contains(key);
             });
+
+        std::erase_if(
+            _shaders_by_program,
+            [this](const auto& entry)
+            {
+                const auto key = entry.first;
+                return !_resources.contains(key);
+            });
+
+        for (auto iterator = _programs_by_shader.begin(); iterator != _programs_by_shader.end();)
+        {
+            auto& programs = iterator->second;
+            std::erase_if(
+                programs,
+                [this](const auto& program_key)
+                {
+                    return !_resources.contains(program_key);
+                });
+
+            if (programs.empty())
+            {
+                iterator = _programs_by_shader.erase(iterator);
+                continue;
+            }
+
+            ++iterator;
+        }
     }
 }

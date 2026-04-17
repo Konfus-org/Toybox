@@ -1,5 +1,5 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-#include "tbx/assets/messages.h"
+#include "tbx/assets/asset_requests.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
@@ -117,38 +117,39 @@ namespace assimp_model_loader
             tbx::Color(),
             tbx::Vec3(0.0f),
             tbx::Vec2(0.0f),
+            tbx::Vec4(0.0f),
         }};
     }
 
     static void append_parts_from_node(
         const aiNode& node,
-        const tbx::Mat4& parent_transform,
-        const std::vector<tbx::uint32>& mesh_material_indices,
+        const tbx::Mat4& accumulated_transform,
+        const std::vector<uint32>& mesh_material_indices,
         std::vector<tbx::ModelPart>& parts,
-        const tbx::uint32 parent_index,
+        const uint32 parent_index,
         const bool has_parent)
     {
-        // Compose the local transform with the accumulated parent transform.
-        const tbx::Mat4 local_transform = parent_transform * to_mat4(node.mTransformation);
-        tbx::uint32 first_part_index = 0U;
+        // Accumulate transform-only ancestors until a model part is emitted.
+        const tbx::Mat4 local_transform = accumulated_transform * to_mat4(node.mTransformation);
+        uint32 first_part_index = 0U;
         bool has_first_part = false;
 
-        for (tbx::uint32 mesh_offset = 0; mesh_offset < node.mNumMeshes; ++mesh_offset)
+        for (uint32 mesh_offset = 0; mesh_offset < node.mNumMeshes; ++mesh_offset)
         {
             // Use the mesh index referenced by the node.
-            const tbx::uint32 mesh_index = node.mMeshes[mesh_offset];
-            // Create a model part referencing the mesh/material and local transform.
+            const uint32 mesh_index = node.mMeshes[mesh_offset];
+            // Store the transform relative to the nearest emitted parent part.
             tbx::ModelPart part = {};
             part.transform = local_transform;
             part.mesh_index = mesh_index;
             // Clamp material index to available materials.
-            const tbx::uint32 material_index =
+            const uint32 material_index =
                 mesh_index < mesh_material_indices.size() ? mesh_material_indices[mesh_index] : 0U;
             part.material_index = material_index;
             parts.push_back(part);
 
             // Track the newly created part index for hierarchy wiring.
-            tbx::uint32 part_index = static_cast<tbx::uint32>(parts.size() - 1U);
+            uint32 part_index = static_cast<uint32>(parts.size() - 1U);
             // Attach this part as a child of the parent when applicable.
             if (has_parent)
             {
@@ -162,16 +163,19 @@ namespace assimp_model_loader
             }
         }
 
-        // Determine which part should own the children for the next recursion level.
+        // Children become relative to the first emitted part on this node. When the node only
+        // contributes transform, keep accumulating until a descendant emits a part.
         const bool next_has_parent = has_parent || has_first_part;
-        const tbx::uint32 next_parent_index = has_parent ? parent_index : first_part_index;
+        const uint32 next_parent_index = has_first_part ? first_part_index : parent_index;
+        const tbx::Mat4 next_accumulated_transform =
+            has_first_part ? tbx::Mat4(1.0f) : local_transform;
 
         // Recurse through child nodes to build nested parts.
-        for (tbx::uint32 child_index = 0; child_index < node.mNumChildren; ++child_index)
+        for (uint32 child_index = 0; child_index < node.mNumChildren; ++child_index)
         {
             append_parts_from_node(
                 *node.mChildren[child_index],
-                local_transform,
+                next_accumulated_transform,
                 mesh_material_indices,
                 parts,
                 next_parent_index,
@@ -216,7 +220,8 @@ namespace assimp_model_loader
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
-                             | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs;
+                             | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices
+                             | aiProcess_FlipUVs;
         // Load the scene with Assimp.
         const aiScene* scene = importer.ReadFile(request.path.string(), flags);
         if (!scene || !scene->HasMeshes())
@@ -230,7 +235,7 @@ namespace assimp_model_loader
         // Build materials from Assimp material data.
         std::vector<tbx::Material> materials;
         materials.reserve(scene->mNumMaterials);
-        for (tbx::uint32 material_index = 0; material_index < scene->mNumMaterials;
+        for (uint32 material_index = 0; material_index < scene->mNumMaterials;
              ++material_index)
         {
             const aiMaterial* source_material = scene->mMaterials[material_index];
@@ -251,12 +256,12 @@ namespace assimp_model_loader
         std::vector<tbx::Mesh> meshes;
         meshes.reserve(scene->mNumMeshes);
         // Track material indices per mesh for model part creation.
-        std::vector<tbx::uint32> mesh_material_indices;
+        std::vector<uint32> mesh_material_indices;
         mesh_material_indices.reserve(scene->mNumMeshes);
         tbx::VertexBufferLayout layout = get_default_mesh_layout();
 
         // Convert each mesh in the scene.
-        for (tbx::uint32 mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
+        for (uint32 mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
         {
             // Grab the Assimp mesh pointer for conversion.
             const aiMesh* mesh = scene->mMeshes[mesh_index];
@@ -269,8 +274,8 @@ namespace assimp_model_loader
             }
 
             // Clamp material index to available materials.
-            tbx::uint32 material_index = mesh->mMaterialIndex < materials.size()
-                                             ? static_cast<tbx::uint32>(mesh->mMaterialIndex)
+            uint32 material_index = mesh->mMaterialIndex < materials.size()
+                                             ? static_cast<uint32>(mesh->mMaterialIndex)
                                              : 0U;
             mesh_material_indices.push_back(material_index);
 
@@ -279,7 +284,7 @@ namespace assimp_model_loader
             vertices.reserve(mesh->mNumVertices);
 
             // Populate vertex attributes from Assimp buffers.
-            for (tbx::uint32 vertex_index = 0; vertex_index < mesh->mNumVertices; ++vertex_index)
+            for (uint32 vertex_index = 0; vertex_index < mesh->mNumVertices; ++vertex_index)
             {
                 // Fill a single vertex from the Assimp vertex data.
                 tbx::Vertex vertex = {};
@@ -288,6 +293,16 @@ namespace assimp_model_loader
                     vertex.normal = to_vec3(mesh->mNormals[vertex_index]);
                 if (mesh->HasTextureCoords(0))
                     vertex.uv = to_vec2(mesh->mTextureCoords[0][vertex_index]);
+                if (mesh->HasTangentsAndBitangents())
+                {
+                    const auto tangent = to_vec3(mesh->mTangents[vertex_index]);
+                    const auto bitangent = to_vec3(mesh->mBitangents[vertex_index]);
+                    auto tangent_handedness = 1.0F;
+                    if (tbx::dot(tbx::cross(vertex.normal, tangent), bitangent) < 0.0F)
+                        tangent_handedness = -1.0F;
+                    vertex.tangent =
+                        tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
+                }
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);
                 else
@@ -299,12 +314,12 @@ namespace assimp_model_loader
             tbx::IndexBuffer indices;
             indices.reserve(static_cast<size_t>(mesh->mNumFaces) * static_cast<size_t>(3U));
             // Append all indices from each face.
-            for (tbx::uint32 face_index = 0; face_index < mesh->mNumFaces; ++face_index)
+            for (uint32 face_index = 0; face_index < mesh->mNumFaces; ++face_index)
             {
                 const aiFace& face = mesh->mFaces[face_index];
-                for (tbx::uint32 index_offset = 0; index_offset < face.mNumIndices; ++index_offset)
+                for (uint32 index_offset = 0; index_offset < face.mNumIndices; ++index_offset)
                 {
-                    indices.push_back(static_cast<tbx::uint32>(face.mIndices[index_offset]));
+                    indices.push_back(static_cast<uint32>(face.mIndices[index_offset]));
                 }
             }
 

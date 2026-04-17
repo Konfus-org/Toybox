@@ -1,15 +1,12 @@
 ## About
-
 Toybox is a simple, light-weight, plugin based, open source game engine that is currently in development.
 
 There isn't much here yet but, hopefully, soon there will be!
 
 ## What's here so far?
-
 Honestly, not much yet. There is a plugin system that will find and load plugins at runtime, an ECS system via EnTT, math via GLM, logging and asserts via spdlog, windowing and input systems made using SDL, graphics primitives, physics via Jolt, and a simple renderer using OpenGL. I plan to add all the things a game engine needs: audio, networking, a UI system, editor tooling, and more.
 
 ## Repository Structure
-
 - `examples/`: Sample projects demonstrating engine functionality.
 - `modules/`: First-class logic that is directly linked to and compiled into the engine.
 - `plugins/`: Runtime-discoverable plugins that extend the engine.
@@ -17,7 +14,6 @@ Honestly, not much yet. There is a plugin system that will find and load plugins
 - `cmake/`, `CMakeLists.txt`, `CMakePresets.json`: Build configuration and presets.
 
 ## Modules vs Plugins
-
 Toybox has two central concepts, *modules* and *plugins*.
 
 - **Modules** ship as part of the engine and live under `modules/`. They define the core behaviour (messaging, windowing, debugging, etc.) that every Toybox application relies on. Replacing a module requires rebuilding the engine as well as plugins that utilize the modules because the modules are compiled directly into the binaries.
@@ -25,7 +21,6 @@ Toybox has two central concepts, *modules* and *plugins*.
 
 
 ## Getting Started
-
 Clone the repository and its submodules:
 
 ```bash
@@ -43,7 +38,6 @@ If you are updating an existing clone, run `git pull origin BRANCH_HERE` followe
 ## How to build
 
 ### Prerequisites
-
 1. Install [CMake](https://cmake.org/download/).
 2. Install [Ninja](https://ninja-build.org/).
 3. Install [Clang/LLVM](https://llvm.org/) (includes `clang` and `clang-format`, which is required for consistent formatting across the TBX codebase).
@@ -54,7 +48,6 @@ If you are updating an existing clone, run `git pull origin BRANCH_HERE` followe
 ### Building
 
 ### CMake version notes
-
 CMake 3.28.3 or newer is required (matching `CMakePresets.json`).
 
 All Toybox presets use Ninja Multi-Config for faster builds.
@@ -68,7 +61,6 @@ cmake --list-presets
 ```
 
 #### Cross-platform Ninja/Clang (Recommended)
-
 ```bash
 # Configure (builds under build/clang)
 cmake --preset clang
@@ -83,7 +75,6 @@ ctest --preset test-clang-release
 ```
 
 #### MSVC (Ninja + MSVC toolchain)
-
 ```bash
 # Configure (builds under build/msvc)
 cmake --preset msvc
@@ -98,7 +89,6 @@ ctest --preset test-msvc-release
 ```
 
 ## Contributing and AI Usage
-
 Look to the contributing documentation [here](CONTRIBUTING.md).
 
 In regards to AI usage:

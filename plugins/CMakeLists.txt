@@ -1,6 +1,6 @@
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
-include(TbxRegisterPlugin)
+include(register_plugin)
 
 set(CMAKE_FOLDER "plugins")
 

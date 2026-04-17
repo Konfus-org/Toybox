@@ -50,12 +50,16 @@ Testing/
 
 # Build
 Build/
+/build
+_build/
 Generated/
+generated/
 bin/
 obj/
-_build/
 x64/
 *.tlog
+*.log
+*.codex
 compileData.scor
 compileData.scor.gbl
 compileData.scor.t0000

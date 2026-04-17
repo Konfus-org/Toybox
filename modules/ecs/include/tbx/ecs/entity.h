@@ -8,13 +8,11 @@ namespace tbx
 {
     class EntityRegistry;
 
-    /// <summary>
+    /// @brief
     /// Purpose: Represents a lightweight handle to an entity owned by an EntityRegistry.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Does not own the registry; caller ensures registry lifetime exceeds this
     /// instance. Thread Safety: Not thread-safe; synchronize external concurrent access.
-    /// </remarks>
     class TBX_API Entity
     {
       public:
@@ -42,13 +40,11 @@ namespace tbx
         Uuid get_parent() const;
         void set_parent(const Uuid& parent);
 
-        /// <summary>
+        /// @brief
         /// Purpose: Resolves and returns this entity's parent entity handle.
-        /// </summary>
-        /// <remarks>
+        /// @details
         /// Ownership: Writes a non-owning entity handle into out_parent when available.
         /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-        /// </remarks>
         bool try_get_parent_entity(Entity& out_parent) const;
 
         template <typename TComponent>
@@ -76,32 +72,26 @@ namespace tbx
         Uuid _id = {};
     };
 
-    /// <summary>
+    /// @brief
     /// Purpose: Formats an entity identifier and metadata for debugging output.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an owned std::string.
     /// Thread Safety: Safe for concurrent use when the entity metadata is not being mutated.
-    /// </remarks>
     TBX_API std::string to_string(const Entity& entity);
 
-    /// <summary>
+    /// @brief
     /// Purpose: Resolves an entity transform in world space by composing parent local transforms.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Returns an owned Transform value snapshot.
-    /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-    /// Notes: Entity Transform components are authored and stored in local space.
-    /// </remarks>
+    /// Thread Safety: Not thread-safe; synchronize external concurrent access. Notes: Entity
+    /// Transform components are authored and stored in local space.
     TBX_API Transform get_world_space_transform(const Entity& entity);
 
-    /// <summary>
+    /// @brief
     /// Purpose: RAII wrapper that destroys the wrapped entity on scope exit.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns the contained Entity value only; does not own registry state.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access.
-    /// </remarks>
     class TBX_API EntityScope
     {
       public:

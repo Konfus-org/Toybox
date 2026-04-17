@@ -2,6 +2,7 @@
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
 #include "tbx/app/application.h"
+#include "tbx/assets/asset_events.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
@@ -43,7 +44,8 @@ namespace jolt_physics
         tbx::ColliderOverlapExecutionMode execution_mode,
         bool is_manual_trigger_requested)
     {
-        return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
+        return execution_mode == tbx::ColliderOverlapExecutionMode::AUTO
+               || is_manual_trigger_requested;
     }
 
     static JPH::Vec3 to_jolt_vec3(const tbx::Vec3& value)
@@ -146,7 +148,8 @@ namespace jolt_physics
         tbx::Quat normalized_start = tbx::normalize(start_rotation);
         tbx::Quat normalized_target = tbx::normalize(target_rotation);
 
-        tbx::Quat delta_rotation = tbx::normalize(normalized_target * glm::conjugate(normalized_start));
+        tbx::Quat delta_rotation =
+            tbx::normalize(normalized_target * glm::conjugate(normalized_start));
         if (delta_rotation.w < 0.0F)
             delta_rotation = -delta_rotation;
 
@@ -155,8 +158,8 @@ namespace jolt_physics
         if (half_angle_sine <= 0.000001F)
             return tbx::Vec3(0.0F, 0.0F, 0.0F);
 
-        tbx::Vec3 axis =
-            tbx::Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
+        tbx::Vec3 axis = tbx::Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z)
+                         * (1.0F / half_angle_sine);
         float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
         return axis * (angle_radians / std::max(0.0001F, dt_seconds));
     }
@@ -201,8 +204,8 @@ namespace jolt_physics
         out_body_settings.mAllowSleeping = physics.is_sleep_enabled;
         out_body_settings.mFriction = physics.friction;
         out_body_settings.mRestitution = physics.restitution;
-        out_body_settings.mLinearDamping = physics.default_linear_damping;
-        out_body_settings.mAngularDamping = physics.default_angular_damping;
+        out_body_settings.mLinearDamping = physics.linear_damping;
+        out_body_settings.mAngularDamping = physics.angular_damping;
         out_body_settings.mLinearVelocity = to_jolt_vec3(physics.linear_velocity);
         out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
         out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
@@ -379,7 +382,12 @@ namespace jolt_physics
             if (!mesh_data)
                 return false;
 
-            return try_append_mesh_geometry(*mesh_data, tbx::Mat4(1.0F), scale, positions, triangles);
+            return try_append_mesh_geometry(
+                *mesh_data,
+                tbx::Mat4(1.0F),
+                scale,
+                positions,
+                triangles);
         }
 
         if (!entity.has_component<tbx::StaticMesh>())
@@ -548,8 +556,10 @@ namespace jolt_physics
 
     static bool has_any_collider(const tbx::Entity& entity)
     {
-        return entity.has_component<tbx::SphereCollider>() || entity.has_component<tbx::CapsuleCollider>()
-               || entity.has_component<tbx::CubeCollider>() || entity.has_component<tbx::MeshCollider>();
+        return entity.has_component<tbx::SphereCollider>()
+               || entity.has_component<tbx::CapsuleCollider>()
+               || entity.has_component<tbx::CubeCollider>()
+               || entity.has_component<tbx::MeshCollider>();
     }
 
     static const tbx::ColliderTrigger* try_get_trigger_collider(const tbx::Entity& entity)
@@ -712,6 +722,7 @@ namespace jolt_physics
                     return;
 
                 apply_world_settings();
+                process_pending_mesh_collider_refreshes();
                 sync_entities_to_world(static_cast<float>(dt.seconds));
 
                 JPH::EPhysicsUpdateError update_error = _physics_system.Update(
@@ -731,6 +742,20 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::on_recieve_message(tbx::Message& msg)
     {
+        if (const auto* asset_reloaded = handle_message<tbx::AssetReloadedEvent>(msg))
+        {
+            if (!asset_reloaded->affected_asset.is_valid())
+                return;
+
+            const tbx::Handle reloaded_asset = asset_reloaded->affected_asset;
+            run_on_physics_lane_and_wait(
+                [this, reloaded_asset]()
+                {
+                    _pending_mesh_collider_refresh_asset_ids.insert(reloaded_asset.id);
+                });
+            return;
+        }
+
         if (auto* raycast_request = handle_message<tbx::RaycastRequest>(msg))
         {
             run_on_physics_lane_and_wait(
@@ -739,6 +764,59 @@ namespace jolt_physics
                     handle_raycast_request(*raycast_request);
                 });
             return;
+        }
+    }
+
+    void JoltPhysicsPlugin::process_pending_mesh_collider_refreshes()
+    {
+        if (_pending_mesh_collider_refresh_asset_ids.empty())
+            return;
+
+        auto completed_asset_ids = std::vector<tbx::Uuid> {};
+        completed_asset_ids.reserve(_pending_mesh_collider_refresh_asset_ids.size());
+        for (const tbx::Uuid& asset_id : _pending_mesh_collider_refresh_asset_ids)
+        {
+            const auto usage = get_host().get_asset_manager().get_usage<tbx::Model>(asset_id);
+            if (usage.stream_state == tbx::AssetStreamState::LOADING)
+                continue;
+
+            invalidate_mesh_collider_bodies_for_asset(asset_id);
+            completed_asset_ids.push_back(asset_id);
+        }
+
+        for (const tbx::Uuid& completed_asset_id : completed_asset_ids)
+            _pending_mesh_collider_refresh_asset_ids.erase(completed_asset_id);
+    }
+
+    void JoltPhysicsPlugin::invalidate_mesh_collider_bodies_for_asset(
+        const tbx::Handle& asset_handle)
+    {
+        if (!_is_ready || !asset_handle.is_valid())
+            return;
+
+        auto& registry = get_host().get_entity_registry();
+        auto entities = registry.get_with<tbx::Transform, tbx::MeshCollider, tbx::StaticMesh>();
+        auto& body_interface = _physics_system.GetBodyInterface();
+        for (auto& entity : entities)
+        {
+            const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
+            if (!static_mesh.handle.is_valid() || static_mesh.handle.id != asset_handle.id)
+                continue;
+
+            const tbx::Uuid entity_id = entity.get_id();
+            auto body_it = _bodies_by_entity.find(entity_id);
+            if (body_it == _bodies_by_entity.end())
+                continue;
+
+            const JPH::BodyID body_id = body_it->second.body_id;
+            if (body_interface.IsAdded(body_id))
+            {
+                body_interface.RemoveBody(body_id);
+                body_interface.DestroyBody(body_id);
+            }
+
+            _entity_by_body_key.erase(get_body_key(body_id));
+            _bodies_by_entity.erase(body_it);
         }
     }
 
@@ -878,8 +956,8 @@ namespace jolt_physics
                 if (!shape)
                     continue;
 
-                auto object_layer = is_physics_driven ? get_moving_object_layer()
-                                                      : get_static_object_layer();
+                auto object_layer =
+                    is_physics_driven ? get_moving_object_layer() : get_static_object_layer();
                 auto motion_type =
                     is_physics_driven ? get_motion_type(*physics) : JPH::EMotionType::Static;
 
@@ -984,7 +1062,8 @@ namespace jolt_physics
                 {
                     const tbx::Vec3 current_position =
                         to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
-                    const tbx::Quat current_rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+                    const tbx::Quat current_rotation =
+                        to_tbx_quat(body_interface.GetRotation(body_id));
                     const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
 
                     tbx::Vec3 linear_velocity =

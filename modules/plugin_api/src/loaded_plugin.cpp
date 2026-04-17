@@ -1,6 +1,5 @@
 #include "tbx/plugin_api/loaded_plugin.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/messages/dispatcher.h"
 #include <string>
 #include <utility>
 
@@ -9,51 +8,60 @@ namespace tbx
     LoadedPlugin::LoadedPlugin(
         PluginMeta meta_data,
         std::unique_ptr<SharedLibrary> plugin_library,
-        std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
-        IPluginHost& host)
+        std::unique_ptr<Plugin, PluginDeleter> plugin_instance)
         : meta(std::move(meta_data))
         , library(std::move(plugin_library))
         , instance(std::move(plugin_instance))
-        , _host(&host)
     {
         TBX_ASSERT(!meta.name.empty(), "LoadedPlugin requires a name.");
         TBX_ASSERT(!meta.version.empty(), "LoadedPlugin requires a version.");
         TBX_ASSERT(instance, "LoadedPlugin requires a plugin instance.");
-        TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
-        IMessageCoordinator& coordinator = host.get_message_coordinator();
-        message_handler_token = coordinator.register_handler(
-            [plugin = instance.get()](Message& msg)
-            {
-                plugin->receive_message(msg);
-            });
-        instance->attach(host);
     }
 
     LoadedPlugin::~LoadedPlugin() noexcept
     {
-        if (!is_valid())
-        {
-            return;
-        }
-
-        TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
-
-        if (_host)
-        {
-            instance->detach();
-            IMessageCoordinator& coordinator = _host->get_message_coordinator();
-            coordinator.flush();
-            if (message_handler_token.is_valid())
-            {
-                coordinator.deregister_handler(message_handler_token);
-                message_handler_token = {};
-            }
-        }
+        detach();
     }
 
     bool LoadedPlugin::is_valid() const
     {
         return instance != nullptr;
+    }
+
+    void LoadedPlugin::attach(IPluginHost& host)
+    {
+        if (!is_valid() || _state == LoadedPluginState::ATTACHED)
+            return;
+
+        TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
+        _state = LoadedPluginState::ATTACHED;
+        try
+        {
+            instance->attach(host);
+        }
+        catch (...)
+        {
+            _state = LoadedPluginState::UNATTACHED;
+            throw;
+        }
+    }
+
+    void LoadedPlugin::detach()
+    {
+        if (!is_valid() || _state != LoadedPluginState::ATTACHED)
+            return;
+
+        TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
+        instance->detach();
+        _state = LoadedPluginState::DETACHED;
+    }
+
+    void LoadedPlugin::receive_message(Message& msg)
+    {
+        if (!is_valid() || _state != LoadedPluginState::ATTACHED)
+            return;
+
+        instance->receive_message(msg);
     }
 
     std::string to_string(const LoadedPlugin& loaded)

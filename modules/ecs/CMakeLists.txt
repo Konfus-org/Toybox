@@ -17,8 +17,18 @@ add_library(Tbx::${module_name} ALIAS ${module_name})
 target_link_libraries(${module_name}
     PUBLIC
         Tbx::Common
-        Tbx::Messaging
+        Tbx::Debugging
+        Tbx::Math
+    PRIVATE
         EnTT::EnTT
+        Tbx::Messaging
+        glm
+        Tbx::Async
+)
+
+target_include_directories(${module_name}
+    PUBLIC
+        $<TARGET_PROPERTY:EnTT,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
 tbx_setup_module(${module_name})

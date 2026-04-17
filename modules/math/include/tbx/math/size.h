@@ -1,20 +1,22 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <cstdint>
 
 namespace tbx
 {
-    /// <summary>Represents a 2D size in pixels.</summary>
-    /// <remarks>Purpose: Stores width/height pairs for windowing and layout sizing.
+    /// @brief
+    /// Purpose: Stores width/height pairs for windowing and layout sizing.
+    /// @details
     /// Ownership: Value type; callers own their copies of sizes.
-    /// Thread Safety: Not inherently thread-safe; synchronize shared mutable access.</remarks>
+    /// Thread Safety: Not inherently thread-safe; synchronize shared mutable access.
     struct TBX_API Size
     {
-        /// <summary>Gets the width-to-height ratio.</summary>
-        /// <remarks>Purpose: Computes an aspect ratio for projection math.
+        /// @brief
+        /// Purpose: Computes an aspect ratio for projection math.
+        /// @details
         /// Ownership: Returns a value; no ownership transfer.
-        /// Thread Safety: Thread-safe for immutable access.</remarks>
+        /// Thread Safety: Thread-safe for immutable access.
         float get_aspect_ratio() const
         {
             if (height == 0U)

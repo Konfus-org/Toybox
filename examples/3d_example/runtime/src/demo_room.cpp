@@ -1,17 +1,25 @@
 #include "demo_room.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
-#include "tbx/graphics/renderer.h"
 #include "tbx/math/transform.h"
 #include "tbx/math/trig.h"
 #include "tbx/physics/collider.h"
 
 namespace three_d_example
 {
+    static tbx::MaterialInstance create_room_material(const tbx::Color& color)
+    {
+        auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        material.set_parameter(tbx::PbrMaterial::COLOR, color);
+        material.set_parameter(tbx::PbrMaterial::EMISSIVE, tbx::Color::BLACK);
+        return material;
+    }
+
     DemoRoom::DemoRoom(tbx::EntityRegistry& entity_registry, const DemoRoomSettings& settings)
     {
         _ground = tbx::Entity("Ground", entity_registry);
-        _ground.add_component<tbx::Renderer>(
-            tbx::PbrMaterialInstance(settings.color, tbx::Color::BLACK));
+        _ground.add_component<tbx::MaterialInstance>(create_room_material(settings.color));
         _ground.add_component<tbx::DynamicMesh>(tbx::quad);
         if (settings.include_colliders)
             _ground.add_component<tbx::MeshCollider>();
@@ -21,8 +29,7 @@ namespace three_d_example
             tbx::Vec3(40.0F, 40.0F, 1.0F));
 
         _front_wall = tbx::Entity("Wall_F", entity_registry);
-        _front_wall.add_component<tbx::Renderer>(
-            tbx::PbrMaterialInstance(settings.color, tbx::Color::BLACK));
+        _front_wall.add_component<tbx::MaterialInstance>(create_room_material(settings.color));
         _front_wall.add_component<tbx::DynamicMesh>(tbx::cube);
         if (settings.include_colliders)
             _front_wall.add_component<tbx::CubeCollider>(tbx::Vec3(22.5F, 5.5F, 0.75F));
@@ -32,8 +39,7 @@ namespace three_d_example
             tbx::Vec3(45.0F, 11.0F, 1.5F));
 
         _left_wall = tbx::Entity("Wall_L", entity_registry);
-        _left_wall.add_component<tbx::Renderer>(
-            tbx::PbrMaterialInstance(settings.color, tbx::Color::BLACK));
+        _left_wall.add_component<tbx::MaterialInstance>(create_room_material(settings.color));
         _left_wall.add_component<tbx::DynamicMesh>(tbx::cube);
         if (settings.include_colliders)
             _left_wall.add_component<tbx::CubeCollider>(tbx::Vec3(0.75F, 5.5F, 22.5F));
@@ -43,8 +49,7 @@ namespace three_d_example
             tbx::Vec3(1.5F, 11.0F, 45.0F));
 
         _right_wall = tbx::Entity("Wall_R", entity_registry);
-        _right_wall.add_component<tbx::Renderer>(
-            tbx::PbrMaterialInstance(settings.color, tbx::Color::BLACK));
+        _right_wall.add_component<tbx::MaterialInstance>(create_room_material(settings.color));
         _right_wall.add_component<tbx::DynamicMesh>(tbx::cube);
         if (settings.include_colliders)
             _right_wall.add_component<tbx::CubeCollider>(tbx::Vec3(0.75F, 5.5F, 22.5F));
@@ -54,8 +59,7 @@ namespace three_d_example
             tbx::Vec3(1.5F, 11.0F, 45.0F));
 
         _back_wall = tbx::Entity("Wall_B", entity_registry);
-        _back_wall.add_component<tbx::Renderer>(
-            tbx::PbrMaterialInstance(settings.color, tbx::Color::BLACK));
+        _back_wall.add_component<tbx::MaterialInstance>(create_room_material(settings.color));
         _back_wall.add_component<tbx::DynamicMesh>(tbx::cube);
         if (settings.include_colliders)
             _back_wall.add_component<tbx::CubeCollider>(tbx::Vec3(22.5F, 5.5F, 0.75F));

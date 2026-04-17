@@ -4,6 +4,7 @@
 #include "tbx/physics/raycast.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
+#include "tbx/common/handle.h"
 #include <Jolt/Jolt.h>
 // clang-format off
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -19,12 +20,11 @@
 
 namespace jolt_physics
 {
-    /// <summary>Tracks runtime body metadata for one entity-backed physics body.</summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Caches body identity and last synchronized transform state used by the plugin.
+    /// @details
     /// Ownership: Plain value type owned by `JoltPhysicsPlugin` body maps; no resource ownership.
     /// Thread Safety: Not thread-safe; accessed on the plugin physics lane.
-    /// </remarks>
     struct JoltBodyRecord
     {
         JPH::BodyID body_id = {};
@@ -51,7 +51,9 @@ namespace jolt_physics
         void sync_entities_to_world(float dt_seconds);
         void sync_world_to_entities();
         void process_trigger_colliders();
+        void process_pending_mesh_collider_refreshes();
         void handle_raycast_request(tbx::RaycastRequest& request) const;
+        void invalidate_mesh_collider_bodies_for_asset(const tbx::Handle& asset_handle);
         tbx::Uuid try_get_entity_for_body(const JPH::BodyID& body_id) const;
         bool is_on_physics_thread() const;
         void run_on_physics_lane_and_wait(const std::function<void()>& work);
@@ -64,6 +66,7 @@ namespace jolt_physics
         std::unordered_map<std::uint32_t, tbx::Uuid> _entity_by_body_key = {};
         std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
             {};
+        std::unordered_set<tbx::Uuid> _pending_mesh_collider_refresh_asset_ids = {};
         std::thread::id _physics_thread_id = {};
         bool _is_ready = false;
     };

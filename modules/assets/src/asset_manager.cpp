@@ -1,54 +1,46 @@
 #include "tbx/assets/asset_manager.h"
-#include "tbx/common/string_utils.h"
-#include "tbx/files/file_ops.h"
-#include <algorithm>
+#include "tbx/assets/asset_events.h"
+#include "tbx/assets/asset_registry.h"
+#include "tbx/debugging/macros.h"
+#include "tbx/files/file_events.h"
+#include "tbx/messages/dispatcher.h"
 #include <filesystem>
-#include <string>
 
 namespace tbx
 {
-    static std::filesystem::path get_resources_directory()
+    namespace
     {
-#if defined(TBX_RESOURCES)
-        auto resources = std::filesystem::path(TBX_RESOURCES);
-        return resources.lexically_normal();
-#endif
-        return {};
+        Handle build_asset_handle(const AssetRegistryEntry& entry)
+        {
+            Handle handle(entry.normalized_path);
+            handle.id = entry.asset_id;
+            return handle;
+        }
     }
 
     AssetManager::AssetManager(
+        IMessageDispatcher* dispatcher,
         std::filesystem::path working_directory,
         std::vector<std::filesystem::path> asset_directories,
         HandleSource handle_source,
-        bool include_default_resources,
-        std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer)
-        : _working_directory(std::move(working_directory))
-        , _handle_serializer(std::move(asset_handle_serializer))
-        , _handle_source(std::move(handle_source))
+        std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer,
+        std::shared_ptr<IFileOps> file_ops)
+        : _dispatcher(dispatcher)
+        , _file_ops(
+              file_ops ? std::move(file_ops)
+                       : std::make_shared<FileOperator>(std::move(working_directory)))
+        , _registry(
+              std::make_unique<AssetRegistry>(
+                  _file_ops->get_working_directory(),
+                  std::move(handle_source),
+                  std::move(asset_handle_serializer),
+                  _file_ops))
     {
-        if (!_handle_serializer)
-            _handle_serializer = std::make_unique<AssetHandleSerializer>();
-
-        FileOperator file_operator = FileOperator(_working_directory);
-        _working_directory = file_operator.get_working_directory();
-
-        if (include_default_resources)
-        {
-#if defined(TBX_RELEASE)
-            // Release flattens all assets into one resources dir
-            add_asset_directory(file_operator.resolve("resources"));
-#else
-            // Debug has seperate dirs for ease of debugging and hot reloading
-            auto resources = get_resources_directory();
-            if (!resources.empty())
-                add_asset_directory(resources);
-            for (const auto& directory : asset_directories)
-                add_asset_directory(directory);
-#endif
-        }
-
-        discover_assets();
+        for (const auto& directory : asset_directories)
+            add_directory(directory);
     }
+
+    AssetManager::~AssetManager() = default;
 
     void AssetManager::unload_all()
     {
@@ -62,299 +54,315 @@ namespace tbx
         std::lock_guard lock(_mutex);
         for (const auto& store : _stores)
         {
-            store.second->unload_unreferenced();
-        }
-    }
-
-    bool AssetManager::write_meta_with_id(const std::filesystem::path& asset_path, Uuid id) const
-    {
-        auto file_operator = FileOperator(_working_directory);
-        auto handle = Handle(id);
-        return _handle_serializer
-               && _handle_serializer->try_write_to_disk(file_operator, asset_path, handle);
-    }
-
-    Uuid AssetManager::generate_unique_asset_id_locked() const
-    {
-        auto generated = Uuid::generate();
-        while (!generated.is_valid() || _registry_by_id.contains(generated))
-            generated = Uuid::generate();
-        return generated;
-    }
-
-    AssetManager::ResolvedAssetMetaId AssetManager::resolve_or_repair_asset_id(
-        const NormalizedAssetPath& normalized)
-    {
-        auto file_operator = FileOperator(_working_directory);
-
-        if (_handle_source)
-        {
-            auto handle = Handle();
-            if (_handle_source(normalized.resolved_path, handle))
+            const auto unloaded_count = store.second->unload_unreferenced();
+            if (unloaded_count > 0U)
             {
-                auto result = ResolvedAssetMetaId();
-                result.resolved_id = handle.id;
-                result.state =
-                    handle.id.is_valid() ? AssetMetaState::VALID : AssetMetaState::INVALID;
-                return result;
+                TBX_TRACE_INFO(
+                    "Unloaded {} unreferenced assets (type={}).",
+                    unloaded_count,
+                    store.second->get_asset_type_name());
             }
         }
+    }
 
-        if (!file_operator.exists(normalized.resolved_path))
+    Uuid AssetManager::ensure(const Handle& handle)
+    {
+        std::lock_guard lock(_mutex);
+        auto asset_id = Uuid {};
+        const auto ensure_result = _registry->ensure_asset_id(handle, &asset_id);
+        if (!ensure_result.succeeded())
         {
             TBX_TRACE_WARNING(
-                "AssetManager: requested asset '{}' was not found on disk. Using runtime id only.",
-                normalized.normalized_path);
+                "Failed to ensure asset id for handle (name='{}', id={}): {}",
+                handle.name,
+                to_string(handle.id),
+                ensure_result.get_report());
             return {};
         }
-
-        auto result = ResolvedAssetMetaId();
-        auto meta_path = normalized.resolved_path;
-        meta_path += ".meta";
-
-        if (file_operator.exists(meta_path))
+        if (!ensure_result.get_report().empty())
         {
-            auto parsed_handle =
-                _handle_serializer->read_from_disk(_working_directory, normalized.resolved_path);
-            if (parsed_handle && parsed_handle->id.is_valid())
-            {
-                result.resolved_id = parsed_handle->id;
-                result.state = AssetMetaState::VALID;
-                return result;
-            }
+            TBX_TRACE_INFO("Asset registry: {}", ensure_result.get_report());
         }
 
-        result.state =
-            file_operator.exists(meta_path) ? AssetMetaState::INVALID : AssetMetaState::MISSING;
-        result.resolved_id = generate_unique_asset_id_locked();
-        auto write_success = write_meta_with_id(normalized.resolved_path, result.resolved_id);
-        if (result.state == AssetMetaState::MISSING)
-        {
-            TBX_TRACE_WARNING(
-                "AssetManager: missing metadata for asset '{}'. Generated '{}' with id={}.",
-                normalized.normalized_path,
-                meta_path.generic_string(),
-                to_string(result.resolved_id));
-        }
-        else
-        {
-            TBX_TRACE_WARNING(
-                "AssetManager: invalid metadata for asset '{}'. Rewrote '{}' with id={}.",
-                normalized.normalized_path,
-                meta_path.generic_string(),
-                to_string(result.resolved_id));
-        }
-
-        if (!write_success)
-        {
-            TBX_TRACE_WARNING(
-                "AssetManager: failed to write metadata sidecar '{}' for asset '{}'. Using id={} "
-                "for this session.",
-                meta_path.generic_string(),
-                normalized.normalized_path,
-                to_string(result.resolved_id));
-        }
-
-        return result;
+        return asset_id;
     }
 
-    void AssetManager::discover_assets()
+    Uuid AssetManager::resolve(const Handle& handle)
     {
-        FileOperator file_operator = FileOperator(_working_directory);
-        for (const auto& root : _asset_directories)
-        {
-            if (root.empty())
-            {
-                continue;
-            }
-            auto entries = file_operator.read_directory(root);
-            auto asset_entries = std::vector<std::filesystem::path>();
-            for (const auto& entry : entries)
-            {
-                if (file_operator.get_type(entry) != FileType::FILE)
-                {
-                    continue;
-                }
-                if (entry.extension() == ".meta")
-                {
-                    continue;
-                }
-                asset_entries.push_back(entry);
-            }
+        return ensure(handle);
+    }
 
-            std::sort(
-                asset_entries.begin(),
-                asset_entries.end(),
-                [](const std::filesystem::path& left, const std::filesystem::path& right)
-                {
-                    return left.lexically_normal().generic_string()
-                           < right.lexically_normal().generic_string();
-                });
+    std::filesystem::path AssetManager::resolve(const std::filesystem::path& asset_path) const
+    {
+        std::lock_guard lock(_mutex);
+        return _registry->resolve_asset_path(asset_path);
+    }
 
-            for (const auto& entry : asset_entries)
-            {
-                auto normalized = normalize_path(entry);
-                if (_pool.contains(normalized.path_key))
-                {
-                    continue;
-                }
-                static_cast<void>(get_or_create_registry_entry(normalized));
-            }
-        }
+    std::filesystem::path AssetManager::resolve(const Handle& handle) const
+    {
+        std::lock_guard lock(_mutex);
+        return _registry->resolve_asset_path(handle);
     }
 
     void AssetManager::set_pinned(const Handle& handle, bool is_pinned)
     {
         std::lock_guard lock(_mutex);
-        auto* entry = get_or_create_registry_entry(handle);
-        if (!entry)
+        auto* entry = _registry->find_entry(handle);
+        if (!entry || !entry->asset_id.is_valid())
             return;
 
         for (auto& store : _stores)
-            store.second->set_pinned(entry->path_key, is_pinned);
+            store.second->set_pinned(entry->asset_id, is_pinned);
     }
 
-    void AssetManager::add_asset_directory(const std::filesystem::path& path)
+    void AssetManager::add_directory(const std::filesystem::path& path)
     {
         if (path.empty())
             return;
 
-        FileOperator file_operator = FileOperator(_working_directory);
-        std::filesystem::path resolved = file_operator.resolve(path);
-        if (resolved.empty())
-            return;
-
         std::lock_guard lock(_mutex);
-        bool is_duplicate = std::any_of(
-            _asset_directories.begin(),
-            _asset_directories.end(),
-            [&resolved](const std::filesystem::path& existing)
-            {
-                return existing == resolved;
-            });
-        if (is_duplicate)
-            return;
-
-        _asset_directories.push_back(resolved);
-        discover_assets();
-    }
-
-    std::vector<std::filesystem::path> AssetManager::get_asset_directories() const
-    {
-        std::lock_guard lock(_mutex);
-        return _asset_directories;
-    }
-
-    Uuid AssetManager::resolve_asset_id(const Handle& handle)
-    {
-        std::lock_guard lock(_mutex);
-        auto* entry = get_or_create_registry_entry(handle);
-        if (!entry)
+        const auto directory_count = _registry->get_asset_directories().size();
+        const auto add_result = _registry->add_asset_directory(path);
+        if (!add_result.succeeded())
         {
-            if (handle.name.empty())
-                return handle.id;
-            return {};
+            TBX_TRACE_WARNING(
+                "Failed to add asset directory '{}': {}",
+                path.generic_string(),
+                add_result.get_report());
+            return;
         }
-        return entry->id;
+        if (!add_result.get_report().empty())
+        {
+            TBX_TRACE_INFO("Asset registry: {}", add_result.get_report());
+        }
+
+        const auto directories = _registry->get_asset_directories();
+        if (directories.size() == directory_count)
+            return;
+
+        if (_dispatcher)
+        {
+            watch_asset_directory(directories.back());
+        }
     }
 
-    std::shared_ptr<Texture> AssetManager::load(
-        const Handle& handle,
-        const TextureLoadParameters& parameters)
+    std::vector<std::filesystem::path> AssetManager::get_directories() const
     {
-        auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
-        auto* entry = get_or_create_registry_entry(handle);
-        if (!entry)
-            return {};
+        return _registry->get_asset_directories();
+    }
 
-        auto& store = get_or_create_store<Texture>();
-        auto& record = get_or_create_record(store, *entry);
-        record.last_access = now;
+    void AssetManager::on_asset_changed(
+        const std::filesystem::path& watched_path,
+        const FileWatchChange& change)
+    {
+        if (!AssetRegistry::should_track_asset_path(change.path))
+            return;
 
-        const TextureSettings& settings = parameters.settings;
-        const bool should_reload = !record.asset;
-        if (should_reload)
+        enum class PendingAssetEventType
         {
-            TBX_TRACE_INFO(
-                "Loading asset: '{}' (id={}, type={}, settings={}/{}/{}/{}/{})",
-                record.normalized_path,
-                to_string(record.id),
-                typeid(Texture).name(),
-                static_cast<int>(settings.wrap),
-                static_cast<int>(settings.filter),
-                static_cast<int>(settings.format),
-                static_cast<int>(settings.mipmaps),
-                static_cast<int>(settings.compression));
-            record.stream_state = AssetStreamState::LOADING;
-            record.asset = load_texture(
-                entry->resolved_path,
-                settings.wrap,
-                settings.filter,
-                settings.format,
-                settings.mipmaps,
-                settings.compression);
-            record.texture_settings = settings;
-            record.has_texture_settings = true;
-            record.pending_load = {};
-            record.stream_state =
-                record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
-            if (!record.asset)
+            NONE,
+            CREATED,
+            MODIFIED,
+            REMOVED
+        };
+
+        PendingAssetEventType pending_event_type = PendingAssetEventType::NONE;
+        bool pending_reload_event = false;
+        bool reload_succeeded = true;
+        std::filesystem::path changed_asset_path = change.path.lexically_normal();
+        Handle affected_asset = {};
+
+        {
+            std::lock_guard lock(_mutex);
+            AssetRegistryEntry registry_entry = {};
+
+            switch (change.type)
             {
-                TBX_TRACE_WARNING(
-                    "Failed to load asset: '{}' (id={}, type={})",
-                    record.normalized_path,
-                    to_string(record.id),
-                    typeid(Texture).name());
+                case FileWatchChangeType::CREATED:
+                {
+                    const auto register_result =
+                        _registry->register_discovered_asset(changed_asset_path, &registry_entry);
+                    if (!register_result.succeeded())
+                    {
+                        TBX_TRACE_WARNING(
+                            "Failed to register created asset '{}': {}",
+                            changed_asset_path.generic_string(),
+                            register_result.get_report());
+                        break;
+                    }
+                    if (!register_result.get_report().empty())
+                    {
+                        TBX_TRACE_INFO("Asset registry: {}", register_result.get_report());
+                    }
+
+                    affected_asset = build_asset_handle(registry_entry);
+                    pending_event_type = PendingAssetEventType::CREATED;
+
+                    TBX_TRACE_INFO("File created: {}", changed_asset_path.string());
+
+                    break;
+                }
+                case FileWatchChangeType::MODIFIED:
+                {
+                    const auto register_result =
+                        _registry->register_discovered_asset(changed_asset_path, &registry_entry);
+                    if (!register_result.succeeded())
+                    {
+                        TBX_TRACE_WARNING(
+                            "Failed to register modified asset '{}': {}",
+                            changed_asset_path.generic_string(),
+                            register_result.get_report());
+                        break;
+                    }
+                    if (!register_result.get_report().empty())
+                    {
+                        TBX_TRACE_INFO("Asset registry: {}", register_result.get_report());
+                    }
+
+                    affected_asset = build_asset_handle(registry_entry);
+                    pending_event_type = PendingAssetEventType::MODIFIED;
+
+                    auto reload_result = AssetStoreReloadResult {};
+                    if (registry_entry.asset_id.is_valid())
+                    {
+                        for (auto& store : _stores)
+                        {
+                            const auto store_reload_result = store.second->reload(
+                                registry_entry,
+                                std::chrono::steady_clock::now());
+                            if (!store_reload_result.attempted)
+                                continue;
+
+                            const char* asset_type_name = store.second->get_asset_type_name();
+                            const char* type_name = asset_type_name ? asset_type_name : "<unknown>";
+                            TBX_TRACE_INFO(
+                                "Reloading asset: '{}' (id={}, type={})",
+                                registry_entry.normalized_path,
+                                to_string(registry_entry.asset_id),
+                                type_name);
+                            if (!store_reload_result.succeeded)
+                            {
+                                TBX_TRACE_WARNING(
+                                    "Failed to reload asset: '{}' (id={}, type={})",
+                                    registry_entry.normalized_path,
+                                    to_string(registry_entry.asset_id),
+                                    type_name);
+                            }
+
+                            if (!reload_result.attempted)
+                            {
+                                reload_result = store_reload_result;
+                                continue;
+                            }
+
+                            reload_result.succeeded =
+                                reload_result.succeeded && store_reload_result.succeeded;
+                        }
+                    }
+
+                    pending_reload_event = reload_result.attempted;
+                    reload_succeeded = reload_result.succeeded;
+
+                    TBX_TRACE_INFO("File modified: {}", changed_asset_path.string());
+
+                    break;
+                }
+                case FileWatchChangeType::REMOVED:
+                {
+                    const auto unregister_result =
+                        _registry->unregister_asset(changed_asset_path, &registry_entry);
+                    if (!unregister_result.succeeded())
+                    {
+                        TBX_TRACE_WARNING(
+                            "Failed to unregister removed asset '{}': {}",
+                            changed_asset_path.generic_string(),
+                            unregister_result.get_report());
+                        break;
+                    }
+                    if (!unregister_result.get_report().empty())
+                    {
+                        TBX_TRACE_INFO("Asset registry: {}", unregister_result.get_report());
+                    }
+
+                    if (registry_entry.asset_id.is_valid())
+                    {
+                        for (auto& store : _stores)
+                            store.second->erase(registry_entry.asset_id);
+                    }
+
+                    affected_asset = build_asset_handle(registry_entry);
+                    pending_event_type = PendingAssetEventType::REMOVED;
+
+                    TBX_TRACE_INFO("File removed: {}", changed_asset_path.string());
+
+                    break;
+                }
+                default:
+                {
+                    TBX_ASSERT(
+                        false,
+                        "Unknown file watch change type: {}",
+                        static_cast<int>(change.type));
+                }
             }
         }
 
-        return record.asset;
-    }
+        if (!_dispatcher)
+            return;
 
-    std::filesystem::path AssetManager::resolve_asset_path(
-        const std::filesystem::path& asset_path) const
-    {
-        std::lock_guard lock(_mutex);
-        return resolve_asset_path_no_lock(asset_path);
-    }
-
-    std::filesystem::path AssetManager::resolve_asset_path(const Handle& handle) const
-    {
-        std::lock_guard lock(_mutex);
-
-        if (handle.id.is_valid())
+        switch (pending_event_type)
         {
-            const AssetRegistryEntry* entry = find_registry_entry_by_id(handle.id);
-            if (entry)
-                return entry->resolved_path;
+            case PendingAssetEventType::CREATED:
+            {
+                _dispatcher->post<AssetCreatedEvent>(
+                    watched_path,
+                    changed_asset_path,
+                    affected_asset);
+                break;
+            }
+            case PendingAssetEventType::MODIFIED:
+            {
+                _dispatcher->post<AssetModifiedEvent>(
+                    watched_path,
+                    changed_asset_path,
+                    affected_asset);
+                if (pending_reload_event)
+                {
+                    _dispatcher->post<AssetReloadedEvent>(affected_asset, reload_succeeded);
+                }
+                break;
+            }
+            case PendingAssetEventType::REMOVED:
+            {
+                _dispatcher->post<AssetRemovedEvent>(
+                    watched_path,
+                    changed_asset_path,
+                    affected_asset);
+                break;
+            }
+            case PendingAssetEventType::NONE:
+            default:
+            {
+                break;
+            }
         }
-
-        if (handle.name.empty())
-            return {};
-
-        return resolve_asset_path_no_lock(handle.name);
     }
 
-    std::filesystem::path AssetManager::resolve_asset_path_no_lock(
-        const std::filesystem::path& asset_path) const
+    void AssetManager::watch_asset_directory(const std::filesystem::path& resolved_path)
     {
-        if (asset_path.empty())
-            return asset_path;
-        if (asset_path.is_absolute())
-            return asset_path;
+        if (resolved_path.empty())
+            return;
 
-        FileOperator file_operator = FileOperator(_working_directory);
-        for (const auto& root : _asset_directories)
-        {
-            if (root.empty())
-                continue;
-
-            auto candidate = file_operator.resolve(root / asset_path);
-            if (file_operator.exists(candidate))
-                return candidate;
-        }
-
-        return file_operator.resolve(asset_path);
+        _file_watchers.push_back(
+            std::make_unique<FileWatcher>(
+                resolved_path,
+                [this](const std::filesystem::path& watched_path, const FileWatchChange& change)
+                {
+                    on_asset_changed(watched_path, change);
+                },
+                std::chrono::milliseconds(250),
+                _file_ops));
     }
+
 }

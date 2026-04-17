@@ -3,7 +3,7 @@ option(TBX_BUILD_EXAMPLES "Build Toybox examples" ON)
 if (TBX_BUILD_EXAMPLES)
     set(CMAKE_FOLDER "examples")
 
-    include(TbxDefaultIncludes)
+    include(default_includes)
     tbx_define_default_includes()
 
     add_subdirectory(2d_example)

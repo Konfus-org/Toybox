@@ -77,11 +77,7 @@ namespace tbx
             return;
         }
 
-        values.push_back(
-            MaterialParameter {
-                .name = normalized_name,
-                .data = std::move(value),
-            });
+        values.push_back(MaterialParameter(normalized_name, std::move(value)));
     }
 
     void MaterialParameterBindings::set(MaterialParameter parameter)
@@ -128,6 +124,9 @@ namespace tbx
 
     void MaterialParameterBindings::clear()
     {
+        if (values.empty())
+            return;
+
         values.clear();
     }
 
@@ -227,6 +226,9 @@ namespace tbx
 
     void MaterialTextureBindings::clear()
     {
+        if (values.empty())
+            return;
+
         values.clear();
     }
 
@@ -259,4 +261,5 @@ namespace tbx
     {
         return values.cend();
     }
+
 }

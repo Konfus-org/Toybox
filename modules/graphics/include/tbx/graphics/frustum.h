@@ -10,7 +10,7 @@ namespace tbx
 {
     class TBX_API Frustum
     {
-    public:
+      public:
         Frustum() = default;
         Frustum(const Mat4& view_projection)
         {
@@ -30,19 +30,30 @@ namespace tbx
             return true;
         }
 
-    private:
+      private:
         void extract_planes(const Mat4& view_projection)
         {
             const Mat4& m = view_projection;
 
-            _planes =
-            {
-                Plane{ Vec3(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]), m[3][3] + m[3][0] }, // Left
-                Plane{ Vec3(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]), m[3][3] - m[3][0] }, // Right
-                Plane{ Vec3(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]), m[3][3] + m[3][1] }, // Bottom
-                Plane{ Vec3(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]), m[3][3] - m[3][1] }, // Top
-                Plane{ Vec3(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]), m[3][3] + m[3][2] }, // Near
-                Plane{ Vec3(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]), m[3][3] - m[3][2] }  // Far
+            _planes = {
+                Plane {
+                    Vec3(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0]),
+                    m[3][3] + m[3][0]}, // Left
+                Plane {
+                    Vec3(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0]),
+                    m[3][3] - m[3][0]}, // Right
+                Plane {
+                    Vec3(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1]),
+                    m[3][3] + m[3][1]}, // Bottom
+                Plane {
+                    Vec3(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1]),
+                    m[3][3] - m[3][1]}, // Top
+                Plane {
+                    Vec3(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2]),
+                    m[3][3] + m[3][2]}, // Near
+                Plane {
+                    Vec3(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2]),
+                    m[3][3] - m[3][2]} // Far
             };
 
             for (auto& plane : _planes)

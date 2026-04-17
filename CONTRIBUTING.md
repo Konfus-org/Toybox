@@ -4,18 +4,9 @@
 Read the code of conduct [here](CODE_OF_CONDUCT.md)
 
 ### Coding Guidelines
-
-- Format with the root `.clang-format` (Allman braces, 4-space indents, namespace indentation, sorted includes) and keep files using Unix-style (LF) endings.
-- Keep namespaces meaningful—avoid empty namespaces and prefer `static` helpers for TU-local utilities.
-- Use descriptive, self-documenting names (favor `get...`/`set...` for accessors) rather than jargon or `util`-style blobs.
-- Document every public API with purpose, ownership/lifetime expectations, and thread-safety notes.
-- Prefer smart pointers over raw owning pointers; raw pointers should remain non-owning and clearly documented.
-- We build with C++23 and prefer modern language/library features when they clearly improve safety, performance, or readability.
-- Prefer copy-style initialization (`int value = {};`, `auto widget = Widget(args);`) instead of brace-only or direct-call syntax (`int value{};`, `auto widget(Widget(args));`) for readability.
-- Keep headers lean by defining non-trivial logic in `.cpp` files and add tests when introducing new functionality.
+Follow `CODE_STANDARDS.md`
 
 ### Build & Test Prerequisites
-
 - Install CMake 3.28.3 or newer.
 - Install Ninja.
 - Install Clang/LLVM so both `clang` and `clang-format` are available on your `PATH`.

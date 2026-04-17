@@ -6,13 +6,11 @@
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Defines global physics simulation settings shared across the running application.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Owns all configuration values by value.
     /// Thread Safety: Not thread-safe; synchronize access externally.
-    /// </remarks>
     struct TBX_API PhysicsSettings
     {
         PhysicsSettings(IMessageDispatcher& dispatcher);

@@ -6,38 +6,37 @@
 
 namespace opengl_rendering
 {
-    /// <summary>Represents an OpenGL window context bound to dispatcher-driven window
-    /// requests.</summary>
-    /// <remarks>Purpose: Stores the target window identifier and exposes helper calls to make the
-    /// context current and present through the message dispatcher.
+    /// @brief
+    /// Purpose: Stores the target window identifier and exposes helper calls to make the context
+    /// current and present through the message dispatcher.
+    /// @details
     /// Ownership: Stores a non-owning dispatcher pointer and a copied window identifier.
-    /// Thread Safety: Not thread-safe; use from the render thread that owns OpenGL calls.</remarks>
+    /// Thread Safety: Not thread-safe; use from the render thread that owns OpenGL calls.
     class OpenGlContext final
     {
       public:
-        /// <summary>Creates a context helper for one window.</summary>
-        /// <remarks>Purpose: Binds window context operations to a dispatcher and window id.
-        /// Ownership: Keeps a non-owning dispatcher pointer; caller must keep dispatcher alive.
-        /// Thread Safety: Safe to construct on one thread, use on render thread.</remarks>
         OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Uuid& window_id);
 
-        /// <summary>Returns the window identifier targeted by this context.</summary>
-        /// <remarks>Purpose: Exposes the bound window id for diagnostics and routing.
+        /// @brief
+        /// Purpose: Exposes the bound window id for diagnostics and routing.
+        /// @details
         /// Ownership: Returns a const reference to context-owned id.
         /// Thread Safety: Read-only access is thread-compatible; operations remain render-thread
-        /// only.</remarks>
+        /// only.
         const tbx::Uuid& get_window_id() const;
 
-        /// <summary>Requests that the bound window context become current.</summary>
-        /// <remarks>Purpose: Routes a make-current request through the dispatcher.
+        /// @brief
+        /// Purpose: Routes a make-current request through the dispatcher.
+        /// @details
         /// Ownership: No ownership transfer.
-        /// Thread Safety: Call on render thread.</remarks>
+        /// Thread Safety: Call on render thread.
         tbx::Result make_current() const;
 
-        /// <summary>Requests present/swap for the bound window context.</summary>
-        /// <remarks>Purpose: Routes a present request through the dispatcher.
+        /// @brief
+        /// Purpose: Routes a present request through the dispatcher.
+        /// @details
         /// Ownership: No ownership transfer.
-        /// Thread Safety: Call on render thread.</remarks>
+        /// Thread Safety: Call on render thread.
         tbx::Result present() const;
 
       private:

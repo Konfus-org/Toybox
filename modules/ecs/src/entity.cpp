@@ -1,5 +1,6 @@
-﻿#include "tbx/ecs/entity.h"
+#include "tbx/ecs/entity.h"
 #include "tbx/common/uuid.h"
+#include "tbx/debugging/macros.h"
 #include <cstddef>
 
 namespace tbx
@@ -60,12 +61,24 @@ namespace tbx
         if (_registry == nullptr)
             return;
 
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to destroy a stale entity handle.");
+            _id = {};
+            _registry = nullptr;
+            return;
+        }
+
         _registry->remove(*this);
     }
 
     Uuid Entity::get_id() const
     {
         if (_registry == nullptr)
+            return {};
+
+        // Callers commonly use `get_id().is_valid()` as a safe validity probe.
+        if (!_registry->has(_id))
             return {};
 
         return _id;
@@ -75,6 +88,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return "";
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity name from a stale handle.");
+            return "";
+        }
 
         return _registry->get_name(_id);
     }
@@ -83,6 +101,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return;
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity name to a stale handle.");
+            return;
+        }
 
         _registry->set_name(_id, name);
     }
@@ -91,6 +114,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return "";
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity tag from a stale handle.");
+            return "";
+        }
 
         return _registry->get_tag(_id);
     }
@@ -99,6 +127,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return;
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity tag to a stale handle.");
+            return;
+        }
 
         _registry->set_tag(_id, tag);
     }
@@ -107,6 +140,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return "";
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity layer from a stale handle.");
+            return "";
+        }
 
         return _registry->get_layer(_id);
     }
@@ -115,6 +153,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return;
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity layer to a stale handle.");
+            return;
+        }
 
         _registry->set_layer(_id, layer);
     }
@@ -123,6 +166,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return {};
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity parent from a stale handle.");
+            return {};
+        }
 
         return _registry->get_parent_id(_id);
     }
@@ -131,6 +179,11 @@ namespace tbx
     {
         if (_registry == nullptr)
             return;
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity parent to a stale handle.");
+            return;
+        }
 
         _registry->set_parent_id(_id, parent);
     }
@@ -140,6 +193,11 @@ namespace tbx
         out_parent = Entity {};
         if (_registry == nullptr)
             return false;
+        if (!_registry->has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to resolve parent from a stale entity handle.");
+            return false;
+        }
 
         const Uuid parent_id = _registry->get_parent_id(_id);
         if (!parent_id.is_valid())
@@ -218,3 +276,5 @@ namespace tbx
         entity.destroy();
     }
 }
+
+

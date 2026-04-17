@@ -1,17 +1,15 @@
 #pragma once
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 
 namespace tbx
 {
-    /// <summary>
+    /// @brief
     /// Purpose: Represents raw audio sample data for asset loading.
-    /// </summary>
-    /// <remarks>
+    /// @details
     /// Ownership: Instances own their sample buffers.
     /// Thread Safety: Safe to move across threads; synchronize shared mutation externally.
-    /// </remarks>
     struct TBX_API AudioClip
     {
         uint32 sample_rate = 44100;

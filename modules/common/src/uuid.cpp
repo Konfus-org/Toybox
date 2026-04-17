@@ -19,9 +19,9 @@ namespace tbx
 
         std::random_device rd;
         std::mt19937 generator(rd());
-        std::uniform_int_distribution<tbx::uint32> dist(
+        std::uniform_int_distribution<uint32> dist(
             1u,
-            std::numeric_limits<tbx::uint32>::max());
+            std::numeric_limits<uint32>::max());
 
         id.value = dist(generator);
 

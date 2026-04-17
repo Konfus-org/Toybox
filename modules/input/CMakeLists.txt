@@ -20,6 +20,9 @@ target_link_libraries(${module_name}
         Tbx::Messaging
         Tbx::Time
     PRIVATE
+        Tbx::Common
+        glm
+        Tbx::Async
         Tbx::Debugging
 )
 

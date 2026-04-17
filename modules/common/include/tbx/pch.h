@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tbx/common/int.h"
+#include "tbx/common/typedefs.h"
 #include "tbx/common/uuid.h"
 #include <algorithm>
 #include <array>

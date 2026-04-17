@@ -6,6 +6,8 @@ layout(location = 1) out vec4 o_geometry_preview_color;
 layout(location = 2) out vec4 o_albedo;
 layout(location = 3) out vec4 o_normal;
 layout(location = 4) out vec4 o_depth_preview;
+layout(location = 5) out vec4 o_emissive;
+layout(location = 6) out vec4 o_material;
 
 in vec4 g_color;
 in vec3 g_world_normal;
@@ -38,4 +40,6 @@ void main()
     o_albedo = vec4(g_color.rgb, 1.0);
     o_normal = vec4((normalized_world_normal * 0.5) + 0.5, 1.0);
     o_depth_preview = vec4(vec3(depth_preview), 1.0);
+    o_emissive = vec4(unlit_color, exposure);
+    o_material = vec4(0.0, 1.0, 1.0, 1.0);
 }

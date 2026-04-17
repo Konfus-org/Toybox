@@ -11,10 +11,10 @@
 
 namespace tbx
 {
-    /// <summary>Represents one frame snapshot of all device input used during action
-    /// evaluation.</summary> <remarks>Purpose: Caches queried device state so actions evaluate
+    /// @brief Represents one frame snapshot of all device input used during action evaluation.
+    /// @details Purpose: Caches queried device state so actions evaluate
     /// consistently in one update. Ownership: Value type owning copied input state. Thread Safety:
-    /// Safe for concurrent reads after construction.</remarks>
+    /// Safe for concurrent reads after construction.
     struct TBX_API InputDeviceSnapshot
     {
         KeyboardState keyboard = {};
@@ -22,10 +22,11 @@ namespace tbx
         std::unordered_map<int, ControllerState> controllers = {};
     };
 
-    /// <summary>Coordinates scheme/action updates by querying the input message API.</summary>
-    /// <remarks>Purpose: Exposes a high-level API for scheme lifecycle and action evaluation.
+    /// @brief
+    /// Purpose: Exposes a high-level API for scheme lifecycle and action evaluation.
+    /// @details
     /// Ownership: Owns all registered schemes and their action state.
-    /// Thread Safety: Not thread-safe; intended for main-thread update loops.</remarks>
+    /// Thread Safety: Not thread-safe; intended for main-thread update loops.
     class TBX_API InputManager
     {
       public:
@@ -46,10 +47,11 @@ namespace tbx
         void set_mouse_lock_mode(MouseLockMode mode) const;
         MouseLockMode get_mouse_lock_mode() const;
 
-        /// <summary>Updates active schemes and triggers action callbacks for the frame.</summary>
-        /// <remarks>Purpose: Evaluates bindings and sends action lifecycle callbacks.
+        /// @brief
+        /// Purpose: Evaluates bindings and sends action lifecycle callbacks.
+        /// @details
         /// Ownership: No ownership transfer.
-        /// Thread Safety: Not thread-safe; call from one synchronized update thread.</remarks>
+        /// Thread Safety: Not thread-safe; call from one synchronized update thread.
         void update(const DeltaTime& delta_time);
 
       private:

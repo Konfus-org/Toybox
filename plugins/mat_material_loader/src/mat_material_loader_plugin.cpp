@@ -46,7 +46,7 @@ namespace mat_material_loader
                 return {};
         }
 
-        tbx::uint32 parsed = 0U;
+        uint32 parsed = 0U;
         auto result = std::from_chars(trimmed.data(), trimmed.data() + trimmed.size(), parsed, 16);
         if (result.ec != std::errc())
         {
@@ -77,6 +77,130 @@ namespace mat_material_loader
         }
 
         return tbx::Handle(std::string(trimmed));
+    }
+
+    static bool try_parse_material_depth_function(
+        std::string_view value,
+        tbx::MaterialDepthFunction& out_function)
+    {
+        const auto normalized = tbx::to_lower(std::string(value));
+        if (normalized == "less")
+        {
+            out_function = tbx::MaterialDepthFunction::Less;
+            return true;
+        }
+        if (normalized == "less_equal" || normalized == "lequal")
+        {
+            out_function = tbx::MaterialDepthFunction::LessEqual;
+            return true;
+        }
+        if (normalized == "always")
+        {
+            out_function = tbx::MaterialDepthFunction::Always;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_parse_material_blend_mode(
+        std::string_view value,
+        tbx::MaterialBlendMode& out_blend_mode)
+    {
+        const auto normalized = tbx::to_lower(std::string(value));
+        if (normalized == "opaque")
+        {
+            out_blend_mode = tbx::MaterialBlendMode::Opaque;
+            return true;
+        }
+        if (normalized == "alpha_blend" || normalized == "alpha" || normalized == "transparent")
+        {
+            out_blend_mode = tbx::MaterialBlendMode::AlphaBlend;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_parse_shadow_mode(std::string_view value, tbx::ShadowMode& out_shadow_mode)
+    {
+        const auto normalized = tbx::to_lower(std::string(value));
+        if (normalized == "none")
+        {
+            out_shadow_mode = tbx::ShadowMode::None;
+            return true;
+        }
+        if (normalized == "standard")
+        {
+            out_shadow_mode = tbx::ShadowMode::Standard;
+            return true;
+        }
+        if (normalized == "always")
+        {
+            out_shadow_mode = tbx::ShadowMode::Always;
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_parse_material_render_config(
+        const tbx::Json& data,
+        tbx::MaterialConfig& out_config,
+        std::string& error_message)
+    {
+        auto config_data = tbx::Json();
+        if (!data.try_get_child("config", config_data))
+        {
+            return true;
+        }
+
+        auto config = out_config;
+
+        auto depth_data = tbx::Json();
+        if (config_data.try_get_child("depth", depth_data))
+        {
+            depth_data.try_get<bool>("test", config.depth.is_test_enabled);
+            depth_data.try_get<bool>("write", config.depth.is_write_enabled);
+            depth_data.try_get<bool>("prepass", config.depth.is_prepass_enabled);
+
+            std::string depth_function_text;
+            if (depth_data.try_get<std::string>("function", depth_function_text)
+                && !try_parse_material_depth_function(depth_function_text, config.depth.function))
+            {
+                error_message = "tbx::Material loader: config.depth.function is invalid.";
+                return false;
+            }
+        }
+
+        auto transparency_data = tbx::Json();
+        if (config_data.try_get_child("transparency", transparency_data))
+        {
+            std::string blend_mode_text;
+            if (transparency_data.try_get<std::string>("blend_mode", blend_mode_text)
+                && !try_parse_material_blend_mode(
+                    blend_mode_text,
+                    config.transparency.blend_mode))
+            {
+                error_message =
+                    "tbx::Material loader: config.transparency.blend_mode is invalid.";
+                return false;
+            }
+        }
+
+        config_data.try_get<bool>("two_sided", config.is_two_sided);
+        config_data.try_get<bool>("cullable", config.is_cullable);
+
+        std::string shadow_mode_text;
+        if (config_data.try_get<std::string>("shadow_mode", shadow_mode_text)
+            && !try_parse_shadow_mode(shadow_mode_text, config.shadow_mode))
+        {
+            error_message = "tbx::Material loader: config.shadow_mode is invalid.";
+            return false;
+        }
+
+        out_config = config;
+        return true;
     }
 
     static bool try_parse_parameter_entry(
@@ -391,8 +515,7 @@ namespace mat_material_loader
             std::vector<tbx::Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
-                material.textures.values.reserve(
-                    material.textures.values.size() + texture_entries.size());
+                material.textures.values.reserve(material.textures.values.size() + texture_entries.size());
                 for (const auto& entry : texture_entries)
                 {
                     std::string name;
@@ -422,6 +545,11 @@ namespace mat_material_loader
 
                     material.textures.set(name, std::move(handle));
                 }
+            }
+
+            if (!try_parse_material_render_config(data, material.config, error_message))
+            {
+                return false;
             }
 
             std::vector<tbx::Json> entries;

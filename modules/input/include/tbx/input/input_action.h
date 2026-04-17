@@ -9,10 +9,11 @@
 
 namespace tbx
 {
-    /// <summary>Represents a keyboard key identifier for bindings.</summary>
-    /// <remarks>Purpose: Provides strongly-typed key identifiers for keyboard action bindings.
+    /// @brief
+    /// Purpose: Provides strongly-typed key identifiers for keyboard action bindings.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputKey : int
     {
         UNKNOWN = 0,
@@ -269,10 +270,11 @@ namespace tbx
         COUNT = 512,
     };
 
-    /// <summary>Represents a mouse button identifier for bindings.</summary>
-    /// <remarks>Purpose: Provides strongly-typed mouse button identifiers for bindings.
+    /// @brief
+    /// Purpose: Provides strongly-typed mouse button identifiers for bindings.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputMouseButton : int
     {
         UNKNOWN = 0,
@@ -283,10 +285,11 @@ namespace tbx
         X2 = 5,
     };
 
-    /// <summary>Represents a controller button identifier for bindings.</summary>
-    /// <remarks>Purpose: Provides strongly-typed gamepad button identifiers for bindings.
+    /// @brief
+    /// Purpose: Provides strongly-typed gamepad button identifiers for bindings.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputControllerButton : int
     {
         UNKNOWN = -1,
@@ -307,10 +310,11 @@ namespace tbx
         DPAD_RIGHT = 14,
     };
 
-    /// <summary>Represents a controller axis identifier for bindings.</summary>
-    /// <remarks>Purpose: Provides strongly-typed gamepad axis identifiers for axis/vector bindings.
+    /// @brief
+    /// Purpose: Provides strongly-typed gamepad axis identifiers for axis/vector bindings.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputControllerAxis : int
     {
         UNKNOWN = -1,
@@ -322,85 +326,94 @@ namespace tbx
         RIGHT_TRIGGER = 5,
     };
 
-    /// <summary>Represents available mouse vector controls.</summary>
-    /// <remarks>Purpose: Selects a vector-producing mouse control.
+    /// @brief
+    /// Purpose: Selects a vector-producing mouse control.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputMouseVectorControl
     {
         POSITION,
         DELTA,
     };
 
-    /// <summary>Represents available mouse scalar axis controls.</summary>
-    /// <remarks>Purpose: Selects a float-producing mouse control.
+    /// @brief
+    /// Purpose: Selects a float-producing mouse control.
+    /// @details
     /// Ownership: Enum value type with no ownership semantics.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputMouseAxisControl
     {
         WHEEL,
     };
 
-    /// <summary>Represents a keyboard-key input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a specific keyboard key.
+    /// @brief
+    /// Purpose: Associates an action with a specific keyboard key.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API KeyboardInputControl
     {
         InputKey key = InputKey::UNKNOWN;
     };
 
-    /// <summary>Represents a mouse-button input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a specific mouse button.
+    /// @brief
+    /// Purpose: Associates an action with a specific mouse button.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API MouseButtonInputControl
     {
         InputMouseButton button = InputMouseButton::UNKNOWN;
     };
 
-    /// <summary>Represents a mouse vector input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a vector mouse control (position or delta).
+    /// @brief
+    /// Purpose: Associates an action with a vector mouse control (position or delta).
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API MouseVectorInputControl
     {
         InputMouseVectorControl control = InputMouseVectorControl::DELTA;
     };
 
-    /// <summary>Represents a mouse scalar axis input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a float mouse control (wheel).
+    /// @brief
+    /// Purpose: Associates an action with a float mouse control (wheel).
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API MouseAxisInputControl
     {
         InputMouseAxisControl control = InputMouseAxisControl::WHEEL;
     };
 
-    /// <summary>Represents a controller button input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a specific button on a target controller.
+    /// @brief
+    /// Purpose: Associates an action with a specific button on a target controller.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API ControllerButtonInputControl
     {
         int controller_index = -1;
         InputControllerButton button = InputControllerButton::UNKNOWN;
     };
 
-    /// <summary>Represents a controller axis input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with a specific axis on a target controller.
+    /// @brief
+    /// Purpose: Associates an action with a specific axis on a target controller.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API ControllerAxisInputControl
     {
         int controller_index = -1;
         InputControllerAxis axis = InputControllerAxis::UNKNOWN;
     };
 
-    /// <summary>Represents a controller stick input control binding.</summary>
-    /// <remarks>Purpose: Associates an action with two axes on a target controller.
+    /// @brief
+    /// Purpose: Associates an action with two axes on a target controller.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API ControllerStickInputControl
     {
         int controller_index = -1;
@@ -408,10 +421,11 @@ namespace tbx
         InputControllerAxis y_axis = InputControllerAxis::UNKNOWN;
     };
 
-    /// <summary>Represents a keyboard 2D composite binding (for example WASD).</summary>
-    /// <remarks>Purpose: Maps four directional keys into one Vector2 action value.
+    /// @brief
+    /// Purpose: Maps four directional keys into one Vector2 action value.
+    /// @details
     /// Ownership: Value type with no dynamic ownership.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     struct TBX_API KeyboardVector2CompositeInputControl
     {
         InputKey up = InputKey::UNKNOWN;
@@ -420,10 +434,11 @@ namespace tbx
         InputKey right = InputKey::UNKNOWN;
     };
 
-    /// <summary>Represents a concrete input control definition used by a binding.</summary>
-    /// <remarks>Purpose: Unifies strongly-typed keyboard/mouse/controller controls in one API.
+    /// @brief
+    /// Purpose: Unifies strongly-typed keyboard/mouse/controller controls in one API.
+    /// @details
     /// Ownership: Value type; callers own copied values.
-    /// Thread Safety: Safe for concurrent read access to immutable instances.</remarks>
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
     using InputControl = std::variant<
         KeyboardInputControl,
         MouseButtonInputControl,
@@ -434,47 +449,48 @@ namespace tbx
         ControllerAxisInputControl,
         ControllerStickInputControl>;
 
-    /// <summary>Stores a control selection and scalar multiplier for an input action.</summary>
-    /// <remarks>Purpose: Defines what physical control drives the action and how it is scaled.
+    /// @brief
+    /// Purpose: Defines what physical control drives the action and how it is scaled.
+    /// @details
     /// Ownership: Value type; owns copied control values.
-    /// Thread Safety: Not thread-safe for concurrent mutation.</remarks>
+    /// Thread Safety: Not thread-safe for concurrent mutation.
     struct TBX_API InputBinding
     {
-        /// <summary>The strongly-typed input control associated with this binding.</summary>
-        /// <remarks>Purpose: Identifies the keyboard/mouse/controller source for the action.
+        /// @brief
+        /// Purpose: Identifies the keyboard/mouse/controller source for the action.
+        /// @details
         /// Ownership: Value type stored by this binding.
-        /// Thread Safety: Safe for concurrent reads of immutable bindings.</remarks>
+        /// Thread Safety: Safe for concurrent reads of immutable bindings.
         InputControl control = KeyboardInputControl {};
 
-        /// <summary>Multiplier applied to float/vector values produced by this binding.</summary>
-        /// <remarks>Purpose: Supports sensitivity/inversion/tuning per binding.
+        /// @brief
+        /// Purpose: Supports sensitivity/inversion/tuning per binding.
+        /// @details
         /// Ownership: Primitive value stored by this binding.
-        /// Thread Safety: Safe for concurrent reads of immutable bindings.</remarks>
+        /// Thread Safety: Safe for concurrent reads of immutable bindings.
         float scale = 1.0F;
     };
 
-    /// <summary>Represents an action value produced by a scheme action.</summary>
-    /// <remarks>Purpose: Unifies button, axis, and vector controls under one API.
+    /// @brief
+    /// Purpose: Unifies button, axis, and vector controls under one API.
+    /// @details
     /// Ownership: Value type; callers own copies.
-    /// Thread Safety: Safe for concurrent read access to independent copies.</remarks>
+    /// Thread Safety: Safe for concurrent read access to independent copies.
     using InputActionValue = std::variant<bool, float, Vec2>;
 
     class InputAction;
 
-    /// <summary>Represents the callback signature for input action lifecycle
-    /// notifications.</summary> <remarks>Purpose: Used by on-start/on-performed/on-cancelled
+    /// @brief Represents the callback signature for input action lifecycle notifications.
+    /// @details Purpose: Used by on-start/on-performed/on-cancelled
     /// subscriptions. Ownership: Callable value copied by action instances. Thread Safety:
-    /// Invocation occurs on the input update thread.</remarks>
+    /// Invocation occurs on the input update thread.
     using InputActionCallback = std::function<void(const InputAction&)>;
 
-    /// <summary>
-    /// Represents optional bindings and lifecycle callbacks supplied when constructing an action.
-    /// </summary>
-    /// <remarks>
+    /// @brief
     /// Purpose: Enables one-shot action construction with predefined bindings and subscriptions.
+    /// @details
     /// Ownership: Owns binding and callback collections by value.
     /// Thread Safety: Not thread-safe for mutation; synchronize externally if shared.
-    /// </remarks>
     struct TBX_API InputActionConstruction
     {
         std::vector<InputBinding> bindings = {};
@@ -483,10 +499,11 @@ namespace tbx
         std::vector<InputActionCallback> on_cancelled_callbacks = {};
     };
 
-    /// <summary>Describes the expected value type for an input action.</summary>
-    /// <remarks>Purpose: Helps map action bindings to stable gameplay value shapes.
+    /// @brief
+    /// Purpose: Helps map action bindings to stable gameplay value shapes.
+    /// @details
     /// Ownership: Enum value type.
-    /// Thread Safety: Safe for concurrent use.</remarks>
+    /// Thread Safety: Safe for concurrent use.
     enum class InputActionValueType
     {
         BUTTON,
@@ -494,23 +511,15 @@ namespace tbx
         VECTOR2
     };
 
-    /// <summary>Represents a Unity-style input action with callbacks and bindings.</summary>
-    /// <remarks>Purpose: Defines gameplay actions and lifecycle callbacks.
+    /// @brief
+    /// Purpose: Defines gameplay actions and lifecycle callbacks.
+    /// @details
     /// Ownership: Owns bindings and callback lists.
-    /// Thread Safety: Not thread-safe; mutate/query from a synchronized context.</remarks>
+    /// Thread Safety: Not thread-safe; mutate/query from a synchronized context.
     class TBX_API InputAction
     {
       public:
-        /// <summary>Constructs an action with no initial bindings or callbacks.</summary>
-        /// <remarks>Purpose: Creates an action shell to configure incrementally.
-        /// Ownership: Stores the provided name by value and owns internal collections.
-        /// Thread Safety: Construction is thread-confined; synchronize shared access
-        /// after.</remarks>
         InputAction(std::string action_name, InputActionValueType value_type);
-        /// <summary>Constructs an action with predefined bindings and lifecycle
-        /// callbacks.</summary> <remarks>Purpose: Supports one-shot action setup for concise scheme
-        /// declarations. Ownership: Takes ownership of copied/moved construction data. Thread
-        /// Safety: Construction is thread-confined; synchronize shared access after.</remarks>
         InputAction(
             std::string action_name,
             InputActionValueType value_type,
@@ -521,32 +530,21 @@ namespace tbx
         const std::vector<InputBinding>& get_bindings() const;
         const InputActionValue& get_value() const;
 
-        /// <summary>Attempts to read the current action value as a specific type.</summary>
-        /// <remarks>Purpose: Simplifies typed value reads without repetitive variant checks.
+        /// @brief
+        /// Purpose: Simplifies typed value reads without repetitive variant checks.
+        /// @details
         /// Ownership: Writes a copied value into the provided output reference.
-        /// Thread Safety: Read-only operation; synchronize externally if shared mutably.</remarks>
+        /// Thread Safety: Read-only operation; synchronize externally if shared mutably.
         template <typename TValue>
-        bool try_get_value_as(TValue& out_value) const
-        {
-            if (!std::holds_alternative<TValue>(_value))
-                return false;
+        bool try_get_value_as(TValue& out_value) const;
 
-            out_value = std::get<TValue>(_value);
-            return true;
-        }
-
-        /// <summary>Attempts to return a typed pointer to the current action value.</summary>
-        /// <remarks>Purpose: Provides optional typed access without copying when available.
+        /// @brief
+        /// Purpose: Provides optional typed access without copying when available.
+        /// @details
         /// Ownership: Returns a non-owning pointer that aliases internal action storage.
-        /// Thread Safety: Read-only operation; synchronize externally if shared mutably.</remarks>
+        /// Thread Safety: Read-only operation; synchronize externally if shared mutably.
         template <typename TValue>
-        const TValue* try_get_value_as() const
-        {
-            if (!std::holds_alternative<TValue>(_value))
-                return nullptr;
-
-            return &std::get<TValue>(_value);
-        }
+        const TValue* try_get_value_as() const;
 
         bool get_is_active() const;
         std::chrono::duration<double> get_held_time() const;
@@ -576,3 +574,5 @@ namespace tbx
         std::vector<InputActionCallback> _on_cancelled_callbacks = {};
     };
 }
+
+#include "tbx/input/input_action.inl"

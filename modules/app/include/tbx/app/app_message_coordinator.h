@@ -14,7 +14,6 @@ namespace tbx
     struct QueuedMessage
     {
         std::unique_ptr<Message> message;
-        std::promise<Result> completion_state;
     };
 
     struct RegisteredMessageHandler
@@ -26,31 +25,16 @@ namespace tbx
     class TBX_API AppMessageCoordinator final : public IMessageCoordinator
     {
       public:
-        /// <summary>
-        /// Purpose: Creates a message coordinator that dispatches immediate and queued messages.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Owns registered handlers and queued message storage.
-        /// Thread Safety: Safe for concurrent posting/sending with concurrent handler updates.
-        /// </remarks>
-        AppMessageCoordinator();
+        using IMessageDispatcher::post;
+        using IMessageDispatcher::send;
 
-        /// <summary>
-        /// Purpose: Flushes pending messages and releases all handlers during shutdown.
-        /// </summary>
-        /// <remarks>
-        /// Ownership: Releases all owned handlers and queued messages before returning.
-        /// Thread Safety: Must not race destruction; external synchronization required.
-        /// </remarks>
+        AppMessageCoordinator();
         ~AppMessageCoordinator() noexcept override;
 
         AppMessageCoordinator(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator& operator=(const AppMessageCoordinator&) = delete;
         AppMessageCoordinator(AppMessageCoordinator&&) = delete;
         AppMessageCoordinator& operator=(AppMessageCoordinator&&) = delete;
-
-        using IMessageDispatcher::post;
-        using IMessageDispatcher::send;
 
         Uuid register_handler(MessageHandler handler) override;
         void deregister_handler(const Uuid& token) override;
