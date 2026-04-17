@@ -99,8 +99,8 @@ namespace tbx
             _host.get_asset_manager().add_directory(loaded_plugin.meta.resource_directory);
 #endif
 
-        loaded_plugin.attach(_host);
         _loaded.push_back(std::move(loaded_plugin));
+        _loaded.back().attach(_host);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
@@ -183,7 +183,8 @@ namespace tbx
             return false;
         }
 
-        unload_plugins(unloaded_plugins, &_host.get_message_coordinator());
+        _loaded = std::move(unloaded_plugins);
+        unload_plugins(_loaded, &_host.get_message_coordinator());
         _loaded = std::move(retained_plugins);
         return true;
     }
