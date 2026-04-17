@@ -38,6 +38,7 @@ namespace opengl_rendering
         void build_draw_calls(OpenGlFrameContext& frame_context);
         OpenGlFrameContext build_frame_context() const;
         void build_light_data(OpenGlFrameContext& frame_context) const;
+        void build_post_processing_data(OpenGlFrameContext& frame_context) const;
         void build_shadow_data(OpenGlFrameContext& frame_context) const;
         void initialize(tbx::GraphicsProcAddress loader) const;
         void process_pending_asset_reloads();

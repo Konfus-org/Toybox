@@ -4,11 +4,8 @@ layout(location = 0) out vec4 o_color;
 
 in vec2 v_tex_coord;
 
-layout(std140, binding = 1) uniform MaterialParams
-{
-    vec4 u_color;
-    vec4 u_emissive;
-};
+uniform vec4 u_color;
+uniform vec4 u_emissive;
 
 uniform sampler2D u_scene_color;
 uniform sampler2D u_lut;
