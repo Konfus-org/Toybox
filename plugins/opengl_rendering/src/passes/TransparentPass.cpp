@@ -2,7 +2,7 @@
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -81,7 +81,7 @@ namespace opengl_rendering
     }
 
     TransparentPass::TransparentPass(
-        const OpenGlResourceManager& resource_manager,
+        const OpenGlUploader& resource_manager,
         OpenGlGBuffer& gbuffer)
         : _resource_manager(resource_manager)
         , _gbuffer(gbuffer)

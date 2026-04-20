@@ -1,6 +1,6 @@
 #pragma once
-#include "opengl_resource.h"
-#include "opengl_shader.h"
+#include "opengl_resources/opengl_resource.h"
+#include "opengl_resources/opengl_shader.h"
 #include "tbx/assets/manager.h"
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/material.h"
@@ -12,12 +12,13 @@
 
 namespace opengl_rendering
 {
-    class OpenGlResourceManager final
+    class OpenGlUploader final
     {
       public:
-        OpenGlResourceManager(tbx::AssetManager& asset_manager);
+        OpenGlUploader(tbx::AssetManager& asset_manager);
 
         tbx::Uuid add_dynamic_mesh(const tbx::DynamicMesh& dynamic_mesh, bool pin = false);
+        tbx::Uuid add_mesh(const tbx::Mesh& mesh, const tbx::Uuid& resource_uuid, bool pin = false);
         tbx::Uuid add_material(const tbx::MaterialInstance& material, bool pin = false);
         tbx::Uuid add_material(
             const std::shared_ptr<OpenGlShaderProgram>& shader_program,
@@ -31,6 +32,7 @@ namespace opengl_rendering
             bool pin = false);
         void clear();
         void clear_unused();
+        void remove(const tbx::Uuid& resource_uuid);
         std::shared_ptr<tbx::Material> get_material_asset(const tbx::Handle& material_handle);
         void on_asset_reloaded(const tbx::Handle& asset_handle);
         void pin(const tbx::Uuid& resource_uuid);
@@ -63,4 +65,4 @@ namespace opengl_rendering
     };
 }
 
-#include "opengl_resource_manager.inl"
+#include "opengl_uploader.inl"

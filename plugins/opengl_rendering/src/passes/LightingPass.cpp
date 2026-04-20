@@ -317,7 +317,7 @@ namespace opengl_rendering
     }
 
     LightingPass::LightingPass(
-        OpenGlResourceManager& resource_manager,
+        OpenGlUploader& resource_manager,
         tbx::JobSystem& job_system,
         OpenGlGBuffer& gbuffer,
         const ShadowPass& shadow_pass)

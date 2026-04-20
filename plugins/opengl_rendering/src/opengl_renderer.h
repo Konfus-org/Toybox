@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/graphics/render_pipeline.h"
+#include "opengl_uploader.h"
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace opengl_rendering
@@ -17,7 +17,13 @@ namespace opengl_rendering
       public:
         tbx::GraphicsApi get_api() const override;
         tbx::Result initialize(tbx::GraphicsProcAddress loader) override;
-        void on_asset_reloaded(const tbx::Handle& asset_handle) override;
+        tbx::Result upload(const tbx::Mesh& mesh, tbx::Uuid& out_resource_uuid) override;
+        tbx::Result upload(const tbx::Material& material, tbx::Uuid& out_resource_uuid) override;
+        tbx::Result upload(const tbx::Texture& texture, tbx::Uuid& out_resource_uuid) override;
+        tbx::Result upload(
+            const tbx::TextureSettings& texture_settings,
+            tbx::Uuid& out_resource_uuid) override;
+        tbx::Result unload(const tbx::Uuid& resource_uuid) override;
         tbx::Result begin_draw(
             const tbx::Window& window,
             const tbx::Camera& view,
@@ -31,9 +37,8 @@ namespace opengl_rendering
         tbx::Result end_draw() override;
 
       private:
-        OpenGlWindowRendererState& ensure_state(const tbx::Window& window);
+        OpenGlWindowRendererState& ensure_state();
         OpenGlWindowRendererState* try_get_active_state();
-        void apply_asset_reloads(OpenGlWindowRendererState& state);
         void build_geometry_draw_calls(
             OpenGlWindowRendererState& state,
             const std::vector<tbx::RenderDrawItem>& draw_items);
@@ -48,9 +53,8 @@ namespace opengl_rendering
       private:
         tbx::AssetManager& _asset_manager;
         tbx::JobSystem& _job_system;
-        std::unordered_map<tbx::Window, std::unique_ptr<OpenGlWindowRendererState>> _states = {};
-        std::vector<tbx::Handle> _asset_reload_events = {};
-        tbx::Window _active_window = {};
+        OpenGlUploader _resource_manager;
+        std::shared_ptr<OpenGlWindowRendererState> _state = nullptr;
         bool _is_runtime_initialized = false;
     };
 }

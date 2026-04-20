@@ -2,7 +2,7 @@
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_texture.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"
@@ -89,7 +89,7 @@ namespace opengl_rendering
         OpenGlMaterialParams& material_params,
         const std::string& binding_name,
         const tbx::TextureInstance& texture_instance,
-        OpenGlResourceManager& resource_manager)
+        OpenGlUploader& resource_manager)
     {
         auto texture_id = tbx::Uuid {};
         if (texture_instance.handle.is_valid())
@@ -146,7 +146,7 @@ namespace opengl_rendering
     }
 
     PostProcessingPass::PostProcessingPass(
-        OpenGlResourceManager& resource_manager,
+        OpenGlUploader& resource_manager,
         OpenGlGBuffer& gbuffer)
         : _resource_manager(resource_manager)
         , _gbuffer(gbuffer)

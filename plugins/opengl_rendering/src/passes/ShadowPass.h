@@ -1,6 +1,6 @@
 #pragma once
 #include "OpenGlDrawCalls.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_shader.h"
 #include <memory>
 
@@ -15,7 +15,7 @@ namespace opengl_rendering
     class ShadowPass final
     {
       public:
-        ShadowPass(OpenGlResourceManager& resource_manager);
+        ShadowPass(OpenGlUploader& resource_manager);
         ShadowPass(const ShadowPass&) = delete;
         ShadowPass& operator=(const ShadowPass&) = delete;
         ~ShadowPass() noexcept;
@@ -62,7 +62,7 @@ namespace opengl_rendering
         bool ensure_initialized();
 
       private:
-        OpenGlResourceManager& _resource_manager;
+        OpenGlUploader& _resource_manager;
         std::shared_ptr<OpenGlShaderProgram> _shader_program = nullptr;
         uint32 _framebuffer = 0U;
         uint32 _directional_shadow_texture = 0U;

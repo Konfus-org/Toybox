@@ -1,6 +1,6 @@
 #pragma once
 #include "opengl_resources/opengl_buffers.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/graphics/render_pipeline.h"
 #include "tbx/math/size.h"
@@ -20,7 +20,7 @@ namespace opengl_rendering
     {
       public:
         PostProcessingPass(
-            OpenGlResourceManager& resource_manager,
+            OpenGlUploader& resource_manager,
             OpenGlGBuffer& gbuffer);
         PostProcessingPass(const PostProcessingPass&) = delete;
         PostProcessingPass& operator=(const PostProcessingPass&) = delete;
@@ -40,7 +40,7 @@ namespace opengl_rendering
         bool ensure_scratch_targets(const tbx::Size& size);
 
       private:
-        OpenGlResourceManager& _resource_manager;
+        OpenGlUploader& _resource_manager;
         OpenGlGBuffer& _gbuffer;
         tbx::Size _scratch_size = {0U, 0U};
         std::vector<GLuint> _scratch_textures = {};
