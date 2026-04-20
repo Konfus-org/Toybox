@@ -14,6 +14,22 @@ endif()
 
 add_library(Tbx::${module_name} ALIAS ${module_name})
 
+target_sources(${module_name} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/graphics_render_pipeline.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/graphics_render_resources.cpp
+)
+
+target_include_directories(${module_name}
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/modules/audio/include
+        ${PROJECT_SOURCE_DIR}/modules/assets/include
+        ${PROJECT_SOURCE_DIR}/modules/ecs/include
+        ${PROJECT_SOURCE_DIR}/modules/files/include
+        ${PROJECT_SOURCE_DIR}/modules/resources/include
+        ${PROJECT_SOURCE_DIR}/resources/generated
+        ${PROJECT_SOURCE_DIR}/thirdparty/entt/src
+)
+
 target_link_libraries(${module_name}
     PUBLIC
         Tbx::Common

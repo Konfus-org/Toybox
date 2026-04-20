@@ -1472,7 +1472,7 @@ namespace opengl_rendering
         initialized = true;
 
         auto* glad_loader = loader;
-        TBX_ASSERT(glad_loader != nullptr, "Context-ready event provided null loader.");
+        TBX_ASSERT(glad_loader != nullptr, "Context manager provided null loader.");
         TBX_ASSERT(
             _context.get_window_id().is_valid(),
             "Renderer requires a valid context window id.");

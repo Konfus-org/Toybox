@@ -1,10 +1,8 @@
 #pragma once
-#include "tbx/graphics/messages.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace sdl_opengl_adapter
 {
@@ -21,23 +19,32 @@ namespace sdl_opengl_adapter
         int stencil_bits = 8;
         bool is_double_buffer_enabled = true;
         bool is_debug_context_enabled = false;
-        bool is_vsync_enabled = false;
+    };
+
+    struct SdlOpenGlContextRecord
+    {
+        tbx::Window window = {};
+        SDL_Window* native_window = nullptr;
+        SDL_GLContext context = nullptr;
     };
 
     /// @brief
-    /// Purpose: Centralizes SDL OpenGL attribute setup, context creation, and swap.
+    /// Purpose: Owns SDL OpenGL contexts and exposes them through `IGraphicsContextManager`.
     /// @details
-    /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
-    /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
+    /// Ownership: Borrows the window manager and owns one SDL_GLContext per tracked window.
+    /// Thread Safety: Not thread-safe; expected to be used from the host/render threads that own
     /// the SDL contexts.
-    class TBX_PLUGIN_API SdlOpenGlAdapter final
+    class TBX_PLUGIN_API SdlOpenGlAdapter final : public tbx::IGraphicsContextManager
     {
       public:
-        SdlOpenGlAdapter(const SdlOpenGlAdapterSettings& settings);
-        ~SdlOpenGlAdapter() noexcept;
+        SdlOpenGlAdapter(
+            tbx::IWindowManager& window_manager,
+            const SdlOpenGlAdapterSettings& settings);
+        ~SdlOpenGlAdapter() noexcept override;
 
+      public:
         /// @brief
-        /// Purpose: Updates runtime settings (vsync/debug) used by new and existing contexts.
+        /// Purpose: Updates the SDL context settings used for future context creation.
         /// @details
         /// Ownership: Copies the provided settings.
         /// Thread Safety: Not thread-safe; must be called on the owning thread.
@@ -51,57 +58,41 @@ namespace sdl_opengl_adapter
         void apply_default_attributes() const;
 
         /// @brief
-        /// Purpose: Initializes and binds a per-window SDL_GLContext and applies current vsync
-        /// setting.
+        /// Purpose: Syncs a managed window to the adapter's tracked native-handle state.
         /// @details
-        /// Ownership: Adapter owns the created context until `destroy_context` or destruction.
+        /// Ownership: The provided SDL window pointer remains non-owning.
         /// Thread Safety: Not thread-safe; must be called on the owning thread.
-        bool try_create_context(SDL_Window* sdl_window, const std::string& window_title);
+        void sync_window(const tbx::Window& window, SDL_Window* native_window);
 
         /// @brief
-        /// Purpose: Releases one SDL_GLContext owned by this adapter.
+        /// Purpose: Releases any context tracked for a managed window.
         /// @details
-        /// Ownership: Adapter releases its owned context; the SDL_Window remains non-owning.
+        /// Ownership: Adapter releases its owned SDL context; the SDL window remains external.
         /// Thread Safety: Not thread-safe; must be called on the owning thread.
-        void destroy_context(SDL_Window* sdl_window);
+        void release_window(const tbx::Window& window);
 
-        /// @brief
-        /// Purpose: Activates the window's context for subsequent GL commands.
-        /// @details
-        /// Ownership: No ownership transfer.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.
-        bool try_make_current(SDL_Window* sdl_window, const std::string& window_title);
-
-        /// @brief
-        /// Purpose: Swaps the SDL window buffers for the stored context.
-        /// @details
-        /// Ownership: No ownership transfer.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.
-        bool try_present(SDL_Window* sdl_window);
-
-        /// @brief
-        /// Purpose: Applies the current vsync setting to all tracked contexts.
-        /// @details
-        /// Ownership: The provided window pointers are non-owning.
-        /// Thread Safety: Not thread-safe; must be called on the owning thread.
-        void apply_vsync_setting(const std::vector<SDL_Window*>& windows);
-
-        /// @brief
-        /// Purpose: Supplies a loader compatible with gladLoadGLLoader.
-        /// @details
-        /// Ownership: Non-owning pointer; valid as long as SDL is available.
-        /// Thread Safety: Safe to copy; invocation must obey SDL context thread rules.
-        tbx::GraphicsProcAddress get_proc_address() const;
-
-        /// @brief
-        /// Purpose: Allows callers to validate context availability.
-        /// @details
-        /// Ownership: Non-owning window pointer.
-        /// Thread Safety: Not thread-safe; call on owning thread.
-        bool has_context(SDL_Window* sdl_window) const;
+      public:
+        tbx::Result make_current(const tbx::Window& window) override;
+        tbx::Result present(const tbx::Window& window) override;
+        tbx::Result set_vsync(const tbx::VsyncMode& mode) override;
+        tbx::GraphicsProcAddress get_proc_address() const override;
 
       private:
+        tbx::Result ensure_context(
+            const tbx::Window& window,
+            SDL_Window* native_window,
+            SdlOpenGlContextRecord& record);
+        SDL_Window* get_native_window(const tbx::Window& window) const;
+        int get_swap_interval() const;
+        void release_all_contexts();
+        void release_record(SdlOpenGlContextRecord& record);
+        tbx::Result set_current_context(SdlOpenGlContextRecord& record) const;
+        tbx::Result try_apply_vsync(SdlOpenGlContextRecord& record) const;
+
+      private:
+        tbx::IWindowManager& _window_manager;
         SdlOpenGlAdapterSettings _settings = {};
-        std::unordered_map<SDL_Window*, SDL_GLContext> _contexts = {};
+        tbx::VsyncMode _vsync_mode = tbx::VsyncMode::OFF;
+        std::unordered_map<tbx::Window, SdlOpenGlContextRecord> _contexts = {};
     };
 }

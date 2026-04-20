@@ -2,7 +2,7 @@
 #include "tbx/common/handle.h"
 #include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/messages.h"
+#include "tbx/graphics/events.h"
 #include <algorithm>
 #include <ranges>
 #include <string>

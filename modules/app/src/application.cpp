@@ -3,7 +3,8 @@
 #include "tbx/app/requests.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/ops.h"
-#include "tbx/graphics/messages.h"
+#include "tbx/graphics/events.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
@@ -268,6 +269,9 @@ namespace tbx
 
         // Update all loaded plugins
         _plugin_manager.update(dt);
+
+        if (auto* render_pipeline = _service_provider.try_get_service<IRenderPipeline>())
+            render_pipeline->render();
 
         if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
             input_manager->update(dt);

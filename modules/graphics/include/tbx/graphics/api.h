@@ -4,6 +4,13 @@
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: Supplies a graphics API procedure loader for runtime symbol lookup.
+    /// @details
+    /// Ownership: Non-owning function pointer; the provider controls lifetime.
+    /// Thread Safety: Safe to copy; invocation must follow backend thread requirements.
+    using GraphicsProcAddress = void* (*)(const char*);
+
     // Represents the available vertical sync modes for a graphics context swap chain.
     enum class VsyncMode
     {
