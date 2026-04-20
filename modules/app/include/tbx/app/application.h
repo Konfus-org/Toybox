@@ -43,7 +43,9 @@ namespace tbx
         const ServiceProvider& get_service_provider() const;
 
       private:
-        void add_default_asset_directory();
+        void setup_filesystem_directories();
+        void setup_main_window();
+        void compose_rendering_service();
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
         void fixed_update(const DeltaTime& dt);
