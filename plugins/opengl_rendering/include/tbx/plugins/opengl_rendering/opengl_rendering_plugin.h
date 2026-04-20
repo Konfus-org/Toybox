@@ -5,7 +5,7 @@
 namespace opengl_rendering
 {
     /// @brief
-    /// Purpose: Registers the OpenGL graphics backend and engine-owned rendering service.
+    /// Purpose: Registers the OpenGL graphics backend service.
     /// @details
     /// Ownership: Services are registered into the host service provider during plugin attach.
     /// Thread Safety: Expected to be attached and detached on the host thread.

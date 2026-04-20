@@ -77,8 +77,6 @@ namespace tbx
         else
             settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
-        add_default_asset_directory();
-
         for (auto& arg : desc.args)
         {
             // TODO:
@@ -101,14 +99,11 @@ namespace tbx
         try
         {
             auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
-            auto& window_manager = _service_provider.get_service<IWindowManager>();
             GlobalDispatcherScope scope(msg_coordinator);
 
             auto timer = DeltaTimer();
-            TBX_ASSERT(
-                _main_window.is_valid(),
-                "Application main window must be valid before run.");
-            if (!window_manager.open(_main_window))
+            auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+            if (window_manager && _main_window.is_valid() && !window_manager->open(_main_window))
             {
                 TBX_TRACE_ERROR("Failed to open application main window.");
                 return -1;
@@ -148,13 +143,105 @@ namespace tbx
         return _service_provider;
     }
 
-    void Application::add_default_asset_directory()
+    void Application::setup_filesystem_directories()
     {
+        auto& settings = _service_provider.get_service<AppSettings>();
+        auto& asset_manager = _service_provider.get_service<AssetManager>();
         const auto resource_directory = get_default_asset_directory();
-        if (resource_directory.empty())
-            return;
+        if (!resource_directory.empty())
+            asset_manager.add_directory(resource_directory);
 
-        _service_provider.get_service<AssetManager>().add_directory(resource_directory);
+        TBX_TRACE_INFO("Working Directory: '{}'", settings.paths.working_directory.string());
+        TBX_TRACE_INFO("Logs Directory: '{}'", settings.paths.logs_directory.string());
+        auto asset_roots = asset_manager.get_directories();
+        if (asset_roots.size() > 1)
+        {
+            TBX_TRACE_INFO("Asset Directories:");
+            for (const auto& root : asset_roots)
+                TBX_TRACE_INFO("    -'{}'", root.string());
+        }
+        else if (!asset_roots.empty())
+            TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
+        else
+            TBX_TRACE_INFO("Asset Directory: <none>");
+    }
+
+    void Application::setup_main_window()
+    {
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager)
+        {
+            TBX_TRACE_INFO("Window manager not found. Running without a main window.");
+            return;
+        }
+
+        _main_window_base_title = _name.empty() ? std::string("Toybox Application") : _name;
+        _main_window = window_manager->create(
+            WindowCreateInfo {
+                .title = _main_window_base_title,
+                .size = {1280, 720},
+                .mode = WindowMode::WINDOWED,
+                .open_on_creation = false,
+            });
+    }
+
+    void Application::compose_rendering_service()
+    {
+        auto& settings = _service_provider.get_service<AppSettings>().graphics;
+        if (settings.graphics_api.value == GraphicsApi::NONE)
+        {
+            TBX_TRACE_INFO("Rendering disabled because graphics API is set to None.");
+            return;
+        }
+
+        auto* backend = _service_provider.try_get_service<IGraphicsBackend>();
+        if (!backend)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no graphics backend is registered.");
+            return;
+        }
+
+        if (backend->get_api() != settings.graphics_api.value)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because selected graphics API '{}' does "
+                "not match available backend '{}'.",
+                to_string(settings.graphics_api.value),
+                to_string(backend->get_api()));
+            return;
+        }
+
+        auto* context_manager = _service_provider.try_get_service<IGraphicsContextManager>();
+        if (!context_manager)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no graphics context manager is "
+                "registered.");
+            return;
+        }
+
+        if (_service_provider.has_service<IRendering>())
+            _service_provider.deregister_service<IRendering>();
+
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no window manager is registered.");
+            return;
+        }
+
+        _service_provider.register_service<IRendering>(std::make_unique<Rendering>(
+            _service_provider.get_service<IMessageCoordinator>(),
+            _service_provider.get_service<ThreadManager>(),
+            _service_provider.get_service<EntityRegistry>(),
+            _service_provider.get_service<AssetManager>(),
+            _service_provider.get_service<JobSystem>(),
+            settings,
+            *window_manager,
+            *context_manager,
+            *backend));
     }
 
     void Application::initialize(const std::vector<std::string>& requested_plugins)
@@ -162,8 +249,6 @@ namespace tbx
         const auto startup_begin = std::chrono::steady_clock::now();
         auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
         auto& settings = _service_provider.get_service<AppSettings>();
-        auto& asset_manager = _service_provider.get_service<AssetManager>();
-
         try
         {
             GlobalDispatcherScope scope(msg_coordinator);
@@ -182,40 +267,16 @@ namespace tbx
                     recieve_message(msg);
                 });
 
+            setup_filesystem_directories();
+
             // Load requested plugins
             _plugin_manager.load(
                 settings.paths.working_directory,
                 requested_plugins,
                 settings.paths.working_directory);
 
-            auto* window_manager = _service_provider.try_get_service<IWindowManager>();
-            TBX_ASSERT(window_manager, "Application requires an IWindowManager service.");
-            if (!window_manager)
-                throw std::runtime_error("Application requires an IWindowManager service.");
-
-            _main_window_base_title = _name.empty() ? std::string("Toybox Application") : _name;
-            _main_window = window_manager->create(
-                WindowCreateInfo {
-                    .title = _main_window_base_title,
-                    .size = {1280, 720},
-                    .mode = WindowMode::WINDOWED,
-                    .open_on_creation = false,
-                });
-
-            // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: '{}'", settings.paths.working_directory.string());
-            TBX_TRACE_INFO("Logs Directory: '{}'", settings.paths.logs_directory.string());
-            auto asset_roots = asset_manager.get_directories();
-            if (asset_roots.size() > 1)
-            {
-                TBX_TRACE_INFO("Asset Directories:");
-                for (const auto& root : asset_roots)
-                    TBX_TRACE_INFO("    -'{}'", root.string());
-            }
-            else if (!asset_roots.empty())
-                TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
-            else
-                TBX_TRACE_INFO("Asset Directory: <none>");
+            setup_main_window();
+            compose_rendering_service();
 
             // Tell everyone we're initialized
             msg_coordinator.send<ApplicationInitializedEvent>(this);
