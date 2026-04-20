@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "tbx/app/message_coordinator.h"
 #include "tbx/app/settings.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/assets/manager.h"
 #include "tbx/async/job_system.h"
 #include "tbx/async/thread_manager.h"
-#include "tbx/assets/manager.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
 #include "tbx/input/manager.h"
@@ -99,18 +99,14 @@ namespace tbx::tests::app
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<AppMessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
-        service_provider.register_service<InputManager>(
-            std::make_unique<InputManager>(service_provider.get_service<IMessageCoordinator>()));
-        service_provider.register_service<AssetManager>(
-            std::make_unique<AssetManager>(
-                &service_provider.get_service<IMessageCoordinator>(),
-                working_directory));
-        service_provider.register_service<AppSettings>(
-            std::make_unique<AppSettings>(
-                service_provider.get_service<IMessageCoordinator>(),
-                true,
-                GraphicsApi::OPEN_GL,
-                Size {1280, 720}));
+        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+            &service_provider.get_service<IMessageCoordinator>(),
+            working_directory));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
+            service_provider.get_service<IMessageCoordinator>(),
+            true,
+            GraphicsApi::OPEN_GL,
+            Size {1280, 720}));
         auto& settings = service_provider.get_service<AppSettings>();
         settings.paths.working_directory = working_directory;
         settings.paths.logs_directory = working_directory / "logs";
@@ -149,7 +145,8 @@ namespace tbx::tests::app
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
         auto service_provider = make_test_service_provider(working_directory);
-        auto file_ops = std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        auto file_ops =
+            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         service_provider.get_service<IMessageCoordinator>().register_handler(
             [&manager](Message& msg)
@@ -180,7 +177,8 @@ namespace tbx::tests::app
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
         auto service_provider = make_test_service_provider(working_directory);
-        auto file_ops = std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        auto file_ops =
+            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         service_provider.get_service<IMessageCoordinator>().register_handler(
             [&manager](Message& msg)
@@ -193,9 +191,11 @@ namespace tbx::tests::app
         // Act
         manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
         manager.fixed_update(DeltaTime {.seconds = 0.008, .milliseconds = 8.0});
-        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>("before_shutdown");
+        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
+            "before_shutdown");
         EXPECT_TRUE(manager.unload("Solo"));
-        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>("after_shutdown");
+        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
+            "after_shutdown");
 
         // Assert
         ASSERT_NE(plugin, nullptr);

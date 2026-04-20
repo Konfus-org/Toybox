@@ -15,7 +15,7 @@ namespace three_d_example
 {
     CameraController::CameraController(
         tbx::EntityRegistry& entity_registry,
-        tbx::InputManager& input_manager,
+        tbx::IInputManager& input_manager,
         ProjectileSystem& projectile_system,
         const CameraControllerSettings& settings)
     {
@@ -109,12 +109,7 @@ namespace three_d_example
 
         _camera_entity = tbx::Entity("Camera", _character_entity.get_id(), entity_registry);
         _camera_entity.add_component<tbx::Camera>();
-        _camera_entity.add_component<tbx::SpotLight>(
-            tbx::Color::WHITE,
-            0.0F,
-            20.0F,
-            16.0F,
-            28.0F);
+        _camera_entity.add_component<tbx::SpotLight>(tbx::Color::WHITE, 0.0F, 20.0F, 16.0F, 28.0F);
         _camera_entity.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::Vec3(settings.initial_pitch, 0.0F, 0.0F)),
@@ -270,7 +265,7 @@ namespace three_d_example
                 .bindings =
                     {
                         tbx::InputBinding {
-                            .control = tbx::KeyboardInputControl { .key = tbx::InputKey::F },
+                            .control = tbx::KeyboardInputControl {.key = tbx::InputKey::F},
                             .scale = 1.0F,
                         },
                     },

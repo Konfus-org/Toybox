@@ -16,12 +16,10 @@ namespace three_d_example
     {
         auto& asset_manager = service_provider.get_service<tbx::AssetManager>();
         auto& entity_registry = service_provider.get_service<tbx::EntityRegistry>();
-        auto& input_manager = service_provider.get_service<tbx::InputManager>();
+        auto& input_manager = service_provider.get_service<tbx::IInputManager>();
 
         asset_manager.add_directory(get_three_d_example_asset_directory());
-        _scene = std::make_unique<DemoScene>(
-            entity_registry,
-            input_manager);
+        _scene = std::make_unique<DemoScene>(entity_registry, input_manager);
     }
 
     void ThreeDExampleRuntimePlugin::on_detach()

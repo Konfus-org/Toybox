@@ -7,8 +7,8 @@
 #include "tbx/messages/dispatcher.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <stdexcept>
 
@@ -49,18 +49,14 @@ namespace tbx
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<AppMessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
-        service_provider.register_service<InputManager>(
-            std::make_unique<InputManager>(service_provider.get_service<IMessageCoordinator>()));
-        service_provider.register_service<AssetManager>(
-            std::make_unique<AssetManager>(
-                &service_provider.get_service<IMessageCoordinator>(),
-                desc.working_root));
-        service_provider.register_service<AppSettings>(
-            std::make_unique<AppSettings>(
-                service_provider.get_service<IMessageCoordinator>(),
-                false,
-                GraphicsApi::OPEN_GL,
-                Size {0, 0}));
+        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+            &service_provider.get_service<IMessageCoordinator>(),
+            desc.working_root));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
+            service_provider.get_service<IMessageCoordinator>(),
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {0, 0}));
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
         service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 
@@ -108,7 +104,9 @@ namespace tbx
             GlobalDispatcherScope scope(msg_coordinator);
 
             auto timer = DeltaTimer();
-            TBX_ASSERT(_main_window.is_valid(), "Application main window must be valid before run.");
+            TBX_ASSERT(
+                _main_window.is_valid(),
+                "Application main window must be valid before run.");
             if (!window_manager.open(_main_window))
             {
                 TBX_TRACE_ERROR("Failed to open application main window.");
@@ -252,7 +250,6 @@ namespace tbx
     void Application::update(DeltaTimer& timer)
     {
         auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
-        auto& input_manager = _service_provider.get_service<InputManager>();
         auto& asset_manager = _service_provider.get_service<AssetManager>();
 
         // Process messages posted in previous frame
@@ -272,7 +269,8 @@ namespace tbx
         // Update all loaded plugins
         _plugin_manager.update(dt);
 
-        input_manager.update(dt);
+        if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
+            input_manager->update(dt);
 
 #if defined(TBX_DEBUG)
         update_debug_main_window_title(dt);

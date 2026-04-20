@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/app/message_coordinator.h"
 #include "tbx/app/settings.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/assets/manager.h"
 #include "tbx/async/job_system.h"
 #include "tbx/async/thread_manager.h"
-#include "tbx/assets/manager.h"
-#include "tbx/assets/builtin_assets.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
 #include "tbx/input/manager.h"
@@ -35,7 +35,8 @@ namespace tbx::tests::plugin_api
     /// Purpose: Creates a service provider exposing core runtime services for importer tests.
     /// Ownership: Returned provider owns all registered service instances.
     /// Thread Safety: Not thread-safe; intended for single-threaded test setup and execution.
-    static ServiceProvider make_test_service_provider(const std::filesystem::path& working_directory)
+    static ServiceProvider make_test_service_provider(
+        const std::filesystem::path& working_directory)
     {
         auto service_provider = ServiceProvider {};
 
@@ -43,18 +44,14 @@ namespace tbx::tests::plugin_api
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<AppMessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
-        service_provider.register_service<InputManager>(
-            std::make_unique<InputManager>(service_provider.get_service<IMessageCoordinator>()));
-        service_provider.register_service<AssetManager>(
-            std::make_unique<AssetManager>(
-                &service_provider.get_service<IMessageCoordinator>(),
-                working_directory));
-        service_provider.register_service<AppSettings>(
-            std::make_unique<AppSettings>(
-                service_provider.get_service<IMessageCoordinator>(),
-                true,
-                GraphicsApi::OPEN_GL,
-                Size {640, 480}));
+        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+            &service_provider.get_service<IMessageCoordinator>(),
+            working_directory));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
+            service_provider.get_service<IMessageCoordinator>(),
+            true,
+            GraphicsApi::OPEN_GL,
+            Size {640, 480}));
         auto& settings = service_provider.get_service<AppSettings>();
         settings.paths.working_directory = working_directory;
         settings.paths.logs_directory = working_directory / "logs";

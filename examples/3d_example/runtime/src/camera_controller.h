@@ -22,7 +22,7 @@ namespace three_d_example
       public:
         CameraController(
             tbx::EntityRegistry& entity_registry,
-            tbx::InputManager& input_manager,
+            tbx::IInputManager& input_manager,
             ProjectileSystem& projectile_system,
             const CameraControllerSettings& settings);
         ~CameraController();
@@ -52,7 +52,7 @@ namespace three_d_example
 
       private:
         tbx::EntityRegistry* _entity_registry = nullptr;
-        tbx::InputManager* _input_manager = nullptr;
+        tbx::IInputManager* _input_manager = nullptr;
         ProjectileSystem* _projectile_system = nullptr;
         std::string _scheme_name = {};
         tbx::Entity _character_entity = {};

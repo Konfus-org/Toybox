@@ -16,7 +16,7 @@ namespace three_d_example
     class DemoScene final
     {
       public:
-        DemoScene(tbx::EntityRegistry& entity_registry, tbx::InputManager& input_manager);
+        DemoScene(tbx::EntityRegistry& entity_registry, tbx::IInputManager& input_manager);
         ~DemoScene();
 
         DemoScene(const DemoScene&) = delete;
