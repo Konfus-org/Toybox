@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/graphics/messages.h"
-#include "tbx/messages/observable.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
 #include "tbx/plugins/sdl_opengl_adapter/sdl_open_gl_adapter.h"
@@ -24,15 +23,16 @@ namespace sdl_opengl_adapter
 
       private:
         void ensure_open_gl_adapter();
-        void on_window_native_handle_changed(
-            tbx::PropertyChangedEvent<tbx::Window, tbx::NativeWindowHandle>& event);
+        void on_window_native_handle_changed(const tbx::WindowNativeHandleChangedEvent& event);
+        void on_window_size_changed(const tbx::WindowSizeChangedEvent& event);
         void handle_make_current(tbx::WindowMakeCurrentRequest& request);
         void handle_present(tbx::WindowPresentRequest& request);
         void apply_vsync_setting();
 
       private:
-        std::unordered_map<tbx::Uuid, SDL_Window*> _native_windows = {};
-        std::unordered_map<tbx::Uuid, tbx::Size> _window_sizes = {};
+        tbx::IWindowManager* _window_manager = nullptr;
+        std::unordered_map<tbx::Window, SDL_Window*> _native_windows = {};
+        std::unordered_map<tbx::Window, tbx::Size> _window_sizes = {};
         bool _use_opengl = false;
         bool _vsync_enabled = false;
         std::unique_ptr<SdlOpenGlAdapter> _open_gl_adapter = nullptr;

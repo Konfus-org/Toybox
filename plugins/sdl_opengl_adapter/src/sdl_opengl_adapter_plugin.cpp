@@ -1,7 +1,6 @@
 #include "tbx/plugins/sdl_opengl_adapter/sdl_opengl_adapter_plugin.h"
 #include "tbx/app/settings.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/messages/observable.h"
 #include <string>
 #include <vector>
 
@@ -20,8 +19,24 @@ namespace sdl_opengl_adapter
     void SdlOpenGlAdapterPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         auto& settings = service_provider.get_service<tbx::AppSettings>();
+        _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
         _use_opengl = settings.graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
         _vsync_enabled = settings.graphics.vsync_enabled;
+
+        if (_window_manager)
+        {
+            for (const auto& window_id : _window_manager->get_open_windows())
+            {
+                auto* native_window =
+                    static_cast<SDL_Window*>(_window_manager->get_native_handle(window_id));
+                if (!native_window)
+                    continue;
+
+                _native_windows[window_id] = native_window;
+                _window_sizes[window_id] = _window_manager->get_size(window_id);
+            }
+        }
+
         ensure_open_gl_adapter();
     }
 
@@ -30,11 +45,12 @@ namespace sdl_opengl_adapter
         _open_gl_adapter.reset();
         _window_sizes.clear();
         _native_windows.clear();
+        _window_manager = nullptr;
     }
 
     void SdlOpenGlAdapterPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (auto* native_handle_event = handle_property_changed<&tbx::Window::native_handle>(msg))
+        if (auto* native_handle_event = handle_message<tbx::WindowNativeHandleChangedEvent>(msg))
         {
             on_window_native_handle_changed(*native_handle_event);
             return;
@@ -59,10 +75,9 @@ namespace sdl_opengl_adapter
             return;
         }
 
-        if (auto* size_event = handle_property_changed<&tbx::Window::size>(msg))
+        if (auto* size_event = handle_message<tbx::WindowSizeChangedEvent>(msg))
         {
-            if (size_event->owner)
-                _window_sizes[size_event->owner->id] = size_event->current;
+            on_window_size_changed(*size_event);
             return;
         }
 
@@ -111,17 +126,11 @@ namespace sdl_opengl_adapter
     }
 
     void SdlOpenGlAdapterPlugin::on_window_native_handle_changed(
-        tbx::PropertyChangedEvent<tbx::Window, tbx::NativeWindowHandle>& event)
+        const tbx::WindowNativeHandleChangedEvent& event)
     {
-        if (!event.owner)
-            return;
-
-        tbx::Uuid window_id = event.owner->id;
-        _window_sizes[window_id] = event.owner->size.value;
-
         auto* previous_window = static_cast<SDL_Window*>(event.previous);
-        if (!previous_window && _native_windows.contains(window_id))
-            previous_window = _native_windows[window_id];
+        if (!previous_window && _native_windows.contains(event.window))
+            previous_window = _native_windows[event.window];
 
         auto* current_window = static_cast<SDL_Window*>(event.current);
         if (!current_window)
@@ -129,15 +138,17 @@ namespace sdl_opengl_adapter
             if (_open_gl_adapter && previous_window)
                 _open_gl_adapter->destroy_context(previous_window);
 
-            _window_sizes.erase(window_id);
-            _native_windows.erase(window_id);
+            _window_sizes.erase(event.window);
+            _native_windows.erase(event.window);
             return;
         }
 
         if (_open_gl_adapter && previous_window && previous_window != current_window)
             _open_gl_adapter->destroy_context(previous_window);
 
-        _native_windows[window_id] = current_window;
+        _native_windows[event.window] = current_window;
+        if (_window_manager)
+            _window_sizes[event.window] = _window_manager->get_size(event.window);
 
         if (!_use_opengl)
             return;
@@ -146,14 +157,19 @@ namespace sdl_opengl_adapter
         if (!_open_gl_adapter)
             return;
 
-        std::string label = to_string(window_id);
+        std::string label = to_string(event.window);
         if (!_open_gl_adapter->try_create_context(current_window, label))
             return;
 
         send_message<tbx::WindowContextReadyEvent>(
-            window_id,
+            event.window,
             _open_gl_adapter->get_proc_address(),
-            event.owner->size.value);
+            _window_sizes[event.window]);
+    }
+
+    void SdlOpenGlAdapterPlugin::on_window_size_changed(const tbx::WindowSizeChangedEvent& event)
+    {
+        _window_sizes[event.window] = event.current;
     }
 
     void SdlOpenGlAdapterPlugin::handle_make_current(tbx::WindowMakeCurrentRequest& request)

@@ -48,6 +48,9 @@ namespace tbx
         template <typename TService>
         const TService* try_get_service() const;
 
+        template <typename TService>
+        void deregister_service();
+
         void clear();
 
       private:

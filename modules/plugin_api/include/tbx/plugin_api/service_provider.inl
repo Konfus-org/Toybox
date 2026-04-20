@@ -64,4 +64,11 @@ namespace tbx
 
         return entry->service.get();
     }
+
+    template <typename TService>
+    void ServiceProvider::deregister_service()
+    {
+        std::type_index key(typeid(TService));
+        _entries.erase(key);
+    }
 }

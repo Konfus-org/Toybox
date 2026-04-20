@@ -8,7 +8,6 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/settings.h"
-#include "tbx/messages/observable.h"
 #include <functional>
 #include <future>
 #include <string_view>
@@ -147,19 +146,15 @@ namespace opengl_rendering
             return;
         }
 
-        if (const auto* open_event = tbx::handle_property_changed<&tbx::Window::is_open>(msg))
+        if (const auto* closed_event = tbx::handle_message<tbx::WindowClosedEvent>(msg))
         {
-            if (!open_event->current && open_event->owner)
-                teardown_renderer(open_event->owner->id);
+            teardown_renderer(closed_event->window);
             return;
         }
 
-        if (const auto* size_event = tbx::handle_property_changed<&tbx::Window::size>(msg))
+        if (const auto* size_event = tbx::handle_message<tbx::WindowSizeChangedEvent>(msg))
         {
-            if (!size_event->owner)
-                return;
-
-            const auto renderer_it = _renderers.find(size_event->owner->id);
+            const auto renderer_it = _renderers.find(size_event->window);
             if (renderer_it == _renderers.end())
                 return;
 
@@ -210,7 +205,7 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlRenderingPlugin::teardown_renderer(const tbx::Uuid& window_id)
+    void OpenGlRenderingPlugin::teardown_renderer(const tbx::Window& window_id)
     {
         const auto renderer_it = _renderers.find(window_id);
         if (renderer_it == _renderers.end())

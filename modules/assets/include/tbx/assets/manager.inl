@@ -17,8 +17,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.name,
-                to_string(handle.id),
+                handle.get_name(),
+                to_string(handle.get_id()),
                 ensure_result.get_report());
             return {};
         }
@@ -95,8 +95,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.name,
-                to_string(handle.id),
+                handle.get_name(),
+                to_string(handle.get_id()),
                 ensure_result.get_report());
             return result;
         }
@@ -179,8 +179,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for reload handle (name='{}', id={}): {}",
-                handle.name,
-                to_string(handle.id),
+                handle.get_name(),
+                to_string(handle.get_id()),
                 ensure_result.get_report());
             return false;
         }

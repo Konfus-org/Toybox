@@ -47,6 +47,9 @@ namespace tbx
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
         void fixed_update(const DeltaTime& dt);
+#if defined(TBX_DEBUG)
+        void update_debug_main_window_title(const DeltaTime& dt);
+#endif
         void shutdown();
         void recieve_message(Message& msg);
 
@@ -55,7 +58,8 @@ namespace tbx
         std::string _name = "App";
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
-        Window _main_window;
+        Window _main_window = {};
+        std::string _main_window_base_title = {};
 
         uint _update_count = 0;
         double _time_running = 0;
@@ -68,5 +72,11 @@ namespace tbx
 
         double _asset_unload_elapsed_seconds = 0.0;
         double _fixed_update_accumulator_seconds = 0.0;
+
+#if defined(TBX_DEBUG)
+        std::string _debug_main_window_title = {};
+        double _debug_window_title_elapsed_seconds = 0.0;
+        uint _debug_window_title_frame_count = 0U;
+#endif
     };
 }

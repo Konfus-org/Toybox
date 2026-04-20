@@ -3,11 +3,14 @@
 #include "tbx/app/requests.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/ops.h"
+#include "tbx/graphics/messages.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <memory>
+#include <stdexcept>
 
 namespace tbx
 {
@@ -21,6 +24,22 @@ namespace tbx
         return {};
 #endif
     }
+
+#if defined(TBX_DEBUG)
+    static std::string build_debug_window_title(
+        const std::string& base_title,
+        GraphicsApi graphics_api,
+        uint average_fps)
+    {
+        auto title = base_title;
+        title += " [";
+        title += to_string(graphics_api);
+        title += ", FPS: ";
+        title += std::to_string(average_fps);
+        title += "]";
+        return title;
+    }
+#endif
 
     static ServiceProvider create_service_provider(const AppDescription& desc)
     {
@@ -52,12 +71,6 @@ namespace tbx
         : _name(desc.name)
         , _service_provider(create_service_provider(desc))
         , _plugin_manager(_service_provider)
-        , _main_window(
-              _service_provider.get_service<IMessageCoordinator>(),
-              desc.name.empty() ? std::string("Toybox Application") : desc.name,
-              {1280, 720},
-              WindowMode::WINDOWED,
-              false)
     {
         auto& settings = _service_provider.get_service<AppSettings>();
         const auto file_operator = FileOperator(desc.working_root);
@@ -91,10 +104,16 @@ namespace tbx
         try
         {
             auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+            auto& window_manager = _service_provider.get_service<IWindowManager>();
             GlobalDispatcherScope scope(msg_coordinator);
 
             auto timer = DeltaTimer();
-            _main_window.is_open = true;
+            TBX_ASSERT(_main_window.is_valid(), "Application main window must be valid before run.");
+            if (!window_manager.open(_main_window))
+            {
+                TBX_TRACE_ERROR("Failed to open application main window.");
+                return -1;
+            }
 
             while (!_should_exit)
             {
@@ -170,6 +189,20 @@ namespace tbx
                 requested_plugins,
                 settings.paths.working_directory);
 
+            auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+            TBX_ASSERT(window_manager, "Application requires an IWindowManager service.");
+            if (!window_manager)
+                throw std::runtime_error("Application requires an IWindowManager service.");
+
+            _main_window_base_title = _name.empty() ? std::string("Toybox Application") : _name;
+            _main_window = window_manager->create(
+                WindowCreateInfo {
+                    .title = _main_window_base_title,
+                    .size = {1280, 720},
+                    .mode = WindowMode::WINDOWED,
+                    .open_on_creation = false,
+                });
+
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", settings.paths.working_directory.string());
             TBX_TRACE_INFO("Logs Directory: '{}'", settings.paths.logs_directory.string());
@@ -241,6 +274,10 @@ namespace tbx
 
         input_manager.update(dt);
 
+#if defined(TBX_DEBUG)
+        update_debug_main_window_title(dt);
+#endif
+
         // End update
         msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
 
@@ -311,6 +348,48 @@ namespace tbx
         }
     }
 
+#if defined(TBX_DEBUG)
+    void Application::update_debug_main_window_title(const DeltaTime& dt)
+    {
+        if (!_main_window.is_valid())
+            return;
+
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager || !window_manager->is_open(_main_window))
+            return;
+
+        _debug_window_title_elapsed_seconds += dt.seconds;
+        ++_debug_window_title_frame_count;
+
+        constexpr double debug_window_title_interval_seconds = 0.25;
+        if (_debug_window_title_elapsed_seconds < debug_window_title_interval_seconds)
+            return;
+
+        auto average_fps = uint {0U};
+        if (_debug_window_title_elapsed_seconds > 0.0 && _debug_window_title_frame_count > 0U)
+        {
+            const auto average_fps_value = static_cast<double>(_debug_window_title_frame_count)
+                                           / _debug_window_title_elapsed_seconds;
+            average_fps = static_cast<uint>(std::lround(average_fps_value));
+        }
+
+        const auto& settings = _service_provider.get_service<AppSettings>();
+        const auto next_title = build_debug_window_title(
+            _main_window_base_title,
+            settings.graphics.graphics_api,
+            average_fps);
+
+        if (_debug_main_window_title != next_title)
+        {
+            window_manager->set_title(_main_window, next_title);
+            _debug_main_window_title = next_title;
+        }
+
+        _debug_window_title_elapsed_seconds = 0.0;
+        _debug_window_title_frame_count = 0U;
+    }
+#endif
+
     void Application::fixed_update(const DeltaTime& dt)
     {
         auto& physics_settings = _service_provider.get_service<AppSettings>().physics;
@@ -366,7 +445,12 @@ namespace tbx
             msg_coordinator.send<ApplicationShutdownEvent>(this);
 
             // 2. Close main window
-            //_main_window.is_open = false;
+            if (auto* window_manager = _service_provider.try_get_service<IWindowManager>())
+            {
+                if (_main_window.is_valid())
+                    window_manager->destroy(_main_window);
+            }
+            _main_window = {};
             _should_exit = true;
 
             // 3. Detach and unload plugins using dependency-aware unload ordering.
@@ -422,9 +506,9 @@ namespace tbx
             return;
         }
 
-        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
+        if (auto* closed_event = handle_message<WindowClosedEvent>(msg))
         {
-            if (open_event->owner == &_main_window && !open_event->current)
+            if (closed_event->window == _main_window)
                 _should_exit = true;
         }
 

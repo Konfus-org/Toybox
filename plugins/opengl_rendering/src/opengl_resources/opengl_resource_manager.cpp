@@ -61,31 +61,30 @@ namespace opengl_rendering
 
     tbx::Uuid make_static_mesh_key(const tbx::Handle& mesh_handle)
     {
-        return make_typed_key(mesh_handle.id, StaticMeshSalt);
+        return make_typed_key(mesh_handle.get_id(), StaticMeshSalt);
     }
 
     tbx::Uuid make_texture_key(const tbx::Handle& texture_handle)
     {
-        return make_typed_key(texture_handle.id, TextureSalt);
+        return make_typed_key(texture_handle.get_id(), TextureSalt);
     }
 
     tbx::Uuid make_material_program_key(const tbx::Handle& material_handle)
     {
-        return make_typed_key(material_handle.id, MaterialProgramSalt);
+        return make_typed_key(material_handle.get_id(), MaterialProgramSalt);
     }
 
     tbx::Handle resolve_asset_handle(
         const tbx::Handle& handle,
         tbx::AssetManager& asset_manager)
     {
-        if (handle.name.empty() && !handle.id.is_valid())
+        if (handle.get_name().empty() && !handle.get_id().is_valid())
             return {};
 
-        auto resolved_handle = handle;
         const auto resolved_id = asset_manager.ensure(handle);
         if (resolved_id.is_valid())
-            resolved_handle.id = resolved_id;
-        return resolved_handle;
+            return tbx::Handle(handle.get_name(), resolved_id);
+        return handle;
     }
 
     void append_unique_uuid(std::vector<tbx::Uuid>& values, const tbx::Uuid& value)
@@ -479,7 +478,7 @@ namespace opengl_rendering
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to build render geometry for model '{}'.",
-                resolved_mesh_handle.name.c_str());
+                resolved_mesh_handle.get_name().c_str());
             return {};
         }
 
@@ -531,8 +530,8 @@ namespace opengl_rendering
                 {
                     TBX_TRACE_WARNING(
                             "OpenGL rendering: failed to load shader '{}' for material '{}'.",
-                            shader_handle.id.value,
-                            resolved_material_handle.id.value);
+                            shader_handle.get_id().value,
+                            resolved_material_handle.get_id().value);
                     return false;
                 }
 
@@ -545,7 +544,7 @@ namespace opengl_rendering
                             "OpenGL rendering: failed to compile shader stage (type {}) for "
                             "material '{}'.",
                             static_cast<int>(source.type),
-                            resolved_material_handle.id.value);
+                            resolved_material_handle.get_id().value);
                         return false;
                     }
                     shader_resources.emplace_back(std::move(shader_resource));
@@ -554,8 +553,8 @@ namespace opengl_rendering
                 {
                     TBX_TRACE_WARNING(
                         "OpenGL rendering: shader '{}' has no stages for material '{}'.",
-                        shader_handle.id.value,
-                        resolved_material_handle.id.value);
+                        shader_handle.get_id().value,
+                        resolved_material_handle.get_id().value);
                     return false;
                 }
 
@@ -595,14 +594,14 @@ namespace opengl_rendering
             {
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: failed to build shader program for material '{}'.",
-                    resolved_material_handle.id.value);
+                    resolved_material_handle.get_id().value);
             }
         }
         else
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to load material '{}'.",
-                resolved_material_handle.id.value);
+                resolved_material_handle.get_id().value);
         }
 
         if (has_program)
@@ -718,14 +717,14 @@ namespace opengl_rendering
 
     void OpenGlResourceManager::on_asset_reloaded(const tbx::Handle& asset_handle)
     {
-        if (!asset_handle.id.is_valid())
+        if (!asset_handle.get_id().is_valid())
             return;
 
         invalidate_resource(make_static_mesh_key(asset_handle));
         invalidate_resource(make_texture_key(asset_handle));
         invalidate_material_program(make_material_program_key(asset_handle));
 
-        const auto shader_iterator = _programs_by_shader.find(asset_handle.id);
+        const auto shader_iterator = _programs_by_shader.find(asset_handle.get_id());
         if (shader_iterator == _programs_by_shader.end())
             return;
 
@@ -785,11 +784,11 @@ namespace opengl_rendering
         shader_ids.reserve(shader_handles.size());
         for (const auto& shader_handle : shader_handles)
         {
-            if (!shader_handle.id.is_valid())
+            if (!shader_handle.get_id().is_valid())
                 continue;
 
-            append_unique_uuid(shader_ids, shader_handle.id);
-            auto& programs = _programs_by_shader[shader_handle.id];
+            append_unique_uuid(shader_ids, shader_handle.get_id());
+            auto& programs = _programs_by_shader[shader_handle.get_id()];
             append_unique_uuid(programs, program_key);
         }
 

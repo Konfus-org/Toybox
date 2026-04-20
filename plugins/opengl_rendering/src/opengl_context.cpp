@@ -4,13 +4,13 @@
 
 namespace opengl_rendering
 {
-    OpenGlContext::OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Uuid& window_id)
+    OpenGlContext::OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Window& window_id)
         : _dispatcher(std::ref(dispatcher))
         , _window_id(window_id)
     {
     }
 
-    const tbx::Uuid& OpenGlContext::get_window_id() const
+    const tbx::Window& OpenGlContext::get_window_id() const
     {
         return _window_id;
     }

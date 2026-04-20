@@ -4,8 +4,8 @@
 #include "tbx/assets/manager.h"
 #include "tbx/async/job_system.h"
 #include "tbx/async/thread_manager.h"
-#include "tbx/common/uuid.h"
 #include "tbx/ecs/entity_registry.h"
+#include "tbx/graphics/window.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
@@ -31,10 +31,10 @@ namespace opengl_rendering
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        void teardown_renderer(const tbx::Uuid& window_id);
+        void teardown_renderer(const tbx::Window& window_id);
 
       private:
-        std::unordered_map<tbx::Uuid, std::unique_ptr<OpenGlRenderer>> _renderers = {};
+        std::unordered_map<tbx::Window, std::unique_ptr<OpenGlRenderer>> _renderers = {};
         tbx::AssetManager* _asset_manager = nullptr;
         tbx::EntityRegistry* _entity_registry = nullptr;
         tbx::JobSystem* _job_system = nullptr;

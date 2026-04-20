@@ -766,7 +766,7 @@ namespace jolt_physics
             run_on_physics_lane_and_wait(
                 [this, reloaded_asset]()
                 {
-                    _pending_mesh_collider_refresh_asset_ids.insert(reloaded_asset.id);
+                    _pending_mesh_collider_refresh_asset_ids.insert(reloaded_asset.get_id());
                 });
             return;
         }
@@ -821,7 +821,8 @@ namespace jolt_physics
         for (auto& entity : entities)
         {
             const auto& static_mesh = entity.get_component<tbx::StaticMesh>();
-            if (!static_mesh.handle.is_valid() || static_mesh.handle.id != asset_handle.id)
+            if (!static_mesh.handle.is_valid()
+                || static_mesh.handle.get_id() != asset_handle.get_id())
                 continue;
 
             const tbx::Uuid entity_id = entity.get_id();

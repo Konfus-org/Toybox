@@ -13,10 +13,10 @@ namespace opengl_rendering
 {
     static std::string get_handle_label(const tbx::Handle& handle)
     {
-        if (!handle.name.empty())
-            return handle.name;
-        if (handle.id.is_valid())
-            return tbx::to_string(handle.id);
+        if (!handle.get_name().empty())
+            return handle.get_name();
+        if (handle.get_id().is_valid())
+            return tbx::to_string(handle.get_id());
         return "<invalid>";
     }
 
@@ -204,7 +204,7 @@ namespace opengl_rendering
                 continue;
 
             const auto& effect_handle = effect.material.get_handle();
-            if (effect_handle.name.empty() && !effect_handle.id.is_valid())
+            if (effect_handle.get_name().empty() && !effect_handle.get_id().is_valid())
             {
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: post-processing effect skipped because its material "

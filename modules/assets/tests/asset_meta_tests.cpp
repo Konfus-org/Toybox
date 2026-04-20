@@ -21,8 +21,8 @@ namespace tbx::tests::assets
 
         // Assert
         ASSERT_NE(handle, nullptr);
-        EXPECT_EQ(handle->id.value, 0x99U);
-        EXPECT_EQ(handle->name, "wood.png");
+        EXPECT_EQ(handle->get_id().value, 0x99U);
+        EXPECT_EQ(handle->get_name(), "wood.png");
     }
     TEST(asset_handle_serializer, preserves_invalid_id_when_meta_id_is_missing)
     {
@@ -36,8 +36,8 @@ namespace tbx::tests::assets
 
         // Assert
         ASSERT_NE(handle, nullptr);
-        EXPECT_FALSE(handle->id.is_valid());
-        EXPECT_EQ(handle->name, "wood.png");
+        EXPECT_FALSE(handle->get_id().is_valid());
+        EXPECT_EQ(handle->get_name(), "wood.png");
     }
     TEST(asset_handle_serializer, writes_only_id_field_in_existing_meta)
     {

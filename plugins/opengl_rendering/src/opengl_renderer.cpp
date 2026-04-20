@@ -366,7 +366,7 @@ namespace opengl_rendering
         TBX_TRACE_WARNING(
             "Failed to cache shader program for material '{}'. Using "
             "fallback magenta material.",
-            material_instance.material.id.value);
+            material_instance.material.get_id().value);
         shader_program_key = get_fallback_material(resource_manager);
         use_fallback_material_params = true;
         if (shader_program_key.is_valid())
@@ -394,8 +394,8 @@ namespace opengl_rendering
             TBX_TRACE_WARNING(
                 "Failed to cache texture '{}' for material '{}'. "
                 "Using fallback texture.",
-                texture_instance.handle.id.value,
-                material_handle.id.value);
+                texture_instance.handle.get_id().value,
+                material_handle.get_id().value);
             texture_id = get_default_texture_for_binding(binding_name, resource_manager);
         }
 
@@ -409,7 +409,7 @@ namespace opengl_rendering
                 "Failed to fetch texture resource '{}' for material "
                 "'{}'. Using fallback texture.",
                 texture_id.value,
-                material_handle.id.value);
+                material_handle.get_id().value);
             return false;
         }
 
@@ -859,7 +859,7 @@ namespace opengl_rendering
 
     void OpenGlRenderer::on_asset_reloaded(const tbx::Handle& asset_handle)
     {
-        if (!asset_handle.id.is_valid())
+        if (!asset_handle.get_id().is_valid())
             return;
 
         _pending_asset_reloads.push_back(asset_handle);
@@ -1041,7 +1041,7 @@ namespace opengl_rendering
                     continue;
 
                 const auto& effect_handle = effect.material.get_handle();
-                if (effect_handle.name.empty() && !effect_handle.id.is_valid())
+                if (effect_handle.get_name().empty() && !effect_handle.get_id().is_valid())
                     continue;
 
                 has_enabled_effect = true;
@@ -1342,7 +1342,7 @@ namespace opengl_rendering
         {
             auto sky_material_instance = sky_entity.get_component<tbx::Sky>().material;
             const auto& sky_handle = sky_material_instance.get_handle();
-            if (sky_handle.name.empty() && !sky_handle.id.is_valid())
+            if (sky_handle.get_name().empty() && !sky_handle.get_id().is_valid())
                 continue;
 
             const auto material_asset =

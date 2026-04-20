@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/result.h"
-#include "tbx/common/uuid.h"
+#include "tbx/graphics/window.h"
 #include "tbx/messages/dispatcher.h"
 #include <functional>
 
@@ -15,7 +15,7 @@ namespace opengl_rendering
     class OpenGlContext final
     {
       public:
-        OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Uuid& window_id);
+        OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Window& window_id);
 
         /// @brief
         /// Purpose: Exposes the bound window id for diagnostics and routing.
@@ -23,7 +23,7 @@ namespace opengl_rendering
         /// Ownership: Returns a const reference to context-owned id.
         /// Thread Safety: Read-only access is thread-compatible; operations remain render-thread
         /// only.
-        const tbx::Uuid& get_window_id() const;
+        const tbx::Window& get_window_id() const;
 
         /// @brief
         /// Purpose: Routes a make-current request through the dispatcher.
@@ -41,6 +41,6 @@ namespace opengl_rendering
 
       private:
         std::reference_wrapper<tbx::IMessageDispatcher> _dispatcher;
-        tbx::Uuid _window_id = tbx::Uuid::NONE;
+        tbx::Window _window_id = {};
     };
 }

@@ -189,7 +189,7 @@ namespace opengl_rendering
                     TBX_TRACE_WARNING(
                         "OpenGL rendering: failed to upload material parameters for material "
                         "'{}'. Using fallback magenta material parameters.",
-                        material_params.material_handle.id.value);
+                        material_params.material_handle.get_id().value);
 
                     const auto fallback_material_params =
                         create_magenta_fallback_material_params(material_params.material_handle);
@@ -205,7 +205,7 @@ namespace opengl_rendering
                         TBX_TRACE_WARNING(
                             "OpenGL rendering: failed to upload fallback magenta material "
                             "parameters for material '{}'.",
-                            material_params.material_handle.id.value);
+                            material_params.material_handle.get_id().value);
                     }
                 }
 
