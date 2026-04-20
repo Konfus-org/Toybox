@@ -1,4 +1,4 @@
-#include "TransparentPassOperation.h"
+#include "TransparentPass.h"
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
@@ -80,7 +80,7 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    TransparentPassOperation::TransparentPassOperation(
+    TransparentPass::TransparentPass(
         const OpenGlResourceManager& resource_manager,
         OpenGlGBuffer& gbuffer)
         : _resource_manager(resource_manager)
@@ -88,12 +88,13 @@ namespace opengl_rendering
     {
     }
 
-    TransparentPassOperation::~TransparentPassOperation() noexcept = default;
+    TransparentPass::~TransparentPass() noexcept = default;
 
-    void TransparentPassOperation::execute(const std::any& payload)
+    void TransparentPass::draw(
+        const tbx::Mat4& view_projection,
+        const std::vector<TransparentDrawCall>& draw_calls)
     {
-        const auto& frame_context = std::any_cast<const OpenGlFrameContext&>(payload);
-        if (frame_context.transparent_draw_calls.empty())
+        if (draw_calls.empty())
             return;
 
         bool saw_failure = false;
@@ -120,7 +121,7 @@ namespace opengl_rendering
         auto currently_bound_mesh = tbx::Uuid {};
         bool is_cull_face_enabled = true;
 
-        for (const auto& draw_call : frame_context.transparent_draw_calls)
+        for (const auto& draw_call : draw_calls)
         {
             auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
             if (const auto cached_shader = shader_cache.find(draw_call.shader_program);
@@ -164,7 +165,7 @@ namespace opengl_rendering
                 if (!shader_program->try_upload(
                         tbx::MaterialParameter(
                             TransparentViewProjUniformName,
-                            frame_context.view_projection)))
+                            view_projection)))
                 {
                     saw_failure = true;
                     TBX_TRACE_WARNING(

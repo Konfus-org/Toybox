@@ -1,10 +1,6 @@
 #pragma once
-#include "tbx/assets/manager.h"
-#include "tbx/async/job_system.h"
-#include "tbx/async/thread_manager.h"
+#include "tbx/common/handle.h"
 #include "tbx/common/result.h"
-#include "tbx/common/uuid.h"
-#include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/api.h"
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/color.h"
@@ -12,29 +8,29 @@
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/post_processing.h"
-#include "tbx/graphics/render_resources.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/settings.h"
-#include "tbx/graphics/texture.h"
-#include "tbx/graphics/viewport.h"
 #include "tbx/graphics/window.h"
 #include "tbx/math/matrices.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
 #include "tbx/tbx_api.h"
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace tbx
 {
-    struct RenderFrameState;
-    struct RenderPassOperation;
-    struct RenderScene;
+    class AssetManager;
+    class EntityRegistry;
+    class JobSystem;
+    class ThreadManager;
 
     /// @brief
-    /// Purpose: Exposes active graphics context management for render backends.
+    /// Purpose: Exposes active graphics context management for the engine render pipeline.
     /// @details
     /// Ownership: Implementations own backend window/context state.
     /// Thread Safety: Not inherently thread-safe; callers should follow the implementation rules.
@@ -50,6 +46,164 @@ namespace tbx
         virtual GraphicsProcAddress get_proc_address() const = 0;
     };
 
+    using RenderMesh = std::variant<DynamicMesh, StaticMesh>;
+
+    struct TBX_API RenderDrawItem
+    {
+        MaterialInstance material = {};
+        MaterialConfig material_config = {};
+        ParamBindings material_parameters = {};
+        TextureBindings material_textures = {};
+        RenderMesh mesh = StaticMesh();
+        Mat4 transform = Mat4(1.0F);
+        float camera_distance_squared = 0.0F;
+    };
+
+    struct TBX_API RenderShadowItem
+    {
+        RenderMesh mesh = StaticMesh();
+        Mat4 transform = Mat4(1.0F);
+        float bounds_radius = 0.0F;
+        bool is_two_sided = false;
+    };
+
+    struct TBX_API RenderSky
+    {
+        MaterialInstance material = {};
+        MaterialConfig material_config = {};
+        ParamBindings material_parameters = {};
+        TextureBindings material_textures = {};
+        Mat4 transform = Mat4(1.0F);
+        float camera_distance_squared = 0.0F;
+    };
+
+    struct TBX_API DirectionalLightFrameData
+    {
+        Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+        float ambient_intensity = 0.03F;
+        Vec3 radiance = Vec3(1.0F, 1.0F, 1.0F);
+        float casts_shadows = 0.0F;
+        uint32 shadow_cascade_offset = 0U;
+        uint32 shadow_cascade_count = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+    };
+
+    struct TBX_API ShadowCascadeFrameData
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        float split_depth = 0.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        float blend_distance = 0.0F;
+        uint32 texture_layer = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+    };
+
+    struct TBX_API ProjectedShadowFrameData
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        float near_plane = 0.1F;
+        float far_plane = 10.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        uint32 texture_layer = 0U;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+        float padding2 = 0.0F;
+    };
+
+    struct TBX_API ShadowFrameData
+    {
+        uint32 directional_map_resolution = 2048U;
+        uint32 local_map_resolution = 1024U;
+        uint32 point_map_resolution = 1024U;
+        float softness = 1.0F;
+        float max_distance = 90.0F;
+        std::vector<ShadowCascadeFrameData> directional_cascades = {};
+        std::vector<ProjectedShadowFrameData> spot_maps = {};
+        std::vector<ProjectedShadowFrameData> area_maps = {};
+    };
+
+    struct TBX_API PointLightFrameData
+    {
+        Vec3 position = Vec3(0.0F, 0.0F, 0.0F);
+        float range = 10.0F;
+        Vec3 radiance = Vec3(1.0F, 1.0F, 1.0F);
+        float shadow_bias = 0.00035F;
+        int shadow_index = -1;
+        float padding0 = 0.0F;
+        float padding1 = 0.0F;
+    };
+
+    struct TBX_API SpotLightFrameData
+    {
+        Vec3 position = Vec3(0.0F, 0.0F, 0.0F);
+        float range = 10.0F;
+        Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+        float inner_cos = 0.93969262F;
+        Vec3 radiance = Vec3(1.0F, 1.0F, 1.0F);
+        float outer_cos = 0.81915206F;
+        int shadow_index = -1;
+        float shadow_bias = 0.00035F;
+        float padding0 = 0.0F;
+    };
+
+    struct TBX_API AreaLightFrameData
+    {
+        Vec3 position = Vec3(0.0F, 0.0F, 0.0F);
+        float range = 10.0F;
+        Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+        float half_width = 0.5F;
+        Vec3 radiance = Vec3(1.0F, 1.0F, 1.0F);
+        float half_height = 0.5F;
+        Vec3 right = Vec3(1.0F, 0.0F, 0.0F);
+        float shadow_bias = 0.00045F;
+        Vec3 up = Vec3(0.0F, 1.0F, 0.0F);
+        int shadow_index = -1;
+    };
+
+    struct TBX_API ShadowRenderInfo
+    {
+        ShadowFrameData shadows = {};
+        std::vector<PointLightFrameData> point_lights = {};
+        std::vector<RenderShadowItem> draw_items = {};
+    };
+
+    struct TBX_API GeometryRenderInfo
+    {
+        Mat4 view_projection = Mat4(1.0F);
+        std::vector<RenderDrawItem> draw_items = {};
+    };
+
+    struct TBX_API LightingRenderInfo
+    {
+        bool has_camera = false;
+        Vec3 camera_position = Vec3(0.0F, 0.0F, 0.0F);
+        Mat4 view_matrix = Mat4(1.0F);
+        Mat4 projection_matrix = Mat4(1.0F);
+        Mat4 view_projection = Mat4(1.0F);
+        Mat4 inverse_view_projection = Mat4(1.0F);
+        std::vector<DirectionalLightFrameData> directional_lights = {};
+        std::vector<PointLightFrameData> point_lights = {};
+        std::vector<SpotLightFrameData> spot_lights = {};
+        std::vector<AreaLightFrameData> area_lights = {};
+        ShadowFrameData shadows = {};
+        RenderStage render_stage = RenderStage::FINAL_COLOR;
+    };
+
+    struct TBX_API TransparentRenderInfo
+    {
+        Mat4 view_projection = Mat4(1.0F);
+        std::vector<RenderDrawItem> draw_items = {};
+    };
+
+    struct TBX_API PostProcessingPass
+    {
+        std::optional<PostProcessing> post_processing = std::nullopt;
+    };
+
     /// @brief
     /// Purpose: Defines the backend contract used by the engine-owned render pipeline.
     /// @details
@@ -61,54 +215,32 @@ namespace tbx
         virtual ~IGraphicsBackend() noexcept = default;
 
       public:
-        virtual std::string_view get_backend_name() const = 0;
         virtual GraphicsApi get_api() const = 0;
         virtual Result initialize(GraphicsProcAddress loader) = 0;
-        virtual Result try_upload(const Mesh& mesh, Uuid& out_resource) = 0;
-        virtual Result try_upload(
-            const Handle& material_handle,
-            const Material& material,
-            Uuid& out_resource) = 0;
-        virtual Result try_upload(const Texture& texture, Uuid& out_resource) = 0;
-        virtual Result try_upload(const TextureSettings& texture, Uuid& out_resource) = 0;
-        virtual Result try_upload(const RenderFrameState& frame_state, Uuid& out_resource) = 0;
-        virtual Result try_upload(const RenderPassOperation& operation, Uuid& out_resource) = 0;
-        virtual Result try_unload(const Uuid& resource) = 0;
-        virtual Result draw(const Uuid& resource) = 0;
+        virtual void on_asset_reloaded(const Handle& asset_handle) = 0;
         virtual Result begin_draw(
-            const Uuid& render_texture_resource,
-            const Camera& camera,
-            const Vec2& resolution,
-            const Viewport& viewport) = 0;
+            const Window& window,
+            const Camera& view,
+            const Size& resolution,
+            const Color& clear_color) = 0;
+        virtual Result draw_shadows(const ShadowRenderInfo& shadows) = 0;
+        virtual Result draw_geometry(const GeometryRenderInfo& geo) = 0;
+        virtual Result draw_lighting(const LightingRenderInfo& lighting) = 0;
+        virtual Result draw_transparent(const TransparentRenderInfo& transparency) = 0;
+        virtual Result apply_post_processing(const PostProcessingPass& post) = 0;
         virtual Result end_draw() = 0;
     };
 
     /// @brief
-    /// Purpose: Exposes the engine-owned render flow as a service.
+    /// Purpose: Builds render scenes and drives backend pass execution for all open windows.
     /// @details
-    /// Ownership: Implementations own backend/render-lane state.
-    /// Thread Safety: Public calls are expected from the host thread unless documented otherwise.
-    class TBX_API IRenderPipeline
+    /// Ownership: Borrows engine systems and the active graphics backend.
+    /// Thread Safety: Public calls are expected from the main thread; rendering runs on the
+    /// configured render lane.
+    class TBX_API RenderingPipeline final
     {
       public:
-        virtual ~IRenderPipeline() noexcept = default;
-
-      public:
-        virtual GraphicsApi get_active_api() const = 0;
-        virtual void render() = 0;
-    };
-
-    using IRendering = IRenderPipeline;
-
-    /// @brief
-    /// Purpose: Toybox implementation of the engine-owned render pipeline.
-    /// @details
-    /// Ownership: Owns backend/render-lane state and borrows engine services.
-    /// Thread Safety: Public calls are expected from the host thread unless documented otherwise.
-    class TBX_API RenderPipeline final : public IRenderPipeline
-    {
-      public:
-        RenderPipeline(
+        RenderingPipeline(
             IMessageCoordinator& message_coordinator,
             ThreadManager& thread_manager,
             EntityRegistry& entity_registry,
@@ -117,20 +249,14 @@ namespace tbx
             GraphicsSettings& settings,
             IWindowManager& window_manager,
             IGraphicsContextManager& context_manager,
-            std::unique_ptr<IGraphicsBackend> backend);
-        ~RenderPipeline() noexcept override;
+            IGraphicsBackend& backend);
+        ~RenderingPipeline() noexcept;
 
       public:
-        GraphicsApi get_active_api() const override;
-        std::string_view get_backend_name() const;
-        void render() override;
+        GraphicsApi get_active_api() const;
+        void render();
 
       private:
-        RenderScene build_scene(const Size& viewport_size) const;
-        void build_light_data(RenderScene& scene) const;
-        void build_post_processing_data(RenderScene& scene) const;
-        void build_shadow_data(RenderScene& scene) const;
-        void collect_render_items(RenderScene& scene) const;
         void handle_message(Message& message);
         void process_asset_reload_queue();
         void sync_windows();
@@ -144,11 +270,58 @@ namespace tbx
         GraphicsSettings& _settings;
         IWindowManager& _window_manager;
         IGraphicsContextManager& _context_manager;
-        std::unique_ptr<IGraphicsBackend> _backend = nullptr;
-        RenderResourceManager _resource_manager;
+        IGraphicsBackend& _backend;
         Uuid _message_handler_token = {};
-        std::vector<Handle> _pending_asset_reloads = {};
+        bool _is_backend_initialized = false;
         std::unordered_map<Window, Size> _windows = {};
+        std::vector<Handle> _pending_asset_reloads = {};
         mutable bool _has_reported_missing_camera = false;
+    };
+
+    /// @brief
+    /// Purpose: Exposes the engine-owned render flow as a service.
+    /// @details
+    /// Ownership: Owns the render pipeline and borrows the selected backend.
+    /// Thread Safety: Public calls are expected from the main thread unless documented otherwise.
+    class TBX_API IRendering
+    {
+      public:
+        virtual ~IRendering() noexcept = default;
+
+      public:
+        virtual GraphicsApi get_active_api() const = 0;
+        virtual void render() = 0;
+        virtual void set_api(const GraphicsApi& api) = 0;
+    };
+
+    /// @brief
+    /// Purpose: Toybox rendering service that owns the engine render pipeline.
+    /// @details
+    /// Ownership: Owns the render pipeline and borrows the selected backend.
+    /// Thread Safety: Public calls are expected from the main thread unless documented otherwise.
+    class TBX_API Rendering final : public IRendering
+    {
+      public:
+        Rendering(
+            IMessageCoordinator& message_coordinator,
+            ThreadManager& thread_manager,
+            EntityRegistry& entity_registry,
+            AssetManager& asset_manager,
+            JobSystem& job_system,
+            GraphicsSettings& settings,
+            IWindowManager& window_manager,
+            IGraphicsContextManager& context_manager,
+            IGraphicsBackend& backend);
+        ~Rendering() noexcept override;
+
+      public:
+        GraphicsApi get_active_api() const override;
+        void set_api(const GraphicsApi& api) override;
+        void render() override;
+
+      private:
+        GraphicsSettings& _settings;
+        IGraphicsBackend& _backend;
+        std::unique_ptr<RenderingPipeline> _pipeline = nullptr;
     };
 }

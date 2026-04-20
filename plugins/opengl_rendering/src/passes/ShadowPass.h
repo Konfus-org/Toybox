@@ -1,8 +1,7 @@
 #pragma once
-#include "OpenGlFrameContext.h"
+#include "OpenGlDrawCalls.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
-#include <any>
 #include <memory>
 
 namespace opengl_rendering
@@ -13,20 +12,23 @@ namespace opengl_rendering
     /// @details
     /// Ownership: Owns the shadow framebuffer, depth textures, and shadow shader program.
     /// Thread Safety: Not thread-safe; render-thread only.
-    class ShadowPassOperation final
+    class ShadowPass final
     {
       public:
-        ShadowPassOperation(OpenGlResourceManager& resource_manager);
-        ShadowPassOperation(const ShadowPassOperation&) = delete;
-        ShadowPassOperation& operator=(const ShadowPassOperation&) = delete;
-        ~ShadowPassOperation() noexcept;
+        ShadowPass(OpenGlResourceManager& resource_manager);
+        ShadowPass(const ShadowPass&) = delete;
+        ShadowPass& operator=(const ShadowPass&) = delete;
+        ~ShadowPass() noexcept;
 
+      public:
         /// @brief
         /// Purpose: Renders all shadow-enabled lights into the pass-owned depth textures.
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void execute(const std::any& payload);
+        void draw(
+            const tbx::ShadowRenderInfo& shadow_info,
+            const std::vector<ShadowDrawCall>& draw_calls);
 
         /// @brief
         /// Purpose: Returns the depth texture array used for directional cascades.

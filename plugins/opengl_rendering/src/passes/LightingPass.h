@@ -1,11 +1,9 @@
 #pragma once
-#include "OpenGlFrameContext.h"
-#include "ShadowPassOperation.h"
+#include "ShadowPass.h"
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/async/job_system.h"
-#include <any>
 #include <cstddef>
 #include <memory>
 
@@ -17,35 +15,42 @@ namespace opengl_rendering
     /// @details
     /// Ownership: Owns the fullscreen draw state and shader program it creates lazily.
     /// Thread Safety: Not thread-safe; render-thread only.
-    class LightingPassOperation final
+    class LightingPass final
     {
       public:
-        LightingPassOperation(
+        LightingPass(
             OpenGlResourceManager& resource_manager,
             tbx::JobSystem& job_system,
             OpenGlGBuffer& gbuffer,
-            const ShadowPassOperation& shadow_pass_operation);
-        LightingPassOperation(const LightingPassOperation&) = delete;
-        LightingPassOperation& operator=(const LightingPassOperation&) = delete;
-        ~LightingPassOperation() noexcept;
+            const ShadowPass& shadow_pass);
+        LightingPass(const LightingPass&) = delete;
+        LightingPass& operator=(const LightingPass&) = delete;
+        ~LightingPass() noexcept;
 
+      public:
         /// @brief
         /// Purpose: Executes the fullscreen deferred lighting resolve for one frame.
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void execute(const std::any& payload);
+        void draw(
+            const tbx::Color& clear_color,
+            const tbx::Size& render_size,
+            const tbx::LightingRenderInfo& lighting);
 
       private:
         bool ensure_initialized();
         bool ensure_static_shader_bindings();
-        void upload_tiled_light_data(const OpenGlFrameContext& frame_context);
+        void upload_tiled_light_data(
+            const tbx::Color& clear_color,
+            const tbx::Size& render_size,
+            const tbx::LightingRenderInfo& lighting);
 
       private:
         OpenGlResourceManager& _resource_manager;
         tbx::JobSystem& _job_system;
         OpenGlGBuffer& _gbuffer;
-        const ShadowPassOperation& _shadow_pass_operation;
+        const ShadowPass& _shadow_pass;
         std::shared_ptr<OpenGlShaderProgram> _shader_program = nullptr;
         uint32 _fullscreen_vertex_array = 0U;
         uint32 _lighting_info_buffer = 0U;

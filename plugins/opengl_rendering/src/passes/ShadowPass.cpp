@@ -1,4 +1,4 @@
-#include "ShadowPassOperation.h"
+#include "ShadowPass.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/frustum.h"
@@ -439,7 +439,7 @@ void main()
     }
 
     static void render_shadow_batches(
-        const OpenGlFrameContext& frame_context,
+        const std::vector<ShadowDrawCall>& draw_calls,
         const OpenGlResourceManager& resource_manager,
         const std::shared_ptr<OpenGlShaderProgram>& shader_program,
         const tbx::Mat4& light_view_projection,
@@ -458,7 +458,7 @@ void main()
         auto currently_bound_mesh = tbx::Uuid {};
         auto is_cull_face_enabled = true;
 
-        for (const auto& shadow_draw_call : frame_context.shadow_draw_calls)
+        for (const auto& shadow_draw_call : draw_calls)
         {
             const auto should_enable_cull_face = !shadow_draw_call.is_two_sided;
             if (should_enable_cull_face != is_cull_face_enabled)
@@ -516,12 +516,12 @@ void main()
         glEnable(GL_CULL_FACE);
     }
 
-    ShadowPassOperation::ShadowPassOperation(OpenGlResourceManager& resource_manager)
+    ShadowPass::ShadowPass(OpenGlResourceManager& resource_manager)
         : _resource_manager(resource_manager)
     {
     }
 
-    ShadowPassOperation::~ShadowPassOperation() noexcept
+    ShadowPass::~ShadowPass() noexcept
     {
         delete_texture(_area_shadow_texture);
         delete_texture(_spot_shadow_texture);
@@ -534,20 +534,19 @@ void main()
         }
     }
 
-    void ShadowPassOperation::execute(const std::any& payload)
+    void ShadowPass::draw(
+        const tbx::ShadowRenderInfo& shadow_info,
+        const std::vector<ShadowDrawCall>& draw_calls)
     {
-        const auto& frame_context = std::any_cast<const OpenGlFrameContext&>(payload);
         if (!ensure_initialized())
             return;
 
         const auto directional_layer_count =
-            static_cast<uint32>(frame_context.shadows.directional_cascades.size());
-        const auto spot_layer_count =
-            static_cast<uint32>(frame_context.shadows.spot_maps.size());
-        const auto area_layer_count =
-            static_cast<uint32>(frame_context.shadows.area_maps.size());
+            static_cast<uint32>(shadow_info.shadows.directional_cascades.size());
+        const auto spot_layer_count = static_cast<uint32>(shadow_info.shadows.spot_maps.size());
+        const auto area_layer_count = static_cast<uint32>(shadow_info.shadows.area_maps.size());
         auto point_shadow_count = uint32 {0U};
-        for (const auto& point_light : frame_context.point_lights)
+        for (const auto& point_light : shadow_info.point_lights)
             if (point_light.shadow_index >= 0)
                 point_shadow_count =
                     tbx::max(point_shadow_count, static_cast<uint32>(point_light.shadow_index + 1));
@@ -562,7 +561,7 @@ void main()
             _directional_shadow_layer_capacity,
             _directional_shadow_internal_format,
             _framebuffer,
-            frame_context.shadows.directional_map_resolution,
+            shadow_info.shadows.directional_map_resolution,
             directional_layer_count,
             MinimumDirectionalShadowResolution);
         const auto point_ready = configure_shadow_cube_array(
@@ -571,7 +570,7 @@ void main()
             _point_shadow_light_capacity,
             _point_shadow_internal_format,
             _framebuffer,
-            frame_context.shadows.point_map_resolution,
+            shadow_info.shadows.point_map_resolution,
             point_shadow_count,
             MinimumPointShadowResolution);
         const auto spot_ready = configure_shadow_depth_array(
@@ -580,7 +579,7 @@ void main()
             _spot_shadow_layer_capacity,
             _spot_shadow_internal_format,
             _framebuffer,
-            frame_context.shadows.local_map_resolution,
+            shadow_info.shadows.local_map_resolution,
             spot_layer_count,
             MinimumLocalShadowResolution);
         const auto area_ready = configure_shadow_depth_array(
@@ -589,7 +588,7 @@ void main()
             _area_shadow_layer_capacity,
             _area_shadow_internal_format,
             _framebuffer,
-            frame_context.shadows.local_map_resolution,
+            shadow_info.shadows.local_map_resolution,
             area_layer_count,
             MinimumLocalShadowResolution);
 
@@ -645,7 +644,7 @@ void main()
                 maybe_report_depth_format_fallback("directional", _directional_shadow_internal_format);
                 maybe_report_resolution_fallback(
                     "directional",
-                    frame_context.shadows.directional_map_resolution,
+                    shadow_info.shadows.directional_map_resolution,
                     _directional_shadow_resolution);
             }
             else
@@ -659,7 +658,7 @@ void main()
                 maybe_report_depth_format_fallback("point", _point_shadow_internal_format);
                 maybe_report_resolution_fallback(
                     "point",
-                    frame_context.shadows.point_map_resolution,
+                    shadow_info.shadows.point_map_resolution,
                     _point_shadow_resolution);
             }
             else
@@ -673,7 +672,7 @@ void main()
                 maybe_report_depth_format_fallback("spot", _spot_shadow_internal_format);
                 maybe_report_resolution_fallback(
                     "spot",
-                    frame_context.shadows.local_map_resolution,
+                    shadow_info.shadows.local_map_resolution,
                     _spot_shadow_resolution);
             }
             else
@@ -687,7 +686,7 @@ void main()
                 maybe_report_depth_format_fallback("area", _area_shadow_internal_format);
                 maybe_report_resolution_fallback(
                     "area",
-                    frame_context.shadows.local_map_resolution,
+                    shadow_info.shadows.local_map_resolution,
                     _area_shadow_resolution);
             }
             else
@@ -708,7 +707,7 @@ void main()
         glPolygonOffset(1.0F, 1.0F);
 
         auto mesh_cache = std::unordered_map<tbx::Uuid, std::shared_ptr<OpenGlMesh>> {};
-        mesh_cache.reserve(frame_context.shadow_draw_calls.size() * 4U);
+        mesh_cache.reserve(draw_calls.size() * 4U);
 
         if (_directional_shadow_texture != 0U)
         {
@@ -719,7 +718,7 @@ void main()
                 0,
                 static_cast<GLsizei>(_directional_shadow_resolution),
                 static_cast<GLsizei>(_directional_shadow_resolution));
-            for (const auto& shadow_cascade : frame_context.shadows.directional_cascades)
+            for (const auto& shadow_cascade : shadow_info.shadows.directional_cascades)
             {
                 glNamedFramebufferTextureLayer(
                     _framebuffer,
@@ -735,7 +734,7 @@ void main()
 
                 glClear(GL_DEPTH_BUFFER_BIT);
                 render_shadow_batches(
-                    frame_context,
+                    draw_calls,
                     _resource_manager,
                     _shader_program,
                     shadow_cascade.light_view_projection,
@@ -755,7 +754,7 @@ void main()
                 0,
                 static_cast<GLsizei>(_spot_shadow_resolution),
                 static_cast<GLsizei>(_spot_shadow_resolution));
-            for (const auto& spot_map : frame_context.shadows.spot_maps)
+            for (const auto& spot_map : shadow_info.shadows.spot_maps)
             {
                 glNamedFramebufferTextureLayer(
                     _framebuffer,
@@ -772,7 +771,7 @@ void main()
                 glClear(GL_DEPTH_BUFFER_BIT);
                 const auto shadow_frustum = tbx::Frustum(spot_map.light_view_projection);
                 render_shadow_batches(
-                    frame_context,
+                    draw_calls,
                     _resource_manager,
                     _shader_program,
                     spot_map.light_view_projection,
@@ -792,7 +791,7 @@ void main()
                 0,
                 static_cast<GLsizei>(_area_shadow_resolution),
                 static_cast<GLsizei>(_area_shadow_resolution));
-            for (const auto& area_map : frame_context.shadows.area_maps)
+            for (const auto& area_map : shadow_info.shadows.area_maps)
             {
                 glNamedFramebufferTextureLayer(
                     _framebuffer,
@@ -809,7 +808,7 @@ void main()
                 glClear(GL_DEPTH_BUFFER_BIT);
                 const auto shadow_frustum = tbx::Frustum(area_map.light_view_projection);
                 render_shadow_batches(
-                    frame_context,
+                    draw_calls,
                     _resource_manager,
                     _shader_program,
                     area_map.light_view_projection,
@@ -844,7 +843,7 @@ void main()
                 0,
                 static_cast<GLsizei>(_point_shadow_resolution),
                 static_cast<GLsizei>(_point_shadow_resolution));
-            for (const auto& point_light : frame_context.point_lights)
+            for (const auto& point_light : shadow_info.point_lights)
             {
                 if (point_light.shadow_index < 0)
                     continue;
@@ -886,7 +885,7 @@ void main()
                         tbx::MaterialParameter(PointLightFarPlaneUniformName, point_light.range));
                     const auto shadow_frustum = tbx::Frustum(light_view_projection);
                     render_shadow_batches(
-                        frame_context,
+                        draw_calls,
                         _resource_manager,
                         _shader_program,
                         light_view_projection,
@@ -910,27 +909,27 @@ void main()
             previous_viewport[3]);
     }
 
-    uint32 ShadowPassOperation::get_directional_shadow_texture() const
+    uint32 ShadowPass::get_directional_shadow_texture() const
     {
         return _directional_shadow_texture;
     }
 
-    uint32 ShadowPassOperation::get_point_shadow_texture() const
+    uint32 ShadowPass::get_point_shadow_texture() const
     {
         return _point_shadow_texture;
     }
 
-    uint32 ShadowPassOperation::get_spot_shadow_texture() const
+    uint32 ShadowPass::get_spot_shadow_texture() const
     {
         return _spot_shadow_texture;
     }
 
-    uint32 ShadowPassOperation::get_area_shadow_texture() const
+    uint32 ShadowPass::get_area_shadow_texture() const
     {
         return _area_shadow_texture;
     }
 
-    bool ShadowPassOperation::ensure_initialized()
+    bool ShadowPass::ensure_initialized()
     {
         if (_framebuffer == 0U)
         {

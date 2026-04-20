@@ -1,11 +1,11 @@
 #pragma once
-#include "OpenGlFrameContext.h"
 #include "opengl_resources/opengl_buffers.h"
 #include "opengl_resources/opengl_resource_manager.h"
 #include "opengl_resources/opengl_shader.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/math/size.h"
-#include <any>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace opengl_rendering
@@ -16,23 +16,24 @@ namespace opengl_rendering
     /// Ownership: Owns intermediate post-processing framebuffers/textures and reuses shared
     /// renderer resources for shader/material lookups.
     /// Thread Safety: Not thread-safe; render-thread only.
-    class PostProcessingPassOperation final
+    class PostProcessingPass final
     {
       public:
-        PostProcessingPassOperation(
+        PostProcessingPass(
             OpenGlResourceManager& resource_manager,
             OpenGlGBuffer& gbuffer);
-        PostProcessingPassOperation(const PostProcessingPassOperation&) = delete;
-        PostProcessingPassOperation& operator=(const PostProcessingPassOperation&) = delete;
-        ~PostProcessingPassOperation() noexcept;
+        PostProcessingPass(const PostProcessingPass&) = delete;
+        PostProcessingPass& operator=(const PostProcessingPass&) = delete;
+        ~PostProcessingPass() noexcept;
 
+      public:
         /// @brief
         /// Purpose: Executes enabled post-processing effects and writes results back to final
         /// color.
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void execute(const std::any& payload);
+        void draw(const tbx::Size& render_size, const std::optional<tbx::PostProcessing>& post);
 
       private:
         void destroy_scratch_targets() noexcept;

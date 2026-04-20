@@ -270,8 +270,8 @@ namespace tbx
         // Update all loaded plugins
         _plugin_manager.update(dt);
 
-        if (auto* render_pipeline = _service_provider.try_get_service<IRenderPipeline>())
-            render_pipeline->render();
+        if (auto* rendering = _service_provider.try_get_service<IRendering>())
+            rendering->render();
 
         if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
             input_manager->update(dt);

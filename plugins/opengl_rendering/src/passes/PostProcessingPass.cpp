@@ -1,4 +1,4 @@
-#include "PostProcessingPassOperation.h"
+#include "PostProcessingPass.h"
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
@@ -145,7 +145,7 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    PostProcessingPassOperation::PostProcessingPassOperation(
+    PostProcessingPass::PostProcessingPass(
         OpenGlResourceManager& resource_manager,
         OpenGlGBuffer& gbuffer)
         : _resource_manager(resource_manager)
@@ -153,19 +153,20 @@ namespace opengl_rendering
     {
     }
 
-    PostProcessingPassOperation::~PostProcessingPassOperation() noexcept
+    PostProcessingPass::~PostProcessingPass() noexcept
     {
         destroy_scratch_targets();
     }
 
-    void PostProcessingPassOperation::execute(const std::any& payload)
+    void PostProcessingPass::draw(
+        const tbx::Size& render_size,
+        const std::optional<tbx::PostProcessing>& post)
     {
-        const auto& frame_context = std::any_cast<const OpenGlFrameContext&>(payload);
-        if (!frame_context.has_post_processing || !frame_context.post_processing.is_enabled)
+        if (!post.has_value() || !post->is_enabled)
             return;
-        if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
+        if (render_size.width == 0U || render_size.height == 0U)
             return;
-        if (!ensure_scratch_targets(frame_context.render_size))
+        if (!ensure_scratch_targets(render_size))
         {
             TBX_TRACE_WARNING("OpenGL rendering: failed to allocate post-processing targets.");
             report_render_pipeline_failure();
@@ -198,7 +199,7 @@ namespace opengl_rendering
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
 
-        for (const auto& effect : frame_context.post_processing.effects)
+        for (const auto& effect : post->effects)
         {
             if (!effect.is_enabled)
                 continue;
@@ -271,8 +272,8 @@ namespace opengl_rendering
             glViewport(
                 0,
                 0,
-                static_cast<GLsizei>(frame_context.render_size.width),
-                static_cast<GLsizei>(frame_context.render_size.height));
+                static_cast<GLsizei>(render_size.width),
+                static_cast<GLsizei>(render_size.height));
 
             shader_program->bind();
             bind_post_process_textures(
@@ -305,7 +306,7 @@ namespace opengl_rendering
             _gbuffer.apply_to_final_color(source_texture);
     }
 
-    void PostProcessingPassOperation::destroy_scratch_targets() noexcept
+    void PostProcessingPass::destroy_scratch_targets() noexcept
     {
         for (auto& framebuffer : _scratch_framebuffers)
         {
@@ -326,7 +327,7 @@ namespace opengl_rendering
         _scratch_size = {0U, 0U};
     }
 
-    bool PostProcessingPassOperation::ensure_scratch_targets(const tbx::Size& size)
+    bool PostProcessingPass::ensure_scratch_targets(const tbx::Size& size)
     {
         if (_scratch_size.width == size.width && _scratch_size.height == size.height
             && _scratch_framebuffers.size() == 2U && _scratch_textures.size() == 2U
