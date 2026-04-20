@@ -2,7 +2,7 @@
 #include "RenderPipelineFailure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -80,7 +80,7 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    GeometryPass::GeometryPass(const OpenGlResourceManager& resource_manager)
+    GeometryPass::GeometryPass(const OpenGlUploader& resource_manager)
         : _resource_manager(resource_manager)
     {
     }

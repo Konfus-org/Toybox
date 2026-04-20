@@ -8,6 +8,7 @@
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/post_processing.h"
+#include "tbx/graphics/render_resources.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/settings.h"
 #include "tbx/graphics/window.h"
@@ -50,18 +51,18 @@ namespace tbx
 
     struct TBX_API RenderDrawItem
     {
-        MaterialInstance material = {};
+        Uuid mesh_resource = {};
+        Uuid material_resource = {};
         MaterialConfig material_config = {};
         ParamBindings material_parameters = {};
         TextureBindings material_textures = {};
-        RenderMesh mesh = StaticMesh();
         Mat4 transform = Mat4(1.0F);
         float camera_distance_squared = 0.0F;
     };
 
     struct TBX_API RenderShadowItem
     {
-        RenderMesh mesh = StaticMesh();
+        Uuid mesh_resource = {};
         Mat4 transform = Mat4(1.0F);
         float bounds_radius = 0.0F;
         bool is_two_sided = false;
@@ -69,7 +70,8 @@ namespace tbx
 
     struct TBX_API RenderSky
     {
-        MaterialInstance material = {};
+        Uuid mesh_resource = {};
+        Uuid material_resource = {};
         MaterialConfig material_config = {};
         ParamBindings material_parameters = {};
         TextureBindings material_textures = {};
@@ -217,7 +219,13 @@ namespace tbx
       public:
         virtual GraphicsApi get_api() const = 0;
         virtual Result initialize(GraphicsProcAddress loader) = 0;
-        virtual void on_asset_reloaded(const Handle& asset_handle) = 0;
+        virtual Result upload(const Mesh& mesh, Uuid& out_resource_uuid) = 0;
+        virtual Result upload(const Material& material, Uuid& out_resource_uuid) = 0;
+        virtual Result upload(const Texture& texture, Uuid& out_resource_uuid) = 0;
+        virtual Result upload(
+            const TextureSettings& texture_settings,
+            Uuid& out_resource_uuid) = 0;
+        virtual Result unload(const Uuid& resource_uuid) = 0;
         virtual Result begin_draw(
             const Window& window,
             const Camera& view,
@@ -271,6 +279,7 @@ namespace tbx
         IWindowManager& _window_manager;
         IGraphicsContextManager& _context_manager;
         IGraphicsBackend& _backend;
+        std::unique_ptr<RenderResourceManager> _resource_manager = nullptr;
         Uuid _message_handler_token = {};
         bool _is_backend_initialized = false;
         std::unordered_map<Window, Size> _windows = {};

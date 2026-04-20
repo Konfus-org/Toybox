@@ -1,7 +1,7 @@
 #pragma once
 #include "ShadowPass.h"
 #include "opengl_resources/opengl_buffers.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/async/job_system.h"
 #include <cstddef>
@@ -19,7 +19,7 @@ namespace opengl_rendering
     {
       public:
         LightingPass(
-            OpenGlResourceManager& resource_manager,
+            OpenGlUploader& resource_manager,
             tbx::JobSystem& job_system,
             OpenGlGBuffer& gbuffer,
             const ShadowPass& shadow_pass);
@@ -47,7 +47,7 @@ namespace opengl_rendering
             const tbx::LightingRenderInfo& lighting);
 
       private:
-        OpenGlResourceManager& _resource_manager;
+        OpenGlUploader& _resource_manager;
         tbx::JobSystem& _job_system;
         OpenGlGBuffer& _gbuffer;
         const ShadowPass& _shadow_pass;

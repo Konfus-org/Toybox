@@ -1,7 +1,7 @@
 #pragma once
 #include "OpenGlDrawCalls.h"
 #include "opengl_resources/opengl_buffers.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_uploader.h"
 
 namespace opengl_rendering
 {
@@ -14,7 +14,7 @@ namespace opengl_rendering
     {
       public:
         TransparentPass(
-            const OpenGlResourceManager& resource_manager,
+            const OpenGlUploader& resource_manager,
             OpenGlGBuffer& gbuffer);
         TransparentPass(const TransparentPass&) = delete;
         TransparentPass& operator=(const TransparentPass&) = delete;
@@ -31,7 +31,7 @@ namespace opengl_rendering
             const std::vector<TransparentDrawCall>& draw_calls);
 
       private:
-        const OpenGlResourceManager& _resource_manager;
+        const OpenGlUploader& _resource_manager;
         OpenGlGBuffer& _gbuffer;
     };
 }

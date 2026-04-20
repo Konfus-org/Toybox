@@ -10,6 +10,7 @@
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/frustum.h"
 #include "tbx/graphics/sphere.h"
+#include "tbx/graphics/render_resources.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
@@ -516,11 +517,11 @@ namespace tbx
                 const auto& sky = *scene.sky;
                 out_transparent_draws.push_back(
                     RenderDrawItem {
-                        .material = sky.material,
+                        .mesh_resource = sky.mesh_resource,
+                        .material_resource = sky.material_resource,
                         .material_config = sky.material_config,
                         .material_parameters = sky.material_parameters,
                         .material_textures = sky.material_textures,
-                        .mesh = DynamicMesh(std::make_shared<Mesh>(sky_dome)),
                         .transform = sky.transform,
                         .camera_distance_squared = sky.camera_distance_squared,
                     });
@@ -825,6 +826,7 @@ namespace tbx
         void collect_render_items(
             const EntityRegistry& entity_registry,
             AssetManager& asset_manager,
+            RenderResourceManager& resource_manager,
             RenderScene& scene)
         {
             if (!scene.has_camera)
@@ -852,6 +854,16 @@ namespace tbx
                 const auto camera_distance = sqrt(camera_distance_squared);
 
                 const auto mesh = resolve_render_mesh(entity, lods, camera_distance);
+                const auto mesh_resource = std::visit(
+                    [&resource_manager](const auto& mesh_value)
+                    {
+                        using TMesh = std::remove_cvref_t<decltype(mesh_value)>;
+                        if constexpr (std::is_same_v<TMesh, DynamicMesh>)
+                            return resource_manager.upload_dynamic_mesh(mesh_value);
+                        else
+                            return resource_manager.upload_static_mesh(mesh_value);
+                    },
+                    mesh);
 
                 Handle material_handle = material_instance->material;
                 if (material_handle.get_name().empty() && material_handle.get_id().is_valid())
@@ -861,7 +873,19 @@ namespace tbx
                 const auto material_config = resolve_material_config(*material_instance, material_asset);
                 const auto material_parameters =
                     resolve_material_parameters(*material_instance, material_asset);
-                const auto material_textures = resolve_material_textures(*material_instance, material_asset);
+                auto material_textures = resolve_material_textures(*material_instance, material_asset);
+                for (auto& texture_binding : material_textures.values)
+                {
+                    if (!texture_binding.texture.handle.is_valid())
+                        continue;
+
+                    const auto texture_resource =
+                        resource_manager.upload_texture(texture_binding.texture.handle);
+                    texture_binding.texture.handle = Handle(
+                        texture_binding.texture.handle.get_name(),
+                        texture_resource);
+                }
+                const auto material_resource = resource_manager.upload_material(*material_instance);
                 const auto casts_shadows = material_config.shadow_mode != ShadowMode::None;
 
                 if (lods != nullptr && lods->render_distance > 0.0F
@@ -881,7 +905,7 @@ namespace tbx
                 {
                     scene.shadow_items.push_back(
                         RenderShadowItem {
-                            .mesh = mesh,
+                            .mesh_resource = mesh_resource,
                             .transform = build_transform_matrix(world_transform),
                             .bounds_radius = bounds_radius,
                             .is_two_sided = material_config.is_two_sided,
@@ -892,11 +916,11 @@ namespace tbx
                 {
                     scene.draw_items.push_back(
                         RenderDrawItem {
-                            .material = *material_instance,
+                            .mesh_resource = mesh_resource,
+                            .material_resource = material_resource,
                             .material_config = material_config,
                             .material_parameters = material_parameters,
                             .material_textures = material_textures,
-                            .mesh = mesh,
                             .transform = build_transform_matrix(world_transform),
                             .camera_distance_squared = camera_distance_squared,
                         });
@@ -951,6 +975,23 @@ namespace tbx
                     }
                 }
 
+                for (auto& texture_binding : material_textures.values)
+                {
+                    if (!texture_binding.texture.handle.is_valid())
+                        continue;
+
+                    const auto texture_resource =
+                        resource_manager.upload_texture(texture_binding.texture.handle);
+                    texture_binding.texture.handle = Handle(
+                        texture_binding.texture.handle.get_name(),
+                        texture_resource);
+                }
+
+                const auto sky_material_resource = resource_manager.upload_material(sky_material_instance);
+                const auto sky_mesh_resource = resource_manager.upload_dynamic_mesh(
+                    DynamicMesh(std::make_shared<Mesh>(sky_dome)),
+                    true);
+
                 auto sky_transform = sky_entity.has_component<Transform>()
                                          ? get_world_space_transform(sky_entity)
                                          : Transform();
@@ -961,7 +1002,8 @@ namespace tbx
                 sky_transform.scale = Vec3(sky_scale, sky_scale, sky_scale);
 
                 scene.sky = RenderSky {
-                    .material = sky_material_instance,
+                    .mesh_resource = sky_mesh_resource,
+                    .material_resource = sky_material_resource,
                     .material_config = material_config,
                     .material_parameters = material_parameters,
                     .material_textures = material_textures,
@@ -975,6 +1017,7 @@ namespace tbx
         RenderScene build_scene(
             const EntityRegistry& entity_registry,
             AssetManager& asset_manager,
+            RenderResourceManager& resource_manager,
             const GraphicsSettings& settings,
             const Size& viewport_size,
             bool& has_reported_missing_camera)
@@ -1022,7 +1065,7 @@ namespace tbx
             build_light_data(entity_registry, scene);
             build_shadow_data(settings, scene);
             build_post_processing_data(entity_registry, scene);
-            collect_render_items(entity_registry, asset_manager, scene);
+            collect_render_items(entity_registry, asset_manager, resource_manager, scene);
             return scene;
         }
     }
@@ -1046,6 +1089,7 @@ namespace tbx
         , _window_manager(window_manager)
         , _context_manager(context_manager)
         , _backend(backend)
+        , _resource_manager(std::make_unique<RenderResourceManager>(_asset_manager, _backend))
     {
         _thread_manager.try_create_lane(RenderLaneName);
         _message_handler_token = _message_coordinator.register_handler(
@@ -1127,6 +1171,7 @@ namespace tbx
                         const auto scene = build_scene(
                             _entity_registry,
                             _asset_manager,
+                            *_resource_manager,
                             _settings,
                             viewport_size,
                             _has_reported_missing_camera);
@@ -1134,6 +1179,8 @@ namespace tbx
                         auto opaque_draws = std::vector<RenderDrawItem> {};
                         auto transparent_draws = std::vector<RenderDrawItem> {};
                         split_draw_items(scene, opaque_draws, transparent_draws);
+
+                        const auto shadow_info = build_shadow_render_info(scene);
 
                         if (const auto begin_draw_result = _backend.begin_draw(
                                 window,
@@ -1163,7 +1210,7 @@ namespace tbx
 
                         execute_pass(
                             "shadow pass",
-                            _backend.draw_shadows(build_shadow_render_info(scene)));
+                            _backend.draw_shadows(shadow_info));
                         execute_pass(
                             "geometry pass",
                             _backend.draw_geometry(
@@ -1202,6 +1249,8 @@ namespace tbx
                                 to_string(window),
                                 present_result.get_report());
                         }
+
+                        _resource_manager->clear_unused();
                     })
                 .get();
         }
@@ -1227,7 +1276,7 @@ namespace tbx
                 [this, reloaded_assets = std::move(reloaded_assets)]() mutable
                 {
                     for (const auto& handle : reloaded_assets)
-                        _backend.on_asset_reloaded(handle);
+                        _resource_manager->on_asset_reloaded(handle);
                 })
             .get();
     }

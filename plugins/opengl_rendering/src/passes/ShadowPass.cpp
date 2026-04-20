@@ -440,7 +440,7 @@ void main()
 
     static void render_shadow_batches(
         const std::vector<ShadowDrawCall>& draw_calls,
-        const OpenGlResourceManager& resource_manager,
+        const OpenGlUploader& resource_manager,
         const std::shared_ptr<OpenGlShaderProgram>& shader_program,
         const tbx::Mat4& light_view_projection,
         const tbx::Frustum* shadow_frustum,
@@ -516,7 +516,7 @@ void main()
         glEnable(GL_CULL_FACE);
     }
 
-    ShadowPass::ShadowPass(OpenGlResourceManager& resource_manager)
+    ShadowPass::ShadowPass(OpenGlUploader& resource_manager)
         : _resource_manager(resource_manager)
     {
     }

@@ -398,7 +398,7 @@ namespace tbx
     {
     }
 
-    Uuid RenderResourceManager::add_dynamic_mesh(const DynamicMesh& dynamic_mesh, const bool pin)
+    Uuid RenderResourceManager::upload_dynamic_mesh(const DynamicMesh& dynamic_mesh, const bool pin)
     {
         const auto now = std::chrono::steady_clock::now();
         const auto key = make_dynamic_mesh_key(dynamic_mesh.data);
@@ -442,7 +442,7 @@ namespace tbx
         }
 
         auto backend_resource_uuid = Uuid {};
-        const auto create_result = _backend.try_upload(*dynamic_mesh.data, backend_resource_uuid);
+        const auto create_result = _backend.upload(*dynamic_mesh.data, backend_resource_uuid);
         if (!create_result || !backend_resource_uuid.is_valid())
             return {};
 
@@ -456,7 +456,7 @@ namespace tbx
         return backend_resource_uuid;
     }
 
-    Uuid RenderResourceManager::add_static_mesh(const StaticMesh& static_mesh, const bool pin)
+    Uuid RenderResourceManager::upload_static_mesh(const StaticMesh& static_mesh, const bool pin)
     {
         const auto now = std::chrono::steady_clock::now();
         const auto resolved_mesh_handle = resolve_asset_handle(static_mesh.handle, _asset_manager);
@@ -486,7 +486,7 @@ namespace tbx
         }
 
         auto backend_resource_uuid = Uuid {};
-        const auto create_result = _backend.try_upload(render_mesh, backend_resource_uuid);
+        const auto create_result = _backend.upload(render_mesh, backend_resource_uuid);
         if (!create_result || !backend_resource_uuid.is_valid())
             return {};
 
@@ -499,7 +499,7 @@ namespace tbx
         return backend_resource_uuid;
     }
 
-    Uuid RenderResourceManager::add_material(
+    Uuid RenderResourceManager::upload_material(
         const MaterialInstance& material_instance,
         const bool pin)
     {
@@ -534,8 +534,7 @@ namespace tbx
                 material->program.geometry,
             };
             auto backend_resource_uuid = Uuid {};
-            const auto create_result =
-                _backend.try_upload(resolved_material_handle, *material, backend_resource_uuid);
+            const auto create_result = _backend.upload(*material, backend_resource_uuid);
             if (create_result && backend_resource_uuid.is_valid())
             {
                 _resources.insert(program_key);
@@ -588,7 +587,7 @@ namespace tbx
         return material;
     }
 
-    Uuid RenderResourceManager::add_texture(
+    Uuid RenderResourceManager::upload_texture(
         const Texture& texture,
         const Uuid& resource_uuid,
         const bool pin)
@@ -610,7 +609,7 @@ namespace tbx
         }
 
         auto backend_resource_uuid = Uuid {};
-        const auto create_result = _backend.try_upload(texture, backend_resource_uuid);
+        const auto create_result = _backend.upload(texture, backend_resource_uuid);
         if (!create_result || !backend_resource_uuid.is_valid())
             return {};
 
@@ -623,16 +622,11 @@ namespace tbx
         return backend_resource_uuid;
     }
 
-    Uuid RenderResourceManager::add_render_texture(
+    Uuid RenderResourceManager::upload_render_texture(
         const TextureSettings& texture_settings,
-        const Uuid& resource_uuid,
         const bool pin)
     {
-        auto resolved_resource_uuid = resource_uuid;
-        if (!resolved_resource_uuid.is_valid())
-            resolved_resource_uuid = Uuid::generate();
-
-        const auto key = make_render_texture_key(resolved_resource_uuid);
+        const auto key = make_render_texture_key(Uuid::generate());
         if (!key.is_valid())
             return {};
 
@@ -646,7 +640,7 @@ namespace tbx
         }
 
         auto backend_resource_uuid = Uuid {};
-        const auto create_result = _backend.try_upload(texture_settings, backend_resource_uuid);
+        const auto create_result = _backend.upload(texture_settings, backend_resource_uuid);
         if (!create_result || !backend_resource_uuid.is_valid())
             return {};
 
@@ -659,7 +653,7 @@ namespace tbx
         return backend_resource_uuid;
     }
 
-    Uuid RenderResourceManager::add_texture(const Handle& texture_handle, const bool pin)
+    Uuid RenderResourceManager::upload_texture(const Handle& texture_handle, const bool pin)
     {
         const auto resolved_texture_handle = resolve_asset_handle(texture_handle, _asset_manager);
         const auto key = make_texture_key(resolved_texture_handle);
@@ -680,7 +674,7 @@ namespace tbx
             return {};
 
         auto backend_resource_uuid = Uuid {};
-        const auto create_result = _backend.try_upload(*texture, backend_resource_uuid);
+        const auto create_result = _backend.upload(*texture, backend_resource_uuid);
         if (!create_result || !backend_resource_uuid.is_valid())
             return {};
 
@@ -693,7 +687,7 @@ namespace tbx
         return backend_resource_uuid;
     }
 
-    void RenderResourceManager::destroy(const Uuid& resource_uuid)
+    void RenderResourceManager::unload(const Uuid& resource_uuid)
     {
         invalidate_resource(resolve_resource_key(resource_uuid));
     }
@@ -749,7 +743,7 @@ namespace tbx
         if (!backend_resource_uuid.is_valid())
             return;
 
-        const auto destroy_result = _backend.try_unload(backend_resource_uuid);
+        const auto destroy_result = _backend.unload(backend_resource_uuid);
         if (!destroy_result)
         {
             TBX_TRACE_WARNING(
