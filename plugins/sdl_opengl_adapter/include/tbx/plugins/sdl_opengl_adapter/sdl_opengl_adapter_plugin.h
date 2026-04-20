@@ -18,7 +18,7 @@ namespace sdl_opengl_adapter
     class TBX_PLUGIN_API SdlOpenGlAdapterPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
         void on_recieve_message(tbx::Message& msg) override;
 

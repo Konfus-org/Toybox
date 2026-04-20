@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/audio/audio_clip.h"
+#include "tbx/audio/clip.h"
 #include "tbx/common/result.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
@@ -218,4 +218,4 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently; delegates to thread-safe loaders.
 }
 
-#include "tbx/assets/asset_loaders.inl"
+#include "tbx/assets/loaders.inl"

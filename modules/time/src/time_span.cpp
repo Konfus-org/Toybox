@@ -1,4 +1,4 @@
-#include "tbx/time/time_span.h"
+#include "tbx/time/span.h"
 
 namespace tbx
 {

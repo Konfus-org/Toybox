@@ -1,5 +1,7 @@
 #include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/app/settings.h"
+#include "tbx/assets/manager.h"
+#include "tbx/common/handle.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"
 #include <algorithm>
@@ -114,7 +116,7 @@ namespace sdl_windowing
         return native;
     }
 
-    void SdlWindowingPlugin::on_attach(tbx::IPluginHost& host)
+    void SdlWindowingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
@@ -124,10 +126,13 @@ namespace sdl_windowing
 
         TBX_TRACE_INFO("Initialized SDL video subsystem.");
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
-        _use_opengl = host.get_settings().graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
+        _use_opengl = service_provider.get_service<tbx::AppSettings>().graphics.graphics_api
+                      == tbx::GraphicsApi::OPEN_GL;
 
-        const tbx::AssetManager& asset_manager = host.get_asset_manager();
-        const std::filesystem::path icon_path = asset_manager.resolve(host.get_icon_handle());
+        const tbx::AssetManager& asset_manager =
+            service_provider.get_service<tbx::AssetManager>();
+        const std::filesystem::path icon_path =
+            asset_manager.resolve(service_provider.get_service<tbx::Handle>());
         if (icon_path.empty())
         {
             TBX_TRACE_WARNING(

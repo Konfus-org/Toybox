@@ -1,4 +1,4 @@
-#include "tbx/physics/physics_settings.h"
+#include "tbx/physics/settings.h"
 #include <cmath>
 
 namespace tbx

@@ -1,5 +1,5 @@
 #include "tbx/plugins/sdl_opengl_adapter/sdl_opengl_adapter_plugin.h"
-#include "tbx/app/application.h"
+#include "tbx/app/settings.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/observable.h"
 #include <string>
@@ -17,10 +17,11 @@ namespace sdl_opengl_adapter
         return settings;
     }
 
-    void SdlOpenGlAdapterPlugin::on_attach(tbx::IPluginHost& host)
+    void SdlOpenGlAdapterPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _use_opengl = host.get_settings().graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
-        _vsync_enabled = host.get_settings().graphics.vsync_enabled;
+        auto& settings = service_provider.get_service<tbx::AppSettings>();
+        _use_opengl = settings.graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
+        _vsync_enabled = settings.graphics.vsync_enabled;
         ensure_open_gl_adapter();
     }
 

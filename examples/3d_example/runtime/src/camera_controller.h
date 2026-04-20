@@ -2,7 +2,7 @@
 #include "projectile_system.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/entity_registry.h"
-#include "tbx/input/input_manager.h"
+#include "tbx/input/manager.h"
 #include "tbx/time/delta_time.h"
 #include <string>
 

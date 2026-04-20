@@ -25,7 +25,7 @@ namespace sdl_input
         }
     }
 
-    void SdlInputPlugin::on_attach(tbx::IPluginHost&)
+    void SdlInputPlugin::on_attach(tbx::ServiceProvider&)
     {
         if ((SDL_WasInit(GamepadSubsystemMask) & GamepadSubsystemMask) == GamepadSubsystemMask)
         {

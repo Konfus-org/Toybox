@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/assets/asset_loaders.h"
-#include "tbx/audio/audio_clip.h"
+#include "tbx/assets/loaders.h"
+#include "tbx/audio/clip.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/model.h"
 #include "tbx/graphics/shader.h"
@@ -110,4 +110,4 @@ namespace tbx
     };
 }
 
-#include "tbx/assets/asset_requests.inl"
+#include "tbx/assets/requests.inl"

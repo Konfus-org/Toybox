@@ -5,7 +5,7 @@
 #include "opengl_resources/opengl_texture.h"
 #include "pipeline/OpenGlFrameContext.h"
 #include "pipeline/opengl_render_pipeline.h"
-#include "tbx/assets/asset_manager.h"
+#include "tbx/assets/manager.h"
 #include "tbx/async/job_system.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"

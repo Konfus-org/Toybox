@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/assets/asset_handle_serializer.h"
-#include "tbx/assets/asset_loaders.h"
+#include "tbx/assets/handle_serializer.h"
+#include "tbx/assets/loaders.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/result.h"
 #include "tbx/common/typedefs.h"

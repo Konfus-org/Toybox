@@ -18,18 +18,16 @@ namespace tbx
     Plugin::Plugin() = default;
     Plugin::~Plugin() noexcept = default;
 
-    void Plugin::attach(IPluginHost& host)
+    void Plugin::attach(ServiceProvider& service_provider)
     {
-        _host = &host;
-        _dispatcher = &host.get_message_coordinator();
-        on_attach(host);
+        _dispatcher = &service_provider.get_service<IMessageCoordinator>();
+        on_attach(service_provider);
     }
 
     void Plugin::detach()
     {
         on_detach();
         _dispatcher = nullptr;
-        _host = nullptr;
     }
 
     void Plugin::update(const DeltaTime& dt)
@@ -53,9 +51,4 @@ namespace tbx
         return *_dispatcher;
     }
 
-    IPluginHost& Plugin::get_host() const
-    {
-        TBX_ASSERT(_host, "Plugins must be attached before accessing the host.");
-        return *_host;
-    }
 }

@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/async/async_settings.h"
-#include "tbx/graphics/graphics_settings.h"
-#include "tbx/physics/physics_settings.h"
+#include "tbx/async/settings.h"
+#include "tbx/graphics/settings.h"
+#include "tbx/physics/settings.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 

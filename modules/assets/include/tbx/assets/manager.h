@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/assets/asset_handle_serializer.h"
-#include "tbx/assets/asset_loaders.h"
+#include "tbx/assets/handle_serializer.h"
+#include "tbx/assets/loaders.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/typedefs.h"
-#include "tbx/files/file_ops.h"
-#include "tbx/files/file_watcher.h"
+#include "tbx/files/ops.h"
+#include "tbx/files/watcher.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 #include <filesystem>
@@ -222,4 +222,4 @@ namespace tbx
     };
 }
 
-#include "tbx/assets/asset_manager.inl"
+#include "tbx/assets/manager.inl"

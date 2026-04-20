@@ -1,6 +1,6 @@
 #include "pch.h"
-#include "tbx/input/input_manager.h"
-#include "tbx/input/input_messages.h"
+#include "tbx/input/manager.h"
+#include "tbx/input/messages.h"
 #include "tbx/messages/dispatcher.h"
 #include <future>
 #include <gtest/gtest-spi.h>

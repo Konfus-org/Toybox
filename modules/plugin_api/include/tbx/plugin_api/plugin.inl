@@ -47,4 +47,5 @@ namespace tbx
         else
             return _dispatcher->post<TMessage>(std::forward<TArgs>(args)...);
     }
+
 }

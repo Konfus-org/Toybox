@@ -1,4 +1,4 @@
-#include "tbx/graphics/graphics_api.h"
+#include "tbx/graphics/api.h"
 
 namespace tbx
 {

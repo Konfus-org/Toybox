@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/assets/asset_registry.h"
+#include "tbx/assets/registry.h"
 #include "tbx/debugging/macros.h"
 
 namespace tbx

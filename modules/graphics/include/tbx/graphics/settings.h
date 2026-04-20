@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/typedefs.h"
-#include "tbx/graphics/graphics_api.h"
+#include "tbx/graphics/api.h"
 #include "tbx/math/size.h"
 #include "tbx/messages/observable.h"
 #include "tbx/tbx_api.h"

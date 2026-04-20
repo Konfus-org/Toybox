@@ -1,4 +1,4 @@
-#include "tbx/assets/asset_handle_serializer.h"
+#include "tbx/assets/handle_serializer.h"
 #include "tbx/files/json.h"
 #include <regex>
 

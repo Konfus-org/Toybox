@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/handle.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include "tbx/tbx_api.h"
 #include <filesystem>
 #include <memory>

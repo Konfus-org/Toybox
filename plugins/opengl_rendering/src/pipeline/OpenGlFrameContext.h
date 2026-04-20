@@ -2,7 +2,7 @@
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/color.h"
-#include "tbx/graphics/graphics_settings.h"
+#include "tbx/graphics/settings.h"
 #include "tbx/graphics/post_processing.h"
 #include "tbx/math/matrices.h"
 #include <vector>

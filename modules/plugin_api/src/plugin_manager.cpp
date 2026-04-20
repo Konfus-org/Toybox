@@ -1,7 +1,8 @@
-#include "tbx/app/plugin_manager.h"
+#include "tbx/plugin_api/plugin_manager.h"
+#include "tbx/assets/manager.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/common/typedefs.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include "tbx/plugin_api/plugin_loader.h"
 #include <algorithm>
 #include <ctime>
@@ -40,10 +41,12 @@ namespace tbx
         return false;
     }
 
-    PluginManager::PluginManager(IPluginHost& host, std::shared_ptr<IFileOps> file_ops)
+    PluginManager::PluginManager(
+        ServiceProvider& service_provider,
+        std::shared_ptr<IFileOps> file_ops)
         : _provided_file_ops(file_ops)
         , _file_ops(std::move(file_ops))
-        , _host(host)
+        , _service_provider(service_provider)
     {
     }
 
@@ -96,11 +99,12 @@ namespace tbx
 
 #if defined(TBX_DEBUG)
         if (!loaded_plugin.meta.resource_directory.empty())
-            _host.get_asset_manager().add_directory(loaded_plugin.meta.resource_directory);
+            _service_provider.get_service<AssetManager>().add_directory(
+                loaded_plugin.meta.resource_directory);
 #endif
 
         _loaded.push_back(std::move(loaded_plugin));
-        _loaded.back().attach(_host);
+        _loaded.back().attach(_service_provider);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
@@ -184,7 +188,7 @@ namespace tbx
         }
 
         _loaded = std::move(unloaded_plugins);
-        unload_plugins(_loaded, &_host.get_message_coordinator());
+        unload_plugins(_loaded, &_service_provider.get_service<IMessageCoordinator>());
         _loaded = std::move(retained_plugins);
         return true;
     }
@@ -197,7 +201,7 @@ namespace tbx
         }
 
         _watcher.reset();
-        unload_plugins(_loaded, &_host.get_message_coordinator());
+        unload_plugins(_loaded, &_service_provider.get_service<IMessageCoordinator>());
 
         _directory = std::filesystem::path {};
         _working_directory = std::filesystem::path {};

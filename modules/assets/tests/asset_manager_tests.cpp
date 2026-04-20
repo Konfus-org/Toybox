@@ -1,5 +1,5 @@
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/asset_events.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/events.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/result.h"
 #include "tbx/files/tests/in_memory_file_ops.h"

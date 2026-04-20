@@ -8,7 +8,7 @@ namespace three_d_example
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
         void on_update(const tbx::DeltaTime& dt) override;
 

@@ -1,4 +1,4 @@
-#include "tbx/input/input_manager.h"
+#include "tbx/input/manager.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <cmath>

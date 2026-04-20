@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/plugin_api/plugin.h"
 
 namespace two_d_example
@@ -11,11 +12,12 @@ namespace two_d_example
     class TwoDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:
         float _elapsed_seconds = 0.0f;
+        tbx::EntityRegistry* _entity_registry = nullptr;
     };
 }

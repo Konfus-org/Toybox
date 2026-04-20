@@ -1,9 +1,13 @@
 #pragma once
+#include "tbx/app/settings.h"
+#include "tbx/assets/manager.h"
+#include "tbx/async/thread_manager.h"
 #include "tbx/math/quaternions.h"
 #include "tbx/math/vectors.h"
 #include "tbx/physics/raycast.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/common/handle.h"
 #include <Jolt/Jolt.h>
 // clang-format off
@@ -40,7 +44,7 @@ namespace jolt_physics
     {
       public:
         ~JoltPhysicsPlugin() override;
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
         void on_fixed_update(const tbx::DeltaTime& dt) override;
         void on_recieve_message(tbx::Message& msg) override;
@@ -67,6 +71,10 @@ namespace jolt_physics
         std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
             {};
         std::unordered_set<tbx::Uuid> _pending_mesh_collider_refresh_asset_ids = {};
+        tbx::AssetManager* _asset_manager = nullptr;
+        tbx::EntityRegistry* _entity_registry = nullptr;
+        tbx::AppSettings* _settings = nullptr;
+        tbx::ThreadManager* _thread_manager = nullptr;
         std::thread::id _physics_thread_id = {};
         bool _is_ready = false;
     };

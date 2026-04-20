@@ -1,8 +1,8 @@
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/asset_events.h"
-#include "tbx/assets/asset_registry.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/events.h"
+#include "tbx/assets/registry.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_events.h"
+#include "tbx/files/events.h"
 #include "tbx/messages/dispatcher.h"
 #include <filesystem>
 

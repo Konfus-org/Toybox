@@ -1,9 +1,13 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
 #include "opengl_renderer.h"
-#include "tbx/app/application.h"
-#include "tbx/assets/asset_events.h"
+#include "tbx/app/settings.h"
+#include "tbx/assets/manager.h"
+#include "tbx/async/job_system.h"
+#include "tbx/async/thread_manager.h"
+#include "tbx/assets/events.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/graphics_settings.h"
+#include "tbx/ecs/entity_registry.h"
+#include "tbx/graphics/settings.h"
 #include "tbx/messages/observable.h"
 #include <functional>
 #include <future>
@@ -16,21 +20,39 @@ namespace opengl_rendering
 
     OpenGlRenderingPlugin::~OpenGlRenderingPlugin() = default;
 
-    void OpenGlRenderingPlugin::on_attach(tbx::IPluginHost& host)
+    void OpenGlRenderingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        host.get_thread_manager().try_create_lane(OPENGL_RENDER_LANE_NAME);
+        _message_coordinator = &service_provider.get_service<tbx::IMessageCoordinator>();
+        _thread_manager = &service_provider.get_service<tbx::ThreadManager>();
+        _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
+        _asset_manager = &service_provider.get_service<tbx::AssetManager>();
+        _job_system = &service_provider.get_service<tbx::JobSystem>();
+        _settings = &service_provider.get_service<tbx::AppSettings>();
+
+        _thread_manager->try_create_lane(OPENGL_RENDER_LANE_NAME);
     }
 
     void OpenGlRenderingPlugin::on_detach()
     {
         for (const auto& window_id : _renderers | std::views::keys)
             teardown_renderer(window_id);
-        get_host().get_thread_manager().stop_lane(OPENGL_RENDER_LANE_NAME);
+
+        if (_thread_manager)
+            _thread_manager->stop_lane(OPENGL_RENDER_LANE_NAME);
+
+        _asset_manager = nullptr;
+        _entity_registry = nullptr;
+        _job_system = nullptr;
+        _message_coordinator = nullptr;
+        _settings = nullptr;
+        _thread_manager = nullptr;
     }
 
     void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)
     {
-        auto& thread_manager = get_host().get_thread_manager();
+        if (!_thread_manager)
+            return;
+
         auto render_futures = std::vector<std::future<void>> {};
         render_futures.reserve(_renderers.size());
 
@@ -40,7 +62,7 @@ namespace opengl_rendering
             if (!renderer)
                 continue;
 
-            render_futures.push_back(thread_manager.post_with_future(
+            render_futures.push_back(_thread_manager->post_with_future(
                 OPENGL_RENDER_LANE_NAME,
                 [renderer]
                 {
@@ -61,8 +83,7 @@ namespace opengl_rendering
     {
         if (const auto* asset_reloaded = tbx::handle_message<tbx::AssetReloadedEvent>(msg))
         {
-            auto& thread_manager = get_host().get_thread_manager();
-            if (!thread_manager.has_lane(OPENGL_RENDER_LANE_NAME))
+            if (!_thread_manager || !_thread_manager->has_lane(OPENGL_RENDER_LANE_NAME))
                 return;
 
             for (auto& renderer_entry : _renderers | std::views::values)
@@ -72,7 +93,7 @@ namespace opengl_rendering
                     continue;
 
                 auto reloaded_asset = asset_reloaded->affected_asset;
-                thread_manager.post(
+                _thread_manager->post(
                     OPENGL_RENDER_LANE_NAME,
                     [renderer, reloaded_asset]
                     {
@@ -84,15 +105,18 @@ namespace opengl_rendering
 
         if (auto* ready_event = tbx::handle_message<tbx::WindowContextReadyEvent>(msg))
         {
-            auto context = OpenGlContext(get_host().get_message_coordinator(), ready_event->window);
-            auto& thread_manager = get_host().get_thread_manager();
+            if (!_message_coordinator || !_thread_manager || !_entity_registry || !_asset_manager
+                || !_job_system || !_settings)
+                return;
+
+            auto context = OpenGlContext(*_message_coordinator, ready_event->window);
             auto renderer = std::unique_ptr<OpenGlRenderer> {};
-            auto entity_registry = std::ref(get_host().get_entity_registry());
-            auto asset_manager = std::ref(get_host().get_asset_manager());
-            auto job_system = std::ref(get_host().get_job_system());
+            auto entity_registry = std::ref(*_entity_registry);
+            auto asset_manager = std::ref(*_asset_manager);
+            auto job_system = std::ref(*_job_system);
             auto render_resolution = ready_event->size;
-            auto render_stage = get_host().get_settings().graphics.render_stage.value;
-            auto create_renderer_future = thread_manager.post_with_future(
+            auto render_stage = _settings->graphics.render_stage.value;
+            auto create_renderer_future = _thread_manager->post_with_future(
                 OPENGL_RENDER_LANE_NAME,
                 [loader = ready_event->get_proc_address,
                  entity_registry,
@@ -142,10 +166,12 @@ namespace opengl_rendering
             auto* renderer = renderer_it->second.get();
             if (!renderer)
                 return;
-            auto& thread_manager = get_host().get_thread_manager();
+            if (!_thread_manager)
+                return;
+
             auto viewport_size = size_event->current;
-            thread_manager
-                .post_with_future(
+            _thread_manager
+                ->post_with_future(
                     OPENGL_RENDER_LANE_NAME,
                     [renderer, viewport_size]
                     {
@@ -159,7 +185,9 @@ namespace opengl_rendering
         if (const auto* render_stage_event =
                 tbx::handle_property_changed<&tbx::GraphicsSettings::render_stage>(msg))
         {
-            auto& thread_manager = get_host().get_thread_manager();
+            if (!_thread_manager)
+                return;
+
             auto set_stage_futures = std::vector<std::future<void>> {};
             set_stage_futures.reserve(_renderers.size());
 
@@ -169,7 +197,7 @@ namespace opengl_rendering
                 if (!renderer)
                     continue;
 
-                set_stage_futures.push_back(thread_manager.post_with_future(
+                set_stage_futures.push_back(_thread_manager->post_with_future(
                     OPENGL_RENDER_LANE_NAME,
                     [renderer, render_stage = render_stage_event->current]
                     {
@@ -193,10 +221,12 @@ namespace opengl_rendering
         if (!renderer)
             return;
 
+        if (!_thread_manager)
+            return;
+
         auto* released_renderer = renderer.release();
-        auto& thread_manager = get_host().get_thread_manager();
-        thread_manager
-            .post_with_future(
+        _thread_manager
+            ->post_with_future(
                 OPENGL_RENDER_LANE_NAME,
                 [released_renderer]
                 {

@@ -2,7 +2,7 @@
 #include "tbx/common/string_utils.h"
 #include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include <algorithm>
 #include <chrono>

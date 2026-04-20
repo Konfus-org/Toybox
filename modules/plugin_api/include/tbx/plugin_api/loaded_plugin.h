@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_meta.h"
+#include "tbx/plugin_api/service_provider.h"
 #include "tbx/plugin_api/shared_library.h"
 #include "tbx/tbx_api.h"
 #include <functional>
@@ -46,12 +47,12 @@ namespace tbx
         /// Thread Safety: Not thread-safe.
         bool is_valid() const;
 
-        /// @brief Purpose: Attaches the loaded plugin instance to a host.
-        /// @details Ownership: Does not take ownership of the host reference.
+        /// @brief Purpose: Attaches the loaded plugin instance to a service provider.
+        /// @details Ownership: Does not take ownership of the provider reference.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        void attach(IPluginHost& host);
+        void attach(ServiceProvider& service_provider);
 
-        /// @brief Purpose: Detaches the loaded plugin instance from its current host.
+        /// @brief Purpose: Detaches the loaded plugin instance from its current service provider.
         /// @details Ownership: Does not transfer ownership.
         /// Thread Safety: Not thread-safe; call from the main thread.
         void detach();

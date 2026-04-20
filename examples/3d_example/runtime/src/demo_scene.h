@@ -7,7 +7,7 @@
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/post_processing.h"
-#include "tbx/input/input_manager.h"
+#include "tbx/input/manager.h"
 #include "tbx/physics/collider.h"
 #include "tbx/time/delta_time.h"
 

@@ -1,7 +1,7 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
-#include "tbx/app/app_settings.h"
-#include "tbx/assets/asset_requests.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/app/settings.h"
+#include "tbx/assets/requests.h"
+#include "tbx/files/ops.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/texture.h"
 #include <memory>
@@ -44,11 +44,12 @@ namespace stb_image_loader
         return message;
     }
 
-    void StbImageLoaderPlugin::on_attach(tbx::IPluginHost& host)
+    void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         if (!_file_ops)
             _file_ops =
-                std::make_unique<tbx::FileOperator>(host.get_settings().paths.working_directory);
+                std::make_unique<tbx::FileOperator>(
+                    service_provider.get_service<tbx::AppSettings>().paths.working_directory);
     }
 
     void StbImageLoaderPlugin::on_detach() {}

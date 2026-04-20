@@ -1,6 +1,6 @@
-#include "tbx/assets/asset_manager.h"
+#include "tbx/assets/manager.h"
 #include "tbx/common/string_utils.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include <algorithm>
 #include <filesystem>
 #include <memory>

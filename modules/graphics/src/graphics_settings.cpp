@@ -1,4 +1,4 @@
-#include "tbx/graphics/graphics_settings.h"
+#include "tbx/graphics/settings.h"
 
 namespace tbx
 {

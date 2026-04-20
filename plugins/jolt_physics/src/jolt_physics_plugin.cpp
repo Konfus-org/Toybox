@@ -1,9 +1,13 @@
 #include "tbx/plugins/jolt_physics/jolt_physics_plugin.h"
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
-#include "tbx/app/application.h"
-#include "tbx/assets/asset_events.h"
+#include "tbx/app/settings.h"
+#include "tbx/async/thread_manager.h"
+#include "tbx/assets/events.h"
+#include "tbx/assets/manager.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/ecs/entity.h"
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/model.h"
 #include "tbx/math/transform.h"
@@ -195,7 +199,7 @@ namespace jolt_physics
     }
 
     static void apply_dynamic_body_settings(
-        tbx::IPluginHost& host,
+        const tbx::AppSettings& settings,
         const tbx::Physics& physics,
         bool is_trigger_only,
         JPH::BodyCreationSettings& out_body_settings)
@@ -210,9 +214,9 @@ namespace jolt_physics
         out_body_settings.mAngularVelocity = to_jolt_vec3(physics.angular_velocity);
         out_body_settings.mGravityFactor = physics.is_gravity_enabled ? 1.0F : 0.0F;
         out_body_settings.mMaxLinearVelocity =
-            std::max(0.0F, host.get_settings().physics.max_linear_velocity.value);
+            std::max(0.0F, settings.physics.max_linear_velocity.value);
         out_body_settings.mMaxAngularVelocity =
-            std::max(0.0F, host.get_settings().physics.max_angular_velocity.value);
+            std::max(0.0F, settings.physics.max_angular_velocity.value);
         out_body_settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
         out_body_settings.mMassPropertiesOverride.mMass = physics.mass;
 
@@ -366,7 +370,7 @@ namespace jolt_physics
     };
 
     static bool try_get_mesh_collider_data(
-        tbx::IPluginHost& host,
+        tbx::AssetManager& asset_manager,
         const tbx::Entity& entity,
         const tbx::Vec3& scale,
         std::vector<JPH::Float3>& positions,
@@ -397,7 +401,7 @@ namespace jolt_physics
         if (!static_mesh.handle.is_valid())
             return false;
 
-        auto model = host.get_asset_manager().load<tbx::Model>(static_mesh.handle);
+        auto model = asset_manager.load<tbx::Model>(static_mesh.handle);
         if (!model || model->meshes.empty())
             return false;
 
@@ -483,7 +487,7 @@ namespace jolt_physics
     }
 
     static JPH::RefConst<JPH::Shape> create_mesh_shape(
-        tbx::IPluginHost& host,
+        tbx::AssetManager& asset_manager,
         const tbx::Entity& entity,
         const tbx::Transform& transform,
         bool is_physics_driven)
@@ -492,7 +496,7 @@ namespace jolt_physics
 
         auto positions = std::vector<JPH::Float3> {};
         auto triangles = std::vector<JPH::IndexedTriangle> {};
-        if (!try_get_mesh_collider_data(host, entity, transform.scale, positions, triangles))
+        if (!try_get_mesh_collider_data(asset_manager, entity, transform.scale, positions, triangles))
         {
             TBX_TRACE_WARNING(
                 "Jolt physics: tbx::MeshCollider on entity {} has no usable mesh geometry, "
@@ -606,7 +610,7 @@ namespace jolt_physics
     }
 
     static JPH::RefConst<JPH::Shape> create_shape_for_entity(
-        tbx::IPluginHost& host,
+        tbx::AssetManager& asset_manager,
         const tbx::Entity& entity,
         const tbx::Transform& transform,
         bool is_physics_driven)
@@ -623,7 +627,7 @@ namespace jolt_physics
         if (entity.has_component<tbx::MeshCollider>())
         {
             JPH::RefConst<JPH::Shape> mesh_shape =
-                create_mesh_shape(host, entity, transform, is_physics_driven);
+                create_mesh_shape(asset_manager, entity, transform, is_physics_driven);
             if (mesh_shape)
                 return mesh_shape;
 
@@ -646,14 +650,18 @@ namespace jolt_physics
 
     JoltPhysicsPlugin::~JoltPhysicsPlugin() = default;
 
-    void JoltPhysicsPlugin::on_attach(tbx::IPluginHost&)
+    void JoltPhysicsPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        auto& thread_manager = get_host().get_thread_manager();
-        thread_manager.try_create_lane(PHYSICS_THREAD_LANE_NAME);
-        if (thread_manager.has_lane(PHYSICS_THREAD_LANE_NAME))
+        _asset_manager = &service_provider.get_service<tbx::AssetManager>();
+        _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
+        _settings = &service_provider.get_service<tbx::AppSettings>();
+        _thread_manager = &service_provider.get_service<tbx::ThreadManager>();
+
+        _thread_manager->try_create_lane(PHYSICS_THREAD_LANE_NAME);
+        if (_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME))
         {
-            _physics_thread_id = thread_manager
-                                     .post_with_future(
+            _physics_thread_id = _thread_manager
+                                     ->post_with_future(
                                          PHYSICS_THREAD_LANE_NAME,
                                          []()
                                          {
@@ -678,7 +686,10 @@ namespace jolt_physics
                     JPH::cMaxPhysicsJobs,
                     JPH::cMaxPhysicsBarriers);
 
-                auto& settings = get_host().get_settings().physics;
+                if (!_settings)
+                    return;
+
+                auto& settings = _settings->physics;
 
                 auto max_bodies = std::max<std::uint32_t>(1U, settings.max_body_count.value);
                 auto max_pairs = std::max<std::uint32_t>(1U, settings.max_body_pairs.value);
@@ -711,6 +722,10 @@ namespace jolt_physics
                 JoltRuntimeLifetime::release();
             });
         _physics_thread_id = {};
+        _asset_manager = nullptr;
+        _entity_registry = nullptr;
+        _settings = nullptr;
+        _thread_manager = nullptr;
     }
 
     void JoltPhysicsPlugin::on_fixed_update(const tbx::DeltaTime& dt)
@@ -774,9 +789,12 @@ namespace jolt_physics
 
         auto completed_asset_ids = std::vector<tbx::Uuid> {};
         completed_asset_ids.reserve(_pending_mesh_collider_refresh_asset_ids.size());
+        if (!_asset_manager)
+            return;
+
         for (const tbx::Uuid& asset_id : _pending_mesh_collider_refresh_asset_ids)
         {
-            const auto usage = get_host().get_asset_manager().get_usage<tbx::Model>(asset_id);
+            const auto usage = _asset_manager->get_usage<tbx::Model>(asset_id);
             if (usage.stream_state == tbx::AssetStreamState::LOADING)
                 continue;
 
@@ -794,7 +812,10 @@ namespace jolt_physics
         if (!_is_ready || !asset_handle.is_valid())
             return;
 
-        auto& registry = get_host().get_entity_registry();
+        if (!_entity_registry)
+            return;
+
+        auto& registry = *_entity_registry;
         auto entities = registry.get_with<tbx::Transform, tbx::MeshCollider, tbx::StaticMesh>();
         auto& body_interface = _physics_system.GetBodyInterface();
         for (auto& entity : entities)
@@ -831,14 +852,15 @@ namespace jolt_physics
         if (!work)
             return;
 
-        auto& thread_manager = get_host().get_thread_manager();
-        if (!thread_manager.has_lane(PHYSICS_THREAD_LANE_NAME) || is_on_physics_thread())
+        if (!_thread_manager
+            || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
+            || is_on_physics_thread())
         {
             work();
             return;
         }
 
-        thread_manager.post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
+        _thread_manager->post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
     }
 
     void JoltPhysicsPlugin::clear_bodies()
@@ -862,7 +884,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::apply_world_settings()
     {
-        auto& settings = get_host().get_settings().physics;
+        if (!_settings)
+            return;
+
+        auto& settings = _settings->physics;
 
         auto jolt_settings = _physics_system.GetPhysicsSettings();
         jolt_settings.mNumVelocitySteps =
@@ -876,7 +901,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::sync_entities_to_world(float dt_seconds)
     {
-        auto& registry = get_host().get_entity_registry();
+        if (!_entity_registry || !_asset_manager || !_settings)
+            return;
+
+        auto& registry = *_entity_registry;
         auto active_entities = std::unordered_set<tbx::Uuid>();
 
         auto entities = registry.get_with<tbx::Transform>();
@@ -952,7 +980,7 @@ namespace jolt_physics
             if (body_it == _bodies_by_entity.end())
             {
                 JPH::RefConst<JPH::Shape> shape =
-                    create_shape_for_entity(get_host(), entity, world_transform, is_physics_driven);
+                    create_shape_for_entity(*_asset_manager, entity, world_transform, is_physics_driven);
                 if (!shape)
                     continue;
 
@@ -972,7 +1000,7 @@ namespace jolt_physics
                 if (is_physics_driven)
                 {
                     apply_dynamic_body_settings(
-                        get_host(),
+                        *_settings,
                         *physics,
                         is_trigger_only,
                         body_settings);
@@ -1115,7 +1143,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::sync_world_to_entities()
     {
-        auto& registry = get_host().get_entity_registry();
+        if (!_entity_registry)
+            return;
+
+        auto& registry = *_entity_registry;
         auto& body_interface = _physics_system.GetBodyInterface();
 
         for (auto& body_entry : _bodies_by_entity)
@@ -1197,7 +1228,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::process_trigger_colliders()
     {
-        auto& registry = get_host().get_entity_registry();
+        if (!_entity_registry)
+            return;
+
+        auto& registry = *_entity_registry;
         auto& body_interface = _physics_system.GetBodyInterface();
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
 

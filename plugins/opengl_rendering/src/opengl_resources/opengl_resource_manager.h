@@ -1,7 +1,7 @@
 #pragma once
 #include "opengl_resource.h"
 #include "opengl_shader.h"
-#include "tbx/assets/asset_manager.h"
+#include "tbx/assets/manager.h"
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"

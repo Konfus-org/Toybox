@@ -40,7 +40,7 @@ namespace sdl_base_systems
         }*/
     }
 
-    void SdlBaseSystemsPlugin::on_attach(tbx::IPluginHost&)
+    void SdlBaseSystemsPlugin::on_attach(tbx::ServiceProvider&)
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)

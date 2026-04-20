@@ -1,9 +1,16 @@
 #pragma once
-#include "tbx/app/application.h"
-#include "tbx/assets/asset_manager.h"
+#include "tbx/app/message_coordinator.h"
+#include "tbx/app/settings.h"
+#include "tbx/async/job_system.h"
+#include "tbx/async/thread_manager.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/builtin_assets.h"
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
-#include "tbx/input/input_manager.h"
+#include "tbx/input/manager.h"
+#include "tbx/plugin_api/service_provider.h"
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,75 +32,35 @@ namespace tbx::tests::plugin_api
     }
 
     /// @brief
-    /// Purpose: Minimal plugin host implementation that exposes engine services needed by importer
-    /// tests. Ownership: Owns coordinator, registry, settings, and asset manager for the test
-    /// lifetime. Thread Safety: Not thread-safe; intended for single-threaded test setup and
-    /// execution.
-    class TestPluginHost final : public IPluginHost
+    /// Purpose: Creates a service provider exposing core runtime services for importer tests.
+    /// Ownership: Returned provider owns all registered service instances.
+    /// Thread Safety: Not thread-safe; intended for single-threaded test setup and execution.
+    static ServiceProvider make_test_service_provider(const std::filesystem::path& working_directory)
     {
-      public:
-        TestPluginHost(const std::filesystem::path& working_directory)
-            : _asset_manager(&_coordinator, working_directory)
-            , _settings(_coordinator, true, GraphicsApi::OPEN_GL, {640, 480})
-        {
-            _settings.paths.working_directory = working_directory;
-            _settings.paths.logs_directory = working_directory / "logs";
-        }
+        auto service_provider = ServiceProvider {};
 
-        const std::string& get_name() const override
-        {
-            return _name;
-        }
+        service_provider.register_service<Handle>(std::make_unique<Handle>(BoxIcon::HANDLE));
+        service_provider.register_service<IMessageCoordinator>(
+            std::make_unique<AppMessageCoordinator>());
+        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+        service_provider.register_service<InputManager>(
+            std::make_unique<InputManager>(service_provider.get_service<IMessageCoordinator>()));
+        service_provider.register_service<AssetManager>(
+            std::make_unique<AssetManager>(
+                &service_provider.get_service<IMessageCoordinator>(),
+                working_directory));
+        service_provider.register_service<AppSettings>(
+            std::make_unique<AppSettings>(
+                service_provider.get_service<IMessageCoordinator>(),
+                true,
+                GraphicsApi::OPEN_GL,
+                Size {640, 480}));
+        auto& settings = service_provider.get_service<AppSettings>();
+        settings.paths.working_directory = working_directory;
+        settings.paths.logs_directory = working_directory / "logs";
+        service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
+        service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 
-        const Handle& get_icon_handle() const override
-        {
-            return _icon_handle;
-        }
-
-        AppSettings& get_settings() override
-        {
-            return _settings;
-        }
-
-        IMessageCoordinator& get_message_coordinator() override
-        {
-            return _coordinator;
-        }
-
-        InputManager& get_input_manager() override
-        {
-            return _input_manager;
-        }
-
-        EntityRegistry& get_entity_registry() override
-        {
-            return _registry;
-        }
-
-        AssetManager& get_asset_manager() override
-        {
-            return _asset_manager;
-        }
-
-        JobSystem& get_job_system() override
-        {
-            return _job_manager;
-        }
-
-        ThreadManager& get_thread_manager() override
-        {
-            return _thread_manager;
-        }
-
-      private:
-        std::string _name = "ImporterTests";
-        Handle _icon_handle = BoxIcon::HANDLE;
-        AppMessageCoordinator _coordinator = {};
-        InputManager _input_manager = _coordinator;
-        EntityRegistry _registry = {};
-        AssetManager _asset_manager;
-        AppSettings _settings;
-        JobSystem _job_manager;
-        ThreadManager _thread_manager;
-    };
+        return service_provider;
+    }
 }

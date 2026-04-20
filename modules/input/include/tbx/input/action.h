@@ -575,4 +575,4 @@ namespace tbx
     };
 }
 
-#include "tbx/input/input_action.inl"
+#include "tbx/input/action.inl"

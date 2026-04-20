@@ -1,9 +1,9 @@
 #pragma once
-#include "tbx/files/file_events.h"
-#include "tbx/files/file_ops.h"
-#include "tbx/files/file_watcher.h"
+#include "tbx/files/events.h"
+#include "tbx/files/ops.h"
+#include "tbx/files/watcher.h"
 #include "tbx/plugin_api/loaded_plugin.h"
-#include "tbx/plugin_api/plugin_host.h"
+#include "tbx/plugin_api/service_provider.h"
 #include "tbx/tbx_api.h"
 #include "tbx/time/delta_time.h"
 #include <chrono>
@@ -19,13 +19,13 @@ namespace tbx
     /// @brief
     /// Purpose: Owns loaded plugins for an application and manages their runtime lifecycle.
     /// @details
-    /// Ownership: Owns all loaded plugin containers while using the host for attachment and
+    /// Ownership: Owns all loaded plugin containers while using the provider for attachment and
     /// resource registration.
     /// Thread Safety: Not thread-safe; call from the main thread.
     class TBX_API PluginManager
     {
       public:
-        PluginManager(IPluginHost& host, std::shared_ptr<IFileOps> file_ops = {});
+        PluginManager(ServiceProvider& service_provider, std::shared_ptr<IFileOps> file_ops = {});
         ~PluginManager() noexcept;
 
       public:
@@ -36,10 +36,11 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Loads plugins from disk, attaches them to the host, and begins routing
+        /// Purpose: Loads plugins from disk, attaches them to the service provider, and begins
+        /// routing
         /// messages to them.
         /// @details
-        /// Ownership: Uses the bound host and file-ops instances.
+        /// Ownership: Uses the bound service-provider and file-ops instances.
         /// Thread Safety: Not thread-safe; call from the main thread.
         void load(
             const std::filesystem::path& directory,
@@ -117,6 +118,6 @@ namespace tbx
         std::shared_ptr<IFileOps> _file_ops = nullptr;
         std::unique_ptr<FileWatcher> _watcher = {};
 
-        IPluginHost& _host;
+        ServiceProvider& _service_provider;
     };
 }

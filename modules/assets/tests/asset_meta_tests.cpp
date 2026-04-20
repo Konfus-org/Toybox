@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tbx/assets/asset_handle_serializer.h"
+#include "tbx/assets/handle_serializer.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
 #include <filesystem>
 
