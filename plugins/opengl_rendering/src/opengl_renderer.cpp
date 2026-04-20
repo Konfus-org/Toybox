@@ -4,13 +4,13 @@
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
-#include "passes/GeometryPass.h"
-#include "passes/LightingPass.h"
-#include "passes/OpenGlDrawCalls.h"
-#include "passes/PostProcessingPass.h"
-#include "passes/RenderPipelineFailure.h"
-#include "passes/ShadowPass.h"
-#include "passes/TransparentPass.h"
+#include "passes/geometry_pass.h"
+#include "passes/lighting_pass.h"
+#include "passes/open_gl_draw_calls.h"
+#include "passes/post_processing_pass.h"
+#include "passes/render_pipeline_failure.h"
+#include "passes/shadow_pass.h"
+#include "passes/transparent_pass.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -89,7 +89,7 @@ namespace opengl_rendering
 
         tbx::Uuid resolve_shader_program_for_material(
             const tbx::Uuid& material_resource,
-            OpenGlUploader& resource_manager,
+            OpenGlResources& resources,
             bool& use_fallback_material_params)
         {
             use_fallback_material_params = false;
@@ -97,7 +97,7 @@ namespace opengl_rendering
             if (shader_program_key.is_valid())
                 return shader_program_key;
 
-            shader_program_key = get_fallback_material(resource_manager);
+            shader_program_key = get_fallback_material(resources);
             use_fallback_material_params = true;
             if (shader_program_key.is_valid())
                 return shader_program_key;
@@ -108,39 +108,39 @@ namespace opengl_rendering
 
         tbx::Uuid get_default_texture_for_binding(
             std::string_view binding_name,
-            OpenGlUploader& resource_manager)
+            OpenGlResources& resources)
         {
             if (binding_name == "u_normal_map")
-                return get_flat_normal_texture(resource_manager);
+                return get_flat_normal_texture(resources);
             if (binding_name == "u_specular_map")
-                return get_fallback_texture(resource_manager);
+                return get_fallback_texture(resources);
             if (binding_name == "u_shininess_map")
-                return get_fallback_texture(resource_manager);
+                return get_fallback_texture(resources);
             if (binding_name == "u_emissive_map")
-                return get_fallback_texture(resource_manager);
-            return get_fallback_texture(resource_manager);
+                return get_fallback_texture(resources);
+            return get_fallback_texture(resources);
         }
 
         bool try_append_material_texture(
             OpenGlMaterialParams& material_params,
             const std::string& binding_name,
             const tbx::TextureInstance& texture_instance,
-            OpenGlUploader& resource_manager)
+            OpenGlResources& resources)
         {
             auto texture_id = tbx::Uuid {};
             if (texture_instance.handle.is_valid())
                 texture_id = texture_instance.handle.get_id();
             else
-                texture_id = get_default_texture_for_binding(binding_name, resource_manager);
+                texture_id = get_default_texture_for_binding(binding_name, resources);
 
             if (!texture_id.is_valid())
-                texture_id = get_default_texture_for_binding(binding_name, resource_manager);
+                texture_id = get_default_texture_for_binding(binding_name, resources);
 
             if (!texture_id.is_valid())
                 return false;
 
             auto texture_resource = std::shared_ptr<OpenGlTexture> {};
-            if (!resource_manager.try_get<OpenGlTexture>(texture_id, texture_resource))
+            if (!resources.try_get<OpenGlTexture>(texture_id, texture_resource))
             {
                 TBX_TRACE_WARNING(
                     "Failed to fetch texture resource '{}'. Using fallback texture.",
@@ -160,15 +160,15 @@ namespace opengl_rendering
 
         void append_default_material_texture_if_needed(
             OpenGlMaterialParams& material_params,
-            OpenGlUploader& resource_manager)
+            OpenGlResources& resources)
         {
             if (!material_params.textures.empty())
                 return;
 
-            const auto fallback_texture_id = get_fallback_texture(resource_manager);
+            const auto fallback_texture_id = get_fallback_texture(resources);
             auto fallback_texture_resource = std::shared_ptr<OpenGlTexture> {};
             if (!fallback_texture_id.is_valid()
-                || !resource_manager.try_get<OpenGlTexture>(fallback_texture_id, fallback_texture_resource))
+                || !resources.try_get<OpenGlTexture>(fallback_texture_id, fallback_texture_resource))
             {
                 return;
             }
@@ -188,7 +188,7 @@ namespace opengl_rendering
             const tbx::ParamBindings& material_parameters,
             const tbx::TextureBindings& material_textures,
             const bool use_fallback_material_params,
-            OpenGlUploader& resource_manager)
+            OpenGlResources& resources)
         {
             auto material_params = OpenGlMaterialParams {};
             if (use_fallback_material_params)
@@ -215,10 +215,10 @@ namespace opengl_rendering
                     material_params,
                     binding.name,
                     binding.texture,
-                    resource_manager);
+                    resources);
             }
 
-            append_default_material_texture_if_needed(material_params, resource_manager);
+            append_default_material_texture_if_needed(material_params, resources);
             return material_params;
         }
 
@@ -306,15 +306,15 @@ namespace opengl_rendering
     struct OpenGlWindowRendererState
     {
         OpenGlWindowRendererState(
-            OpenGlUploader& resource_manager,
+            OpenGlResources& resources,
             tbx::JobSystem& job_system,
             const tbx::Size& initial_render_size)
-            : shadow_pass(std::make_unique<ShadowPass>(resource_manager))
-            , geometry_pass(std::make_unique<GeometryPass>(resource_manager))
+            : shadow_pass(std::make_unique<ShadowPass>(resources))
+            , geometry_pass(std::make_unique<GeometryPass>(resources))
             , lighting_pass(
-                  std::make_unique<LightingPass>(resource_manager, job_system, gbuffer, *shadow_pass))
-            , transparent_pass(std::make_unique<TransparentPass>(resource_manager, gbuffer))
-            , post_processing_pass(std::make_unique<PostProcessingPass>(resource_manager, gbuffer))
+                  std::make_unique<LightingPass>(resources, job_system, gbuffer, *shadow_pass))
+            , transparent_pass(std::make_unique<TransparentPass>(resources, gbuffer))
+            , post_processing_pass(std::make_unique<PostProcessingPass>(resources, gbuffer))
         {
             render_size = initial_render_size;
         }
@@ -338,7 +338,7 @@ namespace opengl_rendering
     OpenGlRenderer::OpenGlRenderer(tbx::AssetManager& asset_manager, tbx::JobSystem& job_system)
         : _asset_manager(asset_manager)
         , _job_system(job_system)
-        , _resource_manager(_asset_manager)
+        , _resources(_asset_manager)
     {
     }
 
@@ -360,7 +360,7 @@ namespace opengl_rendering
         auto resource_uuid = out_resource_uuid;
         if (!resource_uuid.is_valid())
             resource_uuid = tbx::Uuid::generate();
-        const auto uploaded_resource_uuid = _resource_manager.add_mesh(mesh, resource_uuid);
+        const auto uploaded_resource_uuid = _resources.upload_mesh(mesh, resource_uuid);
         if (!uploaded_resource_uuid.is_valid())
             return tbx::Result(false, "OpenGL rendering: failed to upload mesh resource.");
 
@@ -414,7 +414,7 @@ namespace opengl_rendering
         if (!resource_uuid.is_valid())
             resource_uuid = tbx::Uuid::generate();
         const auto uploaded_resource_uuid =
-            _resource_manager.add_material(shader_program, resource_uuid);
+            _resources.upload_material(shader_program, resource_uuid);
         if (!uploaded_resource_uuid.is_valid())
             return tbx::Result(false, "OpenGL rendering: failed to upload material resource.");
 
@@ -425,7 +425,7 @@ namespace opengl_rendering
     tbx::Result OpenGlRenderer::upload(const tbx::Texture& texture, tbx::Uuid& out_resource_uuid)
     {
         const auto resource_uuid = out_resource_uuid.is_valid() ? out_resource_uuid : tbx::Uuid::generate();
-        const auto uploaded_resource_uuid = _resource_manager.add_texture(texture, resource_uuid);
+        const auto uploaded_resource_uuid = _resources.upload_texture(texture, resource_uuid);
         if (!uploaded_resource_uuid.is_valid())
             return tbx::Result(false, "OpenGL rendering: failed to upload texture resource.");
 
@@ -440,7 +440,7 @@ namespace opengl_rendering
         const auto resource_uuid = out_resource_uuid.is_valid() ? out_resource_uuid : tbx::Uuid::generate();
         auto texture = tbx::Texture {};
         static_cast<tbx::TextureSettings&>(texture) = texture_settings;
-        const auto uploaded_resource_uuid = _resource_manager.add_texture(texture, resource_uuid);
+        const auto uploaded_resource_uuid = _resources.upload_texture(texture, resource_uuid);
         if (!uploaded_resource_uuid.is_valid())
             return tbx::Result(false, "OpenGL rendering: failed to upload render texture resource.");
 
@@ -450,7 +450,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlRenderer::unload(const tbx::Uuid& resource_uuid)
     {
-        _resource_manager.remove(resource_uuid);
+        _resources.unload(resource_uuid);
         return {};
     }
 
@@ -578,7 +578,7 @@ namespace opengl_rendering
             return *_state;
 
         _state = std::make_shared<OpenGlWindowRendererState>(
-            _resource_manager,
+            _resources,
             _job_system,
             tbx::Size {0U, 0U});
         return *_state;
@@ -604,7 +604,7 @@ namespace opengl_rendering
             auto use_fallback_material_params = false;
             const auto shader_program_key = resolve_shader_program_for_material(
                 draw_item.material_resource,
-                _resource_manager,
+                _resources,
                 use_fallback_material_params);
             if (!shader_program_key.is_valid())
                 continue;
@@ -619,7 +619,7 @@ namespace opengl_rendering
                 draw_item.material_parameters,
                 draw_item.material_textures,
                 use_fallback_material_params,
-                _resource_manager);
+                _resources);
 
             append_visible_draw_call(
                 state.draw_calls,
@@ -675,7 +675,7 @@ namespace opengl_rendering
             auto use_fallback_material_params = false;
             const auto shader_program_key = resolve_shader_program_for_material(
                 draw_item.material_resource,
-                _resource_manager,
+                _resources,
                 use_fallback_material_params);
             if (!shader_program_key.is_valid())
                 continue;
@@ -690,7 +690,7 @@ namespace opengl_rendering
                 draw_item.material_parameters,
                 draw_item.material_textures,
                 use_fallback_material_params,
-                _resource_manager);
+                _resources);
 
             append_visible_draw_call(
                 state.draw_calls,

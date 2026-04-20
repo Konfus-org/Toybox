@@ -1,5 +1,5 @@
-#include "LightingPass.h"
-#include "RenderPipelineFailure.h"
+#include "lighting_pass.h"
+#include "render_pipeline_failure.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
@@ -317,11 +317,11 @@ namespace opengl_rendering
     }
 
     LightingPass::LightingPass(
-        OpenGlUploader& resource_manager,
+        OpenGlResources& resources,
         tbx::JobSystem& job_system,
         OpenGlGBuffer& gbuffer,
         const ShadowPass& shadow_pass)
-        : _resource_manager(resource_manager)
+        : _resources(resources)
         , _job_system(job_system)
         , _gbuffer(gbuffer)
         , _shadow_pass(shadow_pass)
@@ -435,7 +435,7 @@ namespace opengl_rendering
         auto deferred_lighting_material =
             tbx::MaterialInstance(tbx::DeferredLightingMaterial::HANDLE);
 
-        const auto program_id = _resource_manager.add_material(deferred_lighting_material, true);
+        const auto program_id = _resources.upload_material(deferred_lighting_material, true);
         if (!program_id.is_valid())
         {
             TBX_TRACE_WARNING(
@@ -443,7 +443,7 @@ namespace opengl_rendering
             return false;
         }
 
-        if (!_resource_manager.try_get<OpenGlShaderProgram>(program_id, _shader_program))
+        if (!_resources.try_get<OpenGlShaderProgram>(program_id, _shader_program))
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: deferred lighting shader program resource was not found after "

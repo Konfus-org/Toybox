@@ -1,8 +1,8 @@
-#include "GeometryPass.h"
-#include "RenderPipelineFailure.h"
+#include "geometry_pass.h"
+#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_uploader.h"
+#include "opengl_resources.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -80,8 +80,8 @@ namespace opengl_rendering
         last_bound_count = current_count;
     }
 
-    GeometryPass::GeometryPass(const OpenGlUploader& resource_manager)
-        : _resource_manager(resource_manager)
+    GeometryPass::GeometryPass(const OpenGlResources& resources)
+        : _resources(resources)
     {
     }
 
@@ -120,7 +120,7 @@ namespace opengl_rendering
         {
             // Use shader program
             auto shader_program = std::shared_ptr<OpenGlShaderProgram>();
-            if (!_resource_manager.try_get<OpenGlShaderProgram>(shader_program_id, shader_program))
+            if (!_resources.try_get<OpenGlShaderProgram>(shader_program_id, shader_program))
             {
                 saw_failure = true;
                 TBX_TRACE_WARNING(
@@ -215,7 +215,7 @@ namespace opengl_rendering
                 {
                     mesh = cached_mesh->second;
                 }
-                else if (_resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
+                else if (_resources.try_get<OpenGlMesh>(mesh_key, mesh))
                 {
                     mesh_cache.emplace(mesh_key, mesh);
                 }

@@ -1,4 +1,4 @@
-#include "opengl_uploader.h"
+#include "opengl_resources.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
@@ -85,20 +85,6 @@ namespace opengl_rendering
         if (resolved_id.is_valid())
             return tbx::Handle(handle.get_name(), resolved_id);
         return handle;
-    }
-
-    void append_unique_uuid(std::vector<tbx::Uuid>& values, const tbx::Uuid& value)
-    {
-        if (!value.is_valid())
-            return;
-
-        for (const auto& existing : values)
-        {
-            if (existing == value)
-                return;
-        }
-
-        values.push_back(value);
     }
 
     static bool try_get_mesh_attribute_offsets(
@@ -390,16 +376,16 @@ namespace opengl_rendering
         return true;
     }
 
-    OpenGlUploader::OpenGlUploader(tbx::AssetManager& asset_manager)
+    OpenGlResources::OpenGlResources(tbx::AssetManager& asset_manager)
         : _asset_manager(asset_manager)
     {
     }
 
-    tbx::Uuid OpenGlUploader::add_dynamic_mesh(
+    tbx::Uuid OpenGlResources::upload_dynamic_mesh(
         const tbx::DynamicMesh& dynamic_mesh,
         const bool pin)
     {
-        const auto now = std::chrono::steady_clock::now();
+        static_cast<void>(pin);
         const auto key = make_dynamic_mesh_key(dynamic_mesh.data);
         if (!key.is_valid())
             return {};
@@ -407,92 +393,35 @@ namespace opengl_rendering
         if (!dynamic_mesh.data)
             return {};
 
-        if (const auto existing = _resources.find(key); existing != _resources.end())
-        {
-            auto keep_existing = false;
-            if (const auto source_it = _dynamic_mesh_sources.find(key);
-                source_it != _dynamic_mesh_sources.end())
-            {
-                if (const auto source_mesh = source_it->second.lock())
-                    keep_existing = source_mesh.get() == dynamic_mesh.data.get();
-            }
-
-            if (!keep_existing)
-            {
-                _resources.erase(key);
-                _pinned_resources.erase(key);
-                _last_access.erase(key);
-                _dynamic_mesh_sources.erase(key);
-            }
-            else
-            {
-                _last_access.insert_or_assign(key, now);
-                if (pin)
-                    _pinned_resources.insert_or_assign(key, existing->second);
-                return key;
-            }
-        }
-
-        if (const auto existing = _resources.find(key); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(key, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(key, existing->second);
-            return key;
-        }
-
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(*dynamic_mesh.data));
         _resources.insert_or_assign(key, resource);
-        _dynamic_mesh_sources.insert_or_assign(key, dynamic_mesh.data);
-        _last_access.insert_or_assign(key, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(key, resource);
         return key;
     }
 
-    tbx::Uuid OpenGlUploader::add_mesh(
+    tbx::Uuid OpenGlResources::upload_mesh(
         const tbx::Mesh& mesh,
         const tbx::Uuid& resource_uuid,
         const bool pin)
     {
+        static_cast<void>(pin);
         if (!resource_uuid.is_valid())
             return {};
 
-        const auto now = std::chrono::steady_clock::now();
-        if (const auto existing = _resources.find(resource_uuid); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(resource_uuid, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(resource_uuid, existing->second);
-            return resource_uuid;
-        }
-
         const auto resource = std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(mesh));
         _resources.insert_or_assign(resource_uuid, resource);
-        _last_access.insert_or_assign(resource_uuid, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(resource_uuid, resource);
         return resource_uuid;
     }
 
-    tbx::Uuid OpenGlUploader::add_static_mesh(
+    tbx::Uuid OpenGlResources::upload_static_mesh(
         const tbx::StaticMesh& static_mesh,
         const bool pin)
     {
-        const auto now = std::chrono::steady_clock::now();
+        static_cast<void>(pin);
         const auto resolved_mesh_handle = resolve_asset_handle(static_mesh.handle, _asset_manager);
         const auto key = make_static_mesh_key(resolved_mesh_handle);
         if (!key.is_valid())
             return {};
-
-        if (const auto existing = _resources.find(key); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(key, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(key, existing->second);
-            return key;
-        }
 
         const auto model = _asset_manager.load<tbx::Model>(resolved_mesh_handle);
         if (!model || model->meshes.empty())
@@ -510,16 +439,14 @@ namespace opengl_rendering
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlMesh>(render_mesh));
         _resources.insert_or_assign(key, resource);
-        _last_access.insert_or_assign(key, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(key, resource);
         return key;
     }
 
-    tbx::Uuid OpenGlUploader::add_material(
+    tbx::Uuid OpenGlResources::upload_material(
         const tbx::MaterialInstance& material_instance,
         const bool pin)
     {
+        static_cast<void>(pin);
         const auto resolved_material_handle =
             resolve_asset_handle(material_instance.material, _asset_manager);
         if (!resolved_material_handle.is_valid())
@@ -528,23 +455,14 @@ namespace opengl_rendering
             return {};
         }
 
-        const auto now = std::chrono::steady_clock::now();
         const auto program_key = make_material_program_key(resolved_material_handle);
         if (!program_key.is_valid())
             return {};
 
         auto has_program = false;
-        if (const auto existing = _resources.find(program_key); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(program_key, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(program_key, existing->second);
-            has_program = true;
-        }
-        else if (const auto material = get_material_asset(resolved_material_handle))
+        if (const auto material = get_material_asset(resolved_material_handle))
         {
             auto shader_resources = std::vector<std::shared_ptr<OpenGlShader>>();
-            auto shader_handles = std::vector<tbx::Handle> {};
             auto try_append_shader = [&](const tbx::Handle& shader_handle)
             {
                 if (!shader_handle.is_valid())
@@ -583,7 +501,6 @@ namespace opengl_rendering
                     return false;
                 }
 
-                shader_handles.push_back(shader_handle);
                 return true;
             };
 
@@ -607,10 +524,6 @@ namespace opengl_rendering
                 {
                     const auto resource = std::shared_ptr<IOpenGlResource>(shader_program);
                     _resources.insert_or_assign(program_key, resource);
-                    _last_access.insert_or_assign(program_key, now);
-                    store_shader_dependencies(program_key, shader_handles);
-                    if (pin)
-                        _pinned_resources.insert_or_assign(program_key, resource);
                     has_program = true;
                 }
             }
@@ -635,7 +548,7 @@ namespace opengl_rendering
         return {};
     }
 
-    std::shared_ptr<tbx::Material> OpenGlUploader::get_material_asset(
+    std::shared_ptr<tbx::Material> OpenGlResources::get_material_asset(
         const tbx::Handle& material_handle)
     {
         const auto resolved_material_handle = resolve_asset_handle(material_handle, _asset_manager);
@@ -646,86 +559,48 @@ namespace opengl_rendering
         if (!program_key.is_valid())
             return {};
 
-        if (const auto existing = _material_assets.find(program_key); existing != _material_assets.end())
-            return existing->second;
-
         const auto material = _asset_manager.load<tbx::Material>(resolved_material_handle);
-        if (!material)
-            return {};
-
-        _material_assets.insert_or_assign(program_key, material);
         return material;
     }
 
-    tbx::Uuid OpenGlUploader::add_material(
+    tbx::Uuid OpenGlResources::upload_material(
         const std::shared_ptr<OpenGlShaderProgram>& shader_program,
         const tbx::Uuid& resource_uuid,
         const bool pin)
     {
+        static_cast<void>(pin);
         if (!resource_uuid.is_valid())
             return {};
         if (!shader_program || shader_program->get_program_id() == 0)
             return {};
 
-        const auto now = std::chrono::steady_clock::now();
-        if (const auto existing = _resources.find(resource_uuid);
-            existing != _resources.end())
-        {
-            _last_access.insert_or_assign(resource_uuid, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(resource_uuid, existing->second);
-            return resource_uuid;
-        }
-
         const auto resource = std::shared_ptr<IOpenGlResource>(shader_program);
         _resources.insert_or_assign(resource_uuid, resource);
-        _last_access.insert_or_assign(resource_uuid, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(resource_uuid, resource);
         return resource_uuid;
     }
 
-    tbx::Uuid OpenGlUploader::add_texture(
+    tbx::Uuid OpenGlResources::upload_texture(
         const tbx::Texture& texture,
         const tbx::Uuid& resource_uuid,
         const bool pin)
     {
+        static_cast<void>(pin);
         if (!resource_uuid.is_valid())
             return {};
-
-        const auto now = std::chrono::steady_clock::now();
-        if (const auto existing = _resources.find(resource_uuid); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(resource_uuid, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(resource_uuid, existing->second);
-            return resource_uuid;
-        }
 
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlTexture>(texture));
         _resources.insert_or_assign(resource_uuid, resource);
-        _last_access.insert_or_assign(resource_uuid, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(resource_uuid, resource);
         return resource_uuid;
     }
 
-    tbx::Uuid OpenGlUploader::add_texture(const tbx::Handle& texture_handle, const bool pin)
+    tbx::Uuid OpenGlResources::upload_texture(const tbx::Handle& texture_handle, const bool pin)
     {
+        static_cast<void>(pin);
         const auto resolved_texture_handle = resolve_asset_handle(texture_handle, _asset_manager);
         const auto key = make_texture_key(resolved_texture_handle);
         if (!key.is_valid())
             return {};
-
-        const auto now = std::chrono::steady_clock::now();
-        if (const auto existing = _resources.find(key); existing != _resources.end())
-        {
-            _last_access.insert_or_assign(key, now);
-            if (pin)
-                _pinned_resources.insert_or_assign(key, existing->second);
-            return key;
-        }
 
         const auto texture = _asset_manager.load<tbx::Texture>(resolved_texture_handle);
         if (!texture)
@@ -734,96 +609,10 @@ namespace opengl_rendering
         const auto resource =
             std::shared_ptr<IOpenGlResource>(std::make_shared<OpenGlTexture>(*texture));
         _resources.insert_or_assign(key, resource);
-        _last_access.insert_or_assign(key, now);
-        if (pin)
-            _pinned_resources.insert_or_assign(key, resource);
         return key;
     }
 
-    void OpenGlUploader::on_asset_reloaded(const tbx::Handle& asset_handle)
-    {
-        if (!asset_handle.get_id().is_valid())
-            return;
-
-        invalidate_resource(make_static_mesh_key(asset_handle));
-        invalidate_resource(make_texture_key(asset_handle));
-        invalidate_material_program(make_material_program_key(asset_handle));
-
-        const auto shader_iterator = _programs_by_shader.find(asset_handle.get_id());
-        if (shader_iterator == _programs_by_shader.end())
-            return;
-
-        const auto dependent_programs = shader_iterator->second;
-        for (const auto& program_key : dependent_programs)
-            invalidate_material_program(program_key);
-    }
-
-    void OpenGlUploader::invalidate_material_program(const tbx::Uuid& program_key)
-    {
-        if (!program_key.is_valid())
-            return;
-
-        clear_shader_dependencies(program_key);
-        _material_assets.erase(program_key);
-        invalidate_resource(program_key);
-    }
-
-    void OpenGlUploader::invalidate_resource(const tbx::Uuid& resource_uuid)
-    {
-        if (!resource_uuid.is_valid())
-            return;
-
-        _resources.erase(resource_uuid);
-        _pinned_resources.erase(resource_uuid);
-        _last_access.erase(resource_uuid);
-    }
-
-    void OpenGlUploader::clear_shader_dependencies(const tbx::Uuid& program_key)
-    {
-        const auto shader_list_iterator = _shaders_by_program.find(program_key);
-        if (shader_list_iterator == _shaders_by_program.end())
-            return;
-
-        for (const auto& shader_id : shader_list_iterator->second)
-        {
-            const auto programs_iterator = _programs_by_shader.find(shader_id);
-            if (programs_iterator == _programs_by_shader.end())
-                continue;
-
-            auto& programs = programs_iterator->second;
-            std::erase(programs, program_key);
-            if (programs.empty())
-                _programs_by_shader.erase(programs_iterator);
-        }
-
-        _shaders_by_program.erase(shader_list_iterator);
-    }
-
-    void OpenGlUploader::store_shader_dependencies(
-        const tbx::Uuid& program_key,
-        const std::vector<tbx::Handle>& shader_handles)
-    {
-        clear_shader_dependencies(program_key);
-
-        auto shader_ids = std::vector<tbx::Uuid> {};
-        shader_ids.reserve(shader_handles.size());
-        for (const auto& shader_handle : shader_handles)
-        {
-            if (!shader_handle.get_id().is_valid())
-                continue;
-
-            append_unique_uuid(shader_ids, shader_handle.get_id());
-            auto& programs = _programs_by_shader[shader_handle.get_id()];
-            append_unique_uuid(programs, program_key);
-        }
-
-        if (shader_ids.empty())
-            return;
-
-        _shaders_by_program.insert_or_assign(program_key, std::move(shader_ids));
-    }
-
-    bool OpenGlUploader::try_get_raw(
+    bool OpenGlResources::try_get_raw(
         const tbx::Uuid& resource_uuid,
         std::shared_ptr<IOpenGlResource>& out_resource) const
     {
@@ -835,109 +624,10 @@ namespace opengl_rendering
         return static_cast<bool>(out_resource);
     }
 
-    void OpenGlUploader::pin(const tbx::Uuid& resource_uuid)
-    {
-        const auto it = _resources.find(resource_uuid);
-        if (it == _resources.end())
-            return;
-
-        _pinned_resources.insert_or_assign(resource_uuid, it->second);
-    }
-
-    void OpenGlUploader::unpin(const tbx::Uuid& resource_uuid)
-    {
-        _pinned_resources.erase(resource_uuid);
-    }
-
-    void OpenGlUploader::clear()
-    {
-        _resources.clear();
-        _dynamic_mesh_sources.clear();
-        _material_assets.clear();
-        _pinned_resources.clear();
-        _last_access.clear();
-        _programs_by_shader.clear();
-        _shaders_by_program.clear();
-    }
-
-    void OpenGlUploader::clear_unused()
-    {
-        std::erase_if(
-            _resources,
-            [this](const auto& entry)
-            {
-                const auto key = entry.first;
-                const auto& resource = entry.second;
-                if (_pinned_resources.contains(key))
-                    return false;
-
-                const auto should_remove = !resource || resource.use_count() <= 1;
-                if (should_remove)
-                    clear_shader_dependencies(key);
-                return should_remove;
-            });
-
-        std::erase_if(
-            _material_assets,
-            [this](const auto& entry)
-            {
-                return !_resources.contains(entry.first);
-            });
-
-        std::erase_if(
-            _dynamic_mesh_sources,
-            [this](const auto& entry)
-            {
-                const auto key = entry.first;
-                return !_resources.contains(key) || entry.second.expired();
-            });
-
-        std::erase_if(
-            _last_access,
-            [this](const auto& entry)
-            {
-                const auto key = entry.first;
-                return !_resources.contains(key);
-            });
-
-        std::erase_if(
-            _shaders_by_program,
-            [this](const auto& entry)
-            {
-                const auto key = entry.first;
-                return !_resources.contains(key);
-            });
-
-        for (auto iterator = _programs_by_shader.begin(); iterator != _programs_by_shader.end();)
-        {
-            auto& programs = iterator->second;
-            std::erase_if(
-                programs,
-                [this](const auto& program_key)
-                {
-                    return !_resources.contains(program_key);
-                });
-
-            if (programs.empty())
-            {
-                iterator = _programs_by_shader.erase(iterator);
-                continue;
-            }
-
-            ++iterator;
-        }
-    }
-
-    void OpenGlUploader::remove(const tbx::Uuid& resource_uuid)
+    void OpenGlResources::unload(const tbx::Uuid& resource_uuid)
     {
         if (!resource_uuid.is_valid())
             return;
-
-        clear_shader_dependencies(resource_uuid);
         _resources.erase(resource_uuid);
-        _dynamic_mesh_sources.erase(resource_uuid);
-        _material_assets.erase(resource_uuid);
-        _pinned_resources.erase(resource_uuid);
-        _last_access.erase(resource_uuid);
     }
 }

@@ -1,8 +1,8 @@
-#include "PostProcessingPass.h"
-#include "RenderPipelineFailure.h"
+#include "post_processing_pass.h"
+#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_uploader.h"
+#include "opengl_resources.h"
 #include "opengl_resources/opengl_texture.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/mesh.h"
@@ -89,18 +89,18 @@ namespace opengl_rendering
         OpenGlMaterialParams& material_params,
         const std::string& binding_name,
         const tbx::TextureInstance& texture_instance,
-        OpenGlUploader& resource_manager)
+        OpenGlResources& resources)
     {
         auto texture_id = tbx::Uuid {};
         if (texture_instance.handle.is_valid())
-            texture_id = resource_manager.add_texture(texture_instance.handle);
+            texture_id = resources.upload_texture(texture_instance.handle);
         if (!texture_id.is_valid())
-            texture_id = get_fallback_texture(resource_manager);
+            texture_id = get_fallback_texture(resources);
         if (!texture_id.is_valid())
             return false;
 
         auto texture_resource = std::shared_ptr<OpenGlTexture>();
-        if (!resource_manager.try_get<OpenGlTexture>(texture_id, texture_resource))
+        if (!resources.try_get<OpenGlTexture>(texture_id, texture_resource))
             return false;
 
         material_params.textures.push_back(
@@ -146,9 +146,9 @@ namespace opengl_rendering
     }
 
     PostProcessingPass::PostProcessingPass(
-        OpenGlUploader& resource_manager,
+        OpenGlResources& resources,
         OpenGlGBuffer& gbuffer)
-        : _resource_manager(resource_manager)
+        : _resources(resources)
         , _gbuffer(gbuffer)
     {
     }
@@ -174,11 +174,11 @@ namespace opengl_rendering
         }
 
         auto fullscreen_quad_mesh = std::shared_ptr<OpenGlMesh> {};
-        const auto fullscreen_quad_key = _resource_manager.add_dynamic_mesh(
+        const auto fullscreen_quad_key = _resources.upload_dynamic_mesh(
             tbx::DynamicMesh(get_fullscreen_quad_mesh_data()),
             true);
         if (!fullscreen_quad_key.is_valid()
-            || !_resource_manager.try_get<OpenGlMesh>(fullscreen_quad_key, fullscreen_quad_mesh))
+            || !_resources.try_get<OpenGlMesh>(fullscreen_quad_key, fullscreen_quad_mesh))
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to prepare post-processing fullscreen mesh.");
@@ -213,7 +213,7 @@ namespace opengl_rendering
                 continue;
             }
 
-            const auto shader_program_key = _resource_manager.add_material(effect.material);
+            const auto shader_program_key = _resources.upload_material(effect.material);
             if (!shader_program_key.is_valid())
             {
                 TBX_TRACE_WARNING(
@@ -224,7 +224,7 @@ namespace opengl_rendering
             }
 
             auto shader_program = std::shared_ptr<OpenGlShaderProgram> {};
-            if (!_resource_manager.try_get<OpenGlShaderProgram>(shader_program_key, shader_program))
+            if (!_resources.try_get<OpenGlShaderProgram>(shader_program_key, shader_program))
             {
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: cached post-processing shader program '{}' was not "
@@ -235,7 +235,7 @@ namespace opengl_rendering
             }
 
             const auto material_asset =
-                _resource_manager.get_material_asset(effect.material.get_handle());
+                _resources.get_material_asset(effect.material.get_handle());
             const auto material_config = resolve_material_config(effect.material, material_asset);
             auto material_parameters = resolve_material_parameters(effect.material, material_asset);
             const auto material_textures =
@@ -258,7 +258,7 @@ namespace opengl_rendering
                     material_params,
                     texture_binding.name,
                     texture_binding.texture,
-                    _resource_manager);
+                    _resources);
 
             material_params.textures.push_back(
                 OpenGlMaterialTexture {

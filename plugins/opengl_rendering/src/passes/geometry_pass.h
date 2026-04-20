@@ -1,13 +1,13 @@
 #pragma once
-#include "OpenGlDrawCalls.h"
-#include "opengl_uploader.h"
+#include "open_gl_draw_calls.h"
+#include "opengl_resources.h"
 
 namespace opengl_rendering
 {
     class GeometryPass final
     {
       public:
-        GeometryPass(const OpenGlUploader& resource_manager);
+        GeometryPass(const OpenGlResources& resources);
         GeometryPass(const GeometryPass&) = delete;
         GeometryPass& operator=(const GeometryPass&) = delete;
         ~GeometryPass() noexcept;
@@ -19,6 +19,6 @@ namespace opengl_rendering
             const std::vector<DrawCall>& draw_calls);
 
       private:
-        const OpenGlUploader& _resource_manager;
+        const OpenGlResources& _resources;
     };
 }

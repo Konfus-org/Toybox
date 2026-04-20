@@ -3,14 +3,14 @@
 
 namespace opengl_rendering
 {
-    class OpenGlUploader;
+    class OpenGlResources;
 
     OpenGlMaterialParams create_magenta_fallback_material_params(
         const tbx::Handle& material_handle);
     const tbx::Uuid& get_fallback_texture_resource_id();
-    tbx::Uuid get_fallback_texture(OpenGlUploader& resource_manager);
+    tbx::Uuid get_fallback_texture(OpenGlResources& resources);
     const tbx::Uuid& get_flat_normal_texture_resource_id();
-    tbx::Uuid get_flat_normal_texture(OpenGlUploader& resource_manager);
+    tbx::Uuid get_flat_normal_texture(OpenGlResources& resources);
     const tbx::Uuid& get_fallback_material_resource_id();
-    tbx::Uuid get_fallback_material(OpenGlUploader& resource_manager);
+    tbx::Uuid get_fallback_material(OpenGlResources& resources);
 }

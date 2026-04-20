@@ -1,4 +1,4 @@
-#include "ShadowPass.h"
+#include "shadow_pass.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/frustum.h"
@@ -440,7 +440,7 @@ void main()
 
     static void render_shadow_batches(
         const std::vector<ShadowDrawCall>& draw_calls,
-        const OpenGlUploader& resource_manager,
+        const OpenGlResources& resources,
         const std::shared_ptr<OpenGlShaderProgram>& shader_program,
         const tbx::Mat4& light_view_projection,
         const tbx::Frustum* shadow_frustum,
@@ -491,7 +491,7 @@ void main()
                 {
                     mesh = cached_mesh->second;
                 }
-                else if (resource_manager.try_get<OpenGlMesh>(mesh_key, mesh))
+                else if (resources.try_get<OpenGlMesh>(mesh_key, mesh))
                 {
                     mesh_cache.emplace(mesh_key, mesh);
                 }
@@ -516,8 +516,8 @@ void main()
         glEnable(GL_CULL_FACE);
     }
 
-    ShadowPass::ShadowPass(OpenGlUploader& resource_manager)
-        : _resource_manager(resource_manager)
+    ShadowPass::ShadowPass(OpenGlResources& resources)
+        : _resources(resources)
     {
     }
 
@@ -735,7 +735,7 @@ void main()
                 glClear(GL_DEPTH_BUFFER_BIT);
                 render_shadow_batches(
                     draw_calls,
-                    _resource_manager,
+                    _resources,
                     _shader_program,
                     shadow_cascade.light_view_projection,
                     nullptr,
@@ -772,7 +772,7 @@ void main()
                 const auto shadow_frustum = tbx::Frustum(spot_map.light_view_projection);
                 render_shadow_batches(
                     draw_calls,
-                    _resource_manager,
+                    _resources,
                     _shader_program,
                     spot_map.light_view_projection,
                     &shadow_frustum,
@@ -809,7 +809,7 @@ void main()
                 const auto shadow_frustum = tbx::Frustum(area_map.light_view_projection);
                 render_shadow_batches(
                     draw_calls,
-                    _resource_manager,
+                    _resources,
                     _shader_program,
                     area_map.light_view_projection,
                     &shadow_frustum,
@@ -886,7 +886,7 @@ void main()
                     const auto shadow_frustum = tbx::Frustum(light_view_projection);
                     render_shadow_batches(
                         draw_calls,
-                        _resource_manager,
+                        _resources,
                         _shader_program,
                         light_view_projection,
                         &shadow_frustum,

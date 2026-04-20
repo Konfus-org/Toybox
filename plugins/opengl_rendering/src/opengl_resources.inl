@@ -3,13 +3,13 @@
 namespace opengl_rendering
 {
     template <typename TResource>
-    bool OpenGlUploader::try_get(
+    bool OpenGlResources::try_get(
         const tbx::Uuid& resource_uuid,
         std::shared_ptr<TResource>& out_resource) const
     {
         static_assert(
             std::is_base_of_v<IOpenGlResource, TResource>,
-            "OpenGlUploader::try_get<TResource> requires TResource to derive "
+            "OpenGlResources::try_get<TResource> requires TResource to derive "
             "from IOpenGlResource.");
 
         auto out_untyped_resource = std::shared_ptr<IOpenGlResource> {};

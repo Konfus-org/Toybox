@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/graphics/render_pipeline.h"
-#include "opengl_uploader.h"
+#include "opengl_resources.h"
 #include <memory>
 #include <vector>
 
@@ -53,7 +53,7 @@ namespace opengl_rendering
       private:
         tbx::AssetManager& _asset_manager;
         tbx::JobSystem& _job_system;
-        OpenGlUploader _resource_manager;
+        OpenGlResources _resources;
         std::shared_ptr<OpenGlWindowRendererState> _state = nullptr;
         bool _is_runtime_initialized = false;
     };
