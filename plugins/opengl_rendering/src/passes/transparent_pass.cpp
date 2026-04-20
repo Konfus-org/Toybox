@@ -1,8 +1,8 @@
-#include "TransparentPass.h"
-#include "RenderPipelineFailure.h"
+#include "transparent_pass.h"
+#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
-#include "opengl_uploader.h"
+#include "opengl_resources.h"
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/debugging/macros.h"
 #include <glad/glad.h>
@@ -81,9 +81,9 @@ namespace opengl_rendering
     }
 
     TransparentPass::TransparentPass(
-        const OpenGlUploader& resource_manager,
+        const OpenGlResources& resources,
         OpenGlGBuffer& gbuffer)
-        : _resource_manager(resource_manager)
+        : _resources(resources)
         , _gbuffer(gbuffer)
     {
     }
@@ -129,7 +129,7 @@ namespace opengl_rendering
             {
                 shader_program = cached_shader->second;
             }
-            else if (_resource_manager.try_get<OpenGlShaderProgram>(
+            else if (_resources.try_get<OpenGlShaderProgram>(
                          draw_call.shader_program,
                          shader_program))
             {
@@ -222,7 +222,7 @@ namespace opengl_rendering
             {
                 mesh = cached_mesh->second;
             }
-            else if (_resource_manager.try_get<OpenGlMesh>(draw_call.mesh, mesh))
+            else if (_resources.try_get<OpenGlMesh>(draw_call.mesh, mesh))
             {
                 mesh_cache.emplace(draw_call.mesh, mesh);
             }
