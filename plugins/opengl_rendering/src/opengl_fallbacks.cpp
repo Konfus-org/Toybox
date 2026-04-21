@@ -1,5 +1,5 @@
 #include "opengl_fallbacks.h"
-#include "opengl_resources/opengl_resource_manager.h"
+#include "opengl_resources.h"
 #include "tbx/debugging/macros.h"
 
 namespace opengl_rendering
@@ -86,27 +86,27 @@ namespace opengl_rendering
         return shader_sources;
     }
 
-    tbx::Uuid get_fallback_texture(OpenGlResourceManager& resource_manager)
+    tbx::Uuid get_fallback_texture(OpenGlResources& resources)
     {
-        return resource_manager.add_texture(
+        return resources.upload_texture(
             get_fallback_texture(),
             get_fallback_texture_resource_id(),
             true);
     }
 
-    tbx::Uuid get_flat_normal_texture(OpenGlResourceManager& resource_manager)
+    tbx::Uuid get_flat_normal_texture(OpenGlResources& resources)
     {
-        return resource_manager.add_texture(
+        return resources.upload_texture(
             get_flat_normal_texture_data(),
             get_flat_normal_texture_resource_id(),
             true);
     }
 
-    tbx::Uuid get_fallback_material(OpenGlResourceManager& resource_manager)
+    tbx::Uuid get_fallback_material(OpenGlResources& resources)
     {
         auto existing_program = std::shared_ptr<OpenGlShaderProgram> {};
         const auto fallback_program_id = get_fallback_material_resource_id();
-        if (resource_manager.try_get<OpenGlShaderProgram>(fallback_program_id, existing_program))
+        if (resources.try_get<OpenGlShaderProgram>(fallback_program_id, existing_program))
             return fallback_program_id;
 
         const auto shader_sources = fallback_material_shader_sources();
@@ -133,6 +133,6 @@ namespace opengl_rendering
             return {};
         }
 
-        return resource_manager.add_material(shader_program, fallback_program_id, true);
+        return resources.upload_material(shader_program, fallback_program_id, true);
     }
 }

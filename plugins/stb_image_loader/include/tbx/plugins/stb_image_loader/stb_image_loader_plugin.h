@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/assets/asset_requests.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/assets/requests.h"
+#include "tbx/files/ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
 #include <memory>
@@ -16,7 +16,7 @@ namespace stb_image_loader
     class TBX_PLUGIN_API StbImageLoaderPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
 
         /// @brief

@@ -28,7 +28,7 @@ namespace tbx
         return instance != nullptr;
     }
 
-    void LoadedPlugin::attach(IPluginHost& host)
+    void LoadedPlugin::attach(ServiceProvider& service_provider)
     {
         if (!is_valid() || _state == LoadedPluginState::ATTACHED)
             return;
@@ -37,7 +37,7 @@ namespace tbx
         _state = LoadedPluginState::ATTACHED;
         try
         {
-            instance->attach(host);
+            instance->attach(service_provider);
         }
         catch (...)
         {

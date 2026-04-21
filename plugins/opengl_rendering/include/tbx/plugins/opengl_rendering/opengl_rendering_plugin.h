@@ -1,33 +1,24 @@
 #pragma once
-#include "opengl_renderer.h"
-#include "tbx/common/uuid.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
-#include <memory>
-#include <unordered_map>
 
 namespace opengl_rendering
 {
     /// @brief
-    /// Purpose: Hosts OpenGL renderer instances for each window that publishes a ready context.
+    /// Purpose: Registers the OpenGL graphics backend service.
     /// @details
-    /// Ownership: Plugin owns renderer instances and borrows host systems during attach/detach.
-    /// Thread Safety: Public callbacks are expected to run on the host thread; render work is
-    /// posted to a dedicated render lane.
+    /// Ownership: Services are registered into the host service provider during plugin attach.
+    /// Thread Safety: Expected to be attached and detached on the host thread.
     class TBX_PLUGIN_API OpenGlRenderingPlugin final : public tbx::Plugin
     {
       public:
         ~OpenGlRenderingPlugin() override;
 
-        void on_attach(tbx::IPluginHost& host) override;
+      public:
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
-        void on_update(const tbx::DeltaTime& dt) override;
-        void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        void teardown_renderer(const tbx::Uuid& window_id);
-
-      private:
-        std::unordered_map<tbx::Uuid, std::unique_ptr<OpenGlRenderer>> _renderers = {};
+        tbx::ServiceProvider* _service_provider = nullptr;
     };
 }

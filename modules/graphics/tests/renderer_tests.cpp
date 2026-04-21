@@ -77,7 +77,7 @@ namespace tbx::tests::graphics
         const auto& handle = material_instance.get_handle();
 
         // Assert
-        EXPECT_EQ(handle.id, FlatMaterial::HANDLE.id);
+        EXPECT_EQ(handle.get_id(), FlatMaterial::HANDLE.get_id());
     }
 
     // Validates that material mutations toggle the dirty bit used by GPU upload paths.
@@ -169,7 +169,7 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(color.g, Color::RED.g);
         EXPECT_FLOAT_EQ(color.b, Color::RED.b);
         EXPECT_FLOAT_EQ(color.a, Color::RED.a);
-        EXPECT_EQ(diffuse_map.id, CheckerboardTexture::HANDLE.id);
+        EXPECT_EQ(diffuse_map.get_id(), CheckerboardTexture::HANDLE.get_id());
     }
 
     // Validates Lods defaults to no LOD entries and no render-distance cap.

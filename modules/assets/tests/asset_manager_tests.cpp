@@ -1,5 +1,5 @@
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/asset_events.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/events.h"
 #include "tbx/common/handle.h"
 #include "tbx/common/result.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
@@ -277,9 +277,7 @@ namespace tbx::tests::assets
             if (iterator == id_by_path.end())
                 return false;
 
-            auto handle = Handle(asset_path.lexically_normal().generic_string());
-            handle.id = iterator->second;
-            out_handle = std::move(handle);
+            out_handle = Handle(asset_path.lexically_normal().generic_string(), iterator->second);
             return true;
         }
     };
@@ -795,7 +793,7 @@ namespace tbx::tests::assets
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "created.asset");
-        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x90U));
+        EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x90U));
 
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x90U)));
         EXPECT_NE(asset, nullptr);
@@ -827,7 +825,7 @@ namespace tbx::tests::assets
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "modified.asset");
-        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x91U));
+        EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x91U));
     }
 
     TEST(asset_manager, reloads_loaded_assets_when_watched_file_changes)
@@ -860,11 +858,11 @@ namespace tbx::tests::assets
 
         const auto modified_events = dispatcher.get_modified_events();
         ASSERT_EQ(modified_events.size(), 1U);
-        EXPECT_EQ(modified_events[0].affected_asset.id, Uuid(0x95U));
+        EXPECT_EQ(modified_events[0].affected_asset.get_id(), Uuid(0x95U));
 
         const auto reloaded_events = dispatcher.get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
-        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x95U));
+        EXPECT_EQ(reloaded_events[0].affected_asset.get_id(), Uuid(0x95U));
 
         const auto& loader_state = get_test_asset_loader_state();
         EXPECT_EQ(loader_state.sync_load_count, 1);
@@ -906,7 +904,7 @@ namespace tbx::tests::assets
 
         const auto reloaded_events = dispatcher.get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
-        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x96U));
+        EXPECT_EQ(reloaded_events[0].affected_asset.get_id(), Uuid(0x96U));
 
         const auto& loader_state = get_test_asset_loader_state();
         EXPECT_EQ(loader_state.sync_load_count, 1);
@@ -943,7 +941,7 @@ namespace tbx::tests::assets
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "removed.asset");
-        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x92U));
+        EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x92U));
 
         auto removed_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
         EXPECT_EQ(removed_asset, nullptr);

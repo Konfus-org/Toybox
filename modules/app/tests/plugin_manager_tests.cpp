@@ -1,11 +1,15 @@
 #include "pch.h"
-#include "tbx/app/app_message_coordinator.h"
-#include "tbx/app/app_settings.h"
-#include "tbx/app/plugin_manager.h"
-#include "tbx/assets/asset_manager.h"
+#include "tbx/app/message_coordinator.h"
+#include "tbx/app/settings.h"
 #include "tbx/assets/builtin_assets.h"
+#include "tbx/assets/manager.h"
+#include "tbx/async/job_system.h"
+#include "tbx/async/thread_manager.h"
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/files/tests/in_memory_file_ops.h"
+#include "tbx/input/manager.h"
 #include "tbx/messages/message.h"
+#include "tbx/plugin_api/plugin_manager.h"
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -48,7 +52,7 @@ namespace tbx::tests::app
         }
 
       protected:
-        void on_attach(IPluginHost&) override
+        void on_attach(ServiceProvider&) override
         {
             ++_state->attach_count;
             if (_state->emit_attach_message)
@@ -86,74 +90,31 @@ namespace tbx::tests::app
         std::shared_ptr<TestPluginState> _state = {};
     };
 
-    class TestPluginHost final : public IPluginHost
+    static ServiceProvider make_test_service_provider(
+        const std::filesystem::path& working_directory)
     {
-      public:
-        TestPluginHost(const std::filesystem::path& working_directory)
-            : _asset_manager(&_coordinator, working_directory)
-            , _settings(_coordinator, true, GraphicsApi::OPEN_GL, {1280, 720})
-        {
-            _settings.paths.working_directory = working_directory;
-            _settings.paths.logs_directory = working_directory / "logs";
-        }
+        auto service_provider = ServiceProvider {};
 
-      public:
-        const std::string& get_name() const override
-        {
-            return _name;
-        }
+        service_provider.register_service<Handle>(std::make_unique<Handle>(ToyboxIcon::HANDLE));
+        service_provider.register_service<IMessageCoordinator>(
+            std::make_unique<AppMessageCoordinator>());
+        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+            &service_provider.get_service<IMessageCoordinator>(),
+            working_directory));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
+            service_provider.get_service<IMessageCoordinator>(),
+            true,
+            GraphicsApi::OPEN_GL,
+            Size {1280, 720}));
+        auto& settings = service_provider.get_service<AppSettings>();
+        settings.paths.working_directory = working_directory;
+        settings.paths.logs_directory = working_directory / "logs";
+        service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
+        service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 
-        const Handle& get_icon_handle() const override
-        {
-            return _icon_handle;
-        }
-
-        AppSettings& get_settings() override
-        {
-            return _settings;
-        }
-
-        IMessageCoordinator& get_message_coordinator() override
-        {
-            return _coordinator;
-        }
-
-        InputManager& get_input_manager() override
-        {
-            return _input_manager;
-        }
-
-        EntityRegistry& get_entity_registry() override
-        {
-            return _entity_registry;
-        }
-
-        AssetManager& get_asset_manager() override
-        {
-            return _asset_manager;
-        }
-
-        JobSystem& get_job_system() override
-        {
-            return _job_manager;
-        }
-
-        ThreadManager& get_thread_manager() override
-        {
-            return _thread_manager;
-        }
-
-      private:
-        std::string _name = "PluginManagerTests";
-        Handle _icon_handle = ToyboxIcon::HANDLE;
-        AppMessageCoordinator _coordinator = {};
-        InputManager _input_manager = _coordinator;
-        EntityRegistry _entity_registry = {};
-        AssetManager _asset_manager;
-        AppSettings _settings;
-        JobSystem _job_manager;
-        ThreadManager _thread_manager;
-    };
+        return service_provider;
+    }
 
     static LoadedPlugin make_loaded_plugin(
         const std::string& name,
@@ -183,10 +144,11 @@ namespace tbx::tests::app
     {
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
-        PluginManager manager = PluginManager(host, file_ops);
-        host.get_message_coordinator().register_handler(
+        auto service_provider = make_test_service_provider(working_directory);
+        auto file_ops =
+            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        PluginManager manager = PluginManager(service_provider, file_ops);
+        service_provider.get_service<IMessageCoordinator>().register_handler(
             [&manager](Message& msg)
             {
                 manager.receive_message(msg);
@@ -214,10 +176,11 @@ namespace tbx::tests::app
     {
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
-        TestPluginHost host = TestPluginHost(working_directory);
-        auto file_ops = std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
-        PluginManager manager = PluginManager(host, file_ops);
-        host.get_message_coordinator().register_handler(
+        auto service_provider = make_test_service_provider(working_directory);
+        auto file_ops =
+            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        PluginManager manager = PluginManager(service_provider, file_ops);
+        service_provider.get_service<IMessageCoordinator>().register_handler(
             [&manager](Message& msg)
             {
                 manager.receive_message(msg);
@@ -228,9 +191,11 @@ namespace tbx::tests::app
         // Act
         manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
         manager.fixed_update(DeltaTime {.seconds = 0.008, .milliseconds = 8.0});
-        host.get_message_coordinator().send<PluginPingMessage>("before_shutdown");
+        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
+            "before_shutdown");
         EXPECT_TRUE(manager.unload("Solo"));
-        host.get_message_coordinator().send<PluginPingMessage>("after_shutdown");
+        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
+            "after_shutdown");
 
         // Assert
         ASSERT_NE(plugin, nullptr);

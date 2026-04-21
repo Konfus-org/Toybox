@@ -1,7 +1,7 @@
 #include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
-#include "tbx/app/app_settings.h"
+#include "tbx/app/settings.h"
 #include "tbx/common/string_utils.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include "tbx/files/json.h"
 #include "tbx/graphics/material.h"
 #include <cctype>
@@ -574,9 +574,10 @@ namespace mat_material_loader
         }
     }
 
-    void MatMaterialLoaderPlugin::on_attach(tbx::IPluginHost& host)
+    void MatMaterialLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _working_directory = host.get_settings().paths.working_directory;
+        _working_directory =
+            service_provider.get_service<tbx::AppSettings>().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<tbx::FileOperator>(_working_directory);
     }

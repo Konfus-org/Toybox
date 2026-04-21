@@ -1,112 +1,46 @@
 #include "pch.h"
-#include "tbx/input/input_manager.h"
-#include "tbx/input/input_messages.h"
-#include "tbx/messages/dispatcher.h"
-#include <future>
-#include <gtest/gtest-spi.h>
-#include <memory>
-#include <string>
-#include <utility>
+#include "tbx/input/manager.h"
 
 namespace tbx::tests::input
 {
-    class TestInputDispatcher final : public IMessageDispatcher
+    class TestInputManager final : public InputManager
     {
+      public:
+        KeyboardState get_keyboard_state() const override
+        {
+            return keyboard_state;
+        }
+
+        ControllerState get_controller_state(int controller_index) const override
+        {
+            const auto iterator = controller_states.find(controller_index);
+            if (iterator == controller_states.end())
+                return ControllerState {.controller_index = controller_index};
+            return iterator->second;
+        }
+
+        MouseState get_mouse_state() const override
+        {
+            return mouse_state;
+        }
+
+        void set_mouse_lock_mode(MouseLockMode mode) override
+        {
+            mouse_lock_mode = mode;
+        }
+
+        MouseLockMode get_mouse_lock_mode() const override
+        {
+            return mouse_lock_mode;
+        }
+
       public:
         KeyboardState keyboard_state = {};
         MouseState mouse_state = {};
         std::unordered_map<int, ControllerState> controller_states = {};
-        mutable MouseLockMode mouse_lock_mode = MouseLockMode::UNLOCKED;
-        bool lock_mouse_result = true;
-
-      protected:
-        Result send(Message& message) const override
-        {
-            if (auto* keyboard_request = handle_message<KeyboardStateRequest>(message))
-            {
-                keyboard_request->result = keyboard_state;
-                keyboard_request->state = MessageState::HANDLED;
-                keyboard_request->Message::result.flag_success();
-                return keyboard_request->Message::result;
-            }
-
-            if (auto* mouse_request = handle_message<MouseStateRequest>(message))
-            {
-                mouse_request->result = mouse_state;
-                mouse_request->state = MessageState::HANDLED;
-                mouse_request->Message::result.flag_success();
-                return mouse_request->Message::result;
-            }
-
-            if (auto* controller_request = handle_message<ControllerStateRequest>(message))
-            {
-                const auto iterator = controller_states.find(controller_request->controller_index);
-                if (iterator != controller_states.end())
-                    controller_request->result = iterator->second;
-                else
-                    controller_request->result = ControllerState {};
-
-                controller_request->state = MessageState::HANDLED;
-                controller_request->Message::result.flag_success();
-                return controller_request->Message::result;
-            }
-
-            if (auto* set_lock_request = handle_message<SetMouseLockRequest>(message))
-            {
-                if (lock_mouse_result)
-                {
-                    mouse_lock_mode = set_lock_request->mode;
-                    set_lock_request->Message::result.flag_success();
-                }
-                else
-                {
-                    set_lock_request->Message::result.flag_failure("Test lock request failure.");
-                }
-
-                set_lock_request->state = MessageState::HANDLED;
-                return set_lock_request->Message::result;
-            }
-
-            if (auto* lock_mode_request = handle_message<MouseLockModeRequest>(message))
-            {
-                lock_mode_request->result = mouse_lock_mode;
-                lock_mode_request->state = MessageState::HANDLED;
-                lock_mode_request->Message::result.flag_success();
-                return lock_mode_request->Message::result;
-            }
-
-            Result result = {};
-            result.flag_failure("Unhandled test message type.");
-            return result;
-        }
-
-        std::shared_future<Result> post(std::unique_ptr<Message> message) const override
-        {
-            std::promise<Result> promise = {};
-            Result result = send(*message);
-            promise.set_value(result);
-            return promise.get_future().share();
-        }
+        MouseLockMode mouse_lock_mode = MouseLockMode::UNLOCKED;
     };
 
-    class FailingInputDispatcher final : public IMessageDispatcher
-    {
-      protected:
-        Result send(Message&) const override
-        {
-            auto result = Result {};
-            result.flag_failure("No handlers are registered.");
-            return result;
-        }
-
-        std::shared_future<Result> post(std::unique_ptr<Message> message) const override
-        {
-            std::promise<Result> promise = {};
-            Result result = send(*message);
-            promise.set_value(result);
-            return promise.get_future().share();
-        }
-    };
     TEST(input_manager, action_typed_getters_and_callbacks_follow_lifecycle)
     {
         // Arrange
@@ -156,6 +90,7 @@ namespace tbx::tests::input
         ASSERT_FALSE(performed);
         ASSERT_TRUE(cancelled);
     }
+
     TEST(input_manager, action_constructor_accepts_bindings_and_callbacks)
     {
         // Arrange
@@ -202,14 +137,14 @@ namespace tbx::tests::input
         ASSERT_TRUE(performed);
         ASSERT_TRUE(cancelled);
     }
+
     TEST(input_manager, keyboard_vector2_composite_produces_expected_move_axis)
     {
         // Arrange
-        auto dispatcher = TestInputDispatcher {};
-        dispatcher.keyboard_state.pressed_keys.insert(static_cast<int>(InputKey::W));
-        dispatcher.keyboard_state.pressed_keys.insert(static_cast<int>(InputKey::D));
+        auto manager = TestInputManager {};
+        manager.keyboard_state.pressed_keys.insert(static_cast<int>(InputKey::W));
+        manager.keyboard_state.pressed_keys.insert(static_cast<int>(InputKey::D));
 
-        auto manager = InputManager(dispatcher);
         auto scheme = InputScheme("Gameplay");
         auto move_action = InputAction("Move", InputActionValueType::VECTOR2);
         move_action.add_binding(
@@ -245,6 +180,7 @@ namespace tbx::tests::input
         ASSERT_FLOAT_EQ(axis.x, 1.0F);
         ASSERT_FLOAT_EQ(axis.y, 1.0F);
     }
+
     TEST(input_manager, scheme_constructor_accepts_actions)
     {
         // Arrange
@@ -264,11 +200,11 @@ namespace tbx::tests::input
         ASSERT_NE(look_action, nullptr);
         ASSERT_EQ(scheme.get_all_actions().size(), 2U);
     }
+
     TEST(input_manager, activate_scheme_makes_single_scheme_active)
     {
         // Arrange
-        auto dispatcher = TestInputDispatcher {};
-        auto manager = InputManager(dispatcher);
+        auto manager = TestInputManager {};
 
         auto first = InputScheme("First");
         auto second = InputScheme("Second");
@@ -290,11 +226,11 @@ namespace tbx::tests::input
         ASSERT_FALSE(first_scheme->get_is_active());
         ASSERT_TRUE(second_scheme->get_is_active());
     }
-    TEST(input_manager, mouse_lock_requests_and_mode_queries_are_forwarded)
+
+    TEST(input_manager, mouse_lock_mode_queries_use_backend_state)
     {
         // Arrange
-        auto dispatcher = TestInputDispatcher {};
-        auto manager = InputManager(dispatcher);
+        auto manager = TestInputManager {};
 
         // Act
         manager.set_mouse_lock_mode(MouseLockMode::RELATIVE);
@@ -305,49 +241,5 @@ namespace tbx::tests::input
         // Assert
         ASSERT_EQ(locked_mode, MouseLockMode::RELATIVE);
         ASSERT_EQ(unlocked_mode, MouseLockMode::UNLOCKED);
-    }
-    TEST(input_manager, update_warns_once_when_action_inputs_are_unhandled)
-    {
-        // Arrange
-        auto dispatcher = FailingInputDispatcher {};
-        auto manager = InputManager(dispatcher);
-
-        auto scheme = InputScheme("Gameplay");
-        auto fire_action = InputAction("Fire", InputActionValueType::BUTTON);
-        fire_action.add_binding(
-            InputBinding {
-                .control =
-                    KeyboardInputControl {
-                        .key = InputKey::SPACE,
-                    },
-                .scale = 1.0F,
-            });
-        scheme.add_action(fire_action);
-        manager.add_scheme(scheme);
-        manager.activate_scheme("Gameplay");
-
-        auto frame_time = DeltaTime {};
-        frame_time.seconds = 0.016;
-
-        // Act
-        auto global_dispatcher_scope = GlobalDispatcherScope(dispatcher);
-        testing::internal::CaptureStdout();
-        manager.update(frame_time);
-        manager.update(frame_time);
-        const std::string stdout_output = testing::internal::GetCapturedStdout();
-
-        // Assert
-        const std::string warning_text =
-            "Active input actions are not fully handled because required input providers are "
-            "missing.";
-        size_t warning_count = 0U;
-        size_t find_position = stdout_output.find(warning_text);
-        while (find_position != std::string::npos)
-        {
-            warning_count += 1U;
-            find_position = stdout_output.find(warning_text, find_position + warning_text.size());
-        }
-
-        ASSERT_EQ(warning_count, 1U);
     }
 }

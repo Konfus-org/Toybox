@@ -2,8 +2,8 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/messages/message.h"
-#include "tbx/plugin_api/plugin_host.h"
 #include "tbx/plugin_api/plugin_registry.h"
+#include "tbx/plugin_api/service_provider.h"
 #include "tbx/time/delta_time.h"
 #include <functional>
 #include <future>
@@ -13,7 +13,7 @@
 
 namespace tbx
 {
-    // Base type for runtime-loadable plugins. The host owns plugin lifetimes and
+    // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.
     class TBX_API Plugin
     {
@@ -26,16 +26,16 @@ namespace tbx
         Plugin& operator=(Plugin&&) = default;
 
         /// @brief
-        /// Purpose: Initializes the plugin, wiring it to the given host.
+        /// Purpose: Initializes the plugin, wiring it to the given service provider.
         /// @details
-        /// Ownership: Does not own the host or dispatcher references.
+        /// Ownership: Does not own the service provider or dispatcher references.
         /// Thread Safety: Not thread-safe; must be called exactly once before use.
-        void attach(IPluginHost& host);
+        void attach(ServiceProvider& service_provider);
 
         /// @brief
-        /// Purpose: Shuts the plugin down and clears host/dispatcher references.
+        /// Purpose: Shuts the plugin down and clears dispatcher references.
         /// @details
-        /// Ownership: Does not own the host or dispatcher references.
+        /// Ownership: Does not own the provider or dispatcher references.
         /// Thread Safety: Not thread-safe; call from the main thread.
         void detach();
 
@@ -48,7 +48,7 @@ namespace tbx
         // Invokes the plugin's message entry point.
         void receive_message(Message& msg);
 
-        // Helper to synchronously send a constructed message via the host dispatcher.
+        // Helper to synchronously send a constructed message via the provider dispatcher.
         template <typename TMessage, typename... TArgs>
             requires std::derived_from<TMessage, Message>
         Result send_message(TArgs&&... args) const;
@@ -59,11 +59,11 @@ namespace tbx
         std::shared_future<Result> post_message(TArgs&&... args) const;
 
       protected:
-        // Called when the plugin is attached to the host.
+        // Called when the plugin is attached to the service provider.
         // The plugin must not retain references that outlive its own lifetime.
-        virtual void on_attach(IPluginHost& host) = 0;
+        virtual void on_attach(ServiceProvider& service_provider) = 0;
 
-        // Called before the plugin is detached from the host.
+        // Called before the plugin is detached from the service provider.
         virtual void on_detach() {}
 
         // Per-frame update with delta timing.
@@ -75,17 +75,13 @@ namespace tbx
         // Unified message entry point for dispatch callbacks.
         virtual void on_recieve_message(Message& msg) {}
 
-        // Non-owning dispatcher reference provided by the host.
+        // Non-owning dispatcher reference provided by the service provider.
         IMessageDispatcher& get_dispatcher() const;
-
-        // Non-owning reference to the host interface.
-        IPluginHost& get_host() const;
 
       private:
         static Result dispatcher_missing_result(std::string_view action);
 
         IMessageDispatcher* _dispatcher = nullptr;
-        IPluginHost* _host = nullptr;
     };
 
     using CreatePluginFn = Plugin* (*)();

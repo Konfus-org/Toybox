@@ -1,0 +1,27 @@
+{
+  "shaders": { "vertex": "00000006", "fragment": "00000007" },
+  "config": {
+    "depth": {
+      "test": true,
+      "write": true,
+      "prepass": false,
+      "function": "less"
+    },
+    "transparency": {
+      "blend_mode": "opaque"
+    },
+    "cullable": true,
+    "two_sided": false,
+    "shadow_mode": "standard"
+  },
+  "textures": [
+    { "name": "diffuse_map", "value": "" }
+  ],
+  "parameters": [
+    { "name": "color", "type": "color", "value": [1.0, 0.0, 1.0, 1.0] },
+    { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "alpha_cutoff", "type": "float", "value": 0.0 },
+    { "name": "transparency_amount", "type": "float", "value": 0.0 },
+    { "name": "exposure", "type": "float", "value": 1.0 }
+  ]
+}

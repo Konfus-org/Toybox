@@ -1,4 +1,4 @@
-#include "tbx/app/app_settings.h"
+#include "tbx/app/settings.h"
 #include "tbx/messages/dispatcher.h"
 #include <utility>
 

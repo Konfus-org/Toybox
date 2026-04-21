@@ -1,5 +1,4 @@
-#include "tbx/input/input_manager.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/input/manager.h"
 #include <algorithm>
 #include <cmath>
 #include <ranges>
@@ -116,21 +115,6 @@ namespace tbx
         if (iterator == snapshot.controllers.end())
             return nullptr;
         return &iterator->second;
-    }
-
-    static void warn_if_request_failed(const char* operation_name, const Result& result)
-    {
-        if (result.succeeded())
-            return;
-
-        const std::string& report = result.get_report();
-        if (report.empty())
-        {
-            TBX_TRACE_WARNING("Input operation '{}' failed.", operation_name);
-            return;
-        }
-
-        TBX_TRACE_WARNING("Input operation '{}' failed: {}", operation_name, report);
     }
 
     InputAction::InputAction(std::string action_name, InputActionValueType value_type)
@@ -349,11 +333,6 @@ namespace tbx
         return actions;
     }
 
-    InputManager::InputManager(IMessageDispatcher& dispatcher)
-        : _dispatcher(&dispatcher)
-    {
-    }
-
     bool InputManager::add_scheme(const InputScheme& scheme)
     {
         return _schemes.emplace(scheme.get_name(), scheme).second;
@@ -410,45 +389,6 @@ namespace tbx
         for (const auto& [_, scheme] : _schemes)
             schemes.push_back(std::cref(scheme));
         return schemes;
-    }
-
-    KeyboardState InputManager::get_keyboard_state() const
-    {
-        KeyboardStateRequest request = {};
-        const Result send_result = _dispatcher->send(request);
-        warn_if_request_failed("get_keyboard_state", send_result);
-        return request.result;
-    }
-
-    MouseState InputManager::get_mouse_state() const
-    {
-        MouseStateRequest request = {};
-        const Result send_result = _dispatcher->send(request);
-        warn_if_request_failed("get_mouse_state", send_result);
-        return request.result;
-    }
-
-    void InputManager::set_mouse_lock_mode(MouseLockMode mode) const
-    {
-        SetMouseLockRequest request = SetMouseLockRequest(mode);
-        const Result send_result = _dispatcher->send(request);
-        warn_if_request_failed("set_mouse_lock_mode", send_result);
-    }
-
-    MouseLockMode InputManager::get_mouse_lock_mode() const
-    {
-        MouseLockModeRequest request = {};
-        const Result send_result = _dispatcher->send(request);
-        warn_if_request_failed("get_mouse_lock_mode", send_result);
-        return request.result;
-    }
-
-    ControllerState InputManager::get_controller_state(int controller_index) const
-    {
-        auto request = ControllerStateRequest(controller_index);
-        const Result send_result = _dispatcher->send(request);
-        warn_if_request_failed("get_controller_state", send_result);
-        return request.result;
     }
 
     std::vector<int> InputManager::get_active_controller_indices() const
@@ -644,106 +584,19 @@ namespace tbx
     void InputManager::update(const DeltaTime& delta_time)
     {
         auto active_actions = std::vector<std::reference_wrapper<InputAction>> {};
-        bool requires_keyboard = false;
-        bool requires_mouse = false;
-        auto controller_indices = std::vector<int> {};
         for (auto& [_, scheme] : _schemes)
         {
             if (!scheme.get_is_active())
                 continue;
 
             for (auto& action : scheme.get_all_actions())
-            {
                 active_actions.push_back(std::ref(action));
-
-                for (const auto& [control, scale] : action.get().get_bindings())
-                {
-                    if (std::holds_alternative<KeyboardInputControl>(control)
-                        || std::holds_alternative<KeyboardVector2CompositeInputControl>(control))
-                    {
-                        requires_keyboard = true;
-                        continue;
-                    }
-
-                    if (std::holds_alternative<MouseButtonInputControl>(control)
-                        || std::holds_alternative<MouseVectorInputControl>(control)
-                        || std::holds_alternative<MouseAxisInputControl>(control))
-                    {
-                        requires_mouse = true;
-                        continue;
-                    }
-
-                    if (std::holds_alternative<ControllerButtonInputControl>(control))
-                    {
-                        controller_indices.push_back(
-                            std::get<ControllerButtonInputControl>(control).controller_index);
-                        continue;
-                    }
-
-                    if (std::holds_alternative<ControllerAxisInputControl>(control))
-                    {
-                        controller_indices.push_back(
-                            std::get<ControllerAxisInputControl>(control).controller_index);
-                        continue;
-                    }
-
-                    if (std::holds_alternative<ControllerStickInputControl>(control))
-                    {
-                        controller_indices.push_back(
-                            std::get<ControllerStickInputControl>(control).controller_index);
-                    }
-                }
-            }
         }
 
         if (active_actions.empty())
             return;
 
-        std::ranges::sort(controller_indices);
-        controller_indices.erase(
-            std::ranges::unique(controller_indices).begin(),
-            controller_indices.end());
-
-        auto snapshot = InputDeviceSnapshot();
-        bool has_missing_handlers = false;
-
-        if (requires_keyboard)
-        {
-            auto keyboard_request = KeyboardStateRequest();
-            const Result send_result = _dispatcher->send(keyboard_request);
-            if (send_result.succeeded())
-                snapshot.keyboard = keyboard_request.result;
-            else
-                has_missing_handlers = true;
-        }
-
-        if (requires_mouse)
-        {
-            auto mouse_request = MouseStateRequest();
-            if (const Result send_result = _dispatcher->send(mouse_request);
-                send_result.succeeded())
-                snapshot.mouse = mouse_request.result;
-            else
-                has_missing_handlers = true;
-        }
-
-        for (const int controller_index : controller_indices)
-        {
-            auto controller_request = ControllerStateRequest(controller_index);
-            if (const Result send_result = _dispatcher->send(controller_request);
-                send_result.succeeded())
-                snapshot.controllers.emplace(controller_index, controller_request.result);
-            else
-                has_missing_handlers = true;
-        }
-
-        if (has_missing_handlers && !_did_warn_missing_action_input_handlers)
-        {
-            TBX_TRACE_WARNING(
-                "Active input actions are not fully handled because required "
-                "input providers are missing.\n");
-            _did_warn_missing_action_input_handlers = true;
-        }
+        const InputDeviceSnapshot snapshot = query_snapshot();
 
         for (auto& action : active_actions)
         {

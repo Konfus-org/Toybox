@@ -1,8 +1,8 @@
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/asset_events.h"
-#include "tbx/assets/asset_registry.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/events.h"
+#include "tbx/assets/registry.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_events.h"
+#include "tbx/files/events.h"
 #include "tbx/messages/dispatcher.h"
 #include <filesystem>
 
@@ -12,9 +12,7 @@ namespace tbx
     {
         Handle build_asset_handle(const AssetRegistryEntry& entry)
         {
-            Handle handle(entry.normalized_path);
-            handle.id = entry.asset_id;
-            return handle;
+            return Handle(entry.normalized_path, entry.asset_id);
         }
     }
 
@@ -74,8 +72,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset id for handle (name='{}', id={}): {}",
-                handle.name,
-                to_string(handle.id),
+                handle.get_name(),
+                to_string(handle.get_id()),
                 ensure_result.get_report());
             return {};
         }

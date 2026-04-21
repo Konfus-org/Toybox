@@ -2,7 +2,7 @@
 #include "tbx/common/string_utils.h"
 #include "tbx/common/typedefs.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include <algorithm>
 #include <chrono>
@@ -21,7 +21,7 @@
 
 namespace tbx
 {
-    static bool path_contains_directory_token(
+    static bool plugin_path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
     {
@@ -381,7 +381,7 @@ namespace tbx
             {
                 // Release builds often bundle assets into a `resources/` folder near the
                 // executable. Keep plugin discovery from crawling that subtree.
-                if (path_contains_directory_token(entry, "resources"))
+                if (plugin_path_contains_directory_token(entry, "resources"))
                     continue;
 
                 if (file_ops.get_type(entry) != FileType::FILE)

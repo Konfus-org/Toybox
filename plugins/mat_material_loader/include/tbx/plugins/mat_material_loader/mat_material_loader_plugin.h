@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/assets/asset_manager.h"
-#include "tbx/assets/asset_requests.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/assets/manager.h"
+#include "tbx/assets/requests.h"
+#include "tbx/files/ops.h"
 #include "tbx/plugin_api/plugin.h"
 #include "tbx/plugin_api/plugin_export.h"
 #include <filesystem>
@@ -18,7 +18,7 @@ namespace mat_material_loader
     class TBX_PLUGIN_API MatMaterialLoaderPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
 
         /// @brief

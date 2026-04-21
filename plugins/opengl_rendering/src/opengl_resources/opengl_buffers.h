@@ -1,7 +1,7 @@
 #pragma once
 #include "opengl_resource.h"
 #include "tbx/common/typedefs.h"
-#include "tbx/graphics/graphics_settings.h"
+#include "tbx/graphics/settings.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"

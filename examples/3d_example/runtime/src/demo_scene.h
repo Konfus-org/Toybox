@@ -7,7 +7,7 @@
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/post_processing.h"
-#include "tbx/input/input_manager.h"
+#include "tbx/input/manager.h"
 #include "tbx/physics/collider.h"
 #include "tbx/time/delta_time.h"
 
@@ -16,7 +16,7 @@ namespace three_d_example
     class DemoScene final
     {
       public:
-        DemoScene(tbx::EntityRegistry& entity_registry, tbx::InputManager& input_manager);
+        DemoScene(tbx::EntityRegistry& entity_registry, tbx::IInputManager& input_manager);
         ~DemoScene();
 
         DemoScene(const DemoScene&) = delete;

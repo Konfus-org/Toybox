@@ -25,14 +25,14 @@ namespace tbx::tests::graphics
         const auto normal_map = material.get_texture_handle_or(PbrMaterial::NORMAL_MAP);
 
         // Assert
-        EXPECT_EQ(material.get_handle().id, PbrMaterial::HANDLE.id);
+        EXPECT_EQ(material.get_handle().get_id(), PbrMaterial::HANDLE.get_id());
         EXPECT_FLOAT_EQ(color.r, 0.25f);
         EXPECT_FLOAT_EQ(color.g, 0.5f);
         EXPECT_FLOAT_EQ(color.b, 0.75f);
         EXPECT_FLOAT_EQ(diffuse_strength, 0.9f);
         EXPECT_FLOAT_EQ(emissive_strength, 0.5f);
-        EXPECT_EQ(diffuse_map.id, CheckerboardTexture::HANDLE.id);
-        EXPECT_EQ(normal_map.name, "Textures/NeutralNormal.png");
+        EXPECT_EQ(diffuse_map.get_id(), CheckerboardTexture::HANDLE.get_id());
+        EXPECT_EQ(normal_map.get_name(), "Textures/NeutralNormal.png");
     }
 
     // Validates that depth overrides are tracked separately from material asset config.

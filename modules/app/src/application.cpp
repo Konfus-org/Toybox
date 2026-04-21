@@ -1,12 +1,17 @@
 #include "tbx/app/application.h"
-#include "tbx/app/app_events.h"
-#include "tbx/app/app_requests.h"
+#include "tbx/app/events.h"
+#include "tbx/app/requests.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/files/file_ops.h"
+#include "tbx/files/ops.h"
+#include "tbx/graphics/events.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/time/delta_time.h"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <memory>
+#include <stdexcept>
 
 namespace tbx
 {
@@ -21,28 +26,56 @@ namespace tbx
 #endif
     }
 
+#if defined(TBX_DEBUG)
+    static std::string build_debug_window_title(
+        const std::string& base_title,
+        GraphicsApi graphics_api,
+        uint average_fps)
+    {
+        auto title = base_title;
+        title += " [";
+        title += to_string(graphics_api);
+        title += ", FPS: ";
+        title += std::to_string(average_fps);
+        title += "]";
+        return title;
+    }
+#endif
+
+    static ServiceProvider create_service_provider(const AppDescription& desc)
+    {
+        auto service_provider = ServiceProvider {};
+
+        service_provider.register_service<Handle>(std::make_unique<Handle>(desc.icon));
+        service_provider.register_service<IMessageCoordinator>(
+            std::make_unique<AppMessageCoordinator>());
+        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+            &service_provider.get_service<IMessageCoordinator>(),
+            desc.working_root));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
+            service_provider.get_service<IMessageCoordinator>(),
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {0, 0}));
+        service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
+        service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
+
+        return service_provider;
+    }
+
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
-        , _icon_handle(desc.icon)
-        , _input_manager(_msg_coordinator)
-        , _asset_manager(&_msg_coordinator, desc.working_root)
-        , _plugin_manager(*this)
-        , _settings(_msg_coordinator, false, GraphicsApi::OPEN_GL, {0, 0})
-        , _main_window(
-              _msg_coordinator,
-              desc.name.empty() ? std::string("Toybox Application") : desc.name,
-              {1280, 720},
-              WindowMode::WINDOWED,
-              false)
+        , _service_provider(create_service_provider(desc))
+        , _plugin_manager(_service_provider)
     {
+        auto& settings = _service_provider.get_service<AppSettings>();
         const auto file_operator = FileOperator(desc.working_root);
-        _settings.paths.working_directory = file_operator.get_working_directory();
+        settings.paths.working_directory = file_operator.get_working_directory();
         if (desc.logs_directory.empty())
-            _settings.paths.logs_directory = file_operator.resolve("logs");
+            settings.paths.logs_directory = file_operator.resolve("logs");
         else
-            _settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
-
-        add_default_asset_directory();
+            settings.paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
         for (auto& arg : desc.args)
         {
@@ -65,10 +98,16 @@ namespace tbx
     {
         try
         {
-            GlobalDispatcherScope scope(_msg_coordinator);
+            auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+            GlobalDispatcherScope scope(msg_coordinator);
 
             auto timer = DeltaTimer();
-            _main_window.is_open = true;
+            auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+            if (window_manager && _main_window.is_valid() && !window_manager->open(_main_window))
+            {
+                TBX_TRACE_ERROR("Failed to open application main window.");
+                return -1;
+            }
 
             while (!_should_exit)
             {
@@ -94,61 +133,125 @@ namespace tbx
         return _name;
     }
 
-    const Handle& Application::get_icon_handle() const
+    ServiceProvider& Application::get_service_provider()
     {
-        return _icon_handle;
+        return _service_provider;
     }
 
-    AppSettings& Application::get_settings()
+    const ServiceProvider& Application::get_service_provider() const
     {
-        return _settings;
+        return _service_provider;
     }
 
-    IMessageCoordinator& Application::get_message_coordinator()
+    void Application::setup_filesystem_directories()
     {
-        return _msg_coordinator;
-    }
-
-    InputManager& Application::get_input_manager()
-    {
-        return _input_manager;
-    }
-
-    EntityRegistry& Application::get_entity_registry()
-    {
-        return _entity_registry;
-    }
-
-    AssetManager& Application::get_asset_manager()
-    {
-        return _asset_manager;
-    }
-
-    JobSystem& Application::get_job_system()
-    {
-        return _job_manager;
-    }
-
-    ThreadManager& Application::get_thread_manager()
-    {
-        return _thread_manager;
-    }
-
-    void Application::add_default_asset_directory()
-    {
+        auto& settings = _service_provider.get_service<AppSettings>();
+        auto& asset_manager = _service_provider.get_service<AssetManager>();
         const auto resource_directory = get_default_asset_directory();
-        if (resource_directory.empty())
-            return;
+        if (!resource_directory.empty())
+            asset_manager.add_directory(resource_directory);
 
-        _asset_manager.add_directory(resource_directory);
+        TBX_TRACE_INFO("Working Directory: '{}'", settings.paths.working_directory.string());
+        TBX_TRACE_INFO("Logs Directory: '{}'", settings.paths.logs_directory.string());
+        auto asset_roots = asset_manager.get_directories();
+        if (asset_roots.size() > 1)
+        {
+            TBX_TRACE_INFO("Asset Directories:");
+            for (const auto& root : asset_roots)
+                TBX_TRACE_INFO("    -'{}'", root.string());
+        }
+        else if (!asset_roots.empty())
+            TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
+        else
+            TBX_TRACE_INFO("Asset Directory: <none>");
+    }
+
+    void Application::setup_main_window()
+    {
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager)
+        {
+            TBX_TRACE_INFO("Window manager not found. Running without a main window.");
+            return;
+        }
+
+        _main_window_base_title = _name.empty() ? std::string("Toybox Application") : _name;
+        _main_window = window_manager->create(
+            WindowCreateInfo {
+                .title = _main_window_base_title,
+                .size = {1280, 720},
+                .mode = WindowMode::WINDOWED,
+                .open_on_creation = false,
+            });
+    }
+
+    void Application::compose_rendering_service()
+    {
+        auto& settings = _service_provider.get_service<AppSettings>().graphics;
+        if (settings.graphics_api.value == GraphicsApi::NONE)
+        {
+            TBX_TRACE_INFO("Rendering disabled because graphics API is set to None.");
+            return;
+        }
+
+        auto* backend = _service_provider.try_get_service<IGraphicsBackend>();
+        if (!backend)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no graphics backend is registered.");
+            return;
+        }
+
+        if (backend->get_api() != settings.graphics_api.value)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because selected graphics API '{}' does "
+                "not match available backend '{}'.",
+                to_string(settings.graphics_api.value),
+                to_string(backend->get_api()));
+            return;
+        }
+
+        auto* context_manager = _service_provider.try_get_service<IGraphicsContextManager>();
+        if (!context_manager)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no graphics context manager is "
+                "registered.");
+            return;
+        }
+
+        if (_service_provider.has_service<IRendering>())
+            _service_provider.deregister_service<IRendering>();
+
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering service composition skipped because no window manager is registered.");
+            return;
+        }
+
+        _service_provider.register_service<IRendering>(std::make_unique<Rendering>(
+            _service_provider.get_service<IMessageCoordinator>(),
+            _service_provider.get_service<ThreadManager>(),
+            _service_provider.get_service<EntityRegistry>(),
+            _service_provider.get_service<AssetManager>(),
+            _service_provider.get_service<JobSystem>(),
+            settings,
+            *window_manager,
+            *context_manager,
+            *backend));
     }
 
     void Application::initialize(const std::vector<std::string>& requested_plugins)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
+        auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+        auto& settings = _service_provider.get_service<AppSettings>();
         try
         {
-            GlobalDispatcherScope scope(_msg_coordinator);
+            GlobalDispatcherScope scope(msg_coordinator);
 
             TBX_TRACE_INFO("Initializing application: {}", _name);
 #if defined(TBX_RELEASE)
@@ -158,35 +261,25 @@ namespace tbx
 #endif
 
             // Register app message handler
-            _msg_coordinator.register_handler(
+            msg_coordinator.register_handler(
                 [this](Message& msg)
                 {
                     recieve_message(msg);
                 });
 
+            setup_filesystem_directories();
+
             // Load requested plugins
             _plugin_manager.load(
-                _settings.paths.working_directory,
+                settings.paths.working_directory,
                 requested_plugins,
-                _settings.paths.working_directory);
+                settings.paths.working_directory);
 
-            // Log filesystem directories
-            TBX_TRACE_INFO("Working Directory: '{}'", _settings.paths.working_directory.string());
-            TBX_TRACE_INFO("Logs Directory: '{}'", _settings.paths.logs_directory.string());
-            auto asset_roots = _asset_manager.get_directories();
-            if (asset_roots.size() > 1)
-            {
-                TBX_TRACE_INFO("Asset Directories:");
-                for (const auto& root : asset_roots)
-                    TBX_TRACE_INFO("    -'{}'", root.string());
-            }
-            else if (!asset_roots.empty())
-                TBX_TRACE_INFO("Asset Directory: {}", asset_roots.front().string());
-            else
-                TBX_TRACE_INFO("Asset Directory: <none>");
+            setup_main_window();
+            compose_rendering_service();
 
             // Tell everyone we're initialized
-            _msg_coordinator.send<ApplicationInitializedEvent>(this);
+            msg_coordinator.send<ApplicationInitializedEvent>(this);
 
             auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
                                           std::chrono::steady_clock::now() - startup_begin)
@@ -218,8 +311,11 @@ namespace tbx
 
     void Application::update(DeltaTimer& timer)
     {
+        auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+        auto& asset_manager = _service_provider.get_service<AssetManager>();
+
         // Process messages posted in previous frame
-        _msg_coordinator.flush();
+        msg_coordinator.flush();
 
         // Update delta time
         DeltaTime dt = timer.tick();
@@ -227,7 +323,7 @@ namespace tbx
         _asset_unload_elapsed_seconds += dt.seconds;
 
         // Begin update
-        _msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
+        msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
 
         // Run fixed update logic
         fixed_update(dt);
@@ -235,16 +331,24 @@ namespace tbx
         // Update all loaded plugins
         _plugin_manager.update(dt);
 
-        _input_manager.update(dt);
+        if (auto* rendering = _service_provider.try_get_service<IRendering>())
+            rendering->render();
+
+        if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
+            input_manager->update(dt);
+
+#if defined(TBX_DEBUG)
+        update_debug_main_window_title(dt);
+#endif
 
         // End update
-        _msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
+        msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
 
         // Gather metrics
         ++_update_count;
         if (_asset_unload_elapsed_seconds >= 1.0)
         {
-            _asset_manager.unload_unreferenced();
+            asset_manager.unload_unreferenced();
             _asset_unload_elapsed_seconds = 0.0;
         }
 
@@ -307,9 +411,51 @@ namespace tbx
         }
     }
 
+#if defined(TBX_DEBUG)
+    void Application::update_debug_main_window_title(const DeltaTime& dt)
+    {
+        if (!_main_window.is_valid())
+            return;
+
+        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager || !window_manager->is_open(_main_window))
+            return;
+
+        _debug_window_title_elapsed_seconds += dt.seconds;
+        ++_debug_window_title_frame_count;
+
+        constexpr double debug_window_title_interval_seconds = 0.25;
+        if (_debug_window_title_elapsed_seconds < debug_window_title_interval_seconds)
+            return;
+
+        auto average_fps = uint {0U};
+        if (_debug_window_title_elapsed_seconds > 0.0 && _debug_window_title_frame_count > 0U)
+        {
+            const auto average_fps_value = static_cast<double>(_debug_window_title_frame_count)
+                                           / _debug_window_title_elapsed_seconds;
+            average_fps = static_cast<uint>(std::lround(average_fps_value));
+        }
+
+        const auto& settings = _service_provider.get_service<AppSettings>();
+        const auto next_title = build_debug_window_title(
+            _main_window_base_title,
+            settings.graphics.graphics_api,
+            average_fps);
+
+        if (_debug_main_window_title != next_title)
+        {
+            window_manager->set_title(_main_window, next_title);
+            _debug_main_window_title = next_title;
+        }
+
+        _debug_window_title_elapsed_seconds = 0.0;
+        _debug_window_title_frame_count = 0U;
+    }
+#endif
+
     void Application::fixed_update(const DeltaTime& dt)
     {
-        auto& physics_settings = _settings.physics;
+        auto& physics_settings = _service_provider.get_service<AppSettings>().physics;
         double fixed_step_seconds =
             std::max(0.0001, static_cast<double>(physics_settings.fixed_time_step_seconds.value));
         int max_sub_steps = std::max(1, static_cast<int>(physics_settings.max_sub_steps.value));
@@ -341,7 +487,11 @@ namespace tbx
 
     void Application::shutdown()
     {
-        GlobalDispatcherScope scope(_msg_coordinator);
+        auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+        auto& entity_registry = _service_provider.get_service<EntityRegistry>();
+        auto& asset_manager = _service_provider.get_service<AssetManager>();
+        auto& thread_manager = _service_provider.get_service<ThreadManager>();
+        GlobalDispatcherScope scope(msg_coordinator);
         const auto shutdown_begin = std::chrono::steady_clock::now();
 
         try
@@ -355,25 +505,30 @@ namespace tbx
                 _update_count);
 
             // 1. Send shutdown event
-            _msg_coordinator.send<ApplicationShutdownEvent>(this);
+            msg_coordinator.send<ApplicationShutdownEvent>(this);
 
             // 2. Close main window
-            //_main_window.is_open = false;
+            if (auto* window_manager = _service_provider.try_get_service<IWindowManager>())
+            {
+                if (_main_window.is_valid())
+                    window_manager->destroy(_main_window);
+            }
+            _main_window = {};
             _should_exit = true;
 
             // 3. Detach and unload plugins using dependency-aware unload ordering.
             _plugin_manager.unload_all();
 
             // 4. Unregister all entities and unload assets after plugin teardown.
-            _entity_registry.clear();
-            _asset_manager.unload_all();
+            entity_registry.clear();
+            asset_manager.unload_all();
 
             // 5. Stop dedicated thread lanes after plugin teardown.
-            _thread_manager.stop_all();
+            thread_manager.stop_all();
 
             // 6. Process any remaining posted messages and clear handlers
-            _msg_coordinator.flush();
-            _msg_coordinator.clear_handlers();
+            msg_coordinator.flush();
+            msg_coordinator.clear_handlers();
         }
         catch (const std::exception& ex)
         {
@@ -414,13 +569,12 @@ namespace tbx
             return;
         }
 
-        if (auto* open_event = handle_property_changed<&Window::is_open>(msg))
+        if (auto* closed_event = handle_message<WindowClosedEvent>(msg))
         {
-            if (open_event->owner == &_main_window && !open_event->current)
+            if (closed_event->window == _main_window)
                 _should_exit = true;
         }
 
         _plugin_manager.receive_message(msg);
     }
-
 }

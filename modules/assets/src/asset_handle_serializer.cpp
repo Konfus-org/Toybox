@@ -1,4 +1,4 @@
-#include "tbx/assets/asset_handle_serializer.h"
+#include "tbx/assets/handle_serializer.h"
 #include "tbx/files/json.h"
 #include <regex>
 
@@ -6,10 +6,7 @@ namespace tbx
 {
     static Handle make_asset_handle(const std::filesystem::path& asset_path, Uuid id)
     {
-        auto handle = Handle();
-        handle.name = asset_path.lexically_normal().generic_string();
-        handle.id = id;
-        return handle;
+        return Handle(asset_path.lexically_normal().generic_string(), id);
     }
 
     static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
@@ -121,7 +118,7 @@ namespace tbx
             return false;
 
         auto replacement = std::string("\"id\": \"");
-        replacement += to_string(handle.id);
+        replacement += to_string(handle.get_id());
         replacement += "\"";
 
         const auto id_pattern = std::regex("\\\"id\\\"\\s*:\\s*\\\"[^\\\"]*\\\"");

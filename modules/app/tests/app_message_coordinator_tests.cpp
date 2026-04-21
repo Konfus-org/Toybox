@@ -1,8 +1,8 @@
 #include "pch.h"
-#include "tbx/app/app_message_coordinator.h"
+#include "tbx/app/message_coordinator.h"
 #include "tbx/async/cancellation_token.h"
 #include "tbx/messages/message.h"
-#include "tbx/time/time_span.h"
+#include "tbx/time/span.h"
 #include <any>
 #include <atomic>
 #include <chrono>

@@ -13,7 +13,7 @@
 
 namespace three_d_example
 {
-    DemoScene::DemoScene(tbx::EntityRegistry& entity_registry, tbx::InputManager& input_manager)
+    DemoScene::DemoScene(tbx::EntityRegistry& entity_registry, tbx::IInputManager& input_manager)
         : _entity_registry(&entity_registry)
         , _demo_room(
               entity_registry,

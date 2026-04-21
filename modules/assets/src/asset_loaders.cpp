@@ -1,6 +1,6 @@
-#include "tbx/assets/asset_loaders.h"
+#include "tbx/assets/loaders.h"
 #include "tbx/assets/builtin_assets.h"
-#include "tbx/assets/asset_requests.h"
+#include "tbx/assets/requests.h"
 #include "tbx/debugging/macros.h"
 #include <cstdio>
 #include <memory>

@@ -1,25 +1,28 @@
 #pragma once
-#include "tbx/app/app_description.h"
-#include "tbx/app/app_message_coordinator.h"
-#include "tbx/app/plugin_manager.h"
-#include "tbx/app/app_settings.h"
-#include "tbx/assets/asset_manager.h"
+#include "tbx/app/description.h"
+#include "tbx/app/message_coordinator.h"
+#include "tbx/app/settings.h"
+#include "tbx/async/job_system.h"
+#include "tbx/async/thread_manager.h"
+#include "tbx/assets/manager.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/ecs/entity.h"
+#include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/window.h"
-#include "tbx/input/input_manager.h"
-#include "tbx/plugin_api/plugin_host.h"
+#include "tbx/input/manager.h"
+#include "tbx/plugin_api/plugin_manager.h"
+#include "tbx/plugin_api/service_provider.h"
 #include "tbx/time/delta_time.h"
 #include <string>
 #include <vector>
 
 namespace tbx
 {
-    class TBX_API Application : public IPluginHost
+    class TBX_API Application
     {
       public:
         Application(const AppDescription& desc);
-        ~Application() noexcept override;
+        ~Application() noexcept;
 
       public:
         /// @brief
@@ -34,85 +37,31 @@ namespace tbx
         /// @details
         /// Ownership: Returns a reference owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        const std::string& get_name() const override;
+        const std::string& get_name() const;
 
-        /// @brief
-        /// Purpose: Returns the immutable startup icon handle used for native windows.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        const Handle& get_icon_handle() const override;
-
-        /// @brief
-        /// Purpose: Returns the mutable application settings.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        AppSettings& get_settings() override;
-
-        /// @brief
-        /// Purpose: Returns the application message coordinator.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        IMessageCoordinator& get_message_coordinator() override;
-
-        /// @brief
-        /// Purpose: Returns the application entity manager instance.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        EntityRegistry& get_entity_registry() override;
-
-        /// @brief
-        /// Purpose: Returns the application-owned asset manager.
-        /// @details
-        /// Ownership: The application retains ownership; callers receive a reference.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        AssetManager& get_asset_manager() override;
-
-        /// @brief
-        /// Purpose: Returns the application job manager for asynchronous scheduling.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Thread-safe according to JobSystem guarantees.
-        JobSystem& get_job_system() override;
-
-        /// @brief
-        /// Purpose: Returns the application thread manager for dedicated lane scheduling.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Thread-safe according to ThreadManager guarantees.
-        ThreadManager& get_thread_manager() override;
-
-        /// @brief
-        /// Purpose: Returns the application input manager instance.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        InputManager& get_input_manager() override;
+        ServiceProvider& get_service_provider();
+        const ServiceProvider& get_service_provider() const;
 
       private:
-        void add_default_asset_directory();
+        void setup_filesystem_directories();
+        void setup_main_window();
+        void compose_rendering_service();
         void initialize(const std::vector<std::string>& requested_plugins);
         void update(DeltaTimer& timer);
         void fixed_update(const DeltaTime& dt);
+#if defined(TBX_DEBUG)
+        void update_debug_main_window_title(const DeltaTime& dt);
+#endif
         void shutdown();
         void recieve_message(Message& msg);
 
       private:
         bool _should_exit = false;
         std::string _name = "App";
-        Handle _icon_handle = ToyboxIcon::HANDLE;
-        EntityRegistry _entity_registry = {};
-        AppMessageCoordinator _msg_coordinator = {};
-        InputManager _input_manager;
-        AssetManager _asset_manager;
+        ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
-        AppSettings _settings;
-        JobSystem _job_manager;
-        ThreadManager _thread_manager;
-        Window _main_window;
+        Window _main_window = {};
+        std::string _main_window_base_title = {};
 
         uint _update_count = 0;
         double _time_running = 0;
@@ -125,5 +74,11 @@ namespace tbx
 
         double _asset_unload_elapsed_seconds = 0.0;
         double _fixed_update_accumulator_seconds = 0.0;
+
+#if defined(TBX_DEBUG)
+        std::string _debug_main_window_title = {};
+        double _debug_window_title_elapsed_seconds = 0.0;
+        uint _debug_window_title_frame_count = 0U;
+#endif
     };
 }

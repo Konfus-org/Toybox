@@ -1,5 +1,5 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-#include "tbx/assets/asset_requests.h"
+#include "tbx/assets/requests.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/mesh.h"
@@ -183,7 +183,7 @@ namespace assimp_model_loader
         }
     }
 
-    void AssimpModelLoaderPlugin::on_attach(tbx::IPluginHost&) {}
+    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider&) {}
 
     void AssimpModelLoaderPlugin::on_detach() {}
 
