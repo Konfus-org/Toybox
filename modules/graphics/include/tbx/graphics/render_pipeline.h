@@ -80,6 +80,19 @@ namespace tbx
         float camera_distance_squared = 0.0F;
     };
 
+    struct TBX_API RenderFallbacks
+    {
+        Uuid white_texture_resource = {};
+        Uuid material_resource = {};
+        Uuid mesh_resource = {};
+    };
+
+    struct TBX_API RenderUniformNames
+    {
+        std::string view_projection = "u_view_proj";
+        std::string model = "u_model";
+    };
+
     struct TBX_API DirectionalLightFrameData
     {
         Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
@@ -172,12 +185,16 @@ namespace tbx
         ShadowFrameData shadows = {};
         std::vector<PointLightFrameData> point_lights = {};
         std::vector<RenderShadowItem> draw_items = {};
+        Uuid shadow_shader_program = {};
+        RenderFallbacks fallbacks = {};
     };
 
     struct TBX_API GeometryRenderInfo
     {
         Mat4 view_projection = Mat4(1.0F);
         std::vector<RenderDrawItem> draw_items = {};
+        RenderFallbacks fallbacks = {};
+        RenderUniformNames uniforms = {};
     };
 
     struct TBX_API LightingRenderInfo
@@ -194,17 +211,25 @@ namespace tbx
         std::vector<AreaLightFrameData> area_lights = {};
         ShadowFrameData shadows = {};
         RenderStage render_stage = RenderStage::FINAL_COLOR;
+        Uuid lighting_shader_program = {};
+        Uuid scratch_color_texture = {};
+        RenderFallbacks fallbacks = {};
     };
 
     struct TBX_API TransparentRenderInfo
     {
         Mat4 view_projection = Mat4(1.0F);
         std::vector<RenderDrawItem> draw_items = {};
+        RenderFallbacks fallbacks = {};
+        RenderUniformNames uniforms = {};
     };
 
     struct TBX_API PostProcessingPass
     {
         std::optional<PostProcessing> post_processing = std::nullopt;
+        Uuid post_shader_program = {};
+        Uuid scratch_color_texture = {};
+        RenderFallbacks fallbacks = {};
     };
 
 
