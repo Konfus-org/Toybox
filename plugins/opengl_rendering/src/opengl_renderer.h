@@ -8,7 +8,7 @@
 #include "tbx/assets/manager.h"
 #include "tbx/async/job_system.h"
 #include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/messages.h"
+#include "tbx/graphics/render_pipeline.h"
 #include <functional>
 #include <memory>
 #include <optional>

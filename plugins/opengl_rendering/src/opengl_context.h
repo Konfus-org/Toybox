@@ -1,21 +1,21 @@
 #pragma once
 #include "tbx/common/result.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/graphics/window.h"
-#include "tbx/messages/dispatcher.h"
 #include <functional>
 
 namespace opengl_rendering
 {
     /// @brief
     /// Purpose: Stores the target window identifier and exposes helper calls to make the context
-    /// current and present through the message dispatcher.
+    /// current and present through the registered OpenGL context manager service.
     /// @details
     /// Ownership: Stores a non-owning dispatcher pointer and a copied window identifier.
     /// Thread Safety: Not thread-safe; use from the render thread that owns OpenGL calls.
     class OpenGlContext final
     {
       public:
-        OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Window& window_id);
+        OpenGlContext(tbx::IOpenGlContextManager& context_manager, const tbx::Window& window_id);
 
         /// @brief
         /// Purpose: Exposes the bound window id for diagnostics and routing.
@@ -40,7 +40,7 @@ namespace opengl_rendering
         tbx::Result present() const;
 
       private:
-        std::reference_wrapper<tbx::IMessageDispatcher> _dispatcher;
+        std::reference_wrapper<tbx::IOpenGlContextManager> _context_manager;
         tbx::Window _window_id = {};
     };
 }

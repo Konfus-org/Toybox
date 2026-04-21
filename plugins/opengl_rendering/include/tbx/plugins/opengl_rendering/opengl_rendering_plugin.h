@@ -5,6 +5,7 @@
 #include "tbx/async/job_system.h"
 #include "tbx/async/thread_manager.h"
 #include "tbx/ecs/entity_registry.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/graphics/window.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
@@ -31,6 +32,7 @@ namespace opengl_rendering
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
+        void create_renderer(const tbx::Window& window_id, const tbx::Size& viewport_size);
         void teardown_renderer(const tbx::Window& window_id);
 
       private:
@@ -38,8 +40,9 @@ namespace opengl_rendering
         tbx::AssetManager* _asset_manager = nullptr;
         tbx::EntityRegistry* _entity_registry = nullptr;
         tbx::JobSystem* _job_system = nullptr;
-        tbx::IMessageCoordinator* _message_coordinator = nullptr;
+        tbx::IOpenGlContextManager* _open_gl_context_manager = nullptr;
         tbx::AppSettings* _settings = nullptr;
         tbx::ThreadManager* _thread_manager = nullptr;
+        tbx::IWindowManager* _window_manager = nullptr;
     };
 }

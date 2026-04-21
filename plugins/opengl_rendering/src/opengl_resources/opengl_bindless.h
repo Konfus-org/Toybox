@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/typedefs.h"
-#include "tbx/graphics/messages.h"
+#include "tbx/graphics/render_pipeline.h"
 
 namespace opengl_rendering
 {

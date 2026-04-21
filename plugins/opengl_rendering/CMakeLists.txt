@@ -29,4 +29,5 @@ tbx_register_plugin(
         VERSION "1.0.0"
         CATEGORY "rendering"
         PRIORITY 100
+        DEPENDENCIES SdlOpenGlContextManagerPlugin
 )

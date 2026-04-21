@@ -7,6 +7,7 @@
 #include "tbx/assets/events.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity_registry.h"
+#include "tbx/graphics/messages.h"
 #include "tbx/graphics/settings.h"
 #include <functional>
 #include <future>
@@ -21,19 +22,30 @@ namespace opengl_rendering
 
     void OpenGlRenderingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _message_coordinator = &service_provider.get_service<tbx::IMessageCoordinator>();
         _thread_manager = &service_provider.get_service<tbx::ThreadManager>();
         _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
         _asset_manager = &service_provider.get_service<tbx::AssetManager>();
         _job_system = &service_provider.get_service<tbx::JobSystem>();
         _settings = &service_provider.get_service<tbx::AppSettings>();
+        _open_gl_context_manager = service_provider.try_get_service<tbx::IOpenGlContextManager>();
+        _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
 
         _thread_manager->try_create_lane(OPENGL_RENDER_LANE_NAME);
+
+        if (_settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL && _window_manager)
+        {
+            for (const auto& window_id : _window_manager->get_open_windows())
+                create_renderer(window_id, _window_manager->get_size(window_id));
+        }
     }
 
     void OpenGlRenderingPlugin::on_detach()
     {
+        auto windows = std::vector<tbx::Window> {};
+        windows.reserve(_renderers.size());
         for (const auto& window_id : _renderers | std::views::keys)
+            windows.push_back(window_id);
+        for (const auto& window_id : windows)
             teardown_renderer(window_id);
 
         if (_thread_manager)
@@ -42,9 +54,10 @@ namespace opengl_rendering
         _asset_manager = nullptr;
         _entity_registry = nullptr;
         _job_system = nullptr;
-        _message_coordinator = nullptr;
+        _open_gl_context_manager = nullptr;
         _settings = nullptr;
         _thread_manager = nullptr;
+        _window_manager = nullptr;
     }
 
     void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)
@@ -102,47 +115,15 @@ namespace opengl_rendering
             return;
         }
 
-        if (auto* ready_event = tbx::handle_message<tbx::WindowContextReadyEvent>(msg))
+        if (const auto* opened_event = tbx::handle_message<tbx::WindowOpenedEvent>(msg))
         {
-            if (!_message_coordinator || !_thread_manager || !_entity_registry || !_asset_manager
-                || !_job_system || !_settings)
+            if (!_settings || _settings->graphics.graphics_api != tbx::GraphicsApi::OPEN_GL)
                 return;
 
-            auto context = OpenGlContext(*_message_coordinator, ready_event->window);
-            auto renderer = std::unique_ptr<OpenGlRenderer> {};
-            auto entity_registry = std::ref(*_entity_registry);
-            auto asset_manager = std::ref(*_asset_manager);
-            auto job_system = std::ref(*_job_system);
-            auto render_resolution = ready_event->size;
-            auto render_stage = _settings->graphics.render_stage.value;
-            auto create_renderer_future = _thread_manager->post_with_future(
-                OPENGL_RENDER_LANE_NAME,
-                [loader = ready_event->get_proc_address,
-                 entity_registry,
-                 asset_manager,
-                 job_system,
-                 context = std::move(context),
-                 render_resolution,
-                 render_stage]() mutable
-                {
-                    auto gl_renderer = std::make_unique<OpenGlRenderer>(
-                        loader,
-                        entity_registry.get(),
-                        asset_manager.get(),
-                        job_system.get(),
-                        std::move(context));
-                    gl_renderer->set_viewport_size(render_resolution);
-                    gl_renderer->set_pending_render_resolution(render_resolution);
-                    gl_renderer->set_render_stage(render_stage);
-                    return gl_renderer;
-                });
-            renderer = create_renderer_future.get();
-
-            _renderers[ready_event->window] = std::move(renderer);
-
-            TBX_TRACE_INFO(
-                "OpenGL rendering: renderer ready for window {}.",
-                tbx::to_string(ready_event->window));
+            auto viewport_size = tbx::Size {};
+            if (_window_manager)
+                viewport_size = _window_manager->get_size(opened_event->window);
+            create_renderer(opened_event->window, viewport_size);
             return;
         }
 
@@ -156,7 +137,11 @@ namespace opengl_rendering
         {
             const auto renderer_it = _renderers.find(size_event->window);
             if (renderer_it == _renderers.end())
+            {
+                if (_settings && _settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL)
+                    create_renderer(size_event->window, size_event->current);
                 return;
+            }
 
             auto* renderer = renderer_it->second.get();
             if (!renderer)
@@ -174,6 +159,28 @@ namespace opengl_rendering
                         renderer->set_pending_render_resolution(viewport_size);
                     })
                 .get();
+            return;
+        }
+
+        if (const auto* graphics_event =
+                tbx::handle_property_changed<&tbx::GraphicsSettings::graphics_api>(msg))
+        {
+            if (graphics_event->current != tbx::GraphicsApi::OPEN_GL)
+            {
+                auto windows = std::vector<tbx::Window> {};
+                windows.reserve(_renderers.size());
+                for (const auto& window_id : _renderers | std::views::keys)
+                    windows.push_back(window_id);
+                for (const auto& window_id : windows)
+                    teardown_renderer(window_id);
+                return;
+            }
+
+            if (_window_manager)
+            {
+                for (const auto& window_id : _window_manager->get_open_windows())
+                    create_renderer(window_id, _window_manager->get_size(window_id));
+            }
             return;
         }
 
@@ -203,6 +210,69 @@ namespace opengl_rendering
             for (auto& set_stage_future : set_stage_futures)
                 set_stage_future.get();
         }
+    }
+
+    void OpenGlRenderingPlugin::create_renderer(
+        const tbx::Window& window_id,
+        const tbx::Size& viewport_size)
+    {
+        if (_renderers.contains(window_id))
+            return;
+        if (!_open_gl_context_manager || !_thread_manager || !_entity_registry || !_asset_manager
+            || !_job_system || !_settings)
+            return;
+        if (!_thread_manager->has_lane(OPENGL_RENDER_LANE_NAME))
+            return;
+
+        auto context = OpenGlContext(*_open_gl_context_manager, window_id);
+        auto entity_registry = std::ref(*_entity_registry);
+        auto asset_manager = std::ref(*_asset_manager);
+        auto job_system = std::ref(*_job_system);
+        auto render_resolution = viewport_size;
+        if ((render_resolution.width == 0U || render_resolution.height == 0U) && _window_manager)
+            render_resolution = _window_manager->get_size(window_id);
+        auto render_stage = _settings->graphics.render_stage.value;
+        auto create_renderer_future = _thread_manager->post_with_future(
+            OPENGL_RENDER_LANE_NAME,
+            [loader = _open_gl_context_manager->get_proc_address(),
+             entity_registry,
+             asset_manager,
+             job_system,
+             context = std::move(context),
+             render_resolution,
+             render_stage]() mutable
+            {
+                if (const auto make_current_result = context.make_current(); !make_current_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "OpenGL rendering: failed to make window {} current before renderer "
+                        "creation: {}",
+                        tbx::to_string(context.get_window_id()),
+                        make_current_result.get_report());
+                    return std::unique_ptr<OpenGlRenderer>();
+                }
+
+                auto gl_renderer = std::make_unique<OpenGlRenderer>(
+                    loader,
+                    entity_registry.get(),
+                    asset_manager.get(),
+                    job_system.get(),
+                    std::move(context));
+                gl_renderer->set_viewport_size(render_resolution);
+                gl_renderer->set_pending_render_resolution(render_resolution);
+                gl_renderer->set_render_stage(render_stage);
+                return gl_renderer;
+            });
+
+        auto renderer = create_renderer_future.get();
+        if (!renderer)
+            return;
+
+        _renderers[window_id] = std::move(renderer);
+
+        TBX_TRACE_INFO(
+            "OpenGL rendering: renderer ready for window {}.",
+            tbx::to_string(window_id));
     }
 
     void OpenGlRenderingPlugin::teardown_renderer(const tbx::Window& window_id)

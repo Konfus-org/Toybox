@@ -1,11 +1,12 @@
 #include "opengl_context.h"
 #include "tbx/debugging/macros.h"
-#include "tbx/graphics/messages.h"
 
 namespace opengl_rendering
 {
-    OpenGlContext::OpenGlContext(tbx::IMessageDispatcher& dispatcher, const tbx::Window& window_id)
-        : _dispatcher(std::ref(dispatcher))
+    OpenGlContext::OpenGlContext(
+        tbx::IOpenGlContextManager& context_manager,
+        const tbx::Window& window_id)
+        : _context_manager(std::ref(context_manager))
         , _window_id(window_id)
     {
     }
@@ -25,7 +26,7 @@ namespace opengl_rendering
             return result;
         }
 
-        return _dispatcher.get().send<tbx::WindowMakeCurrentRequest>(_window_id);
+        return _context_manager.get().make_current(_window_id);
     }
 
     tbx::Result OpenGlContext::present() const
@@ -38,6 +39,6 @@ namespace opengl_rendering
             return result;
         }
 
-        return _dispatcher.get().send<tbx::WindowPresentRequest>(_window_id);
+        return _context_manager.get().present(_window_id);
     }
 }

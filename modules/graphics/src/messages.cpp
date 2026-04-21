@@ -64,31 +64,4 @@ namespace tbx
 
     WindowNativeHandleChangedEvent::~WindowNativeHandleChangedEvent() noexcept = default;
 
-    WindowMakeCurrentRequest::WindowMakeCurrentRequest(const Window& window_id)
-        : window(window_id)
-    {
-        not_handled_behavior = MessageNotHandledBehavior::ASSERT;
-    }
-
-    WindowMakeCurrentRequest::~WindowMakeCurrentRequest() noexcept = default;
-
-    WindowPresentRequest::WindowPresentRequest(const Window& window_id)
-        : window(window_id)
-    {
-        not_handled_behavior = MessageNotHandledBehavior::ASSERT;
-    }
-
-    WindowPresentRequest::~WindowPresentRequest() noexcept = default;
-
-    WindowContextReadyEvent::WindowContextReadyEvent(
-        const Window& window_id,
-        GraphicsProcAddress loader,
-        const Size& window_size)
-        : window(window_id)
-        , get_proc_address(loader)
-        , size(window_size)
-    {
-    }
-
-    WindowContextReadyEvent::~WindowContextReadyEvent() noexcept = default;
 }

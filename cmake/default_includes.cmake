@@ -50,8 +50,8 @@ function(tbx_define_default_includes)
     if (NOT TARGET Tbx::Plugins::MatMaterialLoaderPlugin)
         message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::MatMaterialLoaderPlugin (call after add_subdirectory(plugins))")
     endif ()
-    if (NOT TARGET Tbx::Plugins::SdlOpenGlAdapterPlugin)
-        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlOpenGlAdapterPlugin (call after add_subdirectory(plugins))")
+    if (NOT TARGET Tbx::Plugins::SdlOpenGlContextManagerPlugin)
+        message(WARNING "Tbx::DefaultIncludes could not find Tbx::Plugins::SdlOpenGlContextManagerPlugin (call after add_subdirectory(plugins))")
     endif ()
 
     target_link_libraries(TbxDefaultIncludes INTERFACE
@@ -64,8 +64,8 @@ function(tbx_define_default_includes)
             Tbx::Plugins::SdlInputPlugin
             Tbx::Plugins::JoltPhysicsPlugin
             Tbx::Plugins::SdlWindowingPlugin
+            Tbx::Plugins::SdlOpenGlContextManagerPlugin
             Tbx::Plugins::OpenGlRenderingPlugin
-            Tbx::Plugins::SdlOpenGlAdapterPlugin
             Tbx::Plugins::StbImageLoaderPlugin
             Tbx::Plugins::AssimpModelLoaderPlugin
             Tbx::Plugins::GlslShaderLoaderPlugin
