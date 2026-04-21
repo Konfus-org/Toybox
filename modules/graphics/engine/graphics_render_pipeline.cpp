@@ -39,6 +39,21 @@ namespace tbx
         constexpr auto AreaShadowDepthPadding = 2.0F;
         const auto DefaultClearColor = Color(0.07F, 0.08F, 0.11F, 1.0F);
         const auto PipelineFallbackFrameColor = Color(1.0F, 0.0F, 1.0F, 1.0F);
+        const auto WhiteFallbackTextureResource = Uuid(0xF1000001U);
+        const auto FallbackMagentaMaterialHandle = Handle(Uuid(0x00000038U));
+        const auto LightingPassMaterialHandle = Handle(Uuid(0x00000035U));
+        const auto PostPassMaterialHandle = Handle(Uuid(0x00000036U));
+        const auto ShadowPassMaterialHandle = Handle(Uuid(0x00000037U));
+
+        struct BackendPassResources
+        {
+            RenderFallbacks fallbacks = {};
+            RenderUniformNames uniforms = {};
+            Uuid shadow_shader_program = {};
+            Uuid lighting_shader_program = {};
+            Uuid post_shader_program = {};
+            Uuid scratch_color_texture = {};
+        };
 
         const char* to_string(const RenderPassStatus status)
         {
@@ -464,26 +479,35 @@ namespace tbx
             };
         }
 
-        ShadowRenderInfo build_shadow_render_info(const RenderScene& scene)
+        ShadowRenderInfo build_shadow_render_info(
+            const RenderScene& scene,
+            const BackendPassResources& resources)
         {
             return ShadowRenderInfo {
                 .shadows = scene.shadows,
                 .point_lights = scene.point_lights,
                 .draw_items = scene.shadow_items,
+                .shadow_shader_program = resources.shadow_shader_program,
+                .fallbacks = resources.fallbacks,
             };
         }
 
         GeometryRenderInfo build_geometry_render_info(
             const RenderScene& scene,
-            std::vector<RenderDrawItem> draw_items)
+            std::vector<RenderDrawItem> draw_items,
+            const BackendPassResources& resources)
         {
             return GeometryRenderInfo {
                 .view_projection = scene.view_projection,
                 .draw_items = std::move(draw_items),
+                .fallbacks = resources.fallbacks,
+                .uniforms = resources.uniforms,
             };
         }
 
-        LightingRenderInfo build_lighting_render_info(const RenderScene& scene)
+        LightingRenderInfo build_lighting_render_info(
+            const RenderScene& scene,
+            const BackendPassResources& resources)
         {
             return LightingRenderInfo {
                 .has_camera = scene.has_camera,
@@ -498,17 +522,68 @@ namespace tbx
                 .area_lights = scene.area_lights,
                 .shadows = scene.shadows,
                 .render_stage = scene.render_stage,
+                .lighting_shader_program = resources.lighting_shader_program,
+                .scratch_color_texture = resources.scratch_color_texture,
+                .fallbacks = resources.fallbacks,
             };
         }
 
         TransparentRenderInfo build_transparent_render_info(
             const RenderScene& scene,
-            std::vector<RenderDrawItem> draw_items)
+            std::vector<RenderDrawItem> draw_items,
+            const BackendPassResources& resources)
         {
             return TransparentRenderInfo {
                 .view_projection = scene.view_projection,
                 .draw_items = std::move(draw_items),
+                .fallbacks = resources.fallbacks,
+                .uniforms = resources.uniforms,
             };
+        }
+
+        BackendPassResources build_backend_pass_resources(
+            RenderResourceManager& resource_manager,
+            const Size& render_size)
+        {
+            auto fallback_texture = Texture {};
+            fallback_texture.resolution = {1U, 1U};
+            fallback_texture.format = TextureFormat::RGBA;
+            fallback_texture.filter = TextureFilter::NEAREST;
+            fallback_texture.wrap = TextureWrap::REPEAT;
+            fallback_texture.mipmaps = TextureMipmaps::DISABLED;
+            fallback_texture.compression = TextureCompression::DISABLED;
+            fallback_texture.pixels = {255U, 255U, 255U, 255U};
+
+            auto fallback_material = MaterialInstance {};
+            fallback_material.material = FallbackMagentaMaterialHandle;
+
+            auto lighting_material = MaterialInstance {};
+            lighting_material.material = LightingPassMaterialHandle;
+            auto post_material = MaterialInstance {};
+            post_material.material = PostPassMaterialHandle;
+            auto shadow_material = MaterialInstance {};
+            shadow_material.material = ShadowPassMaterialHandle;
+
+            auto scratch_settings = TextureSettings {};
+            scratch_settings.resolution = render_size;
+            scratch_settings.filter = TextureFilter::LINEAR;
+            scratch_settings.wrap = TextureWrap::CLAMP_TO_EDGE;
+            scratch_settings.format = TextureFormat::RGBA;
+            scratch_settings.mipmaps = TextureMipmaps::DISABLED;
+            scratch_settings.compression = TextureCompression::DISABLED;
+
+            auto resources = BackendPassResources {};
+            resources.fallbacks = RenderFallbacks {
+                .white_texture_resource =
+                    resource_manager.upload_texture(fallback_texture, WhiteFallbackTextureResource, true),
+                .material_resource = resource_manager.upload_material(fallback_material, true),
+                .mesh_resource = resource_manager.upload_dynamic_mesh(DynamicMesh(cube), true),
+            };
+            resources.shadow_shader_program = resource_manager.upload_material(shadow_material, true);
+            resources.lighting_shader_program = resource_manager.upload_material(lighting_material, true);
+            resources.post_shader_program = resource_manager.upload_material(post_material, true);
+            resources.scratch_color_texture = resource_manager.upload_render_texture(scratch_settings);
+            return resources;
         }
 
         void split_draw_items(
@@ -1196,8 +1271,9 @@ namespace tbx
                         auto opaque_draws = std::vector<RenderDrawItem> {};
                         auto transparent_draws = std::vector<RenderDrawItem> {};
                         split_draw_items(scene, opaque_draws, transparent_draws);
-
-                        const auto shadow_info = build_shadow_render_info(scene);
+                        const auto backend_resources =
+                            build_backend_pass_resources(*_resource_manager, scene.render_size);
+                        const auto shadow_info = build_shadow_render_info(scene, backend_resources);
 
                         if (const auto begin_draw_result = _backend.begin_draw(
                                 window,
@@ -1278,7 +1354,10 @@ namespace tbx
                         report_pass_outcome("shadow pass", shadow_outcome, log_state.shadows);
 
                         const auto geometry_outcome =
-                            _backend.draw_geometry(build_geometry_render_info(scene, std::move(opaque_draws)));
+                            _backend.draw_geometry(build_geometry_render_info(
+                                scene,
+                                std::move(opaque_draws),
+                                backend_resources));
                         report_pass_outcome("geometry pass", geometry_outcome, log_state.geometry);
                         if (geometry_outcome.is_fatal())
                             should_render_fallback_frame = true;
@@ -1286,7 +1365,7 @@ namespace tbx
                         if (scene.has_camera && !should_render_fallback_frame)
                         {
                             const auto lighting_outcome =
-                                _backend.draw_lighting(build_lighting_render_info(scene));
+                                _backend.draw_lighting(build_lighting_render_info(scene, backend_resources));
                             report_pass_outcome("lighting pass", lighting_outcome, log_state.lighting);
                             if (lighting_outcome.is_fatal())
                             {
@@ -1295,14 +1374,22 @@ namespace tbx
                             else
                             {
                                 const auto transparent_outcome = _backend.draw_transparent(
-                                    build_transparent_render_info(scene, std::move(transparent_draws)));
+                                    build_transparent_render_info(
+                                        scene,
+                                        std::move(transparent_draws),
+                                        backend_resources));
                                 report_pass_outcome(
                                     "transparent pass",
                                     transparent_outcome,
                                     log_state.transparency);
 
                                 const auto post_outcome = _backend.apply_post_processing(
-                                    PostProcessingPass {.post_processing = scene.post_processing});
+                                    PostProcessingPass {
+                                        .post_processing = scene.post_processing,
+                                        .post_shader_program = backend_resources.post_shader_program,
+                                        .scratch_color_texture = backend_resources.scratch_color_texture,
+                                        .fallbacks = backend_resources.fallbacks,
+                                    });
                                 report_pass_outcome(
                                     "post-processing pass",
                                     post_outcome,

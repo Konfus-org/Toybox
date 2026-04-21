@@ -1,26 +1,19 @@
 #include "opengl_renderer.h"
-#include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_bindless.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
-#include "passes/geometry_pass.h"
-#include "passes/lighting_pass.h"
-#include "passes/open_gl_draw_calls.h"
-#include "passes/post_processing_pass.h"
-#include "passes/shadow_pass.h"
-#include "passes/transparent_pass.h"
 #include "tbx/common/string_utils.h"
 #include "tbx/debugging/macros.h"
+#include <algorithm>
+#include <array>
 #include <glad/glad.h>
-#include <cstdint>
-#include <type_traits>
-#include <unordered_map>
 
 namespace opengl_rendering
 {
     namespace
     {
+
         void gl_message_callback(
             GLenum source,
             GLenum type,
@@ -86,99 +79,48 @@ namespace opengl_rendering
                 renderer_text);
         }
 
-        tbx::Uuid resolve_shader_program_for_material(
-            const tbx::Uuid& material_resource,
-            OpenGlResources& resources,
-            bool& use_fallback_material_params)
-        {
-            use_fallback_material_params = false;
-            auto shader_program_key = material_resource;
-            if (shader_program_key.is_valid())
-                return shader_program_key;
-
-            shader_program_key = get_fallback_material(resources);
-            use_fallback_material_params = true;
-            if (shader_program_key.is_valid())
-                return shader_program_key;
-
-            TBX_ASSERT(false, "Fallback magenta material program is unavailable.");
-            return {};
-        }
-
-        tbx::Uuid get_default_texture_for_binding(
-            std::string_view binding_name,
-            OpenGlResources& resources)
-        {
-            if (binding_name == "u_normal_map")
-                return get_flat_normal_texture(resources);
-            if (binding_name == "u_specular_map")
-                return get_fallback_texture(resources);
-            if (binding_name == "u_shininess_map")
-                return get_fallback_texture(resources);
-            if (binding_name == "u_emissive_map")
-                return get_fallback_texture(resources);
-            return get_fallback_texture(resources);
-        }
-
         bool try_append_material_texture(
             OpenGlMaterialParams& material_params,
             const std::string& binding_name,
             const tbx::TextureInstance& texture_instance,
+            const tbx::RenderFallbacks& fallbacks,
             OpenGlResources& resources)
         {
-            auto texture_id = tbx::Uuid {};
             if (texture_instance.handle.is_valid())
-                texture_id = texture_instance.handle.get_id();
-            else
-                texture_id = get_default_texture_for_binding(binding_name, resources);
-
-            if (!texture_id.is_valid())
-                texture_id = get_default_texture_for_binding(binding_name, resources);
-
-            if (!texture_id.is_valid())
-                return false;
-
-            auto texture_resource = std::shared_ptr<OpenGlTexture> {};
-            if (!resources.try_get<OpenGlTexture>(texture_id, texture_resource))
             {
-                TBX_TRACE_WARNING(
-                    "Failed to fetch texture resource '{}'. Using fallback texture.",
-                    texture_id.value);
+                const auto texture_id = texture_instance.handle.get_id();
+                auto texture_resource = std::shared_ptr<OpenGlTexture> {};
+                if (!texture_id.is_valid()
+                    || !resources.try_get<OpenGlTexture>(texture_id, texture_resource))
+                {
+                    return false;
+                }
+
+                material_params.textures.push_back(
+                    OpenGlMaterialTexture {
+                        .name = binding_name,
+                        .texture_id = texture_id,
+                        .gl_texture_id = texture_resource->get_texture_id(),
+                        .bindless_handle = texture_resource->get_bindless_handle(),
+                    });
+                return true;
+            }
+
+            auto fallback_texture = std::shared_ptr<OpenGlTexture> {};
+            if (!fallbacks.white_texture_resource.is_valid()
+                || !resources.try_get<OpenGlTexture>(fallbacks.white_texture_resource, fallback_texture))
+            {
                 return false;
             }
 
             material_params.textures.push_back(
                 OpenGlMaterialTexture {
                     .name = binding_name,
-                    .texture_id = texture_id,
-                    .gl_texture_id = texture_resource->get_texture_id(),
-                    .bindless_handle = texture_resource->get_bindless_handle(),
+                    .texture_id = fallbacks.white_texture_resource,
+                    .gl_texture_id = fallback_texture->get_texture_id(),
+                    .bindless_handle = fallback_texture->get_bindless_handle(),
                 });
             return true;
-        }
-
-        void append_default_material_texture_if_needed(
-            OpenGlMaterialParams& material_params,
-            OpenGlResources& resources)
-        {
-            if (!material_params.textures.empty())
-                return;
-
-            const auto fallback_texture_id = get_fallback_texture(resources);
-            auto fallback_texture_resource = std::shared_ptr<OpenGlTexture> {};
-            if (!fallback_texture_id.is_valid()
-                || !resources.try_get<OpenGlTexture>(fallback_texture_id, fallback_texture_resource))
-            {
-                return;
-            }
-
-            material_params.textures.push_back(
-                OpenGlMaterialTexture {
-                    .name = "diffuse_map",
-                    .texture_id = fallback_texture_id,
-                    .gl_texture_id = fallback_texture_resource->get_texture_id(),
-                    .bindless_handle = fallback_texture_resource->get_bindless_handle(),
-                });
         }
 
         OpenGlMaterialParams build_material_params(
@@ -186,143 +128,151 @@ namespace opengl_rendering
             const tbx::MaterialConfig& material_config,
             const tbx::ParamBindings& material_parameters,
             const tbx::TextureBindings& material_textures,
-            const bool use_fallback_material_params,
+            const tbx::RenderFallbacks& fallbacks,
             OpenGlResources& resources)
         {
             auto material_params = OpenGlMaterialParams {};
-            if (use_fallback_material_params)
-            {
-                material_params = create_magenta_fallback_material_params(tbx::Handle(material_resource));
-            }
-            else
-            {
-                material_params.material_handle = tbx::Handle(material_resource);
-                material_params.parameters.reserve(material_parameters.values.size());
-                for (const auto& [name, value] : material_parameters.values)
-                    material_params.parameters.push_back(tbx::MaterialParameter(name, value));
-            }
+            material_params.material_handle = tbx::Handle(material_resource);
+            for (const auto& [name, value] : material_parameters.values)
+                material_params.parameters.push_back(tbx::MaterialParameter(name, value));
 
             material_params.render_config = tbx::MaterialRenderConfig {
                 .depth = material_config.depth,
                 .transparency = material_config.transparency,
             };
 
-            material_params.textures.reserve(material_textures.values.size());
             for (const auto& binding : material_textures.values)
-            {
                 try_append_material_texture(
                     material_params,
                     binding.name,
                     binding.texture,
+                    fallbacks,
                     resources);
-            }
 
-            append_default_material_texture_if_needed(material_params, resources);
             return material_params;
         }
 
-        void append_shadow_draw_call(
-            std::vector<ShadowDrawCall>& shadow_draw_calls,
-            std::unordered_map<std::uint64_t, std::size_t>& shadow_draw_call_lookup,
-            const bool is_two_sided,
-            const tbx::Uuid& mesh_key,
-            const tbx::Mat4& transform_matrix,
-            const tbx::Vec3& bounds_center,
-            const float bounds_radius)
+        GLenum to_gl_depth_function(const tbx::MaterialDepthFunction function)
         {
-            const auto shadow_draw_call_key = is_two_sided ? 1ULL : 0ULL;
-            auto shadow_draw_call_it = shadow_draw_call_lookup.find(shadow_draw_call_key);
-            if (shadow_draw_call_it == shadow_draw_call_lookup.end())
+            switch (function)
             {
-                shadow_draw_calls.push_back(ShadowDrawCall {.is_two_sided = is_two_sided});
-                shadow_draw_call_it =
-                    shadow_draw_call_lookup.emplace(shadow_draw_call_key, shadow_draw_calls.size() - 1U)
-                        .first;
+                case tbx::MaterialDepthFunction::Less:
+                    return GL_LESS;
+                case tbx::MaterialDepthFunction::LessEqual:
+                    return GL_LEQUAL;
+                case tbx::MaterialDepthFunction::Always:
+                    return GL_ALWAYS;
+                default:
+                    return GL_LESS;
             }
-
-            auto& shadow_draw_call = shadow_draw_calls[shadow_draw_call_it->second];
-            shadow_draw_call.meshes.push_back(mesh_key);
-            shadow_draw_call.transforms.push_back(transform_matrix);
-            shadow_draw_call.bounds_centers.push_back(bounds_center);
-            shadow_draw_call.bounds_radii.push_back(bounds_radius);
         }
 
-        void append_visible_draw_call(
-            std::vector<DrawCall>& draw_calls,
-            std::vector<TransparentDrawCall>& transparent_draw_calls,
-            std::unordered_map<std::uint64_t, std::size_t>& draw_call_lookup,
-            const tbx::Uuid& shader_program_key,
-            const bool is_two_sided,
-            const tbx::MaterialBlendMode blend_mode,
-            const tbx::Uuid& mesh_key,
-            OpenGlMaterialParams&& material_params,
-            const tbx::Mat4& transform_matrix,
-            const float camera_distance_squared)
+        void apply_depth_config(const tbx::MaterialDepthConfig& depth_config)
         {
-            if (blend_mode == tbx::MaterialBlendMode::AlphaBlend)
-            {
-                transparent_draw_calls.push_back(
-                    TransparentDrawCall {
-                        .shader_program = shader_program_key,
-                        .is_two_sided = is_two_sided,
-                        .mesh = mesh_key,
-                        .material = std::move(material_params),
-                        .transform = transform_matrix,
-                        .camera_distance_squared = camera_distance_squared,
-                    });
-                return;
-            }
+            if (depth_config.is_test_enabled)
+                glEnable(GL_DEPTH_TEST);
+            else
+                glDisable(GL_DEPTH_TEST);
 
-            const auto draw_call_key =
-                (static_cast<std::uint64_t>(shader_program_key.value) << 1U)
-                | (is_two_sided ? 1ULL : 0ULL);
-            auto draw_call_it = draw_call_lookup.find(draw_call_key);
-            if (draw_call_it == draw_call_lookup.end())
-            {
-                draw_calls.emplace_back(shader_program_key, is_two_sided);
-                draw_calls.back().meshes.reserve(8U);
-                draw_calls.back().materials.reserve(8U);
-                draw_calls.back().transforms.reserve(8U);
-                draw_call_it = draw_call_lookup.emplace(draw_call_key, draw_calls.size() - 1U).first;
-            }
-
-            auto& draw_call = draw_calls[draw_call_it->second];
-            draw_call.meshes.push_back(mesh_key);
-            draw_call.materials.push_back(std::move(material_params));
-            draw_call.transforms.push_back(transform_matrix);
+            glDepthMask(depth_config.is_write_enabled ? GL_TRUE : GL_FALSE);
+            glDepthFunc(to_gl_depth_function(depth_config.function));
         }
 
-    }
+        void bind_material_textures(const OpenGlMaterialParams& material)
+        {
+            auto texture_ids = std::vector<GLuint> {};
+            for (const auto& texture : material.textures)
+                texture_ids.push_back(static_cast<GLuint>(texture.gl_texture_id));
+            if (!texture_ids.empty())
+                glBindTextures(0, static_cast<GLsizei>(texture_ids.size()), texture_ids.data());
+        }
 
-    struct OpenGlFrameState
-    {
-        OpenGlFrameState(
+        GLuint ensure_fullscreen_vao()
+        {
+            static auto fullscreen_vao = GLuint {0U};
+            if (fullscreen_vao == 0U)
+                glCreateVertexArrays(1, &fullscreen_vao);
+            return fullscreen_vao;
+        }
+
+        bool try_get_scratch_framebuffer(
+            const tbx::Uuid& scratch_texture_resource,
             OpenGlResources& resources,
-            tbx::JobSystem& job_system,
-            const tbx::Size& initial_render_size)
-            : shadow_pass(std::make_unique<ShadowPass>(resources))
-            , geometry_pass(std::make_unique<GeometryPass>(resources))
-            , lighting_pass(
-                  std::make_unique<LightingPass>(resources, job_system, gbuffer, *shadow_pass))
-            , transparent_pass(std::make_unique<TransparentPass>(resources, gbuffer))
-            , post_processing_pass(std::make_unique<PostProcessingPass>(resources, gbuffer))
+            GLuint& out_texture,
+            GLuint& out_framebuffer)
         {
-            render_size = initial_render_size;
+            out_texture = 0U;
+            out_framebuffer = 0U;
+            auto texture = std::shared_ptr<OpenGlTexture> {};
+            if (!scratch_texture_resource.is_valid()
+                || !resources.try_get<OpenGlTexture>(scratch_texture_resource, texture))
+            {
+                return false;
+            }
+            out_texture = texture->get_texture_id();
+
+            glCreateFramebuffers(1, &out_framebuffer);
+            glNamedFramebufferTexture(out_framebuffer, GL_COLOR_ATTACHMENT0, out_texture, 0);
+            glNamedFramebufferDrawBuffer(out_framebuffer, GL_COLOR_ATTACHMENT0);
+            const auto status = glCheckNamedFramebufferStatus(out_framebuffer, GL_FRAMEBUFFER);
+            if (status == GL_FRAMEBUFFER_COMPLETE)
+                return true;
+
+            glDeleteFramebuffers(1, &out_framebuffer);
+            out_framebuffer = 0U;
+            return false;
         }
 
-        OpenGlGBuffer gbuffer = {};
-        std::unique_ptr<ShadowPass> shadow_pass = nullptr;
-        std::unique_ptr<GeometryPass> geometry_pass = nullptr;
-        std::unique_ptr<LightingPass> lighting_pass = nullptr;
-        std::unique_ptr<TransparentPass> transparent_pass = nullptr;
-        std::unique_ptr<PostProcessingPass> post_processing_pass = nullptr;
-        tbx::Color clear_color = tbx::Color::BLACK;
-        tbx::Size render_size = {0U, 0U};
-        tbx::RenderStage render_stage = tbx::RenderStage::FINAL_COLOR;
-        std::vector<DrawCall> draw_calls = {};
-        std::vector<ShadowDrawCall> shadow_draw_calls = {};
-        std::vector<TransparentDrawCall> transparent_draw_calls = {};
-    };
+        using RenderMesh = tbx::RenderDrawItem;
+
+        bool draw_mesh(
+            OpenGlResources& resources,
+            const tbx::Mat4& view_projection,
+            const tbx::RenderUniformNames& uniforms,
+            const tbx::RenderFallbacks& fallbacks,
+            const RenderMesh& draw_item)
+        {
+            const auto shader_program_key =
+                draw_item.material_resource.is_valid() ? draw_item.material_resource
+                                                       : fallbacks.material_resource;
+            const auto mesh_resource = draw_item.mesh_resource.is_valid() ? draw_item.mesh_resource
+                                                                           : fallbacks.mesh_resource;
+            if (!shader_program_key.is_valid() || !mesh_resource.is_valid())
+                return false;
+
+            auto shader_program = std::shared_ptr<OpenGlShaderProgram> {};
+            auto mesh = std::shared_ptr<OpenGlMesh> {};
+            if (!resources.try_get<OpenGlShaderProgram>(shader_program_key, shader_program)
+                || !resources.try_get<OpenGlMesh>(mesh_resource, mesh))
+            {
+                return false;
+            }
+
+            const auto material_params = build_material_params(
+                draw_item.material_resource,
+                draw_item.material_config,
+                draw_item.material_parameters,
+                draw_item.material_textures,
+                fallbacks,
+                resources);
+
+            // Keep render state simple and explicit per draw item.
+            if (draw_item.material_config.is_two_sided)
+                glDisable(GL_CULL_FACE);
+            else
+                glEnable(GL_CULL_FACE);
+
+            apply_depth_config(material_params.render_config.depth);
+            shader_program->bind();
+            shader_program->try_upload(tbx::MaterialParameter(uniforms.view_projection, view_projection));
+            shader_program->try_upload(tbx::MaterialParameter(uniforms.model, draw_item.transform));
+            bind_material_textures(material_params);
+            shader_program->try_upload(material_params);
+            mesh->bind();
+            mesh->draw_bound();
+            return true;
+        }
+    }
 
     OpenGlRenderer::OpenGlRenderer(tbx::AssetManager& asset_manager, tbx::JobSystem& job_system)
         : _asset_manager(asset_manager)
@@ -450,83 +400,265 @@ namespace opengl_rendering
     {
         static_cast<void>(window);
         static_cast<void>(view);
-        auto& state = ensure_frame_state();
-        state.render_size = resolution;
-        state.render_stage = tbx::RenderStage::FINAL_COLOR;
-        state.draw_calls.clear();
-        state.shadow_draw_calls.clear();
-        state.transparent_draw_calls.clear();
+        _render_size = resolution;
+        _render_stage = tbx::RenderStage::FINAL_COLOR;
+        _is_frame_active = true;
 
-        glViewport(
-            0,
-            0,
-            static_cast<GLsizei>(resolution.width),
-            static_cast<GLsizei>(resolution.height));
-        state.gbuffer.resize(resolution);
+        glViewport(0, 0, static_cast<GLsizei>(resolution.width), static_cast<GLsizei>(resolution.height));
+
+        // Keep exactly one renderer-owned g-buffer alive and resize it per frame.
+        _gbuffer.resize(resolution);
+        _gbuffer.prepare_geometry_pass();
         return {};
     }
 
     tbx::RenderPassOutcome OpenGlRenderer::draw_shadows(const tbx::ShadowRenderInfo& shadows)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: begin_draw must be called first.");
+        if (shadows.draw_items.empty())
+            return tbx::RenderPassOutcome::success();
+        auto shadow_program = std::shared_ptr<OpenGlShaderProgram> {};
+        if (!shadows.shadow_shader_program.is_valid()
+            || !_resources.try_get<OpenGlShaderProgram>(shadows.shadow_shader_program, shadow_program))
+        {
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing shadow shader program resource.");
+        }
 
-        build_shadow_draw_calls(*state, shadows.draw_items);
-        return state->shadow_pass->draw(shadows, state->shadow_draw_calls);
+        _gbuffer.prepare_geometry_pass();
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        shadow_program->bind();
+
+        auto drew_any = false;
+        const auto shadow_view_projection = tbx::Mat4(1.0F);
+        for (const auto& shadow_item : shadows.draw_items)
+        {
+            auto mesh = std::shared_ptr<OpenGlMesh> {};
+            const auto mesh_resource = shadow_item.mesh_resource.is_valid()
+                                           ? shadow_item.mesh_resource
+                                           : shadows.fallbacks.mesh_resource;
+            if (!mesh_resource.is_valid()
+                || !_resources.try_get<OpenGlMesh>(mesh_resource, mesh))
+            {
+                continue;
+            }
+
+            if (shadow_item.is_two_sided)
+                glDisable(GL_CULL_FACE);
+            else
+                glEnable(GL_CULL_FACE);
+
+            shadow_program->try_upload(
+                tbx::MaterialParameter("u_light_view_proj", shadow_view_projection));
+            shadow_program->try_upload(
+                tbx::MaterialParameter("u_model", shadow_item.transform));
+            mesh->bind();
+            mesh->draw_bound();
+            drew_any = true;
+        }
+
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        _gbuffer.prepare_geometry_pass();
+        if (!drew_any)
+            return tbx::RenderPassOutcome::degraded("OpenGL rendering: shadow pass had no valid draws.");
+        return tbx::RenderPassOutcome::success();
     }
 
     tbx::RenderPassOutcome OpenGlRenderer::draw_geometry(const tbx::GeometryRenderInfo& geo)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: begin_draw must be called first.");
 
-        build_geometry_draw_calls(*state, geo.draw_items);
-        state->gbuffer.prepare_geometry_pass();
-        return state->geometry_pass->draw(geo.view_projection, state->draw_calls);
+        _gbuffer.prepare_geometry_pass();
+        glDisable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
+        auto drew_any = false;
+        for (const auto& draw_item : geo.draw_items)
+            drew_any |= draw_mesh(
+                _resources,
+                geo.view_projection,
+                geo.uniforms,
+                geo.fallbacks,
+                draw_item);
+
+        if (drew_any)
+            return tbx::RenderPassOutcome::success();
+        return tbx::RenderPassOutcome::degraded("OpenGL rendering: geometry pass had no valid draws.");
     }
 
     tbx::RenderPassOutcome OpenGlRenderer::draw_lighting(const tbx::LightingRenderInfo& lighting)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: begin_draw must be called first.");
 
-        state->render_stage = lighting.render_stage;
-        return state->lighting_pass->draw(state->clear_color, state->render_size, lighting);
+        _render_stage = lighting.render_stage;
+        const auto source_texture = _gbuffer.get_final_color_texture();
+        if (source_texture == 0U)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing g-buffer final color for lighting.");
+
+        auto scratch_texture = GLuint {0U};
+        auto scratch_framebuffer = GLuint {0U};
+        if (!try_get_scratch_framebuffer(
+                lighting.scratch_color_texture,
+                _resources,
+                scratch_texture,
+                scratch_framebuffer))
+        {
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: failed to allocate lighting target.");
+        }
+        auto lighting_program = std::shared_ptr<OpenGlShaderProgram> {};
+        if (!lighting.lighting_shader_program.is_valid()
+            || !_resources.try_get<OpenGlShaderProgram>(lighting.lighting_shader_program, lighting_program))
+        {
+            glDeleteFramebuffers(1, &scratch_framebuffer);
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing lighting shader program resource.");
+        }
+
+        auto accumulated_radiance = tbx::Vec3(0.0F);
+        auto ambient_intensity = 0.0F;
+        for (const auto& light : lighting.directional_lights)
+        {
+            accumulated_radiance += light.radiance;
+            ambient_intensity += light.ambient_intensity;
+        }
+        for (const auto& light : lighting.point_lights)
+            accumulated_radiance += light.radiance;
+        for (const auto& light : lighting.spot_lights)
+            accumulated_radiance += light.radiance;
+        for (const auto& light : lighting.area_lights)
+            accumulated_radiance += light.radiance;
+
+        const auto light_gain = tbx::Vec3(1.0F) + accumulated_radiance * 0.05F;
+        const auto light_add = tbx::Vec3(_clear_color.r, _clear_color.g, _clear_color.b)
+                               * std::max(ambient_intensity, 0.0F);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, scratch_framebuffer);
+        glViewport(0, 0, static_cast<GLsizei>(_render_size.width), static_cast<GLsizei>(_render_size.height));
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_BLEND);
+        lighting_program->bind();
+        glBindTextureUnit(0, source_texture);
+        lighting_program->try_upload(tbx::MaterialParameter("u_scene_color", 0));
+        lighting_program->try_upload(tbx::MaterialParameter("u_light_gain", light_gain));
+        lighting_program->try_upload(tbx::MaterialParameter("u_light_add", light_add));
+        glBindVertexArray(ensure_fullscreen_vao());
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+
+        _gbuffer.apply_to_final_color(scratch_texture);
+        glDeleteFramebuffers(1, &scratch_framebuffer);
+        return tbx::RenderPassOutcome::success();
     }
 
     tbx::RenderPassOutcome OpenGlRenderer::draw_transparent(const tbx::TransparentRenderInfo& transparency)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: begin_draw must be called first.");
 
-        build_transparent_draw_calls(*state, transparency.draw_items);
-        return state->transparent_pass->draw(
-            transparency.view_projection,
-            state->transparent_draw_calls);
+        // Draw transparent geometry directly into final color using the incoming draw items only.
+        _gbuffer.bind();
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        auto sorted_draws = transparency.draw_items;
+        std::sort(
+            sorted_draws.begin(),
+            sorted_draws.end(),
+            [](const tbx::RenderDrawItem& lhs, const tbx::RenderDrawItem& rhs)
+            {
+                return lhs.camera_distance_squared > rhs.camera_distance_squared;
+            });
+
+        auto drew_any = false;
+        for (const auto& draw_item : sorted_draws)
+            drew_any |= draw_mesh(
+                _resources,
+                transparency.view_projection,
+                transparency.uniforms,
+                transparency.fallbacks,
+                draw_item);
+
+        glDisable(GL_BLEND);
+        _gbuffer.prepare_geometry_pass();
+        if (drew_any)
+            return tbx::RenderPassOutcome::success();
+        return tbx::RenderPassOutcome::degraded("OpenGL rendering: transparent pass had no valid draws.");
     }
 
     tbx::RenderPassOutcome OpenGlRenderer::apply_post_processing(const tbx::PostProcessingPass& post)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: begin_draw must be called first.");
+        if (!post.post_processing.has_value() || !post.post_processing->is_enabled)
+            return tbx::RenderPassOutcome::success();
+        auto post_program = std::shared_ptr<OpenGlShaderProgram> {};
+        if (!post.post_shader_program.is_valid()
+            || !_resources.try_get<OpenGlShaderProgram>(post.post_shader_program, post_program))
+        {
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing post shader program resource.");
+        }
 
-        return state->post_processing_pass->draw(state->render_size, post.post_processing);
+        auto source_texture = _gbuffer.get_final_color_texture();
+        if (source_texture == 0U)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing g-buffer final color for post.");
+
+        auto applied_effect = false;
+        for (const auto& effect : post.post_processing->effects)
+        {
+            if (!effect.is_enabled)
+                continue;
+
+            auto scratch_texture = GLuint {0U};
+            auto scratch_framebuffer = GLuint {0U};
+            if (!try_get_scratch_framebuffer(
+                    post.scratch_color_texture,
+                    _resources,
+                    scratch_texture,
+                    scratch_framebuffer))
+            {
+                return tbx::RenderPassOutcome::fatal("OpenGL rendering: failed to allocate post target.");
+            }
+
+            glBindFramebuffer(GL_FRAMEBUFFER, scratch_framebuffer);
+            glViewport(0, 0, static_cast<GLsizei>(_render_size.width), static_cast<GLsizei>(_render_size.height));
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glDisable(GL_BLEND);
+            post_program->bind();
+            glBindTextureUnit(0, source_texture);
+            post_program->try_upload(tbx::MaterialParameter("u_scene_color", 0));
+            post_program->try_upload(
+                tbx::MaterialParameter("u_blend", std::clamp(effect.blend, 0.0F, 1.0F)));
+            glBindVertexArray(ensure_fullscreen_vao());
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+            glBindVertexArray(0);
+
+            _gbuffer.apply_to_final_color(scratch_texture);
+            glDeleteFramebuffers(1, &scratch_framebuffer);
+            source_texture = _gbuffer.get_final_color_texture();
+            applied_effect = true;
+        }
+
+        if (!applied_effect)
+            return tbx::RenderPassOutcome::degraded("OpenGL rendering: no enabled post-processing effects.");
+        return tbx::RenderPassOutcome::success();
     }
-
 
     tbx::Result OpenGlRenderer::clear(const tbx::Color& color)
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::Result(false, "OpenGL rendering: begin_draw must be called first.");
 
-        state->clear_color = color;
-        state->gbuffer.prepare_geometry_pass();
+        _clear_color = color;
+        _gbuffer.prepare_geometry_pass();
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
@@ -537,149 +669,20 @@ namespace opengl_rendering
 
     tbx::Result OpenGlRenderer::end_draw()
     {
-        auto* state = try_get_frame_state();
-        if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+        if (!_is_frame_active)
+            return tbx::Result(false, "OpenGL rendering: begin_draw must be called first.");
 
-        state->gbuffer.present(state->render_stage, state->render_size);
-        state->draw_calls.clear();
-        state->shadow_draw_calls.clear();
-        state->transparent_draw_calls.clear();
+        _gbuffer.present(_render_stage, _render_size);
+
+        // Reset the g-buffer after presentation so each frame starts from clean attachments.
+        _gbuffer.prepare_geometry_pass();
+        glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        _render_size = {0U, 0U};
+        _render_stage = tbx::RenderStage::FINAL_COLOR;
+        _is_frame_active = false;
         return {};
-    }
-
-    OpenGlFrameState& OpenGlRenderer::ensure_frame_state()
-    {
-        if (_state)
-            return *_state;
-
-        _state = std::make_shared<OpenGlFrameState>(
-            _resources,
-            _job_system,
-            tbx::Size {0U, 0U});
-        return *_state;
-    }
-
-    OpenGlFrameState* OpenGlRenderer::try_get_frame_state()
-    {
-        return _state.get();
-    }
-
-    void OpenGlRenderer::build_geometry_draw_calls(
-        OpenGlFrameState& state,
-        const std::vector<tbx::RenderDrawItem>& draw_items)
-    {
-        state.draw_calls.clear();
-        state.draw_calls.reserve(draw_items.size());
-
-        auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t> {};
-        draw_call_lookup.reserve(draw_items.size());
-
-        for (const auto& draw_item : draw_items)
-        {
-            auto use_fallback_material_params = false;
-            const auto shader_program_key = resolve_shader_program_for_material(
-                draw_item.material_resource,
-                _resources,
-                use_fallback_material_params);
-            if (!shader_program_key.is_valid())
-                continue;
-
-            const auto mesh_key = draw_item.mesh_resource;
-            if (!mesh_key.is_valid())
-                continue;
-
-            auto material_params = build_material_params(
-                draw_item.material_resource,
-                draw_item.material_config,
-                draw_item.material_parameters,
-                draw_item.material_textures,
-                use_fallback_material_params,
-                _resources);
-
-            append_visible_draw_call(
-                state.draw_calls,
-                state.transparent_draw_calls,
-                draw_call_lookup,
-                shader_program_key,
-                draw_item.material_config.is_two_sided,
-                draw_item.material_config.transparency.blend_mode,
-                mesh_key,
-                std::move(material_params),
-                draw_item.transform,
-                draw_item.camera_distance_squared);
-        }
-    }
-
-    void OpenGlRenderer::build_shadow_draw_calls(
-        OpenGlFrameState& state,
-        const std::vector<tbx::RenderShadowItem>& draw_items)
-    {
-        state.shadow_draw_calls.clear();
-        state.shadow_draw_calls.reserve(draw_items.size());
-
-        auto shadow_draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t> {};
-        shadow_draw_call_lookup.reserve(draw_items.size());
-
-        for (const auto& draw_item : draw_items)
-        {
-            const auto mesh_key = draw_item.mesh_resource;
-            if (!mesh_key.is_valid())
-                continue;
-
-            append_shadow_draw_call(
-                state.shadow_draw_calls,
-                shadow_draw_call_lookup,
-                draw_item.is_two_sided,
-                mesh_key,
-                draw_item.transform,
-                tbx::Vec3(draw_item.transform[3]),
-                draw_item.bounds_radius);
-        }
-    }
-
-    void OpenGlRenderer::build_transparent_draw_calls(
-        OpenGlFrameState& state,
-        const std::vector<tbx::RenderDrawItem>& draw_items)
-    {
-        state.transparent_draw_calls.clear();
-        state.transparent_draw_calls.reserve(draw_items.size());
-
-        auto draw_call_lookup = std::unordered_map<std::uint64_t, std::size_t> {};
-        for (const auto& draw_item : draw_items)
-        {
-            auto use_fallback_material_params = false;
-            const auto shader_program_key = resolve_shader_program_for_material(
-                draw_item.material_resource,
-                _resources,
-                use_fallback_material_params);
-            if (!shader_program_key.is_valid())
-                continue;
-
-            const auto mesh_key = draw_item.mesh_resource;
-            if (!mesh_key.is_valid())
-                continue;
-
-            auto material_params = build_material_params(
-                draw_item.material_resource,
-                draw_item.material_config,
-                draw_item.material_parameters,
-                draw_item.material_textures,
-                use_fallback_material_params,
-                _resources);
-
-            append_visible_draw_call(
-                state.draw_calls,
-                state.transparent_draw_calls,
-                draw_call_lookup,
-                shader_program_key,
-                draw_item.material_config.is_two_sided,
-                tbx::MaterialBlendMode::AlphaBlend,
-                mesh_key,
-                std::move(material_params),
-                draw_item.transform,
-                draw_item.camera_distance_squared);
-        }
     }
 
     void OpenGlRenderer::initialize_runtime(const tbx::GraphicsProcAddress loader)

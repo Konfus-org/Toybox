@@ -1,13 +1,10 @@
 #pragma once
-#include "tbx/graphics/render_pipeline.h"
 #include "opengl_resources.h"
-#include <memory>
-#include <vector>
+#include "opengl_resources/opengl_buffers.h"
+#include "tbx/graphics/render_pipeline.h"
 
 namespace opengl_rendering
 {
-    struct OpenGlFrameState;
-
     class OpenGlRenderer final : public tbx::IGraphicsBackend
     {
       public:
@@ -37,24 +34,17 @@ namespace opengl_rendering
         tbx::Result end_draw() override;
 
       private:
-        OpenGlFrameState& ensure_frame_state();
-        OpenGlFrameState* try_get_frame_state();
-        void build_geometry_draw_calls(
-            OpenGlFrameState& state,
-            const std::vector<tbx::RenderDrawItem>& draw_items);
-        void build_shadow_draw_calls(
-            OpenGlFrameState& state,
-            const std::vector<tbx::RenderShadowItem>& draw_items);
-        void build_transparent_draw_calls(
-            OpenGlFrameState& state,
-            const std::vector<tbx::RenderDrawItem>& draw_items);
         void initialize_runtime(tbx::GraphicsProcAddress loader);
 
       private:
         tbx::AssetManager& _asset_manager;
         tbx::JobSystem& _job_system;
         OpenGlResources _resources;
-        std::shared_ptr<OpenGlFrameState> _state = nullptr;
+        OpenGlGBuffer _gbuffer = {};
+        tbx::Color _clear_color = tbx::Color::BLACK;
+        tbx::Size _render_size = {0U, 0U};
+        tbx::RenderStage _render_stage = tbx::RenderStage::FINAL_COLOR;
         bool _is_runtime_initialized = false;
+        bool _is_frame_active = false;
     };
 }
