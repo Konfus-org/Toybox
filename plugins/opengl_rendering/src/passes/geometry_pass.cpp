@@ -1,5 +1,4 @@
 #include "geometry_pass.h"
-#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources.h"
@@ -87,8 +86,7 @@ namespace opengl_rendering
 
     GeometryPass::~GeometryPass() noexcept = default;
 
-    void GeometryPass::draw(
-        const tbx::Color& clear_color,
+    tbx::RenderPassOutcome GeometryPass::draw(
         const tbx::Mat4& view_proj,
         const std::vector<DrawCall>& draw_calls)
     {
@@ -102,10 +100,6 @@ namespace opengl_rendering
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
-
-        // Clear once at frame start so previously rendered batches are preserved.
-        glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         auto texture_ids = std::vector<GLuint> {};
         auto previous_texture_ids = std::vector<GLuint> {};
@@ -251,7 +245,13 @@ namespace opengl_rendering
                 drew_mesh = true;
             }
         }
-        if (saw_failure && !drew_mesh)
-            report_render_pipeline_failure();
+        if (!saw_failure)
+            return tbx::RenderPassOutcome::success();
+        if (drew_mesh)
+            return tbx::RenderPassOutcome::degraded(
+                "OpenGL geometry pass completed with recoverable draw issues.");
+
+        return tbx::RenderPassOutcome::fatal(
+            "OpenGL geometry pass failed to produce any mesh output.");
     }
 }

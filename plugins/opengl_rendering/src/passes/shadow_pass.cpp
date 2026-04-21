@@ -534,12 +534,12 @@ void main()
         }
     }
 
-    void ShadowPass::draw(
+    tbx::RenderPassOutcome ShadowPass::draw(
         const tbx::ShadowRenderInfo& shadow_info,
         const std::vector<ShadowDrawCall>& draw_calls)
     {
         if (!ensure_initialized())
-            return;
+            return tbx::RenderPassOutcome::fatal("OpenGL shadow pass initialization failed.");
 
         const auto directional_layer_count =
             static_cast<uint32>(shadow_info.shadows.directional_cascades.size());
@@ -553,7 +553,7 @@ void main()
 
         if (directional_layer_count == 0U && spot_layer_count == 0U && area_layer_count == 0U
             && point_shadow_count == 0U)
-            return;
+            return tbx::RenderPassOutcome::success();
 
         const auto directional_ready = configure_shadow_depth_array(
             _directional_shadow_texture,
@@ -907,6 +907,17 @@ void main()
             previous_viewport[1],
             previous_viewport[2],
             previous_viewport[3]);
+
+        const auto has_all_shadow_targets =
+            (directional_layer_count == 0U || directional_ready)
+            && (point_shadow_count == 0U || point_ready)
+            && (spot_layer_count == 0U || spot_ready)
+            && (area_layer_count == 0U || area_ready);
+        if (has_all_shadow_targets)
+            return tbx::RenderPassOutcome::success();
+
+        return tbx::RenderPassOutcome::degraded(
+            "OpenGL shadow pass disabled one or more shadow map targets.");
     }
 
     uint32 ShadowPass::get_directional_shadow_texture() const

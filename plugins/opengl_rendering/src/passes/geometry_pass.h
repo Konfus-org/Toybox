@@ -13,8 +13,7 @@ namespace opengl_rendering
         ~GeometryPass() noexcept;
 
       public:
-        void draw(
-            const tbx::Color& clear_color,
+        tbx::RenderPassOutcome draw(
             const tbx::Mat4& view_projection,
             const std::vector<DrawCall>& draw_calls);
 

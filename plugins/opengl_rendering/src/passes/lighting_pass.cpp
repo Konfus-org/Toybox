@@ -1,5 +1,4 @@
 #include "lighting_pass.h"
-#include "render_pipeline_failure.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/graphics/material.h"
@@ -356,37 +355,17 @@ namespace opengl_rendering
             glDeleteVertexArrays(1, &_fullscreen_vertex_array);
     }
 
-    void LightingPass::draw(
+    tbx::RenderPassOutcome LightingPass::draw(
         const tbx::Color& clear_color,
         const tbx::Size& render_size,
         const tbx::LightingRenderInfo& lighting)
     {
         if (!ensure_initialized())
-        {
-            if (!_has_reported_frame_failure)
-            {
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: deferred lighting initialization failed. "
-                    "Unable to execute deferred lighting.");
-                _has_reported_frame_failure = true;
-            }
-            report_render_pipeline_failure();
-            return;
-        }
+            return tbx::RenderPassOutcome::fatal(
+                "OpenGL deferred lighting initialization failed.");
         if (!_shader_program)
-        {
-            if (!_has_reported_frame_failure)
-            {
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: deferred lighting shader program is unavailable. "
-                    "Unable to execute deferred lighting.");
-                _has_reported_frame_failure = true;
-            }
-            report_render_pipeline_failure();
-            return;
-        }
-
-        _has_reported_frame_failure = false;
+            return tbx::RenderPassOutcome::fatal(
+                "OpenGL deferred lighting shader program is unavailable.");
 
         upload_tiled_light_data(clear_color, render_size, lighting);
 
@@ -410,6 +389,7 @@ namespace opengl_rendering
 
         glBindVertexArray(_fullscreen_vertex_array);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        return tbx::RenderPassOutcome::success();
     }
 
     bool LightingPass::ensure_initialized()

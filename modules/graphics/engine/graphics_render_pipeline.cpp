@@ -18,6 +18,7 @@
 #include <cmath>
 #include <future>
 #include <limits>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -37,6 +38,22 @@ namespace tbx
         constexpr auto LocalShadowNormalBias = 0.00035F;
         constexpr auto AreaShadowDepthPadding = 2.0F;
         const auto DefaultClearColor = Color(0.07F, 0.08F, 0.11F, 1.0F);
+        const auto PipelineFallbackFrameColor = Color(1.0F, 0.0F, 1.0F, 1.0F);
+
+        const char* to_string(const RenderPassStatus status)
+        {
+            switch (status)
+            {
+                case RenderPassStatus::Success:
+                    return "success";
+                case RenderPassStatus::Degraded:
+                    return "degraded";
+                case RenderPassStatus::Fatal:
+                    return "fatal";
+                default:
+                    return "unknown";
+            }
+        }
 
         struct RenderScene
         {
@@ -1185,8 +1202,7 @@ namespace tbx
                         if (const auto begin_draw_result = _backend.begin_draw(
                                 window,
                                 scene.camera,
-                                scene.render_size,
-                                scene.clear_color);
+                                scene.render_size);
                             !begin_draw_result)
                         {
                             TBX_TRACE_ERROR(
@@ -1196,40 +1212,127 @@ namespace tbx
                             return;
                         }
 
-                        auto execute_pass = [&](const char* pass_name, const Result& pass_result)
+                        if (const auto clear_result = _backend.clear(scene.clear_color); !clear_result)
                         {
-                            if (!pass_result)
+                            TBX_TRACE_ERROR(
+                                "Graphics rendering: failed to clear frame for window {}: {}",
+                                to_string(window),
+                                clear_result.get_report());
+                            return;
+                        }
+
+                        auto& log_state = _window_render_log_state[window];
+
+                        auto report_pass_outcome =
+                            [&](const char* pass_name,
+                                const RenderPassOutcome& outcome,
+                                RenderPassLogState& pass_log_state)
+                        {
+                            if (outcome.is_success())
+                            {
+                                if (pass_log_state.status != RenderPassStatus::Success)
+                                {
+                                    TBX_TRACE_INFO(
+                                        "Graphics rendering: {} recovered for window {}.",
+                                        pass_name,
+                                        to_string(window));
+                                }
+
+                                pass_log_state.status = RenderPassStatus::Success;
+                                pass_log_state.diagnostics.clear();
+                                return;
+                            }
+
+                            const auto diagnostics =
+                                outcome.diagnostics.empty() ? std::string("(no diagnostics)")
+                                                            : outcome.diagnostics;
+                            const auto is_repeated = pass_log_state.status == outcome.status
+                                                     && pass_log_state.diagnostics == diagnostics;
+                            pass_log_state.status = outcome.status;
+                            pass_log_state.diagnostics = diagnostics;
+                            if (is_repeated)
+                                return;
+
+                            if (outcome.is_fatal())
                             {
                                 TBX_TRACE_ERROR(
-                                    "Graphics rendering: {} failed for window {}: {}",
+                                    "Graphics rendering: {} reported {} status for window {}: {}",
                                     pass_name,
+                                    to_string(outcome.status),
                                     to_string(window),
-                                    pass_result.get_report());
+                                    diagnostics);
+                                return;
                             }
+
+                            TBX_TRACE_WARNING(
+                                "Graphics rendering: {} reported {} status for window {}: {}",
+                                pass_name,
+                                to_string(outcome.status),
+                                to_string(window),
+                                diagnostics);
                         };
 
-                        execute_pass(
-                            "shadow pass",
-                            _backend.draw_shadows(shadow_info));
-                        execute_pass(
-                            "geometry pass",
-                            _backend.draw_geometry(
-                                build_geometry_render_info(scene, std::move(opaque_draws))));
+                        auto should_render_fallback_frame = !scene.has_camera;
 
-                        if (scene.has_camera)
+                        const auto shadow_outcome = _backend.draw_shadows(shadow_info);
+                        report_pass_outcome("shadow pass", shadow_outcome, log_state.shadows);
+
+                        const auto geometry_outcome =
+                            _backend.draw_geometry(build_geometry_render_info(scene, std::move(opaque_draws)));
+                        report_pass_outcome("geometry pass", geometry_outcome, log_state.geometry);
+                        if (geometry_outcome.is_fatal())
+                            should_render_fallback_frame = true;
+
+                        if (scene.has_camera && !should_render_fallback_frame)
                         {
-                            execute_pass(
-                                "lighting pass",
-                                _backend.draw_lighting(build_lighting_render_info(scene)));
-                            execute_pass(
-                                "transparent pass",
-                                _backend.draw_transparent(build_transparent_render_info(
-                                    scene,
-                                    std::move(transparent_draws))));
-                            execute_pass(
-                                "post-processing pass",
-                                _backend.apply_post_processing(
-                                    PostProcessingPass {.post_processing = scene.post_processing}));
+                            const auto lighting_outcome =
+                                _backend.draw_lighting(build_lighting_render_info(scene));
+                            report_pass_outcome("lighting pass", lighting_outcome, log_state.lighting);
+                            if (lighting_outcome.is_fatal())
+                            {
+                                should_render_fallback_frame = true;
+                            }
+                            else
+                            {
+                                const auto transparent_outcome = _backend.draw_transparent(
+                                    build_transparent_render_info(scene, std::move(transparent_draws)));
+                                report_pass_outcome(
+                                    "transparent pass",
+                                    transparent_outcome,
+                                    log_state.transparency);
+
+                                const auto post_outcome = _backend.apply_post_processing(
+                                    PostProcessingPass {.post_processing = scene.post_processing});
+                                report_pass_outcome(
+                                    "post-processing pass",
+                                    post_outcome,
+                                    log_state.post_processing);
+                            }
+                        }
+
+                        if (should_render_fallback_frame)
+                        {
+                            if (!log_state.has_reported_fallback)
+                            {
+                                TBX_TRACE_WARNING(
+                                    "Graphics rendering: rendering fallback frame for window {}.",
+                                    to_string(window));
+                                log_state.has_reported_fallback = true;
+                            }
+
+                            if (const auto fallback_result =
+                                    _backend.clear(PipelineFallbackFrameColor);
+                                !fallback_result)
+                            {
+                                TBX_TRACE_ERROR(
+                                    "Graphics rendering: failed to clear fallback frame for window {}: {}",
+                                    to_string(window),
+                                    fallback_result.get_report());
+                            }
+                        }
+                        else
+                        {
+                            log_state.has_reported_fallback = false;
                         }
 
                         if (const auto end_draw_result = _backend.end_draw(); !end_draw_result)
@@ -1296,6 +1399,7 @@ namespace tbx
                 continue;
             }
 
+            _window_render_log_state.erase(current_window);
             iterator = _windows.erase(iterator);
         }
 

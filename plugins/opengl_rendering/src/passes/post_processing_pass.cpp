@@ -1,5 +1,4 @@
 #include "post_processing_pass.h"
-#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources.h"
@@ -158,19 +157,19 @@ namespace opengl_rendering
         destroy_scratch_targets();
     }
 
-    void PostProcessingPass::draw(
+    tbx::RenderPassOutcome PostProcessingPass::draw(
         const tbx::Size& render_size,
         const std::optional<tbx::PostProcessing>& post)
     {
         if (!post.has_value() || !post->is_enabled)
-            return;
+            return tbx::RenderPassOutcome::success();
         if (render_size.width == 0U || render_size.height == 0U)
-            return;
+            return tbx::RenderPassOutcome::success();
         if (!ensure_scratch_targets(render_size))
         {
             TBX_TRACE_WARNING("OpenGL rendering: failed to allocate post-processing targets.");
-            report_render_pipeline_failure();
-            return;
+            return tbx::RenderPassOutcome::fatal(
+                "OpenGL post-processing failed to allocate scratch targets.");
         }
 
         auto fullscreen_quad_mesh = std::shared_ptr<OpenGlMesh> {};
@@ -182,13 +181,14 @@ namespace opengl_rendering
         {
             TBX_TRACE_WARNING(
                 "OpenGL rendering: failed to prepare post-processing fullscreen mesh.");
-            report_render_pipeline_failure();
-            return;
+            return tbx::RenderPassOutcome::fatal(
+                "OpenGL post-processing failed to prepare fullscreen mesh.");
         }
 
         auto source_texture = _gbuffer.get_final_color_texture();
         auto ping_pong_target_index = std::size_t {0U};
         auto did_apply_effect = false;
+        auto skipped_effect = false;
         auto texture_ids = std::vector<GLuint> {};
         auto previous_texture_ids = std::vector<GLuint> {};
         auto zero_texture_ids = std::vector<GLuint> {};
@@ -210,6 +210,7 @@ namespace opengl_rendering
                 TBX_TRACE_WARNING(
                     "OpenGL rendering: post-processing effect skipped because its material "
                     "handle is invalid.");
+                skipped_effect = true;
                 continue;
             }
 
@@ -220,6 +221,7 @@ namespace opengl_rendering
                     "OpenGL rendering: failed to cache post-processing shader program for "
                     "material '{}'. Effect skipped.",
                     get_handle_label(effect_handle));
+                skipped_effect = true;
                 continue;
             }
 
@@ -231,6 +233,7 @@ namespace opengl_rendering
                     "available for material '{}'. Effect skipped.",
                     shader_program_key.value,
                     get_handle_label(effect_handle));
+                skipped_effect = true;
                 continue;
             }
 
@@ -288,6 +291,7 @@ namespace opengl_rendering
                     "OpenGL rendering: failed to upload post-processing material parameters "
                     "for material '{}'. Effect skipped for this frame.",
                     get_handle_label(effect_handle));
+                skipped_effect = true;
                 continue;
             }
 
@@ -304,6 +308,12 @@ namespace opengl_rendering
 
         if (did_apply_effect)
             _gbuffer.apply_to_final_color(source_texture);
+
+        if (skipped_effect)
+            return tbx::RenderPassOutcome::degraded(
+                "OpenGL post-processing skipped one or more effects.");
+
+        return tbx::RenderPassOutcome::success();
     }
 
     void PostProcessingPass::destroy_scratch_targets() noexcept

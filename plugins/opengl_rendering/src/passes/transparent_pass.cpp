@@ -1,5 +1,4 @@
 #include "transparent_pass.h"
-#include "render_pipeline_failure.h"
 #include "opengl_fallbacks.h"
 #include "opengl_resources/opengl_mesh.h"
 #include "opengl_resources.h"
@@ -90,12 +89,12 @@ namespace opengl_rendering
 
     TransparentPass::~TransparentPass() noexcept = default;
 
-    void TransparentPass::draw(
+    tbx::RenderPassOutcome TransparentPass::draw(
         const tbx::Mat4& view_projection,
         const std::vector<TransparentDrawCall>& draw_calls)
     {
         if (draw_calls.empty())
-            return;
+            return tbx::RenderPassOutcome::success();
 
         bool saw_failure = false;
         bool drew_mesh = false;
@@ -251,7 +250,14 @@ namespace opengl_rendering
         glDepthFunc(GL_LESS);
         glDisable(GL_BLEND);
         glEnable(GL_CULL_FACE);
-        if (saw_failure && !drew_mesh)
-            report_render_pipeline_failure();
+
+        if (!saw_failure)
+            return tbx::RenderPassOutcome::success();
+        if (drew_mesh)
+            return tbx::RenderPassOutcome::degraded(
+                "OpenGL transparent pass completed with recoverable draw issues.");
+
+        return tbx::RenderPassOutcome::fatal(
+            "OpenGL transparent pass failed to produce any transparent draws.");
     }
 }

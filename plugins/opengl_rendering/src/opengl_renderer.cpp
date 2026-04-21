@@ -8,7 +8,6 @@
 #include "passes/lighting_pass.h"
 #include "passes/open_gl_draw_calls.h"
 #include "passes/post_processing_pass.h"
-#include "passes/render_pipeline_failure.h"
 #include "passes/shadow_pass.h"
 #include "passes/transparent_pass.h"
 #include "tbx/common/string_utils.h"
@@ -293,19 +292,11 @@ namespace opengl_rendering
             draw_call.transforms.push_back(transform_matrix);
         }
 
-        void render_magenta_failure_frame(OpenGlGBuffer& gbuffer)
-        {
-            auto gbuffer_scope = OpenGlResourceScope(gbuffer);
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_BLEND);
-            glClearColor(1.0F, 0.0F, 1.0F, 1.0F);
-            glClear(GL_COLOR_BUFFER_BIT);
-        }
     }
 
-    struct OpenGlWindowRendererState
+    struct OpenGlFrameState
     {
-        OpenGlWindowRendererState(
+        OpenGlFrameState(
             OpenGlResources& resources,
             tbx::JobSystem& job_system,
             const tbx::Size& initial_render_size)
@@ -328,11 +319,9 @@ namespace opengl_rendering
         tbx::Color clear_color = tbx::Color::BLACK;
         tbx::Size render_size = {0U, 0U};
         tbx::RenderStage render_stage = tbx::RenderStage::FINAL_COLOR;
-        bool has_camera = false;
         std::vector<DrawCall> draw_calls = {};
         std::vector<ShadowDrawCall> shadow_draw_calls = {};
         std::vector<TransparentDrawCall> transparent_draw_calls = {};
-        bool has_reported_pipeline_failure = false;
     };
 
     OpenGlRenderer::OpenGlRenderer(tbx::AssetManager& asset_manager, tbx::JobSystem& job_system)
@@ -457,16 +446,13 @@ namespace opengl_rendering
     tbx::Result OpenGlRenderer::begin_draw(
         const tbx::Window& window,
         const tbx::Camera& view,
-        const tbx::Size& resolution,
-        const tbx::Color& clear_color)
+        const tbx::Size& resolution)
     {
         static_cast<void>(window);
         static_cast<void>(view);
-        auto& state = ensure_state();
-        state.clear_color = clear_color;
+        auto& state = ensure_frame_state();
         state.render_size = resolution;
         state.render_stage = tbx::RenderStage::FINAL_COLOR;
-        state.has_camera = false;
         state.draw_calls.clear();
         state.shadow_draw_calls.clear();
         state.transparent_draw_calls.clear();
@@ -477,93 +463,83 @@ namespace opengl_rendering
             static_cast<GLsizei>(resolution.width),
             static_cast<GLsizei>(resolution.height));
         state.gbuffer.resize(resolution);
-        clear_render_pipeline_failure();
         return {};
     }
 
-    tbx::Result OpenGlRenderer::draw_shadows(const tbx::ShadowRenderInfo& shadows)
+    tbx::RenderPassOutcome OpenGlRenderer::draw_shadows(const tbx::ShadowRenderInfo& shadows)
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
         if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
 
         build_shadow_draw_calls(*state, shadows.draw_items);
-        state->shadow_pass->draw(shadows, state->shadow_draw_calls);
-        return {};
+        return state->shadow_pass->draw(shadows, state->shadow_draw_calls);
     }
 
-    tbx::Result OpenGlRenderer::draw_geometry(const tbx::GeometryRenderInfo& geo)
+    tbx::RenderPassOutcome OpenGlRenderer::draw_geometry(const tbx::GeometryRenderInfo& geo)
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
         if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
 
         build_geometry_draw_calls(*state, geo.draw_items);
         state->gbuffer.prepare_geometry_pass();
-        state->geometry_pass->draw(state->clear_color, geo.view_projection, state->draw_calls);
-        return {};
+        return state->geometry_pass->draw(geo.view_projection, state->draw_calls);
     }
 
-    tbx::Result OpenGlRenderer::draw_lighting(const tbx::LightingRenderInfo& lighting)
+    tbx::RenderPassOutcome OpenGlRenderer::draw_lighting(const tbx::LightingRenderInfo& lighting)
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
         if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
 
-        state->has_camera = lighting.has_camera;
         state->render_stage = lighting.render_stage;
-        state->lighting_pass->draw(state->clear_color, state->render_size, lighting);
-        return {};
+        return state->lighting_pass->draw(state->clear_color, state->render_size, lighting);
     }
 
-    tbx::Result OpenGlRenderer::draw_transparent(const tbx::TransparentRenderInfo& transparency)
+    tbx::RenderPassOutcome OpenGlRenderer::draw_transparent(const tbx::TransparentRenderInfo& transparency)
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
         if (!state)
-            return tbx::Result(false, "OpenGL rendering: missing renderer state.");
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
 
         build_transparent_draw_calls(*state, transparency.draw_items);
-        state->transparent_pass->draw(
+        return state->transparent_pass->draw(
             transparency.view_projection,
             state->transparent_draw_calls);
-        return {};
     }
 
-    tbx::Result OpenGlRenderer::apply_post_processing(const tbx::PostProcessingPass& post)
+    tbx::RenderPassOutcome OpenGlRenderer::apply_post_processing(const tbx::PostProcessingPass& post)
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
+        if (!state)
+            return tbx::RenderPassOutcome::fatal("OpenGL rendering: missing renderer state.");
+
+        return state->post_processing_pass->draw(state->render_size, post.post_processing);
+    }
+
+
+    tbx::Result OpenGlRenderer::clear(const tbx::Color& color)
+    {
+        auto* state = try_get_frame_state();
         if (!state)
             return tbx::Result(false, "OpenGL rendering: missing renderer state.");
 
-        state->post_processing_pass->draw(state->render_size, post.post_processing);
+        state->clear_color = color;
+        state->gbuffer.prepare_geometry_pass();
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        glClearColor(color.r, color.g, color.b, color.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         return {};
     }
 
     tbx::Result OpenGlRenderer::end_draw()
     {
-        auto* state = try_get_active_state();
+        auto* state = try_get_frame_state();
         if (!state)
             return tbx::Result(false, "OpenGL rendering: missing renderer state.");
-
-        if (!state->has_camera)
-        {
-            render_magenta_failure_frame(state->gbuffer);
-        }
-        else if (has_render_pipeline_failure())
-        {
-            if (!state->has_reported_pipeline_failure)
-            {
-                TBX_TRACE_WARNING(
-                    "OpenGL rendering: one or more render passes failed without producing a usable "
-                    "frame. Rendering magenta fallback frame.");
-                state->has_reported_pipeline_failure = true;
-            }
-            render_magenta_failure_frame(state->gbuffer);
-        }
-        else
-        {
-            state->has_reported_pipeline_failure = false;
-        }
 
         state->gbuffer.present(state->render_stage, state->render_size);
         state->draw_calls.clear();
@@ -572,25 +548,25 @@ namespace opengl_rendering
         return {};
     }
 
-    OpenGlWindowRendererState& OpenGlRenderer::ensure_state()
+    OpenGlFrameState& OpenGlRenderer::ensure_frame_state()
     {
         if (_state)
             return *_state;
 
-        _state = std::make_shared<OpenGlWindowRendererState>(
+        _state = std::make_shared<OpenGlFrameState>(
             _resources,
             _job_system,
             tbx::Size {0U, 0U});
         return *_state;
     }
 
-    OpenGlWindowRendererState* OpenGlRenderer::try_get_active_state()
+    OpenGlFrameState* OpenGlRenderer::try_get_frame_state()
     {
         return _state.get();
     }
 
     void OpenGlRenderer::build_geometry_draw_calls(
-        OpenGlWindowRendererState& state,
+        OpenGlFrameState& state,
         const std::vector<tbx::RenderDrawItem>& draw_items)
     {
         state.draw_calls.clear();
@@ -636,7 +612,7 @@ namespace opengl_rendering
     }
 
     void OpenGlRenderer::build_shadow_draw_calls(
-        OpenGlWindowRendererState& state,
+        OpenGlFrameState& state,
         const std::vector<tbx::RenderShadowItem>& draw_items)
     {
         state.shadow_draw_calls.clear();
@@ -663,7 +639,7 @@ namespace opengl_rendering
     }
 
     void OpenGlRenderer::build_transparent_draw_calls(
-        OpenGlWindowRendererState& state,
+        OpenGlFrameState& state,
         const std::vector<tbx::RenderDrawItem>& draw_items)
     {
         state.transparent_draw_calls.clear();
