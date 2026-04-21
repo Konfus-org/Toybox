@@ -33,7 +33,7 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void draw(const tbx::Size& render_size, const std::optional<tbx::PostProcessing>& post);
+        tbx::RenderPassOutcome draw(const tbx::Size& render_size, const std::optional<tbx::PostProcessing>& post);
 
       private:
         void destroy_scratch_targets() noexcept;

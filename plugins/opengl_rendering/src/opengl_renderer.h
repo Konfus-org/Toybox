@@ -6,7 +6,7 @@
 
 namespace opengl_rendering
 {
-    struct OpenGlWindowRendererState;
+    struct OpenGlFrameState;
 
     class OpenGlRenderer final : public tbx::IGraphicsBackend
     {
@@ -27,26 +27,26 @@ namespace opengl_rendering
         tbx::Result begin_draw(
             const tbx::Window& window,
             const tbx::Camera& view,
-            const tbx::Size& resolution,
-            const tbx::Color& clear_color) override;
-        tbx::Result draw_shadows(const tbx::ShadowRenderInfo& shadows) override;
-        tbx::Result draw_geometry(const tbx::GeometryRenderInfo& geo) override;
-        tbx::Result draw_lighting(const tbx::LightingRenderInfo& lighting) override;
-        tbx::Result draw_transparent(const tbx::TransparentRenderInfo& transparency) override;
-        tbx::Result apply_post_processing(const tbx::PostProcessingPass& post) override;
+            const tbx::Size& resolution) override;
+        tbx::RenderPassOutcome draw_shadows(const tbx::ShadowRenderInfo& shadows) override;
+        tbx::RenderPassOutcome draw_geometry(const tbx::GeometryRenderInfo& geo) override;
+        tbx::RenderPassOutcome draw_lighting(const tbx::LightingRenderInfo& lighting) override;
+        tbx::RenderPassOutcome draw_transparent(const tbx::TransparentRenderInfo& transparency) override;
+        tbx::RenderPassOutcome apply_post_processing(const tbx::PostProcessingPass& post) override;
+        tbx::Result clear(const tbx::Color& color) override;
         tbx::Result end_draw() override;
 
       private:
-        OpenGlWindowRendererState& ensure_state();
-        OpenGlWindowRendererState* try_get_active_state();
+        OpenGlFrameState& ensure_frame_state();
+        OpenGlFrameState* try_get_frame_state();
         void build_geometry_draw_calls(
-            OpenGlWindowRendererState& state,
+            OpenGlFrameState& state,
             const std::vector<tbx::RenderDrawItem>& draw_items);
         void build_shadow_draw_calls(
-            OpenGlWindowRendererState& state,
+            OpenGlFrameState& state,
             const std::vector<tbx::RenderShadowItem>& draw_items);
         void build_transparent_draw_calls(
-            OpenGlWindowRendererState& state,
+            OpenGlFrameState& state,
             const std::vector<tbx::RenderDrawItem>& draw_items);
         void initialize_runtime(tbx::GraphicsProcAddress loader);
 
@@ -54,7 +54,7 @@ namespace opengl_rendering
         tbx::AssetManager& _asset_manager;
         tbx::JobSystem& _job_system;
         OpenGlResources _resources;
-        std::shared_ptr<OpenGlWindowRendererState> _state = nullptr;
+        std::shared_ptr<OpenGlFrameState> _state = nullptr;
         bool _is_runtime_initialized = false;
     };
 }

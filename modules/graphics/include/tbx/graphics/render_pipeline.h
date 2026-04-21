@@ -20,6 +20,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -206,6 +207,56 @@ namespace tbx
         std::optional<PostProcessing> post_processing = std::nullopt;
     };
 
+
+    enum class TBX_API RenderPassStatus
+    {
+        Success,
+        Degraded,
+        Fatal,
+    };
+
+    struct TBX_API RenderPassOutcome
+    {
+        RenderPassStatus status = RenderPassStatus::Success;
+        std::string diagnostics = {};
+
+        bool is_success() const
+        {
+            return status == RenderPassStatus::Success;
+        }
+
+        bool is_degraded() const
+        {
+            return status == RenderPassStatus::Degraded;
+        }
+
+        bool is_fatal() const
+        {
+            return status == RenderPassStatus::Fatal;
+        }
+
+        static RenderPassOutcome success()
+        {
+            return {};
+        }
+
+        static RenderPassOutcome degraded(std::string diagnostics_text)
+        {
+            auto outcome = RenderPassOutcome {};
+            outcome.status = RenderPassStatus::Degraded;
+            outcome.diagnostics = std::move(diagnostics_text);
+            return outcome;
+        }
+
+        static RenderPassOutcome fatal(std::string diagnostics_text)
+        {
+            auto outcome = RenderPassOutcome {};
+            outcome.status = RenderPassStatus::Fatal;
+            outcome.diagnostics = std::move(diagnostics_text);
+            return outcome;
+        }
+    };
+
     /// @brief
     /// Purpose: Defines the backend contract used by the engine-owned render pipeline.
     /// @details
@@ -229,13 +280,13 @@ namespace tbx
         virtual Result begin_draw(
             const Window& window,
             const Camera& view,
-            const Size& resolution,
-            const Color& clear_color) = 0;
-        virtual Result draw_shadows(const ShadowRenderInfo& shadows) = 0;
-        virtual Result draw_geometry(const GeometryRenderInfo& geo) = 0;
-        virtual Result draw_lighting(const LightingRenderInfo& lighting) = 0;
-        virtual Result draw_transparent(const TransparentRenderInfo& transparency) = 0;
-        virtual Result apply_post_processing(const PostProcessingPass& post) = 0;
+            const Size& resolution) = 0;
+        virtual RenderPassOutcome draw_shadows(const ShadowRenderInfo& shadows) = 0;
+        virtual RenderPassOutcome draw_geometry(const GeometryRenderInfo& geo) = 0;
+        virtual RenderPassOutcome draw_lighting(const LightingRenderInfo& lighting) = 0;
+        virtual RenderPassOutcome draw_transparent(const TransparentRenderInfo& transparency) = 0;
+        virtual RenderPassOutcome apply_post_processing(const PostProcessingPass& post) = 0;
+        virtual Result clear(const Color& color) = 0;
         virtual Result end_draw() = 0;
     };
 
@@ -270,6 +321,23 @@ namespace tbx
         void sync_windows();
 
       private:
+
+        struct RenderPassLogState
+        {
+            RenderPassStatus status = RenderPassStatus::Success;
+            std::string diagnostics = {};
+        };
+
+        struct WindowRenderLogState
+        {
+            RenderPassLogState shadows = {};
+            RenderPassLogState geometry = {};
+            RenderPassLogState lighting = {};
+            RenderPassLogState transparency = {};
+            RenderPassLogState post_processing = {};
+            bool has_reported_fallback = false;
+        };
+
         IMessageCoordinator& _message_coordinator;
         ThreadManager& _thread_manager;
         EntityRegistry& _entity_registry;
@@ -285,6 +353,7 @@ namespace tbx
         std::unordered_map<Window, Size> _windows = {};
         std::vector<Handle> _pending_asset_reloads = {};
         mutable bool _has_reported_missing_camera = false;
+        std::unordered_map<Window, WindowRenderLogState> _window_render_log_state = {};
     };
 
     /// @brief

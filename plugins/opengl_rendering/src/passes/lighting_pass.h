@@ -33,7 +33,7 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void draw(
+        tbx::RenderPassOutcome draw(
             const tbx::Color& clear_color,
             const tbx::Size& render_size,
             const tbx::LightingRenderInfo& lighting);
@@ -76,6 +76,5 @@ namespace opengl_rendering
         std::size_t _tile_spot_light_indices_buffer_capacity = 0U;
         std::size_t _tile_area_light_indices_buffer_capacity = 0U;
         bool _has_uploaded_static_shader_bindings = false;
-        bool _has_reported_frame_failure = false;
     };
 }

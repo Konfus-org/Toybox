@@ -26,7 +26,7 @@ namespace opengl_rendering
         /// @details
         /// Ownership: Does not take ownership of the supplied payload.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void draw(
+        tbx::RenderPassOutcome draw(
             const tbx::ShadowRenderInfo& shadow_info,
             const std::vector<ShadowDrawCall>& draw_calls);
 
