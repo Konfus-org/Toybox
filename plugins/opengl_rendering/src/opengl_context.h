@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/common/result.h"
-#include "tbx/graphics/render_pipeline.h"
+#include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/graphics/window.h"
 #include <functional>
 

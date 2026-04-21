@@ -1,5 +1,7 @@
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
 #include "tbx/debugging/macros.h"
+#include "tbx/graphics/opengl_context_manager.h"
+#include <string_view>
 #include <utility>
 
 namespace sdl_opengl_context_manager
@@ -8,6 +10,8 @@ namespace sdl_opengl_context_manager
     {
         if (!context)
             return;
+        if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0U)
+            return;
 
         SDL_GLContext current_context = SDL_GL_GetCurrentContext();
         if (current_context != context)
@@ -15,9 +19,16 @@ namespace sdl_opengl_context_manager
 
         if (!SDL_GL_MakeCurrent(nullptr, nullptr))
         {
+            const char* error = SDL_GetError();
+            if (error && std::string_view(error) == "OpenGL not initialized")
+            {
+                SDL_ClearError();
+                return;
+            }
+
             TBX_TRACE_WARNING(
                 "Failed to release current SDL OpenGL context before destruction: {}",
-                SDL_GetError());
+                error);
             SDL_ClearError();
         }
     }
@@ -33,19 +44,14 @@ namespace sdl_opengl_context_manager
         }
     }
 
-    SdlOpenGlContextManager::SdlOpenGlContextManager() = default;
+    SdlOpenGlContextManager::SdlOpenGlContextManager(tbx::IWindowManager& window_manager)
+        : _window_manager(window_manager)
+    {
+    }
 
     SdlOpenGlContextManager::~SdlOpenGlContextManager() noexcept
     {
-        for (const auto& context_entry : _contexts)
-        {
-            if (context_entry.second)
-            {
-                try_release_current_context(context_entry.second);
-                SDL_GL_DestroyContext(context_entry.second);
-            }
-        }
-        _contexts.clear();
+        shutdown();
     }
 
     void SdlOpenGlContextManager::initialize(
@@ -69,24 +75,54 @@ namespace sdl_opengl_context_manager
         apply_vsync_setting();
     }
 
-    tbx::Result SdlOpenGlContextManager::make_current(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextManager::create_context(const tbx::Window& window)
     {
         TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
         if (!window.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
-        const auto window_it = _native_windows.find(window);
-        if (window_it == _native_windows.end() || !window_it->second)
+        auto* sdl_window = get_sdl_window(window);
+        if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
         const std::string label = to_string(window);
-        if (!_contexts.contains(window_it->second)
-            && !try_create_context(window_it->second, label))
-        {
+        if (!try_create_context(window, sdl_window, label))
             return make_failure("SDL OpenGL context manager: failed to create context.");
-        }
 
-        if (!try_make_current(window_it->second, label))
+        auto result = tbx::Result {};
+        result.flag_success();
+        return result;
+    }
+
+    tbx::Result SdlOpenGlContextManager::destroy_context(const tbx::Window& window)
+    {
+        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.is_valid())
+            return make_failure("SDL OpenGL context manager: window id is invalid.");
+
+        destroy_native_context(window);
+
+        auto result = tbx::Result {};
+        result.flag_success();
+        return result;
+    }
+
+    tbx::Result SdlOpenGlContextManager::make_context_current(const tbx::Window& window)
+    {
+        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.is_valid())
+            return make_failure("SDL OpenGL context manager: window id is invalid.");
+
+        auto* sdl_window = get_sdl_window(window);
+        if (!sdl_window)
+            return make_failure("SDL OpenGL context manager: native window not available.");
+
+        const std::string label = to_string(window);
+        const auto context_it = _contexts.find(window);
+        if (context_it == _contexts.end())
+            return make_failure("SDL OpenGL context manager: context not created.");
+
+        if (!try_make_current(sdl_window, context_it->second, label))
             return make_failure(SDL_GetError());
 
         auto result = tbx::Result {};
@@ -94,17 +130,17 @@ namespace sdl_opengl_context_manager
         return result;
     }
 
-    tbx::Result SdlOpenGlContextManager::present(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextManager::swap_buffers(const tbx::Window& window)
     {
         TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
         if (!window.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
-        const auto window_it = _native_windows.find(window);
-        if (window_it == _native_windows.end() || !window_it->second)
+        auto* sdl_window = get_sdl_window(window);
+        if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
-        if (!try_present(window_it->second))
+        if (!try_present(window, sdl_window))
             return make_failure("SDL OpenGL context manager: present failed.");
 
         auto result = tbx::Result {};
@@ -122,44 +158,23 @@ namespace sdl_opengl_context_manager
         return result;
     }
 
+    void SdlOpenGlContextManager::shutdown()
+    {
+        for (const auto& context_entry : _contexts)
+        {
+            if (!context_entry.second)
+                continue;
+
+            try_release_current_context(context_entry.second);
+            SDL_GL_DestroyContext(context_entry.second);
+        }
+
+        _contexts.clear();
+    }
+
     tbx::GraphicsProcAddress SdlOpenGlContextManager::get_proc_address() const
     {
         return reinterpret_cast<tbx::GraphicsProcAddress>(SDL_GL_GetProcAddress);
-    }
-
-    void SdlOpenGlContextManager::set_window(tbx::Window window, SDL_Window* sdl_window)
-    {
-        if (!window.is_valid())
-            return;
-
-        const auto previous_it = _native_windows.find(window);
-        if (previous_it != _native_windows.end() && previous_it->second != sdl_window)
-            destroy_context(previous_it->second);
-
-        if (!sdl_window)
-        {
-            _native_windows.erase(window);
-            return;
-        }
-
-        _native_windows[window] = sdl_window;
-    }
-
-    void SdlOpenGlContextManager::remove_window(
-        const tbx::Window& window,
-        SDL_Window* previous_sdl_window)
-    {
-        if (!previous_sdl_window)
-        {
-            const auto window_it = _native_windows.find(window);
-            if (window_it != _native_windows.end())
-                previous_sdl_window = window_it->second;
-        }
-
-        if (previous_sdl_window)
-            destroy_context(previous_sdl_window);
-
-        _native_windows.erase(window);
     }
 
     void SdlOpenGlContextManager::apply_default_attributes() const
@@ -196,15 +211,22 @@ namespace sdl_opengl_context_manager
         return result;
     }
 
+    SDL_Window* SdlOpenGlContextManager::get_sdl_window(const tbx::Window& window) const
+    {
+        return static_cast<SDL_Window*>(_window_manager.get_native_handle(window));
+    }
+
     bool SdlOpenGlContextManager::try_create_context(
+        const tbx::Window& window,
         SDL_Window* sdl_window,
         const std::string& window_title)
     {
         if (!sdl_window)
             return false;
 
-        if (_contexts.contains(sdl_window))
-            return try_make_current(sdl_window, window_title);
+        const auto existing_context = _contexts.find(window);
+        if (existing_context != _contexts.end())
+            return try_make_current(sdl_window, existing_context->second, window_title);
 
         SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
         if (!context)
@@ -216,14 +238,14 @@ namespace sdl_opengl_context_manager
             return false;
         }
 
-        _contexts[sdl_window] = context;
+        _contexts[window] = context;
         if (!SDL_GL_MakeCurrent(sdl_window, context))
         {
             TBX_TRACE_ERROR(
                 "Failed to make SDL OpenGL context current for window '{}': {}",
                 window_title,
                 SDL_GetError());
-            destroy_context(sdl_window);
+            destroy_native_context(window);
             return false;
         }
 
@@ -241,12 +263,12 @@ namespace sdl_opengl_context_manager
         return true;
     }
 
-    void SdlOpenGlContextManager::destroy_context(SDL_Window* sdl_window)
+    void SdlOpenGlContextManager::destroy_native_context(const tbx::Window& window)
     {
-        if (!sdl_window)
+        if (!window.is_valid())
             return;
 
-        auto context_it = _contexts.find(sdl_window);
+        auto context_it = _contexts.find(window);
         if (context_it == _contexts.end())
             return;
 
@@ -260,16 +282,13 @@ namespace sdl_opengl_context_manager
 
     bool SdlOpenGlContextManager::try_make_current(
         SDL_Window* sdl_window,
+        SDL_GLContext context,
         const std::string& window_title)
     {
-        if (!sdl_window)
+        if (!sdl_window || !context)
             return false;
 
-        auto context_it = _contexts.find(sdl_window);
-        if (context_it == _contexts.end())
-            return false;
-
-        if (!SDL_GL_MakeCurrent(sdl_window, context_it->second))
+        if (!SDL_GL_MakeCurrent(sdl_window, context))
         {
             TBX_TRACE_ERROR(
                 "Failed to make OpenGL context current for window '{}': {}",
@@ -281,9 +300,9 @@ namespace sdl_opengl_context_manager
         return true;
     }
 
-    bool SdlOpenGlContextManager::try_present(SDL_Window* sdl_window)
+    bool SdlOpenGlContextManager::try_present(const tbx::Window& window, SDL_Window* sdl_window)
     {
-        if (!sdl_window || !_contexts.contains(sdl_window))
+        if (!sdl_window || !_contexts.contains(window))
             return false;
 
         SDL_GL_SwapWindow(sdl_window);
@@ -295,8 +314,9 @@ namespace sdl_opengl_context_manager
         SDL_Window* current_window = SDL_GL_GetCurrentWindow();
         SDL_GLContext current_context = SDL_GL_GetCurrentContext();
 
-        for (const auto& [sdl_window, context] : _contexts)
+        for (const auto& [window, context] : _contexts)
         {
+            SDL_Window* sdl_window = get_sdl_window(window);
             if (!sdl_window || !context)
                 continue;
 

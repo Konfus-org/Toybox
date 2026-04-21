@@ -5,7 +5,7 @@
 #include "tbx/async/job_system.h"
 #include "tbx/async/thread_manager.h"
 #include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/render_pipeline.h"
+#include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/graphics/window.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/plugin_api/plugin.h"
@@ -33,6 +33,8 @@ namespace opengl_rendering
 
       private:
         void create_renderer(const tbx::Window& window_id, const tbx::Size& viewport_size);
+        void initialize_context_manager();
+        void shutdown_context_manager();
         void teardown_renderer(const tbx::Window& window_id);
 
       private:

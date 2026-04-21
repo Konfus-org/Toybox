@@ -26,7 +26,7 @@ namespace opengl_rendering
             return result;
         }
 
-        return _context_manager.get().make_current(_window_id);
+        return _context_manager.get().make_context_current(_window_id);
     }
 
     tbx::Result OpenGlContext::present() const
@@ -39,6 +39,6 @@ namespace opengl_rendering
             return result;
         }
 
-        return _context_manager.get().present(_window_id);
+        return _context_manager.get().swap_buffers(_window_id);
     }
 }

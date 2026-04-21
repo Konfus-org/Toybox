@@ -44,6 +44,8 @@ namespace tbx
         AUTO
     };
 
+    /// TODO: remove texture settings, we DO NOT NEED THIS, we can just use the vanilla Texture
+    /// anywhere we need it.
     /// @brief
     /// Purpose: Stores texture sampling and surface settings shared by texture data and texture
     /// instances.
@@ -63,8 +65,8 @@ namespace tbx
         {
             return resolution.width == other.resolution.width
                    && resolution.height == other.resolution.height && wrap == other.wrap
-                   && filter == other.filter && format == other.format
-                   && mipmaps == other.mipmaps && compression == other.compression;
+                   && filter == other.filter && format == other.format && mipmaps == other.mipmaps
+                   && compression == other.compression;
         }
     };
 
@@ -104,6 +106,7 @@ namespace tbx
         std::vector<Pixel> pixels = {255, 255, 255};
     };
 
+    /// TODO: remove texture instance, we shouldn't need this anywhere we can just use the handle.
     /// @brief
     /// Purpose: Stores a texture asset handle with optional runtime texture settings values.
     /// @details

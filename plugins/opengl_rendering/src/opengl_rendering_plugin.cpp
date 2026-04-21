@@ -8,6 +8,7 @@
 #include "tbx/debugging/macros.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/messages.h"
+#include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/graphics/settings.h"
 #include <functional>
 #include <future>
@@ -34,6 +35,7 @@ namespace opengl_rendering
 
         if (_settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL && _window_manager)
         {
+            initialize_context_manager();
             for (const auto& window_id : _window_manager->get_open_windows())
                 create_renderer(window_id, _window_manager->get_size(window_id));
         }
@@ -47,6 +49,8 @@ namespace opengl_rendering
             windows.push_back(window_id);
         for (const auto& window_id : windows)
             teardown_renderer(window_id);
+
+        shutdown_context_manager();
 
         if (_thread_manager)
             _thread_manager->stop_lane(OPENGL_RENDER_LANE_NAME);
@@ -123,6 +127,7 @@ namespace opengl_rendering
             auto viewport_size = tbx::Size {};
             if (_window_manager)
                 viewport_size = _window_manager->get_size(opened_event->window);
+            initialize_context_manager();
             create_renderer(opened_event->window, viewport_size);
             return;
         }
@@ -139,7 +144,10 @@ namespace opengl_rendering
             if (renderer_it == _renderers.end())
             {
                 if (_settings && _settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL)
+                {
+                    initialize_context_manager();
                     create_renderer(size_event->window, size_event->current);
+                }
                 return;
             }
 
@@ -173,14 +181,29 @@ namespace opengl_rendering
                     windows.push_back(window_id);
                 for (const auto& window_id : windows)
                     teardown_renderer(window_id);
+                shutdown_context_manager();
                 return;
             }
 
+            initialize_context_manager();
             if (_window_manager)
             {
                 for (const auto& window_id : _window_manager->get_open_windows())
                     create_renderer(window_id, _window_manager->get_size(window_id));
             }
+            return;
+        }
+
+        if (const auto* vsync_event =
+                tbx::handle_property_changed<&tbx::GraphicsSettings::vsync_enabled>(msg))
+        {
+            if (!_open_gl_context_manager)
+                return;
+            if (!_settings || _settings->graphics.graphics_api != tbx::GraphicsApi::OPEN_GL)
+                return;
+
+            _open_gl_context_manager->set_vsync(
+                vsync_event->current ? tbx::VsyncMode::ON : tbx::VsyncMode::OFF);
             return;
         }
 
@@ -235,6 +258,7 @@ namespace opengl_rendering
         auto create_renderer_future = _thread_manager->post_with_future(
             OPENGL_RENDER_LANE_NAME,
             [loader = _open_gl_context_manager->get_proc_address(),
+             context_manager = std::ref(*_open_gl_context_manager),
              entity_registry,
              asset_manager,
              job_system,
@@ -242,6 +266,18 @@ namespace opengl_rendering
              render_resolution,
              render_stage]() mutable
             {
+                if (const auto create_context_result =
+                        context_manager.get().create_context(context.get_window_id());
+                    !create_context_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "OpenGL rendering: failed to create window {} context before renderer "
+                        "creation: {}",
+                        tbx::to_string(context.get_window_id()),
+                        create_context_result.get_report());
+                    return std::unique_ptr<OpenGlRenderer>();
+                }
+
                 if (const auto make_current_result = context.make_current(); !make_current_result)
                 {
                     TBX_TRACE_ERROR(
@@ -249,6 +285,7 @@ namespace opengl_rendering
                         "creation: {}",
                         tbx::to_string(context.get_window_id()),
                         make_current_result.get_report());
+                    context_manager.get().destroy_context(context.get_window_id());
                     return std::unique_ptr<OpenGlRenderer>();
                 }
 
@@ -275,6 +312,48 @@ namespace opengl_rendering
             tbx::to_string(window_id));
     }
 
+    void OpenGlRenderingPlugin::initialize_context_manager()
+    {
+        if (!_open_gl_context_manager || !_settings)
+            return;
+
+        bool debug_context_enabled = false;
+#if defined(TBX_DEBUG)
+        debug_context_enabled = true;
+#endif
+
+        _open_gl_context_manager->initialize(
+            4,
+            5,
+            24,
+            8,
+            true,
+            debug_context_enabled,
+            _settings->graphics.vsync_enabled);
+    }
+
+    void OpenGlRenderingPlugin::shutdown_context_manager()
+    {
+        if (!_open_gl_context_manager)
+            return;
+
+        if (!_thread_manager || !_thread_manager->has_lane(OPENGL_RENDER_LANE_NAME))
+        {
+            _open_gl_context_manager->shutdown();
+            return;
+        }
+
+        auto& context_manager = *_open_gl_context_manager;
+        _thread_manager
+            ->post_with_future(
+                OPENGL_RENDER_LANE_NAME,
+                [&context_manager]
+                {
+                    context_manager.shutdown();
+                })
+            .get();
+    }
+
     void OpenGlRenderingPlugin::teardown_renderer(const tbx::Window& window_id)
     {
         const auto renderer_it = _renderers.find(window_id);
@@ -286,17 +365,29 @@ namespace opengl_rendering
         if (!renderer)
             return;
 
-        if (!_thread_manager)
+        if (!_thread_manager || !_open_gl_context_manager)
             return;
 
         auto* released_renderer = renderer.release();
+        auto& context_manager = *_open_gl_context_manager;
         _thread_manager
             ->post_with_future(
                 OPENGL_RENDER_LANE_NAME,
-                [released_renderer]
+                [released_renderer, &context_manager, window_id]
                 {
                     auto renderer_on_render_lane =
                         std::unique_ptr<OpenGlRenderer>(released_renderer);
+                    renderer_on_render_lane.reset();
+
+                    if (const auto destroy_context_result =
+                            context_manager.destroy_context(window_id);
+                        !destroy_context_result)
+                    {
+                        TBX_TRACE_WARNING(
+                            "OpenGL rendering: failed to destroy window {} context: {}",
+                            tbx::to_string(window_id),
+                            destroy_context_result.get_report());
+                    }
                 })
             .get();
     }

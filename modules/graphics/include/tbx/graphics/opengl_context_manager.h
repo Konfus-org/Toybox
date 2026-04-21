@@ -33,8 +33,13 @@ namespace tbx
             bool double_buffer_enabled = true,
             bool debug_context_enabled = false,
             bool vsync_enabled = false) = 0;
-        virtual Result make_current(const Window& window) = 0;
-        virtual Result present(const Window& window) = 0;
+        virtual void shutdown() = 0;
+
+        virtual Result create_context(const Window& window) = 0;
+        virtual Result destroy_context(const Window& window) = 0;
+        virtual Result make_context_current(const Window& window) = 0;
+        virtual Result swap_buffers(const Window& window) = 0;
+
         virtual Result set_vsync(const VsyncMode& mode) = 0;
         virtual GraphicsProcAddress get_proc_address() const = 0;
     };

@@ -13,6 +13,7 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/frustum.h"
 #include "tbx/graphics/light.h"
+#include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/graphics/post_processing.h"
 #include "tbx/graphics/renderer.h"
 #include "tbx/graphics/texture.h"

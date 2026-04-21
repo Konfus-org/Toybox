@@ -1,4 +1,4 @@
-#include "tbx/graphics/render_pipeline.h"
+#include "tbx/graphics/opengl_context_manager.h"
 
 namespace tbx
 {

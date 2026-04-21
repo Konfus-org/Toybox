@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/graphics/render_pipeline.h"
+#include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <string>
@@ -32,7 +32,7 @@ namespace sdl_opengl_context_manager
     class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::IOpenGlContextManager
     {
       public:
-        SdlOpenGlContextManager();
+        SdlOpenGlContextManager(tbx::IWindowManager& window_manager);
         ~SdlOpenGlContextManager() noexcept override;
 
         void initialize(
@@ -43,28 +43,36 @@ namespace sdl_opengl_context_manager
             bool double_buffer_enabled = true,
             bool debug_context_enabled = false,
             bool vsync_enabled = false) override;
+        void shutdown() override;
 
-        tbx::Result make_current(const tbx::Window& window) override;
-        tbx::Result present(const tbx::Window& window) override;
+        tbx::Result create_context(const tbx::Window& window) override;
+        tbx::Result destroy_context(const tbx::Window& window) override;
+        tbx::Result make_context_current(const tbx::Window& window) override;
+        tbx::Result swap_buffers(const tbx::Window& window) override;
+
         tbx::Result set_vsync(const tbx::VsyncMode& mode) override;
         tbx::GraphicsProcAddress get_proc_address() const override;
-
-        void set_window(tbx::Window window, SDL_Window* sdl_window);
-        void remove_window(const tbx::Window& window, SDL_Window* previous_sdl_window = nullptr);
 
       private:
         void apply_default_attributes() const;
         int get_swap_interval() const;
         tbx::Result make_failure(std::string message) const;
-        bool try_create_context(SDL_Window* sdl_window, const std::string& window_title);
-        void destroy_context(SDL_Window* sdl_window);
-        bool try_make_current(SDL_Window* sdl_window, const std::string& window_title);
-        bool try_present(SDL_Window* sdl_window);
+        SDL_Window* get_sdl_window(const tbx::Window& window) const;
+        bool try_create_context(
+            const tbx::Window& window,
+            SDL_Window* sdl_window,
+            const std::string& window_title);
+        void destroy_native_context(const tbx::Window& window);
+        bool try_make_current(
+            SDL_Window* sdl_window,
+            SDL_GLContext context,
+            const std::string& window_title);
+        bool try_present(const tbx::Window& window, SDL_Window* sdl_window);
         void apply_vsync_setting();
 
       private:
+        tbx::IWindowManager& _window_manager;
         SdlOpenGlContextSettings _settings = {};
-        std::unordered_map<tbx::Window, SDL_Window*> _native_windows = {};
-        std::unordered_map<SDL_Window*, SDL_GLContext> _contexts = {};
+        std::unordered_map<tbx::Window, SDL_GLContext> _contexts = {};
     };
 }
