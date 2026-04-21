@@ -76,25 +76,6 @@ namespace opengl_rendering
         return GL_NONE;
     }
 
-    static GLenum get_stage_attachment(const tbx::RenderStage render_stage)
-    {
-        switch (render_stage)
-        {
-            case tbx::RenderStage::FINAL_COLOR:
-                return GL_COLOR_ATTACHMENT0;
-            case tbx::RenderStage::GEOMETRY_PREVIEW_COLOR:
-                return GL_COLOR_ATTACHMENT1;
-            case tbx::RenderStage::ALBEDO:
-                return GL_COLOR_ATTACHMENT2;
-            case tbx::RenderStage::NORMAL:
-                return GL_COLOR_ATTACHMENT3;
-            case tbx::RenderStage::DEPTH_PREVIEW:
-                return GL_COLOR_ATTACHMENT4;
-            default:
-                return GL_COLOR_ATTACHMENT0;
-        }
-    }
-
     OpenGlVertexBuffer::OpenGlVertexBuffer()
     {
         glCreateBuffers(1, &_buffer_id);
@@ -312,15 +293,14 @@ namespace opengl_rendering
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void OpenGlGBuffer::present(const tbx::RenderStage render_stage, const tbx::Size& viewport_size)
-        const
+    void OpenGlGBuffer::present(const tbx::Size& viewport_size) const
     {
         if (_geometry_framebuffer == 0U || viewport_size.width == 0U || viewport_size.height == 0U)
             return;
 
         glBindFramebuffer(GL_READ_FRAMEBUFFER, _geometry_framebuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glReadBuffer(get_stage_attachment(render_stage));
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
         glBlitFramebuffer(
             0,
             0,

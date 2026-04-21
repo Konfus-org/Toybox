@@ -3,6 +3,7 @@
 #include "tbx/graphics/camera.h"
 #include "tbx/graphics/graphics_backend.h"
 #include "tbx/graphics/render_graph.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/graphics/window.h"
 #include "tbx/math/size.h"
 #include "tbx/tbx_api.h"
@@ -29,5 +30,17 @@ namespace tbx
             const Camera& view,
             const Size& resolution,
             const RenderGraph& scene) const;
+
+        /// @brief
+        /// Purpose: Renders a Toybox-owned command pipeline through a graphics backend.
+        /// @details
+        /// Ownership: Reads pipeline data during the call; backend owns realized GPU resources.
+        /// Thread Safety: Not inherently thread-safe; callers should synchronize backend access.
+        Result submit(
+            IGraphicsBackend& backend,
+            const Window& output_window,
+            const Camera& view,
+            const Size& resolution,
+            const GraphicsRenderPipeline& pipeline) const;
     };
 }

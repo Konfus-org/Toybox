@@ -190,6 +190,17 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Describes a resource bound to one backend binding slot.
+    /// @details
+    /// Ownership: Stores resource identifiers by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    struct TBX_API GraphicsResourceBinding
+    {
+        uint32 slot = 0U;
+        Uuid resource = {};
+    };
+
+    /// @brief
     /// Purpose: Describes how one bound vertex buffer is stepped during drawing.
     /// @details
     /// Ownership: Owns layout values by copy.

@@ -1,7 +1,6 @@
 #pragma once
 #include "opengl_resource.h"
 #include "tbx/common/typedefs.h"
-#include "tbx/graphics/settings.h"
 #include "tbx/graphics/mesh.h"
 #include "tbx/graphics/vertex.h"
 #include "tbx/math/size.h"
@@ -91,11 +90,11 @@ namespace opengl_rendering
         void prepare_geometry_pass() const;
 
         /// @brief
-        /// Purpose: Copies the selected render stage texture to the default framebuffer.
+        /// Purpose: Copies the final color texture to the default framebuffer.
         /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
-        void present(tbx::RenderStage render_stage, const tbx::Size& viewport_size) const;
+        void present(const tbx::Size& viewport_size) const;
 
         /// @brief
         /// Purpose: Prepares the deferred framebuffer for passes that only write final color.

@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "tbx/graphics/graphics_backend.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/graphics/rendering.h"
 #include <vector>
 
@@ -16,8 +17,10 @@ namespace tbx::tests::graphics
         BindVertexBuffer,
         BindIndexBuffer,
         BindUniformBuffer,
+        BindStorageBuffer,
         BindTexture,
         BindSampler,
+        Draw,
         DrawIndexed,
         EndView,
         Present,
@@ -76,6 +79,7 @@ namespace tbx::tests::graphics
 
         Result bind_storage_buffer(uint32, const Uuid&) override
         {
+            callbacks.push_back(GraphicsBackendCallback::BindStorageBuffer);
             return {};
         }
 
@@ -105,6 +109,7 @@ namespace tbx::tests::graphics
 
         Result draw(uint32, uint32) override
         {
+            callbacks.push_back(GraphicsBackendCallback::Draw);
             return {};
         }
 
@@ -328,6 +333,74 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_texture_slot, 1U);
         EXPECT_EQ(backend.recorded_sampler_slot, 1U);
         EXPECT_EQ(backend.recorded_draw.index_count, 36U);
+        EXPECT_EQ(backend.callbacks, expected_callbacks);
+    }
+
+    // Validates Toybox-owned render pipelines execute passes through backend commands.
+    TEST(GraphicsRenderPipelineTests, Execute_SubmitsIndexedDrawPassCommands)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto pipeline = GraphicsRenderPipeline {};
+        pipeline.add_pass(
+            GraphicsRenderPass {
+                .pass = GraphicsPassDesc {
+                    .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
+                    .debug_name = "Geometry",
+                },
+                .viewport =
+                    Viewport {
+                        .position = Vec2(0.0F),
+                        .dimensions = Size {320U, 200U},
+                    },
+                .indexed_draws =
+                    {
+                        GraphicsIndexedDrawCommand {
+                            .pipeline = Uuid(1U),
+                            .vertex_buffers = {GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = Uuid(2U),
+                            }},
+                            .index_buffer = Uuid(3U),
+                            .index_type = GraphicsIndexType::UINT32,
+                            .uniform_buffers = {GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = Uuid(4U),
+                            }},
+                            .textures = {GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = Uuid(5U),
+                            }},
+                            .samplers = {GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = Uuid(6U),
+                            }},
+                            .draw = GraphicsDrawIndexedDesc {
+                                .index_count = 6U,
+                            },
+                        },
+                    },
+            });
+
+        // Act
+        const auto result = pipeline.execute(backend);
+
+        // Assert
+        const auto expected_callbacks =
+            std::vector<GraphicsBackendCallback> {
+                GraphicsBackendCallback::SetViewport,
+                GraphicsBackendCallback::BeginPass,
+                GraphicsBackendCallback::BindPipeline,
+                GraphicsBackendCallback::BindVertexBuffer,
+                GraphicsBackendCallback::BindIndexBuffer,
+                GraphicsBackendCallback::BindUniformBuffer,
+                GraphicsBackendCallback::BindTexture,
+                GraphicsBackendCallback::BindSampler,
+                GraphicsBackendCallback::DrawIndexed,
+                GraphicsBackendCallback::EndPass,
+            };
+
+        EXPECT_TRUE(result);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 }

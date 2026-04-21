@@ -31,7 +31,6 @@ namespace opengl_rendering
         bool render();
         void set_pending_render_resolution(
             const std::optional<tbx::Size>& pending_render_resolution);
-        void set_render_stage(tbx::RenderStage render_stage);
         void set_viewport_size(const tbx::Size& viewport_size);
 
       private:
@@ -56,7 +55,6 @@ namespace opengl_rendering
         tbx::Size _viewport_size = {0, 0};
         tbx::Size _render_resolution = {0, 0};
         std::optional<tbx::Size> _pending_render_resolution = std::nullopt;
-        tbx::RenderStage _render_stage = tbx::RenderStage::FINAL_COLOR;
         std::vector<tbx::Handle> _pending_asset_reloads = {};
         OpenGlGBuffer _gbuffer = {};
         mutable bool _has_reported_missing_camera = false;

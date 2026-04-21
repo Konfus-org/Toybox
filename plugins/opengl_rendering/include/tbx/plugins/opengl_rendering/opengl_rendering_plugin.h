@@ -43,6 +43,7 @@ namespace opengl_rendering
         tbx::EntityRegistry* _entity_registry = nullptr;
         tbx::JobSystem* _job_system = nullptr;
         tbx::IOpenGlContextManager* _open_gl_context_manager = nullptr;
+        tbx::ServiceProvider* _service_provider = nullptr;
         tbx::AppSettings* _settings = nullptr;
         tbx::ThreadManager* _thread_manager = nullptr;
         tbx::IWindowManager* _window_manager = nullptr;

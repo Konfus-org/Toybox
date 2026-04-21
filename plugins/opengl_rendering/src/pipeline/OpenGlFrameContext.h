@@ -2,7 +2,6 @@
 #include "opengl_resources/opengl_shader.h"
 #include "tbx/common/uuid.h"
 #include "tbx/graphics/color.h"
-#include "tbx/graphics/settings.h"
 #include "tbx/graphics/post_processing.h"
 #include "tbx/math/matrices.h"
 #include <vector>
@@ -200,6 +199,5 @@ namespace opengl_rendering
         ShadowFrameData shadows = {};
         bool has_post_processing = false;
         tbx::PostProcessing post_processing = {};
-        tbx::RenderStage render_stage = tbx::RenderStage::FINAL_COLOR;
     };
 }

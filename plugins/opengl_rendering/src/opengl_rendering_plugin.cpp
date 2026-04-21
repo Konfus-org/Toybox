@@ -1,4 +1,5 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
+#include "opengl_graphics_backend.h"
 #include "opengl_renderer.h"
 #include "tbx/app/settings.h"
 #include "tbx/assets/manager.h"
@@ -23,6 +24,7 @@ namespace opengl_rendering
 
     void OpenGlRenderingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
+        _service_provider = &service_provider;
         _thread_manager = &service_provider.get_service<tbx::ThreadManager>();
         _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
         _asset_manager = &service_provider.get_service<tbx::AssetManager>();
@@ -30,6 +32,14 @@ namespace opengl_rendering
         _settings = &service_provider.get_service<tbx::AppSettings>();
         _open_gl_context_manager = service_provider.try_get_service<tbx::IOpenGlContextManager>();
         _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
+
+        if (_open_gl_context_manager)
+        {
+            auto backend = std::make_unique<OpenGlGraphicsBackend>(*_open_gl_context_manager);
+            if (_settings)
+                backend->initialize(_settings->graphics);
+            service_provider.register_service<tbx::IGraphicsBackend>(std::move(backend));
+        }
 
         _thread_manager->try_create_lane(OPENGL_RENDER_LANE_NAME);
 
@@ -50,6 +60,9 @@ namespace opengl_rendering
         for (const auto& window_id : windows)
             teardown_renderer(window_id);
 
+        if (_service_provider && _service_provider->has_service<tbx::IGraphicsBackend>())
+            _service_provider->deregister_service<tbx::IGraphicsBackend>();
+
         shutdown_context_manager();
 
         if (_thread_manager)
@@ -59,6 +72,7 @@ namespace opengl_rendering
         _entity_registry = nullptr;
         _job_system = nullptr;
         _open_gl_context_manager = nullptr;
+        _service_provider = nullptr;
         _settings = nullptr;
         _thread_manager = nullptr;
         _window_manager = nullptr;
@@ -207,32 +221,6 @@ namespace opengl_rendering
             return;
         }
 
-        if (const auto* render_stage_event =
-                tbx::handle_property_changed<&tbx::GraphicsSettings::render_stage>(msg))
-        {
-            if (!_thread_manager)
-                return;
-
-            auto set_stage_futures = std::vector<std::future<void>> {};
-            set_stage_futures.reserve(_renderers.size());
-
-            for (auto& renderer_entry : _renderers | std::views::values)
-            {
-                auto* renderer = renderer_entry.get();
-                if (!renderer)
-                    continue;
-
-                set_stage_futures.push_back(_thread_manager->post_with_future(
-                    OPENGL_RENDER_LANE_NAME,
-                    [renderer, render_stage = render_stage_event->current]
-                    {
-                        renderer->set_render_stage(render_stage);
-                    }));
-            }
-
-            for (auto& set_stage_future : set_stage_futures)
-                set_stage_future.get();
-        }
     }
 
     void OpenGlRenderingPlugin::create_renderer(
@@ -254,7 +242,6 @@ namespace opengl_rendering
         auto render_resolution = viewport_size;
         if ((render_resolution.width == 0U || render_resolution.height == 0U) && _window_manager)
             render_resolution = _window_manager->get_size(window_id);
-        auto render_stage = _settings->graphics.render_stage.value;
         auto create_renderer_future = _thread_manager->post_with_future(
             OPENGL_RENDER_LANE_NAME,
             [loader = _open_gl_context_manager->get_proc_address(),
@@ -263,8 +250,7 @@ namespace opengl_rendering
              asset_manager,
              job_system,
              context = std::move(context),
-             render_resolution,
-             render_stage]() mutable
+             render_resolution]() mutable
             {
                 if (const auto create_context_result =
                         context_manager.get().create_context(context.get_window_id());
@@ -297,7 +283,6 @@ namespace opengl_rendering
                     std::move(context));
                 gl_renderer->set_viewport_size(render_resolution);
                 gl_renderer->set_pending_render_resolution(render_resolution);
-                gl_renderer->set_render_stage(render_stage);
                 return gl_renderer;
             });
 

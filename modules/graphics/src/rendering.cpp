@@ -2,15 +2,12 @@
 
 namespace tbx
 {
-    Result Rendering::submit(
+    static Result begin_frame_and_view(
         IGraphicsBackend& backend,
         const Window& output_window,
         const Camera& view,
-        const Size& resolution,
-        const RenderGraph& scene) const
+        const Size& resolution)
     {
-        (void)scene;
-
         const auto frame =
             GraphicsFrameInfo {
                 .output_window = output_window,
@@ -31,7 +28,30 @@ namespace tbx
         if (const auto result = backend.begin_view(graphics_view); !result)
             return result;
 
-        if (const auto result = backend.set_viewport(graphics_view.viewport); !result)
+        return backend.set_viewport(graphics_view.viewport);
+    }
+
+    static Result end_view_and_frame(IGraphicsBackend& backend)
+    {
+        if (const auto result = backend.end_view(); !result)
+            return result;
+        if (const auto result = backend.present(); !result)
+            return result;
+
+        return backend.end_frame();
+    }
+
+    Result Rendering::submit(
+        IGraphicsBackend& backend,
+        const Window& output_window,
+        const Camera& view,
+        const Size& resolution,
+        const RenderGraph& scene) const
+    {
+        (void)scene;
+
+        if (const auto result = begin_frame_and_view(backend, output_window, view, resolution);
+            !result)
             return result;
 
         const auto pass =
@@ -49,11 +69,22 @@ namespace tbx
         if (const auto result = backend.end_pass(); !result)
             return result;
 
-        if (const auto result = backend.end_view(); !result)
+        return end_view_and_frame(backend);
+    }
+
+    Result Rendering::submit(
+        IGraphicsBackend& backend,
+        const Window& output_window,
+        const Camera& view,
+        const Size& resolution,
+        const GraphicsRenderPipeline& pipeline) const
+    {
+        if (const auto result = begin_frame_and_view(backend, output_window, view, resolution);
+            !result)
             return result;
-        if (const auto result = backend.present(); !result)
+        if (const auto result = pipeline.execute(backend); !result)
             return result;
 
-        return backend.end_frame();
+        return end_view_and_frame(backend);
     }
 }

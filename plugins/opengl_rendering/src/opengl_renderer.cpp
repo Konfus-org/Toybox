@@ -828,7 +828,7 @@ namespace opengl_rendering
         if (!frame_context.has_camera)
         {
             render_magenta_failure_frame(_gbuffer);
-            _gbuffer.present(frame_context.render_stage, _viewport_size);
+            _gbuffer.present(_viewport_size);
 
             if (const auto present_result = _context.present(); !present_result)
             {
@@ -845,7 +845,7 @@ namespace opengl_rendering
 
         // Step five: execute render pipeline.
         _render_pipeline->execute(frame_context);
-        _gbuffer.present(frame_context.render_stage, _viewport_size);
+        _gbuffer.present(_viewport_size);
 
         // Step six: present rendered frame.
         if (const auto present_result = _context.present(); !present_result)
@@ -870,7 +870,6 @@ namespace opengl_rendering
     {
         auto frame_context = OpenGlFrameContext();
         frame_context.clear_color = DefaultClearColor;
-        frame_context.render_stage = _render_stage;
         frame_context.render_size = _render_resolution;
         if (frame_context.render_size.width == 0U || frame_context.render_size.height == 0U)
             frame_context.render_size = _viewport_size;
@@ -1457,11 +1456,6 @@ namespace opengl_rendering
     const OpenGlContext& OpenGlRenderer::get_context() const
     {
         return _context;
-    }
-
-    void OpenGlRenderer::set_render_stage(const tbx::RenderStage render_stage)
-    {
-        _render_stage = render_stage;
     }
 
     void OpenGlRenderer::initialize(const tbx::GraphicsProcAddress loader) const
