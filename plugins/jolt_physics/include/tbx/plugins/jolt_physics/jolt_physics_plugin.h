@@ -1,14 +1,14 @@
 #pragma once
-#include "tbx/app/settings.h"
-#include "tbx/assets/manager.h"
-#include "tbx/async/thread_manager.h"
-#include "tbx/math/quaternions.h"
-#include "tbx/math/vectors.h"
-#include "tbx/physics/raycast.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/common/handle.h"
+#include "tbx/core/systems/app/settings.h"
+#include "tbx/core/systems/assets/manager.h"
+#include "tbx/core/systems/async/thread_manager.h"
+#include "tbx/core/systems/math/quaternions.h"
+#include "tbx/core/systems/math/vectors.h"
+#include "tbx/core/systems/physics/raycast.h"
+#include "tbx/core/interfaces/plugin.h"
+#include "tbx/core/systems/plugin_api/plugin_export.h"
+#include "tbx/core/systems/ecs/entity_registry.h"
+#include "tbx/core/types/handle.h"
 #include <Jolt/Jolt.h>
 // clang-format off
 #include <Jolt/Core/JobSystemThreadPool.h>

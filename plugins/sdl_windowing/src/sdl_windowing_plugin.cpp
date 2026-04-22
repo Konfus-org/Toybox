@@ -1,10 +1,10 @@
 #include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
 #include "sdl_window_manager.h"
-#include "tbx/app/settings.h"
-#include "tbx/assets/manager.h"
-#include "tbx/common/handle.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/messages/observable.h"
+#include "tbx/core/systems/app/settings.h"
+#include "tbx/core/systems/assets/manager.h"
+#include "tbx/core/types/handle.h"
+#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/core/systems/messaging/observable.h"
 #include <filesystem>
 #include <string_view>
 

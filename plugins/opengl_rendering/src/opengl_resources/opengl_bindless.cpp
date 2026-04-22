@@ -1,5 +1,5 @@
 #include "opengl_bindless.h"
-#include "tbx/graphics/opengl_context_manager.h"
+#include "tbx/core/interfaces/opengl_context_manager.h"
 #include <cstring>
 #include <glad/glad.h>
 

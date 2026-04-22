@@ -4,8 +4,8 @@
 #include "opengl_resources/opengl_sampler.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
-#include "tbx/graphics/graphics_backend.h"
-#include "tbx/graphics/opengl_context_manager.h"
+#include "tbx/core/interfaces/graphics_backend.h"
+#include "tbx/core/interfaces/opengl_context_manager.h"
 #include <glad/glad.h>
 #include <memory>
 #include <unordered_map>

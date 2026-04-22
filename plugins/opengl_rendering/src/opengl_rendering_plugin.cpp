@@ -1,8 +1,8 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
 #include "opengl_backend.h"
-#include "tbx/graphics/graphics_backend.h"
-#include "tbx/graphics/messages.h"
-#include "tbx/graphics/opengl_context_manager.h"
+#include "tbx/core/interfaces/graphics_backend.h"
+#include "tbx/core/systems/graphics/messages.h"
+#include "tbx/core/interfaces/opengl_context_manager.h"
 #include <memory>
 
 namespace opengl_rendering

@@ -1,5 +1,5 @@
 #include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <SDL3/SDL.h>
 
 namespace sdl_base_systems

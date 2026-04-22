@@ -1,8 +1,8 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/shader.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/graphics/material.h"
+#include "tbx/core/systems/graphics/shader.h"
 #include <cstddef>
 #include <memory>
 #include <string>

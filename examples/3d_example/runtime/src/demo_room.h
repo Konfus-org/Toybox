@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/ecs/entity.h"
-#include "tbx/graphics/color.h"
+#include "tbx/core/systems/ecs/entity.h"
+#include "tbx/core/systems/graphics/color.h"
 
 namespace three_d_example
 {

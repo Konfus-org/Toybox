@@ -1,7 +1,7 @@
 #include "opengl_texture.h"
 #include "opengl_bindless.h"
 #include "opengl_utils.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <utility>

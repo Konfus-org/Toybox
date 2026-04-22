@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/common/typedefs.h"
-#include "tbx/ecs/entity.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/time/delta_time.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/ecs/entity.h"
+#include "tbx/core/systems/ecs/entity_registry.h"
+#include "tbx/core/systems/graphics/material.h"
+#include "tbx/core/systems/graphics/mesh.h"
+#include "tbx/core/systems/time/delta_time.h"
 #include <functional>
 #include <memory>
 #include <vector>

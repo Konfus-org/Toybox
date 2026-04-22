@@ -1,0 +1,31 @@
+#include "tbx/core/systems/time/delta_time.h"
+
+namespace tbx
+{
+    DeltaTimer::DeltaTimer()
+    {
+        reset();
+    }
+
+    void DeltaTimer::reset()
+    {
+        _last = std::chrono::steady_clock::now();
+    }
+
+    DeltaTime DeltaTimer::tick()
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto delta = now - _last;
+        _last = now;
+        double secs = std::chrono::duration<double>(delta).count();
+        DeltaTime dt;
+        dt.seconds = secs;
+        dt.milliseconds = secs * 1000.0;
+        return dt;
+    }
+
+    std::string to_string(const DeltaTime& delta_time)
+    {
+        return std::to_string(delta_time.seconds) + "s";
+    }
+}

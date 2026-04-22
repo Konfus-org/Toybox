@@ -513,7 +513,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
     foreach(group_identifier IN LISTS used_group_identifiers)
         set(group_content "")
         string(APPEND group_content "#pragma once\n")
-        string(APPEND group_content "#include \"tbx/common/handle.h\"\n\n")
+        string(APPEND group_content "#include \"tbx/core/types/handle.h\"\n\n")
         string(APPEND group_content "namespace tbx\n")
         string(APPEND group_content "{\n")
 
@@ -584,7 +584,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
 
     set(content "")
     string(APPEND content "#pragma once\n")
-    string(APPEND content "#include \"tbx/common/handle.h\"\n")
+    string(APPEND content "#include \"tbx/core/types/handle.h\"\n")
     string(APPEND content "#include <string_view>\n\n")
 
     if(NAMESPACE)

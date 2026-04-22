@@ -6,6 +6,6 @@ target_include_directories(TwoDExampleLauncher
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(TwoDExampleLauncher PRIVATE
-    Tbx::DefaultIncludes
+    Tbx::DefaultPlugins
     Tbx::Examples::TwoDExampleRuntime
 )

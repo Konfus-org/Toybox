@@ -1,8 +1,8 @@
 #include "sdl_window_manager.h"
-#include "tbx/common/handle.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/graphics/messages.h"
+#include "tbx/core/types/handle.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/core/systems/graphics/messages.h"
 #include <algorithm>
 #include <ranges>
 #include <string>

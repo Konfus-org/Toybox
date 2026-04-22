@@ -1,8 +1,8 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/graphics/graphics_backend.h"
-#include "tbx/graphics/texture.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/interfaces/graphics_backend.h"
+#include "tbx/core/systems/graphics/texture.h"
 
 namespace opengl_rendering
 {

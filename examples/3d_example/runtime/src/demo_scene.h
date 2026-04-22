@@ -2,14 +2,14 @@
 #include "camera_controller.h"
 #include "demo_room.h"
 #include "projectile_system.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/color.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/post_processing.h"
-#include "tbx/input/manager.h"
-#include "tbx/physics/collider.h"
-#include "tbx/time/delta_time.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/ecs/entity_registry.h"
+#include "tbx/core/systems/graphics/color.h"
+#include "tbx/core/systems/graphics/material.h"
+#include "tbx/core/systems/graphics/post_processing.h"
+#include "tbx/core/interfaces/input_manager.h"
+#include "tbx/core/systems/physics/collider.h"
+#include "tbx/core/systems/time/delta_time.h"
 
 namespace three_d_example
 {

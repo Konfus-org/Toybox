@@ -1,9 +1,9 @@
 #include "projectile_system.h"
-#include "tbx/assets/builtin_assets.h"
-#include "tbx/graphics/light.h"
-#include "tbx/math/transform.h"
-#include "tbx/physics/collider.h"
-#include "tbx/physics/physics.h"
+#include "tbx/core/systems/assets/builtin_assets.h"
+#include "tbx/core/systems/graphics/light.h"
+#include "tbx/core/systems/math/transform.h"
+#include "tbx/core/systems/physics/collider.h"
+#include "tbx/core/systems/physics/physics.h"
 #include <cmath>
 #include <string>
 #include <utility>

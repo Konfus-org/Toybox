@@ -1,9 +1,9 @@
 #pragma once
-#include "tbx/assets/manager.h"
-#include "tbx/assets/requests.h"
-#include "tbx/files/ops.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
+#include "tbx/core/systems/assets/manager.h"
+#include "tbx/core/systems/assets/requests.h"
+#include "tbx/core/interfaces/file_ops.h"
+#include "tbx/core/interfaces/plugin.h"
+#include "tbx/core/systems/plugin_api/plugin_export.h"
 #include <filesystem>
 #include <memory>
 

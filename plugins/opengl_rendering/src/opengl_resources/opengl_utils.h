@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/common/result.h"
-#include "tbx/graphics/graphics_backend.h"
+#include "tbx/core/utils/result.h"
+#include "tbx/core/interfaces/graphics_backend.h"
 #include <glad/glad.h>
 #include <memory>
 #include <string>

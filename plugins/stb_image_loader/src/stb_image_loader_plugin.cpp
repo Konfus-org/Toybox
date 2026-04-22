@@ -1,9 +1,9 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
-#include "tbx/app/settings.h"
-#include "tbx/assets/requests.h"
-#include "tbx/files/ops.h"
-#include "tbx/files/json.h"
-#include "tbx/graphics/texture.h"
+#include "tbx/core/systems/app/settings.h"
+#include "tbx/core/systems/assets/requests.h"
+#include "tbx/core/interfaces/file_ops.h"
+#include "tbx/core/systems/files/json.h"
+#include "tbx/core/systems/graphics/texture.h"
 #include <memory>
 #include <stb_image.h>
 #include <string>

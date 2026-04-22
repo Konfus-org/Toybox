@@ -1,5 +1,5 @@
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager_plugin.h"
-#include "tbx/graphics/opengl_context_manager.h"
+#include "tbx/core/interfaces/opengl_context_manager.h"
 #include <memory>
 
 namespace sdl_opengl_context_manager

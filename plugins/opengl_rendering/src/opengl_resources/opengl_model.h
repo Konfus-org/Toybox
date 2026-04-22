@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/common/typedefs.h"
-#include "tbx/math/matrices.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/math/matrices.h"
 #include <vector>
 
 namespace opengl_rendering

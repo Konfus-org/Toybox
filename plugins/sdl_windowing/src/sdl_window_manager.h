@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/graphics/window.h"
-#include "tbx/messages/dispatcher.h"
+#include "tbx/core/interfaces/window_manager.h"
+#include "tbx/core/interfaces/message_dispatcher.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <unordered_map>

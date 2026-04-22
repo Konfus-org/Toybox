@@ -55,8 +55,8 @@ endif()
 # Includes and subdirectories
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory(resources)
-add_subdirectory(modules)
 add_subdirectory(thirdparty)
+add_subdirectory(core)
 add_subdirectory(plugins)
 add_subdirectory(examples)
 

@@ -1,9 +1,9 @@
 #include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
-#include "tbx/app/settings.h"
-#include "tbx/assets/manager.h"
-#include "tbx/assets/requests.h"
-#include "tbx/files/ops.h"
-#include "tbx/graphics/shader.h"
+#include "tbx/core/systems/app/settings.h"
+#include "tbx/core/systems/assets/manager.h"
+#include "tbx/core/systems/assets/requests.h"
+#include "tbx/core/interfaces/file_ops.h"
+#include "tbx/core/systems/graphics/shader.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>

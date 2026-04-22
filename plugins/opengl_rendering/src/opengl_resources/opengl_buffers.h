@@ -1,11 +1,11 @@
 #pragma once
 #include "opengl_resource.h"
 #include "opengl_texture.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/graphics/graphics_backend.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/graphics/vertex.h"
-#include "tbx/math/size.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/interfaces/graphics_backend.h"
+#include "tbx/core/systems/graphics/mesh.h"
+#include "tbx/core/systems/graphics/vertex.h"
+#include "tbx/core/systems/math/size.h"
 #include <glad/glad.h>
 
 namespace opengl_rendering

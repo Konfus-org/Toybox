@@ -1,13 +1,13 @@
 #include "camera_controller.h"
-#include "tbx/assets/builtin_assets.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/graphics/camera.h"
-#include "tbx/graphics/light.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/math/transform.h"
-#include "tbx/math/trig.h"
-#include "tbx/physics/raycast.h"
+#include "tbx/core/systems/assets/builtin_assets.h"
+#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/core/systems/graphics/camera.h"
+#include "tbx/core/systems/graphics/light.h"
+#include "tbx/core/systems/graphics/material.h"
+#include "tbx/core/systems/graphics/mesh.h"
+#include "tbx/core/systems/math/transform.h"
+#include "tbx/core/systems/math/trig.h"
+#include "tbx/core/systems/physics/raycast.h"
 #include <cmath>
 #include <vector>
 

@@ -1,9 +1,9 @@
 #include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
-#include "tbx/app/settings.h"
-#include "tbx/common/string_utils.h"
-#include "tbx/files/ops.h"
-#include "tbx/files/json.h"
-#include "tbx/graphics/material.h"
+#include "tbx/core/systems/app/settings.h"
+#include "tbx/core/utils/string_utils.h"
+#include "tbx/core/interfaces/file_ops.h"
+#include "tbx/core/systems/files/json.h"
+#include "tbx/core/systems/graphics/material.h"
 #include <cctype>
 #include <charconv>
 #include <string>

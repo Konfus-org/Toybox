@@ -1,6 +1,6 @@
 #include "tbx/plugins/sdl_input/sdl_input_plugin.h"
 #include "sdl_input_manager.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <memory>
 
 namespace sdl_input

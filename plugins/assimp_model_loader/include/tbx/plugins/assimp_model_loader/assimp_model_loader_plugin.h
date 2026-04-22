@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/assets/requests.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
+#include "tbx/core/systems/assets/requests.h"
+#include "tbx/core/interfaces/plugin.h"
+#include "tbx/core/systems/plugin_api/plugin_export.h"
 
 namespace assimp_model_loader
 {

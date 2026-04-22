@@ -1,5 +1,5 @@
 #include "jolt_runtime_lifetime.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <Jolt/Jolt.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>

@@ -1,6 +1,6 @@
 #include "opengl_buffers.h"
 #include "opengl_utils.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <algorithm>
 #include <array>
 #include <glad/glad.h>

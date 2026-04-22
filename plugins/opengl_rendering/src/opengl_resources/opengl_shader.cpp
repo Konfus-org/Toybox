@@ -1,7 +1,7 @@
 #include "opengl_shader.h"
 #include "opengl_bindless.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/debugging/macros.h"
+#include "tbx/core/types/typedefs.h"
+#include "tbx/core/systems/debugging/macros.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstring>

@@ -6,7 +6,7 @@ target_sources(ThreeDExampleRuntime PRIVATE ${SRCS} ${ASSETS})
 target_include_directories(ThreeDExampleRuntime PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(ThreeDExampleRuntime PRIVATE
-    Tbx::DefaultIncludes
+    Tbx::DefaultPlugins
 )
 
 tbx_register_plugin(

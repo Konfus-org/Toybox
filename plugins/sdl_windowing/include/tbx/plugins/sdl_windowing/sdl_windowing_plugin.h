@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
-#include "tbx/plugin_api/service_provider.h"
+#include "tbx/core/interfaces/plugin.h"
+#include "tbx/core/systems/plugin_api/plugin_export.h"
+#include "tbx/core/systems/plugin_api/service_provider.h"
 #include <SDL3/SDL.h>
 
 namespace sdl_windowing

@@ -1,6 +1,6 @@
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/graphics/opengl_context_manager.h"
+#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/core/interfaces/opengl_context_manager.h"
 #include <string_view>
 #include <utility>
 
