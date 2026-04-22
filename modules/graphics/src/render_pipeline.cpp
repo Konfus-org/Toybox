@@ -1,4 +1,6 @@
 #include "tbx/graphics/render_pipeline.h"
+#include "tbx/debugging/macros.h"
+#include <string>
 #include <utility>
 
 namespace tbx
@@ -70,9 +72,7 @@ namespace tbx
         return backend.draw(command.vertex_count, command.vertex_offset);
     }
 
-    static Result execute_draw(
-        IGraphicsBackend& backend,
-        const GraphicsIndexedDrawCommand& command)
+    static Result execute_draw(IGraphicsBackend& backend, const GraphicsIndexedDrawCommand& command)
     {
         if (const auto result = backend.bind_pipeline(command.pipeline); !result)
             return result;
@@ -92,19 +92,47 @@ namespace tbx
         return backend.draw_indexed(command.draw);
     }
 
+    static bool should_prepare_geometry_pass(const GraphicsSceneRenderPass pass)
+    {
+        return pass == GraphicsSceneRenderPass::GEOMETRY;
+    }
+
+    GraphicsRenderPipeline GraphicsRenderPipeline::create_default_scene_pipeline()
+    {
+        auto pipeline = GraphicsRenderPipeline {};
+        pipeline.add_scene_pass(GraphicsSceneRenderPass::SHADOWS);
+        pipeline.add_scene_pass(GraphicsSceneRenderPass::GEOMETRY);
+        pipeline.add_scene_pass(GraphicsSceneRenderPass::LIGHTING);
+        pipeline.add_scene_pass(GraphicsSceneRenderPass::TRANSPARENT);
+        pipeline.add_scene_pass(GraphicsSceneRenderPass::POST_PROCESSING);
+        return pipeline;
+    }
+
     void GraphicsRenderPipeline::add_pass(GraphicsRenderPass pass)
     {
         _passes.push_back(std::move(pass));
     }
 
+    void GraphicsRenderPipeline::add_scene_pass(const GraphicsSceneRenderPass pass)
+    {
+        _scene_passes.push_back(pass);
+    }
+
     void GraphicsRenderPipeline::clear()
     {
         _passes.clear();
+        _scene_passes.clear();
+        _has_reported_scene_failure = false;
     }
 
     const std::vector<GraphicsRenderPass>& GraphicsRenderPipeline::get_passes() const
     {
         return _passes;
+    }
+
+    const std::vector<GraphicsSceneRenderPass>& GraphicsRenderPipeline::get_scene_passes() const
+    {
+        return _scene_passes;
     }
 
     Result GraphicsRenderPipeline::execute(IGraphicsBackend& backend) const
@@ -137,5 +165,54 @@ namespace tbx
         }
 
         return {};
+    }
+
+    Result GraphicsRenderPipeline::execute(
+        IGraphicsSceneRenderBackend& backend,
+        const std::any& payload)
+    {
+        auto saw_failure = false;
+        auto failure_report = std::string {};
+
+        for (const auto pass : _scene_passes)
+        {
+            if (should_prepare_geometry_pass(pass))
+            {
+                if (const auto result = backend.prepare_geometry_pass(); !result)
+                {
+                    saw_failure = true;
+                    failure_report = result.get_report();
+                    break;
+                }
+            }
+
+            if (const auto result = backend.execute_scene_pass(pass, payload); !result)
+            {
+                saw_failure = true;
+                failure_report = result.get_report();
+            }
+        }
+
+        if (!saw_failure)
+        {
+            _has_reported_scene_failure = false;
+            return {};
+        }
+
+        if (!_has_reported_scene_failure)
+        {
+            TBX_TRACE_WARNING(
+                "Graphics rendering: one or more render passes failed without producing a usable "
+                "frame. Rendering magenta fallback frame. {}",
+                failure_report);
+            _has_reported_scene_failure = true;
+        }
+
+        return render_failure_frame(backend);
+    }
+
+    Result GraphicsRenderPipeline::render_failure_frame(IGraphicsSceneRenderBackend& backend)
+    {
+        return backend.render_failure_frame();
     }
 }

@@ -36,25 +36,13 @@ namespace tbx
         LoadTextureRequest(
             std::filesystem::path asset_path,
             Texture* asset_payload,
-            TextureWrap wrap,
-            TextureFilter filter,
-            TextureFormat format,
-            TextureMipmaps mipmaps,
-            TextureCompression compression)
+            Texture texture)
             : LoadAssetRequest<Texture>(std::move(asset_path), asset_payload)
-            , wrap(wrap)
-            , filter(filter)
-            , format(format)
-            , mipmaps(mipmaps)
-            , compression(compression)
+            , texture(std::move(texture))
         {
         }
 
-        TextureWrap wrap = TextureWrap::REPEAT;
-        TextureFilter filter = TextureFilter::LINEAR;
-        TextureFormat format = TextureFormat::RGBA;
-        TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
-        TextureCompression compression = TextureCompression::AUTO;
+        Texture texture = {};
     };
 
     /// @brief

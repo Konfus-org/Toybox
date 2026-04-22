@@ -3,6 +3,7 @@
 #include "tbx/common/typedefs.h"
 #include "tbx/graphics/material.h"
 #include "tbx/graphics/shader.h"
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -14,15 +15,10 @@ namespace opengl_rendering
     struct OpenGlMaterialTexture
     {
         std::string name = "";
-        tbx::Uuid texture_id = {};
-        uint32 gl_texture_id = 0;
-        uint64 bindless_handle = 0;
     };
 
     struct OpenGlMaterialParams
     {
-        tbx::Handle material_handle = {};
-        tbx::MaterialRenderConfig render_config = {};
         std::vector<tbx::MaterialParameter> parameters = {};
         std::vector<OpenGlMaterialTexture> textures = {};
     };
@@ -84,15 +80,18 @@ namespace opengl_rendering
         int get_cached_uniform_location(const std::string& name);
 
         uint32 _program_id = 0;
+
         std::unordered_map<std::string, int> _uniform_locations = {};
-        std::unordered_map<std::string, uint64> _bindless_sampler_layout = {};
         std::vector<std::string> _sampler_uniform_layout = {};
-        std::unordered_set<std::string> _logged_missing_uniforms = {};
+        std::vector<OpenGlMaterialBlockUniform> _material_uniforms = {};
+        std::vector<std::byte> _material_uniform_data = {};
+
         uint32 _material_uniform_buffer = 0;
         int _material_uniform_block_size = 0;
-        std::vector<OpenGlMaterialBlockUniform> _material_uniforms = {};
         bool _has_material_uniform_block = false;
         int _instance_model_attribute_location = 8;
         int _instance_id_attribute_location = 12;
+
+        std::unordered_set<std::string> _logged_missing_uniforms = {};
     };
 }

@@ -1,5 +1,7 @@
 #include "opengl_buffers.h"
+#include "opengl_utils.h"
 #include "tbx/debugging/macros.h"
+#include <algorithm>
 #include <array>
 #include <glad/glad.h>
 #include <utility>
@@ -74,6 +76,83 @@ namespace opengl_rendering
 
         TBX_ASSERT(false, "OpenGL rendering: could not convert vertex data to OpenGL type.");
         return GL_NONE;
+    }
+
+    OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(
+        const tbx::GraphicsBufferDesc& desc,
+        const void* data,
+        const uint64 data_size)
+        : _target(to_gl_buffer_target(desc.usage))
+    {
+        const auto* upload_data = data_size == desc.size ? data : nullptr;
+        glCreateBuffers(1, &_buffer_id);
+        glNamedBufferData(
+            _buffer_id,
+            static_cast<GLsizeiptr>(desc.size),
+            upload_data,
+            to_gl_buffer_usage(desc));
+        if (upload_data == nullptr && data != nullptr && data_size > 0U)
+            update(data, data_size, 0U);
+    }
+
+    OpenGlGraphicsBuffer::~OpenGlGraphicsBuffer() noexcept
+    {
+        if (_buffer_id != 0U)
+            glDeleteBuffers(1, &_buffer_id);
+    }
+
+    OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(OpenGlGraphicsBuffer&& other) noexcept
+        : _buffer_id(take_gl_handle(other._buffer_id))
+        , _target(other._target)
+    {
+        other._target = GL_ARRAY_BUFFER;
+    }
+
+    OpenGlGraphicsBuffer& OpenGlGraphicsBuffer::operator=(
+        OpenGlGraphicsBuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_buffer_id != 0U)
+            glDeleteBuffers(1, &_buffer_id);
+
+        _buffer_id = take_gl_handle(other._buffer_id);
+        _target = other._target;
+        other._target = GL_ARRAY_BUFFER;
+        return *this;
+    }
+
+    void OpenGlGraphicsBuffer::bind()
+    {
+        glBindBuffer(_target, _buffer_id);
+    }
+
+    void OpenGlGraphicsBuffer::bind_slot(const uint32 slot) const
+    {
+        glBindBufferBase(_target, slot, _buffer_id);
+    }
+
+    GLuint OpenGlGraphicsBuffer::get_buffer_id() const
+    {
+        return _buffer_id;
+    }
+
+    void OpenGlGraphicsBuffer::unbind()
+    {
+        glBindBuffer(_target, 0U);
+    }
+
+    void OpenGlGraphicsBuffer::update(
+        const void* data,
+        const uint64 data_size,
+        const uint64 offset) const
+    {
+        glNamedBufferSubData(
+            _buffer_id,
+            static_cast<GLintptr>(offset),
+            static_cast<GLsizeiptr>(data_size),
+            data);
     }
 
     OpenGlVertexBuffer::OpenGlVertexBuffer()
@@ -443,5 +522,95 @@ namespace opengl_rendering
         }
 
         _size = {0U, 0U};
+    }
+
+    OpenGlFramebuffer::OpenGlFramebuffer()
+    {
+        glCreateFramebuffers(1, &_framebuffer_id);
+    }
+
+    OpenGlFramebuffer::~OpenGlFramebuffer() noexcept
+    {
+        if (_framebuffer_id != 0U)
+            glDeleteFramebuffers(1, &_framebuffer_id);
+    }
+
+    OpenGlFramebuffer::OpenGlFramebuffer(OpenGlFramebuffer&& other) noexcept
+        : _framebuffer_id(take_gl_handle(other._framebuffer_id))
+    {
+    }
+
+    OpenGlFramebuffer& OpenGlFramebuffer::operator=(OpenGlFramebuffer&& other) noexcept
+    {
+        if (this == &other)
+            return *this;
+
+        if (_framebuffer_id != 0U)
+            glDeleteFramebuffers(1, &_framebuffer_id);
+
+        _framebuffer_id = take_gl_handle(other._framebuffer_id);
+        return *this;
+    }
+
+    void OpenGlFramebuffer::attach_color(
+        const uint32 index,
+        const OpenGlTexture& texture) const
+    {
+        glNamedFramebufferTexture(
+            _framebuffer_id,
+            GL_COLOR_ATTACHMENT0 + index,
+            texture.get_texture_id(),
+            0);
+    }
+
+    void OpenGlFramebuffer::attach_depth_stencil(
+        const OpenGlTexture& texture,
+        const tbx::GraphicsTextureFormat format) const
+    {
+        glNamedFramebufferTexture(
+            _framebuffer_id,
+            get_depth_attachment(format),
+            texture.get_texture_id(),
+            0);
+    }
+
+    void OpenGlFramebuffer::bind()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer_id);
+    }
+
+    bool OpenGlFramebuffer::is_complete() const
+    {
+        return glCheckNamedFramebufferStatus(_framebuffer_id, GL_FRAMEBUFFER)
+               == GL_FRAMEBUFFER_COMPLETE;
+    }
+
+    void OpenGlFramebuffer::set_draw_buffers(const uint32 color_target_count) const
+    {
+        if (color_target_count == 0U)
+        {
+            glNamedFramebufferDrawBuffer(_framebuffer_id, GL_NONE);
+            glNamedFramebufferReadBuffer(_framebuffer_id, GL_NONE);
+            return;
+        }
+
+        auto draw_buffers = std::array<GLenum, 16U> {};
+        const auto draw_buffer_count =
+            std::min<std::size_t>(color_target_count, draw_buffers.size());
+        TBX_ASSERT(
+            draw_buffer_count == color_target_count,
+            "OpenGL rendering: render pass requested more color targets than supported.");
+        for (std::size_t index = 0U; index < draw_buffer_count; ++index)
+            draw_buffers[index] = GL_COLOR_ATTACHMENT0 + static_cast<GLenum>(index);
+
+        glNamedFramebufferDrawBuffers(
+            _framebuffer_id,
+            static_cast<GLsizei>(draw_buffer_count),
+            draw_buffers.data());
+    }
+
+    void OpenGlFramebuffer::unbind()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0U);
     }
 }

@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/common/handle.h"
-#include "tbx/graphics/material.h"
 #include "tbx/tbx_api.h"
 #include <vector>
 
@@ -11,7 +10,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API RendererLod
+    struct TBX_API Lod
     {
         Handle handle = {};
         float max_distance = 0.0f;
@@ -24,7 +23,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API Lods
     {
-        std::vector<RendererLod> values = {};
+        std::vector<Lod> values = {};
         float render_distance = 0.0f;
     };
 }

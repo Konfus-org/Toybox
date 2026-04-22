@@ -2,7 +2,6 @@
 #include "tbx/common/handle.h"
 #include "tbx/graphics/color.h"
 #include "tbx/graphics/shader.h"
-#include "tbx/graphics/texture.h"
 #include "tbx/math/vectors.h"
 #include "tbx/tbx_api.h"
 #include <cstdint>
@@ -15,16 +14,7 @@
 
 namespace tbx
 {
-    using MaterialParameterData =
-        std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
-
-    using UniformData = MaterialParameterData;
-    struct MaterialParameterBindings;
-    struct MaterialTextureBindings;
-    struct MaterialDepthConfig;
-    using ParamBindings = MaterialParameterBindings;
-    using TextureBindings = MaterialTextureBindings;
-    using Depth = MaterialDepthConfig;
+    using UniformData = std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
     /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
@@ -74,7 +64,7 @@ namespace tbx
         MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
 
         std::string name = "";
-        MaterialParameterData data = 0.0f;
+        UniformData data = 0.0f;
     };
 
     /// @brief
@@ -82,7 +72,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API MaterialParameterBindings
+    struct TBX_API ParamBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
         using const_iterator = std::vector<MaterialParameter>::const_iterator;
@@ -93,7 +83,7 @@ namespace tbx
         {
         }
 
-        void set(std::string_view name, MaterialParameterData value);
+        void set(std::string_view name, UniformData value);
         void set(MaterialParameter parameter);
         void set(std::initializer_list<MaterialParameter> parameters);
         MaterialParameter* get(std::string_view name);
@@ -120,7 +110,7 @@ namespace tbx
     struct TBX_API MaterialTextureBinding
     {
         std::string name = {};
-        TextureInstance texture = {};
+        Handle texture = {};
     };
 
     /// @brief
@@ -140,7 +130,6 @@ namespace tbx
         }
 
         void set(std::string_view name, Handle texture);
-        void set(std::string_view name, TextureInstance texture);
         void set(MaterialTextureBinding texture_binding);
         void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
         MaterialTextureBinding* get(std::string_view name);
@@ -160,48 +149,17 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Describes depth-test state for a material.
-    /// @details
-    /// Ownership: Value type.
-    /// Thread Safety: Safe to copy between threads.
-    struct TBX_API MaterialDepthConfig
-    {
-        bool is_test_enabled = true;
-        bool is_write_enabled = true;
-        bool is_prepass_enabled = false;
-        MaterialDepthFunction function = MaterialDepthFunction::Less;
-    };
-
-    /// @brief
-    /// Purpose: Describes blend-path selection for a material.
-    /// @details
-    /// Ownership: Value type.
-    /// Thread Safety: Safe to copy between threads.
-    struct TBX_API MaterialTransparencyConfig
-    {
-        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
-    };
-
-    /// @brief
-    /// Purpose: Stores depth and transparency state used by the GPU pipeline.
-    /// @details
-    /// Ownership: Value type.
-    /// Thread Safety: Safe to copy between threads.
-    struct TBX_API MaterialRenderConfig
-    {
-        Depth depth = {};
-        MaterialTransparencyConfig transparency = {};
-    };
-
-    /// @brief
-    /// Purpose: Stores render-state configuration loaded from a material asset.
+    /// Purpose: Stores render-state configuration for a material.
     /// @details
     /// Ownership: Value type owned by the containing material asset.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API MaterialConfig
     {
-        Depth depth = {};
-        MaterialTransparencyConfig transparency = {};
+        bool is_depth_test_enabled = true;
+        bool is_depth_write_enabled = true;
+        bool is_depth_prepass_enabled = false;
+        MaterialDepthFunction depth_function = MaterialDepthFunction::Less;
+        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
         bool is_two_sided = false;
         bool is_cullable = true;
         ShadowMode shadow_mode = ShadowMode::Standard;
@@ -234,19 +192,18 @@ namespace tbx
             Handle handle,
             ParamBindings parameter_overrides,
             TextureBindings texture_overrides = {},
-            Depth depth_override = {},
-            bool has_depth_override = false);
+            MaterialConfig config_override = {},
+            bool has_config_override = false);
 
         bool is_dirty() const;
         void clear_dirty();
         void mark_dirty();
 
         const Handle& get_handle() const;
-        bool has_depth_override_enabled() const;
-        void set_depth(Depth depth_override);
+        bool has_config_override_enabled() const;
+        void set_config(MaterialConfig config_override);
         void set_parameter(std::string_view name, MaterialParameterData value);
         void set_texture(std::string_view name, Handle texture);
-        void set_texture(std::string_view name, TextureInstance texture);
 
         template <typename TValue>
         TValue get_parameter_or(std::string_view name, const TValue& fallback) const;
@@ -260,11 +217,11 @@ namespace tbx
         Handle material = {};
         TextureBindings texture_overrides = {};
         ParamBindings param_overrides = {};
-        Depth depth = {};
+        MaterialConfig config = {};
 
       private:
         bool _is_dirty = true;
-        bool _has_depth_override = false;
+        bool _has_config_override = false;
     };
 
     /// @brief

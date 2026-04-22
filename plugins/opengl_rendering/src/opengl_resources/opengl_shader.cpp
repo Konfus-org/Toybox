@@ -532,15 +532,15 @@ namespace opengl_rendering
     OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
         : _program_id(take_gl_handle(other._program_id))
         , _uniform_locations(std::move(other._uniform_locations))
-        , _bindless_sampler_layout(std::move(other._bindless_sampler_layout))
         , _sampler_uniform_layout(std::move(other._sampler_uniform_layout))
-        , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
+        , _material_uniforms(std::move(other._material_uniforms))
+        , _material_uniform_data(std::move(other._material_uniform_data))
         , _material_uniform_buffer(take_gl_handle(other._material_uniform_buffer))
         , _material_uniform_block_size(other._material_uniform_block_size)
-        , _material_uniforms(std::move(other._material_uniforms))
         , _has_material_uniform_block(other._has_material_uniform_block)
         , _instance_model_attribute_location(other._instance_model_attribute_location)
         , _instance_id_attribute_location(other._instance_id_attribute_location)
+        , _logged_missing_uniforms(std::move(other._logged_missing_uniforms))
     {
         other._material_uniform_block_size = 0;
         other._has_material_uniform_block = false;
@@ -560,12 +560,12 @@ namespace opengl_rendering
 
         _program_id = take_gl_handle(other._program_id);
         _uniform_locations = std::move(other._uniform_locations);
-        _bindless_sampler_layout = std::move(other._bindless_sampler_layout);
         _sampler_uniform_layout = std::move(other._sampler_uniform_layout);
         _logged_missing_uniforms = std::move(other._logged_missing_uniforms);
         _material_uniform_buffer = take_gl_handle(other._material_uniform_buffer);
         _material_uniform_block_size = other._material_uniform_block_size;
         _material_uniforms = std::move(other._material_uniforms);
+        _material_uniform_data = std::move(other._material_uniform_data);
         _has_material_uniform_block = other._has_material_uniform_block;
         _instance_model_attribute_location = other._instance_model_attribute_location;
         _instance_id_attribute_location = other._instance_id_attribute_location;
@@ -630,12 +630,12 @@ namespace opengl_rendering
                     GL_DYNAMIC_DRAW);
             }
 
-            auto material_uniform_data = std::vector<std::byte>(
+            _material_uniform_data.assign(
                 static_cast<std::size_t>(_material_uniform_block_size),
                 std::byte {0});
             for (const auto& material_uniform : _material_uniforms)
                 try_write_material_block_uniform(
-                    material_uniform_data.data(),
+                    _material_uniform_data.data(),
                     _material_uniform_block_size,
                     material_uniform,
                     params);
@@ -643,8 +643,8 @@ namespace opengl_rendering
             glNamedBufferSubData(
                 _material_uniform_buffer,
                 0,
-                static_cast<GLsizeiptr>(material_uniform_data.size()),
-                material_uniform_data.data());
+                static_cast<GLsizeiptr>(_material_uniform_data.size()),
+                _material_uniform_data.data());
             glBindBufferBase(
                 GL_UNIFORM_BUFFER,
                 MATERIAL_SURFACE_UBO_BINDING,
@@ -660,8 +660,6 @@ namespace opengl_rendering
             if (!try_upload(parameter))
                 continue;
         }
-
-        _bindless_sampler_layout.clear();
 
         bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
         if (is_same_sampler_layout)

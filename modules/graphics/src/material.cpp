@@ -14,13 +14,13 @@ namespace tbx
         Handle handle,
         ParamBindings parameter_overrides,
         TextureBindings texture_overrides_value,
-        Depth depth_override,
-        const bool has_depth_override)
+        MaterialConfig config_override,
+        const bool has_config_override)
         : material(std::move(handle))
         , texture_overrides(std::move(texture_overrides_value))
         , param_overrides(std::move(parameter_overrides))
-        , depth(std::move(depth_override))
-        , _has_depth_override(has_depth_override)
+        , config(std::move(config_override))
+        , _has_config_override(has_config_override)
     {
     }
 
@@ -44,15 +44,15 @@ namespace tbx
         return material;
     }
 
-    bool MaterialInstance::has_depth_override_enabled() const
+    bool MaterialInstance::has_config_override_enabled() const
     {
-        return _has_depth_override;
+        return _has_config_override;
     }
 
-    void MaterialInstance::set_depth(Depth depth_override)
+    void MaterialInstance::set_config(MaterialConfig config_override)
     {
-        depth = std::move(depth_override);
-        _has_depth_override = true;
+        config = std::move(config_override);
+        _has_config_override = true;
         mark_dirty();
     }
 
@@ -63,12 +63,6 @@ namespace tbx
     }
 
     void MaterialInstance::set_texture(std::string_view name, Handle texture)
-    {
-        texture_overrides.set(name, std::move(texture));
-        mark_dirty();
-    }
-
-    void MaterialInstance::set_texture(std::string_view name, TextureInstance texture)
     {
         texture_overrides.set(name, std::move(texture));
         mark_dirty();
@@ -123,6 +117,6 @@ namespace tbx
         const auto* texture = texture_overrides.get(name);
         if (!texture)
             return fallback;
-        return texture->texture.handle;
+        return texture->texture;
     }
 }

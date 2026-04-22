@@ -95,6 +95,7 @@ namespace opengl_rendering
       private:
         uint32 _vertex_array_id = 0;
         uint32 _instance_buffer_id = 0;
+        uint64 _instance_buffer_capacity = 0U;
         int _instance_model_attribute_location = -1;
         int _instance_id_attribute_location = -1;
         OpenGlVertexBuffer _vertex_buffer;

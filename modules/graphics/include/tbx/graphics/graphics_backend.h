@@ -277,7 +277,8 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Defines the explicit command and resource contract implemented by graphics backends.
+    /// Purpose: Defines the explicit command and resource contract implemented by graphics
+    /// backends.
     /// @details
     /// Ownership: Implementations own backend state and realized GPU resources; Toybox owns render
     /// pass logic and issues backend-neutral commands.
@@ -293,59 +294,21 @@ namespace tbx
 
         virtual GraphicsApi get_api() const = 0;
 
-        virtual void wait_for_idle() = 0;
-
-        /// @brief
-        /// Purpose: Begins rendering a frame that may contain one or more views.
-        /// @details
-        /// Ownership: The backend reads frame data during the call and owns any derived state.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
         virtual Result begin_frame(const GraphicsFrameInfo& frame) = 0;
-
-        /// @brief
-        /// Purpose: Begins rendering a camera viewport within the active frame.
-        /// @details
-        /// Ownership: The backend reads view data during the call and owns any derived state.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
-        virtual Result begin_view(const GraphicsView& view) = 0;
-
-        /// @brief
-        /// Purpose: Ends the active frame after all views have been rendered and presented.
-        /// @details
-        /// Ownership: The backend owns frame resources and synchronization.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
         virtual Result end_frame() = 0;
 
-        /// @brief
-        /// Purpose: Ends the active camera viewport.
-        /// @details
-        /// Ownership: The backend owns view resources and synchronization.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
+        virtual Result begin_view(const GraphicsView& view) = 0;
         virtual Result end_view() = 0;
 
-        /// @brief
-        /// Purpose: Presents the active frame to the configured output target.
-        /// @details
-        /// Ownership: The backend owns swapchain or presentation resources.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
-        virtual Result present() = 0;
-
-        /// @brief
-        /// Purpose: Begins a render pass against backend-owned targets.
-        /// @details
-        /// Ownership: The backend reads pass data during the call and owns any derived state.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
         virtual Result begin_pass(const GraphicsPassDesc& pass) = 0;
-
-        /// @brief
-        /// Purpose: Ends the active render pass.
-        /// @details
-        /// Ownership: The backend owns pass synchronization and resource transitions.
-        /// Thread Safety: Not inherently thread-safe; callers should follow implementation rules.
         virtual Result end_pass() = 0;
+
+        virtual Result present() = 0;
+        virtual void wait_for_idle() = 0;
 
         virtual Result set_viewport(const Viewport& viewport) = 0;
         virtual Result set_scissor(const Viewport& scissor) = 0;
+
         virtual Result bind_pipeline(const Uuid& pipeline_resource_uuid) = 0;
         virtual Result bind_vertex_buffer(uint32 slot, const Uuid& buffer_resource_uuid) = 0;
         virtual Result bind_index_buffer(
@@ -355,6 +318,7 @@ namespace tbx
         virtual Result bind_storage_buffer(uint32 slot, const Uuid& buffer_resource_uuid) = 0;
         virtual Result bind_texture(uint32 slot, const Uuid& texture_resource_uuid) = 0;
         virtual Result bind_sampler(uint32 slot, const Uuid& sampler_resource_uuid) = 0;
+
         virtual Result draw(uint32 vertex_count, uint32 vertex_offset) = 0;
         virtual Result draw_indexed(const GraphicsDrawIndexedDesc& draw) = 0;
 
@@ -367,9 +331,7 @@ namespace tbx
         virtual Result upload_pipeline(
             const GraphicsPipelineDesc& desc,
             Uuid& out_resource_uuid) = 0;
-        virtual Result upload_sampler(
-            const GraphicsSamplerDesc& desc,
-            Uuid& out_resource_uuid) = 0;
+        virtual Result upload_sampler(const GraphicsSamplerDesc& desc, Uuid& out_resource_uuid) = 0;
         virtual Result upload_texture(
             const GraphicsTextureDesc& desc,
             const void* data,

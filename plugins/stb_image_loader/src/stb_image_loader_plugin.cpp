@@ -11,21 +11,21 @@
 
 namespace stb_image_loader
 {
-    static bool try_parse_texture_settings(
+    static bool try_parse_texture(
         const tbx::Json& data,
-        tbx::TextureSettings& out_settings)
+        tbx::Texture& out_texture)
     {
         auto texture_data = tbx::Json();
         if (!data.try_get_child("texture", texture_data))
             return false;
 
-        auto settings = tbx::TextureSettings();
-        texture_data.try_get<tbx::TextureWrap>("wrap", settings.wrap);
-        texture_data.try_get<tbx::TextureFilter>("filter", settings.filter);
-        texture_data.try_get<tbx::TextureFormat>("format", settings.format);
-        texture_data.try_get<tbx::TextureMipmaps>("mipmaps", settings.mipmaps);
-        texture_data.try_get<tbx::TextureCompression>("compression", settings.compression);
-        out_settings = settings;
+        auto texture = out_texture;
+        texture_data.try_get<tbx::TextureWrap>("wrap", texture.wrap);
+        texture_data.try_get<tbx::TextureFilter>("filter", texture.filter);
+        texture_data.try_get<tbx::TextureFormat>("format", texture.format);
+        texture_data.try_get<tbx::TextureMipmaps>("mipmaps", texture.mipmaps);
+        texture_data.try_get<tbx::TextureCompression>("compression", texture.compression);
+        out_texture = texture;
         return true;
     }
 
@@ -89,13 +89,7 @@ namespace stb_image_loader
             return;
         }
 
-        tbx::TextureSettings load_settings = {
-            .wrap = request.wrap,
-            .filter = request.filter,
-            .format = request.format,
-            .mipmaps = request.mipmaps,
-            .compression = request.compression,
-        };
+        tbx::Texture load_texture = request.texture;
 
         auto meta_path = request.path;
         meta_path += ".meta";
@@ -105,11 +99,7 @@ namespace stb_image_loader
             try
             {
                 const auto data = tbx::Json(meta_data);
-                if (auto parsed_settings = tbx::TextureSettings();
-                    try_parse_texture_settings(data, parsed_settings))
-                {
-                    load_settings = parsed_settings;
-                }
+                try_parse_texture(data, load_texture);
             }
             catch (...)
             {
@@ -132,7 +122,7 @@ namespace stb_image_loader
         stbi_set_flip_vertically_on_load(true);
         int width = 0;
         int height = 0;
-        const int desired_channels = load_settings.format == tbx::TextureFormat::RGB ? 3 : 4;
+        const int desired_channels = load_texture.format == tbx::TextureFormat::RGB ? 3 : 4;
         stbi_uc* raw_data = stbi_load_from_memory(
             reinterpret_cast<const stbi_uc*>(encoded_image.data()),
             static_cast<int>(encoded_image.size()),
@@ -158,11 +148,11 @@ namespace stb_image_loader
             static_cast<uint32>(height)};
         const tbx::Texture texture(
             resolution,
-            load_settings.wrap,
-            load_settings.filter,
-            load_settings.format,
-            load_settings.mipmaps,
-            load_settings.compression,
+            load_texture.wrap,
+            load_texture.filter,
+            load_texture.format,
+            load_texture.mipmaps,
+            load_texture.compression,
             pixels);
         *asset = texture;
 

@@ -27,8 +27,18 @@ namespace tbx::tests::graphics
         EndFrame,
     };
 
-    class RecordingGraphicsBackend final :
-        public IGraphicsBackend
+    enum class GraphicsSceneBackendCallback
+    {
+        Shadows,
+        PrepareGeometry,
+        Geometry,
+        Lighting,
+        Transparent,
+        PostProcessing,
+        FailureFrame,
+    };
+
+    class RecordingGraphicsBackend final : public IGraphicsBackend
     {
       public:
         Result begin_frame(const GraphicsFrameInfo& frame) override
@@ -167,9 +177,7 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        void shutdown() override
-        {
-        }
+        void shutdown() override {}
 
         Result unload(const Uuid&) override
         {
@@ -212,9 +220,7 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        void wait_for_idle() override
-        {
-        }
+        void wait_for_idle() override {}
 
       public:
         std::vector<GraphicsBackendCallback> callbacks = {};
@@ -237,6 +243,54 @@ namespace tbx::tests::graphics
         GraphicsDrawIndexedDesc recorded_draw = {};
     };
 
+    class RecordingSceneRenderBackend final : public IGraphicsSceneRenderBackend
+    {
+      public:
+        Result execute_scene_pass(const GraphicsSceneRenderPass pass, const std::any&) override
+        {
+            switch (pass)
+            {
+                case GraphicsSceneRenderPass::SHADOWS:
+                    callbacks.push_back(GraphicsSceneBackendCallback::Shadows);
+                    break;
+                case GraphicsSceneRenderPass::GEOMETRY:
+                    callbacks.push_back(GraphicsSceneBackendCallback::Geometry);
+                    break;
+                case GraphicsSceneRenderPass::LIGHTING:
+                    callbacks.push_back(GraphicsSceneBackendCallback::Lighting);
+                    if (should_fail_lighting)
+                        return Result(false, "lighting failed");
+                    break;
+                case GraphicsSceneRenderPass::TRANSPARENT:
+                    callbacks.push_back(GraphicsSceneBackendCallback::Transparent);
+                    break;
+                case GraphicsSceneRenderPass::POST_PROCESSING:
+                    callbacks.push_back(GraphicsSceneBackendCallback::PostProcessing);
+                    break;
+                default:
+                    return Result(false, "unknown pass");
+            }
+
+            return {};
+        }
+
+        Result prepare_geometry_pass() override
+        {
+            callbacks.push_back(GraphicsSceneBackendCallback::PrepareGeometry);
+            return {};
+        }
+
+        Result render_failure_frame() override
+        {
+            callbacks.push_back(GraphicsSceneBackendCallback::FailureFrame);
+            return {};
+        }
+
+      public:
+        std::vector<GraphicsSceneBackendCallback> callbacks = {};
+        bool should_fail_lighting = false;
+    };
+
     // Validates Rendering opens frame state through the command-based backend API.
     TEST(RenderingTests, Submit_DelegatesFrameAndOutputPassCommands)
     {
@@ -252,17 +306,16 @@ namespace tbx::tests::graphics
         const auto result = rendering.submit(backend, output_window, camera, resolution, scene);
 
         // Assert
-        const auto expected_callbacks =
-            std::vector<GraphicsBackendCallback> {
-                GraphicsBackendCallback::BeginFrame,
-                GraphicsBackendCallback::BeginView,
-                GraphicsBackendCallback::SetViewport,
-                GraphicsBackendCallback::BeginPass,
-                GraphicsBackendCallback::EndPass,
-                GraphicsBackendCallback::EndView,
-                GraphicsBackendCallback::Present,
-                GraphicsBackendCallback::EndFrame,
-            };
+        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
+            GraphicsBackendCallback::BeginFrame,
+            GraphicsBackendCallback::BeginView,
+            GraphicsBackendCallback::SetViewport,
+            GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::EndPass,
+            GraphicsBackendCallback::EndView,
+            GraphicsBackendCallback::Present,
+            GraphicsBackendCallback::EndFrame,
+        };
 
         EXPECT_TRUE(result);
         EXPECT_EQ(backend.recorded_output_window.get_id(), output_window.get_id());
@@ -285,16 +338,15 @@ namespace tbx::tests::graphics
         const auto uniform_buffer = Uuid(40U);
         const auto texture = Uuid(50U);
         const auto sampler = Uuid(60U);
-        const auto draw =
-            GraphicsDrawIndexedDesc {
-                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
-                .index_type = GraphicsIndexType::UINT32,
-                .index_count = 36U,
-                .index_offset = 0U,
-                .vertex_offset = 0,
-                .instance_count = 1U,
-                .first_instance = 0U,
-            };
+        const auto draw = GraphicsDrawIndexedDesc {
+            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+            .index_type = GraphicsIndexType::UINT32,
+            .index_count = 36U,
+            .index_offset = 0U,
+            .vertex_offset = 0,
+            .instance_count = 1U,
+            .first_instance = 0U,
+        };
 
         // Act
         auto result = backend.bind_pipeline(pipeline);
@@ -312,16 +364,15 @@ namespace tbx::tests::graphics
             result = backend.draw_indexed(draw);
 
         // Assert
-        const auto expected_callbacks =
-            std::vector<GraphicsBackendCallback> {
-                GraphicsBackendCallback::BindPipeline,
-                GraphicsBackendCallback::BindVertexBuffer,
-                GraphicsBackendCallback::BindIndexBuffer,
-                GraphicsBackendCallback::BindUniformBuffer,
-                GraphicsBackendCallback::BindTexture,
-                GraphicsBackendCallback::BindSampler,
-                GraphicsBackendCallback::DrawIndexed,
-            };
+        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindVertexBuffer,
+            GraphicsBackendCallback::BindIndexBuffer,
+            GraphicsBackendCallback::BindUniformBuffer,
+            GraphicsBackendCallback::BindTexture,
+            GraphicsBackendCallback::BindSampler,
+            GraphicsBackendCallback::DrawIndexed,
+        };
 
         EXPECT_TRUE(result);
         EXPECT_EQ(backend.recorded_pipeline, pipeline);
@@ -344,10 +395,11 @@ namespace tbx::tests::graphics
         auto pipeline = GraphicsRenderPipeline {};
         pipeline.add_pass(
             GraphicsRenderPass {
-                .pass = GraphicsPassDesc {
-                    .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
-                    .debug_name = "Geometry",
-                },
+                .pass =
+                    GraphicsPassDesc {
+                        .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
+                        .debug_name = "Geometry",
+                    },
                 .viewport =
                     Viewport {
                         .position = Vec2(0.0F),
@@ -375,9 +427,10 @@ namespace tbx::tests::graphics
                                 .slot = 1U,
                                 .resource = Uuid(6U),
                             }},
-                            .draw = GraphicsDrawIndexedDesc {
-                                .index_count = 6U,
-                            },
+                            .draw =
+                                GraphicsDrawIndexedDesc {
+                                    .index_count = 6U,
+                                },
                         },
                     },
             });
@@ -386,19 +439,44 @@ namespace tbx::tests::graphics
         const auto result = pipeline.execute(backend);
 
         // Assert
-        const auto expected_callbacks =
-            std::vector<GraphicsBackendCallback> {
-                GraphicsBackendCallback::SetViewport,
-                GraphicsBackendCallback::BeginPass,
-                GraphicsBackendCallback::BindPipeline,
-                GraphicsBackendCallback::BindVertexBuffer,
-                GraphicsBackendCallback::BindIndexBuffer,
-                GraphicsBackendCallback::BindUniformBuffer,
-                GraphicsBackendCallback::BindTexture,
-                GraphicsBackendCallback::BindSampler,
-                GraphicsBackendCallback::DrawIndexed,
-                GraphicsBackendCallback::EndPass,
-            };
+        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
+            GraphicsBackendCallback::SetViewport,
+            GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindVertexBuffer,
+            GraphicsBackendCallback::BindIndexBuffer,
+            GraphicsBackendCallback::BindUniformBuffer,
+            GraphicsBackendCallback::BindTexture,
+            GraphicsBackendCallback::BindSampler,
+            GraphicsBackendCallback::DrawIndexed,
+            GraphicsBackendCallback::EndPass,
+        };
+
+        EXPECT_TRUE(result);
+        EXPECT_EQ(backend.callbacks, expected_callbacks);
+    }
+
+    // Validates the graphics module owns scene pass order and fallback behavior.
+    TEST(GraphicsRenderPipelineTests, ExecuteScenePipeline_RendersFailureFrameAfterPassFailure)
+    {
+        // Arrange
+        auto backend = RecordingSceneRenderBackend {};
+        backend.should_fail_lighting = true;
+        auto pipeline = GraphicsRenderPipeline::create_default_scene_pipeline();
+
+        // Act
+        const auto result = pipeline.execute(backend, {});
+
+        // Assert
+        const auto expected_callbacks = std::vector<GraphicsSceneBackendCallback> {
+            GraphicsSceneBackendCallback::Shadows,
+            GraphicsSceneBackendCallback::PrepareGeometry,
+            GraphicsSceneBackendCallback::Geometry,
+            GraphicsSceneBackendCallback::Lighting,
+            GraphicsSceneBackendCallback::Transparent,
+            GraphicsSceneBackendCallback::PostProcessing,
+            GraphicsSceneBackendCallback::FailureFrame,
+        };
 
         EXPECT_TRUE(result);
         EXPECT_EQ(backend.callbacks, expected_callbacks);

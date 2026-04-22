@@ -63,11 +63,13 @@ namespace opengl_rendering
     OpenGlMesh::OpenGlMesh(OpenGlMesh&& other) noexcept
         : _vertex_array_id(take_mesh_gl_handle(other._vertex_array_id))
         , _instance_buffer_id(take_mesh_gl_handle(other._instance_buffer_id))
+        , _instance_buffer_capacity(other._instance_buffer_capacity)
         , _instance_model_attribute_location(other._instance_model_attribute_location)
         , _instance_id_attribute_location(other._instance_id_attribute_location)
         , _vertex_buffer(std::move(other._vertex_buffer))
         , _index_buffer(std::move(other._index_buffer))
     {
+        other._instance_buffer_capacity = 0U;
         other._instance_model_attribute_location = -1;
         other._instance_id_attribute_location = -1;
     }
@@ -84,8 +86,10 @@ namespace opengl_rendering
 
         _vertex_array_id = take_mesh_gl_handle(other._vertex_array_id);
         _instance_buffer_id = take_mesh_gl_handle(other._instance_buffer_id);
+        _instance_buffer_capacity = other._instance_buffer_capacity;
         _instance_model_attribute_location = other._instance_model_attribute_location;
         _instance_id_attribute_location = other._instance_id_attribute_location;
+        other._instance_buffer_capacity = 0U;
         other._instance_model_attribute_location = -1;
         other._instance_id_attribute_location = -1;
         _vertex_buffer = std::move(other._vertex_buffer);
@@ -147,11 +151,25 @@ namespace opengl_rendering
         if (instance_model_attribute_location < 0 || instance_id_attribute_location < 0)
             return;
 
-        glNamedBufferData(
-            _instance_buffer_id,
-            static_cast<GLsizeiptr>(instances.size() * sizeof(OpenGlMeshInstanceData)),
-            instances.data(),
-            GL_STREAM_DRAW);
+        const auto upload_size =
+            static_cast<uint64>(instances.size()) * sizeof(OpenGlMeshInstanceData);
+        if (upload_size > _instance_buffer_capacity)
+        {
+            glNamedBufferData(
+                _instance_buffer_id,
+                static_cast<GLsizeiptr>(upload_size),
+                instances.data(),
+                GL_STREAM_DRAW);
+            _instance_buffer_capacity = upload_size;
+        }
+        else
+        {
+            glNamedBufferSubData(
+                _instance_buffer_id,
+                0,
+                static_cast<GLsizeiptr>(upload_size),
+                instances.data());
+        }
 
         if (_instance_model_attribute_location != instance_model_attribute_location
             || _instance_id_attribute_location != instance_id_attribute_location)

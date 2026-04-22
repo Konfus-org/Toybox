@@ -1,5 +1,6 @@
 #include "opengl_texture.h"
 #include "opengl_bindless.h"
+#include "opengl_utils.h"
 #include "tbx/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
@@ -186,12 +187,47 @@ namespace opengl_rendering
             glGenerateTextureMipmap(_texture_id);
     }
 
+    OpenGlTexture::OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data)
+    {
+        const GLsizei width = static_cast<GLsizei>(desc.size.width);
+        const GLsizei height = static_cast<GLsizei>(desc.size.height);
+        const GLsizei levels = static_cast<GLsizei>(std::max(desc.mip_count, 1U));
+
+        glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
+        glTextureStorage2D(
+            _texture_id,
+            levels,
+            get_texture_internal_format(desc.format),
+            width,
+            height);
+
+        if (data != nullptr)
+        {
+            glTextureSubImage2D(
+                _texture_id,
+                0,
+                0,
+                0,
+                width,
+                height,
+                get_texture_upload_format(desc.format),
+                get_texture_upload_type(desc.format),
+                data);
+        }
+
+        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        if (desc.mip_count > 1U)
+            glGenerateTextureMipmap(_texture_id);
+    }
+
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
         : _texture_id(take_texture_gl_handle(other._texture_id))
-        , _slot(other._slot)
         , _bindless_handle(other._bindless_handle)
     {
-        other._slot = 0;
         other._bindless_handle = 0;
     }
 
@@ -207,9 +243,7 @@ namespace opengl_rendering
             release_bindless_handle(_bindless_handle);
 
         _texture_id = take_texture_gl_handle(other._texture_id);
-        _slot = other._slot;
         _bindless_handle = other._bindless_handle;
-        other._slot = 0;
         other._bindless_handle = 0;
         return *this;
     }
@@ -228,19 +262,19 @@ namespace opengl_rendering
         }
     }
 
-    void OpenGlTexture::set_slot(uint32 slot)
+    void OpenGlTexture::bind_slot(const uint32 slot) const
     {
-        _slot = slot;
+        glBindTextureUnit(slot, _texture_id);
     }
 
     void OpenGlTexture::bind()
     {
-        glBindTextureUnit(_slot, _texture_id);
+        bind_slot(0U);
     }
 
     void OpenGlTexture::unbind()
     {
-        glBindTextureUnit(_slot, 0);
+        glBindTextureUnit(0U, 0U);
     }
 
     uint32 OpenGlTexture::get_texture_id() const
@@ -259,5 +293,22 @@ namespace opengl_rendering
 
         _bindless_handle = handle;
         return _bindless_handle;
+    }
+
+    void OpenGlTexture::update(
+        const tbx::GraphicsTextureUpdateDesc& desc,
+        const tbx::GraphicsTextureFormat format,
+        const void* data) const
+    {
+        glTextureSubImage2D(
+            _texture_id,
+            static_cast<GLint>(desc.mip_level),
+            static_cast<GLint>(desc.x),
+            static_cast<GLint>(desc.y),
+            static_cast<GLsizei>(desc.width),
+            static_cast<GLsizei>(desc.height),
+            get_texture_upload_format(format),
+            get_texture_upload_type(format),
+            data);
     }
 }

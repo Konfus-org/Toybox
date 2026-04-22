@@ -6,7 +6,7 @@ namespace opengl_rendering
     OpenGlContext::OpenGlContext(
         tbx::IOpenGlContextManager& context_manager,
         const tbx::Window& window_id)
-        : _context_manager(std::ref(context_manager))
+        : _context_manager(context_manager)
         , _window_id(window_id)
     {
     }
@@ -26,7 +26,7 @@ namespace opengl_rendering
             return result;
         }
 
-        return _context_manager.get().make_context_current(_window_id);
+        return _context_manager.make_context_current(_window_id);
     }
 
     tbx::Result OpenGlContext::present() const
@@ -39,6 +39,6 @@ namespace opengl_rendering
             return result;
         }
 
-        return _context_manager.get().swap_buffers(_window_id);
+        return _context_manager.swap_buffers(_window_id);
     }
 }

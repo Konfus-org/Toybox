@@ -12,6 +12,7 @@
 #include <memory>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -35,14 +36,14 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads.
     struct TextureLoadParameters
     {
-        TextureSettings settings = {
-            .resolution = {1, 1},
-            .wrap = TextureWrap::REPEAT,
-            .filter = TextureFilter::LINEAR,
-            .format = TextureFormat::RGBA,
-            .mipmaps = TextureMipmaps::ENABLED,
-            .compression = TextureCompression::AUTO,
-        };
+        Texture texture = Texture(
+            Size(1, 1),
+            TextureWrap::REPEAT,
+            TextureFilter::LINEAR,
+            TextureFormat::RGBA,
+            TextureMipmaps::ENABLED,
+            TextureCompression::AUTO,
+            std::vector<Pixel> {255, 255, 255, 255});
 
         bool operator==(const TextureLoadParameters& other) const = default;
     };

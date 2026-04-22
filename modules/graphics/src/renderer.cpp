@@ -162,11 +162,6 @@ namespace tbx
 
     void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
-        set(name, TextureInstance(std::move(texture)));
-    }
-
-    void MaterialTextureBindings::set(std::string_view name, TextureInstance texture)
-    {
         const std::string normalized_name = normalize_uniform_name(name);
         auto* entry = try_get_texture_by_name(values, normalized_name);
         if (entry)

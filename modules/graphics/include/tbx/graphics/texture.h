@@ -1,12 +1,6 @@
 #pragma once
-#include "tbx/common/handle.h"
 #include "tbx/math/size.h"
 #include "tbx/tbx_api.h"
-#include <initializer_list>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <utility>
 #include <vector>
 
 namespace tbx
@@ -44,33 +38,12 @@ namespace tbx
         AUTO
     };
 
-    /// TODO: remove texture settings, we DO NOT NEED THIS, we can just use the vanilla Texture
-    /// anywhere we need it.
     /// @brief
-    /// Purpose: Stores texture sampling and surface settings shared by texture data and texture
-    /// instances.
+    /// Purpose: Stores texture sampling, surface settings, and pixel data.
     /// @details
-    /// Ownership: Value type settings.
+    /// Ownership: Owns texture pixel data by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API TextureSettings
-    {
-        Size resolution = {1, 1};
-        TextureWrap wrap = TextureWrap::REPEAT;
-        TextureFilter filter = TextureFilter::LINEAR;
-        TextureFormat format = TextureFormat::RGB;
-        TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
-        TextureCompression compression = TextureCompression::DISABLED;
-
-        bool operator==(const TextureSettings& other) const
-        {
-            return resolution.width == other.resolution.width
-                   && resolution.height == other.resolution.height && wrap == other.wrap
-                   && filter == other.filter && format == other.format && mipmaps == other.mipmaps
-                   && compression == other.compression;
-        }
-    };
-
-    struct TBX_API Texture : TextureSettings
+    struct TBX_API Texture
     {
         Texture() = default;
         Texture(
@@ -79,7 +52,10 @@ namespace tbx
             TextureFilter filter,
             TextureFormat format,
             const std::vector<Pixel>& pixels)
-            : TextureSettings {.resolution = resolution, .wrap = wrap, .filter = filter, .format = format}
+            : resolution(resolution)
+            , wrap(wrap)
+            , filter(filter)
+            , format(format)
             , pixels(pixels)
         {
         }
@@ -91,30 +67,30 @@ namespace tbx
             TextureMipmaps mipmaps,
             TextureCompression compression,
             const std::vector<Pixel>& pixels)
-            : TextureSettings {
-                .resolution = resolution,
-                .wrap = wrap,
-                .filter = filter,
-                .format = format,
-                .mipmaps = mipmaps,
-                .compression = compression,
-            }
+            : resolution(resolution)
+            , wrap(wrap)
+            , filter(filter)
+            , format(format)
+            , mipmaps(mipmaps)
+            , compression(compression)
             , pixels(pixels)
         {
         }
 
-        std::vector<Pixel> pixels = {255, 255, 255};
-    };
+        bool operator==(const Texture& other) const
+        {
+            return resolution.width == other.resolution.width
+                   && resolution.height == other.resolution.height && wrap == other.wrap
+                   && filter == other.filter && format == other.format && mipmaps == other.mipmaps
+                   && compression == other.compression && pixels == other.pixels;
+        }
 
-    /// TODO: remove texture instance, we shouldn't need this anywhere we can just use the handle.
-    /// @brief
-    /// Purpose: Stores a texture asset handle with optional runtime texture settings values.
-    /// @details
-    /// Ownership: Stores a non-owning handle reference and optional value settings.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API TextureInstance
-    {
-        Handle handle = {};
-        std::optional<TextureSettings> settings = std::nullopt;
+        Size resolution = {1, 1};
+        TextureWrap wrap = TextureWrap::REPEAT;
+        TextureFilter filter = TextureFilter::LINEAR;
+        TextureFormat format = TextureFormat::RGB;
+        TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
+        TextureCompression compression = TextureCompression::DISABLED;
+        std::vector<Pixel> pixels = {255, 255, 255};
     };
 }

@@ -160,13 +160,13 @@ namespace mat_material_loader
         auto depth_data = tbx::Json();
         if (config_data.try_get_child("depth", depth_data))
         {
-            depth_data.try_get<bool>("test", config.depth.is_test_enabled);
-            depth_data.try_get<bool>("write", config.depth.is_write_enabled);
-            depth_data.try_get<bool>("prepass", config.depth.is_prepass_enabled);
+            depth_data.try_get<bool>("test", config.is_depth_test_enabled);
+            depth_data.try_get<bool>("write", config.is_depth_write_enabled);
+            depth_data.try_get<bool>("prepass", config.is_depth_prepass_enabled);
 
             std::string depth_function_text;
             if (depth_data.try_get<std::string>("function", depth_function_text)
-                && !try_parse_material_depth_function(depth_function_text, config.depth.function))
+                && !try_parse_material_depth_function(depth_function_text, config.depth_function))
             {
                 error_message = "tbx::Material loader: config.depth.function is invalid.";
                 return false;
@@ -178,9 +178,7 @@ namespace mat_material_loader
         {
             std::string blend_mode_text;
             if (transparency_data.try_get<std::string>("blend_mode", blend_mode_text)
-                && !try_parse_material_blend_mode(
-                    blend_mode_text,
-                    config.transparency.blend_mode))
+                && !try_parse_material_blend_mode(blend_mode_text, config.blend_mode))
             {
                 error_message =
                     "tbx::Material loader: config.transparency.blend_mode is invalid.";

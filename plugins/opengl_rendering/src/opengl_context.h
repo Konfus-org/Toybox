@@ -2,7 +2,6 @@
 #include "tbx/common/result.h"
 #include "tbx/graphics/opengl_context_manager.h"
 #include "tbx/graphics/window.h"
-#include <functional>
 
 namespace opengl_rendering
 {
@@ -40,7 +39,7 @@ namespace opengl_rendering
         tbx::Result present() const;
 
       private:
-        std::reference_wrapper<tbx::IOpenGlContextManager> _context_manager;
+        tbx::IOpenGlContextManager& _context_manager;
         tbx::Window _window_id = {};
     };
 }

@@ -238,18 +238,12 @@ function(tbx_codegen_make_material_render_config_literal material_file material_
     endif()
 
     set(render_config_literal
-        "tbx::MaterialRenderConfig {\n"
-        "                .depth =\n"
-        "                    tbx::MaterialDepthConfig {\n"
-            "                        .is_test_enabled = ${depth_test_literal},\n"
-        "                        .is_write_enabled = ${depth_write_literal},\n"
-        "                        .is_prepass_enabled = ${depth_prepass_literal},\n"
-        "                        .function = ${depth_function_literal},\n"
-        "                    },\n"
-        "                .transparency =\n"
-        "                    tbx::MaterialTransparencyConfig {\n"
-        "                        .blend_mode = ${blend_mode_literal},\n"
-        "                    },\n"
+        "tbx::MaterialConfig {\n"
+        "                .is_depth_test_enabled = ${depth_test_literal},\n"
+        "                .is_depth_write_enabled = ${depth_write_literal},\n"
+        "                .is_depth_prepass_enabled = ${depth_prepass_literal},\n"
+        "                .depth_function = ${depth_function_literal},\n"
+        "                .blend_mode = ${blend_mode_literal},\n"
         "            }")
     set(${out_literal} "${render_config_literal}" PARENT_SCOPE)
 endfunction()

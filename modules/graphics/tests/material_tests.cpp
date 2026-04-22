@@ -35,42 +35,52 @@ namespace tbx::tests::graphics
         EXPECT_EQ(normal_map.get_name(), "Textures/NeutralNormal.png");
     }
 
-    // Validates that depth overrides are tracked separately from material asset config.
-    TEST(MaterialTests, MaterialInstance_SetDepth_EnablesDepthOverride)
+    // Validates that config overrides are tracked separately from material asset config.
+    TEST(MaterialTests, MaterialInstance_SetConfig_EnablesConfigOverride)
     {
         // Arrange
         auto material = MaterialInstance(PbrMaterial::HANDLE);
         material.clear_dirty();
 
         // Act
-        material.set_depth(Depth {
-            .is_test_enabled = false,
-            .is_write_enabled = false,
-            .is_prepass_enabled = true,
-            .function = MaterialDepthFunction::Always,
+        material.set_config(MaterialConfig {
+            .is_depth_test_enabled = false,
+            .is_depth_write_enabled = false,
+            .is_depth_prepass_enabled = true,
+            .depth_function = MaterialDepthFunction::Always,
         });
 
         // Assert
-        EXPECT_TRUE(material.has_depth_override_enabled());
+        EXPECT_TRUE(material.has_config_override_enabled());
         EXPECT_TRUE(material.is_dirty());
-        EXPECT_FALSE(material.depth.is_test_enabled);
-        EXPECT_FALSE(material.depth.is_write_enabled);
-        EXPECT_TRUE(material.depth.is_prepass_enabled);
-        EXPECT_EQ(material.depth.function, MaterialDepthFunction::Always);
+        EXPECT_FALSE(material.config.is_depth_test_enabled);
+        EXPECT_FALSE(material.config.is_depth_write_enabled);
+        EXPECT_TRUE(material.config.is_depth_prepass_enabled);
+        EXPECT_EQ(material.config.depth_function, MaterialDepthFunction::Always);
     }
 
-    // Validates that Material config owns material-level visibility and shadow settings.
+    // Validates that Material config owns material render state.
     TEST(MaterialTests, MaterialConfig_Constructor_InitializesWithDefaults)
     {
         // Arrange
         Material material = {};
 
         // Act
+        const bool is_depth_test_enabled = material.config.is_depth_test_enabled;
+        const bool is_depth_write_enabled = material.config.is_depth_write_enabled;
+        const bool is_depth_prepass_enabled = material.config.is_depth_prepass_enabled;
+        const auto depth_function = material.config.depth_function;
+        const auto blend_mode = material.config.blend_mode;
         const bool is_two_sided = material.config.is_two_sided;
         const bool is_cullable = material.config.is_cullable;
         const auto shadow_mode = material.config.shadow_mode;
 
         // Assert
+        EXPECT_TRUE(is_depth_test_enabled);
+        EXPECT_TRUE(is_depth_write_enabled);
+        EXPECT_FALSE(is_depth_prepass_enabled);
+        EXPECT_EQ(depth_function, MaterialDepthFunction::Less);
+        EXPECT_EQ(blend_mode, MaterialBlendMode::Opaque);
         EXPECT_FALSE(is_two_sided);
         EXPECT_TRUE(is_cullable);
         EXPECT_EQ(shadow_mode, ShadowMode::Standard);

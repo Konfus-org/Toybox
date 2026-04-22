@@ -31,17 +31,11 @@ namespace tbx
         material.parameters.set("transparency_amount", 0.0f);
         material.parameters.set("exposure", 1.0f);
         material.config = MaterialConfig {
-            .depth =
-                MaterialDepthConfig {
-                    .is_test_enabled = true,
-                    .is_write_enabled = true,
-                    .is_prepass_enabled = false,
-                    .function = MaterialDepthFunction::Less,
-                },
-            .transparency =
-                MaterialTransparencyConfig {
-                    .blend_mode = MaterialBlendMode::Opaque,
-                },
+            .is_depth_test_enabled = true,
+            .is_depth_write_enabled = true,
+            .is_depth_prepass_enabled = false,
+            .depth_function = MaterialDepthFunction::Less,
+            .blend_mode = MaterialBlendMode::Opaque,
         };
         return std::make_shared<Material>(std::move(material));
     }
@@ -181,13 +175,13 @@ namespace tbx
         const std::filesystem::path& asset_path,
         const TextureLoadParameters& parameters)
     {
-        const TextureSettings& settings = parameters.settings;
+        const Texture& texture = parameters.texture;
         auto asset = create_fallback_texture(
-            settings.wrap,
-            settings.filter,
-            settings.format,
-            settings.mipmaps,
-            settings.compression);
+            texture.wrap,
+            texture.filter,
+            texture.format,
+            texture.mipmaps,
+            texture.compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -198,15 +192,7 @@ namespace tbx
             return result;
         }
 
-        LoadTextureRequest
-            message(
-                asset_path,
-                asset.get(),
-                settings.wrap,
-                settings.filter,
-                settings.format,
-                settings.mipmaps,
-                settings.compression);
+        LoadTextureRequest message(asset_path, asset.get(), texture);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto future = dispatcher->post(message);
         AssetPromise<Texture> result = {};
@@ -219,13 +205,13 @@ namespace tbx
         const std::filesystem::path& asset_path,
         const TextureLoadParameters& parameters)
     {
-        const TextureSettings& settings = parameters.settings;
+        const Texture& texture = parameters.texture;
         auto asset = create_fallback_texture(
-            settings.wrap,
-            settings.filter,
-            settings.format,
-            settings.mipmaps,
-            settings.compression);
+            texture.wrap,
+            texture.filter,
+            texture.format,
+            texture.mipmaps,
+            texture.compression);
         auto* dispatcher = get_global_dispatcher();
         if (!dispatcher)
         {
@@ -233,15 +219,7 @@ namespace tbx
             return asset;
         }
 
-        LoadTextureRequest
-            message(
-                asset_path,
-                asset.get(),
-                settings.wrap,
-                settings.filter,
-                settings.format,
-                settings.mipmaps,
-                settings.compression);
+        LoadTextureRequest message(asset_path, asset.get(), texture);
         message.not_handled_behavior = MessageNotHandledBehavior::WARN;
         auto result = dispatcher->send(message);
         if (!result.succeeded())
