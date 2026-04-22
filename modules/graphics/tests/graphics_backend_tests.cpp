@@ -27,6 +27,7 @@ namespace tbx::tests::graphics
         EndView,
         Present,
         EndFrame,
+        WaitForIdle,
     };
 
 
@@ -212,7 +213,10 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        void wait_for_idle() override {}
+        void wait_for_idle() override
+        {
+            callbacks.push_back(GraphicsBackendCallback::WaitForIdle);
+        }
 
       public:
         std::vector<GraphicsBackendCallback> callbacks = {};
@@ -364,7 +368,7 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto pipeline = GraphicsRenderPipeline {};
+        auto pipeline = GraphicsRenderPipeline {backend};
         pipeline.add_pass_operation(
             GraphicsRenderPass {
                 .pass =
@@ -408,7 +412,7 @@ namespace tbx::tests::graphics
             });
 
         // Act
-        const auto result = pipeline.execute(backend);
+        const auto result = pipeline.execute();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -463,7 +467,7 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::EndFrame,
         };
 
-        const auto& operations = rendering.get_pipeline().get_pipeline().get_operations();
+        const auto& operations = rendering.get_pipeline().get_operations();
         ASSERT_EQ(operations.size(), 1U);
         const auto* geometry_operation =
             dynamic_cast<const GraphicsRenderPassOperation*>(operations.front().get());
@@ -475,5 +479,37 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(initialize_result);
         EXPECT_TRUE(render_result);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
+    }
+
+    // Validates backend changes wait for in-flight work before rebuilding the pipeline.
+    TEST(GraphicsRenderPipelineTests, Rendering_RebuildsPipelineWhenBackendChanges)
+    {
+        // Arrange
+        auto first_backend = RecordingGraphicsBackend {};
+        auto second_backend = RecordingGraphicsBackend {};
+        auto rendering = Rendering {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto settings = GraphicsSettings(
+            dispatcher,
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {1280U, 720U});
+
+        // Act
+        const auto first_initialize_result = rendering.initialize(first_backend, settings);
+        const auto second_initialize_result = rendering.initialize(second_backend, settings);
+
+        // Assert
+        const auto expected_first_callbacks = std::vector<GraphicsBackendCallback> {
+            GraphicsBackendCallback::WaitForIdle,
+        };
+
+        const auto& operations = rendering.get_pipeline().get_operations();
+        ASSERT_EQ(operations.size(), 1U);
+        EXPECT_EQ(&rendering.get_pipeline().get_backend(), &second_backend);
+        EXPECT_TRUE(first_initialize_result);
+        EXPECT_TRUE(second_initialize_result);
+        EXPECT_EQ(first_backend.callbacks, expected_first_callbacks);
+        EXPECT_TRUE(second_backend.callbacks.empty());
     }
 }

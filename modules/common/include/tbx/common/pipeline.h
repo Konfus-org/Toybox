@@ -1,4 +1,6 @@
 #pragma once
+#include "tbx/common/cancellation_token.h"
+#include "tbx/common/result.h"
 #include "tbx/tbx_api.h"
 #include <any>
 #include <memory>
@@ -17,21 +19,13 @@ namespace tbx
         virtual ~PipelineOperation() = default;
 
         /// @brief
-        /// Purpose: Executes the operation logic using an optional execution payload.
+        /// Purpose: Executes the operation logic using the given execution payload.
         /// @details
         /// Ownership: Does not transfer ownership of referenced resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-        virtual void execute(const std::any& payload) = 0;
-
-        /// @brief
-        /// Purpose: Executes the operation logic with an empty payload.
-        /// @details
-        /// Ownership: Does not transfer ownership of referenced resources.
-        /// Thread Safety: Not thread-safe; call from the owning thread.
-        void execute()
-        {
-            execute(std::any {});
-        }
+        virtual Result execute(
+            const std::any& payload,
+            const CancellationToken& cancellation_token) = 0;
     };
 
     /// @brief
@@ -74,14 +68,32 @@ namespace tbx
         /// @details
         /// Ownership: Does not transfer ownership of operations or payload resources.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-        void execute(const std::any& payload) override;
+        Result execute(
+            const std::any& payload,
+            const CancellationToken& cancellation_token) override;
+
+        /// @brief
+        /// Purpose: Executes each operation in sequence with the given payload.
+        /// @details
+        /// Ownership: Does not transfer ownership of operations or payload resources.
+        /// Thread Safety: Not thread-safe; call from the owning thread.
+        Result execute(
+            const std::any& payload,
+            const CancellationToken& cancellation_token) const;
+
+        /// @brief
+        /// Purpose: Executes each operation in sequence with the given payload.
+        /// @details
+        /// Ownership: Does not transfer ownership of operations or payload resources.
+        /// Thread Safety: Not thread-safe; call from the owning thread.
+        Result execute(const std::any& payload) const;
 
         /// @brief
         /// Purpose: Executes each operation in sequence with an empty payload.
         /// @details
         /// Ownership: Does not transfer ownership of operations.
         /// Thread Safety: Not thread-safe; call from the owning thread.
-        void execute();
+        Result execute() const;
 
       private:
         std::vector<std::unique_ptr<PipelineOperation>> _operations = {};

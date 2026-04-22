@@ -1,4 +1,5 @@
 #include "tbx/graphics/rendering.h"
+#include <memory>
 
 namespace tbx
 {
@@ -37,21 +38,33 @@ namespace tbx
 
     Result Rendering::initialize(IGraphicsBackend& backend, const GraphicsSettings& settings)
     {
-        if (_is_initialized)
+        if (_is_initialized && _backend == &backend)
             return {};
+
+        if (_backend && _backend != &backend)
+        {
+            _backend->wait_for_idle();
+            _pipeline.reset();
+            _backend = nullptr;
+            _is_initialized = false;
+        }
 
         if (const auto result = backend.initialize(settings); !result)
             return result;
 
-        setup_default_pipeline();
+        rebuild_pipeline(backend);
+        _backend = &backend;
         _is_initialized = true;
         return {};
     }
 
     void Rendering::setup_default_pipeline()
     {
-        _pipeline.clear();
-        _pipeline.add_pass_operation(
+        if (!_pipeline)
+            return;
+
+        _pipeline->clear();
+        _pipeline->add_pass_operation(
             GraphicsRenderPass {
                 .pass =
                     GraphicsPassDesc {
@@ -66,12 +79,14 @@ namespace tbx
 
     Result Rendering::submit(IGraphicsBackend& backend, const RenderViewSubmission& view) const
     {
-        if (!_is_initialized)
-            return Result(false, "Rendering::initialize must be called before submit.");
+        if (!_is_initialized || !_pipeline || _backend != &backend)
+            return Result(
+                false,
+                "Rendering::initialize must be called with this backend before submit.");
 
         if (const auto result = begin_frame_and_view(backend, view); !result)
             return result;
-        if (const auto result = _pipeline.execute(backend); !result)
+        if (const auto result = _pipeline->execute(); !result)
             return result;
 
         return end_view_and_frame(backend);
@@ -92,6 +107,12 @@ namespace tbx
 
     const GraphicsRenderPipeline& Rendering::get_pipeline() const
     {
-        return _pipeline;
+        return *_pipeline;
+    }
+
+    void Rendering::rebuild_pipeline(IGraphicsBackend& backend)
+    {
+        _pipeline = std::make_unique<GraphicsRenderPipeline>(backend);
+        setup_default_pipeline();
     }
 }

@@ -1,4 +1,5 @@
 #include "tbx/graphics/render_pipeline.h"
+#include <memory>
 #include <utility>
 
 namespace tbx
@@ -90,46 +91,59 @@ namespace tbx
         return backend.draw_indexed(command.draw);
     }
 
+    static bool is_cancelled(const CancellationToken& cancellation_token)
+    {
+        return cancellation_token && cancellation_token.is_cancelled();
+    }
+
     GraphicsRenderPassOperation::GraphicsRenderPassOperation(GraphicsRenderPass pass)
         : _pass(std::move(pass))
     {
     }
 
-    void GraphicsRenderPassOperation::execute(const std::any& payload)
+    Result GraphicsRenderPassOperation::execute(
+        const std::any& payload,
+        const CancellationToken& cancellation_token)
     {
-        const auto* context = std::any_cast<GraphicsPipelineExecutionContext>(&payload);
-        if (!context || !context->backend || !context->result || !context->result->succeeded())
-            return;
+        if (is_cancelled(cancellation_token))
+            return Result(false, "Graphics render pass operation cancelled.");
 
-        auto& backend = *context->backend;
-        auto& result = *context->result;
+        const auto* graphics_payload = std::any_cast<GraphicsPipelinePayload>(&payload);
+        if (!graphics_payload || !graphics_payload->backend)
+            return Result(
+                false,
+                "Graphics render pass operation requires a graphics pipeline payload.");
+
+        auto& backend = *graphics_payload->backend;
 
         if (_pass.viewport.has_value())
         {
-            result = backend.set_viewport(_pass.viewport.value());
-            if (!result)
-                return;
+            if (const auto result = backend.set_viewport(_pass.viewport.value()); !result)
+                return result;
         }
 
-        result = backend.begin_pass(_pass.pass);
-        if (!result)
-            return;
+        if (const auto result = backend.begin_pass(_pass.pass); !result)
+            return result;
 
         for (const auto& draw : _pass.draws)
         {
-            result = execute_draw(backend, draw);
-            if (!result)
-                return;
+            if (is_cancelled(cancellation_token))
+                return Result(false, "Graphics render pass operation cancelled.");
+
+            if (const auto result = execute_draw(backend, draw); !result)
+                return result;
         }
 
         for (const auto& draw : _pass.indexed_draws)
         {
-            result = execute_draw(backend, draw);
-            if (!result)
-                return;
+            if (is_cancelled(cancellation_token))
+                return Result(false, "Graphics render pass operation cancelled.");
+
+            if (const auto result = execute_draw(backend, draw); !result)
+                return result;
         }
 
-        result = backend.end_pass();
+        return backend.end_pass();
     }
 
     const GraphicsRenderPass& GraphicsRenderPassOperation::get_pass() const
@@ -137,9 +151,9 @@ namespace tbx
         return _pass;
     }
 
-    void GraphicsRenderPipeline::add_operation(std::unique_ptr<PipelineOperation> operation)
+    GraphicsRenderPipeline::GraphicsRenderPipeline(IGraphicsBackend& backend)
+        : _backend(&backend)
     {
-        _pipeline.add_operation(std::move(operation));
     }
 
     void GraphicsRenderPipeline::add_pass_operation(GraphicsRenderPass pass)
@@ -149,22 +163,31 @@ namespace tbx
 
     void GraphicsRenderPipeline::clear()
     {
-        _pipeline.clear_operations();
+        clear_operations();
     }
 
-    Result GraphicsRenderPipeline::execute(IGraphicsBackend& backend) const
+    Result GraphicsRenderPipeline::execute() const
     {
-        auto result = Result {};
-        auto context = GraphicsPipelineExecutionContext {
-            .backend = &backend,
-            .result = &result,
-        };
-        _pipeline.execute(context);
-        return result;
+        return execute(CancellationToken {});
     }
 
-    const Pipeline& GraphicsRenderPipeline::get_pipeline() const
+    Result GraphicsRenderPipeline::execute(const CancellationToken& cancellation_token) const
     {
-        return _pipeline;
+        const auto payload = std::any(GraphicsPipelinePayload {
+            .backend = _backend,
+        });
+        return Pipeline::execute(payload, cancellation_token);
+    }
+
+    IGraphicsBackend& GraphicsRenderPipeline::get_backend() const
+    {
+        return *_backend;
+    }
+
+    Result GraphicsRenderPipeline::execute(
+        const std::any& payload,
+        const CancellationToken& cancellation_token)
+    {
+        return Pipeline::execute(payload, cancellation_token);
     }
 }

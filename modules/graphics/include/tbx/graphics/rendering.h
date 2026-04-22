@@ -7,6 +7,7 @@
 #include "tbx/graphics/window.h"
 #include "tbx/math/size.h"
 #include "tbx/tbx_api.h"
+#include <memory>
 #include <vector>
 
 namespace tbx
@@ -35,7 +36,11 @@ namespace tbx
         const GraphicsRenderPipeline& get_pipeline() const;
 
       private:
-        GraphicsRenderPipeline _pipeline = {};
+        void rebuild_pipeline(IGraphicsBackend& backend);
+
+      private:
+        std::unique_ptr<GraphicsRenderPipeline> _pipeline = nullptr;
+        IGraphicsBackend* _backend = nullptr;
         bool _is_initialized = false;
     };
 }

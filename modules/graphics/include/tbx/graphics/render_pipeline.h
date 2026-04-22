@@ -6,7 +6,6 @@
 #include "tbx/graphics/viewport.h"
 #include "tbx/tbx_api.h"
 #include <any>
-#include <memory>
 #include <optional>
 #include <vector>
 
@@ -45,10 +44,9 @@ namespace tbx
         std::vector<GraphicsIndexedDrawCommand> indexed_draws = {};
     };
 
-    struct TBX_API GraphicsPipelineExecutionContext
+    struct TBX_API GraphicsPipelinePayload
     {
         IGraphicsBackend* backend = nullptr;
-        Result* result = nullptr;
     };
 
     class TBX_API GraphicsRenderPassOperation final : public PipelineOperation
@@ -57,25 +55,40 @@ namespace tbx
         GraphicsRenderPassOperation(GraphicsRenderPass pass);
 
       public:
-        void execute(const std::any& payload) override;
+        Result execute(
+            const std::any& payload,
+            const CancellationToken& cancellation_token) override;
         const GraphicsRenderPass& get_pass() const;
 
       private:
         GraphicsRenderPass _pass = {};
     };
 
-    class TBX_API GraphicsRenderPipeline
+    class TBX_API GraphicsRenderPipeline final : public Pipeline
     {
       public:
-        void add_operation(std::unique_ptr<PipelineOperation> operation);
+        GraphicsRenderPipeline(IGraphicsBackend& backend);
+
+      public:
+        GraphicsRenderPipeline(const GraphicsRenderPipeline&) = delete;
+        GraphicsRenderPipeline& operator=(const GraphicsRenderPipeline&) = delete;
+        GraphicsRenderPipeline(GraphicsRenderPipeline&&) noexcept = delete;
+        GraphicsRenderPipeline& operator=(GraphicsRenderPipeline&&) noexcept = delete;
+
+      public:
         void add_pass_operation(GraphicsRenderPass pass);
         void clear();
 
-        Result execute(IGraphicsBackend& backend) const;
-
-        const Pipeline& get_pipeline() const;
+        Result execute() const;
+        Result execute(const CancellationToken& cancellation_token) const;
+        IGraphicsBackend& get_backend() const;
 
       private:
-        mutable Pipeline _pipeline = {};
+        Result execute(
+            const std::any& payload,
+            const CancellationToken& cancellation_token) override;
+
+      private:
+        IGraphicsBackend* _backend = nullptr;
     };
 }
