@@ -1,13 +1,14 @@
 #pragma once
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/systems/ecs/entity.h"
-#include "tbx/core/systems/ecs/entity_registry.h"
-#include "tbx/core/systems/graphics/material.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/time/delta_time.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/graphics/material.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/time/delta_time.h"
+#include "tbx/types/typedefs.h"
 #include <functional>
 #include <memory>
 #include <vector>
+
 
 namespace three_d_example
 {

@@ -1,9 +1,10 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
 #include "opengl_backend.h"
-#include "tbx/core/interfaces/graphics_backend.h"
-#include "tbx/core/systems/graphics/messages.h"
-#include "tbx/core/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/systems/graphics/messages.h"
 #include <memory>
+
 
 namespace opengl_rendering
 {
@@ -29,9 +30,7 @@ namespace opengl_rendering
         _service_provider = nullptr;
     }
 
-    void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&)
-    {
-    }
+    void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&) {}
 
     void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {

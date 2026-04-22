@@ -1,14 +1,15 @@
 #include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
-#include "tbx/core/systems/app/settings.h"
-#include "tbx/core/utils/string_utils.h"
-#include "tbx/core/interfaces/file_ops.h"
-#include "tbx/core/systems/files/json.h"
-#include "tbx/core/systems/graphics/material.h"
+#include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/files/json.h"
+#include "tbx/systems/graphics/material.h"
+#include "tbx/utils/string_utils.h"
 #include <cctype>
 #include <charconv>
 #include <string>
 #include <string_view>
 #include <vector>
+
 
 namespace mat_material_loader
 {
@@ -180,8 +181,7 @@ namespace mat_material_loader
             if (transparency_data.try_get<std::string>("blend_mode", blend_mode_text)
                 && !try_parse_material_blend_mode(blend_mode_text, config.blend_mode))
             {
-                error_message =
-                    "tbx::Material loader: config.transparency.blend_mode is invalid.";
+                error_message = "tbx::Material loader: config.transparency.blend_mode is invalid.";
                 return false;
             }
         }
@@ -226,7 +226,8 @@ namespace mat_material_loader
             bool value = false;
             if (!entry.try_get<bool>("value", value))
             {
-                error_message = "tbx::Material loader: bool parameter '" + name + "' missing value.";
+                error_message =
+                    "tbx::Material loader: bool parameter '" + name + "' missing value.";
                 return false;
             }
             out_material.parameters.set(name, value);
@@ -250,7 +251,8 @@ namespace mat_material_loader
             float value = 0.0;
             if (!entry.try_get<float>("value", value))
             {
-                error_message = "tbx::Material loader: float parameter '" + name + "' missing value.";
+                error_message =
+                    "tbx::Material loader: float parameter '" + name + "' missing value.";
                 return false;
             }
             out_material.parameters.set(name, value);
@@ -513,7 +515,8 @@ namespace mat_material_loader
             std::vector<tbx::Json> texture_entries;
             if (data.try_get_children("textures", texture_entries))
             {
-                material.textures.values.reserve(material.textures.values.size() + texture_entries.size());
+                material.textures.values.reserve(
+                    material.textures.values.size() + texture_entries.size());
                 for (const auto& entry : texture_entries)
                 {
                     std::string name;
@@ -628,7 +631,8 @@ namespace mat_material_loader
         if (request.path.extension() != ".mat")
         {
             request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Material loader: unsupported material file extension.");
+            request.result.flag_failure(
+                "tbx::Material loader: unsupported material file extension.");
             return;
         }
 

@@ -1,5 +1,5 @@
 #include "opengl_mesh.h"
-#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/systems/debugging/macros.h"
 #include <cstddef>
 #include <glad/glad.h>
 #include <utility>

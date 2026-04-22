@@ -1,11 +1,12 @@
 #pragma once
 #include "opengl_buffers.h"
 #include "opengl_resource.h"
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/math/matrices.h"
-#include "tbx/core/tbx_api.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/math/matrices.h"
+#include "tbx/tbx_api.h"
+#include "tbx/types/typedefs.h"
 #include <vector>
+
 
 namespace opengl_rendering
 {

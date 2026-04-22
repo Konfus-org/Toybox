@@ -1,5 +1,5 @@
 #include "opengl_bindless.h"
-#include "tbx/core/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/opengl_context_manager.h"
 #include <cstring>
 #include <glad/glad.h>
 
@@ -8,8 +8,7 @@ namespace opengl_rendering
     using GlGetTextureHandleArbFn = uint64 (*)(uint32 texture);
     using GlMakeTextureHandleResidentArbFn = void (*)(uint64 handle);
     using GlMakeTextureHandleNonResidentArbFn = void (*)(uint64 handle);
-    using GlProgramUniformHandleUi64ArbFn =
-        void (*)(uint32 program, int location, uint64 value);
+    using GlProgramUniformHandleUi64ArbFn = void (*)(uint32 program, int location, uint64 value);
 
     struct BindlessApi final
     {

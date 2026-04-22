@@ -1,5 +1,5 @@
 #include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
-#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/systems/debugging/macros.h"
 #include <SDL3/SDL.h>
 
 namespace sdl_base_systems
@@ -64,7 +64,8 @@ namespace sdl_base_systems
             TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
-                "SDL base systems failed to initialize events subsystem. See SDL logs for details.");
+                "SDL base systems failed to initialize events subsystem. See SDL logs for "
+                "details.");
             return;
         }
 

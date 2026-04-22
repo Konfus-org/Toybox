@@ -1,14 +1,15 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/systems/graphics/material.h"
-#include "tbx/core/systems/graphics/shader.h"
+#include "tbx/systems/graphics/material.h"
+#include "tbx/systems/graphics/shader.h"
+#include "tbx/types/typedefs.h"
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
 
 namespace opengl_rendering
 {

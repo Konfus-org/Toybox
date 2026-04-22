@@ -1,13 +1,14 @@
 #include "sdl_window_manager.h"
-#include "tbx/core/types/handle.h"
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/systems/debugging/macros.h"
-#include "tbx/core/systems/graphics/messages.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/messages.h"
+#include "tbx/types/handle.h"
+#include "tbx/types/typedefs.h"
 #include <algorithm>
 #include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
+
 
 namespace sdl_windowing
 {
@@ -102,9 +103,9 @@ namespace sdl_windowing
         record.title = create_info.title;
         record.size = create_info.size;
         record.mode = create_info.mode;
-        record.mode_to_restore =
-            create_info.mode == tbx::WindowMode::MINIMIZED ? tbx::WindowMode::WINDOWED
-                                                           : create_info.mode;
+        record.mode_to_restore = create_info.mode == tbx::WindowMode::MINIMIZED
+                                     ? tbx::WindowMode::WINDOWED
+                                     : create_info.mode;
 
         _windows[window] = std::move(record);
         TBX_TRACE_INFO(
@@ -182,7 +183,9 @@ namespace sdl_windowing
         SDL_DestroyWindow(record->sdl_window);
         record->sdl_window = nullptr;
         record->is_open = false;
-        TBX_TRACE_INFO("SDL windowing: closed window {}.", describe_window(record->id, record->title));
+        TBX_TRACE_INFO(
+            "SDL windowing: closed window {}.",
+            describe_window(record->id, record->title));
         send_native_handle_changed(record->id, previous_handle, nullptr);
         send_window_closed(record->id);
         return true;

@@ -1,11 +1,11 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-#include "tbx/core/systems/assets/requests.h"
-#include "tbx/core/utils/string_utils.h"
-#include "tbx/core/systems/graphics/material.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/graphics/model.h"
-#include "tbx/core/systems/graphics/vertex.h"
-#include "tbx/core/systems/math/matrices.h"
+#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/graphics/material.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/graphics/model.h"
+#include "tbx/systems/graphics/vertex.h"
+#include "tbx/systems/math/matrices.h"
+#include "tbx/utils/string_utils.h"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
@@ -13,6 +13,7 @@
 #include <assimp/types.h>
 #include <string>
 #include <vector>
+
 
 namespace assimp_model_loader
 {
@@ -235,8 +236,7 @@ namespace assimp_model_loader
         // Build materials from Assimp material data.
         std::vector<tbx::Material> materials;
         materials.reserve(scene->mNumMaterials);
-        for (uint32 material_index = 0; material_index < scene->mNumMaterials;
-             ++material_index)
+        for (uint32 material_index = 0; material_index < scene->mNumMaterials; ++material_index)
         {
             const aiMaterial* source_material = scene->mMaterials[material_index];
             tbx::Material material = {};
@@ -275,8 +275,8 @@ namespace assimp_model_loader
 
             // Clamp material index to available materials.
             uint32 material_index = mesh->mMaterialIndex < materials.size()
-                                             ? static_cast<uint32>(mesh->mMaterialIndex)
-                                             : 0U;
+                                        ? static_cast<uint32>(mesh->mMaterialIndex)
+                                        : 0U;
             mesh_material_indices.push_back(material_index);
 
             // Convert vertices for this mesh.
@@ -300,8 +300,7 @@ namespace assimp_model_loader
                     auto tangent_handedness = 1.0F;
                     if (tbx::dot(tbx::cross(vertex.normal, tangent), bitangent) < 0.0F)
                         tangent_handedness = -1.0F;
-                    vertex.tangent =
-                        tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
+                    vertex.tangent = tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
                 }
                 if (mesh->HasVertexColors(0))
                     vertex.color = to_color(mesh->mColors[0][vertex_index]);

@@ -1,13 +1,14 @@
 #include "jolt_runtime_lifetime.h"
-#include "tbx/core/systems/debugging/macros.h"
-#include <Jolt/Jolt.h>
+#include "tbx/systems/debugging/macros.h"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
+#include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>
 #include <cstdarg>
 #include <cstdio>
 #include <mutex>
 #include <string>
+
 
 namespace jolt_physics
 {
@@ -28,11 +29,7 @@ namespace jolt_physics
 
         auto message = std::string {};
         message.resize(static_cast<std::size_t>(required_chars));
-        std::vsnprintf(
-            message.data(),
-            static_cast<std::size_t>(required_chars) + 1U,
-            fmt,
-            args);
+        std::vsnprintf(message.data(), static_cast<std::size_t>(required_chars) + 1U, fmt, args);
         return message;
     }
 

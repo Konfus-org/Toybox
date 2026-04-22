@@ -1,10 +1,11 @@
 #pragma once
-#include "tbx/core/interfaces/window_manager.h"
-#include "tbx/core/interfaces/message_dispatcher.h"
+#include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/interfaces/window_manager.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 
 namespace sdl_windowing
 {

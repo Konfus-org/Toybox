@@ -1,9 +1,9 @@
 #include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
-#include "tbx/core/systems/app/settings.h"
-#include "tbx/core/systems/assets/manager.h"
-#include "tbx/core/systems/assets/requests.h"
-#include "tbx/core/interfaces/file_ops.h"
-#include "tbx/core/systems/graphics/shader.h"
+#include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/graphics/shader.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -12,6 +12,7 @@
 #include <string_view>
 #include <unordered_set>
 #include <vector>
+
 
 namespace glsl_shader_loader
 {
@@ -309,7 +310,8 @@ namespace glsl_shader_loader
     void GlslShaderLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _asset_manager = &service_provider.get_service<tbx::AssetManager>();
-        _working_directory = service_provider.get_service<tbx::AppSettings>().paths.working_directory;
+        _working_directory =
+            service_provider.get_service<tbx::AppSettings>().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
     }

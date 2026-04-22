@@ -1,10 +1,11 @@
 #pragma once
 #include "projectile_system.h"
-#include "tbx/core/systems/ecs/entity.h"
-#include "tbx/core/systems/ecs/entity_registry.h"
-#include "tbx/core/interfaces/input_manager.h"
-#include "tbx/core/systems/time/delta_time.h"
+#include "tbx/interfaces/input_manager.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/time/delta_time.h"
 #include <string>
+
 
 namespace three_d_example
 {

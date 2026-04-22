@@ -1,5 +1,5 @@
 #include "opengl_context.h"
-#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/systems/debugging/macros.h"
 
 namespace opengl_rendering
 {

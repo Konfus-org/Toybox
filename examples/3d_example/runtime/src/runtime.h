@@ -1,6 +1,6 @@
 #pragma once
 #include "demo_scene.h"
-#include "tbx/core/interfaces/plugin.h"
+#include "tbx/interfaces/plugin.h"
 #include <memory>
 
 namespace three_d_example

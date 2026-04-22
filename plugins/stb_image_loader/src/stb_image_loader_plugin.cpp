@@ -1,19 +1,18 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
-#include "tbx/core/systems/app/settings.h"
-#include "tbx/core/systems/assets/requests.h"
-#include "tbx/core/interfaces/file_ops.h"
-#include "tbx/core/systems/files/json.h"
-#include "tbx/core/systems/graphics/texture.h"
+#include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/files/json.h"
+#include "tbx/systems/graphics/texture.h"
 #include <memory>
 #include <stb_image.h>
 #include <string>
 #include <vector>
 
+
 namespace stb_image_loader
 {
-    static bool try_parse_texture(
-        const tbx::Json& data,
-        tbx::Texture& out_texture)
+    static bool try_parse_texture(const tbx::Json& data, tbx::Texture& out_texture)
     {
         auto texture_data = tbx::Json();
         if (!data.try_get_child("texture", texture_data))
@@ -47,9 +46,8 @@ namespace stb_image_loader
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         if (!_file_ops)
-            _file_ops =
-                std::make_unique<tbx::FileOperator>(
-                    service_provider.get_service<tbx::AppSettings>().paths.working_directory);
+            _file_ops = std::make_unique<tbx::FileOperator>(
+                service_provider.get_service<tbx::AppSettings>().paths.working_directory);
     }
 
     void StbImageLoaderPlugin::on_detach() {}
@@ -143,9 +141,7 @@ namespace stb_image_loader
         const std::vector pixels(raw_data, raw_data + pixel_count);
         stbi_image_free(raw_data);
 
-        const tbx::Size resolution = {
-            static_cast<uint32>(width),
-            static_cast<uint32>(height)};
+        const tbx::Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
         const tbx::Texture texture(
             resolution,
             load_texture.wrap,

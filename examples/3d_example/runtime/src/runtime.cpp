@@ -1,5 +1,5 @@
 #include "runtime.h"
-#include "tbx/core/systems/assets/manager.h"
+#include "tbx/systems/assets/manager.h"
 #include <filesystem>
 #include <memory>
 

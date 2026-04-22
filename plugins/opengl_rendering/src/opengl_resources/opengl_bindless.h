@@ -1,6 +1,7 @@
 #pragma once
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/types/typedefs.h"
+
 
 namespace opengl_rendering
 {
@@ -37,8 +38,5 @@ namespace opengl_rendering
     /// @details
     /// Ownership: Does not transfer ownership of shader or texture resources.
     /// Thread Safety: Render thread only.
-    bool try_upload_bindless_sampler(
-        uint32 program_id,
-        int uniform_location,
-        uint64 handle);
+    bool try_upload_bindless_sampler(uint32 program_id, int uniform_location, uint64 handle);
 }

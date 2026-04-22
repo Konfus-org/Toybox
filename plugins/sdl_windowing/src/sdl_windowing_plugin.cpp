@@ -1,12 +1,13 @@
 #include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
 #include "sdl_window_manager.h"
-#include "tbx/core/systems/app/settings.h"
-#include "tbx/core/systems/assets/manager.h"
-#include "tbx/core/types/handle.h"
-#include "tbx/core/systems/debugging/macros.h"
-#include "tbx/core/systems/messaging/observable.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/messaging/observable.h"
+#include "tbx/types/handle.h"
 #include <filesystem>
 #include <string_view>
+
 
 namespace sdl_windowing
 {
@@ -57,16 +58,14 @@ namespace sdl_windowing
         _use_opengl = service_provider.get_service<tbx::AppSettings>().graphics.graphics_api
                       == tbx::GraphicsApi::OPEN_GL;
 
-        service_provider.register_service<tbx::IWindowManager>(
-            std::make_unique<SdlWindowManager>(
-                service_provider.get_service<tbx::IMessageCoordinator>()));
-        _window_manager = static_cast<SdlWindowManager*>(
-            service_provider.try_get_service<tbx::IWindowManager>());
+        service_provider.register_service<tbx::IWindowManager>(std::make_unique<SdlWindowManager>(
+            service_provider.get_service<tbx::IMessageCoordinator>()));
+        _window_manager =
+            static_cast<SdlWindowManager*>(service_provider.try_get_service<tbx::IWindowManager>());
         if (_window_manager)
             _window_manager->set_use_opengl(_use_opengl);
 
-        const tbx::AssetManager& asset_manager =
-            service_provider.get_service<tbx::AssetManager>();
+        const tbx::AssetManager& asset_manager = service_provider.get_service<tbx::AssetManager>();
         const std::filesystem::path icon_path =
             asset_manager.resolve(service_provider.get_service<tbx::Handle>());
         if (icon_path.empty())

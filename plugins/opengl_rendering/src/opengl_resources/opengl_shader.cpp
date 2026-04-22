@@ -1,7 +1,7 @@
 #include "opengl_shader.h"
 #include "opengl_bindless.h"
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/types/typedefs.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+
 
 namespace opengl_rendering
 {

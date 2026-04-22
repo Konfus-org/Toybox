@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/interfaces/plugin.h"
-#include "tbx/core/systems/plugin_api/plugin_export.h"
+#include "tbx/interfaces/plugin.h"
+#include "tbx/systems/plugin_api/plugin_export.h"
 
 namespace tbx
 {

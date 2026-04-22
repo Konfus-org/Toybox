@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/interfaces/opengl_context_manager.h"
-#include "tbx/core/systems/plugin_api/plugin_export.h"
+#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <string>
 #include <unordered_map>

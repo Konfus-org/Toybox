@@ -1,12 +1,13 @@
 #pragma once
 #include "opengl_resource.h"
 #include "opengl_texture.h"
-#include "tbx/core/types/typedefs.h"
-#include "tbx/core/interfaces/graphics_backend.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/graphics/vertex.h"
-#include "tbx/core/systems/math/size.h"
+#include "tbx/interfaces/graphics_backend.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/graphics/vertex.h"
+#include "tbx/systems/math/size.h"
+#include "tbx/types/typedefs.h"
 #include <glad/glad.h>
+
 
 namespace opengl_rendering
 {
@@ -232,9 +233,8 @@ namespace opengl_rendering
 
       public:
         void attach_color(uint32 index, const OpenGlTexture& texture) const;
-        void attach_depth_stencil(
-            const OpenGlTexture& texture,
-            tbx::GraphicsTextureFormat format) const;
+        void attach_depth_stencil(const OpenGlTexture& texture, tbx::GraphicsTextureFormat format)
+            const;
         void bind() override;
         bool is_complete() const;
         void set_draw_buffers(uint32 color_target_count) const;

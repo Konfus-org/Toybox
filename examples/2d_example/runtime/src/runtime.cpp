@@ -1,15 +1,16 @@
 #include "runtime.h"
-#include "tbx/core/systems/assets/builtin_assets.h"
-#include "tbx/core/utils/string_utils.h"
-#include "tbx/core/systems/debugging/macros.h"
-#include "tbx/core/systems/ecs/entity.h"
-#include "tbx/core/systems/ecs/entity_registry.h"
-#include "tbx/core/systems/graphics/camera.h"
-#include "tbx/core/systems/graphics/color.h"
-#include "tbx/core/systems/graphics/material.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/math/transform.h"
-#include "tbx/core/systems/math/trig.h"
+#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/graphics/camera.h"
+#include "tbx/systems/graphics/color.h"
+#include "tbx/systems/graphics/material.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/math/transform.h"
+#include "tbx/systems/math/trig.h"
+#include "tbx/utils/string_utils.h"
+
 
 namespace two_d_example
 {
@@ -25,8 +26,7 @@ namespace two_d_example
         if (entity.try_get_parent_entity(parent))
         {
             const auto parent_world_transform = tbx::get_world_space_transform(parent);
-            local_transform =
-                tbx::world_to_local_tranform(parent_world_transform, world_transform);
+            local_transform = tbx::world_to_local_tranform(parent_world_transform, world_transform);
         }
 
         entity.get_component<tbx::Transform>() = local_transform;

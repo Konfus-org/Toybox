@@ -1,6 +1,6 @@
 #include "opengl_buffers.h"
 #include "opengl_utils.h"
-#include "tbx/core/systems/debugging/macros.h"
+#include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <array>
 #include <glad/glad.h>
@@ -108,8 +108,7 @@ namespace opengl_rendering
         other._target = GL_ARRAY_BUFFER;
     }
 
-    OpenGlGraphicsBuffer& OpenGlGraphicsBuffer::operator=(
-        OpenGlGraphicsBuffer&& other) noexcept
+    OpenGlGraphicsBuffer& OpenGlGraphicsBuffer::operator=(OpenGlGraphicsBuffer&& other) noexcept
     {
         if (this == &other)
             return *this;
@@ -143,10 +142,8 @@ namespace opengl_rendering
         glBindBuffer(_target, 0U);
     }
 
-    void OpenGlGraphicsBuffer::update(
-        const void* data,
-        const uint64 data_size,
-        const uint64 offset) const
+    void OpenGlGraphicsBuffer::update(const void* data, const uint64 data_size, const uint64 offset)
+        const
     {
         glNamedBufferSubData(
             _buffer_id,
@@ -552,9 +549,7 @@ namespace opengl_rendering
         return *this;
     }
 
-    void OpenGlFramebuffer::attach_color(
-        const uint32 index,
-        const OpenGlTexture& texture) const
+    void OpenGlFramebuffer::attach_color(const uint32 index, const OpenGlTexture& texture) const
     {
         glNamedFramebufferTexture(
             _framebuffer_id,

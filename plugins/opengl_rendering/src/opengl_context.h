@@ -1,7 +1,8 @@
 #pragma once
-#include "tbx/core/utils/result.h"
-#include "tbx/core/interfaces/opengl_context_manager.h"
-#include "tbx/core/interfaces/window_manager.h"
+#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/window_manager.h"
+#include "tbx/utils/result.h"
+
 
 namespace opengl_rendering
 {

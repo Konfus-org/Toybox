@@ -1,18 +1,18 @@
 #include "tbx/plugins/jolt_physics/jolt_physics_plugin.h"
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
-#include "tbx/core/systems/app/settings.h"
-#include "tbx/core/systems/async/thread_manager.h"
-#include "tbx/core/systems/assets/events.h"
-#include "tbx/core/systems/assets/manager.h"
-#include "tbx/core/systems/debugging/macros.h"
-#include "tbx/core/systems/ecs/entity.h"
-#include "tbx/core/systems/ecs/entity_registry.h"
-#include "tbx/core/systems/graphics/mesh.h"
-#include "tbx/core/systems/graphics/model.h"
-#include "tbx/core/systems/math/transform.h"
-#include "tbx/core/systems/physics/collider.h"
-#include "tbx/core/systems/physics/physics.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/async/thread_manager.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/graphics/model.h"
+#include "tbx/systems/math/transform.h"
+#include "tbx/systems/physics/collider.h"
+#include "tbx/systems/physics/physics.h"
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Jolt.h>
@@ -35,6 +35,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+
 
 namespace jolt_physics
 {
@@ -496,7 +497,12 @@ namespace jolt_physics
 
         auto positions = std::vector<JPH::Float3> {};
         auto triangles = std::vector<JPH::IndexedTriangle> {};
-        if (!try_get_mesh_collider_data(asset_manager, entity, transform.scale, positions, triangles))
+        if (!try_get_mesh_collider_data(
+                asset_manager,
+                entity,
+                transform.scale,
+                positions,
+                triangles))
         {
             TBX_TRACE_WARNING(
                 "Jolt physics: tbx::MeshCollider on entity {} has no usable mesh geometry, "
@@ -853,8 +859,7 @@ namespace jolt_physics
         if (!work)
             return;
 
-        if (!_thread_manager
-            || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
+        if (!_thread_manager || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
             || is_on_physics_thread())
         {
             work();
@@ -980,8 +985,11 @@ namespace jolt_physics
 
             if (body_it == _bodies_by_entity.end())
             {
-                JPH::RefConst<JPH::Shape> shape =
-                    create_shape_for_entity(*_asset_manager, entity, world_transform, is_physics_driven);
+                JPH::RefConst<JPH::Shape> shape = create_shape_for_entity(
+                    *_asset_manager,
+                    entity,
+                    world_transform,
+                    is_physics_driven);
                 if (!shape)
                     continue;
 

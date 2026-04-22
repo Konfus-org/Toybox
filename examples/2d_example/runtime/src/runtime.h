@@ -1,6 +1,7 @@
 #pragma once
-#include "tbx/core/systems/ecs/entity_registry.h"
-#include "tbx/core/interfaces/plugin.h"
+#include "tbx/interfaces/plugin.h"
+#include "tbx/systems/ecs/entity_registry.h"
+
 
 namespace two_d_example
 {

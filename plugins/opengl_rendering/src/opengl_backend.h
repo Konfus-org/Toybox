@@ -4,8 +4,8 @@
 #include "opengl_resources/opengl_sampler.h"
 #include "opengl_resources/opengl_shader.h"
 #include "opengl_resources/opengl_texture.h"
-#include "tbx/core/interfaces/graphics_backend.h"
-#include "tbx/core/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/opengl_context_manager.h"
 #include <glad/glad.h>
 #include <memory>
 #include <unordered_map>
@@ -52,12 +52,10 @@ namespace opengl_rendering
         tbx::Result bind_index_buffer(
             const tbx::Uuid& buffer_resource_uuid,
             tbx::GraphicsIndexType index_type) override;
-        tbx::Result bind_uniform_buffer(
-            uint32 slot,
-            const tbx::Uuid& buffer_resource_uuid) override;
-        tbx::Result bind_storage_buffer(
-            uint32 slot,
-            const tbx::Uuid& buffer_resource_uuid) override;
+        tbx::Result bind_uniform_buffer(uint32 slot, const tbx::Uuid& buffer_resource_uuid)
+            override;
+        tbx::Result bind_storage_buffer(uint32 slot, const tbx::Uuid& buffer_resource_uuid)
+            override;
         tbx::Result bind_texture(uint32 slot, const tbx::Uuid& texture_resource_uuid) override;
         tbx::Result bind_sampler(uint32 slot, const tbx::Uuid& sampler_resource_uuid) override;
 

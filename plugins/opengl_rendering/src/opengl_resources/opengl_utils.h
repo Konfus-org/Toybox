@@ -1,10 +1,11 @@
 #pragma once
-#include "tbx/core/utils/result.h"
-#include "tbx/core/interfaces/graphics_backend.h"
+#include "tbx/interfaces/graphics_backend.h"
+#include "tbx/utils/result.h"
 #include <glad/glad.h>
 #include <memory>
 #include <string>
 #include <vector>
+
 
 namespace opengl_rendering
 {

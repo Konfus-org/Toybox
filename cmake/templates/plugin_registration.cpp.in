@@ -2,6 +2,6 @@
 // DO NOT MODIFY, CHANGES WILL BE OVERWRITTEN ON BUILD.
 
 #include "@PLUGIN_HEADER@"
-#include "tbx/core/interfaces/plugin.h"
+#include "tbx/interfaces/plugin.h"
 
 @REGISTER_MACRO@(@PLUGIN_NAME_TOKEN@, @PLUGIN_CLASS@);
