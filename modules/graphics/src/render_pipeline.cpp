@@ -1,6 +1,4 @@
 #include "tbx/graphics/render_pipeline.h"
-#include "tbx/debugging/macros.h"
-#include <string>
 #include <utility>
 
 namespace tbx
@@ -92,127 +90,81 @@ namespace tbx
         return backend.draw_indexed(command.draw);
     }
 
-    static bool should_prepare_geometry_pass(const GraphicsSceneRenderPass pass)
+    GraphicsRenderPassOperation::GraphicsRenderPassOperation(GraphicsRenderPass pass)
+        : _pass(std::move(pass))
     {
-        return pass == GraphicsSceneRenderPass::GEOMETRY;
     }
 
-    GraphicsRenderPipeline GraphicsRenderPipeline::create_default_scene_pipeline()
+    void GraphicsRenderPassOperation::execute(const std::any& payload)
     {
-        auto pipeline = GraphicsRenderPipeline {};
-        pipeline.add_scene_pass(GraphicsSceneRenderPass::SHADOWS);
-        pipeline.add_scene_pass(GraphicsSceneRenderPass::GEOMETRY);
-        pipeline.add_scene_pass(GraphicsSceneRenderPass::LIGHTING);
-        pipeline.add_scene_pass(GraphicsSceneRenderPass::TRANSPARENT);
-        pipeline.add_scene_pass(GraphicsSceneRenderPass::POST_PROCESSING);
-        return pipeline;
+        const auto* context = std::any_cast<GraphicsPipelineExecutionContext>(&payload);
+        if (!context || !context->backend || !context->result || !context->result->succeeded())
+            return;
+
+        auto& backend = *context->backend;
+        auto& result = *context->result;
+
+        if (_pass.viewport.has_value())
+        {
+            result = backend.set_viewport(_pass.viewport.value());
+            if (!result)
+                return;
+        }
+
+        result = backend.begin_pass(_pass.pass);
+        if (!result)
+            return;
+
+        for (const auto& draw : _pass.draws)
+        {
+            result = execute_draw(backend, draw);
+            if (!result)
+                return;
+        }
+
+        for (const auto& draw : _pass.indexed_draws)
+        {
+            result = execute_draw(backend, draw);
+            if (!result)
+                return;
+        }
+
+        result = backend.end_pass();
     }
 
-    void GraphicsRenderPipeline::add_pass(GraphicsRenderPass pass)
+    const GraphicsRenderPass& GraphicsRenderPassOperation::get_pass() const
     {
-        _passes.push_back(std::move(pass));
+        return _pass;
     }
 
-    void GraphicsRenderPipeline::add_scene_pass(const GraphicsSceneRenderPass pass)
+    void GraphicsRenderPipeline::add_operation(std::unique_ptr<PipelineOperation> operation)
     {
-        _scene_passes.push_back(pass);
+        _pipeline.add_operation(std::move(operation));
+    }
+
+    void GraphicsRenderPipeline::add_pass_operation(GraphicsRenderPass pass)
+    {
+        add_operation(std::make_unique<GraphicsRenderPassOperation>(std::move(pass)));
     }
 
     void GraphicsRenderPipeline::clear()
     {
-        _passes.clear();
-        _scene_passes.clear();
-        _has_reported_scene_failure = false;
-    }
-
-    const std::vector<GraphicsRenderPass>& GraphicsRenderPipeline::get_passes() const
-    {
-        return _passes;
-    }
-
-    const std::vector<GraphicsSceneRenderPass>& GraphicsRenderPipeline::get_scene_passes() const
-    {
-        return _scene_passes;
+        _pipeline.clear_operations();
     }
 
     Result GraphicsRenderPipeline::execute(IGraphicsBackend& backend) const
     {
-        for (const auto& pass : _passes)
-        {
-            if (pass.viewport.has_value())
-            {
-                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
-                    return result;
-            }
-
-            if (const auto result = backend.begin_pass(pass.pass); !result)
-                return result;
-
-            for (const auto& draw : pass.draws)
-            {
-                if (const auto result = execute_draw(backend, draw); !result)
-                    return result;
-            }
-
-            for (const auto& draw : pass.indexed_draws)
-            {
-                if (const auto result = execute_draw(backend, draw); !result)
-                    return result;
-            }
-
-            if (const auto result = backend.end_pass(); !result)
-                return result;
-        }
-
-        return {};
+        auto result = Result {};
+        auto context = GraphicsPipelineExecutionContext {
+            .backend = &backend,
+            .result = &result,
+        };
+        _pipeline.execute(context);
+        return result;
     }
 
-    Result GraphicsRenderPipeline::execute(
-        IGraphicsSceneRenderBackend& backend,
-        const std::any& payload)
+    const Pipeline& GraphicsRenderPipeline::get_pipeline() const
     {
-        auto saw_failure = false;
-        auto failure_report = std::string {};
-
-        for (const auto pass : _scene_passes)
-        {
-            if (should_prepare_geometry_pass(pass))
-            {
-                if (const auto result = backend.prepare_geometry_pass(); !result)
-                {
-                    saw_failure = true;
-                    failure_report = result.get_report();
-                    break;
-                }
-            }
-
-            if (const auto result = backend.execute_scene_pass(pass, payload); !result)
-            {
-                saw_failure = true;
-                failure_report = result.get_report();
-            }
-        }
-
-        if (!saw_failure)
-        {
-            _has_reported_scene_failure = false;
-            return {};
-        }
-
-        if (!_has_reported_scene_failure)
-        {
-            TBX_TRACE_WARNING(
-                "Graphics rendering: one or more render passes failed without producing a usable "
-                "frame. Rendering magenta fallback frame. {}",
-                failure_report);
-            _has_reported_scene_failure = true;
-        }
-
-        return render_failure_frame(backend);
-    }
-
-    Result GraphicsRenderPipeline::render_failure_frame(IGraphicsSceneRenderBackend& backend)
-    {
-        return backend.render_failure_frame();
+        return _pipeline;
     }
 }
