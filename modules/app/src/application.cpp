@@ -3,6 +3,7 @@
 #include "tbx/app/requests.h"
 #include "tbx/debugging/macros.h"
 #include "tbx/files/ops.h"
+#include "tbx/graphics/graphics_backend.h"
 #include "tbx/graphics/messages.h"
 #include "tbx/messages/dispatcher.h"
 #include "tbx/time/delta_time.h"
@@ -201,6 +202,18 @@ namespace tbx
                     .open_on_creation = false,
                 });
 
+            if (auto* graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
+            {
+                const auto initialize_result =
+                    _rendering.initialize(*graphics_backend, settings.graphics);
+                if (!initialize_result)
+                {
+                    TBX_TRACE_WARNING(
+                        "Toybox renderer initialization failed: {}",
+                        initialize_result.get_report());
+                }
+            }
+
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", settings.paths.working_directory.string());
             TBX_TRACE_INFO("Logs Directory: '{}'", settings.paths.logs_directory.string());
@@ -251,6 +264,7 @@ namespace tbx
     {
         auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
         auto& asset_manager = _service_provider.get_service<AssetManager>();
+        auto& settings = _service_provider.get_service<AppSettings>();
 
         // Process messages posted in previous frame
         msg_coordinator.flush();
@@ -268,6 +282,34 @@ namespace tbx
 
         // Update all loaded plugins
         _plugin_manager.update(dt);
+
+        if (auto* graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
+        {
+            if (_main_window.is_valid())
+            {
+                if (auto* window_manager = _service_provider.try_get_service<IWindowManager>())
+                {
+                    const auto render_resolution = settings.graphics.resolution.value.width > 0U
+                                                       && settings.graphics.resolution.value.height
+                                                              > 0U
+                                                   ? settings.graphics.resolution.value
+                                                   : window_manager->get_size(_main_window);
+                    const auto render_result = _rendering.submit(
+                        *graphics_backend,
+                        RenderViewSubmission {
+                            .output_window = _main_window,
+                            .camera = Camera {},
+                            .resolution = render_resolution,
+                        });
+                    if (!render_result)
+                    {
+                        TBX_TRACE_WARNING(
+                            "Toybox renderer frame submission failed: {}",
+                            render_result.get_report());
+                    }
+                }
+            }
+        }
 
         if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
             input_manager->update(dt);

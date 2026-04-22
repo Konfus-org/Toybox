@@ -8,6 +8,7 @@
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/entity_registry.h"
+#include "tbx/graphics/rendering.h"
 #include "tbx/graphics/window.h"
 #include "tbx/input/manager.h"
 #include "tbx/plugin_api/plugin_manager.h"
@@ -59,6 +60,7 @@ namespace tbx
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
         Window _main_window = {};
+        Rendering _rendering = {};
         std::string _main_window_base_title = {};
 
         uint _update_count = 0;
