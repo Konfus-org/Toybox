@@ -12,8 +12,8 @@ namespace tbx
 
     MaterialInstance::MaterialInstance(
         Handle handle,
-        ParamBindings parameter_overrides,
-        TextureBindings texture_overrides_value,
+        MaterialParameterBindings parameter_overrides,
+        MaterialTextureBindings texture_overrides_value,
         MaterialConfig config_override,
         const bool has_config_override)
         : material(std::move(handle))

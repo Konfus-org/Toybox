@@ -75,7 +75,7 @@ namespace opengl_rendering
         return glGetUniformLocation(program_id, name.c_str());
     }
 
-    static void upload_uniform_value(GLint location, const tbx::UniformData& data)
+    static void upload_uniform_value(GLint location, const tbx::MaterialParameterData& data)
     {
         std::visit(
             [location](const auto& value)
@@ -661,14 +661,14 @@ namespace opengl_rendering
                 continue;
         }
 
-        bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.textures.size();
+        bool is_same_sampler_layout = _sampler_uniform_layout.size() == params.texture_names.size();
         if (is_same_sampler_layout)
         {
-            for (std::size_t texture_slot = 0; texture_slot < params.textures.size();
+            for (std::size_t texture_slot = 0; texture_slot < params.texture_names.size();
                  ++texture_slot)
             {
                 const auto normalized_name =
-                    normalize_uniform_name(params.textures[texture_slot].name);
+                    normalize_uniform_name(params.texture_names[texture_slot]);
                 if (_sampler_uniform_layout[texture_slot] != normalized_name)
                 {
                     is_same_sampler_layout = false;
@@ -681,11 +681,12 @@ namespace opengl_rendering
             return true;
 
         _sampler_uniform_layout.clear();
-        _sampler_uniform_layout.reserve(params.textures.size());
-        for (std::size_t texture_slot = 0; texture_slot < params.textures.size(); ++texture_slot)
+        _sampler_uniform_layout.reserve(params.texture_names.size());
+        for (std::size_t texture_slot = 0; texture_slot < params.texture_names.size();
+             ++texture_slot)
         {
-            const auto& texture_binding = params.textures[texture_slot];
-            const auto normalized_name = normalize_uniform_name(texture_binding.name);
+            const auto& texture_name = params.texture_names[texture_slot];
+            const auto normalized_name = normalize_uniform_name(texture_name);
             const auto sampler_uniform =
                 tbx::MaterialParameter(normalized_name, static_cast<int>(texture_slot));
             if (!try_upload(sampler_uniform))

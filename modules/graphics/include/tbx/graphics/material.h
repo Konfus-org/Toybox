@@ -14,7 +14,8 @@
 
 namespace tbx
 {
-    using UniformData = std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
+    using MaterialParameterData =
+        std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
     /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
@@ -64,7 +65,7 @@ namespace tbx
         MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
 
         std::string name = "";
-        UniformData data = 0.0f;
+        MaterialParameterData data = 0.0f;
     };
 
     /// @brief
@@ -72,7 +73,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API ParamBindings
+    struct TBX_API MaterialParameterBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
         using const_iterator = std::vector<MaterialParameter>::const_iterator;
@@ -83,7 +84,7 @@ namespace tbx
         {
         }
 
-        void set(std::string_view name, UniformData value);
+        void set(std::string_view name, MaterialParameterData value);
         void set(MaterialParameter parameter);
         void set(std::initializer_list<MaterialParameter> parameters);
         MaterialParameter* get(std::string_view name);
@@ -174,8 +175,8 @@ namespace tbx
     struct TBX_API Material
     {
         ShaderProgram program = {};
-        ParamBindings parameters = {};
-        TextureBindings textures = {};
+        MaterialParameterBindings parameters = {};
+        MaterialTextureBindings textures = {};
         MaterialConfig config = {};
     };
 
@@ -190,8 +191,8 @@ namespace tbx
         MaterialInstance(Handle handle);
         MaterialInstance(
             Handle handle,
-            ParamBindings parameter_overrides,
-            TextureBindings texture_overrides = {},
+            MaterialParameterBindings parameter_overrides,
+            MaterialTextureBindings texture_overrides = {},
             MaterialConfig config_override = {},
             bool has_config_override = false);
 
@@ -215,8 +216,8 @@ namespace tbx
         Handle get_texture_handle_or(std::string_view name, const Handle& fallback = {}) const;
 
         Handle material = {};
-        TextureBindings texture_overrides = {};
-        ParamBindings param_overrides = {};
+        MaterialTextureBindings texture_overrides = {};
+        MaterialParameterBindings param_overrides = {};
         MaterialConfig config = {};
 
       private:

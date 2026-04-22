@@ -12,15 +12,10 @@
 
 namespace opengl_rendering
 {
-    struct OpenGlMaterialTexture
-    {
-        std::string name = "";
-    };
-
     struct OpenGlMaterialParams
     {
         std::vector<tbx::MaterialParameter> parameters = {};
-        std::vector<OpenGlMaterialTexture> textures = {};
+        std::vector<std::string> texture_names = {};
     };
 
     struct OpenGlMaterialBlockUniform
