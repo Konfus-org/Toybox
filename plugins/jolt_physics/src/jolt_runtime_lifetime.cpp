@@ -1,8 +1,8 @@
 #include "jolt_runtime_lifetime.h"
 #include "tbx/systems/debugging/macros.h"
+#include <Jolt/Jolt.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
-#include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>
 #include <cstdarg>
 #include <cstdio>

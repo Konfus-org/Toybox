@@ -500,7 +500,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: buffer upload data exceeds buffer size.");
 
         out_resource_uuid = tbx::Uuid::generate();
-        _buffers.emplace(out_resource_uuid, desc, data, data_size);
+        _buffers.try_emplace(out_resource_uuid, desc, data, data_size);
         _buffer_descs.emplace(out_resource_uuid, desc);
         return make_success();
     }
@@ -554,7 +554,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: texture upload data is smaller than texture size.");
 
         out_resource_uuid = tbx::Uuid::generate();
-        _textures.emplace(out_resource_uuid, desc, data);
+        _textures.try_emplace(out_resource_uuid, desc, data);
         _texture_descs.emplace(out_resource_uuid, desc);
         return make_success();
     }

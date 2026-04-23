@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/graphics/viewport.h"
-#include "tbx/systems/pipeline.h"
+#include "tbx/utils/pipeline.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"

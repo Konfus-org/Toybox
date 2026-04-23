@@ -1,4 +1,4 @@
-#include "tbx/systems/pipeline.h"
+#include "tbx/utils/pipeline.h"
 #include "tbx/types/typedefs.h"
 #include <iostream>
 #include <string>

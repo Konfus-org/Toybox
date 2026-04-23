@@ -12,7 +12,6 @@
 #include <memory>
 #include <stdexcept>
 
-
 namespace tbx
 {
     static std::filesystem::path get_default_asset_directory()
@@ -79,13 +78,18 @@ namespace tbx
 
         add_default_asset_directory();
 
-        for (auto& arg : desc.args)
+        if (desc.args.size() > 0)
         {
-            // TODO:
-            // -- headless
-            // -- screenshot count seconds-between
-            // -- close-after time-in-milliseconds
-            // -- benchmark
+            TBX_TRACE_INFO("Arguments:");
+            for (const auto& arg : desc.args)
+            {
+                // TODO:
+                // -- headless
+                // -- screenshot count seconds-between
+                // -- close-after time-in-milliseconds
+                // -- benchmark
+                TBX_TRACE_INFO("    -{}", arg);
+            }
         }
 
         initialize(desc.requested_plugins);
@@ -464,17 +468,16 @@ namespace tbx
 
     void Application::shutdown()
     {
-        auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
-        auto& entity_registry = _service_provider.get_service<EntityRegistry>();
-        auto& asset_manager = _service_provider.get_service<AssetManager>();
-        auto& thread_manager = _service_provider.get_service<ThreadManager>();
-        GlobalDispatcherScope scope(msg_coordinator);
         const auto shutdown_begin = std::chrono::steady_clock::now();
-
         try
         {
-            // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
+            auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
+            auto& entity_registry = _service_provider.get_service<EntityRegistry>();
+            auto& asset_manager = _service_provider.get_service<AssetManager>();
+            auto& thread_manager = _service_provider.get_service<ThreadManager>();
+            GlobalDispatcherScope scope(msg_coordinator);
 
+            // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
             TBX_TRACE_INFO("Shutting down application: {}", _name);
             TBX_TRACE_INFO(
                 "Total Run Time: {:.2f}s, Total Updates: {}",
