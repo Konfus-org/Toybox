@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
-#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 
 
@@ -11,9 +11,12 @@ namespace assimp_model_loader
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
-        void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        static void on_load_model_request(tbx::LoadModelRequest& request);
+        static std::shared_ptr<tbx::Model> read_model(
+            const std::filesystem::path& asset_path,
+            const tbx::ModelLoadParameters& parameters);
+
+        tbx::SerializationRegistry* _serialization_registry = nullptr;
     };
 }

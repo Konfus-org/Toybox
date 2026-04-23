@@ -2,7 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/graphics/shader.h"
 #include <algorithm>
 #include <cctype>
@@ -310,107 +310,92 @@ namespace glsl_shader_loader
     void GlslShaderLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _asset_manager = &service_provider.get_service<tbx::AssetManager>();
+        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
         _working_directory =
             service_provider.get_service<tbx::AppSettings>().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
+
+        _serialization_registry->register_reader<tbx::Shader>(
+            [this](const std::filesystem::path& asset_path,
+                   const tbx::ShaderLoadParameters& parameters)
+            {
+                return read_shader(asset_path, parameters);
+            });
     }
 
     void GlslShaderLoaderPlugin::on_detach()
     {
+        if (_serialization_registry)
+            _serialization_registry->deregister_reader<tbx::Shader>();
+
         _asset_manager = nullptr;
+        _serialization_registry = nullptr;
         _working_directory = std::filesystem::path();
     }
 
-    void GlslShaderLoaderPlugin::on_recieve_message(tbx::Message& msg)
+    std::shared_ptr<tbx::Shader> GlslShaderLoaderPlugin::read_shader(
+        const std::filesystem::path& asset_path,
+        const tbx::ShaderLoadParameters&)
     {
-        auto* request = handle_message<tbx::LoadShaderRequest>(msg);
-        if (!request)
-            return;
-
-        on_load_shader_program_request(*request);
-    }
-
-    void GlslShaderLoaderPlugin::on_load_shader_program_request(tbx::LoadShaderRequest& request)
-    {
-        auto* asset = request.asset;
-        if (!asset)
-        {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Shader loader: missing shader asset wrapper.");
-            return;
-        }
-
-        if (request.cancellation_token && request.cancellation_token.is_cancelled())
-        {
-            request.state = tbx::MessageState::CANCELLED;
-            request.result.flag_failure("tbx::Shader loader cancelled.");
-            return;
-        }
-
         if (!_file_ops)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Shader loader: file services unavailable.");
-            return;
+            TBX_TRACE_WARNING("tbx::Shader loader: file services unavailable.");
+            return {};
         }
 
         tbx::ShaderType requested_type = tbx::ShaderType::NONE;
-        if (!try_get_shader_type_from_extension(request.path, requested_type))
+        if (!try_get_shader_type_from_extension(asset_path, requested_type))
         {
-            request.state = tbx::MessageState::ERROR;
-            if (request.path.extension() == ".glsl")
+            if (asset_path.extension() == ".glsl")
             {
-                request.result.flag_failure(
+                TBX_TRACE_WARNING(
                     "tbx::Shader loader: .glsl files are include-only; use "
                     ".vert/.tes/.geom/.frag/.comp "
                     "for shader programs.");
             }
             else
             {
-                request.result.flag_failure(
+                TBX_TRACE_WARNING(
                     "tbx::Shader loader: unsupported shader file extension.");
             }
-            return;
+            return {};
         }
 
         std::string stage_data;
-        auto read_result = try_read_shader_file(*_file_ops, request.path, stage_data);
+        auto read_result = try_read_shader_file(*_file_ops, asset_path, stage_data);
         if (!read_result.succeeded)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(read_result.error);
-            return;
+            TBX_TRACE_WARNING("{}", read_result.error);
+            return {};
         }
 
         auto shader = tbx::ShaderSource(std::move(stage_data), requested_type);
-        std::vector include_stack = {request.path};
+        std::vector include_stack = {asset_path};
         std::unordered_set<std::string> included_files = {};
         if (!_asset_manager)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Shader loader: asset manager unavailable.");
-            return;
+            TBX_TRACE_WARNING("tbx::Shader loader: asset manager unavailable.");
+            return {};
         }
 
         ShaderLoadResult expanded = try_expand_includes(
             *_file_ops,
             *_asset_manager,
-            request.path,
+            asset_path,
             shader.source,
             include_stack,
             included_files,
             0U);
         if (!expanded.succeeded)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(build_load_failure_message(request.path, expanded.error));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                build_load_failure_message(asset_path, expanded.error));
+            return {};
         }
 
         shader.source = std::move(expanded.data);
-        *asset = tbx::Shader(std::move(shader));
-
-        request.state = tbx::MessageState::HANDLED;
+        return std::make_shared<tbx::Shader>(std::move(shader));
     }
 }

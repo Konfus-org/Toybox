@@ -27,6 +27,12 @@ namespace tbx
         bool operator==(const TestAssetLoadParameters& other) const = default;
     };
 
+    template <>
+    struct AssetSerializationTraits<TestAsset>
+    {
+        using Parameters = TestAssetLoadParameters;
+    };
+
     struct TestAssetLoaderState
     {
         int async_load_count = 0;
@@ -56,48 +62,65 @@ namespace tbx
         state.completion.reset();
     }
 
-    template <>
-    struct AssetLoader<TestAsset>
+    static AssetPromise<TestAsset> read_test_asset_async(
+        const std::filesystem::path&,
+        const TestAssetLoadParameters& parameters = {})
     {
-        using Parameters = TestAssetLoadParameters;
+        auto& state = get_test_asset_loader_state();
+        AssetPromise<TestAsset> promise = {};
+        promise.asset = std::make_shared<TestAsset>();
+        promise.asset->value = parameters.value;
+        state.async_load_count += 1;
+        state.last_async_parameters = parameters;
 
-        static AssetPromise<TestAsset> load_async(
-            const std::filesystem::path&,
-            const Parameters& parameters = {})
+        if (!state.use_async)
         {
-            auto& state = get_test_asset_loader_state();
-            AssetPromise<TestAsset> promise = {};
-            promise.asset = std::make_shared<TestAsset>();
-            promise.asset->value = parameters.value;
-            state.async_load_count += 1;
-            state.last_async_parameters = parameters;
-
-            if (!state.use_async)
-            {
-                Result result;
-                result.flag_success();
-                std::promise<Result> completion;
-                promise.promise = completion.get_future().share();
-                completion.set_value(result);
-                return promise;
-            }
-
-            state.asset = promise.asset;
-            state.completion = std::make_shared<std::promise<Result>>();
-            promise.promise = state.completion->get_future().share();
+            Result result;
+            result.flag_success();
+            std::promise<Result> completion;
+            promise.promise = completion.get_future().share();
+            completion.set_value(result);
             return promise;
         }
 
-        static std::shared_ptr<TestAsset> load(
-            const std::filesystem::path&,
-            const Parameters& parameters = {})
+        state.asset = promise.asset;
+        state.completion = std::make_shared<std::promise<Result>>();
+        promise.promise = state.completion->get_future().share();
+        return promise;
+    }
+
+    static std::shared_ptr<TestAsset> read_test_asset(
+        const std::filesystem::path&,
+        const TestAssetLoadParameters& parameters = {})
+    {
+        auto& state = get_test_asset_loader_state();
+        auto asset = std::make_shared<TestAsset>();
+        asset->value = parameters.value;
+        state.sync_load_count += 1;
+        state.last_sync_parameters = parameters;
+        return asset;
+    }
+
+    static void register_test_asset_reader(AssetManager& manager)
+    {
+        manager.get_serialization_registry().register_reader<TestAsset>(
+            read_test_asset,
+            read_test_asset_async);
+    }
+
+    class NullMessageDispatcher final : public IMessageDispatcher
+    {
+      protected:
+        Result send(Message&) const override
         {
-            auto& state = get_test_asset_loader_state();
-            auto asset = std::make_shared<TestAsset>();
-            asset->value = parameters.value;
-            state.sync_load_count += 1;
-            state.last_sync_parameters = parameters;
-            return asset;
+            return {};
+        }
+
+        std::shared_future<Result> post(std::unique_ptr<Message>) const override
+        {
+            auto promise = std::promise<Result> {};
+            promise.set_value(Result {});
+            return promise.get_future().share();
         }
     };
 }
@@ -105,6 +128,18 @@ namespace tbx
 namespace tbx::tests::assets
 {
     using InMemoryFileOps = ::tbx::tests::file_system::InMemoryFileOps;
+
+    static IMessageDispatcher& get_null_dispatcher()
+    {
+        static NullMessageDispatcher dispatcher = {};
+        return dispatcher;
+    }
+
+    static SerializationRegistry& get_test_serialization_registry()
+    {
+        static SerializationRegistry registry = {};
+        return registry;
+    }
 
     struct CapturedAssetEvent
     {
@@ -283,89 +318,7 @@ namespace tbx::tests::assets
         }
     };
 
-    struct TrackingHandleSerializerState
-    {
-        int read_count = 0;
-        int write_count = 0;
-        bool write_succeeds = true;
-        std::unordered_map<std::filesystem::path, Handle> stored_handles = {};
-    };
-
-    class TrackingHandleSerializer final : public IAssetHandleSerializer
-    {
-      public:
-        TrackingHandleSerializer(std::shared_ptr<TrackingHandleSerializerState> state)
-            : _state(std::move(state))
-        {
-        }
-
-      public:
-        std::unique_ptr<Handle> read_from_disk(
-            const std::filesystem::path&,
-            const std::filesystem::path& asset_path) const override
-        {
-            _state->read_count += 1;
-            auto iterator = _state->stored_handles.find(asset_path.lexically_normal());
-            if (iterator == _state->stored_handles.end())
-                return nullptr;
-
-            return std::make_unique<Handle>(iterator->second);
-        }
-
-        std::unique_ptr<Handle> read_from_disk(
-            const IFileOps& file_ops,
-            const std::filesystem::path& asset_path) const override
-        {
-            _state->read_count += 1;
-            auto iterator = _state->stored_handles.find(file_ops.resolve(asset_path));
-            if (iterator == _state->stored_handles.end())
-                return nullptr;
-
-            return std::make_unique<Handle>(iterator->second);
-        }
-
-        std::unique_ptr<Handle> read_from_source(std::string_view, const std::filesystem::path&)
-            const override
-        {
-            return nullptr;
-        }
-
-        bool try_write_to_disk(
-            const std::filesystem::path&,
-            const std::filesystem::path& asset_path,
-            const Handle& handle) const override
-        {
-            _state->write_count += 1;
-            if (!_state->write_succeeds)
-                return false;
-
-            _state->stored_handles[asset_path.lexically_normal()] = handle;
-            return true;
-        }
-
-        bool try_write_to_disk(
-            IFileOps& file_ops,
-            const std::filesystem::path& asset_path,
-            const Handle& handle) const override
-        {
-            _state->write_count += 1;
-            if (!_state->write_succeeds)
-                return false;
-
-            auto resolved = file_ops.resolve(asset_path);
-            _state->stored_handles[resolved] = handle;
-            return file_ops.write_file(
-                resolved.string() + ".meta",
-                FileDataFormat::UTF8_TEXT,
-                "{ \"id\": \"tracked\" }\n");
-        }
-
-      private:
-        std::shared_ptr<TrackingHandleSerializerState> _state = {};
-    };
-
     static AssetManager make_manager(
-        IMessageDispatcher* dispatcher,
         const std::filesystem::path& working_directory,
         const InMemoryHandleSource& handle_source = {})
     {
@@ -374,22 +327,36 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        return AssetManager(dispatcher, working_directory, {}, provider, {}, file_ops);
+        auto manager = AssetManager(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            {},
+            provider,
+            file_ops);
+        register_test_asset_reader(manager);
+        return manager;
     }
 
-    static AssetManager make_disk_backed_manager(
-        IMessageDispatcher* dispatcher,
-        const std::filesystem::path& working_directory)
+    static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
     {
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
-        return AssetManager(dispatcher, working_directory, {}, {}, {}, file_ops);
+        auto manager = AssetManager(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            {},
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
+        return manager;
     }
 
     TEST(asset_manager, resolves_handle_by_path)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle path_handle("stone.asset");
 
         // Act
@@ -414,7 +381,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "ore.asset", Uuid(0x2fU));
-        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
+        AssetManager manager = make_manager(working_directory, handle_source);
         Handle path_handle("ore.asset");
 
         // Act
@@ -438,7 +405,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("sync_params.asset");
         TestAssetLoadParameters parameters = {.value = 17};
 
@@ -459,7 +426,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("crate.asset");
 
         // Act
@@ -481,7 +448,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("async_params.asset");
         TestAssetLoadParameters parameters = {.value = 29};
 
@@ -502,7 +469,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("async.asset");
 
         // Act
@@ -529,7 +496,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle keep_handle("keep.asset");
         Handle drop_handle("drop.asset");
 
@@ -567,7 +534,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "id.asset", Uuid(0x7aU));
-        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
+        AssetManager manager = make_manager(working_directory, handle_source);
         Handle handle("id.asset");
 
         // Act
@@ -581,7 +548,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_disk_backed_manager(nullptr, working_directory);
+        AssetManager manager = make_disk_backed_manager(working_directory);
         Handle handle("missing_meta.asset");
 
         // Act
@@ -599,7 +566,7 @@ namespace tbx::tests::assets
         std::filesystem::path working_directory = "/virtual/asset_manager";
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "invalid_id.asset", Uuid());
-        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
+        AssetManager manager = make_manager(working_directory, handle_source);
         Handle handle("invalid_id.asset");
 
         // Act
@@ -616,7 +583,7 @@ namespace tbx::tests::assets
         InMemoryHandleSource handle_source = {};
         handle_source.add(working_directory / "alpha.asset", Uuid(0x44U));
         handle_source.add(working_directory / "beta.asset", Uuid(0x44U));
-        AssetManager manager = make_manager(nullptr, working_directory, handle_source);
+        AssetManager manager = make_manager(working_directory, handle_source);
         Handle first_path("alpha.asset");
         Handle second_path("beta.asset");
         Handle shared_id(Uuid(0x44U));
@@ -639,7 +606,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         std::filesystem::path relative_path = "relative.asset";
 
         // Act
@@ -655,7 +622,15 @@ namespace tbx::tests::assets
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
 
         // Act
-        AssetManager manager(nullptr, working_directory, {"content"}, {}, {}, file_ops);
+        AssetManager manager(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            {},
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
         auto directories = manager.get_directories();
 
         // Assert
@@ -667,7 +642,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
 
         // Act
         manager.add_directory("content");
@@ -678,30 +653,28 @@ namespace tbx::tests::assets
         EXPECT_EQ(directories[0], working_directory / "content");
     }
 
-    TEST(asset_manager, discovery_does_not_write_meta_until_asset_id_is_ensured)
+    TEST(asset_manager, discovery_keeps_generated_ids_in_memory_when_meta_is_missing)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
         file_ops->write_file("content/stone.asset", FileDataFormat::UTF8_TEXT, "x");
-        auto serializer_state = std::make_shared<TrackingHandleSerializerState>();
 
         // Act
         AssetManager manager(
-            nullptr,
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
             working_directory,
             {"content"},
             {},
-            std::make_unique<TrackingHandleSerializer>(serializer_state),
             file_ops);
-        auto discovered_write_count = serializer_state->write_count;
+        register_test_asset_reader(manager);
         auto ensured_id = manager.ensure(Handle("stone.asset"));
         auto resolved_id = manager.resolve(Handle("stone.asset"));
 
         // Assert
-        EXPECT_EQ(discovered_write_count, 0);
         EXPECT_TRUE(ensured_id.is_valid());
-        EXPECT_EQ(serializer_state->write_count, 1);
+        EXPECT_FALSE(file_ops->exists("content/stone.asset.meta"));
         EXPECT_EQ(resolved_id, ensured_id);
     }
 
@@ -715,30 +688,28 @@ namespace tbx::tests::assets
             "content/material.mat.meta",
             FileDataFormat::UTF8_TEXT,
             "{ \"id\": \"2\" }\n");
-        auto serializer_state = std::make_shared<TrackingHandleSerializerState>();
-        serializer_state->stored_handles[working_directory / "content" / "material.mat"] =
-            Handle(Uuid(0x2U));
 
         // Act
         AssetManager manager(
-            nullptr,
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
             working_directory,
             {"content"},
             {},
-            std::make_unique<TrackingHandleSerializer>(serializer_state),
             file_ops);
+        register_test_asset_reader(manager);
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x2U)));
 
         // Assert
         ASSERT_NE(asset, nullptr);
-        EXPECT_EQ(serializer_state->write_count, 0);
+        EXPECT_TRUE(file_ops->exists("content/material.mat.meta"));
     }
 
     TEST(asset_manager, unloads_all_assets)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("cleanup.asset");
 
         // Act
@@ -757,7 +728,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        AssetManager manager = make_manager(nullptr, working_directory);
+        AssetManager manager = make_manager(working_directory);
         Handle handle("reload.asset");
 
         // Act
@@ -782,7 +753,15 @@ namespace tbx::tests::assets
             return handle_source.try_get(asset_path, out_handle);
         };
         CapturingAssetEventDispatcher dispatcher = {};
-        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
 
         // Act
         file_ops->write_file("content/created.asset", FileDataFormat::UTF8_TEXT, "created");
@@ -813,7 +792,15 @@ namespace tbx::tests::assets
             return handle_source.try_get(asset_path, out_handle);
         };
         CapturingAssetEventDispatcher dispatcher = {};
-        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
 
         // Act
         file_ops->touch("content/modified.asset", base_time + std::chrono::seconds(1));
@@ -841,7 +828,15 @@ namespace tbx::tests::assets
             return handle_source.try_get(asset_path, out_handle);
         };
         CapturingAssetEventDispatcher dispatcher = {};
-        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x95U)));
         ASSERT_NE(asset, nullptr);
@@ -880,7 +875,15 @@ namespace tbx::tests::assets
             return handle_source.try_get(asset_path, out_handle);
         };
         CapturingAssetEventDispatcher dispatcher = {};
-        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x96U)));
         ASSERT_NE(asset, nullptr);
@@ -922,7 +925,15 @@ namespace tbx::tests::assets
             return handle_source.try_get(asset_path, out_handle);
         };
         CapturingAssetEventDispatcher dispatcher = {};
-        AssetManager manager(&dispatcher, working_directory, {"content"}, provider, {}, file_ops);
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            {},
+            file_ops);
+        register_test_asset_reader(manager);
         auto initial_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
         ASSERT_NE(initial_asset, nullptr);
 

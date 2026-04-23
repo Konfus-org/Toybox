@@ -18,23 +18,23 @@ namespace tbx
     }
 
     AssetManager::AssetManager(
-        IMessageDispatcher* dispatcher,
+        IMessageDispatcher& dispatcher,
+        SerializationRegistry& serialization_registry,
         std::filesystem::path working_directory,
         std::vector<std::filesystem::path> asset_directories,
         HandleSource handle_source,
-        std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer,
         std::shared_ptr<IFileOps> file_ops)
         : _dispatcher(dispatcher)
+        , _serialization_registry(serialization_registry)
         , _file_ops(
               file_ops ? std::move(file_ops)
                        : std::make_shared<FileOperator>(std::move(working_directory)))
-        , _registry(
-              std::make_unique<AssetRegistry>(
-                  _file_ops->get_working_directory(),
-                  std::move(handle_source),
-                  std::move(asset_handle_serializer),
-                  _file_ops))
     {
+        _registry = std::make_unique<AssetRegistry>(
+            _file_ops->get_working_directory(),
+            std::move(handle_source),
+            _file_ops);
+
         for (const auto& directory : asset_directories)
             add_directory(directory);
     }
@@ -139,16 +139,23 @@ namespace tbx
         if (directories.size() == directory_count)
             return;
 
-        if (_dispatcher)
-        {
-            watch_asset_directory(directories.back());
-        }
+        watch_asset_directory(directories.back());
     }
 
     std::vector<std::filesystem::path> AssetManager::get_directories() const
     {
         std::lock_guard lock(_mutex);
         return _registry->get_asset_directories();
+    }
+
+    SerializationRegistry& AssetManager::get_serialization_registry()
+    {
+        return _serialization_registry;
+    }
+
+    const SerializationRegistry& AssetManager::get_serialization_registry() const
+    {
+        return _serialization_registry;
     }
 
     void AssetManager::on_asset_changed(
@@ -229,7 +236,8 @@ namespace tbx
                         {
                             const auto store_reload_result = store.second->reload(
                                 registry_entry,
-                                std::chrono::steady_clock::now());
+                                std::chrono::steady_clock::now(),
+                                get_serialization_registry());
                             if (!store_reload_result.attempted)
                                 continue;
 
@@ -307,14 +315,11 @@ namespace tbx
             }
         }
 
-        if (!_dispatcher)
-            return;
-
         switch (pending_event_type)
         {
             case PendingAssetEventType::CREATED:
             {
-                _dispatcher->post<AssetCreatedEvent>(
+                _dispatcher.post<AssetCreatedEvent>(
                     watched_path,
                     changed_asset_path,
                     affected_asset);
@@ -322,19 +327,19 @@ namespace tbx
             }
             case PendingAssetEventType::MODIFIED:
             {
-                _dispatcher->post<AssetModifiedEvent>(
+                _dispatcher.post<AssetModifiedEvent>(
                     watched_path,
                     changed_asset_path,
                     affected_asset);
                 if (pending_reload_event)
                 {
-                    _dispatcher->post<AssetReloadedEvent>(affected_asset, reload_succeeded);
+                    _dispatcher.post<AssetReloadedEvent>(affected_asset, reload_succeeded);
                 }
                 break;
             }
             case PendingAssetEventType::REMOVED:
             {
-                _dispatcher->post<AssetRemovedEvent>(
+                _dispatcher.post<AssetRemovedEvent>(
                     watched_path,
                     changed_asset_path,
                     affected_asset);

@@ -1,8 +1,7 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/plugin.h"
-#include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <filesystem>
 #include <memory>
@@ -22,20 +21,13 @@ namespace mat_material_loader
         void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach() override;
 
-        /// @brief
-        /// Purpose: Receives material load requests and dispatches file parsing.
-        /// @details
-        /// Ownership: Does not take ownership of messages or asset payloads.
-        /// Thread Safety: Executes on the dispatcher thread; relies on tbx::Material payload
-        /// synchronization.
-        void on_recieve_message(tbx::Message& msg) override;
-
       private:
-        void on_load_material_request(tbx::LoadMaterialRequest& request);
-        void set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops);
-        std::filesystem::path resolve_asset_path(const std::filesystem::path& path) const;
+        std::shared_ptr<tbx::Material> read_material(
+            const std::filesystem::path& asset_path,
+            const tbx::MaterialLoadParameters& parameters);
 
         std::filesystem::path _working_directory = {};
         std::shared_ptr<tbx::IFileOps> _file_ops = {};
+        tbx::SerializationRegistry* _serialization_registry = nullptr;
     };
 }

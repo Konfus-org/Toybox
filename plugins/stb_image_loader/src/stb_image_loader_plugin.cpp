@@ -1,7 +1,7 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
-#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/systems/graphics/texture.h"
 #include <memory>
@@ -45,51 +45,42 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
+        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(
                 service_provider.get_service<tbx::AppSettings>().paths.working_directory);
+
+        _serialization_registry->register_reader<tbx::Texture>(
+            [this](const std::filesystem::path& asset_path,
+                   const tbx::TextureLoadParameters& parameters)
+            {
+                return read_texture(asset_path, parameters);
+            });
     }
 
-    void StbImageLoaderPlugin::on_detach() {}
-
-    void StbImageLoaderPlugin::on_recieve_message(tbx::Message& msg)
+    void StbImageLoaderPlugin::on_detach()
     {
-        auto* request = handle_message<tbx::LoadTextureRequest>(msg);
-        if (!request)
+        if (_serialization_registry)
         {
-            return;
+            _serialization_registry->deregister_reader<tbx::Texture>();
         }
 
-        on_load_texture_request(*request);
+        _serialization_registry = nullptr;
     }
 
-    void StbImageLoaderPlugin::on_load_texture_request(tbx::LoadTextureRequest& request) const
+    std::shared_ptr<tbx::Texture> StbImageLoaderPlugin::read_texture(
+        const std::filesystem::path& asset_path,
+        const tbx::TextureLoadParameters& parameters) const
     {
-        auto* asset = request.asset;
-        if (!asset)
-        {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("Stb image loader: missing texture asset wrapper.");
-            return;
-        }
-
-        if (request.cancellation_token && request.cancellation_token.is_cancelled())
-        {
-            request.state = tbx::MessageState::CANCELLED;
-            request.result.flag_failure("Stb image loader cancelled.");
-            return;
-        }
-
         if (!_file_ops)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("Stb image loader: file services unavailable.");
-            return;
+            TBX_TRACE_WARNING("Stb image loader: file services unavailable.");
+            return {};
         }
 
-        tbx::Texture load_texture = request.texture;
+        tbx::Texture load_texture = parameters.texture;
 
-        auto meta_path = request.path;
+        auto meta_path = asset_path;
         meta_path += ".meta";
         if (std::string meta_data = {};
             _file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
@@ -104,17 +95,17 @@ namespace stb_image_loader
                 // Ignore meta parsing errors and fall back to request settings.
                 TBX_TRACE_WARNING(
                     "Failed to parse texture meta data for {}",
-                    request.path.string());
+                    asset_path.string());
             }
         }
 
         std::string encoded_image;
-        if (!_file_ops->read_file(request.path, tbx::FileDataFormat::BINARY, encoded_image))
+        if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, "file could not be read"));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                build_load_failure_message(asset_path, "file could not be read"));
+            return {};
         }
 
         stbi_set_flip_vertically_on_load(true);
@@ -130,10 +121,10 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, stbi_failure_reason()));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                build_load_failure_message(asset_path, stbi_failure_reason()));
+            return {};
         }
 
         const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height)
@@ -142,7 +133,7 @@ namespace stb_image_loader
         stbi_image_free(raw_data);
 
         const tbx::Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
-        const tbx::Texture texture(
+        return std::make_shared<tbx::Texture>(
             resolution,
             load_texture.wrap,
             load_texture.filter,
@@ -150,8 +141,5 @@ namespace stb_image_loader
             load_texture.mipmaps,
             load_texture.compression,
             pixels);
-        *asset = texture;
-
-        request.state = tbx::MessageState::HANDLED;
     }
 }

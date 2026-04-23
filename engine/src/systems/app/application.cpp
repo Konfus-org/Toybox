@@ -49,9 +49,14 @@ namespace tbx
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<AppMessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+        service_provider.register_service<SerializationRegistry>(
+            std::make_unique<SerializationRegistry>());
         service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
-            &service_provider.get_service<IMessageCoordinator>(),
-            desc.working_root));
+            service_provider.get_service<IMessageCoordinator>(),
+            service_provider.get_service<SerializationRegistry>(),
+            desc.working_root,
+            {},
+            {}));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
             service_provider.get_service<IMessageCoordinator>(),
             false,

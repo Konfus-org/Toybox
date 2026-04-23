@@ -1,6 +1,7 @@
 #include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/utils/string_utils.h"
@@ -577,85 +578,63 @@ namespace mat_material_loader
 
     void MatMaterialLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
+        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
         _working_directory =
             service_provider.get_service<tbx::AppSettings>().paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<tbx::FileOperator>(_working_directory);
+
+        _serialization_registry->register_reader<tbx::Material>(
+            [this](const std::filesystem::path& asset_path,
+                   const tbx::MaterialLoadParameters& parameters)
+            {
+                return read_material(asset_path, parameters);
+            });
     }
 
     void MatMaterialLoaderPlugin::on_detach()
     {
+        if (_serialization_registry)
+            _serialization_registry->deregister_reader<tbx::Material>();
+
+        _serialization_registry = nullptr;
         _working_directory = std::filesystem::path();
     }
 
-    void MatMaterialLoaderPlugin::set_file_ops(std::shared_ptr<tbx::IFileOps> file_ops)
+    std::shared_ptr<tbx::Material> MatMaterialLoaderPlugin::read_material(
+        const std::filesystem::path& asset_path,
+        const tbx::MaterialLoadParameters&)
     {
-        _file_ops = std::move(file_ops);
-    }
-
-    void MatMaterialLoaderPlugin::on_recieve_message(tbx::Message& msg)
-    {
-        auto* request = handle_message<tbx::LoadMaterialRequest>(msg);
-        if (!request)
-        {
-            return;
-        }
-
-        on_load_material_request(*request);
-    }
-
-    void MatMaterialLoaderPlugin::on_load_material_request(tbx::LoadMaterialRequest& request)
-    {
-        auto* asset = request.asset;
-        if (!asset)
-        {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Material loader: missing material asset wrapper.");
-            return;
-        }
-
-        if (request.cancellation_token && request.cancellation_token.is_cancelled())
-        {
-            request.state = tbx::MessageState::CANCELLED;
-            request.result.flag_failure("tbx::Material loader cancelled.");
-            return;
-        }
-
         if (!_file_ops)
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("tbx::Material loader: file services unavailable.");
-            return;
+            TBX_TRACE_WARNING("tbx::Material loader: file services unavailable.");
+            return {};
         }
 
-        if (request.path.extension() != ".mat")
+        if (asset_path.extension() != ".mat")
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
+            TBX_TRACE_WARNING(
                 "tbx::Material loader: unsupported material file extension.");
-            return;
+            return {};
         }
 
         std::string file_data;
-        if (!_file_ops->read_file(request.path, tbx::FileDataFormat::UTF8_TEXT, file_data))
+        if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::UTF8_TEXT, file_data))
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, "file could not be read"));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                build_load_failure_message(asset_path, "file could not be read"));
+            return {};
         }
 
         tbx::Material parsed_material;
         std::string parse_error;
         if (!try_parse_material(file_data, parsed_material, parse_error))
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(build_load_failure_message(request.path, parse_error));
-            return;
+            TBX_TRACE_WARNING("{}", build_load_failure_message(asset_path, parse_error));
+            return {};
         }
 
-        *asset = std::move(parsed_material);
-
-        request.state = tbx::MessageState::HANDLED;
+        return std::make_shared<tbx::Material>(std::move(parsed_material));
     }
 }

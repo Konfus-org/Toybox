@@ -1,5 +1,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/files/json.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
 #include <filesystem>
@@ -80,6 +82,43 @@ namespace tbx
                    || lowered_extension == ".cpp" || lowered_extension == ".cxx"
                    || lowered_extension == ".in";
         }
+
+        std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
+        {
+            auto meta_path = asset_path;
+            meta_path += ".meta";
+            return meta_path;
+        }
+
+        std::unique_ptr<Handle> try_read_handle_from_meta(
+            const IFileOps& file_ops,
+            const std::filesystem::path& asset_path)
+        {
+            if (asset_path.empty())
+                return nullptr;
+
+            const auto meta_path = make_meta_path(asset_path);
+            if (!file_ops.exists(meta_path))
+                return nullptr;
+
+            auto contents = std::string();
+            if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
+                return nullptr;
+
+            try
+            {
+                auto data = Json(contents);
+                auto id = Uuid();
+                static_cast<void>(data.try_get<Uuid>("id", id));
+                return std::make_unique<Handle>(
+                    asset_path.lexically_normal().generic_string(),
+                    id);
+            }
+            catch (...)
+            {
+                return nullptr;
+            }
+        }
     }
 
     bool AssetRegistry::should_track_asset_path(const std::filesystem::path& asset_path)
@@ -96,14 +135,10 @@ namespace tbx
     AssetRegistry::AssetRegistry(
         std::filesystem::path working_directory,
         HandleSource handle_source,
-        std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer,
         std::shared_ptr<IFileOps> file_ops)
         : _handle_source(std::move(handle_source))
-        , _handle_serializer(std::move(asset_handle_serializer))
         , _file_ops(std::move(file_ops))
     {
-        if (!_handle_serializer)
-            _handle_serializer = std::make_unique<AssetHandleSerializer>();
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>(std::move(working_directory));
 
@@ -516,14 +551,13 @@ namespace tbx
             }
         }
 
-        auto meta_path = entry.resolved_path;
-        meta_path += ".meta";
+        auto meta_path = make_meta_path(entry.resolved_path);
         if (!_file_ops->exists(meta_path))
         {
             return {};
         }
 
-        auto parsed_handle = _handle_serializer->read_from_disk(*_file_ops, entry.resolved_path);
+        auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
         if (!parsed_handle || !parsed_handle->get_id().is_valid())
         {
             return {};
@@ -579,13 +613,11 @@ namespace tbx
             return result;
         }
 
-        auto meta_path = entry.resolved_path;
-        meta_path += ".meta";
+        auto meta_path = make_meta_path(entry.resolved_path);
 
         if (_file_ops->exists(meta_path))
         {
-            auto parsed_handle =
-                _handle_serializer->read_from_disk(*_file_ops, entry.resolved_path);
+            auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
             if (parsed_handle && parsed_handle->get_id().is_valid())
             {
                 *out_asset_id = parsed_handle->get_id();
@@ -602,47 +634,35 @@ namespace tbx
                     .append("'."));
         }
 
-        const bool meta_exists = _file_ops->exists(meta_path);
-        const auto write_result = write_meta_with_id(entry.resolved_path, generated_id);
-
         *out_asset_id = generated_id;
 
-        if (!meta_exists)
+        if (!_file_ops->exists(meta_path))
         {
+            TBX_TRACE_WARNING(
+                "Missing metadata sidecar for asset '{}'. Generated in-memory id={}.",
+                entry.normalized_path,
+                to_string(generated_id));
             append_report(
                 result,
                 std::string("Missing metadata for asset '")
                     .append(entry.normalized_path)
-                    .append("'. Generated '")
-                    .append(meta_path.generic_string())
-                    .append("' with id=")
+                    .append("'. Generated in-memory id=")
                     .append(to_string(generated_id))
                     .append("."));
         }
         else
         {
+            TBX_TRACE_WARNING(
+                "Invalid metadata sidecar for asset '{}'. Generated in-memory id={}.",
+                entry.normalized_path,
+                to_string(generated_id));
             append_report(
                 result,
                 std::string("Invalid metadata for asset '")
                     .append(entry.normalized_path)
-                    .append("'. Rewrote '")
-                    .append(meta_path.generic_string())
-                    .append("' with id=")
+                    .append("'. Generated in-memory id=")
                     .append(to_string(generated_id))
                     .append("."));
-        }
-
-        if (!write_result.succeeded())
-        {
-            append_report(
-                result,
-                std::string("Failed to write metadata sidecar '")
-                    .append(meta_path.generic_string())
-                    .append("' for asset '")
-                    .append(entry.normalized_path)
-                    .append("'. Using id=")
-                    .append(to_string(generated_id))
-                    .append(" for this session."));
         }
 
         return result;
@@ -700,30 +720,5 @@ namespace tbx
         entry.asset_id = asset_id;
         _path_by_id[asset_id] = entry.normalized_path;
         return result;
-    }
-
-    Result AssetRegistry::write_meta_with_id(const std::filesystem::path& asset_path, Uuid asset_id)
-        const
-    {
-        if (!_handle_serializer)
-        {
-            return Result(
-                false,
-                std::string("Asset handle serializer is unavailable for '")
-                    .append(asset_path.generic_string())
-                    .append("'."));
-        }
-
-        auto handle = Handle(asset_id);
-        if (!_handle_serializer->try_write_to_disk(*_file_ops, asset_path, handle))
-        {
-            return Result(
-                false,
-                std::string("Failed to write metadata sidecar for '")
-                    .append(asset_path.generic_string())
-                    .append("'."));
-        }
-
-        return {};
     }
 }

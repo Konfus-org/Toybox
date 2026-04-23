@@ -1,7 +1,6 @@
 #pragma once
-#include "tbx/interfaces/asset_handle_serializer.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/assets/loaders.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/watcher.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
@@ -64,11 +63,11 @@ namespace tbx
     {
       public:
         AssetManager(
-            IMessageDispatcher* dispatcher,
+            IMessageDispatcher& dispatcher,
+            SerializationRegistry& serialization_registry,
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
             HandleSource handle_source = {},
-            std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer = {},
             std::shared_ptr<IFileOps> file_ops = {});
         ~AssetManager();
 
@@ -98,8 +97,8 @@ namespace tbx
         AssetUsage get_usage(const Handle& handle) const;
 
         /// @brief
-        /// Purpose: Resolves a handle to the canonical asset UUID, generating or repairing metadata
-        /// when needed.
+        /// Purpose: Resolves a handle to the canonical asset UUID, generating an in-memory id when
+        /// metadata is missing or invalid.
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
@@ -139,6 +138,20 @@ namespace tbx
         /// Ownership: Returns a copy; callers own the returned paths.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         std::vector<std::filesystem::path> get_directories() const;
+
+        /// @brief
+        /// Purpose: Returns the serialization registry used to read and write typed assets.
+        /// @details
+        /// Ownership: Returns a non-owning reference to registry state owned by the host service
+        /// graph. Thread Safety: Registry operations are synchronized internally.
+        SerializationRegistry& get_serialization_registry();
+
+        /// @brief
+        /// Purpose: Returns the serialization registry used to read and write typed assets.
+        /// @details
+        /// Ownership: Returns a non-owning reference to registry state owned by the host service
+        /// graph. Thread Safety: Registry operations are synchronized internally.
+        const SerializationRegistry& get_serialization_registry() const;
 
         /// @brief
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.
@@ -215,7 +228,8 @@ namespace tbx
 
       private:
         mutable std::mutex _mutex = {};
-        IMessageDispatcher* _dispatcher = nullptr;
+        IMessageDispatcher& _dispatcher;
+        SerializationRegistry& _serialization_registry;
         std::shared_ptr<IFileOps> _file_ops = nullptr;
         std::unique_ptr<AssetRegistry> _registry;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores = {};

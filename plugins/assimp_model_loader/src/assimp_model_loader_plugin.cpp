@@ -1,5 +1,5 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-#include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/model.h"
@@ -184,53 +184,37 @@ namespace assimp_model_loader
         }
     }
 
-    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider&) {}
-
-    void AssimpModelLoaderPlugin::on_detach() {}
-
-    void AssimpModelLoaderPlugin::on_recieve_message(tbx::Message& msg)
+    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        auto* request = handle_message<tbx::LoadModelRequest>(msg);
-        if (!request)
-        {
-            return;
-        }
-
-        on_load_model_request(*request);
+        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
+        _serialization_registry->register_reader<tbx::Model>(read_model);
     }
 
-    void AssimpModelLoaderPlugin::on_load_model_request(tbx::LoadModelRequest& request)
+    void AssimpModelLoaderPlugin::on_detach()
     {
-        // Validate request payload before attempting to import.
-        auto* asset = request.asset;
-        if (!asset)
-        {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("Assimp model loader: missing model asset wrapper.");
-            return;
-        }
+        if (_serialization_registry)
+            _serialization_registry->deregister_reader<tbx::Model>();
 
-        // Honor cancellation requests before doing any work.
-        if (request.cancellation_token && request.cancellation_token.is_cancelled())
-        {
-            request.state = tbx::MessageState::CANCELLED;
-            request.result.flag_failure("Assimp model loader cancelled.");
-            return;
-        }
+        _serialization_registry = nullptr;
+    }
 
+    std::shared_ptr<tbx::Model> AssimpModelLoaderPlugin::read_model(
+        const std::filesystem::path& asset_path,
+        const tbx::ModelLoadParameters&)
+    {
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
                              | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices
                              | aiProcess_FlipUVs;
         // Load the scene with Assimp.
-        const aiScene* scene = importer.ReadFile(request.path.string(), flags);
+        const aiScene* scene = importer.ReadFile(asset_path.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, importer.GetErrorString()));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                build_load_failure_message(asset_path, importer.GetErrorString()));
+            return {};
         }
 
         // Build materials from Assimp material data.
@@ -330,7 +314,7 @@ namespace assimp_model_loader
         // Build model parts from the node hierarchy.
         std::vector<tbx::ModelPart> parts;
         parts.reserve(meshes.size());
-        float scene_scale_to_meters = get_scene_scale_to_meters(*scene, request.path);
+        float scene_scale_to_meters = get_scene_scale_to_meters(*scene, asset_path);
         tbx::Mat4 scene_scale = scene_scale_to_meters == 1.0f
                                     ? tbx::Mat4(1.0f)
                                     : tbx::scale(tbx::Vec3(scene_scale_to_meters));
@@ -361,9 +345,6 @@ namespace assimp_model_loader
         model.meshes = std::move(meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
-        *asset = std::move(model);
-
-        // Mark the request as handled on success.
-        request.state = tbx::MessageState::HANDLED;
+        return std::make_shared<tbx::Model>(std::move(model));
     }
 }

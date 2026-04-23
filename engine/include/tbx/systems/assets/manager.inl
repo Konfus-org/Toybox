@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 
@@ -43,7 +44,16 @@ namespace tbx
                 to_string(record->asset_id),
                 typeid(TAsset).name());
             record->stream_state = AssetStreamState::LOADING;
-            record->asset = AssetLoader<TAsset>::load(entry->resolved_path, parameters);
+            record->asset = get_serialization_registry().read<TAsset>(entry->resolved_path, parameters);
+            if (!record->asset)
+            {
+                TBX_TRACE_WARNING(
+                    "Primary asset load failed for '{}' (id={}, type={}). Using fallback asset.",
+                    record->normalized_path,
+                    to_string(record->asset_id),
+                    typeid(TAsset).name());
+                record->asset = make_fallback_asset<TAsset>(parameters);
+            }
             store_asset_load_parameters(*record, parameters);
             record->pending_load = {};
             record->stream_state =
@@ -126,7 +136,26 @@ namespace tbx
             record->normalized_path,
             to_string(record->asset_id),
             typeid(TAsset).name());
-        auto promise = AssetLoader<TAsset>::load_async(entry->resolved_path, parameters);
+        auto promise = get_serialization_registry().read_async<TAsset>(
+            entry->resolved_path,
+            parameters);
+        if (!promise.asset)
+        {
+            TBX_TRACE_WARNING(
+                "Primary async asset load failed for '{}' (id={}, type={}). Using fallback asset.",
+                record->normalized_path,
+                to_string(record->asset_id),
+                typeid(TAsset).name());
+            promise.asset = make_fallback_asset<TAsset>(parameters);
+            if (promise.asset && !promise.promise.valid())
+            {
+                auto fallback_result = Result {};
+                fallback_result.flag_failure("Primary asset read failed. Using fallback asset.");
+                std::promise<Result> completion = {};
+                completion.set_value(std::move(fallback_result));
+                promise.promise = completion.get_future().share();
+            }
+        }
         record->asset = std::move(promise.asset);
         record->pending_load = promise.promise;
         store_asset_load_parameters(*record, parameters);
@@ -195,7 +224,8 @@ namespace tbx
             return false;
         }
 
-        const auto reload_result = store->reload(*entry, std::chrono::steady_clock::now());
+        const auto reload_result =
+            store->reload(*entry, std::chrono::steady_clock::now(), get_serialization_registry());
         if (reload_result.attempted)
         {
             TBX_TRACE_INFO(

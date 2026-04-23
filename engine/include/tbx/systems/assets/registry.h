@@ -1,6 +1,7 @@
 #pragma once
-#include "tbx/interfaces/asset_handle_serializer.h"
-#include "tbx/systems/assets/loaders.h"
+#include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/assets/fallbacks.h"
+#include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
@@ -31,7 +32,6 @@ namespace tbx
         AssetRegistry(
             std::filesystem::path working_directory,
             HandleSource handle_source,
-            std::unique_ptr<IAssetHandleSerializer> asset_handle_serializer,
             std::shared_ptr<IFileOps> file_ops);
 
       public:
@@ -64,12 +64,10 @@ namespace tbx
         Result resolve_or_repair_asset_id(const AssetRegistryEntry& entry, Uuid* out_asset_id)
             const;
         Result try_assign_asset_id(AssetRegistryEntry& entry, Uuid asset_id);
-        Result write_meta_with_id(const std::filesystem::path& asset_path, Uuid asset_id) const;
 
       private:
         std::filesystem::path _working_directory = {};
         HandleSource _handle_source = {};
-        std::unique_ptr<IAssetHandleSerializer> _handle_serializer = nullptr;
         std::shared_ptr<IFileOps> _file_ops = nullptr;
         std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<std::string, AssetRegistryEntry> _entries_by_path = {};
@@ -89,7 +87,8 @@ namespace tbx
         virtual void erase(Uuid asset_id) = 0;
         virtual AssetStoreReloadResult reload(
             const AssetRegistryEntry& entry,
-            std::chrono::steady_clock::time_point timestamp) = 0;
+            std::chrono::steady_clock::time_point timestamp,
+            const SerializationRegistry& serialization_registry) = 0;
         virtual uint unload_unreferenced() = 0;
         virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
     };
@@ -125,7 +124,8 @@ namespace tbx
 
         AssetStoreReloadResult reload(
             const AssetRegistryEntry& entry,
-            const std::chrono::steady_clock::time_point timestamp) override
+            const std::chrono::steady_clock::time_point timestamp,
+            const SerializationRegistry& serialization_registry) override
         {
             auto iterator = records.find(entry.asset_id);
             if (iterator == records.end())
@@ -137,7 +137,19 @@ namespace tbx
 
             auto parameters = record.has_load_parameters ? record.load_parameters
                                                          : AssetLoadParameters<TAsset> {};
-            auto promise = AssetLoader<TAsset>::load_async(entry.resolved_path, parameters);
+            auto promise = serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
+            if (!promise.asset)
+            {
+                promise.asset = make_fallback_asset<TAsset>(parameters);
+                if (promise.asset && !promise.promise.valid())
+                {
+                    auto result = Result {};
+                    result.flag_failure("Primary asset read failed. Using fallback asset.");
+                    std::promise<Result> completion = {};
+                    completion.set_value(std::move(result));
+                    promise.promise = completion.get_future().share();
+                }
+            }
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             record.load_parameters = parameters;
