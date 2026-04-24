@@ -14,7 +14,7 @@ target_precompile_headers(TbxAppTests PRIVATE "pch.h")
 target_sources(TbxAppTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxAppTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/core/tests/files/include"
+    "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
 )
 set_target_properties(TbxAppTests PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 

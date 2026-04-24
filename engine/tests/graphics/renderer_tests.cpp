@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/graphics/post_processing.h"
-#include "tbx/systems/graphics/renderer.h"
+#include "tbx/systems/graphics/lods.h"
 
 namespace tbx::tests::graphics
 {
@@ -108,7 +108,7 @@ namespace tbx::tests::graphics
         parameters.set("shininess_strength", 32.0f);
 
         // Act
-        const auto* color = parameters.get("color");
+        const auto color = parameters.get("color");
         int parameter_count = 0;
         for (const auto& parameter : parameters)
         {
@@ -117,8 +117,8 @@ namespace tbx::tests::graphics
         }
 
         // Assert
-        ASSERT_NE(color, nullptr);
-        EXPECT_EQ(color->name, "u_color");
+        ASSERT_TRUE(color.has_value());
+        EXPECT_EQ(color->get().name, "u_color");
         EXPECT_EQ(parameter_count, 2);
         EXPECT_NE(parameters.begin(), parameters.end());
     }
@@ -135,7 +135,7 @@ namespace tbx::tests::graphics
         textures.set("emissive_map", Handle("Emissive"));
 
         // Act
-        const auto* diffuse_map = textures.get("diffuse_map");
+        const auto diffuse_map = textures.get("diffuse_map");
         int texture_count = 0;
         for (const auto& texture_binding : textures)
         {
@@ -144,8 +144,8 @@ namespace tbx::tests::graphics
         }
 
         // Assert
-        ASSERT_NE(diffuse_map, nullptr);
-        EXPECT_EQ(diffuse_map->name, "u_diffuse_map");
+        ASSERT_TRUE(diffuse_map.has_value());
+        EXPECT_EQ(diffuse_map->get().name, "u_diffuse_map");
         EXPECT_EQ(texture_count, 5);
         EXPECT_NE(textures.begin(), textures.end());
     }
