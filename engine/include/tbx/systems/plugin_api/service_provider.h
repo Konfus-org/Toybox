@@ -2,7 +2,9 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
@@ -43,10 +45,10 @@ namespace tbx
         const TService& get_service() const;
 
         template <typename TService>
-        TService* try_get_service();
+        std::optional<std::reference_wrapper<TService>> try_get_service();
 
         template <typename TService>
-        const TService* try_get_service() const;
+        std::optional<std::reference_wrapper<const TService>> try_get_service() const;
 
         template <typename TService>
         void deregister_service();

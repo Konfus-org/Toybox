@@ -3,7 +3,8 @@
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"
 #include <functional>
-
+#include <optional>
+#include <typeinfo>
 
 namespace tbx
 {
@@ -85,20 +86,20 @@ namespace tbx
     using MessageHandler = std::function<void(Message&)>;
 
     /// @brief
-    /// Purpose: Retrieves a typed message pointer from a const base message reference.
+    /// Purpose: Retrieves a typed message reference from a const base message reference.
     /// @details
-    /// Ownership: Non-owning; the returned pointer borrows from the input message.
+    /// Ownership: Non-owning; the returned reference borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <typename TMessage>
-    const TMessage* handle_message(const Message& message);
+    std::optional<std::reference_wrapper<const TMessage>> handle_message(const Message& message);
 
     /// @brief
-    /// Purpose: Retrieves a typed message pointer from a mutable base message reference.
+    /// Purpose: Retrieves a typed message reference from a mutable base message reference.
     /// @details
-    /// Ownership: Non-owning; the returned pointer borrows from the input message.
+    /// Ownership: Non-owning; the returned reference borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <typename TMessage>
-    TMessage* handle_message(Message& message);
+    std::optional<std::reference_wrapper<TMessage>> handle_message(Message& message);
 }
 
 #include "tbx/systems/messaging/message.inl"

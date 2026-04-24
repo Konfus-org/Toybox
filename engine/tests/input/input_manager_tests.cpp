@@ -167,13 +167,13 @@ namespace tbx::tests::input
 
         // Act
         manager.update(frame_time);
-        const InputScheme* active_scheme = manager.get_scheme("Gameplay");
-        ASSERT_NE(active_scheme, nullptr);
-        const InputAction* updated_action = active_scheme->try_get_action("Move");
-        ASSERT_NE(updated_action, nullptr);
+        const auto active_scheme = manager.get_scheme("Gameplay");
+        ASSERT_TRUE(active_scheme.has_value());
+        const auto updated_action = active_scheme->get().try_get_action("Move");
+        ASSERT_TRUE(updated_action.has_value());
 
         auto axis = Vec2(0.0F, 0.0F);
-        bool got_axis = updated_action->try_get_value_as<Vec2>(axis);
+        bool got_axis = updated_action->get().try_get_value_as<Vec2>(axis);
 
         // Assert
         ASSERT_TRUE(got_axis);
@@ -192,12 +192,12 @@ namespace tbx::tests::input
             });
 
         // Act
-        const InputAction* move_action = scheme.try_get_action("Move");
-        const InputAction* look_action = scheme.try_get_action("Look");
+        const auto move_action = scheme.try_get_action("Move");
+        const auto look_action = scheme.try_get_action("Look");
 
         // Assert
-        ASSERT_NE(move_action, nullptr);
-        ASSERT_NE(look_action, nullptr);
+        ASSERT_TRUE(move_action.has_value());
+        ASSERT_TRUE(look_action.has_value());
         ASSERT_EQ(scheme.get_all_actions().size(), 2U);
     }
 
@@ -215,16 +215,16 @@ namespace tbx::tests::input
         bool first_activated = manager.activate_scheme("First");
         bool second_activated = manager.activate_scheme("Second");
 
-        const InputScheme* first_scheme = manager.get_scheme("First");
-        const InputScheme* second_scheme = manager.get_scheme("Second");
+        const auto first_scheme = manager.get_scheme("First");
+        const auto second_scheme = manager.get_scheme("Second");
 
         // Assert
         ASSERT_TRUE(first_activated);
         ASSERT_TRUE(second_activated);
-        ASSERT_NE(first_scheme, nullptr);
-        ASSERT_NE(second_scheme, nullptr);
-        ASSERT_FALSE(first_scheme->get_is_active());
-        ASSERT_TRUE(second_scheme->get_is_active());
+        ASSERT_TRUE(first_scheme.has_value());
+        ASSERT_TRUE(second_scheme.has_value());
+        ASSERT_FALSE(first_scheme->get().get_is_active());
+        ASSERT_TRUE(second_scheme->get().get_is_active());
     }
 
     TEST(input_manager, mouse_lock_mode_queries_use_backend_state)

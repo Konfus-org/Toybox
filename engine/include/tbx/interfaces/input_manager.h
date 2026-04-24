@@ -3,6 +3,7 @@
 #include "tbx/systems/input/scheme.h"
 #include "tbx/systems/time/delta_time.h"
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -85,8 +86,10 @@ namespace tbx
         virtual bool activate_scheme(const std::string& scheme_name) = 0;
         virtual bool deactivate_scheme(const std::string& scheme_name) = 0;
 
-        virtual InputScheme* get_scheme(const std::string& scheme_name) = 0;
-        virtual const InputScheme* get_scheme(const std::string& scheme_name) const = 0;
+        virtual std::optional<std::reference_wrapper<InputScheme>> get_scheme(
+            const std::string& scheme_name) = 0;
+        virtual std::optional<std::reference_wrapper<const InputScheme>> get_scheme(
+            const std::string& scheme_name) const = 0;
         virtual std::vector<std::reference_wrapper<const InputScheme>> get_all_schemes() const = 0;
 
         virtual KeyboardState get_keyboard_state() const = 0;
@@ -120,8 +123,10 @@ namespace tbx
         bool activate_scheme(const std::string& scheme_name) override;
         bool deactivate_scheme(const std::string& scheme_name) override;
 
-        InputScheme* get_scheme(const std::string& scheme_name) override;
-        const InputScheme* get_scheme(const std::string& scheme_name) const override;
+        std::optional<std::reference_wrapper<InputScheme>> get_scheme(
+            const std::string& scheme_name) override;
+        std::optional<std::reference_wrapper<const InputScheme>> get_scheme(
+            const std::string& scheme_name) const override;
         std::vector<std::reference_wrapper<const InputScheme>> get_all_schemes() const override;
 
         void update(const DeltaTime& delta_time) override;

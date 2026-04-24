@@ -2,6 +2,7 @@
 #include "tbx/systems/input/action.h"
 #include <functional>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -26,8 +27,10 @@ namespace tbx
 
         bool add_action(const InputAction& action);
         bool remove_action(const std::string& action_name);
-        InputAction* try_get_action(const std::string& action_name);
-        const InputAction* try_get_action(const std::string& action_name) const;
+        std::optional<std::reference_wrapper<InputAction>> try_get_action(
+            const std::string& action_name);
+        std::optional<std::reference_wrapper<const InputAction>> try_get_action(
+            const std::string& action_name) const;
         std::vector<std::reference_wrapper<InputAction>> get_all_actions();
         std::vector<std::reference_wrapper<const InputAction>> get_all_actions() const;
 

@@ -12,13 +12,13 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
 
 namespace tbx
 {
@@ -156,9 +156,8 @@ namespace tbx
             const AssetLoadParameters<TAsset>& parameters)>;
 
         template <typename TAsset>
-        using Writer = std::function<Result(
-            const std::filesystem::path& asset_path,
-            const TAsset& asset)>;
+        using Writer =
+            std::function<Result(const std::filesystem::path& asset_path, const TAsset& asset)>;
 
       public:
         SerializationRegistry() = default;
@@ -172,9 +171,7 @@ namespace tbx
 
       public:
         template <typename TAsset>
-        void register_reader(
-            Reader<TAsset> reader = {},
-            AsyncReader<TAsset> async_reader = {});
+        void register_reader(Reader<TAsset> reader = {}, AsyncReader<TAsset> async_reader = {});
 
         template <typename TAsset>
         void deregister_reader();
@@ -223,10 +220,10 @@ namespace tbx
         Registration<TAsset>& get_or_create_registration();
 
         template <typename TAsset>
-        Registration<TAsset>* find_registration();
+        std::optional<std::reference_wrapper<Registration<TAsset>>> find_registration();
 
         template <typename TAsset>
-        const Registration<TAsset>* find_registration() const;
+        std::optional<std::reference_wrapper<const Registration<TAsset>>> find_registration() const;
 
         template <typename TAsset>
         void erase_registration_if_empty();
@@ -258,12 +255,12 @@ namespace tbx
     void SerializationRegistry::deregister_reader()
     {
         std::lock_guard lock(_mutex);
-        auto* registration = find_registration<TAsset>();
-        if (!registration)
+        auto registration = find_registration<TAsset>();
+        if (!registration.has_value())
             return;
 
-        registration->reader = {};
-        registration->async_reader = {};
+        registration->get().reader = {};
+        registration->get().async_reader = {};
         erase_registration_if_empty<TAsset>();
     }
 
@@ -271,12 +268,12 @@ namespace tbx
     bool SerializationRegistry::has_reader() const
     {
         std::lock_guard lock(_mutex);
-        const auto* registration = find_registration<TAsset>();
-        if (!registration)
+        const auto registration = find_registration<TAsset>();
+        if (!registration.has_value())
             return false;
 
-        return static_cast<bool>(registration->reader)
-               || static_cast<bool>(registration->async_reader);
+        return static_cast<bool>(registration->get().reader)
+               || static_cast<bool>(registration->get().async_reader);
     }
 
     template <typename TAsset>
@@ -289,11 +286,11 @@ namespace tbx
 
         {
             std::lock_guard lock(_mutex);
-            const auto* registration = find_registration<TAsset>();
-            if (registration)
+            const auto registration = find_registration<TAsset>();
+            if (registration.has_value())
             {
-                reader = registration->reader;
-                async_reader = registration->async_reader;
+                reader = registration->get().reader;
+                async_reader = registration->get().async_reader;
             }
         }
 
@@ -322,11 +319,11 @@ namespace tbx
 
         {
             std::lock_guard lock(_mutex);
-            const auto* registration = find_registration<TAsset>();
-            if (registration)
+            const auto registration = find_registration<TAsset>();
+            if (registration.has_value())
             {
-                reader = registration->reader;
-                async_reader = registration->async_reader;
+                reader = registration->get().reader;
+                async_reader = registration->get().async_reader;
             }
         }
 
@@ -347,8 +344,8 @@ namespace tbx
             read_result.flag_success();
         else
             read_result.flag_failure(
-                std::string("Serialization reader returned no asset for '")
-                + asset_path.string() + "'.");
+                std::string("Serialization reader returned no asset for '") + asset_path.string()
+                + "'.");
         result.promise = make_ready_future(std::move(read_result));
         return result;
     }
@@ -370,11 +367,11 @@ namespace tbx
     void SerializationRegistry::deregister_writer()
     {
         std::lock_guard lock(_mutex);
-        auto* registration = find_registration<TAsset>();
-        if (!registration)
+        auto registration = find_registration<TAsset>();
+        if (!registration.has_value())
             return;
 
-        registration->writer = {};
+        registration->get().writer = {};
         erase_registration_if_empty<TAsset>();
     }
 
@@ -382,8 +379,8 @@ namespace tbx
     bool SerializationRegistry::has_writer() const
     {
         std::lock_guard lock(_mutex);
-        const auto* registration = find_registration<TAsset>();
-        return registration && static_cast<bool>(registration->writer);
+        const auto registration = find_registration<TAsset>();
+        return registration.has_value() && static_cast<bool>(registration->get().writer);
     }
 
     template <typename TAsset>
@@ -395,9 +392,9 @@ namespace tbx
 
         {
             std::lock_guard lock(_mutex);
-            const auto* registration = find_registration<TAsset>();
-            if (registration)
-                writer = registration->writer;
+            const auto registration = find_registration<TAsset>();
+            if (registration.has_value())
+                writer = registration->get().writer;
         }
 
         TBX_ASSERT(
@@ -423,33 +420,32 @@ namespace tbx
         auto iterator = _registrations.find(key);
         if (iterator == _registrations.end())
         {
-            iterator = _registrations
-                           .emplace(key, std::make_unique<Registration<TAsset>>())
-                           .first;
+            iterator = _registrations.emplace(key, std::make_unique<Registration<TAsset>>()).first;
         }
 
-        return *static_cast<Registration<TAsset>*>(iterator->second.get());
+        return static_cast<Registration<TAsset>&>(*iterator->second);
     }
 
     template <typename TAsset>
-    SerializationRegistry::Registration<TAsset>* SerializationRegistry::find_registration()
+    std::optional<std::reference_wrapper<SerializationRegistry::Registration<TAsset>>> SerializationRegistry::
+        find_registration()
     {
         auto iterator = _registrations.find(std::type_index(typeid(TAsset)));
         if (iterator == _registrations.end())
-            return nullptr;
+            return std::nullopt;
 
-        return static_cast<Registration<TAsset>*>(iterator->second.get());
+        return std::ref(static_cast<Registration<TAsset>&>(*iterator->second));
     }
 
     template <typename TAsset>
-    const SerializationRegistry::Registration<TAsset>* SerializationRegistry::find_registration()
-        const
+    std::optional<std::reference_wrapper<const SerializationRegistry::Registration<TAsset>>> SerializationRegistry::
+        find_registration() const
     {
         auto iterator = _registrations.find(std::type_index(typeid(TAsset)));
         if (iterator == _registrations.end())
-            return nullptr;
+            return std::nullopt;
 
-        return static_cast<const Registration<TAsset>*>(iterator->second.get());
+        return std::cref(static_cast<const Registration<TAsset>&>(*iterator->second));
     }
 
     template <typename TAsset>
@@ -459,8 +455,8 @@ namespace tbx
         if (iterator == _registrations.end())
             return;
 
-        const auto* registration = static_cast<const Registration<TAsset>*>(iterator->second.get());
-        if (registration->reader || registration->async_reader || registration->writer)
+        const auto& registration = static_cast<const Registration<TAsset>&>(*iterator->second);
+        if (registration.reader || registration.async_reader || registration.writer)
             return;
 
         _registrations.erase(iterator);

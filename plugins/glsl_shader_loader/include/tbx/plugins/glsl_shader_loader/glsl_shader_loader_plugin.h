@@ -5,8 +5,9 @@
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <filesystem>
+#include <functional>
 #include <memory>
-
+#include <optional>
 
 namespace glsl_shader_loader
 {
@@ -21,8 +22,9 @@ namespace glsl_shader_loader
             const std::filesystem::path& asset_path,
             const tbx::ShaderLoadParameters& parameters);
 
-        tbx::AssetManager* _asset_manager = nullptr;
-        tbx::SerializationRegistry* _serialization_registry = nullptr;
+        std::optional<std::reference_wrapper<tbx::AssetManager>> _asset_manager = std::nullopt;
+        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
+            std::nullopt;
         std::filesystem::path _working_directory = {};
         std::unique_ptr<tbx::IFileOps> _file_ops = {};
     };

@@ -1,5 +1,7 @@
 #include "tbx/systems/graphics/render_pipeline.h"
+#include <any>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace tbx
@@ -108,13 +110,20 @@ namespace tbx
         if (is_cancelled(cancellation_token))
             return Result(false, "Graphics render pass operation cancelled.");
 
-        const auto* graphics_payload = std::any_cast<GraphicsPipelinePayload>(&payload);
-        if (!graphics_payload || !graphics_payload->backend)
+        std::optional<std::reference_wrapper<const GraphicsPipelinePayload>> graphics_payload =
+            std::nullopt;
+        try
+        {
+            graphics_payload = std::cref(std::any_cast<const GraphicsPipelinePayload&>(payload));
+        }
+        catch (const std::bad_any_cast&)
+        {
             return Result(
                 false,
                 "Graphics render pass operation requires a graphics pipeline payload.");
+        }
 
-        auto& backend = *graphics_payload->backend;
+        auto& backend = graphics_payload->get().backend.get();
 
         if (_pass.viewport.has_value())
         {
@@ -152,7 +161,7 @@ namespace tbx
     }
 
     GraphicsRenderPipeline::GraphicsRenderPipeline(IGraphicsBackend& backend)
-        : _backend(&backend)
+        : _backend(backend)
     {
     }
 
@@ -175,14 +184,14 @@ namespace tbx
     {
         const auto payload = std::any(
             GraphicsPipelinePayload {
-                .backend = _backend,
+                .backend = std::ref(_backend),
             });
         return Pipeline::execute(payload, cancellation_token);
     }
 
     IGraphicsBackend& GraphicsRenderPipeline::get_backend() const
     {
-        return *_backend;
+        return _backend;
     }
 
     Result GraphicsRenderPipeline::execute(

@@ -197,13 +197,15 @@ namespace tbx
                 requested_plugins,
                 settings.paths.working_directory);
 
-            auto* window_manager = _service_provider.try_get_service<IWindowManager>();
-            TBX_ASSERT(window_manager, "Application requires an IWindowManager service.");
-            if (!window_manager)
+            auto window_manager = _service_provider.try_get_service<IWindowManager>();
+            TBX_ASSERT(
+                window_manager.has_value(),
+                "Application requires an IWindowManager service.");
+            if (!window_manager.has_value())
                 throw std::runtime_error("Application requires an IWindowManager service.");
 
             _main_window_base_title = _name.empty() ? std::string("Toybox Application") : _name;
-            _main_window = window_manager->create(
+            _main_window = window_manager->get().create(
                 WindowCreateInfo {
                     .title = _main_window_base_title,
                     .size = {1280, 720},
@@ -211,10 +213,10 @@ namespace tbx
                     .open_on_creation = false,
                 });
 
-            if (auto* graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
+            if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
             {
                 const auto initialize_result =
-                    _rendering.initialize(*graphics_backend, settings.graphics);
+                    _rendering.initialize(graphics_backend->get(), settings.graphics);
                 if (!initialize_result)
                 {
                     TBX_TRACE_WARNING(
@@ -239,7 +241,7 @@ namespace tbx
                 TBX_TRACE_INFO("Asset Directory: <none>");
 
             // Tell everyone we're initialized
-            msg_coordinator.send<ApplicationInitializedEvent>(this);
+            msg_coordinator.send<ApplicationInitializedEvent>(*this);
 
             auto startup_elapsed_ms = std::chrono::duration<double, std::milli>(
                                           std::chrono::steady_clock::now() - startup_begin)
@@ -284,7 +286,7 @@ namespace tbx
         _asset_unload_elapsed_seconds += dt.seconds;
 
         // Begin update
-        msg_coordinator.send<ApplicationUpdateBeginEvent>(this, dt);
+        msg_coordinator.send<ApplicationUpdateBeginEvent>(*this, dt);
 
         // Run fixed update logic
         fixed_update(dt);
@@ -292,19 +294,19 @@ namespace tbx
         // Update all loaded plugins
         _plugin_manager.update(dt);
 
-        if (auto* graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
+        if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
         {
             if (_main_window.is_valid())
             {
-                if (auto* window_manager = _service_provider.try_get_service<IWindowManager>())
+                if (auto window_manager = _service_provider.try_get_service<IWindowManager>())
                 {
                     const auto render_resolution =
                         settings.graphics.resolution.value.width > 0U
                                 && settings.graphics.resolution.value.height > 0U
                             ? settings.graphics.resolution.value
-                            : window_manager->get_size(_main_window);
+                            : window_manager->get().get_size(_main_window);
                     const auto render_result = _rendering.submit(
-                        *graphics_backend,
+                        graphics_backend->get(),
                         RenderViewSubmission {
                             .output_window = _main_window,
                             .camera = Camera {},
@@ -320,15 +322,15 @@ namespace tbx
             }
         }
 
-        if (auto* input_manager = _service_provider.try_get_service<IInputManager>())
-            input_manager->update(dt);
+        if (auto input_manager = _service_provider.try_get_service<IInputManager>())
+            input_manager->get().update(dt);
 
 #if defined(TBX_DEBUG)
         update_debug_main_window_title(dt);
 #endif
 
         // End update
-        msg_coordinator.send<ApplicationUpdateEndEvent>(this, dt);
+        msg_coordinator.send<ApplicationUpdateEndEvent>(*this, dt);
 
         // Gather metrics
         ++_update_count;
@@ -403,8 +405,8 @@ namespace tbx
         if (!_main_window.is_valid())
             return;
 
-        auto* window_manager = _service_provider.try_get_service<IWindowManager>();
-        if (!window_manager || !window_manager->is_open(_main_window))
+        auto window_manager = _service_provider.try_get_service<IWindowManager>();
+        if (!window_manager.has_value() || !window_manager->get().is_open(_main_window))
             return;
 
         _debug_window_title_elapsed_seconds += dt.seconds;
@@ -430,7 +432,7 @@ namespace tbx
 
         if (_debug_main_window_title != next_title)
         {
-            window_manager->set_title(_main_window, next_title);
+            window_manager->get().set_title(_main_window, next_title);
             _debug_main_window_title = next_title;
         }
 
@@ -490,13 +492,13 @@ namespace tbx
                 _update_count);
 
             // 1. Send shutdown event
-            msg_coordinator.send<ApplicationShutdownEvent>(this);
+            msg_coordinator.send<ApplicationShutdownEvent>(*this);
 
             // 2. Close main window
-            if (auto* window_manager = _service_provider.try_get_service<IWindowManager>())
+            if (auto window_manager = _service_provider.try_get_service<IWindowManager>())
             {
                 if (_main_window.is_valid())
-                    window_manager->destroy(_main_window);
+                    window_manager->get().destroy(_main_window);
             }
             _main_window = {};
             _should_exit = true;
@@ -547,16 +549,16 @@ namespace tbx
 
     void Application::recieve_message(Message& msg)
     {
-        if (auto* exit_request = handle_message<ExitApplicationRequest>(msg))
+        if (auto exit_request = handle_message<ExitApplicationRequest>(msg))
         {
             _should_exit = true;
-            exit_request->state = MessageState::HANDLED;
+            exit_request->get().state = MessageState::HANDLED;
             return;
         }
 
-        if (auto* closed_event = handle_message<WindowClosedEvent>(msg))
+        if (auto closed_event = handle_message<WindowClosedEvent>(msg))
         {
-            if (closed_event->window == _main_window)
+            if (closed_event->get().window == _main_window)
                 _should_exit = true;
         }
 

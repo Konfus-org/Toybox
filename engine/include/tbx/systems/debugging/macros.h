@@ -6,11 +6,11 @@
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \
-        auto* dispatcher = ::tbx::get_global_dispatcher();                                         \
-        if (dispatcher != nullptr)                                                                 \
+        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
+        if (dispatcher.has_value())                                                                \
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
-                *dispatcher,                                                                       \
+                dispatcher->get(),                                                                 \
                 ::tbx::LogLevel::INFO,                                                             \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
@@ -21,11 +21,11 @@
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \
-        auto* dispatcher = ::tbx::get_global_dispatcher();                                         \
-        if (dispatcher != nullptr)                                                                 \
+        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
+        if (dispatcher.has_value())                                                                \
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
-                *dispatcher,                                                                       \
+                dispatcher->get(),                                                                 \
                 ::tbx::LogLevel::WARNING,                                                          \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
@@ -36,11 +36,11 @@
 #define TBX_TRACE_ERROR(msg, ...)                                                                  \
     do                                                                                             \
     {                                                                                              \
-        auto* dispatcher = ::tbx::get_global_dispatcher();                                         \
-        if (dispatcher != nullptr)                                                                 \
+        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
+        if (dispatcher.has_value())                                                                \
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
-                *dispatcher,                                                                       \
+                dispatcher->get(),                                                                 \
                 ::tbx::LogLevel::ERROR,                                                            \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
@@ -51,11 +51,11 @@
 #define TBX_TRACE_CRITICAL(msg, ...)                                                               \
     do                                                                                             \
     {                                                                                              \
-        auto* dispatcher = ::tbx::get_global_dispatcher();                                         \
-        if (dispatcher != nullptr)                                                                 \
+        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
+        if (dispatcher.has_value())                                                                \
         {                                                                                          \
             ::tbx::Log::write(                                                                     \
-                *dispatcher,                                                                       \
+                dispatcher->get(),                                                                 \
                 ::tbx::LogLevel::CRITICAL,                                                         \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
@@ -86,11 +86,11 @@
     {                                                                                              \
         if (!(cond))                                                                               \
         {                                                                                          \
-            auto* dispatcher = ::tbx::get_global_dispatcher();                                     \
-            if (dispatcher != nullptr)                                                             \
+            auto dispatcher = ::tbx::get_global_dispatcher();                                      \
+            if (dispatcher.has_value())                                                            \
             {                                                                                      \
                 ::tbx::Log::write(                                                                 \
-                    *dispatcher,                                                                   \
+                    dispatcher->get(),                                                             \
                     ::tbx::LogLevel::CRITICAL,                                                     \
                     __FILE__,                                                                      \
                     __LINE__,                                                                      \

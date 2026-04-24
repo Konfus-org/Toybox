@@ -1,9 +1,10 @@
 #pragma once
 #include "tbx/systems/math/transform.h"
 #include "tbx/types/uuid.h"
+#include <functional>
+#include <optional>
 #include <string>
 #include <utility>
-
 
 namespace tbx
 {
@@ -18,11 +19,8 @@ namespace tbx
     {
       public:
         Entity() = default;
-        Entity(const std::string& name, EntityRegistry* registry);
         Entity(const std::string& name, EntityRegistry& registry);
-        Entity(const std::string& name, const Uuid& parent, EntityRegistry* registry);
         Entity(const std::string& name, const Uuid& parent, EntityRegistry& registry);
-        Entity(const Uuid& parent, EntityRegistry* registry);
         Entity(const Uuid& parent, EntityRegistry& registry);
 
         void destroy();
@@ -69,7 +67,7 @@ namespace tbx
       private:
         friend class EntityRegistry;
 
-        EntityRegistry* _registry = nullptr;
+        std::optional<std::reference_wrapper<EntityRegistry>> _registry = std::nullopt;
         Uuid _id = {};
     };
 

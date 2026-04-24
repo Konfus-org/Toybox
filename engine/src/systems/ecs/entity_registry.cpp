@@ -2,7 +2,6 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 
-
 namespace tbx
 {
     using EntityHandle = entt::entity;
@@ -118,7 +117,7 @@ namespace tbx
 
     void EntityRegistry::remove(Entity& entity)
     {
-        if (entity._registry != this)
+        if (!entity._registry.has_value() || &entity._registry->get() != this)
             return;
 
         auto handle = to_entity_handle(entity._id);
@@ -130,7 +129,7 @@ namespace tbx
 
         _impl->destroy(handle);
         entity._id = {};
-        entity._registry = nullptr;
+        entity._registry = std::nullopt;
     }
 
     Entity EntityRegistry::get(const Uuid& id) const
@@ -140,7 +139,7 @@ namespace tbx
 
         auto entity = Entity {};
         entity._id = id;
-        entity._registry = const_cast<EntityRegistry*>(this);
+        entity._registry = std::ref(const_cast<EntityRegistry&>(*this));
         return entity;
     }
 
@@ -154,7 +153,7 @@ namespace tbx
             auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
-            entity._registry = const_cast<EntityRegistry*>(this);
+            entity._registry = std::ref(const_cast<EntityRegistry&>(*this));
             entities.push_back(entity);
         }
 
@@ -172,7 +171,7 @@ namespace tbx
             auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
-            entity._registry = this;
+            entity._registry = std::ref(*this);
             callback(entity);
         }
     }

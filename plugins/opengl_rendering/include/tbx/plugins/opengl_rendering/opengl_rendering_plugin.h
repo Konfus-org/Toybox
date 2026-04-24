@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
+#include <functional>
+#include <optional>
 
 namespace tbx
 {
@@ -25,7 +27,8 @@ namespace opengl_rendering
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        OpenGlGraphicsBackend* _backend = nullptr;
-        tbx::ServiceProvider* _service_provider = nullptr;
+        std::optional<std::reference_wrapper<OpenGlGraphicsBackend>> _backend = std::nullopt;
+        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
+            std::nullopt;
     };
 }

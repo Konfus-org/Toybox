@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace sdl_windowing
 {
     struct SdlWindowRecord
@@ -78,7 +77,7 @@ namespace sdl_windowing
         SdlWindowRecord* try_get_record(const SDL_Window* sdl_window);
 
       private:
-        tbx::IMessageDispatcher* _dispatcher = nullptr;
+        tbx::IMessageDispatcher& _dispatcher;
         std::unordered_map<tbx::Window, SdlWindowRecord> _windows = {};
         std::vector<tbx::Window> _pending_close_window_ids = {};
         SDL_Surface* _icon_surface = nullptr;

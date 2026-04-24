@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-
 namespace tbx::tests::app
 {
     struct TestPluginState
@@ -74,12 +73,12 @@ namespace tbx::tests::app
 
         void on_recieve_message(Message& msg) override
         {
-            auto* ping = handle_message<PluginPingMessage>(msg);
-            if (!ping)
+            auto ping = handle_message<PluginPingMessage>(msg);
+            if (!ping.has_value())
                 return;
 
             ++_state->receive_count;
-            _state->received_sources.push_back(ping->source);
+            _state->received_sources.push_back(ping->get().source);
         }
 
         void on_update(const DeltaTime&) override

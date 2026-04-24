@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 
-
 namespace assimp_model_loader
 {
     static std::string build_load_failure_message(
@@ -186,16 +185,17 @@ namespace assimp_model_loader
 
     void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
-        _serialization_registry->register_reader<tbx::Model>(read_model);
+        _serialization_registry =
+            std::ref(service_provider.get_service<tbx::SerializationRegistry>());
+        _serialization_registry->get().register_reader<tbx::Model>(read_model);
     }
 
     void AssimpModelLoaderPlugin::on_detach()
     {
-        if (_serialization_registry)
-            _serialization_registry->deregister_reader<tbx::Model>();
+        if (_serialization_registry.has_value())
+            _serialization_registry->get().deregister_reader<tbx::Model>();
 
-        _serialization_registry = nullptr;
+        _serialization_registry = std::nullopt;
     }
 
     std::shared_ptr<tbx::Model> AssimpModelLoaderPlugin::read_model(

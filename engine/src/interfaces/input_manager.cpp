@@ -107,14 +107,14 @@ namespace tbx
                && left.y_axis == right.y_axis;
     }
 
-    static const ControllerState* try_get_controller_state(
+    static std::optional<std::reference_wrapper<const ControllerState>> try_get_controller_state(
         const InputDeviceSnapshot& snapshot,
         int controller_index)
     {
         const auto iterator = snapshot.controllers.find(controller_index);
         if (iterator == snapshot.controllers.end())
-            return nullptr;
-        return &iterator->second;
+            return std::nullopt;
+        return std::cref(iterator->second);
     }
 
     InputAction::InputAction(std::string action_name, InputActionValueType value_type)
@@ -299,20 +299,22 @@ namespace tbx
         return _actions.erase(action_name) > 0;
     }
 
-    InputAction* InputScheme::try_get_action(const std::string& action_name)
+    std::optional<std::reference_wrapper<InputAction>> InputScheme::try_get_action(
+        const std::string& action_name)
     {
         const auto iterator = _actions.find(action_name);
         if (iterator == _actions.end())
-            return nullptr;
-        return &iterator->second;
+            return std::nullopt;
+        return std::ref(iterator->second);
     }
 
-    const InputAction* InputScheme::try_get_action(const std::string& action_name) const
+    std::optional<std::reference_wrapper<const InputAction>> InputScheme::try_get_action(
+        const std::string& action_name) const
     {
         const auto iterator = _actions.find(action_name);
         if (iterator == _actions.end())
-            return nullptr;
-        return &iterator->second;
+            return std::nullopt;
+        return std::cref(iterator->second);
     }
 
     std::vector<std::reference_wrapper<InputAction>> InputScheme::get_all_actions()
@@ -345,41 +347,43 @@ namespace tbx
 
     bool InputManager::activate_scheme(const std::string& scheme_name)
     {
-        InputScheme* target_scheme = get_scheme(scheme_name);
-        if (!target_scheme)
+        auto target_scheme = get_scheme(scheme_name);
+        if (!target_scheme.has_value())
             return false;
 
         for (auto& [_, scheme] : _schemes)
             scheme.set_is_active(false);
 
-        target_scheme->set_is_active(true);
+        target_scheme->get().set_is_active(true);
         return true;
     }
 
     bool InputManager::deactivate_scheme(const std::string& scheme_name)
     {
-        InputScheme* target_scheme = get_scheme(scheme_name);
-        if (!target_scheme)
+        auto target_scheme = get_scheme(scheme_name);
+        if (!target_scheme.has_value())
             return false;
 
-        target_scheme->set_is_active(false);
+        target_scheme->get().set_is_active(false);
         return true;
     }
 
-    InputScheme* InputManager::get_scheme(const std::string& scheme_name)
+    std::optional<std::reference_wrapper<InputScheme>> InputManager::get_scheme(
+        const std::string& scheme_name)
     {
         const auto iterator = _schemes.find(scheme_name);
         if (iterator == _schemes.end())
-            return nullptr;
-        return &iterator->second;
+            return std::nullopt;
+        return std::ref(iterator->second);
     }
 
-    const InputScheme* InputManager::get_scheme(const std::string& scheme_name) const
+    std::optional<std::reference_wrapper<const InputScheme>> InputManager::get_scheme(
+        const std::string& scheme_name) const
     {
         const auto iterator = _schemes.find(scheme_name);
         if (iterator == _schemes.end())
-            return nullptr;
-        return &iterator->second;
+            return std::nullopt;
+        return std::cref(iterator->second);
     }
 
     std::vector<std::reference_wrapper<const InputScheme>> InputManager::get_all_schemes() const
@@ -476,14 +480,14 @@ namespace tbx
                 {
                     const ControllerButtonInputControl control =
                         std::get<ControllerButtonInputControl>(binding.control);
-                    const ControllerState* controller =
+                    const auto controller =
                         try_get_controller_state(snapshot, control.controller_index);
-                    if (!controller || !controller->is_connected)
+                    if (!controller.has_value() || !controller->get().is_connected)
                         continue;
 
-                    any_pressed =
-                        any_pressed
-                        || controller->pressed_buttons.contains(static_cast<int>(control.button));
+                    any_pressed = any_pressed
+                                  || controller->get().pressed_buttons.contains(
+                                      static_cast<int>(control.button));
                 }
             }
             return InputActionValue(any_pressed);
@@ -505,14 +509,14 @@ namespace tbx
                 {
                     const ControllerAxisInputControl control =
                         std::get<ControllerAxisInputControl>(binding.control);
-                    const ControllerState* controller =
+                    const auto controller =
                         try_get_controller_state(snapshot, control.controller_index);
-                    if (!controller || !controller->is_connected)
+                    if (!controller.has_value() || !controller->get().is_connected)
                         continue;
 
                     const auto axis_iterator =
-                        controller->axis_values.find(static_cast<int>(control.axis));
-                    if (axis_iterator == controller->axis_values.end())
+                        controller->get().axis_values.find(static_cast<int>(control.axis));
+                    if (axis_iterator == controller->get().axis_values.end())
                         continue;
 
                     axis_value += axis_iterator->second * binding.scale;
@@ -561,19 +565,19 @@ namespace tbx
             {
                 const ControllerStickInputControl control =
                     std::get<ControllerStickInputControl>(binding.control);
-                const ControllerState* controller =
+                const auto controller =
                     try_get_controller_state(snapshot, control.controller_index);
-                if (!controller || !controller->is_connected)
+                if (!controller.has_value() || !controller->get().is_connected)
                     continue;
 
                 const auto x_iterator =
-                    controller->axis_values.find(static_cast<int>(control.x_axis));
+                    controller->get().axis_values.find(static_cast<int>(control.x_axis));
                 const auto y_iterator =
-                    controller->axis_values.find(static_cast<int>(control.y_axis));
+                    controller->get().axis_values.find(static_cast<int>(control.y_axis));
                 const float x_value =
-                    x_iterator == controller->axis_values.end() ? 0.0F : x_iterator->second;
+                    x_iterator == controller->get().axis_values.end() ? 0.0F : x_iterator->second;
                 const float y_value =
-                    y_iterator == controller->axis_values.end() ? 0.0F : y_iterator->second;
+                    y_iterator == controller->get().axis_values.end() ? 0.0F : y_iterator->second;
                 vector_value += Vec2(x_value * binding.scale, y_value * binding.scale);
             }
         }

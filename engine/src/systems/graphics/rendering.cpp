@@ -39,14 +39,14 @@ namespace tbx
 
     Result Rendering::initialize(IGraphicsBackend& backend, const GraphicsSettings& settings)
     {
-        if (_is_initialized && _backend == &backend)
+        if (_is_initialized && _backend.has_value() && &_backend->get() == &backend)
             return {};
 
-        if (_backend && _backend != &backend)
+        if (_backend.has_value() && &_backend->get() != &backend)
         {
-            _backend->wait_for_idle();
+            _backend->get().wait_for_idle();
             _pipeline.reset();
-            _backend = nullptr;
+            _backend = std::nullopt;
             _is_initialized = false;
         }
 
@@ -54,7 +54,7 @@ namespace tbx
             return result;
 
         rebuild_pipeline(backend);
-        _backend = &backend;
+        _backend = std::ref(backend);
         _is_initialized = true;
         return {};
     }
@@ -80,7 +80,7 @@ namespace tbx
 
     Result Rendering::submit(IGraphicsBackend& backend, const RenderViewSubmission& view) const
     {
-        if (!_is_initialized || !_pipeline || _backend != &backend)
+        if (!_is_initialized || !_pipeline || !_backend.has_value() || &_backend->get() != &backend)
             return Result(
                 false,
                 "Rendering::initialize must be called with this backend before submit.");

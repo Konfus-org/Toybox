@@ -6,7 +6,6 @@
 #include "tbx/systems/files/messages.h"
 #include <filesystem>
 
-
 namespace tbx
 {
     namespace
@@ -68,7 +67,7 @@ namespace tbx
     {
         std::lock_guard lock(_mutex);
         auto asset_id = Uuid {};
-        const auto ensure_result = _registry->ensure_asset_id(handle, &asset_id);
+        const auto ensure_result = _registry->ensure_asset_id(handle, asset_id);
         if (!ensure_result.succeeded())
         {
             TBX_TRACE_WARNING(
@@ -106,12 +105,12 @@ namespace tbx
     void AssetManager::set_pinned(const Handle& handle, bool is_pinned)
     {
         std::lock_guard lock(_mutex);
-        auto* entry = _registry->find_entry(handle);
-        if (!entry || !entry->asset_id.is_valid())
+        auto entry = _registry->find_entry(handle);
+        if (!entry.has_value() || !entry->get().asset_id.is_valid())
             return;
 
         for (auto& store : _stores)
-            store.second->set_pinned(entry->asset_id, is_pinned);
+            store.second->set_pinned(entry->get().asset_id, is_pinned);
     }
 
     void AssetManager::add_directory(const std::filesystem::path& path)
@@ -181,27 +180,26 @@ namespace tbx
 
         {
             std::lock_guard lock(_mutex);
-            AssetRegistryEntry registry_entry = {};
-
             switch (change.type)
             {
                 case FileWatchChangeType::CREATED:
                 {
                     const auto register_result =
-                        _registry->register_discovered_asset(changed_asset_path, &registry_entry);
-                    if (!register_result.succeeded())
+                        _registry->register_discovered_asset(changed_asset_path);
+                    if (!register_result.result.succeeded() || !register_result.entry.has_value())
                     {
                         TBX_TRACE_WARNING(
                             "Failed to register created asset '{}': {}",
                             changed_asset_path.generic_string(),
-                            register_result.get_report());
+                            register_result.result.get_report());
                         break;
                     }
-                    if (!register_result.get_report().empty())
+                    if (!register_result.result.get_report().empty())
                     {
-                        TBX_TRACE_INFO("Asset registry: {}", register_result.get_report());
+                        TBX_TRACE_INFO("Asset registry: {}", register_result.result.get_report());
                     }
 
+                    const auto& registry_entry = *register_result.entry;
                     affected_asset = build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::CREATED;
 
@@ -212,20 +210,21 @@ namespace tbx
                 case FileWatchChangeType::MODIFIED:
                 {
                     const auto register_result =
-                        _registry->register_discovered_asset(changed_asset_path, &registry_entry);
-                    if (!register_result.succeeded())
+                        _registry->register_discovered_asset(changed_asset_path);
+                    if (!register_result.result.succeeded() || !register_result.entry.has_value())
                     {
                         TBX_TRACE_WARNING(
                             "Failed to register modified asset '{}': {}",
                             changed_asset_path.generic_string(),
-                            register_result.get_report());
+                            register_result.result.get_report());
                         break;
                     }
-                    if (!register_result.get_report().empty())
+                    if (!register_result.result.get_report().empty())
                     {
-                        TBX_TRACE_INFO("Asset registry: {}", register_result.get_report());
+                        TBX_TRACE_INFO("Asset registry: {}", register_result.result.get_report());
                     }
 
+                    const auto& registry_entry = *register_result.entry;
                     affected_asset = build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::MODIFIED;
 
@@ -241,8 +240,7 @@ namespace tbx
                             if (!store_reload_result.attempted)
                                 continue;
 
-                            const char* asset_type_name = store.second->get_asset_type_name();
-                            const char* type_name = asset_type_name ? asset_type_name : "<unknown>";
+                            const auto type_name = store.second->get_asset_type_name();
                             TBX_TRACE_INFO(
                                 "Reloading asset: '{}' (id={}, type={})",
                                 registry_entry.normalized_path,
@@ -277,21 +275,22 @@ namespace tbx
                 }
                 case FileWatchChangeType::REMOVED:
                 {
-                    const auto unregister_result =
-                        _registry->unregister_asset(changed_asset_path, &registry_entry);
-                    if (!unregister_result.succeeded())
+                    const auto unregister_result = _registry->unregister_asset(changed_asset_path);
+                    if (!unregister_result.result.succeeded()
+                        || !unregister_result.entry.has_value())
                     {
                         TBX_TRACE_WARNING(
                             "Failed to unregister removed asset '{}': {}",
                             changed_asset_path.generic_string(),
-                            unregister_result.get_report());
+                            unregister_result.result.get_report());
                         break;
                     }
-                    if (!unregister_result.get_report().empty())
+                    if (!unregister_result.result.get_report().empty())
                     {
-                        TBX_TRACE_INFO("Asset registry: {}", unregister_result.get_report());
+                        TBX_TRACE_INFO("Asset registry: {}", unregister_result.result.get_report());
                     }
 
+                    const auto& registry_entry = *unregister_result.entry;
                     if (registry_entry.asset_id.is_valid())
                     {
                         for (auto& store : _stores)

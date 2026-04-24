@@ -5,13 +5,14 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
-
 
 namespace tbx
 {
@@ -88,8 +89,9 @@ namespace tbx
         void set(std::string_view name, MaterialParameterData value);
         void set(MaterialParameter parameter);
         void set(std::initializer_list<MaterialParameter> parameters);
-        MaterialParameter* get(std::string_view name);
-        const MaterialParameter* get(std::string_view name) const;
+        std::optional<std::reference_wrapper<MaterialParameter>> get(std::string_view name);
+        std::optional<std::reference_wrapper<const MaterialParameter>> get(
+            std::string_view name) const;
         bool has(std::string_view name) const;
         void remove(std::string_view name);
         void clear();
@@ -134,8 +136,9 @@ namespace tbx
         void set(std::string_view name, Handle texture);
         void set(MaterialTextureBinding texture_binding);
         void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
-        MaterialTextureBinding* get(std::string_view name);
-        const MaterialTextureBinding* get(std::string_view name) const;
+        std::optional<std::reference_wrapper<MaterialTextureBinding>> get(std::string_view name);
+        std::optional<std::reference_wrapper<const MaterialTextureBinding>> get(
+            std::string_view name) const;
         bool has(std::string_view name) const;
         void remove(std::string_view name);
         void clear();

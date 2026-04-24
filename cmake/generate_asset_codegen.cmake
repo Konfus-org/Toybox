@@ -584,7 +584,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
 
     set(content "")
     string(APPEND content "#pragma once\n")
-    string(APPEND content "#include \"tbx/core/types/handle.h\"\n")
+    string(APPEND content "#include \"tbx/types/handle.h\"\n")
     string(APPEND content "#include <string_view>\n\n")
 
     if(NAMESPACE)

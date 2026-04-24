@@ -36,7 +36,6 @@
 #include <unordered_set>
 #include <vector>
 
-
 namespace jolt_physics
 {
     static constexpr std::string_view PHYSICS_THREAD_LANE_NAME = "physics";
@@ -658,16 +657,16 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _asset_manager = &service_provider.get_service<tbx::AssetManager>();
-        _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
-        _settings = &service_provider.get_service<tbx::AppSettings>();
-        _thread_manager = &service_provider.get_service<tbx::ThreadManager>();
+        _asset_manager = std::ref(service_provider.get_service<tbx::AssetManager>());
+        _entity_registry = std::ref(service_provider.get_service<tbx::EntityRegistry>());
+        _settings = std::ref(service_provider.get_service<tbx::AppSettings>());
+        _thread_manager = std::ref(service_provider.get_service<tbx::ThreadManager>());
 
-        _thread_manager->try_create_lane(PHYSICS_THREAD_LANE_NAME);
-        if (_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME))
+        _thread_manager->get().try_create_lane(PHYSICS_THREAD_LANE_NAME);
+        if (_thread_manager->get().has_lane(PHYSICS_THREAD_LANE_NAME))
         {
-            _physics_thread_id = _thread_manager
-                                     ->post_with_future(
+            _physics_thread_id = _thread_manager->get()
+                                     .post_with_future(
                                          PHYSICS_THREAD_LANE_NAME,
                                          []()
                                          {
@@ -692,10 +691,10 @@ namespace jolt_physics
                     JPH::cMaxPhysicsJobs,
                     JPH::cMaxPhysicsBarriers);
 
-                if (!_settings)
+                if (!_settings.has_value())
                     return;
 
-                auto& settings = _settings->physics;
+                auto& settings = _settings->get().physics;
 
                 auto max_bodies = std::max<std::uint32_t>(1U, settings.max_body_count.value);
                 auto max_pairs = std::max<std::uint32_t>(1U, settings.max_body_pairs.value);
@@ -728,10 +727,10 @@ namespace jolt_physics
                 JoltRuntimeLifetime::release();
             });
         _physics_thread_id = {};
-        _asset_manager = nullptr;
-        _entity_registry = nullptr;
-        _settings = nullptr;
-        _thread_manager = nullptr;
+        _asset_manager = std::nullopt;
+        _entity_registry = std::nullopt;
+        _settings = std::nullopt;
+        _thread_manager = std::nullopt;
     }
 
     void JoltPhysicsPlugin::on_fixed_update(const tbx::DeltaTime& dt)
@@ -763,12 +762,12 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (const auto* asset_reloaded = handle_message<tbx::AssetReloadedEvent>(msg))
+        if (const auto asset_reloaded = handle_message<tbx::AssetReloadedEvent>(msg))
         {
-            if (!asset_reloaded->affected_asset.is_valid())
+            if (!asset_reloaded->get().affected_asset.is_valid())
                 return;
 
-            const tbx::Handle reloaded_asset = asset_reloaded->affected_asset;
+            const tbx::Handle reloaded_asset = asset_reloaded->get().affected_asset;
             run_on_physics_lane_and_wait(
                 [this, reloaded_asset]()
                 {
@@ -777,12 +776,13 @@ namespace jolt_physics
             return;
         }
 
-        if (auto* raycast_request = handle_message<tbx::RaycastRequest>(msg))
+        if (auto raycast_request = handle_message<tbx::RaycastRequest>(msg))
         {
+            auto& request = raycast_request->get();
             run_on_physics_lane_and_wait(
-                [this, raycast_request]()
+                [this, &request]()
                 {
-                    handle_raycast_request(*raycast_request);
+                    handle_raycast_request(request);
                 });
             return;
         }
@@ -795,12 +795,12 @@ namespace jolt_physics
 
         auto completed_asset_ids = std::vector<tbx::Uuid> {};
         completed_asset_ids.reserve(_pending_mesh_collider_refresh_asset_ids.size());
-        if (!_asset_manager)
+        if (!_asset_manager.has_value())
             return;
 
         for (const tbx::Uuid& asset_id : _pending_mesh_collider_refresh_asset_ids)
         {
-            const auto usage = _asset_manager->get_usage<tbx::Model>(asset_id);
+            const auto usage = _asset_manager->get().get_usage<tbx::Model>(asset_id);
             if (usage.stream_state == tbx::AssetStreamState::LOADING)
                 continue;
 
@@ -818,10 +818,10 @@ namespace jolt_physics
         if (!_is_ready || !asset_handle.is_valid())
             return;
 
-        if (!_entity_registry)
+        if (!_entity_registry.has_value())
             return;
 
-        auto& registry = *_entity_registry;
+        auto& registry = _entity_registry->get();
         auto entities = registry.get_with<tbx::Transform, tbx::MeshCollider, tbx::StaticMesh>();
         auto& body_interface = _physics_system.GetBodyInterface();
         for (auto& entity : entities)
@@ -859,14 +859,14 @@ namespace jolt_physics
         if (!work)
             return;
 
-        if (!_thread_manager || !_thread_manager->has_lane(PHYSICS_THREAD_LANE_NAME)
-            || is_on_physics_thread())
+        if (!_thread_manager.has_value()
+            || !_thread_manager->get().has_lane(PHYSICS_THREAD_LANE_NAME) || is_on_physics_thread())
         {
             work();
             return;
         }
 
-        _thread_manager->post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
+        _thread_manager->get().post_with_future(PHYSICS_THREAD_LANE_NAME, work).get();
     }
 
     void JoltPhysicsPlugin::clear_bodies()
@@ -890,10 +890,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::apply_world_settings()
     {
-        if (!_settings)
+        if (!_settings.has_value())
             return;
 
-        auto& settings = _settings->physics;
+        auto& settings = _settings->get().physics;
 
         auto jolt_settings = _physics_system.GetPhysicsSettings();
         jolt_settings.mNumVelocitySteps =
@@ -907,10 +907,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::sync_entities_to_world(float dt_seconds)
     {
-        if (!_entity_registry || !_asset_manager || !_settings)
+        if (!_entity_registry.has_value() || !_asset_manager.has_value() || !_settings.has_value())
             return;
 
-        auto& registry = *_entity_registry;
+        auto& registry = _entity_registry->get();
         auto active_entities = std::unordered_set<tbx::Uuid>();
 
         auto entities = registry.get_with<tbx::Transform>();
@@ -986,7 +986,7 @@ namespace jolt_physics
             if (body_it == _bodies_by_entity.end())
             {
                 JPH::RefConst<JPH::Shape> shape = create_shape_for_entity(
-                    *_asset_manager,
+                    _asset_manager->get(),
                     entity,
                     world_transform,
                     is_physics_driven);
@@ -1009,7 +1009,7 @@ namespace jolt_physics
                 if (is_physics_driven)
                 {
                     apply_dynamic_body_settings(
-                        *_settings,
+                        _settings->get(),
                         *physics,
                         is_trigger_only,
                         body_settings);
@@ -1152,10 +1152,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::sync_world_to_entities()
     {
-        if (!_entity_registry)
+        if (!_entity_registry.has_value())
             return;
 
-        auto& registry = *_entity_registry;
+        auto& registry = _entity_registry->get();
         auto& body_interface = _physics_system.GetBodyInterface();
 
         for (auto& body_entry : _bodies_by_entity)
@@ -1237,10 +1237,10 @@ namespace jolt_physics
 
     void JoltPhysicsPlugin::process_trigger_colliders()
     {
-        if (!_entity_registry)
+        if (!_entity_registry.has_value())
             return;
 
-        auto& registry = *_entity_registry;
+        auto& registry = _entity_registry->get();
         auto& body_interface = _physics_system.GetBodyInterface();
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
 

@@ -3,8 +3,9 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
+#include <functional>
 #include <memory>
-
+#include <optional>
 
 namespace stb_image_loader
 {
@@ -26,6 +27,7 @@ namespace stb_image_loader
             const tbx::TextureLoadParameters& parameters) const;
 
         std::unique_ptr<tbx::IFileOps> _file_ops = {};
-        tbx::SerializationRegistry* _serialization_registry = nullptr;
+        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
+            std::nullopt;
     };
 }

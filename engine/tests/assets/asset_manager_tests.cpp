@@ -12,7 +12,6 @@
 #include <string>
 #include <unordered_map>
 
-
 namespace tbx
 {
     struct TestAsset
@@ -229,40 +228,40 @@ namespace tbx::tests::assets
             {
                 std::lock_guard<std::mutex> lock(_mutex);
 
-                if (const auto* created = handle_message<AssetCreatedEvent>(msg))
+                if (const auto created = handle_message<AssetCreatedEvent>(msg))
                 {
                     _created_events.push_back(
                         CapturedAssetEvent {
-                            .watched_path = created->watched_asset_directory,
-                            .asset_path = created->asset_path,
-                            .affected_asset = created->affected_asset,
+                            .watched_path = created->get().watched_asset_directory,
+                            .asset_path = created->get().asset_path,
+                            .affected_asset = created->get().affected_asset,
                         });
                 }
-                else if (const auto* modified = handle_message<AssetModifiedEvent>(msg))
+                else if (const auto modified = handle_message<AssetModifiedEvent>(msg))
                 {
                     _modified_events.push_back(
                         CapturedAssetEvent {
-                            .watched_path = modified->watched_asset_directory,
-                            .asset_path = modified->asset_path,
-                            .affected_asset = modified->affected_asset,
+                            .watched_path = modified->get().watched_asset_directory,
+                            .asset_path = modified->get().asset_path,
+                            .affected_asset = modified->get().affected_asset,
                         });
                 }
-                else if (const auto* removed = handle_message<AssetRemovedEvent>(msg))
+                else if (const auto removed = handle_message<AssetRemovedEvent>(msg))
                 {
                     _removed_events.push_back(
                         CapturedAssetEvent {
-                            .watched_path = removed->watched_asset_directory,
-                            .asset_path = removed->asset_path,
-                            .affected_asset = removed->affected_asset,
+                            .watched_path = removed->get().watched_asset_directory,
+                            .asset_path = removed->get().asset_path,
+                            .affected_asset = removed->get().affected_asset,
                         });
                 }
-                else if (const auto* reloaded = handle_message<AssetReloadedEvent>(msg))
+                else if (const auto reloaded = handle_message<AssetReloadedEvent>(msg))
                 {
                     _reloaded_events.push_back(
                         CapturedAssetEvent {
                             .watched_path = {},
                             .asset_path = {},
-                            .affected_asset = reloaded->affected_asset,
+                            .affected_asset = reloaded->get().affected_asset,
                         });
                 }
             }

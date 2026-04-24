@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <string_view>
 
-
 namespace sdl_windowing
 {
     namespace
@@ -45,7 +44,7 @@ namespace sdl_windowing
 
     void SdlWindowingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = &service_provider;
+        _service_provider = std::ref(service_provider);
 
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
@@ -60,10 +59,9 @@ namespace sdl_windowing
 
         service_provider.register_service<tbx::IWindowManager>(std::make_unique<SdlWindowManager>(
             service_provider.get_service<tbx::IMessageCoordinator>()));
-        _window_manager =
-            static_cast<SdlWindowManager*>(service_provider.try_get_service<tbx::IWindowManager>());
-        if (_window_manager)
-            _window_manager->set_use_opengl(_use_opengl);
+        _window_manager = std::ref(
+            static_cast<SdlWindowManager&>(service_provider.get_service<tbx::IWindowManager>()));
+        _window_manager->get().set_use_opengl(_use_opengl);
 
         const tbx::AssetManager& asset_manager = service_provider.get_service<tbx::AssetManager>();
         const std::filesystem::path icon_path =
@@ -76,20 +74,21 @@ namespace sdl_windowing
         }
 
         _window_icon_surface = try_load_icon_surface(icon_path);
-        if (_window_manager)
-            _window_manager->set_icon_surface(_window_icon_surface);
+        if (_window_manager.has_value())
+            _window_manager->get().set_icon_surface(_window_icon_surface);
     }
 
     void SdlWindowingPlugin::on_detach()
     {
-        if (_window_manager)
-            _window_manager->shutdown();
+        if (_window_manager.has_value())
+            _window_manager->get().shutdown();
 
-        if (_service_provider && _service_provider->has_service<tbx::IWindowManager>())
-            _service_provider->deregister_service<tbx::IWindowManager>();
+        if (_service_provider.has_value()
+            && _service_provider->get().has_service<tbx::IWindowManager>())
+            _service_provider->get().deregister_service<tbx::IWindowManager>();
 
-        _window_manager = nullptr;
-        _service_provider = nullptr;
+        _window_manager = std::nullopt;
+        _service_provider = std::nullopt;
 
         if (_window_icon_surface)
         {
@@ -103,26 +102,26 @@ namespace sdl_windowing
 
     void SdlWindowingPlugin::on_update(const tbx::DeltaTime&)
     {
-        if (!_window_manager)
+        if (!_window_manager.has_value())
             return;
 
         SDL_Event event = {};
         while (SDL_PollEvent(&event))
-            _window_manager->process_event(event);
+            _window_manager->get().process_event(event);
 
-        _window_manager->process_pending_window_closes();
+        _window_manager->get().process_pending_window_closes();
     }
 
     void SdlWindowingPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (!_window_manager)
+        if (!_window_manager.has_value())
             return;
 
-        if (const auto* graphics_event =
+        if (const auto graphics_event =
                 tbx::handle_property_changed<&tbx::GraphicsSettings::graphics_api>(msg))
         {
-            _use_opengl = graphics_event->current == tbx::GraphicsApi::OPEN_GL;
-            _window_manager->set_use_opengl(_use_opengl);
+            _use_opengl = graphics_event->get().current == tbx::GraphicsApi::OPEN_GL;
+            _window_manager->get().set_use_opengl(_use_opengl);
         }
     }
 }

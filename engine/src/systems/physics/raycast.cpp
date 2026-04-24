@@ -7,13 +7,13 @@ namespace tbx
     {
         out_result = RaycastResult {};
 
-        auto* dispatcher = get_global_dispatcher();
-        if (dispatcher == nullptr)
+        auto dispatcher = get_global_dispatcher();
+        if (!dispatcher.has_value())
             return false;
 
         auto request = RaycastRequest(*this);
         request.not_handled_behavior = MessageNotHandledBehavior::WARN;
-        const Result dispatch_result = dispatcher->send(request);
+        const Result dispatch_result = dispatcher->get().send(request);
         if (!dispatch_result.succeeded() || request.state != MessageState::HANDLED)
             return false;
 

@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-
 namespace stb_image_loader
 {
     static bool try_parse_texture(const tbx::Json& data, tbx::Texture& out_texture)
@@ -45,14 +44,16 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _serialization_registry = &service_provider.get_service<tbx::SerializationRegistry>();
+        _serialization_registry =
+            std::ref(service_provider.get_service<tbx::SerializationRegistry>());
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(
                 service_provider.get_service<tbx::AppSettings>().paths.working_directory);
 
-        _serialization_registry->register_reader<tbx::Texture>(
-            [this](const std::filesystem::path& asset_path,
-                   const tbx::TextureLoadParameters& parameters)
+        _serialization_registry->get().register_reader<tbx::Texture>(
+            [this](
+                const std::filesystem::path& asset_path,
+                const tbx::TextureLoadParameters& parameters)
             {
                 return read_texture(asset_path, parameters);
             });
@@ -60,12 +61,12 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_detach()
     {
-        if (_serialization_registry)
+        if (_serialization_registry.has_value())
         {
-            _serialization_registry->deregister_reader<tbx::Texture>();
+            _serialization_registry->get().deregister_reader<tbx::Texture>();
         }
 
-        _serialization_registry = nullptr;
+        _serialization_registry = std::nullopt;
     }
 
     std::shared_ptr<tbx::Texture> StbImageLoaderPlugin::read_texture(
@@ -93,9 +94,7 @@ namespace stb_image_loader
             catch (...)
             {
                 // Ignore meta parsing errors and fall back to request settings.
-                TBX_TRACE_WARNING(
-                    "Failed to parse texture meta data for {}",
-                    asset_path.string());
+                TBX_TRACE_WARNING("Failed to parse texture meta data for {}", asset_path.string());
             }
         }
 
@@ -121,9 +120,7 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            TBX_TRACE_WARNING(
-                "{}",
-                build_load_failure_message(asset_path, stbi_failure_reason()));
+            TBX_TRACE_WARNING("{}", build_load_failure_message(asset_path, stbi_failure_reason()));
             return {};
         }
 

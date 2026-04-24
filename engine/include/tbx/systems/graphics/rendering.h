@@ -7,9 +7,10 @@
 #include "tbx/systems/math/size.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
+#include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
-
 
 namespace tbx
 {
@@ -28,21 +29,23 @@ namespace tbx
     class TBX_API Rendering
     {
       public:
-        Result initialize(IGraphicsBackend& backend, const GraphicsSettings& settings);
-        void setup_default_pipeline();
+        Rendering() = default;
+        ~Rendering() noexcept = default;
 
+      public:
+        const GraphicsRenderPipeline& get_pipeline() const;
+        Result initialize(IGraphicsBackend& backend, const GraphicsSettings& settings);
         Result submit(IGraphicsBackend& backend, const RenderViewSubmission& view) const;
         Result submit(IGraphicsBackend& backend, const std::vector<RenderViewSubmission>& views)
             const;
 
-        const GraphicsRenderPipeline& get_pipeline() const;
-
       private:
         void rebuild_pipeline(IGraphicsBackend& backend);
+        void setup_default_pipeline();
 
       private:
         std::unique_ptr<GraphicsRenderPipeline> _pipeline = nullptr;
-        IGraphicsBackend* _backend = nullptr;
+        std::optional<std::reference_wrapper<IGraphicsBackend>> _backend = std::nullopt;
         bool _is_initialized = false;
     };
 }

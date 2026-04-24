@@ -3,6 +3,8 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
+#include <functional>
+#include <optional>
 
 namespace sdl_input
 {
@@ -25,8 +27,9 @@ namespace sdl_input
         static bool accumulate_wheel_delta(void* userdata, SDL_Event* event);
 
       private:
-        tbx::ServiceProvider* _service_provider = nullptr;
-        SdlInputManager* _input_manager = nullptr;
+        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
+            std::nullopt;
+        std::optional<std::reference_wrapper<SdlInputManager>> _input_manager = std::nullopt;
         bool _owns_gamepad_subsystem = false;
     };
 }

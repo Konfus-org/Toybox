@@ -1,14 +1,14 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/graphics/viewport.h"
-#include "tbx/utils/pipeline.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
+#include "tbx/utils/pipeline.h"
 #include "tbx/utils/result.h"
 #include <any>
+#include <functional>
 #include <optional>
 #include <vector>
-
 
 namespace tbx
 {
@@ -47,7 +47,7 @@ namespace tbx
 
     struct TBX_API GraphicsPipelinePayload
     {
-        IGraphicsBackend* backend = nullptr;
+        std::reference_wrapper<IGraphicsBackend> backend;
     };
 
     class TBX_API GraphicsRenderPassOperation final : public PipelineOperation
@@ -88,6 +88,6 @@ namespace tbx
             override;
 
       private:
-        IGraphicsBackend* _backend = nullptr;
+        IGraphicsBackend& _backend;
     };
 }

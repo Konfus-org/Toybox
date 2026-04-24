@@ -2,7 +2,8 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-
+#include <functional>
+#include <optional>
 
 namespace assimp_model_loader
 {
@@ -17,6 +18,7 @@ namespace assimp_model_loader
             const std::filesystem::path& asset_path,
             const tbx::ModelLoadParameters& parameters);
 
-        tbx::SerializationRegistry* _serialization_registry = nullptr;
+        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
+            std::nullopt;
     };
 }

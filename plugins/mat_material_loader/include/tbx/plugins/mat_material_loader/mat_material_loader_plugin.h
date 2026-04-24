@@ -4,8 +4,9 @@
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <filesystem>
+#include <functional>
 #include <memory>
-
+#include <optional>
 
 namespace mat_material_loader
 {
@@ -28,6 +29,7 @@ namespace mat_material_loader
 
         std::filesystem::path _working_directory = {};
         std::shared_ptr<tbx::IFileOps> _file_ops = {};
-        tbx::SerializationRegistry* _serialization_registry = nullptr;
+        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
+            std::nullopt;
     };
 }

@@ -33,6 +33,10 @@ function(tbx_add_thirdparty_library thirdparty_subdirectory)
 
         # Ensure third-party warnings never become build-stopping errors.
         set_property(TARGET ${thirdparty_target} PROPERTY COMPILE_WARNING_AS_ERROR OFF)
+
+        # Unity build often breaks third party libs.
+        set_property(TARGET ${thirdparty_target} PROPERTY UNITY_BUILD OFF)
+
         # Mark third-party include dirs as system so their warnings don\'t fail consumers.
         get_target_property(_tbx_iface_inc ${thirdparty_target} INTERFACE_INCLUDE_DIRECTORIES)
         if (_tbx_iface_inc)
@@ -53,6 +57,7 @@ tbx_add_thirdparty_library(spdlog spdlog spdlog_header_only)
 tbx_add_thirdparty_library(SDL SDL3-static SDL3-shared SDL3_test)
 tbx_add_thirdparty_library(imgui imgui)
 tbx_add_thirdparty_library(JoltPhysics/Build Jolt)
+
 set(tbx_had_build_shared_libs_cache OFF)
 if (DEFINED CACHE{BUILD_SHARED_LIBS})
     set(tbx_had_build_shared_libs_cache ON)

@@ -10,10 +10,10 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
-
 
 namespace tbx
 {
@@ -208,23 +208,27 @@ namespace tbx
 
       private:
         template <typename TAsset>
-        AssetStore<TAsset>* get_store(bool create_if_missing = false);
+        std::optional<std::reference_wrapper<AssetStore<TAsset>>> get_store(
+            bool create_if_missing = false);
 
         template <typename TAsset>
-        const AssetStore<TAsset>* get_store() const;
+        std::optional<std::reference_wrapper<const AssetStore<TAsset>>> get_store() const;
 
         template <typename TAsset>
-        AssetRecord<TAsset>* get_record(
+        std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
             AssetStore<TAsset>& store,
             const AssetRegistryEntry& entry,
             bool create_if_missing = false);
 
         template <typename TAsset>
-        AssetRecord<TAsset>* get_record(AssetStore<TAsset>& store, const Handle& handle);
+        std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
+            AssetStore<TAsset>& store,
+            const Handle& handle);
 
         template <typename TAsset>
-        const AssetRecord<TAsset>* get_record(const AssetStore<TAsset>& store, const Handle& handle)
-            const;
+        std::optional<std::reference_wrapper<const AssetRecord<TAsset>>> get_record(
+            const AssetStore<TAsset>& store,
+            const Handle& handle) const;
 
       private:
         mutable std::mutex _mutex = {};

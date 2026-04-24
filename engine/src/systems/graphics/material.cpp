@@ -84,15 +84,16 @@ namespace tbx
         const std::string_view name,
         const float fallback) const
     {
-        const auto* parameter = param_overrides.get(name);
-        if (!parameter)
+        const auto parameter = param_overrides.get(name);
+        if (!parameter.has_value())
             return fallback;
-        if (const auto* value = std::get_if<float>(&parameter->data))
-            return *value;
-        if (const auto* value = std::get_if<double>(&parameter->data))
-            return static_cast<float>(*value);
-        if (const auto* value = std::get_if<int>(&parameter->data))
-            return static_cast<float>(*value);
+        const auto& data = parameter->get().data;
+        if (std::holds_alternative<float>(data))
+            return std::get<float>(data);
+        if (std::holds_alternative<double>(data))
+            return static_cast<float>(std::get<double>(data));
+        if (std::holds_alternative<int>(data))
+            return static_cast<float>(std::get<int>(data));
         return fallback;
     }
 
@@ -100,15 +101,16 @@ namespace tbx
         const std::string_view name,
         const double fallback) const
     {
-        const auto* parameter = param_overrides.get(name);
-        if (!parameter)
+        const auto parameter = param_overrides.get(name);
+        if (!parameter.has_value())
             return fallback;
-        if (const auto* value = std::get_if<double>(&parameter->data))
-            return *value;
-        if (const auto* value = std::get_if<float>(&parameter->data))
-            return static_cast<double>(*value);
-        if (const auto* value = std::get_if<int>(&parameter->data))
-            return static_cast<double>(*value);
+        const auto& data = parameter->get().data;
+        if (std::holds_alternative<double>(data))
+            return std::get<double>(data);
+        if (std::holds_alternative<float>(data))
+            return static_cast<double>(std::get<float>(data));
+        if (std::holds_alternative<int>(data))
+            return static_cast<double>(std::get<int>(data));
         return fallback;
     }
 
@@ -116,9 +118,9 @@ namespace tbx
         const std::string_view name,
         const Handle& fallback) const
     {
-        const auto* texture = texture_overrides.get(name);
-        if (!texture)
+        const auto texture = texture_overrides.get(name);
+        if (!texture.has_value())
             return fallback;
-        return texture->texture;
+        return texture->get().texture;
     }
 }

@@ -1,5 +1,5 @@
-#include "tbx/systems/graphics/renderer.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/material.h"
 #include <string>
 
 namespace tbx
@@ -14,66 +14,66 @@ namespace tbx
         return normalized;
     }
 
-    static MaterialParameter* try_get_uniform_by_name(
+    static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_name(
         std::vector<MaterialParameter>& values,
         const std::string& normalized_name)
     {
         for (auto& value : values)
         {
             if (value.name == normalized_name)
-                return &value;
+                return std::ref(value);
         }
 
-        return nullptr;
+        return std::nullopt;
     }
 
-    static const MaterialParameter* try_get_uniform_by_name(
+    static std::optional<std::reference_wrapper<const MaterialParameter>> try_get_uniform_by_name(
         const std::vector<MaterialParameter>& values,
         const std::string& normalized_name)
     {
         for (const auto& value : values)
         {
             if (value.name == normalized_name)
-                return &value;
+                return std::cref(value);
         }
 
-        return nullptr;
+        return std::nullopt;
     }
 
-    static MaterialTextureBinding* try_get_texture_by_name(
+    static std::optional<std::reference_wrapper<MaterialTextureBinding>> try_get_texture_by_name(
         std::vector<MaterialTextureBinding>& values,
         const std::string& normalized_name)
     {
         for (auto& texture : values)
         {
             if (texture.name == normalized_name)
-                return &texture;
+                return std::ref(texture);
         }
 
-        return nullptr;
+        return std::nullopt;
     }
 
-    static const MaterialTextureBinding* try_get_texture_by_name(
+    static std::optional<std::reference_wrapper<const MaterialTextureBinding>> try_get_texture_by_name(
         const std::vector<MaterialTextureBinding>& values,
         const std::string& normalized_name)
     {
         for (const auto& texture : values)
         {
             if (texture.name == normalized_name)
-                return &texture;
+                return std::cref(texture);
         }
 
-        return nullptr;
+        return std::nullopt;
     }
 
     void MaterialParameterBindings::set(std::string_view name, MaterialParameterData value)
     {
         const std::string normalized_name = normalize_uniform_name(name);
 
-        auto* parameter = try_get_uniform_by_name(values, normalized_name);
-        if (parameter)
+        auto parameter = try_get_uniform_by_name(values, normalized_name);
+        if (parameter.has_value())
         {
-            parameter->data = std::move(value);
+            parameter->get().data = std::move(value);
             return;
         }
 
@@ -91,13 +91,15 @@ namespace tbx
             set(std::move(parameter));
     }
 
-    MaterialParameter* MaterialParameterBindings::get(std::string_view name)
+    std::optional<std::reference_wrapper<MaterialParameter>> MaterialParameterBindings::get(
+        std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_uniform_by_name(values, normalized_name);
     }
 
-    const MaterialParameter* MaterialParameterBindings::get(std::string_view name) const
+    std::optional<std::reference_wrapper<const MaterialParameter>> MaterialParameterBindings::get(
+        std::string_view name) const
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_uniform_by_name(values, normalized_name);
@@ -105,7 +107,7 @@ namespace tbx
 
     bool MaterialParameterBindings::has(std::string_view name) const
     {
-        return get(name) != nullptr;
+        return get(name).has_value();
     }
 
     void MaterialParameterBindings::remove(std::string_view name)
@@ -163,10 +165,10 @@ namespace tbx
     void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
         const std::string normalized_name = normalize_uniform_name(name);
-        auto* entry = try_get_texture_by_name(values, normalized_name);
-        if (entry)
+        auto entry = try_get_texture_by_name(values, normalized_name);
+        if (entry.has_value())
         {
-            entry->texture = std::move(texture);
+            entry->get().texture = std::move(texture);
             return;
         }
 
@@ -189,13 +191,15 @@ namespace tbx
             set(std::move(texture_binding));
     }
 
-    MaterialTextureBinding* MaterialTextureBindings::get(std::string_view name)
+    std::optional<std::reference_wrapper<MaterialTextureBinding>> MaterialTextureBindings::get(
+        std::string_view name)
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_texture_by_name(values, normalized_name);
     }
 
-    const MaterialTextureBinding* MaterialTextureBindings::get(std::string_view name) const
+    std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::
+        get(std::string_view name) const
     {
         const std::string normalized_name = normalize_uniform_name(name);
         return try_get_texture_by_name(values, normalized_name);
@@ -203,7 +207,7 @@ namespace tbx
 
     bool MaterialTextureBindings::has(std::string_view name) const
     {
-        return get(name) != nullptr;
+        return get(name).has_value();
     }
 
     void MaterialTextureBindings::remove(std::string_view name)

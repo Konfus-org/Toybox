@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -72,10 +73,10 @@ namespace jolt_physics
         std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
             {};
         std::unordered_set<tbx::Uuid> _pending_mesh_collider_refresh_asset_ids = {};
-        tbx::AssetManager* _asset_manager = nullptr;
-        tbx::EntityRegistry* _entity_registry = nullptr;
-        tbx::AppSettings* _settings = nullptr;
-        tbx::ThreadManager* _thread_manager = nullptr;
+        std::optional<std::reference_wrapper<tbx::AssetManager>> _asset_manager = std::nullopt;
+        std::optional<std::reference_wrapper<tbx::EntityRegistry>> _entity_registry = std::nullopt;
+        std::optional<std::reference_wrapper<tbx::AppSettings>> _settings = std::nullopt;
+        std::optional<std::reference_wrapper<tbx::ThreadManager>> _thread_manager = std::nullopt;
         std::thread::id _physics_thread_id = {};
         bool _is_ready = false;
     };

@@ -3,6 +3,7 @@
 #include "tbx/systems/time/delta_time.h"
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -541,10 +542,10 @@ namespace tbx
         /// @brief
         /// Purpose: Provides optional typed access without copying when available.
         /// @details
-        /// Ownership: Returns a non-owning pointer that aliases internal action storage.
+        /// Ownership: Returns a non-owning reference that aliases internal action storage.
         /// Thread Safety: Read-only operation; synchronize externally if shared mutably.
         template <typename TValue>
-        const TValue* try_get_value_as() const;
+        std::optional<std::reference_wrapper<const TValue>> try_get_value_as() const;
 
         bool get_is_active() const;
         std::chrono::duration<double> get_held_time() const;

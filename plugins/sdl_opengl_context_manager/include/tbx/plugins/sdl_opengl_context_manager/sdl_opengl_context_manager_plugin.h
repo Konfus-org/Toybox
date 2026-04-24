@@ -2,7 +2,8 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-
+#include <functional>
+#include <optional>
 
 namespace sdl_opengl_context_manager
 {
@@ -18,7 +19,9 @@ namespace sdl_opengl_context_manager
         void on_detach() override;
 
       private:
-        SdlOpenGlContextManager* _context_manager = nullptr;
-        tbx::ServiceProvider* _service_provider = nullptr;
+        std::optional<std::reference_wrapper<SdlOpenGlContextManager>> _context_manager =
+            std::nullopt;
+        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
+            std::nullopt;
     };
 }

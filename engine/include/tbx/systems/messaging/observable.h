@@ -3,6 +3,7 @@
 #include "tbx/systems/messaging/message.h"
 #include <concepts>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -43,19 +44,19 @@ namespace tbx
     /// @brief
     /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
     /// @details
-    /// Ownership: Non-owning; the output pointer borrows from the input message.
+    /// Ownership: Non-owning; the output reference borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <auto TMember>
-    PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+    std::optional<std::reference_wrapper<PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>>> handle_property_changed(
         Message& msg);
 
     /// @brief
     /// Purpose: Attempts to retrieve a property changed event for a specific observable member.
     /// @details
-    /// Ownership: Non-owning; the output pointer borrows from the input message.
+    /// Ownership: Non-owning; the output reference borrows from the input message.
     /// Thread Safety: Matches the caller's context. No synchronization is applied.
     template <auto TMember>
-    const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+    std::optional<std::reference_wrapper<const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>>> handle_property_changed(
         const Message& msg);
 }
 

@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+#include <optional>
 
 namespace opengl_rendering
 {
@@ -30,7 +32,7 @@ namespace opengl_rendering
     /// @brief
     /// Purpose: Ensures OpenGL resources are unbound when leaving scope.
     /// @details
-    /// Ownership: Does not take ownership of the resource; stores a non-owning pointer.
+    /// Ownership: Does not take ownership of the resource; stores a non-owning reference.
     /// Thread Safety: Use only on the render thread.
     class OpenGlResourceScope final
     {
@@ -44,6 +46,6 @@ namespace opengl_rendering
         OpenGlResourceScope& operator=(OpenGlResourceScope&& other) noexcept;
 
       private:
-        IOpenGlResource* _resource = nullptr;
+        std::optional<std::reference_wrapper<IOpenGlResource>> _resource = std::nullopt;
     };
 }

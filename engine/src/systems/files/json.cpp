@@ -4,6 +4,7 @@
 #include <charconv>
 #include <functional>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <span>
 
 namespace tbx
@@ -36,16 +37,18 @@ namespace tbx
         return _data->Data.dump(indent);
     }
 
-    static const nlohmann::json* try_get_value(const nlohmann::json& data, const std::string& key)
+    static std::optional<std::reference_wrapper<const nlohmann::json>> try_get_value(
+        const nlohmann::json& data,
+        const std::string& key)
     {
         if (!data.is_object())
-            return nullptr;
+            return std::nullopt;
 
         const auto iterator = data.find(key);
         if (iterator == data.end())
-            return nullptr;
+            return std::nullopt;
 
-        return &(*iterator);
+        return std::cref(*iterator);
     }
 
     static bool try_parse_float_components(
@@ -53,13 +56,14 @@ namespace tbx
         const std::string& key,
         std::span<float> components)
     {
-        const nlohmann::json* value = try_get_value(data, key);
-        if (!value || !value->is_array() || value->size() != components.size())
+        const auto value = try_get_value(data, key);
+        if (!value.has_value() || !value->get().is_array()
+            || value->get().size() != components.size())
             return false;
 
         for (std::size_t index = 0; index < components.size(); ++index)
         {
-            const auto& item = (*value)[index];
+            const auto& item = value->get()[index];
             if (!item.is_number())
                 return false;
 
@@ -72,44 +76,44 @@ namespace tbx
     template <>
     bool Json::try_get<int>(const std::string& key, int& out_value) const
     {
-        const nlohmann::json* value = try_get_value(_data->Data, key);
-        if (!value || !value->is_number_integer())
+        const auto value = try_get_value(_data->Data, key);
+        if (!value.has_value() || !value->get().is_number_integer())
             return false;
 
-        out_value = value->get<int>();
+        out_value = value->get().get<int>();
         return true;
     }
 
     template <>
     bool Json::try_get<bool>(const std::string& key, bool& out_value) const
     {
-        const nlohmann::json* value = try_get_value(_data->Data, key);
-        if (!value || !value->is_boolean())
+        const auto value = try_get_value(_data->Data, key);
+        if (!value.has_value() || !value->get().is_boolean())
             return false;
 
-        out_value = value->get<bool>();
+        out_value = value->get().get<bool>();
         return true;
     }
 
     template <>
     bool Json::try_get<float>(const std::string& key, float& out_value) const
     {
-        const nlohmann::json* value = try_get_value(_data->Data, key);
-        if (!value || !value->is_number())
+        const auto value = try_get_value(_data->Data, key);
+        if (!value.has_value() || !value->get().is_number())
             return false;
 
-        out_value = value->get<float>();
+        out_value = value->get().get<float>();
         return true;
     }
 
     template <>
     bool Json::try_get<std::string>(const std::string& key, std::string& out_value) const
     {
-        const nlohmann::json* value = try_get_value(_data->Data, key);
-        if (!value || !value->is_string())
+        const auto value = try_get_value(_data->Data, key);
+        if (!value.has_value() || !value->get().is_string())
             return false;
 
-        out_value = value->get<std::string>();
+        out_value = value->get().get<std::string>();
         return true;
     }
 
@@ -381,12 +385,12 @@ namespace tbx
         const std::function<bool(const nlohmann::json&)>& condition,
         const std::function<TValue(const nlohmann::json&)>& parser)
     {
-        const nlohmann::json* value = try_get_value(data, key);
-        if (!value || !value->is_array())
+        const auto value = try_get_value(data, key);
+        if (!value.has_value() || !value->get().is_array())
             return false;
 
         bool found = false;
-        for (const auto& entry : *value)
+        for (const auto& entry : value->get())
             if (condition(entry))
             {
                 out_values.push_back(parser(entry));

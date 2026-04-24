@@ -305,27 +305,27 @@ namespace tbx::tests::app
         d.register_handler(
             [](Message& message)
             {
-                auto* request = handle_message<Request<int>>(message);
-                if (!request)
+                auto request = handle_message<Request<int>>(message);
+                if (!request.has_value())
                 {
                     return;
                 }
 
-                request->state = MessageState::HANDLED;
-                request->result = 123;
+                request->get().state = MessageState::HANDLED;
+                request->get().result = 123;
             });
 
         Request<int> msg;
         int payload_value = 0;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            auto* request = handle_message<Request<int>>(processed);
-            if (!request)
+            auto request = handle_message<Request<int>>(processed);
+            if (!request.has_value())
             {
                 return;
             }
 
-            payload_value = request->result;
+            payload_value = request->get().result;
         };
 
         auto result = d.send(msg);
@@ -342,27 +342,27 @@ namespace tbx::tests::app
         d.register_handler(
             [](Message& message)
             {
-                auto* request = handle_message<Request<std::string>>(message);
-                if (!request)
+                auto request = handle_message<Request<std::string>>(message);
+                if (!request.has_value())
                 {
                     return;
                 }
 
-                request->state = MessageState::HANDLED;
-                request->result = std::string("ready");
+                request->get().state = MessageState::HANDLED;
+                request->get().result = std::string("ready");
             });
 
         Request<std::string> msg;
         std::string processed_payload;
         msg.callbacks.on_processed = [&](const Message& processed)
         {
-            auto* request = handle_message<Request<std::string>>(processed);
-            if (!request)
+            auto request = handle_message<Request<std::string>>(processed);
+            if (!request.has_value())
             {
                 return;
             }
 
-            processed_payload = request->result;
+            processed_payload = request->get().result;
         };
         auto future = d.post(msg);
 

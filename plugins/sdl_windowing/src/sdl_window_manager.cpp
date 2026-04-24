@@ -9,7 +9,6 @@
 #include <string_view>
 #include <utility>
 
-
 namespace sdl_windowing
 {
     namespace
@@ -81,7 +80,7 @@ namespace sdl_windowing
     }
 
     SdlWindowManager::SdlWindowManager(tbx::IMessageDispatcher& dispatcher)
-        : _dispatcher(&dispatcher)
+        : _dispatcher(dispatcher)
     {
     }
 
@@ -536,17 +535,15 @@ namespace sdl_windowing
         tbx::NativeWindowHandle previous_handle,
         tbx::NativeWindowHandle current_handle) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowNativeHandleChangedEvent>(
-                window,
-                previous_handle,
-                current_handle);
+        _dispatcher.send<tbx::WindowNativeHandleChangedEvent>(
+            window,
+            previous_handle,
+            current_handle);
     }
 
     void SdlWindowManager::send_window_closed(const tbx::Window& window) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowClosedEvent>(window);
+        _dispatcher.send<tbx::WindowClosedEvent>(window);
     }
 
     void SdlWindowManager::send_window_mode_changed(
@@ -554,14 +551,12 @@ namespace sdl_windowing
         tbx::WindowMode previous_mode,
         tbx::WindowMode current_mode) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowModeChangedEvent>(window, previous_mode, current_mode);
+        _dispatcher.send<tbx::WindowModeChangedEvent>(window, previous_mode, current_mode);
     }
 
     void SdlWindowManager::send_window_opened(const tbx::Window& window) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowOpenedEvent>(window);
+        _dispatcher.send<tbx::WindowOpenedEvent>(window);
     }
 
     void SdlWindowManager::send_window_size_changed(
@@ -569,8 +564,7 @@ namespace sdl_windowing
         const tbx::Size& previous_size,
         const tbx::Size& current_size) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowSizeChangedEvent>(window, previous_size, current_size);
+        _dispatcher.send<tbx::WindowSizeChangedEvent>(window, previous_size, current_size);
     }
 
     void SdlWindowManager::send_window_title_changed(
@@ -578,8 +572,7 @@ namespace sdl_windowing
         const std::string& previous_title,
         const std::string& current_title) const
     {
-        if (_dispatcher)
-            _dispatcher->send<tbx::WindowTitleChangedEvent>(window, previous_title, current_title);
+        _dispatcher.send<tbx::WindowTitleChangedEvent>(window, previous_title, current_title);
     }
 
     const SdlWindowRecord* SdlWindowManager::try_get_record(const tbx::Window& window) const

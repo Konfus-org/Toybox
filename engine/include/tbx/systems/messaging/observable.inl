@@ -7,18 +7,18 @@ namespace tbx
     {
         PropertyChangedEvent(
             Observable<TOwner, TChanged> TOwner::* member_ptr,
-            TOwner* owner_ptr,
+            TOwner& owner_ref,
             const TChanged& prev,
             const TChanged& curr)
             : member(member_ptr)
-            , owner(owner_ptr)
+            , owner(owner_ref)
             , previous(prev)
             , current(curr)
         {
         }
 
         Observable<TOwner, TChanged> TOwner::* member = nullptr;
-        TOwner* owner = nullptr;
+        std::reference_wrapper<TOwner> owner;
         TChanged previous;
         TChanged current;
     };
@@ -28,13 +28,13 @@ namespace tbx
     {
       public:
         Observable(
-            IMessageDispatcher* dispatch,
-            TOwner* owner,
+            IMessageDispatcher& dispatch,
+            TOwner& owner_ref,
             Observable<TOwner, TProp> TOwner::* member_ptr,
             TProp val)
             : _dispatcher(dispatch)
             , _member(member_ptr)
-            , owner(owner)
+            , owner(owner_ref)
             , value(val)
         {
             notify(value, value);
@@ -64,7 +64,7 @@ namespace tbx
 
       public:
         TProp value;
-        TOwner* owner;
+        std::reference_wrapper<TOwner> owner;
 
       private:
         template <typename TValue>
@@ -86,15 +86,12 @@ namespace tbx
 
         void notify(const TProp& previous, const TProp& current) const
         {
-            if (!_dispatcher)
-                return;
-
-            _dispatcher
-                ->send<PropertyChangedEvent<TOwner, TProp>>(_member, owner, previous, current);
+            _dispatcher.get()
+                .send<PropertyChangedEvent<TOwner, TProp>>(_member, owner.get(), previous, current);
         }
 
       private:
-        IMessageDispatcher* _dispatcher = nullptr;
+        std::reference_wrapper<IMessageDispatcher> _dispatcher;
         Observable<TOwner, TProp> TOwner::* _member = nullptr;
     };
 
@@ -107,32 +104,32 @@ namespace tbx
     };
 
     template <auto TMember>
-    PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+    std::optional<std::reference_wrapper<PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>>> handle_property_changed(
         Message& msg)
     {
         using Traits = ObservableMemberTraits<TMember>;
-        auto* typed =
+        auto typed =
             handle_message<PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(
                 msg);
-        if (!typed || typed->member != Traits::member)
+        if (!typed.has_value() || typed->get().member != Traits::member)
         {
-            return nullptr;
+            return std::nullopt;
         }
 
         return typed;
     }
 
     template <auto TMember>
-    const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>* handle_property_changed(
+    std::optional<std::reference_wrapper<const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>>> handle_property_changed(
         const Message& msg)
     {
         using Traits = ObservableMemberTraits<TMember>;
-        const auto* typed =
+        const auto typed =
             handle_message<PropertyChangedEvent<typename Traits::Owner, typename Traits::Property>>(
                 msg);
-        if (!typed || typed->member != Traits::member)
+        if (!typed.has_value() || typed->get().member != Traits::member)
         {
-            return nullptr;
+            return std::nullopt;
         }
 
         return typed;

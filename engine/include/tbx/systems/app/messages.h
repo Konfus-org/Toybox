@@ -8,31 +8,31 @@ namespace tbx
 {
     struct TBX_API ApplicationInitializedEvent : public Event
     {
-        ApplicationInitializedEvent(Application* app_ptr);
+        ApplicationInitializedEvent(Application& app);
 
-        Application* application = nullptr;
+        Application& application;
     };
 
     struct TBX_API ApplicationShutdownEvent : public Event
     {
-        ApplicationShutdownEvent(Application* app_ptr);
+        ApplicationShutdownEvent(Application& app);
 
-        Application* application = nullptr;
+        Application& application;
     };
 
     struct TBX_API ApplicationUpdateBeginEvent : public Event
     {
-        ApplicationUpdateBeginEvent(Application* app_ptr, DeltaTime delta);
+        ApplicationUpdateBeginEvent(Application& app, DeltaTime delta);
 
-        Application* application = nullptr;
+        Application& application;
         DeltaTime delta_time = {};
     };
 
     struct TBX_API ApplicationUpdateEndEvent : public Event
     {
-        ApplicationUpdateEndEvent(Application* app_ptr, DeltaTime delta);
+        ApplicationUpdateEndEvent(Application& app, DeltaTime delta);
 
-        Application* application = nullptr;
+        Application& application;
         DeltaTime delta_time = {};
     };
 

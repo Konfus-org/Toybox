@@ -130,7 +130,7 @@ namespace three_d_example
 
     void CameraController::register_input_scheme()
     {
-        if (_input_manager->get_scheme(_scheme_name) != nullptr)
+        if (_input_manager->get_scheme(_scheme_name).has_value())
             _input_manager->remove_scheme(_scheme_name);
 
         auto actions = std::vector<tbx::InputAction> {

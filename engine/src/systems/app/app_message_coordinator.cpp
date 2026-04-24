@@ -208,14 +208,14 @@ namespace tbx
 
             if (msg.state == MessageState::UN_HANDLED)
             {
-                auto* request = dynamic_cast<RequestBase*>(&msg);
-                if (!request)
+                auto request = handle_message<RequestBase>(msg);
+                if (!request.has_value())
                 {
                     apply_state(msg, MessageState::UN_HANDLED, std::string());
                     return;
                 }
 
-                switch (request->not_handled_behavior)
+                switch (request->get().not_handled_behavior)
                 {
                     case MessageNotHandledBehavior::DO_NOTHING:
                     {

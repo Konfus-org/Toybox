@@ -3,11 +3,12 @@
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <concepts>
+#include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
-
 
 namespace tbx
 {
@@ -137,20 +138,19 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Returns the current global dispatcher pointer (may be nullptr).
+    /// Purpose: Returns the current global dispatcher, when one is registered.
     /// @details
     /// Ownership: Non-owning. The setter retains ownership and must ensure the dispatcher outlives
-    /// its use through this API. Thread Safety: Thread-safe. Uses an atomic pointer to read the
-    /// global dispatcher without additional synchronization.
-    TBX_API IMessageDispatcher* get_global_dispatcher();
+    /// its use through this API. Thread Safety: Thread-safe.
+    TBX_API std::optional<std::reference_wrapper<IMessageDispatcher>> get_global_dispatcher();
 
     /// @brief
     /// Purpose: Sets the current dispatcher, returning the previous value.
     /// @details
     /// Ownership: Non-owning. The caller retains ownership and must ensure the dispatcher outlives
-    /// all use through this API. Thread Safety: Thread-safe. Uses an atomic pointer to exchange the
-    /// dispatcher value for the process.
-    TBX_API IMessageDispatcher* set_global_dispatcher(IMessageDispatcher* dispatcher);
+    /// all use through this API. Thread Safety: Thread-safe.
+    TBX_API std::optional<std::reference_wrapper<IMessageDispatcher>> set_global_dispatcher(
+        std::optional<std::reference_wrapper<IMessageDispatcher>> dispatcher);
 
     /// @brief
     /// Purpose: Sets the current global dispatcher for the lifetime of the scope, restoring the
@@ -164,11 +164,7 @@ namespace tbx
     {
       public:
         GlobalDispatcherScope(IMessageDispatcher& dispatcher)
-            : _prev(set_global_dispatcher(&dispatcher))
-        {
-        }
-        GlobalDispatcherScope(IMessageDispatcher* dispatcher)
-            : _prev(set_global_dispatcher(dispatcher))
+            : _prev(set_global_dispatcher(std::ref(dispatcher)))
         {
         }
 
@@ -181,7 +177,7 @@ namespace tbx
         GlobalDispatcherScope& operator=(const GlobalDispatcherScope&) = delete;
 
       private:
-        IMessageDispatcher* _prev = nullptr;
+        std::optional<std::reference_wrapper<IMessageDispatcher>> _prev = std::nullopt;
     };
 }
 

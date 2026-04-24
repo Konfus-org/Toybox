@@ -9,7 +9,6 @@
 #include <string>
 #include <string_view>
 
-
 namespace tbx
 {
     namespace
@@ -110,9 +109,7 @@ namespace tbx
                 auto data = Json(contents);
                 auto id = Uuid();
                 static_cast<void>(data.try_get<Uuid>("id", id));
-                return std::make_unique<Handle>(
-                    asset_path.lexically_normal().generic_string(),
-                    id);
+                return std::make_unique<Handle>(asset_path.lexically_normal().generic_string(), id);
             }
             catch (...)
             {
@@ -182,13 +179,8 @@ namespace tbx
         return result;
     }
 
-    Result AssetRegistry::ensure_asset_id(const Handle& handle, Uuid* out_asset_id)
+    Result AssetRegistry::ensure_asset_id(const Handle& handle, Uuid& out_asset_id)
     {
-        if (!out_asset_id)
-        {
-            return make_failed_result("Cannot ensure an asset id with a null output pointer.");
-        }
-
         if (handle.get_name().empty())
         {
             if (!handle.get_id().is_valid())
@@ -197,19 +189,18 @@ namespace tbx
                     "Cannot ensure asset id: handle has no path and no valid id.");
             }
 
-            auto* entry = find_entry_by_id(handle.get_id());
-            *out_asset_id = entry ? entry->asset_id : handle.get_id();
+            auto entry = find_entry_by_id(handle.get_id());
+            out_asset_id = entry.has_value() ? entry->get().asset_id : handle.get_id();
             return {};
         }
 
-        const AssetRegistryEntry* entry = nullptr;
-        auto result = ensure_entry(handle, &entry);
-        if (!result.succeeded())
+        auto ensure_result = ensure_entry(handle);
+        if (!ensure_result.result.succeeded())
         {
-            return result;
+            return ensure_result.result;
         }
 
-        if (!entry || !entry->asset_id.is_valid())
+        if (!ensure_result.entry.has_value() || !ensure_result.entry->get().asset_id.is_valid())
         {
             return make_failed_result(
                 std::string("Resolved asset entry for '")
@@ -217,32 +208,26 @@ namespace tbx
                     .append("' does not contain a valid id."));
         }
 
-        *out_asset_id = entry->asset_id;
-        return result;
+        out_asset_id = ensure_result.entry->get().asset_id;
+        return ensure_result.result;
     }
 
-    Result AssetRegistry::ensure_entry(const Handle& handle, const AssetRegistryEntry** out_entry)
+    AssetRegistryEntryResult AssetRegistry::ensure_entry(const Handle& handle)
     {
-        if (!out_entry)
-        {
-            return make_failed_result("Cannot ensure an asset entry with a null output pointer.");
-        }
-        *out_entry = nullptr;
-
-        auto result = Result {};
+        auto result = AssetRegistryEntryResult {};
 
         if (!handle.get_name().empty())
         {
             auto& entry = get_or_create_path_entry(handle.get_name());
             if (entry.asset_id.is_valid())
             {
-                *out_entry = &entry;
+                result.entry = std::cref(entry);
                 return result;
             }
 
             auto asset_id = Uuid {};
-            const auto resolve_result = resolve_or_repair_asset_id(entry, &asset_id);
-            merge_result(result, resolve_result);
+            const auto resolve_result = resolve_or_repair_asset_id(entry, asset_id);
+            merge_result(result.result, resolve_result);
             if (!resolve_result.succeeded())
             {
                 return result;
@@ -252,7 +237,7 @@ namespace tbx
             {
                 asset_id = make_runtime_asset_id(entry.normalized_path);
                 append_report(
-                    result,
+                    result.result,
                     std::string("Resolved an invalid asset id for '")
                         .append(entry.normalized_path)
                         .append("'. Using runtime id=")
@@ -261,45 +246,49 @@ namespace tbx
             }
 
             const auto assign_result = try_assign_asset_id(entry, asset_id);
-            merge_result(result, assign_result);
+            merge_result(result.result, assign_result);
             if (!assign_result.succeeded())
             {
                 return result;
             }
 
-            *out_entry = &entry;
+            result.entry = std::cref(entry);
             return result;
         }
 
         if (!handle.get_id().is_valid())
         {
-            return make_failed_result("Cannot resolve an asset entry from an invalid handle id.");
+            result.result =
+                make_failed_result("Cannot resolve an asset entry from an invalid handle id.");
+            return result;
         }
 
-        auto* entry = find_entry_by_id(handle.get_id());
-        if (!entry)
+        auto entry = find_entry_by_id(handle.get_id());
+        if (!entry.has_value())
         {
-            return make_failed_result(
+            result.result = make_failed_result(
                 std::string("No registered asset entry exists for id=")
                     .append(to_string(handle.get_id()))
                     .append("."));
+            return result;
         }
 
-        *out_entry = entry;
+        result.entry = std::cref(entry->get());
         return result;
     }
 
-    const AssetRegistryEntry* AssetRegistry::find_entry(const Handle& handle) const
+    std::optional<std::reference_wrapper<const AssetRegistryEntry>> AssetRegistry::find_entry(
+        const Handle& handle) const
     {
         if (!handle.get_name().empty())
         {
-            auto* entry = find_entry_by_path(handle.get_name());
-            if (entry)
+            auto entry = find_entry_by_path(handle.get_name());
+            if (entry.has_value())
                 return entry;
         }
 
         if (!handle.get_id().is_valid())
-            return nullptr;
+            return std::nullopt;
 
         return find_entry_by_id(handle.get_id());
     }
@@ -309,16 +298,16 @@ namespace tbx
         return _asset_directories;
     }
 
-    Result AssetRegistry::register_discovered_asset(
-        const std::filesystem::path& asset_path,
-        AssetRegistryEntry* out_entry)
+    AssetRegistryMutationResult AssetRegistry::register_discovered_asset(
+        const std::filesystem::path& asset_path)
     {
+        auto result = AssetRegistryMutationResult {};
         if (!should_track_asset_path(asset_path))
         {
-            return make_failed_result("Path is not a tracked asset.");
+            result.result = make_failed_result("Path is not a tracked asset.");
+            return result;
         }
 
-        auto result = Result {};
         auto& entry = get_or_create_path_entry(asset_path);
         if (!entry.asset_id.is_valid())
         {
@@ -326,14 +315,14 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(entry, discovered_id);
-                merge_result(result, assign_result);
+                merge_result(result.result, assign_result);
                 if (!assign_result.succeeded())
                 {
                     return result;
                 }
 
                 append_report(
-                    result,
+                    result.result,
                     std::string("Indexed discovered asset id=")
                         .append(to_string(discovered_id))
                         .append(" for '")
@@ -342,28 +331,26 @@ namespace tbx
             }
         }
 
-        if (out_entry)
-            *out_entry = entry;
-
+        result.entry = entry;
         return result;
     }
 
-    Result AssetRegistry::unregister_asset(
-        const std::filesystem::path& asset_path,
-        AssetRegistryEntry* out_removed_entry)
+    AssetRegistryMutationResult AssetRegistry::unregister_asset(
+        const std::filesystem::path& asset_path)
     {
+        auto result = AssetRegistryMutationResult {};
         const auto normalized_path = normalize_path_string(asset_path);
         auto iterator = _entries_by_path.find(normalized_path);
         if (iterator == _entries_by_path.end())
         {
-            return make_failed_result(
+            result.result = make_failed_result(
                 std::string("Asset path is not registered: '")
                     .append(normalized_path)
                     .append("'."));
+            return result;
         }
 
-        if (out_removed_entry)
-            *out_removed_entry = iterator->second;
+        result.entry = iterator->second;
 
         if (iterator->second.asset_id.is_valid())
             _path_by_id.erase(iterator->second.asset_id);
@@ -403,11 +390,11 @@ namespace tbx
         if (!handle.get_id().is_valid())
             return {};
 
-        auto* entry = find_entry_by_id(handle.get_id());
-        if (!entry)
+        auto entry = find_entry_by_id(handle.get_id());
+        if (!entry.has_value())
             return {};
 
-        return entry->resolved_path;
+        return entry->get().resolved_path;
     }
 
     Result AssetRegistry::scan_asset_directory(const std::filesystem::path& root)
@@ -458,43 +445,54 @@ namespace tbx
         return result;
     }
 
-    AssetRegistryEntry* AssetRegistry::find_entry_by_id(Uuid asset_id)
+    std::optional<std::reference_wrapper<AssetRegistryEntry>> AssetRegistry::find_entry_by_id(
+        Uuid asset_id)
     {
-        return const_cast<AssetRegistryEntry*>(
-            static_cast<const AssetRegistry*>(this)->find_entry_by_id(asset_id));
+        const auto& self = static_cast<const AssetRegistry&>(*this);
+        auto entry = self.find_entry_by_id(asset_id);
+        if (!entry.has_value())
+            return std::nullopt;
+
+        return std::ref(const_cast<AssetRegistryEntry&>(entry->get()));
     }
 
-    const AssetRegistryEntry* AssetRegistry::find_entry_by_id(Uuid asset_id) const
+    std::optional<std::reference_wrapper<const AssetRegistryEntry>> AssetRegistry::find_entry_by_id(
+        Uuid asset_id) const
     {
         if (!asset_id)
-            return nullptr;
+            return std::nullopt;
 
         auto iterator = _path_by_id.find(asset_id);
         if (iterator == _path_by_id.end())
-            return nullptr;
+            return std::nullopt;
 
         auto entry_iterator = _entries_by_path.find(iterator->second);
         if (entry_iterator == _entries_by_path.end())
-            return nullptr;
+            return std::nullopt;
 
-        return &entry_iterator->second;
+        return std::cref(entry_iterator->second);
     }
 
-    AssetRegistryEntry* AssetRegistry::find_entry_by_path(const std::filesystem::path& asset_path)
+    std::optional<std::reference_wrapper<AssetRegistryEntry>> AssetRegistry::find_entry_by_path(
+        const std::filesystem::path& asset_path)
     {
-        return const_cast<AssetRegistryEntry*>(
-            static_cast<const AssetRegistry*>(this)->find_entry_by_path(asset_path));
+        const auto& self = static_cast<const AssetRegistry&>(*this);
+        auto entry = self.find_entry_by_path(asset_path);
+        if (!entry.has_value())
+            return std::nullopt;
+
+        return std::ref(const_cast<AssetRegistryEntry&>(entry->get()));
     }
 
-    const AssetRegistryEntry* AssetRegistry::find_entry_by_path(
-        const std::filesystem::path& asset_path) const
+    std::optional<std::reference_wrapper<const AssetRegistryEntry>> AssetRegistry::
+        find_entry_by_path(const std::filesystem::path& asset_path) const
     {
         auto normalized = normalize_path_string(asset_path);
         auto iterator = _entries_by_path.find(normalized);
         if (iterator == _entries_by_path.end())
-            return nullptr;
+            return std::nullopt;
 
-        return &iterator->second;
+        return std::cref(iterator->second);
     }
 
     Uuid AssetRegistry::make_runtime_asset_id(const std::string& normalized_path)
@@ -568,13 +566,8 @@ namespace tbx
 
     Result AssetRegistry::resolve_or_repair_asset_id(
         const AssetRegistryEntry& entry,
-        Uuid* out_asset_id) const
+        Uuid& out_asset_id) const
     {
-        if (!out_asset_id)
-        {
-            return make_failed_result("Cannot resolve asset id with a null output pointer.");
-        }
-
         auto result = Result {};
 
         if (_handle_source)
@@ -584,17 +577,17 @@ namespace tbx
             {
                 if (handle.get_id().is_valid())
                 {
-                    *out_asset_id = handle.get_id();
+                    out_asset_id = handle.get_id();
                     return result;
                 }
 
-                *out_asset_id = make_runtime_asset_id(entry.normalized_path);
+                out_asset_id = make_runtime_asset_id(entry.normalized_path);
                 append_report(
                     result,
                     std::string("Handle source returned an invalid id for '")
                         .append(entry.normalized_path)
                         .append("'. Using runtime id=")
-                        .append(to_string(*out_asset_id))
+                        .append(to_string(out_asset_id))
                         .append("."));
                 return result;
             }
@@ -602,13 +595,13 @@ namespace tbx
 
         if (!_file_ops->exists(entry.resolved_path))
         {
-            *out_asset_id = make_runtime_asset_id(entry.normalized_path);
+            out_asset_id = make_runtime_asset_id(entry.normalized_path);
             append_report(
                 result,
                 std::string("Requested asset '")
                     .append(entry.normalized_path)
                     .append("' was not found on disk. Using runtime id=")
-                    .append(to_string(*out_asset_id))
+                    .append(to_string(out_asset_id))
                     .append("."));
             return result;
         }
@@ -620,7 +613,7 @@ namespace tbx
             auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
             if (parsed_handle && parsed_handle->get_id().is_valid())
             {
-                *out_asset_id = parsed_handle->get_id();
+                out_asset_id = parsed_handle->get_id();
                 return result;
             }
         }
@@ -634,7 +627,7 @@ namespace tbx
                     .append("'."));
         }
 
-        *out_asset_id = generated_id;
+        out_asset_id = generated_id;
 
         if (!_file_ops->exists(meta_path))
         {

@@ -13,11 +13,11 @@ namespace tbx
     }
 
     template <typename TValue>
-    const TValue* InputAction::try_get_value_as() const
+    std::optional<std::reference_wrapper<const TValue>> InputAction::try_get_value_as() const
     {
         if (!std::holds_alternative<TValue>(_value))
-            return nullptr;
+            return std::nullopt;
 
-        return &std::get<TValue>(_value);
+        return std::cref(std::get<TValue>(_value));
     }
 }

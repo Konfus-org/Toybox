@@ -8,14 +8,16 @@
 #include "tbx/utils/result.h"
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <typeinfo>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
 
 namespace tbx
 {
@@ -24,6 +26,18 @@ namespace tbx
         std::filesystem::path resolved_path = {};
         std::string normalized_path = {};
         Uuid asset_id = {};
+    };
+
+    struct AssetRegistryEntryResult
+    {
+        Result result = {};
+        std::optional<std::reference_wrapper<const AssetRegistryEntry>> entry = std::nullopt;
+    };
+
+    struct AssetRegistryMutationResult
+    {
+        Result result = {};
+        std::optional<AssetRegistryEntry> entry = std::nullopt;
     };
 
     class TBX_API AssetRegistry final
@@ -36,32 +50,33 @@ namespace tbx
 
       public:
         Result add_asset_directory(const std::filesystem::path& path);
-        Result ensure_asset_id(const Handle& handle, Uuid* out_asset_id);
-        Result ensure_entry(const Handle& handle, const AssetRegistryEntry** out_entry);
-        const AssetRegistryEntry* find_entry(const Handle& handle) const;
+        Result ensure_asset_id(const Handle& handle, Uuid& out_asset_id);
+        AssetRegistryEntryResult ensure_entry(const Handle& handle);
+        std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry(
+            const Handle& handle) const;
         std::vector<std::filesystem::path> get_asset_directories() const;
-        Result register_discovered_asset(
-            const std::filesystem::path& asset_path,
-            AssetRegistryEntry* out_entry = nullptr);
-        Result unregister_asset(
-            const std::filesystem::path& asset_path,
-            AssetRegistryEntry* out_removed_entry = nullptr);
+        AssetRegistryMutationResult register_discovered_asset(
+            const std::filesystem::path& asset_path);
+        AssetRegistryMutationResult unregister_asset(const std::filesystem::path& asset_path);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
         Result scan_asset_directory(const std::filesystem::path& root);
         static bool should_track_asset_path(const std::filesystem::path& asset_path);
 
       private:
-        AssetRegistryEntry* find_entry_by_id(Uuid asset_id);
-        const AssetRegistryEntry* find_entry_by_id(Uuid asset_id) const;
-        AssetRegistryEntry* find_entry_by_path(const std::filesystem::path& asset_path);
-        const AssetRegistryEntry* find_entry_by_path(const std::filesystem::path& asset_path) const;
+        std::optional<std::reference_wrapper<AssetRegistryEntry>> find_entry_by_id(Uuid asset_id);
+        std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry_by_id(
+            Uuid asset_id) const;
+        std::optional<std::reference_wrapper<AssetRegistryEntry>> find_entry_by_path(
+            const std::filesystem::path& asset_path);
+        std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry_by_path(
+            const std::filesystem::path& asset_path) const;
         static Uuid make_runtime_asset_id(const std::string& normalized_path);
         Uuid generate_unique_asset_id() const;
         AssetRegistryEntry& get_or_create_path_entry(const std::filesystem::path& asset_path);
         std::string normalize_path_string(const std::filesystem::path& asset_path) const;
         Uuid try_resolve_discovered_asset_id(const AssetRegistryEntry& entry) const;
-        Result resolve_or_repair_asset_id(const AssetRegistryEntry& entry, Uuid* out_asset_id)
+        Result resolve_or_repair_asset_id(const AssetRegistryEntry& entry, Uuid& out_asset_id)
             const;
         Result try_assign_asset_id(AssetRegistryEntry& entry, Uuid asset_id);
 
@@ -83,7 +98,7 @@ namespace tbx
     struct IAssetStore
     {
         virtual ~IAssetStore() = default;
-        virtual const char* get_asset_type_name() const = 0;
+        virtual std::string_view get_asset_type_name() const = 0;
         virtual void erase(Uuid asset_id) = 0;
         virtual AssetStoreReloadResult reload(
             const AssetRegistryEntry& entry,
@@ -117,7 +132,7 @@ namespace tbx
             records.erase(asset_id);
         }
 
-        const char* get_asset_type_name() const override
+        std::string_view get_asset_type_name() const override
         {
             return typeid(TAsset).name();
         }
@@ -137,7 +152,8 @@ namespace tbx
 
             auto parameters = record.has_load_parameters ? record.load_parameters
                                                          : AssetLoadParameters<TAsset> {};
-            auto promise = serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
+            auto promise =
+                serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
             if (!promise.asset)
             {
                 promise.asset = make_fallback_asset<TAsset>(parameters);

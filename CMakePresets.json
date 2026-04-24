@@ -78,22 +78,10 @@
       "jobs": 0
     },
     {
-      "name": "msvc-debug",
-      "inherits": "build-base",
-      "configurePreset": "msvc",
-      "configuration": "Debug"
-    },
-    {
       "name": "msvc-release",
       "inherits": "build-base",
       "configurePreset": "msvc",
       "configuration": "Release"
-    },
-    {
-      "name": "clang-debug",
-      "inherits": "build-base",
-      "configurePreset": "clang",
-      "configuration": "Debug"
     },
     {
       "name": "clang-release",
@@ -102,14 +90,14 @@
       "configuration": "Release"
     },
     {
-      "name": "msvc-dev-debug",
+      "name": "msvc-debug",
       "inherits": "build-base",
       "configurePreset": "msvc-dev",
       "configuration": "Debug",
       "jobs": 0
     },
     {
-      "name": "clang-dev-debug",
+      "name": "clang-debug",
       "inherits": "build-base",
       "configurePreset": "clang-dev",
       "configuration": "Debug",
@@ -128,22 +116,10 @@
       }
     },
     {
-      "name": "test-msvc-debug",
-      "inherits": "test-base",
-      "configurePreset": "msvc",
-      "configuration": "Debug"
-    },
-    {
       "name": "test-msvc-release",
       "inherits": "test-base",
       "configurePreset": "msvc",
       "configuration": "Release"
-    },
-    {
-      "name": "test-clang-debug",
-      "inherits": "test-base",
-      "configurePreset": "clang",
-      "configuration": "Debug"
     },
     {
       "name": "test-clang-release",
@@ -152,13 +128,13 @@
       "configuration": "Release"
     },
     {
-      "name": "test-msvc-dev-debug",
+      "name": "test-msvc-debug",
       "inherits": "test-base",
       "configurePreset": "msvc-dev",
       "configuration": "Debug"
     },
     {
-      "name": "test-clang-dev-debug",
+      "name": "test-clang-debug",
       "inherits": "test-base",
       "configurePreset": "clang-dev",
       "configuration": "Debug"

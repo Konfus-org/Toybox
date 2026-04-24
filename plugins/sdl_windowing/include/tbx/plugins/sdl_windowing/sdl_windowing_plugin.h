@@ -3,6 +3,8 @@
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include <SDL3/SDL.h>
+#include <functional>
+#include <optional>
 
 namespace sdl_windowing
 {
@@ -17,8 +19,9 @@ namespace sdl_windowing
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
-        tbx::ServiceProvider* _service_provider = nullptr;
-        SdlWindowManager* _window_manager = nullptr;
+        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
+            std::nullopt;
+        std::optional<std::reference_wrapper<SdlWindowManager>> _window_manager = std::nullopt;
         bool _use_opengl = false;
         SDL_Surface* _window_icon_surface = nullptr;
     };
