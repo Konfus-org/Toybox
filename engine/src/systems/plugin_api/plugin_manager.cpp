@@ -15,7 +15,7 @@ namespace tbx
 {
     static constexpr size invalid_plugin_index = std::numeric_limits<size>::max();
 
-    static bool path_contains_directory_token(
+    static bool plugin_manager_path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
     {
@@ -287,7 +287,7 @@ namespace tbx
         };
 
         const auto changed_path = _file_ops->resolve(change.path).lexically_normal();
-        if (path_contains_directory_token(changed_path, "resources"))
+        if (plugin_manager_path_contains_directory_token(changed_path, "resources"))
             return;
 
         if (is_plugin_manifest_path(changed_path))

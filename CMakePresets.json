@@ -21,7 +21,8 @@
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
-        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
+        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
+        "CMAKE_UNITY_BUILD": "OFF"
       },
       "hidden": true
     },
@@ -54,21 +55,15 @@
     },
     {
       "name": "msvc-dev",
-      "displayName": "Toybox (MSVC Dev Fast)",
-      "description": "MSVC local dev preset with unity builds for faster iteration",
-      "inherits": "msvc",
-      "cacheVariables": {
-        "CMAKE_UNITY_BUILD": "ON"
-      }
+      "displayName": "Toybox (MSVC Dev)",
+      "description": "MSVC local debug development preset",
+      "inherits": "msvc"
     },
     {
       "name": "clang-dev",
-      "displayName": "Toybox (Clang Dev Fast)",
-      "description": "Clang local dev preset with unity builds for faster iteration",
-      "inherits": "clang",
-      "cacheVariables": {
-        "CMAKE_UNITY_BUILD": "ON"
-      }
+      "displayName": "Toybox (Clang Dev)",
+      "description": "Clang local debug development preset",
+      "inherits": "clang"
     }
   ],
   "buildPresets": [

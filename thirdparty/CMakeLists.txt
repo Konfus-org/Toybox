@@ -78,4 +78,3 @@ endif ()
 unset(BUILD_SHARED_LIBS)
 
 unset(CMAKE_FOLDER)
-

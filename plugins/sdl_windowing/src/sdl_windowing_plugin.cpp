@@ -12,7 +12,7 @@ namespace sdl_windowing
 {
     namespace
     {
-        bool is_wayland_video_driver()
+        bool is_wayland_video_driver_for_plugin()
         {
             const char* video_driver = SDL_GetCurrentVideoDriver();
             return video_driver != nullptr && std::string_view(video_driver) == "wayland";
@@ -23,7 +23,7 @@ namespace sdl_windowing
             if (icon_path.empty())
                 return nullptr;
 
-            if (is_wayland_video_driver())
+            if (is_wayland_video_driver_for_plugin())
                 return nullptr;
 
             SDL_ClearError();
