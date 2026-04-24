@@ -16,7 +16,7 @@ target_sources(TbxPluginApiTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxPluginApiTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/core/tests/files/include"
+    "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
 )
 
 target_link_libraries(TbxPluginApiTests PRIVATE

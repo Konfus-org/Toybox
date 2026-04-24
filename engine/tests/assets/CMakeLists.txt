@@ -12,7 +12,7 @@ target_precompile_headers(TbxAssetsTests PRIVATE "pch.h")
 target_sources(TbxAssetsTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxAssetsTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/core/tests/files/include"
+    "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
 )
 
 target_link_libraries(TbxAssetsTests PRIVATE
@@ -23,4 +23,5 @@ target_link_libraries(TbxAssetsTests PRIVATE
 )
 
 add_test(NAME TbxAssetsTests COMMAND $<TARGET_FILE:TbxAssetsTests>)
+set_tests_properties(TbxAssetsTests PROPERTIES WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 unset(CMAKE_FOLDER)

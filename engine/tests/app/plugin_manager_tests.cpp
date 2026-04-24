@@ -7,7 +7,7 @@
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/files/tests/in_memory_file_ops.h"
+#include "tbx/core/systems/files/tests/in_memory_file_ops.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include <filesystem>
@@ -105,8 +105,7 @@ namespace tbx::tests::app
             service_provider.get_service<IMessageCoordinator>(),
             service_provider.get_service<SerializationRegistry>(),
             working_directory,
-            {},
-            {}));
+            std::vector<std::filesystem::path> {}));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
             service_provider.get_service<IMessageCoordinator>(),
             true,
