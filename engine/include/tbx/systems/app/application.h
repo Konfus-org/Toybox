@@ -14,9 +14,9 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
+#include <memory>
 #include <string>
 #include <vector>
-
 
 namespace tbx
 {
@@ -61,7 +61,7 @@ namespace tbx
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
         Window _main_window = {};
-        Rendering _rendering = {};
+        std::unique_ptr<Rendering> _rendering = {};
         std::string _main_window_base_title = {};
 
         uint _update_count = 0;

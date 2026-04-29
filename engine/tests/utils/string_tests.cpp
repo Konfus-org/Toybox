@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace tbx::tests::common
+namespace tbx::tests::utils
 {
     TEST(StringUtilsTests, TrimsWhitespaceFromBothEnds)
     {

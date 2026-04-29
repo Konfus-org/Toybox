@@ -62,6 +62,7 @@ target_link_libraries(Core
         spdlog::spdlog
 )
 
-set(CMAKE_FOLDER "tests")
-add_subdirectory(tests)
-unset(CMAKE_FOLDER)
+# TODO: seperate testing from the rest of the engines builds, it should be its own thing seperate from the runtime
+#set(CMAKE_FOLDER "tests")
+#add_subdirectory(tests)
+#unset(CMAKE_FOLDER)

@@ -1,11 +1,17 @@
 #include "PCH.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
+#include "tbx/systems/math/transform.h"
+#include <filesystem>
 #include <future>
 #include <vector>
-
 
 namespace tbx::tests::graphics
 {
@@ -193,13 +199,19 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result upload_buffer(const GraphicsBufferDesc&, const void*, uint64, Uuid&) override
+        Result upload_buffer(
+            const GraphicsBufferDesc&,
+            const void*,
+            uint64,
+            Uuid& out_resource_uuid) override
         {
+            out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
         }
 
-        Result upload_pipeline(const GraphicsPipelineDesc&, Uuid&) override
+        Result upload_pipeline(const GraphicsPipelineDesc&, Uuid& out_resource_uuid) override
         {
+            out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
         }
 
@@ -237,6 +249,7 @@ namespace tbx::tests::graphics
         uint32 recorded_sampler_slot = 0U;
         GraphicsIndexType recorded_index_type = GraphicsIndexType::UINT32;
         GraphicsDrawIndexedDesc recorded_draw = {};
+        uint32 next_uploaded_resource = 1000U;
     };
 
     class NullMessageDispatcher final : public IMessageDispatcher
@@ -255,26 +268,125 @@ namespace tbx::tests::graphics
         }
     };
 
-    // Validates Rendering opens frame state through the command-based backend API.
-    TEST(RenderingTests, Submit_DelegatesFrameAndOutputPassCommands)
+    class RecordingWindowManager final : public IWindowManager
+    {
+      public:
+        Window create(const WindowCreateInfo& create_info = {}) override
+        {
+            (void)create_info;
+            return window;
+        }
+
+        bool destroy(const Window& target_window) override
+        {
+            if (target_window != window)
+                return false;
+
+            is_window_open = false;
+            return true;
+        }
+
+        bool has(const Window& target_window) const override
+        {
+            return target_window == window;
+        }
+
+        bool open(const Window& target_window) override
+        {
+            if (target_window != window)
+                return false;
+
+            is_window_open = true;
+            return true;
+        }
+
+        bool close(const Window& target_window) override
+        {
+            if (target_window != window)
+                return false;
+
+            is_window_open = false;
+            return true;
+        }
+
+        bool is_open(const Window& target_window) const override
+        {
+            return target_window == window && is_window_open;
+        }
+
+        WindowMode get_mode(const Window&) const override
+        {
+            return WindowMode::WINDOWED;
+        }
+
+        bool set_mode(const Window&, WindowMode) override
+        {
+            return true;
+        }
+
+        std::string get_title(const Window&) const override
+        {
+            return "main";
+        }
+
+        bool set_title(const Window&, std::string) override
+        {
+            return true;
+        }
+
+        NativeWindowHandle get_native_handle(const Window&) const override
+        {
+            return nullptr;
+        }
+
+        Size get_size(const Window&) const override
+        {
+            return size;
+        }
+
+        bool set_size(const Window&, const Size& next_size) override
+        {
+            size = next_size;
+            return true;
+        }
+
+        std::vector<Window> get_open_windows() const override
+        {
+            return is_window_open ? std::vector<Window> {window} : std::vector<Window> {};
+        }
+
+      public:
+        Window window = Window("main");
+        Size size = Size {1280U, 720U};
+        bool is_window_open = true;
+    };
+
+    // Validates Rendering opens frame state and submits geometry through render().
+    TEST(RenderingTests, Render_DelegatesFrameAndGeometryPassCommands)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto rendering = Rendering {};
+        auto registry = EntityRegistry {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        const auto output_window = Window("main");
-        const auto resolution = Size {1280U, 720U};
-        const auto view = RenderViewSubmission {
-            .output_window = output_window,
-            .camera = Camera {},
-            .resolution = resolution,
-        };
+        auto entity = Entity("Triangle", registry);
+        entity.add_component<DynamicMesh>(triangle);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
 
         // Act
-        const auto initialize_result = rendering.initialize(backend, settings);
-        const auto result = rendering.submit(backend, view);
+        auto rendering = Rendering(
+            backend,
+            registry,
+            asset_manager,
+            window_manager,
+            window_manager.window,
+            settings);
+        const auto result = rendering.render();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -282,19 +394,22 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::BeginView,
             GraphicsBackendCallback::SetViewport,
             GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindVertexBuffer,
+            GraphicsBackendCallback::BindIndexBuffer,
+            GraphicsBackendCallback::DrawIndexed,
             GraphicsBackendCallback::EndPass,
             GraphicsBackendCallback::EndView,
             GraphicsBackendCallback::Present,
             GraphicsBackendCallback::EndFrame,
         };
 
-        EXPECT_TRUE(initialize_result);
         EXPECT_TRUE(result);
-        EXPECT_EQ(backend.recorded_output_window.get_id(), output_window.get_id());
-        EXPECT_EQ(backend.recorded_render_resolution.width, resolution.width);
-        EXPECT_EQ(backend.recorded_render_resolution.height, resolution.height);
-        EXPECT_EQ(backend.recorded_viewport.width, resolution.width);
-        EXPECT_EQ(backend.recorded_viewport.height, resolution.height);
+        EXPECT_EQ(backend.recorded_output_window.get_id(), window_manager.window.get_id());
+        EXPECT_EQ(backend.recorded_render_resolution.width, window_manager.size.width);
+        EXPECT_EQ(backend.recorded_render_resolution.height, window_manager.size.height);
+        EXPECT_EQ(backend.recorded_viewport.width, window_manager.size.width);
+        EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
         EXPECT_EQ(backend.callbacks, expected_callbacks);
@@ -429,25 +544,32 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 
-    // Validates Rendering owns the Toybox geometry pipeline and submits pass commands.
-    TEST(GraphicsRenderPipelineTests, Rendering_InitializesAndSubmitsGeometryPass)
+    // Validates Rendering owns the Toybox geometry pass and submits render() commands.
+    TEST(GraphicsRenderPipelineTests, Rendering_RenderSubmitsGeometryPass)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto rendering = Rendering {};
+        auto registry = EntityRegistry {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto entity = Entity("Cube", registry);
+        entity.add_component<DynamicMesh>(cube);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
 
         // Act
-        const auto initialize_result = rendering.initialize(backend, settings);
-        const auto render_result = rendering.submit(
+        auto rendering = Rendering(
             backend,
-            RenderViewSubmission {
-                .output_window = Window("main"),
-                .camera = Camera {},
-                .resolution = Size {1280U, 720U},
-            });
+            registry,
+            asset_manager,
+            window_manager,
+            window_manager.window,
+            settings);
+        const auto render_result = rendering.render();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -455,50 +577,19 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::BeginView,
             GraphicsBackendCallback::SetViewport,
             GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindVertexBuffer,
+            GraphicsBackendCallback::BindIndexBuffer,
+            GraphicsBackendCallback::DrawIndexed,
             GraphicsBackendCallback::EndPass,
             GraphicsBackendCallback::EndView,
             GraphicsBackendCallback::Present,
             GraphicsBackendCallback::EndFrame,
         };
 
-        const auto& operations = rendering.get_pipeline().get_operations();
-        ASSERT_EQ(operations.size(), 1U);
-        const auto* geometry_operation =
-            dynamic_cast<const GraphicsRenderPassOperation*>(operations.front().get());
-        ASSERT_NE(geometry_operation, nullptr);
-        EXPECT_EQ(geometry_operation->get_pass().pass.debug_name, "Toybox Geometry Pass");
-        EXPECT_EQ(geometry_operation->get_pass().pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_TRUE(initialize_result);
         EXPECT_TRUE(render_result);
+        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
+        EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
-    }
-
-    // Validates backend changes wait for in-flight work before rebuilding the pipeline.
-    TEST(GraphicsRenderPipelineTests, Rendering_RebuildsPipelineWhenBackendChanges)
-    {
-        // Arrange
-        auto first_backend = RecordingGraphicsBackend {};
-        auto second_backend = RecordingGraphicsBackend {};
-        auto rendering = Rendering {};
-        auto dispatcher = NullMessageDispatcher {};
-        auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-
-        // Act
-        const auto first_initialize_result = rendering.initialize(first_backend, settings);
-        const auto second_initialize_result = rendering.initialize(second_backend, settings);
-
-        // Assert
-        const auto expected_first_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::WaitForIdle,
-        };
-
-        const auto& operations = rendering.get_pipeline().get_operations();
-        ASSERT_EQ(operations.size(), 1U);
-        EXPECT_EQ(&rendering.get_pipeline().get_backend(), &second_backend);
-        EXPECT_TRUE(first_initialize_result);
-        EXPECT_TRUE(second_initialize_result);
-        EXPECT_EQ(first_backend.callbacks, expected_first_callbacks);
-        EXPECT_TRUE(second_backend.callbacks.empty());
     }
 }

@@ -213,14 +213,13 @@ namespace tbx
 
             if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
             {
-                const auto initialize_result =
-                    _rendering.initialize(graphics_backend->get(), settings.graphics);
-                if (!initialize_result)
-                {
-                    TBX_TRACE_WARNING(
-                        "Toybox renderer initialization failed: {}",
-                        initialize_result.get_report());
-                }
+                _rendering = std::make_unique<Rendering>(
+                    graphics_backend->get(),
+                    _service_provider.get_service<EntityRegistry>(),
+                    asset_manager,
+                    window_manager->get(),
+                    _main_window,
+                    settings.graphics);
             }
 
             // Log filesystem directories
@@ -273,7 +272,6 @@ namespace tbx
     {
         auto& msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
         auto& asset_manager = _service_provider.get_service<AssetManager>();
-        auto& settings = _service_provider.get_service<AppSettings>();
 
         // Process messages posted in previous frame
         msg_coordinator.flush();
@@ -292,24 +290,13 @@ namespace tbx
         // Update all loaded plugins
         _plugin_manager.update(dt);
 
-        if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>())
+        if (_rendering)
         {
-            if (_main_window.is_valid())
+            if (auto window_manager = _service_provider.try_get_service<IWindowManager>())
             {
-                if (auto window_manager = _service_provider.try_get_service<IWindowManager>())
+                if (_main_window.is_valid() && window_manager->get().is_open(_main_window))
                 {
-                    const auto render_resolution =
-                        settings.graphics.resolution.value.width > 0U
-                                && settings.graphics.resolution.value.height > 0U
-                            ? settings.graphics.resolution.value
-                            : window_manager->get().get_size(_main_window);
-                    const auto render_result = _rendering.submit(
-                        graphics_backend->get(),
-                        RenderViewSubmission {
-                            .output_window = _main_window,
-                            .camera = Camera {},
-                            .resolution = render_resolution,
-                        });
+                    const auto render_result = _rendering->render();
                     if (!render_result)
                     {
                         TBX_TRACE_WARNING(
@@ -492,7 +479,10 @@ namespace tbx
             // 1. Send shutdown event
             msg_coordinator.send<ApplicationShutdownEvent>(*this);
 
-            // 2. Close main window
+            // 2. Release renderer-owned graphics resources while the window/context services live.
+            _rendering.reset();
+
+            // 3. Close main window
             if (auto window_manager = _service_provider.try_get_service<IWindowManager>())
             {
                 if (_main_window.is_valid())
@@ -501,17 +491,17 @@ namespace tbx
             _main_window = {};
             _should_exit = true;
 
-            // 3. Detach and unload plugins using dependency-aware unload ordering.
+            // 4. Detach and unload plugins using dependency-aware unload ordering.
             _plugin_manager.unload_all();
 
-            // 4. Unregister all entities and unload assets after plugin teardown.
+            // 5. Unregister all entities and unload assets after plugin teardown.
             entity_registry.clear();
             asset_manager.unload_all();
 
-            // 5. Stop dedicated thread lanes after plugin teardown.
+            // 6. Stop dedicated thread lanes after plugin teardown.
             thread_manager.stop_all();
 
-            // 6. Process any remaining posted messages and clear handlers
+            // 7. Process any remaining posted messages and clear handlers
             msg_coordinator.flush();
             msg_coordinator.clear_handlers();
         }

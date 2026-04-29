@@ -358,13 +358,6 @@ function(tbx_codegen_generate_plugin_artifacts)
         set(PLUGIN_DEPENDENCIES_BLOCK "    \"dependencies\": [\n${dependencies_json}\n    ],\n")
     endif()
 
-    if(TBX_CODEGEN_PLUGIN_ASSET_PATH)
-        set(PLUGIN_RESOURCES_BLOCK
-            "    \"resources\": [\n        \"${TBX_CODEGEN_PLUGIN_ASSET_PATH}\"\n    ],\n")
-    else()
-        set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
-    endif()
-
     set(PLUGIN_CATEGORY "${TBX_CODEGEN_PLUGIN_CATEGORY}")
     set(PLUGIN_PRIORITY "${TBX_CODEGEN_PLUGIN_PRIORITY}")
     set(PLUGIN_ABI_VERSION ${TBX_CODEGEN_PLUGIN_ABI_VERSION})
@@ -372,19 +365,35 @@ function(tbx_codegen_generate_plugin_artifacts)
 
     set(meta_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin.meta.in")
     set(meta_output "${TBX_CODEGEN_GENERATED_DIR}/${TBX_CODEGEN_PLUGIN_NAME}.meta")
+    set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
     configure_file("${meta_template}" "${meta_output}" @ONLY)
     set_source_files_properties("${meta_output}" PROPERTIES HEADER_FILE_ONLY TRUE)
     target_sources(${TBX_CODEGEN_TARGET} PRIVATE "${meta_output}")
 
-    source_group(TREE "${TBX_CODEGEN_BASE_DIR}" FILES "${registration_output}" "${meta_output}")
+    set(meta_copy_source "${meta_output}")
+    set(generated_files "${registration_output}" "${meta_output}")
+
+    if(TBX_CODEGEN_PLUGIN_ASSET_PATH)
+        set(development_meta_output
+            "${TBX_CODEGEN_GENERATED_DIR}/${TBX_CODEGEN_PLUGIN_NAME}.development.meta")
+        set(PLUGIN_RESOURCES_BLOCK
+            "    \"resources\": [\n        \"${TBX_CODEGEN_PLUGIN_ASSET_PATH}\"\n    ],\n")
+        configure_file("${meta_template}" "${development_meta_output}" @ONLY)
+        set_source_files_properties("${development_meta_output}" PROPERTIES HEADER_FILE_ONLY TRUE)
+        target_sources(${TBX_CODEGEN_TARGET} PRIVATE "${development_meta_output}")
+        set(meta_copy_source "$<IF:$<CONFIG:Debug>,${development_meta_output},${meta_output}>")
+        list(APPEND generated_files "${development_meta_output}")
+    endif()
+
+    source_group(TREE "${TBX_CODEGEN_BASE_DIR}" FILES ${generated_files})
     tbx_codegen_register_generated_files(
         BASE_DIR "${TBX_CODEGEN_BASE_DIR}"
-        FILES "${registration_output}" "${meta_output}"
+        FILES ${generated_files}
     )
 
     add_custom_command(TARGET ${TBX_CODEGEN_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${meta_output}"
+            "${meta_copy_source}"
             "$<TARGET_FILE_DIR:${TBX_CODEGEN_TARGET}>/$<TARGET_FILE_NAME:${TBX_CODEGEN_TARGET}>.meta"
     )
 endfunction()

@@ -56,7 +56,30 @@ tbx_add_thirdparty_library(nlohmann_json nlohmann_json)
 tbx_add_thirdparty_library(spdlog spdlog spdlog_header_only)
 tbx_add_thirdparty_library(SDL SDL3-static SDL3-shared SDL3_test)
 tbx_add_thirdparty_library(imgui imgui)
+
+# Toybox uses Jolt only for CPU physics. Keep optional GPU compute backends out of
+# the engine dependency graph so the runtime doesn't require SDK DLLs such as DXC.
+set(JPH_USE_DX12 OFF CACHE BOOL "" FORCE)
+set(JPH_USE_DXC OFF CACHE BOOL "" FORCE)
+set(JPH_USE_VK OFF CACHE BOOL "" FORCE)
+set(JPH_USE_MTL OFF CACHE BOOL "" FORCE)
+set(JPH_USE_CPU_COMPUTE ON CACHE BOOL "" FORCE)
+
+set(tbx_had_build_shared_libs_cache_for_jolt OFF)
+if (DEFINED CACHE{BUILD_SHARED_LIBS})
+    set(tbx_had_build_shared_libs_cache_for_jolt ON)
+    set(tbx_previous_build_shared_libs_for_jolt "${BUILD_SHARED_LIBS}")
+endif ()
+
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries (DLLs)." FORCE)
 tbx_add_thirdparty_library(JoltPhysics/Build Jolt)
+
+if (tbx_had_build_shared_libs_cache_for_jolt)
+    set(BUILD_SHARED_LIBS "${tbx_previous_build_shared_libs_for_jolt}" CACHE BOOL "Build shared libraries (DLLs)." FORCE)
+else ()
+    unset(BUILD_SHARED_LIBS CACHE)
+endif ()
+unset(BUILD_SHARED_LIBS)
 
 set(tbx_had_build_shared_libs_cache OFF)
 if (DEFINED CACHE{BUILD_SHARED_LIBS})

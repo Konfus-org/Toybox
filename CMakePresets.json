@@ -52,18 +52,6 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
-    },
-    {
-      "name": "msvc-dev",
-      "displayName": "Toybox (MSVC Dev)",
-      "description": "MSVC local debug development preset",
-      "inherits": "msvc"
-    },
-    {
-      "name": "clang-dev",
-      "displayName": "Toybox (Clang Dev)",
-      "description": "Clang local debug development preset",
-      "inherits": "clang"
     }
   ],
   "buildPresets": [
@@ -87,14 +75,14 @@
     {
       "name": "msvc-debug",
       "inherits": "build-base",
-      "configurePreset": "msvc-dev",
+      "configurePreset": "msvc",
       "configuration": "Debug",
       "jobs": 0
     },
     {
       "name": "clang-debug",
       "inherits": "build-base",
-      "configurePreset": "clang-dev",
+      "configurePreset": "clang",
       "configuration": "Debug",
       "jobs": 0
     }
@@ -125,13 +113,13 @@
     {
       "name": "test-msvc-debug",
       "inherits": "test-base",
-      "configurePreset": "msvc-dev",
+      "configurePreset": "msvc",
       "configuration": "Debug"
     },
     {
       "name": "test-clang-debug",
       "inherits": "test-base",
-      "configurePreset": "clang-dev",
+      "configurePreset": "clang",
       "configuration": "Debug"
     }
   ]
