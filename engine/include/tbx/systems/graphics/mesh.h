@@ -7,7 +7,6 @@
 #include <utility>
 #include <vector>
 
-
 namespace tbx
 {
     using IndexBuffer = std::vector<uint32>;
@@ -94,9 +93,9 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Identifies runtime-owned mesh geometry to render for an entity.
+    /// Purpose: Identifies reusable runtime mesh geometry shared by many renderable entities.
     /// @details
-    /// Ownership: Holds a shared pointer to mesh data owned by callers or producer systems.
+    /// Ownership: Holds a shared pointer to mesh data owned by a producer system.
     /// Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
     /// itself is safe to copy between threads.
     struct TBX_API DynamicMesh
@@ -112,7 +111,7 @@ namespace tbx
         }
 
         /// @brief
-        /// Purpose: Mesh data to render.
+        /// Purpose: Shared mesh data to render.
         /// @details
         /// Ownership: Shared ownership of the mesh data via std::shared_ptr.
         /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.

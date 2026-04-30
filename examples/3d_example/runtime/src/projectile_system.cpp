@@ -1,6 +1,5 @@
 #include "projectile_system.h"
 #include "tbx/systems/assets/builtin_assets.h"
-#include "tbx/systems/graphics/light.h"
 #include "tbx/systems/math/transform.h"
 #include "tbx/systems/physics/collider.h"
 #include "tbx/systems/physics/physics.h"
@@ -16,6 +15,7 @@ namespace three_d_example
     {
         _entity_registry = &entity_registry;
         _camera_provider = std::move(camera_provider);
+        _projectile_material = create_projectile_material();
     }
 
     ProjectileSystem::~ProjectileSystem()
@@ -87,11 +87,8 @@ namespace three_d_example
 
         constexpr auto projectile_visual_scale = 0.35F;
         auto projectile = tbx::Entity(projectile_name, *_entity_registry);
-        projectile.add_component<tbx::MaterialInstance>(create_projectile_material());
+        projectile.add_component<tbx::MaterialInstance>(_projectile_material);
         projectile.add_component<tbx::DynamicMesh>(_projectile_mesh);
-        auto projectile_light = tbx::PointLight(tbx::Color(1.0F, 0.95F, 0.6F, 1.0F), 2.75F, 4.5F);
-        projectile_light.shadows_enabled = false;
-        projectile.add_component<tbx::PointLight>(projectile_light);
         projectile.add_component<tbx::Transform>(
             spawn_position,
             camera_world_transform.rotation,

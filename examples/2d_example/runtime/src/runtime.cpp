@@ -11,7 +11,6 @@
 #include "tbx/systems/math/trig.h"
 #include "tbx/utils/string_utils.h"
 
-
 namespace two_d_example
 {
     static void set_world_space_transform(

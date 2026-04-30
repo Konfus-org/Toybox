@@ -23,9 +23,10 @@ namespace tbx
         float get_z_near() const;
         float get_z_far() const;
 
-        Frustum get_frustum(const Vec3& camera_position, const Quat& camera_rotation);
-        Mat4 get_view_matrix(const Vec3& camera_position, const Quat& camera_rotation);
-        Mat4 get_view_projection_matrix(const Vec3& camera_position, const Quat& camera_rotation);
+        Frustum get_frustum(const Vec3& camera_position, const Quat& camera_rotation) const;
+        Mat4 get_view_matrix(const Vec3& camera_position, const Quat& camera_rotation) const;
+        Mat4 get_view_projection_matrix(const Vec3& camera_position, const Quat& camera_rotation)
+            const;
         const Mat4& get_projection_matrix() const;
 
       private:

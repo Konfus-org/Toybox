@@ -151,9 +151,7 @@ namespace opengl_rendering
                     return make_failure(
                         "OpenGL backend: render pass depth target description was not found.");
 
-                _pass_framebuffer->attach_depth_stencil(
-                    texture_it->second,
-                    desc_it->second.format);
+                _pass_framebuffer->attach_depth_stencil(texture_it->second, desc_it->second.format);
             }
 
             _pass_framebuffer->set_draw_buffers(static_cast<uint32>(pass.color_targets.size()));
@@ -229,14 +227,16 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::bind_pipeline(const tbx::Uuid& pipeline_resource_uuid)
     {
+        if (pipeline_resource_uuid.is_valid() && _current_pipeline == pipeline_resource_uuid)
+            return make_success();
+
         const auto program_it = _programs.find(pipeline_resource_uuid);
         if (program_it == _programs.end())
             return make_failure("OpenGL backend: pipeline was not found.");
 
         const auto vertex_array_it = _pipeline_vertex_arrays.find(pipeline_resource_uuid);
         const auto desc_it = _pipeline_descs.find(pipeline_resource_uuid);
-        if (vertex_array_it == _pipeline_vertex_arrays.end()
-            || desc_it == _pipeline_descs.end())
+        if (vertex_array_it == _pipeline_vertex_arrays.end() || desc_it == _pipeline_descs.end())
             return make_failure("OpenGL backend: pipeline state was not found.");
 
         program_it->second.bind();
@@ -266,6 +266,16 @@ namespace opengl_rendering
                 "OpenGL backend: buffer is not a vertex buffer.");
             !result)
             return result;
+
+        if (const auto pipeline_binding_it =
+                _pipeline_vertex_buffer_bindings.find(_current_pipeline);
+            pipeline_binding_it != _pipeline_vertex_buffer_bindings.end())
+        {
+            const auto slot_binding_it = pipeline_binding_it->second.find(slot);
+            if (slot_binding_it != pipeline_binding_it->second.end()
+                && slot_binding_it->second == buffer_resource_uuid)
+                return make_success();
+        }
 
         const auto& pipeline_desc = _pipeline_descs.at(_current_pipeline);
         const auto vertex_array = _pipeline_vertex_arrays.at(_current_pipeline);
@@ -309,12 +319,10 @@ namespace opengl_rendering
                     attribute.offset);
             }
 
-            glVertexArrayBindingDivisor(
-                vertex_array,
-                slot,
-                layout->is_per_instance ? 1U : 0U);
+            glVertexArrayBindingDivisor(vertex_array, slot, layout->is_per_instance ? 1U : 0U);
         }
 
+        _pipeline_vertex_buffer_bindings[_current_pipeline][slot] = buffer_resource_uuid;
         return make_success();
     }
 
@@ -340,10 +348,16 @@ namespace opengl_rendering
             !result)
             return result;
 
+        if (const auto binding_it = _pipeline_index_buffer_bindings.find(_current_pipeline);
+            binding_it != _pipeline_index_buffer_bindings.end()
+            && binding_it->second == buffer_resource_uuid)
+            return make_success();
+
         glVertexArrayElementBuffer(
             _pipeline_vertex_arrays.at(_current_pipeline),
             buffer_it->second.get_buffer_id());
         buffer_it->second.bind();
+        _pipeline_index_buffer_bindings[_current_pipeline] = buffer_resource_uuid;
         return make_success();
     }
 
@@ -450,6 +464,25 @@ namespace opengl_rendering
         {
             _buffers.erase(buffer_it);
             _buffer_descs.erase(resource_uuid);
+            for (auto& [pipeline_id, bindings] : _pipeline_vertex_buffer_bindings)
+            {
+                (void)pipeline_id;
+                for (auto binding_it = bindings.begin(); binding_it != bindings.end();)
+                {
+                    if (binding_it->second == resource_uuid)
+                        binding_it = bindings.erase(binding_it);
+                    else
+                        ++binding_it;
+                }
+            }
+            for (auto binding_it = _pipeline_index_buffer_bindings.begin();
+                 binding_it != _pipeline_index_buffer_bindings.end();)
+            {
+                if (binding_it->second == resource_uuid)
+                    binding_it = _pipeline_index_buffer_bindings.erase(binding_it);
+                else
+                    ++binding_it;
+            }
             return make_success();
         }
 
@@ -462,6 +495,8 @@ namespace opengl_rendering
                 _pipeline_vertex_arrays.erase(vertex_array_it);
             }
             _pipeline_descs.erase(resource_uuid);
+            _pipeline_index_buffer_bindings.erase(resource_uuid);
+            _pipeline_vertex_buffer_bindings.erase(resource_uuid);
             _programs.erase(program_it);
             if (_current_pipeline == resource_uuid)
                 _current_pipeline = {};
@@ -551,7 +586,8 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: texture upload data is null.");
 
         if (data != nullptr && data_size < get_texture_byte_size(desc))
-            return make_failure("OpenGL backend: texture upload data is smaller than texture size.");
+            return make_failure(
+                "OpenGL backend: texture upload data is smaller than texture size.");
 
         out_resource_uuid = tbx::Uuid::generate();
         _textures.try_emplace(out_resource_uuid, desc, data);
@@ -654,6 +690,8 @@ namespace opengl_rendering
                 glDeleteVertexArrays(1, &vertex_array);
         }
         _pipeline_vertex_arrays.clear();
+        _pipeline_index_buffer_bindings.clear();
+        _pipeline_vertex_buffer_bindings.clear();
         _pipeline_descs.clear();
         _programs.clear();
         _buffers.clear();

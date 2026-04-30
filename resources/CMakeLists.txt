@@ -1,3 +1,4 @@
+set(CMAKE_FOLDER "utility")
 include(code_gen_utility)
 
 set(project_name Resources)
@@ -45,3 +46,5 @@ tbx_register_asset_bundle_path(
     TARGET ${project_name}
     PATH "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+unset(CMAKE_FOLDER)

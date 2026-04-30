@@ -191,6 +191,11 @@ namespace jolt_physics
         return new JPH::SphereShape(radius);
     }
 
+    static std::uint32_t make_shape_cache_key(const float value)
+    {
+        return static_cast<std::uint32_t>(std::round(std::max(0.0F, value) * 10000.0F));
+    }
+
     static JPH::RefConst<JPH::Shape> create_capsule_shape(const tbx::CapsuleCollider& capsule)
     {
         float radius = std::max(0.001F, capsule.radius);
@@ -618,10 +623,22 @@ namespace jolt_physics
         tbx::AssetManager& asset_manager,
         const tbx::Entity& entity,
         const tbx::Transform& transform,
-        bool is_physics_driven)
+        bool is_physics_driven,
+        std::unordered_map<std::uint32_t, JPH::RefConst<JPH::Shape>>& sphere_shapes_by_radius)
     {
         if (entity.has_component<tbx::SphereCollider>())
-            return create_sphere_shape(entity.get_component<tbx::SphereCollider>());
+        {
+            const auto& sphere = entity.get_component<tbx::SphereCollider>();
+            const float radius = std::max(0.001F, sphere.radius);
+            const std::uint32_t radius_key = make_shape_cache_key(radius);
+            if (const auto shape_iterator = sphere_shapes_by_radius.find(radius_key);
+                shape_iterator != sphere_shapes_by_radius.end())
+                return shape_iterator->second;
+
+            auto shape = create_sphere_shape(sphere);
+            sphere_shapes_by_radius[radius_key] = shape;
+            return shape;
+        }
 
         if (entity.has_component<tbx::CapsuleCollider>())
             return create_capsule_shape(entity.get_component<tbx::CapsuleCollider>());
@@ -886,6 +903,7 @@ namespace jolt_physics
         _bodies_by_entity.clear();
         _entity_by_body_key.clear();
         _overlap_entities_by_trigger.clear();
+        _sphere_shapes_by_radius.clear();
     }
 
     void JoltPhysicsPlugin::apply_world_settings()
@@ -989,7 +1007,8 @@ namespace jolt_physics
                     _asset_manager->get(),
                     entity,
                     world_transform,
-                    is_physics_driven);
+                    is_physics_driven,
+                    _sphere_shapes_by_radius);
                 if (!shape)
                     continue;
 
@@ -1038,6 +1057,11 @@ namespace jolt_physics
                     .last_scale = world_transform.scale,
                     .has_last_transform = true,
                     .is_trigger_only = is_trigger_only,
+                    .last_friction = physics != nullptr ? physics->friction : 0.5F,
+                    .last_restitution = physics != nullptr ? physics->restitution : 0.0F,
+                    .last_is_gravity_enabled =
+                        physics != nullptr ? physics->is_gravity_enabled : true,
+                    .has_last_physics_properties = is_physics_driven,
                 };
                 _entity_by_body_key[get_body_key(body_id)] = entity_id;
                 continue;
@@ -1116,9 +1140,28 @@ namespace jolt_physics
                 }
             }
 
-            body_interface.SetFriction(body_id, physics->friction);
-            body_interface.SetRestitution(body_id, physics->restitution);
-            body_interface.SetGravityFactor(body_id, physics->is_gravity_enabled ? 1.0F : 0.0F);
+            if (!body_record.has_last_physics_properties
+                || std::abs(body_record.last_friction - physics->friction) > 0.000001F)
+            {
+                body_interface.SetFriction(body_id, physics->friction);
+                body_record.last_friction = physics->friction;
+            }
+
+            if (!body_record.has_last_physics_properties
+                || std::abs(body_record.last_restitution - physics->restitution) > 0.000001F)
+            {
+                body_interface.SetRestitution(body_id, physics->restitution);
+                body_record.last_restitution = physics->restitution;
+            }
+
+            if (!body_record.has_last_physics_properties
+                || body_record.last_is_gravity_enabled != physics->is_gravity_enabled)
+            {
+                body_interface.SetGravityFactor(body_id, physics->is_gravity_enabled ? 1.0F : 0.0F);
+                body_record.last_is_gravity_enabled = physics->is_gravity_enabled;
+            }
+
+            body_record.has_last_physics_properties = true;
         }
 
         auto stale_entities = std::vector<tbx::Uuid>();

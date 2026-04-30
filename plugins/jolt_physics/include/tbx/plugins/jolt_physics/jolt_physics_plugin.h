@@ -14,6 +14,7 @@
 // clang-format off
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
+#include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 // clang-format on
 #include <cstdint>
@@ -40,6 +41,10 @@ namespace jolt_physics
         tbx::Vec3 last_scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
         bool has_last_transform = false;
         bool is_trigger_only = false;
+        float last_friction = 0.5F;
+        float last_restitution = 0.0F;
+        bool last_is_gravity_enabled = true;
+        bool has_last_physics_properties = false;
     };
 
     class TBX_PLUGIN_API JoltPhysicsPlugin final : public tbx::Plugin
@@ -70,6 +75,7 @@ namespace jolt_physics
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
         std::unordered_map<tbx::Uuid, JoltBodyRecord> _bodies_by_entity = {};
         std::unordered_map<std::uint32_t, tbx::Uuid> _entity_by_body_key = {};
+        std::unordered_map<std::uint32_t, JPH::RefConst<JPH::Shape>> _sphere_shapes_by_radius = {};
         std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
             {};
         std::unordered_set<tbx::Uuid> _pending_mesh_collider_refresh_asset_ids = {};

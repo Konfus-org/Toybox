@@ -103,6 +103,9 @@ namespace opengl_rendering
         tbx::IOpenGlContextManager& _context_manager;
         std::unordered_map<tbx::Uuid, OpenGlGraphicsBuffer> _buffers = {};
         std::unordered_map<tbx::Uuid, tbx::GraphicsBufferDesc> _buffer_descs = {};
+        std::unordered_map<tbx::Uuid, std::unordered_map<uint32, tbx::Uuid>>
+            _pipeline_vertex_buffer_bindings = {};
+        std::unordered_map<tbx::Uuid, tbx::Uuid> _pipeline_index_buffer_bindings = {};
         std::unordered_map<tbx::Uuid, OpenGlShaderProgram> _programs = {};
         std::unordered_map<tbx::Uuid, tbx::GraphicsPipelineDesc> _pipeline_descs = {};
         std::unordered_map<tbx::Uuid, GLuint> _pipeline_vertex_arrays = {};
