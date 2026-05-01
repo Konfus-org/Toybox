@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/viewport.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include "tbx/utils/pipeline.h"
 #include "tbx/utils/result.h"
@@ -14,21 +12,13 @@
 
 namespace tbx
 {
-    struct TBX_API GraphicsAssetResourceBinding
-    {
-        uint32 slot = 0U;
-        Handle asset = {};
-    };
-
     struct TBX_API GraphicsDrawCommand
     {
         Uuid pipeline = {};
-        Handle material = {};
         std::vector<GraphicsResourceBinding> vertex_buffers = {};
         std::vector<GraphicsResourceBinding> uniform_buffers = {};
         std::vector<GraphicsResourceBinding> storage_buffers = {};
         std::vector<GraphicsResourceBinding> textures = {};
-        std::vector<GraphicsAssetResourceBinding> texture_assets = {};
         std::vector<GraphicsResourceBinding> samplers = {};
         uint32 vertex_count = 0U;
         uint32 vertex_offset = 0U;
@@ -37,14 +27,12 @@ namespace tbx
     struct TBX_API GraphicsIndexedDrawCommand
     {
         Uuid pipeline = {};
-        Handle material = {};
         std::vector<GraphicsResourceBinding> vertex_buffers = {};
         Uuid index_buffer = {};
         GraphicsIndexType index_type = GraphicsIndexType::UINT32;
         std::vector<GraphicsResourceBinding> uniform_buffers = {};
         std::vector<GraphicsResourceBinding> storage_buffers = {};
         std::vector<GraphicsResourceBinding> textures = {};
-        std::vector<GraphicsAssetResourceBinding> texture_assets = {};
         std::vector<GraphicsResourceBinding> samplers = {};
         GraphicsDrawIndexedDesc draw = {};
     };
@@ -60,8 +48,6 @@ namespace tbx
     struct TBX_API GraphicsPipelinePayload
     {
         std::reference_wrapper<IGraphicsBackend> backend;
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> resource_manager =
-            std::nullopt;
     };
 
     class TBX_API GraphicsRenderPassOperation final : public PipelineOperation
@@ -82,9 +68,6 @@ namespace tbx
     {
       public:
         GraphicsRenderPipeline(IGraphicsBackend& backend);
-        GraphicsRenderPipeline(
-            IGraphicsBackend& backend,
-            GraphicsResourceManager& resource_manager);
 
       public:
         GraphicsRenderPipeline(const GraphicsRenderPipeline&) = delete;
@@ -106,7 +89,5 @@ namespace tbx
 
       private:
         IGraphicsBackend& _backend;
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> _resource_manager =
-            std::nullopt;
     };
 }

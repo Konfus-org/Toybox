@@ -9,6 +9,8 @@
 #include "tbx/systems/graphics/shader.h"
 #include "tbx/systems/math/matrices.h"
 #include <cmath>
+#include <cstring>
+#include <functional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -33,6 +35,229 @@ namespace tbx
         std::shared_ptr<Mesh> mesh_data = {};
         std::vector<Mat4> world_to_clip_transforms = {};
     };
+
+    struct MaterialUniformBlock
+    {
+        Color color = Color::WHITE;
+        Color emissive = Color::BLACK;
+        float specular_strength = 0.5F;
+        float shininess_strength = 32.0F;
+        float alpha_cutoff = 0.1F;
+        float padding0 = 0.0F;
+        float transparency_amount = 0.0F;
+        float exposure = 1.0F;
+        float diffuse_strength = 1.0F;
+        float normal_strength = 1.0F;
+        float emissive_strength = 1.0F;
+        float color_texture_blend = 1.0F;
+        float wireframe_width = 1.0F;
+        float padding1 = 0.0F;
+        float padding2 = 0.0F;
+        float padding3 = 0.0F;
+    };
+
+    struct ViewUniformBlock
+    {
+        Mat4 view_projection = Mat4(1.0F);
+    };
+
+    struct MaterialDrawState
+    {
+        uint64 key = 0U;
+        Uuid pipeline = {};
+        Uuid uniform_buffer = {};
+        std::vector<GraphicsResourceBinding> textures = {};
+    };
+
+    struct MaterialMeshInstanceDrawBatch
+    {
+        std::shared_ptr<Mesh> mesh_data = {};
+        MaterialDrawState material = {};
+        std::vector<Mat4> model_to_world_transforms = {};
+    };
+
+    struct StaticMaterialDrawBatch
+    {
+        Uuid vertex_buffer = {};
+        Uuid index_buffer = {};
+        uint32 index_count = 0U;
+        MaterialDrawState material = {};
+        std::vector<Mat4> model_to_world_transforms = {};
+    };
+
+    static uint64 hash_bytes(const void* data, const uint64 size, uint64 hash = 14695981039346656037ULL)
+    {
+        const auto* bytes = static_cast<const unsigned char*>(data);
+        for (uint64 index = 0U; index < size; ++index)
+        {
+            hash ^= bytes[index];
+            hash *= 1099511628211ULL;
+        }
+        return hash;
+    }
+
+    static uint64 hash_value(const uint64 value, const uint64 hash)
+    {
+        return hash_bytes(&value, static_cast<uint64>(sizeof(value)), hash);
+    }
+
+    static uint64 hash_uuid(const Uuid value, const uint64 hash)
+    {
+        return hash_value(static_cast<uint32>(value), hash);
+    }
+
+    template <typename TValue>
+    static TValue get_parameter_or(
+        const MaterialParameterBindings& parameters,
+        const std::string_view name,
+        const TValue& fallback)
+    {
+        const auto parameter = parameters.get(name);
+        if (!parameter.has_value())
+            return fallback;
+
+        if (const auto* value = std::get_if<TValue>(&parameter->get().data))
+            return *value;
+
+        return fallback;
+    }
+
+    static MaterialUniformBlock make_material_uniform_block(
+        const MaterialParameterBindings& parameters)
+    {
+        auto block = MaterialUniformBlock {};
+        block.color = get_parameter_or(parameters, "color", block.color);
+        block.emissive = get_parameter_or(parameters, "emissive", block.emissive);
+        block.specular_strength =
+            get_parameter_or(parameters, "specular_strength", block.specular_strength);
+        block.shininess_strength =
+            get_parameter_or(parameters, "shininess_strength", block.shininess_strength);
+        block.alpha_cutoff = get_parameter_or(parameters, "alpha_cutoff", block.alpha_cutoff);
+        block.transparency_amount =
+            get_parameter_or(parameters, "transparency_amount", block.transparency_amount);
+        block.exposure = get_parameter_or(parameters, "exposure", block.exposure);
+        block.diffuse_strength =
+            get_parameter_or(parameters, "diffuse_strength", block.diffuse_strength);
+        block.normal_strength =
+            get_parameter_or(parameters, "normal_strength", block.normal_strength);
+        block.emissive_strength =
+            get_parameter_or(parameters, "emissive_strength", block.emissive_strength);
+        block.color_texture_blend =
+            get_parameter_or(parameters, "color_texture_blend", block.color_texture_blend);
+        block.wireframe_width =
+            get_parameter_or(parameters, "wireframe_width", block.wireframe_width);
+        return block;
+    }
+
+    static uint64 make_material_key(
+        const Uuid pipeline,
+        const MaterialUniformBlock& uniforms,
+        const std::vector<GraphicsResourceBinding>& textures)
+    {
+        uint64 hash = hash_uuid(pipeline, 14695981039346656037ULL);
+        hash = hash_bytes(&uniforms, static_cast<uint64>(sizeof(uniforms)), hash);
+        for (const auto& texture : textures)
+        {
+            hash = hash_value(texture.slot, hash);
+            hash = hash_uuid(texture.resource, hash);
+        }
+        return hash == 0U ? 1U : hash;
+    }
+
+    static uint64 make_dynamic_material_batch_key(
+        const uint64 mesh_key,
+        const uint64 material_key)
+    {
+        return hash_value(material_key, hash_value(mesh_key, 14695981039346656037ULL));
+    }
+
+    static uint64 make_static_material_batch_key(
+        const Uuid vertex_buffer,
+        const Uuid index_buffer,
+        const uint32 index_count,
+        const uint64 material_key)
+    {
+        uint64 hash = hash_uuid(vertex_buffer, 14695981039346656037ULL);
+        hash = hash_uuid(index_buffer, hash);
+        hash = hash_value(index_count, hash);
+        hash = hash_value(material_key, hash);
+        return hash == 0U ? 1U : hash;
+    }
+
+    static Result resolve_material_textures(
+        const MaterialTextureBindings& textures,
+        GraphicsResourceManager& resource_manager,
+        std::vector<GraphicsResourceBinding>& out_textures)
+    {
+        auto texture_slot = uint32 {0U};
+        out_textures.reserve(textures.values.size());
+        for (const auto& texture : textures)
+        {
+            auto texture_resource = Uuid {};
+            if (texture.texture.is_valid())
+            {
+                if (const auto result =
+                        resource_manager.load_texture(texture.texture, texture_resource);
+                    !result)
+                    return result;
+            }
+            else if (const auto result = resource_manager.load_default_texture(texture_resource);
+                     !result)
+            {
+                return result;
+            }
+
+            out_textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = texture_slot,
+                    .resource = texture_resource,
+                });
+            texture_slot += 1U;
+        }
+
+        return {};
+    }
+
+    static Result resolve_material_draw_state(
+        const MaterialInstance& material,
+        GraphicsResourceManager& resource_manager,
+        const std::function<Result(uint64, const void*, uint64, Uuid&)>& ensure_uniform_buffer,
+        MaterialDrawState& out_material)
+    {
+        out_material = {};
+        auto material_resource = GraphicsMaterialInstanceResource {};
+        if (const auto result = resource_manager.load_material_instance(material, material_resource);
+            !result)
+            return result;
+
+        auto material_uniforms = make_material_uniform_block(material_resource.parameters);
+        auto texture_bindings = std::vector<GraphicsResourceBinding> {};
+        if (const auto result = resolve_material_textures(
+                material_resource.textures,
+                resource_manager,
+                texture_bindings);
+            !result)
+            return result;
+
+        const uint64 material_key =
+            make_material_key(material_resource.pipeline, material_uniforms, texture_bindings);
+        auto material_uniform_buffer = Uuid {};
+        if (const auto result = ensure_uniform_buffer(
+                material_key,
+                &material_uniforms,
+                static_cast<uint64>(sizeof(material_uniforms)),
+                material_uniform_buffer);
+            !result)
+            return result;
+
+        out_material = MaterialDrawState {
+            .key = material_key,
+            .pipeline = material_resource.pipeline,
+            .uniform_buffer = material_uniform_buffer,
+            .textures = std::move(texture_bindings),
+        };
+        return {};
+    }
 
     static Shader make_geometry_shader()
     {
@@ -502,7 +727,7 @@ namespace tbx
         , _output_window(std::move(output_window))
         , _requested_resolution(settings.resolution.value)
         , _resource_manager(std::make_unique<GraphicsResourceManager>(backend, asset_manager))
-        , _pipeline(std::make_unique<GraphicsRenderPipeline>(backend, *_resource_manager))
+        , _pipeline(std::make_unique<GraphicsRenderPipeline>(backend))
     {
         _initialization_result = backend.initialize(settings);
         setup_geometry_pass(0U, {});
@@ -554,11 +779,20 @@ namespace tbx
         const Mat4 view_projection = render_view.camera.get_view_projection_matrix(
             render_view.transform.position,
             render_view.transform.rotation);
+        auto view_uniform_buffer = Uuid {};
+        if (const auto result = ensure_view_uniform_buffer(view_projection, view_uniform_buffer);
+            !result)
+        {
+            finish_after_failure(result);
+            return;
+        }
+
         auto fallback_vertices = std::vector<float> {};
         auto fallback_indices = std::vector<uint32> {};
         auto indexed_draws = std::vector<GraphicsIndexedDrawCommand> {};
         if (const auto result = append_dynamic_mesh_draws(
                 view_projection,
+                view_uniform_buffer,
                 indexed_draws,
                 fallback_vertices,
                 fallback_indices);
@@ -567,7 +801,9 @@ namespace tbx
             finish_after_failure(result);
             return;
         }
-        if (const auto result = append_static_model_draws(view_projection, indexed_draws); !result)
+        if (const auto result =
+                append_static_model_draws(view_projection, view_uniform_buffer, indexed_draws);
+            !result)
         {
             finish_after_failure(result);
             return;
@@ -590,6 +826,7 @@ namespace tbx
         }
 
         unload_stale_dynamic_mesh_buffers();
+        unload_stale_material_uniform_buffers();
         unload_stale_model_transform_buffers();
         setup_geometry_pass(static_cast<uint32>(fallback_indices.size()), std::move(indexed_draws));
         if (const auto result = _pipeline->execute(); !result)
@@ -771,6 +1008,7 @@ namespace tbx
 
             _dynamic_mesh_instance_buffers[mesh_key] = buffer;
             _dynamic_mesh_instance_buffer_sizes[mesh_key] = data_size;
+            _dynamic_mesh_last_access_frames[mesh_key] = _render_frame;
             out_buffer = buffer;
             return {};
         }
@@ -786,6 +1024,88 @@ namespace tbx
         }
 
         out_buffer = buffer_iterator->second;
+        _dynamic_mesh_last_access_frames[mesh_key] = _render_frame;
+        return {};
+    }
+
+    Result Rendering::ensure_material_uniform_buffer(
+        const uint64 material_key,
+        const void* material_data,
+        const uint64 material_data_size,
+        Uuid& out_buffer)
+    {
+        out_buffer = {};
+        if (material_key == 0U || material_data == nullptr || material_data_size == 0U)
+            return Result(false, "Rendering: material uniform data is invalid.");
+
+        auto iterator = _material_uniform_buffers.find(material_key);
+        if (iterator != _material_uniform_buffers.end())
+        {
+            out_buffer = iterator->second;
+            _material_uniform_last_access_frames[material_key] = _render_frame;
+            return {};
+        }
+
+        auto buffer = Uuid {};
+        if (const auto result = _backend.get().upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::UNIFORM,
+                    .size = material_data_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Material Uniforms",
+                },
+                material_data,
+                material_data_size,
+                buffer);
+            !result)
+        {
+            return result;
+        }
+
+        _material_uniform_buffers[material_key] = buffer;
+        _material_uniform_last_access_frames[material_key] = _render_frame;
+        out_buffer = buffer;
+        return {};
+    }
+
+    Result Rendering::ensure_view_uniform_buffer(
+        const Mat4& view_projection,
+        Uuid& out_buffer)
+    {
+        out_buffer = {};
+        const auto view_block = ViewUniformBlock {
+            .view_projection = view_projection,
+        };
+        const uint64 data_size = static_cast<uint64>(sizeof(view_block));
+        if (!_view_uniform_buffer.is_valid())
+        {
+            if (const auto result = _backend.get().upload_buffer(
+                    GraphicsBufferDesc {
+                        .usage = GraphicsBufferUsage::UNIFORM,
+                        .size = data_size,
+                        .is_dynamic = true,
+                        .debug_name = "Toybox View Uniforms",
+                    },
+                    &view_block,
+                    data_size,
+                    _view_uniform_buffer);
+                !result)
+            {
+                return result;
+            }
+
+            out_buffer = _view_uniform_buffer;
+            return {};
+        }
+
+        if (const auto result =
+                _backend.get().update_buffer(_view_uniform_buffer, &view_block, data_size, 0U);
+            !result)
+        {
+            return result;
+        }
+
+        out_buffer = _view_uniform_buffer;
         return {};
     }
 
@@ -937,6 +1257,7 @@ namespace tbx
 
     Result Rendering::append_dynamic_mesh_draws(
         const Mat4& view_projection,
+        const Uuid& view_uniform_buffer,
         std::vector<GraphicsIndexedDrawCommand>& out_draws,
         std::vector<float>& out_fallback_vertices,
         std::vector<uint32>& out_fallback_indices)
@@ -947,13 +1268,21 @@ namespace tbx
             .indices = std::move(out_fallback_indices),
         };
         auto draw_batches = std::unordered_map<uint64, MeshInstanceDrawBatch> {};
+        auto material_draw_batches = std::unordered_map<uint64, MaterialMeshInstanceDrawBatch> {};
         auto touched_materials = std::unordered_set<Handle> {};
         auto touched_textures = std::unordered_set<Handle> {};
+        const auto ensure_material_uniform =
+            [this](const uint64 material_key, const void* data, const uint64 data_size, Uuid& out)
+        {
+            return ensure_material_uniform_buffer(material_key, data, data_size, out);
+        };
 
         const auto append_mesh_draw =
             [this,
              &fallback_geometry,
              &draw_batches,
+             &material_draw_batches,
+             &ensure_material_uniform,
              &result,
              &touched_materials,
              &touched_textures,
@@ -962,18 +1291,42 @@ namespace tbx
             if (!result || !mesh_data)
                 return;
 
-            if (entity.has_component<MaterialInstance>())
-                touch_material_resources_once(
-                    entity.get_component<MaterialInstance>(),
-                    *_resource_manager,
-                    touched_materials,
-                    touched_textures);
-
-            const Mat4 world_to_clip =
-                view_projection * build_transform_matrix(get_world_space_transform(entity));
+            const Mat4 model_to_world = build_transform_matrix(get_world_space_transform(entity));
+            const Mat4 world_to_clip = view_projection * model_to_world;
             if (!can_render_mesh_directly(*mesh_data))
             {
+                if (entity.has_component<MaterialInstance>())
+                    touch_material_resources_once(
+                        entity.get_component<MaterialInstance>(),
+                        *_resource_manager,
+                        touched_materials,
+                        touched_textures);
+
                 append_mesh_geometry(*mesh_data, world_to_clip, fallback_geometry);
+                return;
+            }
+
+            if (entity.has_component<MaterialInstance>())
+            {
+                auto material = MaterialDrawState {};
+                result = resolve_material_draw_state(
+                    entity.get_component<MaterialInstance>(),
+                    *_resource_manager,
+                    ensure_material_uniform,
+                    material);
+                if (!result)
+                    return;
+
+                const uint64 mesh_key = make_mesh_cache_key(mesh_data);
+                const uint64 batch_key =
+                    make_dynamic_material_batch_key(mesh_key, material.key);
+                auto& batch = material_draw_batches[batch_key];
+                if (!batch.mesh_data)
+                {
+                    batch.mesh_data = mesh_data;
+                    batch.material = std::move(material);
+                }
+                batch.model_to_world_transforms.push_back(model_to_world);
                 return;
             }
 
@@ -1047,6 +1400,71 @@ namespace tbx
                 });
         }
 
+        for (const auto& entry : material_draw_batches)
+        {
+            const uint64 batch_key = entry.first;
+            const auto& batch = entry.second;
+            if (!batch.mesh_data || batch.model_to_world_transforms.empty())
+                continue;
+
+            auto vertex_buffer = Uuid {};
+            auto index_buffer = Uuid {};
+            auto index_count = uint32 {0U};
+            result = ensure_dynamic_mesh_buffers(
+                batch.mesh_data,
+                vertex_buffer,
+                index_buffer,
+                index_count);
+            if (!result)
+                return result;
+
+            auto instance_buffer = Uuid {};
+            result = ensure_dynamic_mesh_instance_buffer(
+                batch_key,
+                batch.model_to_world_transforms,
+                instance_buffer);
+            if (!result)
+                return result;
+
+            out_draws.push_back(
+                GraphicsIndexedDrawCommand {
+                    .pipeline = batch.material.pipeline,
+                    .vertex_buffers =
+                        {
+                            GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = vertex_buffer,
+                            },
+                            GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = instance_buffer,
+                            },
+                        },
+                    .index_buffer = index_buffer,
+                    .index_type = GraphicsIndexType::UINT32,
+                    .uniform_buffers =
+                        {
+                            GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = view_uniform_buffer,
+                            },
+                            GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = batch.material.uniform_buffer,
+                            },
+                        },
+                    .textures = batch.material.textures,
+                    .draw =
+                        GraphicsDrawIndexedDesc {
+                            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                            .index_type = GraphicsIndexType::UINT32,
+                            .index_count = index_count,
+                            .instance_count =
+                                static_cast<uint32>(batch.model_to_world_transforms.size()),
+                        },
+                });
+        }
+
         out_fallback_vertices = std::move(fallback_geometry.vertices);
         out_fallback_indices = std::move(fallback_geometry.indices);
         return result;
@@ -1054,19 +1472,28 @@ namespace tbx
 
     Result Rendering::append_static_model_draws(
         const Mat4& view_projection,
+        const Uuid& view_uniform_buffer,
         std::vector<GraphicsIndexedDrawCommand>& out_draws)
     {
         auto result = Result {};
+        auto material_draw_batches = std::unordered_map<uint64, StaticMaterialDrawBatch> {};
+        const auto ensure_material_uniform =
+            [this](const uint64 material_key, const void* data, const uint64 data_size, Uuid& out)
+        {
+            return ensure_material_uniform_buffer(material_key, data, data_size, out);
+        };
+
         _entity_registry.get().for_each_with<StaticMesh, Transform>(
-            [this, &out_draws, &result, &view_projection](Entity& entity)
+            [this,
+             &out_draws,
+             &material_draw_batches,
+             &ensure_material_uniform,
+             &result,
+             &view_projection,
+             &view_uniform_buffer](Entity& entity)
             {
                 if (!result)
                     return;
-
-                if (entity.has_component<MaterialInstance>())
-                    touch_material_resources(
-                        entity.get_component<MaterialInstance>(),
-                        *_resource_manager);
 
                 const auto& static_mesh = entity.get_component<StaticMesh>();
                 if (!static_mesh.handle.is_valid())
@@ -1077,45 +1504,141 @@ namespace tbx
                 if (!result)
                     return;
 
-                const Mat4 world_to_clip =
-                    view_projection * build_transform_matrix(get_world_space_transform(entity));
+                const Mat4 model_to_world =
+                    build_transform_matrix(get_world_space_transform(entity));
+                const bool has_material = entity.has_component<MaterialInstance>();
+                auto material = MaterialDrawState {};
                 auto transform_buffer = Uuid {};
-                result =
-                    ensure_model_transform_buffer(entity.get_id(), world_to_clip, transform_buffer);
-                if (!result)
-                    return;
+                if (has_material)
+                {
+                    result = resolve_material_draw_state(
+                        entity.get_component<MaterialInstance>(),
+                        *_resource_manager,
+                        ensure_material_uniform,
+                        material);
+                    if (!result)
+                        return;
+                }
+                else
+                {
+                    const Mat4 world_to_clip = view_projection * model_to_world;
+                    result = ensure_model_transform_buffer(
+                        entity.get_id(),
+                        world_to_clip,
+                        transform_buffer);
+                    if (!result)
+                        return;
+                }
 
                 for (const auto& mesh : model_resource.meshes)
                 {
-                    out_draws.push_back(
-                        GraphicsIndexedDrawCommand {
-                            .pipeline = _model_pipeline,
-                            .vertex_buffers =
-                                {
-                                    GraphicsResourceBinding {
-                                        .slot = 0U,
-                                        .resource = mesh.vertex_buffer,
-                                    },
+                    if (has_material)
+                    {
+                        const uint64 batch_key = make_static_material_batch_key(
+                            mesh.vertex_buffer,
+                            mesh.index_buffer,
+                            mesh.index_count,
+                            material.key);
+                        auto& batch = material_draw_batches[batch_key];
+                        if (!batch.vertex_buffer.is_valid())
+                        {
+                            batch.vertex_buffer = mesh.vertex_buffer;
+                            batch.index_buffer = mesh.index_buffer;
+                            batch.index_count = mesh.index_count;
+                            batch.material = material;
+                        }
+                        batch.model_to_world_transforms.push_back(model_to_world);
+                        continue;
+                    }
+
+                    auto command = GraphicsIndexedDrawCommand {
+                        .pipeline = _model_pipeline,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = 0U,
+                                    .resource = mesh.vertex_buffer,
                                 },
-                            .index_buffer = mesh.index_buffer,
-                            .index_type = GraphicsIndexType::UINT32,
-                            .uniform_buffers =
-                                {
-                                    GraphicsResourceBinding {
-                                        .slot = 0U,
-                                        .resource = transform_buffer,
-                                    },
+                            },
+                        .index_buffer = mesh.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .uniform_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = 0U,
+                                    .resource = transform_buffer,
                                 },
-                            .draw =
-                                GraphicsDrawIndexedDesc {
-                                    .primitive_type = GraphicsPrimitiveType::TRIANGLES,
-                                    .index_type = GraphicsIndexType::UINT32,
-                                    .index_count = mesh.index_count,
-                                    .instance_count = 1U,
-                                },
-                        });
+                            },
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = mesh.index_count,
+                                .instance_count = 1U,
+                            },
+                    };
+
+                    out_draws.push_back(std::move(command));
                 }
             });
+
+        if (!result)
+            return result;
+
+        for (const auto& entry : material_draw_batches)
+        {
+            const uint64 batch_key = entry.first;
+            const auto& batch = entry.second;
+            if (!batch.vertex_buffer.is_valid() || !batch.index_buffer.is_valid()
+                || batch.model_to_world_transforms.empty())
+                continue;
+
+            auto instance_buffer = Uuid {};
+            result = ensure_dynamic_mesh_instance_buffer(
+                batch_key,
+                batch.model_to_world_transforms,
+                instance_buffer);
+            if (!result)
+                return result;
+
+            out_draws.push_back(
+                GraphicsIndexedDrawCommand {
+                    .pipeline = batch.material.pipeline,
+                    .vertex_buffers =
+                        {
+                            GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = batch.vertex_buffer,
+                            },
+                            GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = instance_buffer,
+                            },
+                        },
+                    .index_buffer = batch.index_buffer,
+                    .index_type = GraphicsIndexType::UINT32,
+                    .uniform_buffers =
+                        {
+                            GraphicsResourceBinding {
+                                .slot = 0U,
+                                .resource = view_uniform_buffer,
+                            },
+                            GraphicsResourceBinding {
+                                .slot = 1U,
+                                .resource = batch.material.uniform_buffer,
+                            },
+                        },
+                    .textures = batch.material.textures,
+                    .draw =
+                        GraphicsDrawIndexedDesc {
+                            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                            .index_type = GraphicsIndexType::UINT32,
+                            .index_count = batch.index_count,
+                            .instance_count =
+                                static_cast<uint32>(batch.model_to_world_transforms.size()),
+                        },
+                });
+        }
 
         return result;
     }
@@ -1124,9 +1647,10 @@ namespace tbx
     {
         if (!_geometry_index_buffer.is_valid() && !_geometry_vertex_buffer.is_valid()
             && !_geometry_pipeline.is_valid() && !_dynamic_mesh_pipeline.is_valid()
-            && !_model_pipeline.is_valid() && _model_transform_buffers.empty()
-            && _dynamic_mesh_vertex_buffers.empty() && _dynamic_mesh_index_buffers.empty()
-            && _dynamic_mesh_instance_buffers.empty())
+            && !_model_pipeline.is_valid() && !_view_uniform_buffer.is_valid()
+            && _model_transform_buffers.empty() && _dynamic_mesh_vertex_buffers.empty()
+            && _dynamic_mesh_index_buffers.empty() && _dynamic_mesh_instance_buffers.empty()
+            && _material_uniform_buffers.empty())
             return;
 
         auto& backend = _backend.get();
@@ -1150,6 +1674,10 @@ namespace tbx
             backend.unload(entry.second);
         for (const auto& entry : _dynamic_mesh_instance_buffers)
             backend.unload(entry.second);
+        for (const auto& entry : _material_uniform_buffers)
+            backend.unload(entry.second);
+        if (_view_uniform_buffer.is_valid())
+            backend.unload(_view_uniform_buffer);
 
         _geometry_index_buffer = {};
         _geometry_vertex_buffer = {};
@@ -1165,8 +1693,11 @@ namespace tbx
         _dynamic_mesh_last_access_frames.clear();
         _dynamic_mesh_sources.clear();
         _dynamic_mesh_vertex_buffers.clear();
+        _material_uniform_buffers.clear();
+        _material_uniform_last_access_frames.clear();
         _model_transform_last_access_frames.clear();
         _model_transform_buffers.clear();
+        _view_uniform_buffer = {};
 
         _resource_manager->unload_all();
     }
@@ -1213,6 +1744,34 @@ namespace tbx
             _dynamic_mesh_instance_buffer_sizes.erase(mesh_key);
             _dynamic_mesh_last_access_frames.erase(mesh_key);
             _dynamic_mesh_sources.erase(mesh_key);
+        }
+    }
+
+    void Rendering::unload_stale_material_uniform_buffers()
+    {
+        constexpr uint64 unused_frame_limit = 3U;
+        auto expired_materials = std::vector<uint64> {};
+        for (const auto& entry : _material_uniform_last_access_frames)
+        {
+            if (_render_frame < entry.second)
+                continue;
+            if (_render_frame - entry.second < unused_frame_limit)
+                continue;
+
+            expired_materials.push_back(entry.first);
+        }
+
+        auto& backend = _backend.get();
+        for (const uint64 material_key : expired_materials)
+        {
+            if (const auto uniform_iterator = _material_uniform_buffers.find(material_key);
+                uniform_iterator != _material_uniform_buffers.end())
+            {
+                backend.unload(uniform_iterator->second);
+                _material_uniform_buffers.erase(uniform_iterator);
+            }
+
+            _material_uniform_last_access_frames.erase(material_key);
         }
     }
 

@@ -8,11 +8,9 @@ namespace tbx
 {
     static Result bind_common_resources(
         IGraphicsBackend& backend,
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> resource_manager,
         const std::vector<GraphicsResourceBinding>& uniform_buffers,
         const std::vector<GraphicsResourceBinding>& storage_buffers,
         const std::vector<GraphicsResourceBinding>& textures,
-        const std::vector<GraphicsAssetResourceBinding>& texture_assets,
         const std::vector<GraphicsResourceBinding>& samplers)
     {
         for (const auto& binding : uniform_buffers)
@@ -35,23 +33,6 @@ namespace tbx
                 return result;
         }
 
-        for (const auto& binding : texture_assets)
-        {
-            if (!binding.asset.is_valid())
-                continue;
-            if (!resource_manager.has_value())
-                return Result(false, "Graphics render pipeline requires a resource manager.");
-
-            auto texture_resource = Uuid {};
-            if (const auto result =
-                    resource_manager->get().load_texture(binding.asset, texture_resource);
-                !result)
-                return result;
-
-            if (const auto result = backend.bind_texture(binding.slot, texture_resource); !result)
-                return result;
-        }
-
         for (const auto& binding : samplers)
         {
             if (const auto result = backend.bind_sampler(binding.slot, binding.resource); !result)
@@ -59,22 +40,6 @@ namespace tbx
         }
 
         return {};
-    }
-
-    static Result resolve_pipeline_resource(
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> resource_manager,
-        const Handle& material,
-        const Uuid& pipeline,
-        Uuid& out_pipeline)
-    {
-        out_pipeline = pipeline;
-        if (!material.is_valid())
-            return {};
-
-        if (!resource_manager.has_value())
-            return Result(false, "Graphics render pipeline requires a resource manager.");
-
-        return resource_manager->get().load_material(material, out_pipeline);
     }
 
     static Result bind_vertex_buffers(
@@ -93,29 +58,17 @@ namespace tbx
 
     static Result execute_draw(
         IGraphicsBackend& backend,
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> resource_manager,
         const GraphicsDrawCommand& command)
     {
-        auto pipeline = Uuid {};
-        if (const auto result = resolve_pipeline_resource(
-                resource_manager,
-                command.material,
-                command.pipeline,
-                pipeline);
-            !result)
-            return result;
-
-        if (const auto result = backend.bind_pipeline(pipeline); !result)
+        if (const auto result = backend.bind_pipeline(command.pipeline); !result)
             return result;
         if (const auto result = bind_vertex_buffers(backend, command.vertex_buffers); !result)
             return result;
         if (const auto result = bind_common_resources(
                 backend,
-                resource_manager,
                 command.uniform_buffers,
                 command.storage_buffers,
                 command.textures,
-                command.texture_assets,
                 command.samplers);
             !result)
             return result;
@@ -124,19 +77,9 @@ namespace tbx
 
     static Result execute_draw(
         IGraphicsBackend& backend,
-        std::optional<std::reference_wrapper<GraphicsResourceManager>> resource_manager,
         const GraphicsIndexedDrawCommand& command)
     {
-        auto pipeline = Uuid {};
-        if (const auto result = resolve_pipeline_resource(
-                resource_manager,
-                command.material,
-                command.pipeline,
-                pipeline);
-            !result)
-            return result;
-
-        if (const auto result = backend.bind_pipeline(pipeline); !result)
+        if (const auto result = backend.bind_pipeline(command.pipeline); !result)
             return result;
         if (const auto result = bind_vertex_buffers(backend, command.vertex_buffers); !result)
             return result;
@@ -145,11 +88,9 @@ namespace tbx
             return result;
         if (const auto result = bind_common_resources(
                 backend,
-                resource_manager,
                 command.uniform_buffers,
                 command.storage_buffers,
                 command.textures,
-                command.texture_assets,
                 command.samplers);
             !result)
             return result;
@@ -187,7 +128,6 @@ namespace tbx
         }
 
         auto& backend = graphics_payload->get().backend.get();
-        auto resource_manager = graphics_payload->get().resource_manager;
 
         if (_pass.viewport.has_value())
         {
@@ -203,7 +143,7 @@ namespace tbx
             if (is_cancelled(cancellation_token))
                 return Result(false, "Graphics render pass operation cancelled.");
 
-            if (const auto result = execute_draw(backend, resource_manager, draw); !result)
+            if (const auto result = execute_draw(backend, draw); !result)
                 return result;
         }
 
@@ -212,7 +152,7 @@ namespace tbx
             if (is_cancelled(cancellation_token))
                 return Result(false, "Graphics render pass operation cancelled.");
 
-            if (const auto result = execute_draw(backend, resource_manager, draw); !result)
+            if (const auto result = execute_draw(backend, draw); !result)
                 return result;
         }
 
@@ -226,14 +166,6 @@ namespace tbx
 
     GraphicsRenderPipeline::GraphicsRenderPipeline(IGraphicsBackend& backend)
         : _backend(backend)
-    {
-    }
-
-    GraphicsRenderPipeline::GraphicsRenderPipeline(
-        IGraphicsBackend& backend,
-        GraphicsResourceManager& resource_manager)
-        : _backend(backend)
-        , _resource_manager(std::ref(resource_manager))
     {
     }
 
@@ -257,7 +189,6 @@ namespace tbx
         const auto payload = std::any(
             GraphicsPipelinePayload {
                 .backend = std::ref(_backend),
-                .resource_manager = _resource_manager,
             });
         return Pipeline::execute(payload, cancellation_token);
     }

@@ -1,4 +1,5 @@
 #include "tbx/systems/graphics/resource_manager.h"
+#include "tbx/systems/assets/fallbacks.h"
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,6 +50,89 @@ namespace tbx
         return load_cached_material(handle, parameters, out_resource_uuid);
     }
 
+    Result GraphicsResourceManager::load_material_instance(
+        const MaterialInstance& instance,
+        GraphicsMaterialInstanceResource& out_material_resource)
+    {
+        out_material_resource = {};
+
+        const Handle& handle = instance.get_handle();
+        if (!handle.is_valid())
+            return load_fallback_material_resource(out_material_resource);
+
+        const Uuid asset_id = resolve_asset_id(handle);
+        if (_failed_materials.contains(asset_id))
+            return load_fallback_material_resource(out_material_resource);
+
+        auto pipeline_resource = Uuid {};
+        if (const auto result = load_material(handle, pipeline_resource); !result)
+        {
+            _failed_materials.insert(asset_id);
+            return load_fallback_material_resource(out_material_resource);
+        }
+
+        const auto material_iterator = _material_resources.find(asset_id);
+        if (material_iterator == _material_resources.end())
+        {
+            _failed_materials.insert(asset_id);
+            return load_fallback_material_resource(out_material_resource);
+        }
+
+        out_material_resource = material_iterator->second;
+        out_material_resource.pipeline = pipeline_resource;
+        out_material_resource.config = instance.has_config_override_enabled()
+                                           ? instance.config
+                                           : out_material_resource.config;
+
+        for (const auto& parameter : instance.param_overrides)
+            out_material_resource.parameters.set(parameter);
+
+        for (const auto& texture : instance.texture_overrides)
+            out_material_resource.textures.set(texture);
+
+        for (const auto& texture : out_material_resource.textures)
+        {
+            if (!texture.texture.is_valid())
+                continue;
+
+            auto texture_resource = Uuid {};
+            if (const auto result = load_texture(texture.texture, texture_resource); !result)
+                return result;
+        }
+
+        return {};
+    }
+
+    Result GraphicsResourceManager::load_default_texture(Uuid& out_resource_uuid)
+    {
+        if (_default_texture.is_valid())
+        {
+            out_resource_uuid = _default_texture;
+            return {};
+        }
+
+        const auto texture = Texture(
+            Size {1U, 1U},
+            TextureWrap::REPEAT,
+            TextureFilter::LINEAR,
+            TextureFormat::RGBA,
+            TextureMipmaps::DISABLED,
+            TextureCompression::DISABLED,
+            std::vector<Pixel> {255U, 255U, 255U, 255U});
+
+        if (const auto result = upload_texture_resource(
+                Handle("Toybox/DefaultWhiteTexture"),
+                texture,
+                _default_texture);
+            !result)
+        {
+            return result;
+        }
+
+        out_resource_uuid = _default_texture;
+        return {};
+    }
+
     Result GraphicsResourceManager::load_material(const Handle& handle, uint& out_gpu_handle)
     {
         return load_material(handle, MaterialLoadParameters {}, out_gpu_handle);
@@ -77,6 +161,7 @@ namespace tbx
             return false;
 
         erase_usage(asset_id, _materials, _material_last_access_frames);
+        _material_resources.erase(asset_id);
         return true;
     }
 
@@ -211,13 +296,26 @@ namespace tbx
             unload_backend_resources(entry.first, entry.second);
 
         _materials.clear();
+        _material_resources.clear();
         _material_last_access_frames.clear();
+        _failed_materials.clear();
         _models.clear();
         _model_resources.clear();
         _model_last_access_frames.clear();
         _model_backend_resources.clear();
         _textures.clear();
         _texture_last_access_frames.clear();
+        if (_default_texture.is_valid())
+        {
+            _backend.unload(_default_texture);
+            _default_texture = {};
+        }
+        if (_fallback_material_pipeline.is_valid())
+        {
+            _backend.unload(_fallback_material_pipeline);
+            _fallback_material_pipeline = {};
+            _fallback_material = {};
+        }
     }
 
     bool GraphicsResourceManager::append_shader_sources(
@@ -352,6 +450,13 @@ namespace tbx
                 .resource = resource_uuid,
                 .access_count = 1U,
             });
+        _material_resources[asset_id] = GraphicsMaterialInstanceResource {
+            .material = handle,
+            .pipeline = resource_uuid,
+            .parameters = material->parameters,
+            .textures = material->textures,
+            .config = material->config,
+        };
         _material_last_access_frames[asset_id] = _current_frame;
         out_resource_uuid = resource_uuid;
         return {};
@@ -497,6 +602,44 @@ namespace tbx
 
         const auto desc = make_material_pipeline_desc(material, std::move(shader), handle);
         return _backend.upload_pipeline(desc, out_resource_uuid);
+    }
+
+    Result GraphicsResourceManager::load_fallback_material_resource(
+        GraphicsMaterialInstanceResource& out_material_resource)
+    {
+        if (_fallback_material_pipeline.is_valid())
+        {
+            out_material_resource = _fallback_material;
+            return {};
+        }
+
+        std::shared_ptr<Material> fallback = make_fallback_material();
+        if (!fallback)
+            return Result(false, "Graphics resource manager: failed to create fallback material.");
+
+        fallback->textures.set("diffuse_map", {});
+        fallback->textures.set("normal_map", {});
+        fallback->textures.set("specular_map", {});
+        fallback->textures.set("shininess_map", {});
+        fallback->textures.set("emissive_map", {});
+
+        if (const auto result = upload_material_resource(
+                Handle("Toybox/FallbackMaterial"),
+                *fallback,
+                _fallback_material_pipeline);
+            !result)
+        {
+            return result;
+        }
+
+        _fallback_material = GraphicsMaterialInstanceResource {
+            .pipeline = _fallback_material_pipeline,
+            .parameters = fallback->parameters,
+            .textures = fallback->textures,
+            .config = fallback->config,
+        };
+        out_material_resource = _fallback_material;
+        return {};
     }
 
     Result GraphicsResourceManager::upload_model_resource(
@@ -649,6 +792,7 @@ namespace tbx
         for (const Uuid asset_id : expired_assets)
         {
             erase_usage(asset_id, resources, last_access_frames);
+            _material_resources.erase(asset_id);
             _model_resources.erase(asset_id);
             _model_backend_resources.erase(asset_id);
         }
@@ -716,6 +860,11 @@ namespace tbx
                         .slot = 0U,
                         .stride = static_cast<uint32>(sizeof(float) * 16U),
                     },
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 1U,
+                        .stride = static_cast<uint32>(sizeof(Mat4)),
+                        .is_per_instance = true,
+                    },
                 },
             .vertex_attributes =
                 {
@@ -746,6 +895,30 @@ namespace tbx
                     GraphicsVertexAttributeDesc {
                         .location = 4U,
                         .buffer_slot = 0U,
+                        .offset = static_cast<uint32>(sizeof(float) * 12U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 5U,
+                        .buffer_slot = 1U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 6U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 4U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 7U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 8U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 8U,
+                        .buffer_slot = 1U,
                         .offset = static_cast<uint32>(sizeof(float) * 12U),
                         .format = GraphicsVertexFormat::VEC4,
                     },

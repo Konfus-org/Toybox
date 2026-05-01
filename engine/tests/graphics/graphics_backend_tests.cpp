@@ -613,6 +613,8 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
+        auto material_pipeline = Uuid {};
+        ASSERT_TRUE(resource_manager.load_material(Handle("Materials/Asset.mat"), material_pipeline));
         auto pipeline = GraphicsRenderPipeline {backend, resource_manager};
         pipeline.add_pass_operation(
             GraphicsRenderPass {
@@ -624,7 +626,7 @@ namespace tbx::tests::graphics
                 .indexed_draws =
                     {
                         GraphicsIndexedDrawCommand {
-                            .material = Handle("Materials/Asset.mat"),
+                            .pipeline = material_pipeline,
                             .vertex_buffers = {GraphicsResourceBinding {
                                 .slot = 0U,
                                 .resource = Uuid(20U),

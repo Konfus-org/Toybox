@@ -55,6 +55,12 @@ namespace tbx
             uint64 mesh_key,
             const std::vector<Mat4>& world_to_clip_transforms,
             Uuid& out_buffer);
+        Result ensure_material_uniform_buffer(
+            uint64 material_key,
+            const void* material_data,
+            uint64 material_data_size,
+            Uuid& out_buffer);
+        Result ensure_view_uniform_buffer(const Mat4& view_projection, Uuid& out_buffer);
         Result ensure_dynamic_mesh_pipeline();
         Result ensure_model_pipeline();
         Result ensure_dynamic_mesh_buffers(
@@ -70,16 +76,19 @@ namespace tbx
         void release_resources();
         Result append_dynamic_mesh_draws(
             const Mat4& view_projection,
+            const Uuid& view_uniform_buffer,
             std::vector<GraphicsIndexedDrawCommand>& out_draws,
             std::vector<float>& out_fallback_vertices,
             std::vector<uint32>& out_fallback_indices);
         Result append_static_model_draws(
             const Mat4& view_projection,
+            const Uuid& view_uniform_buffer,
             std::vector<GraphicsIndexedDrawCommand>& out_draws);
         void setup_geometry_pass(
             uint32 index_count,
             std::vector<GraphicsIndexedDrawCommand> static_draws);
         void unload_stale_dynamic_mesh_buffers();
+        void unload_stale_material_uniform_buffers();
         void unload_stale_model_transform_buffers();
 
       private:
@@ -104,8 +113,11 @@ namespace tbx
         std::unordered_map<uint64, uint64> _dynamic_mesh_last_access_frames = {};
         std::unordered_map<uint64, std::shared_ptr<const Mesh>> _dynamic_mesh_sources = {};
         std::unordered_map<uint64, Uuid> _dynamic_mesh_vertex_buffers = {};
+        std::unordered_map<uint64, Uuid> _material_uniform_buffers = {};
+        std::unordered_map<uint64, uint64> _material_uniform_last_access_frames = {};
         std::unordered_map<Uuid, uint64> _model_transform_last_access_frames = {};
         std::unordered_map<Uuid, Uuid> _model_transform_buffers = {};
+        Uuid _view_uniform_buffer = {};
         uint64 _render_frame = 0U;
         Result _initialization_result = {};
     };

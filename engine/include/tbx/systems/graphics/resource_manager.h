@@ -12,6 +12,7 @@
 #include "tbx/utils/result.h"
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -50,6 +51,20 @@ namespace tbx
         Handle asset = {};
         Uuid resource = {};
         std::vector<GraphicsModelMeshResource> meshes = {};
+    };
+
+    /// @brief
+    /// Purpose: Stores merged material defaults and runtime overrides for one draw.
+    /// @details
+    /// Ownership: Owns copied binding data; referenced GPU resources remain manager-owned.
+    /// Thread Safety: Safe to copy between threads.
+    struct TBX_API GraphicsMaterialInstanceResource
+    {
+        Handle material = {};
+        Uuid pipeline = {};
+        MaterialParameterBindings parameters = {};
+        MaterialTextureBindings textures = {};
+        MaterialConfig config = {};
     };
 
     /// @brief
@@ -110,6 +125,22 @@ namespace tbx
             const Handle& handle,
             const MaterialLoadParameters& parameters,
             Uuid& out_resource_uuid);
+
+        /// @brief
+        /// Purpose: Loads a material and returns default bindings merged with instance overrides.
+        /// @details
+        /// Ownership: Returned binding data is copied; uploaded resources are owned by this manager.
+        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
+        Result load_material_instance(
+            const MaterialInstance& instance,
+            GraphicsMaterialInstanceResource& out_material_resource);
+
+        /// @brief
+        /// Purpose: Loads the renderer-owned fallback texture used for unassigned material maps.
+        /// @details
+        /// Ownership: The returned UUID is owned by this manager until unload_all or destruction.
+        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
+        Result load_default_texture(Uuid& out_resource_uuid);
 
         /// @brief
         /// Purpose: Loads a material asset and returns the backend pipeline id as a raw uint.
@@ -298,6 +329,8 @@ namespace tbx
             const Handle& handle,
             const Material& material,
             Uuid& out_resource_uuid);
+        Result load_fallback_material_resource(
+            GraphicsMaterialInstanceResource& out_material_resource);
         Result upload_model_resource(
             const Handle& handle,
             const Model& model,
@@ -315,13 +348,18 @@ namespace tbx
         IGraphicsBackend& _backend;
         AssetManager& _asset_manager;
         std::unordered_map<Uuid, GraphicsResourceUsage> _materials = {};
+        std::unordered_map<Uuid, GraphicsMaterialInstanceResource> _material_resources = {};
         std::unordered_map<Uuid, uint> _material_last_access_frames = {};
+        std::unordered_set<Uuid> _failed_materials = {};
         std::unordered_map<Uuid, GraphicsResourceUsage> _models = {};
         std::unordered_map<Uuid, GraphicsModelResource> _model_resources = {};
         std::unordered_map<Uuid, uint> _model_last_access_frames = {};
         std::unordered_map<Uuid, std::vector<Uuid>> _model_backend_resources = {};
         std::unordered_map<Uuid, GraphicsResourceUsage> _textures = {};
         std::unordered_map<Uuid, uint> _texture_last_access_frames = {};
+        Uuid _default_texture = {};
+        Uuid _fallback_material_pipeline = {};
+        GraphicsMaterialInstanceResource _fallback_material = {};
         uint _current_frame = 0U;
         uint _unused_frame_limit = 3U;
     };
