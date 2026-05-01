@@ -21,26 +21,20 @@ namespace tbx
     template <typename TMessage>
     std::optional<std::reference_wrapper<const TMessage>> handle_message(const Message& message)
     {
-        try
-        {
-            return std::cref(dynamic_cast<const TMessage&>(message));
-        }
-        catch (const std::bad_cast&)
-        {
+        const auto* typed_message = dynamic_cast<const TMessage*>(&message);
+        if (typed_message == nullptr)
             return std::nullopt;
-        }
+
+        return std::cref(*typed_message);
     }
 
     template <typename TMessage>
     std::optional<std::reference_wrapper<TMessage>> handle_message(Message& message)
     {
-        try
-        {
-            return std::ref(dynamic_cast<TMessage&>(message));
-        }
-        catch (const std::bad_cast&)
-        {
+        auto* typed_message = dynamic_cast<TMessage*>(&message);
+        if (typed_message == nullptr)
             return std::nullopt;
-        }
+
+        return std::ref(*typed_message);
     }
 }

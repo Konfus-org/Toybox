@@ -1,46 +1,72 @@
 #pragma once
-#include "tbx/systems/math/vectors.h"
+#include "tbx/interfaces/physics_backend.h"
+#include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/physics/raycast.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/uuid.h"
+#include <functional>
+#include <optional>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Selects how runtime physics applies script-authored Transform changes on
-    /// non-kinematic rigid bodies.
-    /// @details
-    /// Ownership: Value enum copied by value.
-    /// Thread Safety: Immutable enum values; safe for concurrent reads.
-    enum class PhysicsTransformSyncMode
+    struct PhysicsEntityRecord
     {
-        NONE = 0,
-        TELEPORT = 1,
-        SWEEP = 2,
+        PhysicsColliderHandle collider = {};
+        PhysicsRigidbodyHandle rigidbody = {};
+        Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
+        Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
+        Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
+        bool has_last_transform = false;
+        bool is_physics_driven = false;
+        bool is_trigger_only = false;
     };
 
     /// @brief
-    /// Purpose: Defines per-entity rigid body configuration consumed by runtime physics backends.
+    /// Purpose: Application-owned physics service that synchronizes ECS components with the
+    /// registered physics backend.
     /// @details
-    /// Ownership: Value type that owns all component data by copy.
-    /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API Physics
+    /// Ownership: Borrows application services and owns entity-to-backend resource state.
+    /// Thread Safety: Not thread-safe; call from the application main thread.
+    class TBX_API Physics final
     {
-        float mass = 1.0F;
-        bool is_kinematic = false;
-        bool is_gravity_enabled = true;
-        PhysicsTransformSyncMode transform_sync_mode = PhysicsTransformSyncMode::SWEEP;
+      public:
+        Physics(
+            IPhysicsBackend& backend,
+            EntityRegistry& entity_registry,
+            AssetManager& asset_manager,
+            AppSettings& settings);
+        ~Physics() noexcept;
 
-        Vec3 linear_velocity = Vec3(0.0F, 0.0F, 0.0F);
-        Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
+      public:
+        Physics(const Physics&) = delete;
+        Physics& operator=(const Physics&) = delete;
+        Physics(Physics&&) noexcept = delete;
+        Physics& operator=(Physics&&) noexcept = delete;
 
-        float friction = 0.5F;
-        float restitution = 0.0F;
-        float linear_damping = 0.05F;
-        float angular_damping = 0.05F;
+      public:
+        RaycastResult raycast(const RaycastQuery& raycast_query) const;
+        void update(const DeltaTime& dt);
 
-        bool is_sleep_enabled = true;
-        float sleep_velocity_threshold = 0.03F;
-        float sleep_time_seconds = 0.5F;
+      private:
+        void clear_resources();
+        void destroy_record(PhysicsEntityRecord& record);
+        PhysicsBackendSettings get_backend_settings() const;
+        void process_trigger_colliders();
+        void sync_entities_to_backend(float dt_seconds);
+        void sync_backend_to_entities();
+        Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
 
-        bool is_valid() const;
+      private:
+        std::reference_wrapper<IPhysicsBackend> _backend;
+        std::reference_wrapper<EntityRegistry> _entity_registry;
+        std::reference_wrapper<AssetManager> _asset_manager;
+        std::reference_wrapper<AppSettings> _settings;
+        std::unordered_map<Uuid, PhysicsEntityRecord> _records_by_entity = {};
+        std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
+        std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
     };
 }

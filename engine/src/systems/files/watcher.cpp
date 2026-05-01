@@ -155,6 +155,7 @@ namespace tbx
         {
             _worker.request_stop();
             _wake_signal.notify_all();
+            _worker.join();
         }
     }
 

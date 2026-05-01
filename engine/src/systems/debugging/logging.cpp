@@ -5,6 +5,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog-inl.h>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <spdlog/sinks/msvc_sink.h>
@@ -54,7 +55,19 @@ namespace tbx
 
     void Log::flush()
     {
-        logger->flush();
+        auto active_logger = std::shared_ptr<spdlog::logger> {};
+        {
+            std::lock_guard<std::mutex> lock(logger_mutex);
+            active_logger = logger;
+        }
+
+        if (active_logger)
+        {
+            active_logger->flush();
+            active_logger.reset();
+        }
+
+        spdlog::shutdown();
     }
 
     std::string Log::format(std::string_view message)
@@ -72,14 +85,8 @@ namespace tbx
         return std::string(message);
     }
 
-    void Log::write_internal(
-        const IMessageDispatcher& dispatcher,
-        LogLevel level,
-        const char* file,
-        int line,
-        const std::string& message)
+    void Log::write_internal(LogLevel level, const char* file, int line, const std::string& message)
     {
-        (void)dispatcher;
         auto logger = get_or_create_default_logger();
         std::string filename = std::filesystem::path(file).filename().string();
         const auto* filename_cstr = filename.c_str();

@@ -414,7 +414,7 @@ namespace tbx::tests::graphics
             window_manager,
             window_manager.window,
             settings);
-        const auto result = rendering.render();
+        rendering.render();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -432,7 +432,6 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::EndFrame,
         };
 
-        EXPECT_TRUE(result);
         EXPECT_EQ(backend.recorded_output_window.get_id(), window_manager.window.get_id());
         EXPECT_EQ(backend.recorded_render_resolution.width, window_manager.size.width);
         EXPECT_EQ(backend.recorded_render_resolution.height, window_manager.size.height);
@@ -690,7 +689,7 @@ namespace tbx::tests::graphics
             window_manager,
             window_manager.window,
             settings);
-        const auto render_result = rendering.render();
+        rendering.render();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -708,7 +707,6 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::EndFrame,
         };
 
-        EXPECT_TRUE(render_result);
         EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
@@ -747,14 +745,12 @@ namespace tbx::tests::graphics
             settings);
 
         // Act
-        const auto first_result = rendering.render();
+        rendering.render();
         asset_manager.unload_unreferenced();
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
-        const auto second_result = rendering.render();
+        rendering.render();
 
         // Assert
-        EXPECT_TRUE(first_result);
-        EXPECT_TRUE(second_result);
         EXPECT_EQ(model_load_count, 1U);
         EXPECT_EQ(usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(backend.uploaded_buffer_count, 3U);

@@ -622,21 +622,28 @@ namespace tbx
         }
     }
 
-    void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins, IMessageCoordinator* coordinator)
+    void detach_plugins(std::vector<LoadedPlugin>& loaded_plugins, IMessageCoordinator* coordinator)
     {
-        while (!loaded_plugins.empty())
+        const size plugin_count = static_cast<size>(loaded_plugins.size());
+        auto detached = std::vector<bool>(plugin_count, false);
+        size detached_count = 0U;
+
+        while (detached_count < plugin_count)
         {
-            const size plugin_count = static_cast<size>(loaded_plugins.size());
             auto name_to_index = std::unordered_map<std::string, size> {};
-            name_to_index.reserve(plugin_count);
+            name_to_index.reserve(plugin_count - detached_count);
             for (size index = 0; index < plugin_count; ++index)
             {
-                name_to_index.emplace(to_lower(loaded_plugins[index].meta.name), index);
+                if (!detached[index])
+                    name_to_index.emplace(to_lower(loaded_plugins[index].meta.name), index);
             }
 
             auto dependents_count = std::vector<size>(plugin_count, size {0});
             for (size index = 0; index < plugin_count; ++index)
             {
+                if (detached[index])
+                    continue;
+
                 for (const std::string& dependency : loaded_plugins[index].meta.dependencies)
                 {
                     const std::string lowered = to_lower(trim(dependency));
@@ -649,10 +656,10 @@ namespace tbx
             }
 
             auto candidates = std::vector<size> {};
-            candidates.reserve(plugin_count);
+            candidates.reserve(plugin_count - detached_count);
             for (size index = 0; index < plugin_count; ++index)
             {
-                if (dependents_count[index] == 0U)
+                if (!detached[index] && dependents_count[index] == 0U)
                     candidates.push_back(index);
             }
 
@@ -660,11 +667,15 @@ namespace tbx
             {
                 TBX_TRACE_WARNING(
                     "Plugin unload dependency cycle detected. Falling back to stack order.");
-                loaded_plugins.back().detach();
-                if (coordinator)
-                    coordinator->flush();
-                loaded_plugins.pop_back();
-                continue;
+                for (size index = plugin_count; index > 0U; --index)
+                {
+                    const size selected_index = index - 1U;
+                    if (detached[selected_index])
+                        continue;
+
+                    candidates.push_back(selected_index);
+                    break;
+                }
             }
 
             std::sort(
@@ -678,15 +689,18 @@ namespace tbx
                 });
 
             const size selected_index = candidates.front();
-            const size last_index = plugin_count - 1U;
-            if (selected_index != last_index)
-            {
-                std::swap(loaded_plugins[selected_index], loaded_plugins[last_index]);
-            }
-            loaded_plugins.back().detach();
+            loaded_plugins[selected_index].detach();
             if (coordinator)
                 coordinator->flush();
-            loaded_plugins.pop_back();
+
+            detached[selected_index] = true;
+            ++detached_count;
         }
+    }
+
+    void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins, IMessageCoordinator* coordinator)
+    {
+        detach_plugins(loaded_plugins, coordinator);
+        loaded_plugins.clear();
     }
 }

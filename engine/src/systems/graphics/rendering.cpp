@@ -1,4 +1,5 @@
 #include "tbx/systems/graphics/rendering.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/camera.h"
 #include "tbx/systems/graphics/material.h"
@@ -512,30 +513,41 @@ namespace tbx
         release_resources();
     }
 
-    Result Rendering::render()
+    void Rendering::render()
     {
         if (!_initialization_result)
-            return _initialization_result;
+        {
+            TBX_TRACE_ERROR(
+                "Toybox renderer initialization failed: {}",
+                _initialization_result.get_report());
+            return;
+        }
         if (!_output_window.is_valid() || !_window_manager.get().is_open(_output_window))
-            return {};
+            return;
 
         _render_frame += 1U;
         if (_resource_manager)
             _resource_manager->update();
 
         if (const auto result = begin_frame_and_view(); !result)
-            return result;
+        {
+            TBX_TRACE_WARNING("Toybox renderer frame submission failed: {}", result.get_report());
+            return;
+        }
 
         const auto finish_after_failure = [this](const Result& failure)
         {
             auto& backend = _backend.get();
             backend.end_view();
             backend.end_frame();
-            return failure;
+            TBX_TRACE_WARNING("Toybox renderer frame submission failed: {}", failure.get_report());
         };
 
         if (const auto result = ensure_model_pipeline(); !result)
-            return finish_after_failure(result);
+        {
+            finish_after_failure(result);
+            return;
+        }
 
         const Size resolution = get_render_resolution();
         const RenderView render_view = find_render_camera(_entity_registry.get(), resolution);
@@ -551,27 +563,45 @@ namespace tbx
                 fallback_vertices,
                 fallback_indices);
             !result)
-            return finish_after_failure(result);
+        {
+            finish_after_failure(result);
+            return;
+        }
         if (const auto result = append_static_model_draws(view_projection, indexed_draws); !result)
-            return finish_after_failure(result);
+        {
+            finish_after_failure(result);
+            return;
+        }
 
         if (!fallback_indices.empty())
         {
             if (const auto result = ensure_geometry_pipeline(); !result)
-                return finish_after_failure(result);
+            {
+                finish_after_failure(result);
+                return;
+            }
         }
 
         if (const auto result = ensure_geometry_buffers(fallback_vertices, fallback_indices);
             !result)
-            return finish_after_failure(result);
+        {
+            finish_after_failure(result);
+            return;
+        }
 
         unload_stale_dynamic_mesh_buffers();
         unload_stale_model_transform_buffers();
         setup_geometry_pass(static_cast<uint32>(fallback_indices.size()), std::move(indexed_draws));
         if (const auto result = _pipeline->execute(); !result)
-            return finish_after_failure(result);
+        {
+            finish_after_failure(result);
+            return;
+        }
 
-        return end_view_and_frame();
+        if (const auto result = end_view_and_frame(); !result)
+        {
+            TBX_TRACE_WARNING("Toybox renderer frame submission failed: {}", result.get_report());
+        }
     }
 
     Result Rendering::begin_frame_and_view()

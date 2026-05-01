@@ -16,11 +16,13 @@ namespace three_d_example
     CameraController::CameraController(
         tbx::EntityRegistry& entity_registry,
         tbx::IInputManager& input_manager,
+        tbx::Physics& physics,
         ProjectileSystem& projectile_system,
         const CameraControllerSettings& settings)
     {
         _entity_registry = &entity_registry;
         _input_manager = &input_manager;
+        _physics = &physics;
         _projectile_system = &projectile_system;
         _scheme_name = "ThreeDExample.CameraController";
         _yaw = settings.initial_yaw;
@@ -41,6 +43,7 @@ namespace three_d_example
             _input_manager->set_mouse_lock_mode(tbx::MouseLockMode::UNLOCKED);
 
         _input_manager = nullptr;
+        _physics = nullptr;
         _projectile_system = nullptr;
         _scheme_name.clear();
         _reticle_entity.destroy();
@@ -334,14 +337,15 @@ namespace three_d_example
 
     void CameraController::cast_raycast() const
     {
-        if (_entity_registry == nullptr || !_camera_entity.get_id().is_valid())
+        if (_entity_registry == nullptr || _physics == nullptr
+            || !_camera_entity.get_id().is_valid())
             return;
 
         const auto camera_world_transform = tbx::get_world_space_transform(_camera_entity);
         const auto direction =
             tbx::normalize(camera_world_transform.rotation * tbx::Vec3(0.0F, 0.0F, -1.0F));
 
-        auto raycast = tbx::Raycast {
+        auto raycast = tbx::RaycastQuery {
             .origin = camera_world_transform.position,
             .direction = direction,
             .max_distance = 60.0F,
@@ -349,7 +353,7 @@ namespace three_d_example
             .ignored_entity_id = _camera_entity.get_id(),
         };
 
-        const auto raycast_result = raycast.cast();
+        const auto raycast_result = _physics->raycast(raycast);
         if (!raycast_result)
         {
             TBX_TRACE_INFO("Raycast missed.");

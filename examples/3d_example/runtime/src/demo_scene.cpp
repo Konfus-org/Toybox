@@ -9,11 +9,14 @@
 #include "tbx/systems/math/transform.h"
 #include "tbx/systems/math/trig.h"
 #include "tbx/systems/physics/collider.h"
-#include "tbx/systems/physics/physics.h"
+#include "tbx/systems/physics/rigidbody.h"
 
 namespace three_d_example
 {
-    DemoScene::DemoScene(tbx::EntityRegistry& entity_registry, tbx::IInputManager& input_manager)
+    DemoScene::DemoScene(
+        tbx::EntityRegistry& entity_registry,
+        tbx::IInputManager& input_manager,
+        tbx::Physics& physics)
         : _entity_registry(&entity_registry)
         , _demo_room(
               entity_registry,
@@ -30,6 +33,7 @@ namespace three_d_example
         , _camera_controller(
               entity_registry,
               input_manager,
+              physics,
               _projectile_system,
               CameraControllerSettings {
                   .initial_position = tbx::Vec3(0.0F, 2.01F, 11.0F),
@@ -106,14 +110,14 @@ namespace three_d_example
         _falling_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
         _falling_sphere.add_component<tbx::Transform>(tbx::Vec3(0.0F, 6.0F, -5.2F));
         _falling_sphere.add_component<tbx::SphereCollider>(0.5F);
-        _falling_sphere.add_component<tbx::Physics>();
+        _falling_sphere.add_component<tbx::Rigidbody>();
 
         _falling_box = tbx::Entity("FallingBox", entity_registry);
         _falling_box.add_component<tbx::MaterialInstance>(create_falling_box_material());
         _falling_box.add_component<tbx::StaticMesh>(tbx::Handle("Models/Green_Cube.fbx"));
         _falling_box.add_component<tbx::Transform>(tbx::Vec3(0.0F, 10.0F, -4.9F));
         _falling_box.add_component<tbx::MeshCollider>();
-        _falling_box.add_component<tbx::Physics>();
+        _falling_box.add_component<tbx::Rigidbody>();
     }
 
     DemoScene::~DemoScene()

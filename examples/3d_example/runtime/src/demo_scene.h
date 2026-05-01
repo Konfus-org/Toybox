@@ -8,16 +8,19 @@
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/post_processing.h"
 #include "tbx/systems/physics/collider.h"
+#include "tbx/systems/physics/physics.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/typedefs.h"
-
 
 namespace three_d_example
 {
     class DemoScene final
     {
       public:
-        DemoScene(tbx::EntityRegistry& entity_registry, tbx::IInputManager& input_manager);
+        DemoScene(
+            tbx::EntityRegistry& entity_registry,
+            tbx::IInputManager& input_manager,
+            tbx::Physics& physics);
         ~DemoScene();
 
         DemoScene(const DemoScene&) = delete;

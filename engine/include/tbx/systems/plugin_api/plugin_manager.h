@@ -84,6 +84,14 @@ namespace tbx
         bool unload(const std::string& plugin_name);
 
         /// @brief
+        /// Purpose: Detaches all managed plugins while keeping their libraries loaded.
+        /// @details
+        /// Ownership: Retains loaded plugin containers so remaining plugin-authored data can be
+        /// destroyed before library unload.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void detach_all();
+
+        /// @brief
         /// Purpose: Detaches, unloads, and stops routing messages to all managed plugins.
         /// @details
         /// Ownership: Releases owned plugin containers.

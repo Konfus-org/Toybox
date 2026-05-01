@@ -3,9 +3,9 @@
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/physics/physics.h"
 #include "tbx/systems/time/delta_time.h"
 #include <string>
-
 
 namespace three_d_example
 {
@@ -24,6 +24,7 @@ namespace three_d_example
         CameraController(
             tbx::EntityRegistry& entity_registry,
             tbx::IInputManager& input_manager,
+            tbx::Physics& physics,
             ProjectileSystem& projectile_system,
             const CameraControllerSettings& settings);
         ~CameraController();
@@ -54,6 +55,7 @@ namespace three_d_example
       private:
         tbx::EntityRegistry* _entity_registry = nullptr;
         tbx::IInputManager* _input_manager = nullptr;
+        tbx::Physics* _physics = nullptr;
         ProjectileSystem* _projectile_system = nullptr;
         std::string _scheme_name = {};
         tbx::Entity _character_entity = {};

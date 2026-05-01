@@ -7,8 +7,9 @@ namespace three_d_example
     {
         auto& entity_registry = service_provider.get_service<tbx::EntityRegistry>();
         auto& input_manager = service_provider.get_service<tbx::IInputManager>();
+        auto& physics = service_provider.get_service<tbx::Physics>();
 
-        _scene = std::make_unique<DemoScene>(entity_registry, input_manager);
+        _scene = std::make_unique<DemoScene>(entity_registry, input_manager, physics);
     }
 
     void ThreeDExampleRuntimePlugin::on_detach()

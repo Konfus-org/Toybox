@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/systems/files/tests/in_memory_file_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/systems/app/message_coordinator.h"
 #include "tbx/systems/app/settings.h"
@@ -7,13 +8,11 @@
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/core/systems/files/tests/in_memory_file_ops.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
-
 
 namespace tbx::tests::plugin_api
 {
@@ -41,7 +40,6 @@ namespace tbx::tests::plugin_api
     {
         auto service_provider = ServiceProvider {};
 
-        service_provider.register_service<Handle>(std::make_unique<Handle>(BoxIcon::HANDLE));
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<AppMessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
@@ -59,6 +57,7 @@ namespace tbx::tests::plugin_api
         auto& settings = service_provider.get_service<AppSettings>();
         settings.paths.working_directory = working_directory;
         settings.paths.logs_directory = working_directory / "logs";
+        settings.icon = BoxIcon::HANDLE;
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
         service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 

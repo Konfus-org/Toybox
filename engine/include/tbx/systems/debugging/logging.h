@@ -1,9 +1,7 @@
 #pragma once
-#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/log_level.h"
 #include <string>
 #include <string_view>
-
 
 namespace tbx
 {
@@ -12,7 +10,6 @@ namespace tbx
       public:
         template <typename... Args>
         static void write(
-            IMessageDispatcher& dispatcher,
             LogLevel level,
             const char* file,
             int line,
@@ -23,7 +20,6 @@ namespace tbx
 
       private:
         static void write_internal(
-            const IMessageDispatcher& dispatcher,
             LogLevel level,
             const char* file,
             int line,

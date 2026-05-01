@@ -4,7 +4,6 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/observable.h"
-#include "tbx/types/handle.h"
 #include <filesystem>
 #include <string_view>
 
@@ -54,8 +53,8 @@ namespace sdl_windowing
 
         TBX_TRACE_INFO("Initialized SDL video subsystem.");
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
-        _use_opengl = service_provider.get_service<tbx::AppSettings>().graphics.graphics_api
-                      == tbx::GraphicsApi::OPEN_GL;
+        const auto& settings = service_provider.get_service<tbx::AppSettings>();
+        _use_opengl = settings.graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
 
         service_provider.register_service<tbx::IWindowManager>(std::make_unique<SdlWindowManager>(
             service_provider.get_service<tbx::IMessageCoordinator>()));
@@ -64,8 +63,7 @@ namespace sdl_windowing
         _window_manager->get().set_use_opengl(_use_opengl);
 
         const tbx::AssetManager& asset_manager = service_provider.get_service<tbx::AssetManager>();
-        const std::filesystem::path icon_path =
-            asset_manager.resolve(service_provider.get_service<tbx::Handle>());
+        const std::filesystem::path icon_path = asset_manager.resolve(settings.icon);
         if (icon_path.empty())
         {
             TBX_TRACE_WARNING(

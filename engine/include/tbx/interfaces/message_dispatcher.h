@@ -137,48 +137,6 @@ namespace tbx
         virtual ~IMessageCoordinator() noexcept = default;
     };
 
-    /// @brief
-    /// Purpose: Returns the current global dispatcher, when one is registered.
-    /// @details
-    /// Ownership: Non-owning. The setter retains ownership and must ensure the dispatcher outlives
-    /// its use through this API. Thread Safety: Thread-safe.
-    TBX_API std::optional<std::reference_wrapper<IMessageDispatcher>> get_global_dispatcher();
-
-    /// @brief
-    /// Purpose: Sets the current dispatcher, returning the previous value.
-    /// @details
-    /// Ownership: Non-owning. The caller retains ownership and must ensure the dispatcher outlives
-    /// all use through this API. Thread Safety: Thread-safe.
-    TBX_API std::optional<std::reference_wrapper<IMessageDispatcher>> set_global_dispatcher(
-        std::optional<std::reference_wrapper<IMessageDispatcher>> dispatcher);
-
-    /// @brief
-    /// Purpose: Sets the current global dispatcher for the lifetime of the scope, restoring the
-    /// previous value when destroyed.
-    /// @details
-    /// Ownership: Non-owning. The caller retains ownership and must ensure the dispatcher outlives
-    /// the scope where it is set. Thread Safety: Thread-safe for setting and restoring the global
-    /// dispatcher pointer. The dispatcher instance itself must remain valid for the lifetime of the
-    /// scope.
-    class TBX_API GlobalDispatcherScope
-    {
-      public:
-        GlobalDispatcherScope(IMessageDispatcher& dispatcher)
-            : _prev(set_global_dispatcher(std::ref(dispatcher)))
-        {
-        }
-
-        ~GlobalDispatcherScope() noexcept
-        {
-            set_global_dispatcher(_prev);
-        }
-
-        GlobalDispatcherScope(const GlobalDispatcherScope&) = delete;
-        GlobalDispatcherScope& operator=(const GlobalDispatcherScope&) = delete;
-
-      private:
-        std::optional<std::reference_wrapper<IMessageDispatcher>> _prev = std::nullopt;
-    };
 }
 
 #include "tbx/interfaces/message_dispatcher.inl"

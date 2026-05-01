@@ -42,7 +42,7 @@ namespace tbx
         Rendering& operator=(Rendering&&) noexcept = delete;
 
       public:
-        Result render();
+        void render();
 
       private:
         Result begin_frame_and_view();

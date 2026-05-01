@@ -6,14 +6,13 @@ namespace tbx
 {
     template <typename... Args>
     void Log::write(
-        IMessageDispatcher& dispatcher,
         LogLevel level,
         const char* file,
         int line,
         std::string_view fmt,
         Args&&... args)
     {
-        write_internal(dispatcher, level, file, line, format(fmt, std::forward<Args>(args)...));
+        write_internal(level, file, line, format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename T>

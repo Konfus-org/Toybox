@@ -86,7 +86,7 @@ namespace tbx
 
     void EntityRegistry::clear()
     {
-        _impl->clear();
+        _impl = std::make_unique<entt::registry>();
     }
 
     bool EntityRegistry::has(const Uuid& id) const

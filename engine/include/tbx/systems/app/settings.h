@@ -3,6 +3,7 @@
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/handle.h"
 #include <filesystem>
 
 namespace tbx
@@ -36,5 +37,8 @@ namespace tbx
         PhysicsSettings physics;
         AsyncSettings async = {};
         PathSettings paths = {};
+
+        // Startup icon asset used for native window icons.
+        Handle icon = {};
     };
 }

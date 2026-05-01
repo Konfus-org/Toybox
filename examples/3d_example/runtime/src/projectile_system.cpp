@@ -2,7 +2,7 @@
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/math/transform.h"
 #include "tbx/systems/physics/collider.h"
-#include "tbx/systems/physics/physics.h"
+#include "tbx/systems/physics/rigidbody.h"
 #include <cmath>
 #include <string>
 #include <utility>
@@ -94,7 +94,7 @@ namespace three_d_example
             camera_world_transform.rotation,
             tbx::Vec3(projectile_visual_scale, projectile_visual_scale, projectile_visual_scale));
         projectile.add_component<tbx::SphereCollider>(projectile_visual_scale / 2.0F);
-        projectile.add_component<tbx::Physics>(tbx::Physics {
+        projectile.add_component<tbx::Rigidbody>(tbx::Rigidbody {
             .mass = 0.2F,
             .linear_velocity = shot_direction * _projectile_speed,
             .friction = 0.2F,

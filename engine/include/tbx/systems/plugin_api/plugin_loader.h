@@ -51,6 +51,13 @@ namespace tbx
         const std::vector<PluginMeta>& metas,
         const std::filesystem::path& working_directory);
 
+    // Detaches plugins in a deterministic dependency-aware order without unloading libraries.
+    // Ownership: Retains LoadedPlugin instances in the provided vector.
+    // Thread-safety: Not thread-safe; call from the main thread.
+    TBX_API void detach_plugins(
+        std::vector<LoadedPlugin>& loaded_plugins,
+        IMessageCoordinator* coordinator = nullptr);
+
     // Unloads plugins in a deterministic dependency-aware order.
     // Ownership: Consumes and destroys LoadedPlugin instances in the provided vector.
     // Thread-safety: Not thread-safe; call from the main thread.

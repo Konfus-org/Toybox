@@ -6,61 +6,41 @@
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \
-        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
-        if (dispatcher.has_value())                                                                \
-        {                                                                                          \
-            ::tbx::Log::write(                                                                     \
-                dispatcher->get(),                                                                 \
-                ::tbx::LogLevel::INFO,                                                             \
-                __FILE__,                                                                          \
-                __LINE__,                                                                          \
-                msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
-        }                                                                                          \
+        ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::INFO,                                                                 \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \
-        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
-        if (dispatcher.has_value())                                                                \
-        {                                                                                          \
-            ::tbx::Log::write(                                                                     \
-                dispatcher->get(),                                                                 \
-                ::tbx::LogLevel::WARNING,                                                          \
-                __FILE__,                                                                          \
-                __LINE__,                                                                          \
-                msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
-        }                                                                                          \
+        ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::WARNING,                                                              \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
 #define TBX_TRACE_ERROR(msg, ...)                                                                  \
     do                                                                                             \
     {                                                                                              \
-        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
-        if (dispatcher.has_value())                                                                \
-        {                                                                                          \
-            ::tbx::Log::write(                                                                     \
-                dispatcher->get(),                                                                 \
-                ::tbx::LogLevel::ERROR,                                                            \
-                __FILE__,                                                                          \
-                __LINE__,                                                                          \
-                msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
-        }                                                                                          \
+        ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::ERROR,                                                                \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
 #define TBX_TRACE_CRITICAL(msg, ...)                                                               \
     do                                                                                             \
     {                                                                                              \
-        auto dispatcher = ::tbx::get_global_dispatcher();                                          \
-        if (dispatcher.has_value())                                                                \
-        {                                                                                          \
-            ::tbx::Log::write(                                                                     \
-                dispatcher->get(),                                                                 \
-                ::tbx::LogLevel::CRITICAL,                                                         \
-                __FILE__,                                                                          \
-                __LINE__,                                                                          \
-                msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
-        }                                                                                          \
+        ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::CRITICAL,                                                             \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
 #ifdef TBX_ASSERTS_ENABLED
@@ -86,16 +66,7 @@
     {                                                                                              \
         if (!(cond))                                                                               \
         {                                                                                          \
-            auto dispatcher = ::tbx::get_global_dispatcher();                                      \
-            if (dispatcher.has_value())                                                            \
-            {                                                                                      \
-                ::tbx::Log::write(                                                                 \
-                    dispatcher->get(),                                                             \
-                    ::tbx::LogLevel::CRITICAL,                                                     \
-                    __FILE__,                                                                      \
-                    __LINE__,                                                                      \
-                    __VA_ARGS__);                                                                  \
-            }                                                                                      \
+            ::tbx::Log::write(::tbx::LogLevel::CRITICAL, __FILE__, __LINE__, __VA_ARGS__);         \
             TBX_DEBUG_BREAK();                                                                     \
         }                                                                                          \
     } while (0)

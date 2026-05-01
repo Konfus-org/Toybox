@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/systems/math/vectors.h"
-#include "tbx/systems/messaging/message.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
-
 
 namespace tbx
 {
@@ -25,47 +23,12 @@ namespace tbx
         }
     };
 
-    /// @brief
-    /// Purpose: Describes a single physics raycast query and provides helpers to execute it through
-    /// the global dispatcher.
-    /// @details
-    /// Ownership: Value type that owns query parameters by copy.
-    /// Thread Safety: Safe for concurrent reads; calling methods requires a valid thread-safe
-    /// global dispatcher.
-    struct TBX_API Raycast
+    struct TBX_API RaycastQuery
     {
         Vec3 origin = Vec3(0.0F, 0.0F, 0.0F);
         Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
         float max_distance = 100.0F;
         bool ignore_entity = false;
         Uuid ignored_entity_id = {};
-
-        /// @brief
-        /// Purpose: Executes this raycast through the active global dispatcher.
-        /// @details
-        /// Ownership: Writes the result into the caller-provided output value.
-        /// Thread Safety: Thread-safe if the global dispatcher implementation is thread-safe.
-        bool try_cast(RaycastResult& out_result) const;
-
-        /// @brief
-        /// Purpose: Executes this raycast through the active global dispatcher and returns the
-        /// resulting hit payload.
-        /// @details
-        /// Ownership: Returns the result by value.
-        /// Thread Safety: Thread-safe if the global dispatcher implementation is thread-safe.
-        RaycastResult cast() const;
-    };
-
-    /// @brief
-    /// Purpose: Message request used to execute a physics raycast.
-    /// @details
-    /// Ownership: Owns a copy of the raycast query payload.
-    /// Thread Safety: Safe to construct on any thread; handling depends on the dispatcher backend.
-    struct TBX_API RaycastRequest : public Request<RaycastResult>
-    {
-        RaycastRequest(const Raycast& raycast_query);
-        ~RaycastRequest() noexcept override;
-
-        Raycast raycast = {};
     };
 }

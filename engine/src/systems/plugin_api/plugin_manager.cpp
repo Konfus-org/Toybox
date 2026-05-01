@@ -1,6 +1,10 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/interfaces/physics_backend.h"
+#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
@@ -9,7 +13,6 @@
 #include <limits>
 #include <unordered_set>
 #include <utility>
-
 
 namespace tbx
 {
@@ -40,6 +43,22 @@ namespace tbx
         }
 
         return false;
+    }
+
+    static void ensure_physics_service_registered(ServiceProvider& service_provider)
+    {
+        if (service_provider.has_service<Physics>())
+            return;
+
+        auto physics_backend = service_provider.try_get_service<IPhysicsBackend>();
+        if (!physics_backend.has_value())
+            return;
+
+        service_provider.register_service<Physics>(std::make_unique<Physics>(
+            physics_backend->get(),
+            service_provider.get_service<EntityRegistry>(),
+            service_provider.get_service<AssetManager>(),
+            service_provider.get_service<AppSettings>()));
     }
 
     PluginManager::PluginManager(
@@ -104,8 +123,12 @@ namespace tbx
                 loaded_plugin.meta.resource_directory);
 #endif
 
+        ensure_physics_service_registered(_service_provider);
+
         _loaded.push_back(std::move(loaded_plugin));
         _loaded.back().attach(_service_provider);
+
+        ensure_physics_service_registered(_service_provider);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
@@ -192,6 +215,11 @@ namespace tbx
         unload_plugins(_loaded, &_service_provider.get_service<IMessageCoordinator>());
         _loaded = std::move(retained_plugins);
         return true;
+    }
+
+    void PluginManager::detach_all()
+    {
+        detach_plugins(_loaded, &_service_provider.get_service<IMessageCoordinator>());
     }
 
     void PluginManager::unload_all()
