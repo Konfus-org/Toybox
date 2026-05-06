@@ -1,4 +1,3 @@
-#include "tbx/graphics/render_pipeline.h"
 #include "tbx/assets/builtin_assets.h"
 #include "tbx/assets/events.h"
 #include "tbx/assets/manager.h"
@@ -9,8 +8,9 @@
 #include "tbx/ecs/entity.h"
 #include "tbx/ecs/entity_registry.h"
 #include "tbx/graphics/frustum.h"
-#include "tbx/graphics/sphere.h"
+#include "tbx/graphics/render_pipeline.h"
 #include "tbx/graphics/render_resources.h"
+#include "tbx/graphics/sphere.h"
 #include "tbx/math/matrices.h"
 #include "tbx/math/trig.h"
 #include <algorithm>
@@ -53,6 +53,31 @@ namespace tbx
             Uuid lighting_shader_program = {};
             Uuid post_shader_program = {};
             Uuid scratch_color_texture = {};
+        };
+
+        struct SplitDrawItems
+        {
+            std::vector<RenderDrawItem> opaque = {};
+            std::vector<RenderDrawItem> transparent = {};
+        };
+
+        struct MaterialUploadData
+        {
+            Uuid resource = {};
+            MaterialConfig config = {};
+            ParamBindings parameters = {};
+            TextureBindings textures = {};
+        };
+
+        struct RenderableEntityData
+        {
+            Uuid mesh_resource = {};
+            MaterialUploadData material = {};
+            Transform world_transform = {};
+            float bounds_radius = 0.0F;
+            float camera_distance_squared = 0.0F;
+            bool is_visible = false;
+            bool casts_shadows = false;
         };
 
         const char* to_string(const RenderPassStatus status)
@@ -408,8 +433,7 @@ namespace tbx
             for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
             {
                 const auto ratio =
-                    static_cast<float>(cascade_index + 1U)
-                    / static_cast<float>(ShadowCascadeCount);
+                    static_cast<float>(cascade_index + 1U) / static_cast<float>(ShadowCascadeCount);
                 const auto logarithmic =
                     near_plane * static_cast<float>(std::pow(max_distance / near_plane, ratio));
                 const auto uniform = near_plane + ((max_distance - near_plane) * ratio);
@@ -455,8 +479,8 @@ namespace tbx
             const uint32 texture_layer)
         {
             const auto direction = normalize(light.direction);
-            const auto emitter_radius =
-                sqrt((light.half_width * light.half_width) + (light.half_height * light.half_height));
+            const auto emitter_radius = sqrt(
+                (light.half_width * light.half_width) + (light.half_height * light.half_height));
             const auto shadow_depth =
                 max(light.range + emitter_radius + AreaShadowDepthPadding, 0.5F);
             const auto light_position = light.position - (direction * (shadow_depth * 0.5F));
@@ -541,71 +565,91 @@ namespace tbx
             };
         }
 
-        BackendPassResources build_backend_pass_resources(
-            RenderResourceManager& resource_manager,
-            const Size& render_size)
+        struct BackendPassResourceFactory
         {
-            auto fallback_texture = Texture {};
-            fallback_texture.resolution = {1U, 1U};
-            fallback_texture.format = TextureFormat::RGBA;
-            fallback_texture.filter = TextureFilter::NEAREST;
-            fallback_texture.wrap = TextureWrap::REPEAT;
-            fallback_texture.mipmaps = TextureMipmaps::DISABLED;
-            fallback_texture.compression = TextureCompression::DISABLED;
-            fallback_texture.pixels = {255U, 255U, 255U, 255U};
-
-            auto fallback_material = MaterialInstance {};
-            fallback_material.material = FallbackMagentaMaterialHandle;
-
-            auto lighting_material = MaterialInstance {};
-            lighting_material.material = LightingPassMaterialHandle;
-            auto post_material = MaterialInstance {};
-            post_material.material = PostPassMaterialHandle;
-            auto shadow_material = MaterialInstance {};
-            shadow_material.material = ShadowPassMaterialHandle;
-
-            auto scratch_settings = TextureSettings {};
-            scratch_settings.resolution = render_size;
-            scratch_settings.filter = TextureFilter::LINEAR;
-            scratch_settings.wrap = TextureWrap::CLAMP_TO_EDGE;
-            scratch_settings.format = TextureFormat::RGBA;
-            scratch_settings.mipmaps = TextureMipmaps::DISABLED;
-            scratch_settings.compression = TextureCompression::DISABLED;
-
-            auto resources = BackendPassResources {};
-            resources.fallbacks = RenderFallbacks {
-                .white_texture_resource =
-                    resource_manager.upload_texture(fallback_texture, WhiteFallbackTextureResource, true),
-                .material_resource = resource_manager.upload_material(fallback_material, true),
-                .mesh_resource = resource_manager.upload_dynamic_mesh(DynamicMesh(cube), true),
-            };
-            resources.shadow_shader_program = resource_manager.upload_material(shadow_material, true);
-            resources.lighting_shader_program = resource_manager.upload_material(lighting_material, true);
-            resources.post_shader_program = resource_manager.upload_material(post_material, true);
-            resources.scratch_color_texture = resource_manager.upload_render_texture(scratch_settings);
-            return resources;
-        }
-
-        void split_draw_items(
-            const RenderScene& scene,
-            std::vector<RenderDrawItem>& out_opaque_draws,
-            std::vector<RenderDrawItem>& out_transparent_draws)
-        {
-            out_opaque_draws.clear();
-            out_transparent_draws.clear();
-            out_opaque_draws.reserve(scene.draw_items.size());
-            out_transparent_draws.reserve(scene.draw_items.size() + (scene.sky.has_value() ? 1U : 0U));
-
-            for (const auto& draw_item : scene.draw_items)
+            static BackendPassResources build(
+                RenderResourceManager& resource_manager,
+                const Size& render_size)
             {
-                if (draw_item.material_config.transparency.blend_mode == MaterialBlendMode::AlphaBlend)
-                    out_transparent_draws.push_back(draw_item);
-                else
-                    out_opaque_draws.push_back(draw_item);
+                auto fallback_texture = Texture {};
+                fallback_texture.resolution = {1U, 1U};
+                fallback_texture.format = TextureFormat::RGBA;
+                fallback_texture.filter = TextureFilter::NEAREST;
+                fallback_texture.wrap = TextureWrap::REPEAT;
+                fallback_texture.mipmaps = TextureMipmaps::DISABLED;
+                fallback_texture.compression = TextureCompression::DISABLED;
+                fallback_texture.pixels = {255U, 255U, 255U, 255U};
+
+                auto fallback_material = MaterialInstance {};
+                fallback_material.material = FallbackMagentaMaterialHandle;
+
+                auto lighting_material = MaterialInstance {};
+                lighting_material.material = LightingPassMaterialHandle;
+                auto post_material = MaterialInstance {};
+                post_material.material = PostPassMaterialHandle;
+                auto shadow_material = MaterialInstance {};
+                shadow_material.material = ShadowPassMaterialHandle;
+
+                auto scratch_settings = TextureSettings {};
+                scratch_settings.resolution = render_size;
+                scratch_settings.filter = TextureFilter::LINEAR;
+                scratch_settings.wrap = TextureWrap::CLAMP_TO_EDGE;
+                scratch_settings.format = TextureFormat::RGBA;
+                scratch_settings.mipmaps = TextureMipmaps::DISABLED;
+                scratch_settings.compression = TextureCompression::DISABLED;
+
+                auto resources = BackendPassResources {};
+                resources.fallbacks = RenderFallbacks {
+                    .white_texture_resource = resource_manager.upload_texture(
+                        fallback_texture,
+                        WhiteFallbackTextureResource,
+                        true),
+                    .material_resource = resource_manager.upload_material(fallback_material, true),
+                    .mesh_resource = resource_manager.upload_dynamic_mesh(DynamicMesh(cube), true),
+                };
+                resources.shadow_shader_program =
+                    resource_manager.upload_material(shadow_material, true);
+                resources.lighting_shader_program =
+                    resource_manager.upload_material(lighting_material, true);
+                resources.post_shader_program =
+                    resource_manager.upload_material(post_material, true);
+                resources.scratch_color_texture =
+                    resource_manager.upload_render_texture(scratch_settings);
+                return resources;
+            }
+        };
+
+        struct DrawItemSplitter
+        {
+            static SplitDrawItems split(const RenderScene& scene)
+            {
+                auto draw_items = SplitDrawItems {};
+                draw_items.opaque.reserve(scene.draw_items.size());
+                draw_items.transparent.reserve(
+                    scene.draw_items.size() + (scene.sky.has_value() ? 1U : 0U));
+
+                for (const auto& draw_item : scene.draw_items)
+                {
+                    if (draw_item.material_config.transparency.blend_mode
+                        == MaterialBlendMode::AlphaBlend)
+                        draw_items.transparent.push_back(draw_item);
+                    else
+                        draw_items.opaque.push_back(draw_item);
+                }
+
+                append_sky(scene, draw_items.transparent);
+                sort_transparent(draw_items.transparent);
+                return draw_items;
             }
 
-            if (scene.sky.has_value())
+          private:
+            static void append_sky(
+                const RenderScene& scene,
+                std::vector<RenderDrawItem>& out_transparent_draws)
             {
+                if (!scene.sky.has_value())
+                    return;
+
                 const auto& sky = *scene.sky;
                 out_transparent_draws.push_back(
                     RenderDrawItem {
@@ -619,14 +663,17 @@ namespace tbx
                     });
             }
 
-            std::sort(
-                out_transparent_draws.begin(),
-                out_transparent_draws.end(),
-                [](const RenderDrawItem& left, const RenderDrawItem& right)
-                {
-                    return left.camera_distance_squared > right.camera_distance_squared;
-                });
-        }
+            static void sort_transparent(std::vector<RenderDrawItem>& transparent_draws)
+            {
+                std::sort(
+                    transparent_draws.begin(),
+                    transparent_draws.end(),
+                    [](const RenderDrawItem& left, const RenderDrawItem& right)
+                    {
+                        return left.camera_distance_squared > right.camera_distance_squared;
+                    });
+            }
+        };
 
         void build_light_data(const EntityRegistry& entity_registry, RenderScene& scene)
         {
@@ -659,7 +706,10 @@ namespace tbx
                 const auto& light = entity.get_component<PointLight>();
                 if (!has_light_radiance(light))
                     continue;
-                if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                if (!intersects_light_influence(
+                        view_frustum,
+                        world_transform.position,
+                        light.range))
                     continue;
 
                 auto frame_light = PointLightFrameData();
@@ -678,7 +728,10 @@ namespace tbx
                 const auto& light = entity.get_component<SpotLight>();
                 if (!has_light_radiance(light))
                     continue;
-                if (!intersects_light_influence(view_frustum, world_transform.position, light.range))
+                if (!intersects_light_influence(
+                        view_frustum,
+                        world_transform.position,
+                        light.range))
                     continue;
 
                 const auto inner_angle = clamp(light.inner_angle, 0.0F, light.outer_angle);
@@ -760,7 +813,8 @@ namespace tbx
 
         void build_shadow_data(const GraphicsSettings& settings, RenderScene& scene)
         {
-            scene.shadows.directional_map_resolution = max(settings.shadow_map_resolution.value, 1U);
+            scene.shadows.directional_map_resolution =
+                max(settings.shadow_map_resolution.value, 1U);
             scene.shadows.local_map_resolution = LocalShadowMapResolution;
             scene.shadows.point_map_resolution = PointShadowMapResolution;
             scene.shadows.max_distance = max(settings.shadow_render_distance.value, 0.001F);
@@ -791,7 +845,8 @@ namespace tbx
                     continue;
 
                 spot_light.shadow_index = static_cast<int>(scene.shadows.spot_maps.size());
-                scene.shadows.spot_maps.push_back(build_spot_shadow_map(spot_light, spot_shadow_layer++));
+                scene.shadows.spot_maps.push_back(
+                    build_spot_shadow_map(spot_light, spot_shadow_layer++));
             }
 
             auto area_shadow_layer = uint32 {0U};
@@ -801,7 +856,8 @@ namespace tbx
                     continue;
 
                 area_light.shadow_index = static_cast<int>(scene.shadows.area_maps.size());
-                scene.shadows.area_maps.push_back(build_area_shadow_map(area_light, area_shadow_layer++));
+                scene.shadows.area_maps.push_back(
+                    build_area_shadow_map(area_light, area_shadow_layer++));
             }
 
             if (!scene.has_camera || scene.directional_lights.empty())
@@ -832,8 +888,10 @@ namespace tbx
                 return;
             }
 
-            const auto split_depths = build_shadow_splits(scene.camera_near_plane, max_shadow_distance);
-            scene.shadows.directional_cascades.reserve(scene.directional_lights.size() * ShadowCascadeCount);
+            const auto split_depths =
+                build_shadow_splits(scene.camera_near_plane, max_shadow_distance);
+            scene.shadows.directional_cascades.reserve(
+                scene.directional_lights.size() * ShadowCascadeCount);
 
             auto directional_shadow_layer = uint32 {0U};
             for (auto& directional_light : scene.directional_lights)
@@ -842,7 +900,8 @@ namespace tbx
                     continue;
 
                 const auto light_direction = normalize(directional_light.direction);
-                if (light_direction.x == 0.0F && light_direction.y == 0.0F && light_direction.z == 0.0F)
+                if (light_direction.x == 0.0F && light_direction.y == 0.0F
+                    && light_direction.z == 0.0F)
                 {
                     directional_light.casts_shadows = 0.0F;
                     continue;
@@ -853,9 +912,12 @@ namespace tbx
                 auto previous_split = scene.camera_near_plane;
                 for (uint32 cascade_index = 0U; cascade_index < ShadowCascadeCount; ++cascade_index)
                 {
-                    const auto cascade_far =
-                        clamp(split_depths[cascade_index], previous_split + 0.001F, max_shadow_distance);
-                    const auto corners = get_world_frustum_corners(scene, previous_split, cascade_far);
+                    const auto cascade_far = clamp(
+                        split_depths[cascade_index],
+                        previous_split + 0.001F,
+                        max_shadow_distance);
+                    const auto corners =
+                        get_world_frustum_corners(scene, previous_split, cascade_far);
 
                     auto frustum_center = Vec3(0.0F);
                     for (const auto& corner : corners)
@@ -875,7 +937,8 @@ namespace tbx
                         frustum_center - (light_direction * (radius + ShadowStabilizationPadding));
                     auto light_view = look_at(light_position, frustum_center, light_up);
                     const auto texel_size =
-                        (radius * 2.0F) / static_cast<float>(scene.shadows.directional_map_resolution);
+                        (radius * 2.0F)
+                        / static_cast<float>(scene.shadows.directional_map_resolution);
                     auto shadow_center = light_view * Vec4(frustum_center, 1.0F);
                     shadow_center.x = std::floor(shadow_center.x / texel_size) * texel_size;
                     shadow_center.y = std::floor(shadow_center.y / texel_size) * texel_size;
@@ -915,38 +978,63 @@ namespace tbx
             }
         }
 
-        void collect_render_items(
-            const EntityRegistry& entity_registry,
-            AssetManager& asset_manager,
-            RenderResourceManager& resource_manager,
-            RenderScene& scene)
+        struct TextureBindingUploader
         {
-            if (!scene.has_camera)
-                return;
-
-            const auto entities = entity_registry.get_all();
-            scene.draw_items.reserve(entities.size());
-            scene.shadow_items.reserve(entities.size());
-            const auto view_frustum = Frustum(scene.view_projection);
-
-            for (const auto& entity : entities)
+            static void upload(RenderResourceManager& resource_manager, TextureBindings& textures)
             {
-                if (!entity.has_component<DynamicMesh>() && !entity.has_component<StaticMesh>())
-                    continue;
+                for (auto& texture_binding : textures.values)
+                {
+                    if (!texture_binding.texture.handle.is_valid())
+                        continue;
 
-                auto fallback_material_instance = MaterialInstance {};
-                auto* material_instance = resolve_effective_material_instance(entity, fallback_material_instance);
-                const auto world_transform =
-                    entity.has_component<Transform>() ? get_world_space_transform(entity) : Transform();
-                const auto* lods = entity.has_component<Lods>() ? &entity.get_component<Lods>() : nullptr;
+                    const auto texture_resource =
+                        resource_manager.upload_texture(texture_binding.texture.handle);
+                    texture_binding.texture.handle =
+                        Handle(texture_binding.texture.handle.get_name(), texture_resource);
+                }
+            }
+        };
 
-                const auto bounds_radius = max(get_max_component(world_transform.scale), 0.001F);
-                const auto camera_distance_squared =
-                    get_distance_squared(world_transform.position, scene.camera_position);
-                const auto camera_distance = sqrt(camera_distance_squared);
+        struct MaterialUploadBuilder
+        {
+            static MaterialUploadData build(
+                const MaterialInstance& material_instance,
+                AssetManager& asset_manager,
+                RenderResourceManager& resource_manager)
+            {
+                const auto material_asset =
+                    asset_manager.load<Material>(resolve_material_handle(material_instance));
+                auto textures = resolve_material_textures(material_instance, material_asset);
+                TextureBindingUploader::upload(resource_manager, textures);
 
+                return MaterialUploadData {
+                    .resource = resource_manager.upload_material(material_instance),
+                    .config = resolve_material_config(material_instance, material_asset),
+                    .parameters = resolve_material_parameters(material_instance, material_asset),
+                    .textures = textures,
+                };
+            }
+
+          private:
+            static Handle resolve_material_handle(const MaterialInstance& material_instance)
+            {
+                Handle material_handle = material_instance.material;
+                if (material_handle.get_name().empty() && material_handle.get_id().is_valid())
+                    material_handle = Handle(material_handle.get_id());
+                return material_handle;
+            }
+        };
+
+        struct MeshResourceUploader
+        {
+            static Uuid upload(
+                const Entity& entity,
+                const Lods* lods,
+                const float camera_distance,
+                RenderResourceManager& resource_manager)
+            {
                 const auto mesh = resolve_render_mesh(entity, lods, camera_distance);
-                const auto mesh_resource = std::visit(
+                return std::visit(
                     [&resource_manager](const auto& mesh_value)
                     {
                         using TMesh = std::remove_cvref_t<decltype(mesh_value)>;
@@ -956,82 +1044,164 @@ namespace tbx
                             return resource_manager.upload_static_mesh(mesh_value);
                     },
                     mesh);
+            }
+        };
 
-                Handle material_handle = material_instance->material;
-                if (material_handle.get_name().empty() && material_handle.get_id().is_valid())
-                    material_handle = Handle(material_handle.get_id());
-                const auto material_asset = asset_manager.load<Material>(material_handle);
+        struct RenderableEntityCollector
+        {
+            static void collect(
+                const EntityRegistry& entity_registry,
+                AssetManager& asset_manager,
+                RenderResourceManager& resource_manager,
+                RenderScene& scene)
+            {
+                if (!scene.has_camera)
+                    return;
 
-                const auto material_config = resolve_material_config(*material_instance, material_asset);
-                const auto material_parameters =
-                    resolve_material_parameters(*material_instance, material_asset);
-                auto material_textures = resolve_material_textures(*material_instance, material_asset);
-                for (auto& texture_binding : material_textures.values)
+                const auto entities = entity_registry.get_all();
+                scene.draw_items.reserve(entities.size());
+                scene.shadow_items.reserve(entities.size());
+                const auto view_frustum = Frustum(scene.view_projection);
+
+                for (const auto& entity : entities)
                 {
-                    if (!texture_binding.texture.handle.is_valid())
+                    if (!entity.has_component<DynamicMesh>() && !entity.has_component<StaticMesh>())
                         continue;
 
-                    const auto texture_resource =
-                        resource_manager.upload_texture(texture_binding.texture.handle);
-                    texture_binding.texture.handle = Handle(
-                        texture_binding.texture.handle.get_name(),
-                        texture_resource);
+                    auto fallback_material_instance = MaterialInstance {};
+                    auto* material_instance =
+                        resolve_effective_material_instance(entity, fallback_material_instance);
+                    const auto world_transform = entity.has_component<Transform>()
+                                                     ? get_world_space_transform(entity)
+                                                     : Transform();
+                    const auto* lods =
+                        entity.has_component<Lods>() ? &entity.get_component<Lods>() : nullptr;
+                    const auto camera_distance_squared =
+                        get_distance_squared(world_transform.position, scene.camera_position);
+                    const auto camera_distance = sqrt(camera_distance_squared);
+                    if (is_beyond_lod_render_distance(lods, camera_distance))
+                        continue;
+
+                    const auto material = MaterialUploadBuilder::build(
+                        *material_instance,
+                        asset_manager,
+                        resource_manager);
+                    auto renderable = RenderableEntityData {
+                        .mesh_resource = MeshResourceUploader::upload(
+                            entity,
+                            lods,
+                            camera_distance,
+                            resource_manager),
+                        .material = material,
+                        .world_transform = world_transform,
+                        .bounds_radius = max(get_max_component(world_transform.scale), 0.001F),
+                        .camera_distance_squared = camera_distance_squared,
+                        .is_visible = false,
+                        .casts_shadows = material.config.shadow_mode != ShadowMode::None,
+                    };
+                    renderable.is_visible = is_visible(view_frustum, renderable);
+                    append_render_items(renderable, scene);
+
+                    if (entity.has_component<MaterialInstance>())
+                        entity.get_component<MaterialInstance>().clear_dirty();
                 }
-                const auto material_resource = resource_manager.upload_material(*material_instance);
-                const auto casts_shadows = material_config.shadow_mode != ShadowMode::None;
+            }
 
-                if (lods != nullptr && lods->render_distance > 0.0F
-                    && camera_distance > lods->render_distance)
-                {
-                    continue;
-                }
+          private:
+            static void append_render_items(
+                const RenderableEntityData& renderable,
+                RenderScene& scene)
+            {
+                if (!renderable.is_visible && !renderable.casts_shadows)
+                    return;
 
-                const auto is_visible =
-                    !material_config.is_cullable
-                    || view_frustum.intersects(
-                        Sphere {.center = world_transform.position, .radius = bounds_radius});
-                if (!is_visible && !casts_shadows)
-                    continue;
-
-                if (casts_shadows)
+                const auto transform = build_transform_matrix(renderable.world_transform);
+                if (renderable.casts_shadows)
                 {
                     scene.shadow_items.push_back(
                         RenderShadowItem {
-                            .mesh_resource = mesh_resource,
-                            .transform = build_transform_matrix(world_transform),
-                            .bounds_radius = bounds_radius,
-                            .is_two_sided = material_config.is_two_sided,
+                            .mesh_resource = renderable.mesh_resource,
+                            .transform = transform,
+                            .bounds_radius = renderable.bounds_radius,
+                            .is_two_sided = renderable.material.config.is_two_sided,
                         });
                 }
 
-                if (is_visible)
-                {
-                    scene.draw_items.push_back(
-                        RenderDrawItem {
-                            .mesh_resource = mesh_resource,
-                            .material_resource = material_resource,
-                            .material_config = material_config,
-                            .material_parameters = material_parameters,
-                            .material_textures = material_textures,
-                            .transform = build_transform_matrix(world_transform),
-                            .camera_distance_squared = camera_distance_squared,
-                        });
-                }
+                if (!renderable.is_visible)
+                    return;
 
-                if (entity.has_component<MaterialInstance>())
-                    entity.get_component<MaterialInstance>().clear_dirty();
+                scene.draw_items.push_back(
+                    RenderDrawItem {
+                        .mesh_resource = renderable.mesh_resource,
+                        .material_resource = renderable.material.resource,
+                        .material_config = renderable.material.config,
+                        .material_parameters = renderable.material.parameters,
+                        .material_textures = renderable.material.textures,
+                        .transform = transform,
+                        .camera_distance_squared = renderable.camera_distance_squared,
+                    });
             }
 
-            const auto sky_entities = entity_registry.get_with<Sky>();
-            for (const auto& sky_entity : sky_entities)
+            static bool is_beyond_lod_render_distance(const Lods* lods, const float camera_distance)
             {
-                auto sky_material_instance = sky_entity.get_component<Sky>().material;
-                const auto& sky_handle = sky_material_instance.get_handle();
-                if (sky_handle.get_name().empty() && !sky_handle.get_id().is_valid())
-                    continue;
+                return lods != nullptr && lods->render_distance > 0.0F
+                       && camera_distance > lods->render_distance;
+            }
 
-                const auto material_asset = asset_manager.load<Material>(sky_material_instance.material);
-                auto material_config = resolve_material_config(sky_material_instance, material_asset);
+            static bool is_visible(
+                const Frustum& view_frustum,
+                const RenderableEntityData& renderable)
+            {
+                return !renderable.material.config.is_cullable
+                       || view_frustum.intersects(
+                           Sphere {
+                               .center = renderable.world_transform.position,
+                               .radius = renderable.bounds_radius,
+                           });
+            }
+        };
+
+        struct SkyRenderItemCollector
+        {
+            static void collect(
+                const EntityRegistry& entity_registry,
+                AssetManager& asset_manager,
+                RenderResourceManager& resource_manager,
+                RenderScene& scene)
+            {
+                if (!scene.has_camera)
+                    return;
+
+                const auto sky_entities = entity_registry.get_with<Sky>();
+                for (const auto& sky_entity : sky_entities)
+                {
+                    auto sky_material_instance = sky_entity.get_component<Sky>().material;
+                    const auto& sky_handle = sky_material_instance.get_handle();
+                    if (sky_handle.get_name().empty() && !sky_handle.get_id().is_valid())
+                        continue;
+
+                    scene.sky = build_sky(
+                        sky_entity,
+                        sky_material_instance,
+                        asset_manager,
+                        resource_manager,
+                        scene);
+                    break;
+                }
+            }
+
+          private:
+            static RenderSky build_sky(
+                const Entity& sky_entity,
+                MaterialInstance& sky_material_instance,
+                AssetManager& asset_manager,
+                RenderResourceManager& resource_manager,
+                const RenderScene& scene)
+            {
+                const auto material_asset =
+                    asset_manager.load<Material>(sky_material_instance.material);
+                auto material_config =
+                    resolve_material_config(sky_material_instance, material_asset);
                 material_config.depth = MaterialDepthConfig {
                     .is_test_enabled = true,
                     .is_write_enabled = false,
@@ -1045,8 +1215,28 @@ namespace tbx
 
                 auto material_parameters =
                     resolve_material_parameters(sky_material_instance, material_asset);
-                auto material_textures = resolve_material_textures(sky_material_instance, material_asset);
+                apply_default_parameters(material_parameters);
 
+                auto material_textures =
+                    resolve_material_textures(sky_material_instance, material_asset);
+                apply_legacy_diffuse_alias(material_textures);
+                TextureBindingUploader::upload(resource_manager, material_textures);
+
+                return RenderSky {
+                    .mesh_resource = resource_manager.upload_dynamic_mesh(
+                        DynamicMesh(std::make_shared<Mesh>(sky_dome)),
+                        true),
+                    .material_resource = resource_manager.upload_material(sky_material_instance),
+                    .material_config = material_config,
+                    .material_parameters = material_parameters,
+                    .material_textures = material_textures,
+                    .transform = build_transform_matrix(build_sky_transform(sky_entity, scene)),
+                    .camera_distance_squared = std::numeric_limits<float>::max(),
+                };
+            }
+
+            static void apply_default_parameters(ParamBindings& material_parameters)
+            {
                 if (!material_parameters.has("color"))
                     material_parameters.set("color", Color(1.0F, 1.0F, 1.0F, 1.0F));
                 if (!material_parameters.has("emissive"))
@@ -1057,33 +1247,22 @@ namespace tbx
                     material_parameters.set("transparency_amount", 0.0F);
                 if (!material_parameters.has("exposure"))
                     material_parameters.set("exposure", 1.0F);
+            }
 
-                if (!material_textures.has("diffuse_map"))
+            static void apply_legacy_diffuse_alias(TextureBindings& material_textures)
+            {
+                if (material_textures.has("diffuse_map"))
+                    return;
+
+                if (const auto* legacy_diffuse = material_textures.get("diffuse");
+                    legacy_diffuse != nullptr)
                 {
-                    if (const auto* legacy_diffuse = material_textures.get("diffuse");
-                        legacy_diffuse != nullptr)
-                    {
-                        material_textures.set("diffuse_map", legacy_diffuse->texture);
-                    }
+                    material_textures.set("diffuse_map", legacy_diffuse->texture);
                 }
+            }
 
-                for (auto& texture_binding : material_textures.values)
-                {
-                    if (!texture_binding.texture.handle.is_valid())
-                        continue;
-
-                    const auto texture_resource =
-                        resource_manager.upload_texture(texture_binding.texture.handle);
-                    texture_binding.texture.handle = Handle(
-                        texture_binding.texture.handle.get_name(),
-                        texture_resource);
-                }
-
-                const auto sky_material_resource = resource_manager.upload_material(sky_material_instance);
-                const auto sky_mesh_resource = resource_manager.upload_dynamic_mesh(
-                    DynamicMesh(std::make_shared<Mesh>(sky_dome)),
-                    true);
-
+            static Transform build_sky_transform(const Entity& sky_entity, const RenderScene& scene)
+            {
                 auto sky_transform = sky_entity.has_component<Transform>()
                                          ? get_world_space_transform(sky_entity)
                                          : Transform();
@@ -1092,19 +1271,246 @@ namespace tbx
                 const auto sky_scale_multiplier = max(get_max_component(sky_transform.scale), 1.0F);
                 const auto sky_scale = base_sky_scale * sky_scale_multiplier;
                 sky_transform.scale = Vec3(sky_scale, sky_scale, sky_scale);
-
-                scene.sky = RenderSky {
-                    .mesh_resource = sky_mesh_resource,
-                    .material_resource = sky_material_resource,
-                    .material_config = material_config,
-                    .material_parameters = material_parameters,
-                    .material_textures = material_textures,
-                    .transform = build_transform_matrix(sky_transform),
-                    .camera_distance_squared = std::numeric_limits<float>::max(),
-                };
-                break;
+                return sky_transform;
             }
+        };
+
+        void collect_render_items(
+            const EntityRegistry& entity_registry,
+            AssetManager& asset_manager,
+            RenderResourceManager& resource_manager,
+            RenderScene& scene)
+        {
+            RenderableEntityCollector::collect(
+                entity_registry,
+                asset_manager,
+                resource_manager,
+                scene);
+            SkyRenderItemCollector::collect(
+                entity_registry,
+                asset_manager,
+                resource_manager,
+                scene);
         }
+
+        struct RenderFrameExecutor
+        {
+            template <typename TWindowRenderLogState>
+            static bool execute(
+                IGraphicsBackend& backend,
+                const Window& window,
+                const RenderScene& scene,
+                const BackendPassResources& backend_resources,
+                SplitDrawItems& draw_items,
+                TWindowRenderLogState& log_state)
+            {
+                if (!begin_frame(backend, window, scene))
+                    return false;
+
+                render_passes(backend, window, scene, backend_resources, draw_items, log_state);
+                return end_frame(backend, window);
+            }
+
+          private:
+            template <typename TWindowRenderLogState>
+            static void render_passes(
+                IGraphicsBackend& backend,
+                const Window& window,
+                const RenderScene& scene,
+                const BackendPassResources& backend_resources,
+                SplitDrawItems& draw_items,
+                TWindowRenderLogState& log_state)
+            {
+                auto should_render_fallback_frame = !scene.has_camera;
+                const auto shadow_outcome =
+                    backend.draw_shadows(build_shadow_render_info(scene, backend_resources));
+                report_pass_outcome("shadow pass", shadow_outcome, window, log_state.shadows);
+
+                const auto geometry_outcome = backend.draw_geometry(build_geometry_render_info(
+                    scene,
+                    std::move(draw_items.opaque),
+                    backend_resources));
+                report_pass_outcome("geometry pass", geometry_outcome, window, log_state.geometry);
+                if (geometry_outcome.is_fatal())
+                    should_render_fallback_frame = true;
+
+                if (scene.has_camera && !should_render_fallback_frame)
+                    should_render_fallback_frame = !render_lit_passes(
+                        backend,
+                        window,
+                        scene,
+                        backend_resources,
+                        draw_items,
+                        log_state);
+
+                render_fallback_if_needed(backend, window, should_render_fallback_frame, log_state);
+            }
+
+            template <typename TWindowRenderLogState>
+            static bool render_lit_passes(
+                IGraphicsBackend& backend,
+                const Window& window,
+                const RenderScene& scene,
+                const BackendPassResources& backend_resources,
+                SplitDrawItems& draw_items,
+                TWindowRenderLogState& log_state)
+            {
+                const auto lighting_outcome =
+                    backend.draw_lighting(build_lighting_render_info(scene, backend_resources));
+                report_pass_outcome("lighting pass", lighting_outcome, window, log_state.lighting);
+                if (lighting_outcome.is_fatal())
+                    return false;
+
+                const auto transparent_outcome =
+                    backend.draw_transparent(build_transparent_render_info(
+                        scene,
+                        std::move(draw_items.transparent),
+                        backend_resources));
+                report_pass_outcome(
+                    "transparent pass",
+                    transparent_outcome,
+                    window,
+                    log_state.transparency);
+
+                const auto post_outcome = backend.apply_post_processing(
+                    PostProcessingPass {
+                        .post_processing = scene.post_processing,
+                        .post_shader_program = backend_resources.post_shader_program,
+                        .scratch_color_texture = backend_resources.scratch_color_texture,
+                        .fallbacks = backend_resources.fallbacks,
+                    });
+                report_pass_outcome(
+                    "post-processing pass",
+                    post_outcome,
+                    window,
+                    log_state.post_processing);
+                return true;
+            }
+
+            template <typename TPassLogState>
+            static void report_pass_outcome(
+                const char* pass_name,
+                const RenderPassOutcome& outcome,
+                const Window& window,
+                TPassLogState& pass_log_state)
+            {
+                if (outcome.is_success())
+                {
+                    if (pass_log_state.status != RenderPassStatus::Success)
+                    {
+                        TBX_TRACE_INFO(
+                            "Graphics rendering: {} recovered for window {}.",
+                            pass_name,
+                            to_string(window));
+                    }
+
+                    pass_log_state.status = RenderPassStatus::Success;
+                    pass_log_state.diagnostics.clear();
+                    return;
+                }
+
+                const auto diagnostics = outcome.diagnostics.empty()
+                                             ? std::string("(no diagnostics)")
+                                             : outcome.diagnostics;
+                const auto is_repeated = pass_log_state.status == outcome.status
+                                         && pass_log_state.diagnostics == diagnostics;
+                pass_log_state.status = outcome.status;
+                pass_log_state.diagnostics = diagnostics;
+                if (is_repeated)
+                    return;
+
+                if (outcome.is_fatal())
+                {
+                    TBX_TRACE_ERROR(
+                        "Graphics rendering: {} reported {} status for window {}: {}",
+                        pass_name,
+                        to_string(outcome.status),
+                        to_string(window),
+                        diagnostics);
+                    return;
+                }
+
+                TBX_TRACE_WARNING(
+                    "Graphics rendering: {} reported {} status for window {}: {}",
+                    pass_name,
+                    to_string(outcome.status),
+                    to_string(window),
+                    diagnostics);
+            }
+
+            template <typename TWindowRenderLogState>
+            static void render_fallback_if_needed(
+                IGraphicsBackend& backend,
+                const Window& window,
+                const bool should_render_fallback_frame,
+                TWindowRenderLogState& log_state)
+            {
+                if (!should_render_fallback_frame)
+                {
+                    log_state.has_reported_fallback = false;
+                    return;
+                }
+
+                if (!log_state.has_reported_fallback)
+                {
+                    TBX_TRACE_WARNING(
+                        "Graphics rendering: rendering fallback frame for window {}.",
+                        to_string(window));
+                    log_state.has_reported_fallback = true;
+                }
+
+                if (const auto fallback_result = backend.clear(PipelineFallbackFrameColor);
+                    !fallback_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "Graphics rendering: failed to clear fallback frame for window {}: {}",
+                        to_string(window),
+                        fallback_result.get_report());
+                }
+            }
+
+            static bool begin_frame(
+                IGraphicsBackend& backend,
+                const Window& window,
+                const RenderScene& scene)
+            {
+                if (const auto begin_draw_result =
+                        backend.begin_draw(window, scene.camera, scene.render_size);
+                    !begin_draw_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "Graphics rendering: failed to begin draw for window {}: {}",
+                        to_string(window),
+                        begin_draw_result.get_report());
+                    return false;
+                }
+
+                if (const auto clear_result = backend.clear(scene.clear_color); !clear_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "Graphics rendering: failed to clear frame for window {}: {}",
+                        to_string(window),
+                        clear_result.get_report());
+                    return false;
+                }
+
+                return true;
+            }
+
+            static bool end_frame(IGraphicsBackend& backend, const Window& window)
+            {
+                if (const auto end_draw_result = backend.end_draw(); !end_draw_result)
+                {
+                    TBX_TRACE_ERROR(
+                        "Graphics rendering: failed to end draw for window {}: {}",
+                        to_string(window),
+                        end_draw_result.get_report());
+                    return false;
+                }
+
+                return true;
+            }
+        };
 
         RenderScene build_scene(
             const EntityRegistry& entity_registry,
@@ -1120,7 +1526,8 @@ namespace tbx
             if (scene.render_size.width == 0U || scene.render_size.height == 0U)
                 scene.render_size = viewport_size;
 
-            if (const auto cameras = entity_registry.get_with<Camera, Transform>(); !cameras.empty())
+            if (const auto cameras = entity_registry.get_with<Camera, Transform>();
+                !cameras.empty())
             {
                 has_reported_missing_camera = false;
                 scene.has_camera = true;
@@ -1129,8 +1536,8 @@ namespace tbx
                 const auto camera_transform = get_world_space_transform(camera_entity);
                 if (viewport_size.width > 0U && viewport_size.height > 0U)
                 {
-                    const auto aspect =
-                        static_cast<float>(viewport_size.width) / static_cast<float>(viewport_size.height);
+                    const auto aspect = static_cast<float>(viewport_size.width)
+                                        / static_cast<float>(viewport_size.height);
                     camera.set_aspect(aspect);
                 }
                 scene.camera = camera;
@@ -1214,24 +1621,22 @@ namespace tbx
         if (!_is_backend_initialized)
         {
             const auto initialize_window = _windows.begin()->first;
-            auto initialize_result = _thread_manager
-                                         .post_with_future(
-                                             RenderLaneName,
-                                             [this, initialize_window]()
-                                             {
-                                                 if (const auto make_current_result =
-                                                         _context_manager.make_current(initialize_window);
-                                                     !make_current_result)
-                                                 {
-                                                     return Result(
-                                                         false,
-                                                         make_current_result.get_report());
-                                                 }
+            auto initialize_result =
+                _thread_manager
+                    .post_with_future(
+                        RenderLaneName,
+                        [this, initialize_window]()
+                        {
+                            if (const auto make_current_result =
+                                    _context_manager.make_current(initialize_window);
+                                !make_current_result)
+                            {
+                                return Result(false, make_current_result.get_report());
+                            }
 
-                                                 return _backend.initialize(
-                                                     _context_manager.get_proc_address());
-                                             })
-                                         .get();
+                            return _backend.initialize(_context_manager.get_proc_address());
+                        })
+                    .get();
             if (!initialize_result)
             {
                 TBX_TRACE_ERROR(
@@ -1268,166 +1673,19 @@ namespace tbx
                             viewport_size,
                             _has_reported_missing_camera);
 
-                        auto opaque_draws = std::vector<RenderDrawItem> {};
-                        auto transparent_draws = std::vector<RenderDrawItem> {};
-                        split_draw_items(scene, opaque_draws, transparent_draws);
-                        const auto backend_resources =
-                            build_backend_pass_resources(*_resource_manager, scene.render_size);
-                        const auto shadow_info = build_shadow_render_info(scene, backend_resources);
-
-                        if (const auto begin_draw_result = _backend.begin_draw(
-                                window,
-                                scene.camera,
-                                scene.render_size);
-                            !begin_draw_result)
-                        {
-                            TBX_TRACE_ERROR(
-                                "Graphics rendering: failed to begin draw for window {}: {}",
-                                to_string(window),
-                                begin_draw_result.get_report());
-                            return;
-                        }
-
-                        if (const auto clear_result = _backend.clear(scene.clear_color); !clear_result)
-                        {
-                            TBX_TRACE_ERROR(
-                                "Graphics rendering: failed to clear frame for window {}: {}",
-                                to_string(window),
-                                clear_result.get_report());
-                            return;
-                        }
-
+                        auto draw_items = DrawItemSplitter::split(scene);
+                        const auto backend_resources = BackendPassResourceFactory::build(
+                            *_resource_manager,
+                            scene.render_size);
                         auto& log_state = _window_render_log_state[window];
-
-                        auto report_pass_outcome =
-                            [&](const char* pass_name,
-                                const RenderPassOutcome& outcome,
-                                RenderPassLogState& pass_log_state)
-                        {
-                            if (outcome.is_success())
-                            {
-                                if (pass_log_state.status != RenderPassStatus::Success)
-                                {
-                                    TBX_TRACE_INFO(
-                                        "Graphics rendering: {} recovered for window {}.",
-                                        pass_name,
-                                        to_string(window));
-                                }
-
-                                pass_log_state.status = RenderPassStatus::Success;
-                                pass_log_state.diagnostics.clear();
-                                return;
-                            }
-
-                            const auto diagnostics =
-                                outcome.diagnostics.empty() ? std::string("(no diagnostics)")
-                                                            : outcome.diagnostics;
-                            const auto is_repeated = pass_log_state.status == outcome.status
-                                                     && pass_log_state.diagnostics == diagnostics;
-                            pass_log_state.status = outcome.status;
-                            pass_log_state.diagnostics = diagnostics;
-                            if (is_repeated)
-                                return;
-
-                            if (outcome.is_fatal())
-                            {
-                                TBX_TRACE_ERROR(
-                                    "Graphics rendering: {} reported {} status for window {}: {}",
-                                    pass_name,
-                                    to_string(outcome.status),
-                                    to_string(window),
-                                    diagnostics);
-                                return;
-                            }
-
-                            TBX_TRACE_WARNING(
-                                "Graphics rendering: {} reported {} status for window {}: {}",
-                                pass_name,
-                                to_string(outcome.status),
-                                to_string(window),
-                                diagnostics);
-                        };
-
-                        auto should_render_fallback_frame = !scene.has_camera;
-
-                        const auto shadow_outcome = _backend.draw_shadows(shadow_info);
-                        report_pass_outcome("shadow pass", shadow_outcome, log_state.shadows);
-
-                        const auto geometry_outcome =
-                            _backend.draw_geometry(build_geometry_render_info(
+                        if (!RenderFrameExecutor::execute(
+                                _backend,
+                                window,
                                 scene,
-                                std::move(opaque_draws),
-                                backend_resources));
-                        report_pass_outcome("geometry pass", geometry_outcome, log_state.geometry);
-                        if (geometry_outcome.is_fatal())
-                            should_render_fallback_frame = true;
-
-                        if (scene.has_camera && !should_render_fallback_frame)
+                                backend_resources,
+                                draw_items,
+                                log_state))
                         {
-                            const auto lighting_outcome =
-                                _backend.draw_lighting(build_lighting_render_info(scene, backend_resources));
-                            report_pass_outcome("lighting pass", lighting_outcome, log_state.lighting);
-                            if (lighting_outcome.is_fatal())
-                            {
-                                should_render_fallback_frame = true;
-                            }
-                            else
-                            {
-                                const auto transparent_outcome = _backend.draw_transparent(
-                                    build_transparent_render_info(
-                                        scene,
-                                        std::move(transparent_draws),
-                                        backend_resources));
-                                report_pass_outcome(
-                                    "transparent pass",
-                                    transparent_outcome,
-                                    log_state.transparency);
-
-                                const auto post_outcome = _backend.apply_post_processing(
-                                    PostProcessingPass {
-                                        .post_processing = scene.post_processing,
-                                        .post_shader_program = backend_resources.post_shader_program,
-                                        .scratch_color_texture = backend_resources.scratch_color_texture,
-                                        .fallbacks = backend_resources.fallbacks,
-                                    });
-                                report_pass_outcome(
-                                    "post-processing pass",
-                                    post_outcome,
-                                    log_state.post_processing);
-                            }
-                        }
-
-                        if (should_render_fallback_frame)
-                        {
-                            if (!log_state.has_reported_fallback)
-                            {
-                                TBX_TRACE_WARNING(
-                                    "Graphics rendering: rendering fallback frame for window {}.",
-                                    to_string(window));
-                                log_state.has_reported_fallback = true;
-                            }
-
-                            if (const auto fallback_result =
-                                    _backend.clear(PipelineFallbackFrameColor);
-                                !fallback_result)
-                            {
-                                TBX_TRACE_ERROR(
-                                    "Graphics rendering: failed to clear fallback frame for window {}: {}",
-                                    to_string(window),
-                                    fallback_result.get_report());
-                            }
-                        }
-                        else
-                        {
-                            log_state.has_reported_fallback = false;
-                        }
-
-                        if (const auto end_draw_result = _backend.end_draw(); !end_draw_result)
-                        {
-                            TBX_TRACE_ERROR(
-                                "Graphics rendering: failed to end draw for window {}: {}",
-                                to_string(window),
-                                end_draw_result.get_report());
                             return;
                         }
 
@@ -1506,16 +1764,17 @@ namespace tbx
         IGraphicsBackend& backend)
         : _settings(settings)
         , _backend(backend)
-        , _pipeline(std::make_unique<RenderingPipeline>(
-              message_coordinator,
-              thread_manager,
-              entity_registry,
-              asset_manager,
-              job_system,
-              settings,
-              window_manager,
-              context_manager,
-              backend))
+        , _pipeline(
+              std::make_unique<RenderingPipeline>(
+                  message_coordinator,
+                  thread_manager,
+                  entity_registry,
+                  asset_manager,
+                  job_system,
+                  settings,
+                  window_manager,
+                  context_manager,
+                  backend))
     {
     }
 
