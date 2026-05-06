@@ -1,10 +1,9 @@
 #include "tbx/systems/graphics/pipeline/skybox_operation.h"
 #include "render_material_helpers.h"
-#include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/graphics/camera.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/pipeline/render_frame_context.h"
+#include "tbx/systems/graphics/render_graph.h"
 #include "tbx/systems/math/matrices.h"
 #include <utility>
 
@@ -120,26 +119,18 @@ namespace tbx
     {
         _ready = false;
 
-        auto sky_material = std::optional<MaterialInstance> {};
-        auto sky_transform = Transform {};
-        context.entity_registry.get().for_each_with<Sky>(
-            [&sky_material, &sky_transform](Entity& entity)
-            {
-                if (sky_material.has_value())
-                    return;
-                sky_material = entity.get_component<Sky>().material;
-                if (entity.has_component<Transform>())
-                    sky_transform = get_world_space_transform(entity);
-            });
-
-        if (!sky_material.has_value() || !sky_material->get_handle().is_valid())
+        const RenderGraph& render_graph = context.render_graph.get();
+        if (!render_graph.sky.sky.material.get_handle().is_valid())
             return {};
+
+        const MaterialInstance& sky_material = render_graph.sky.sky.material;
+        const Transform& sky_transform = render_graph.sky.transform;
 
         auto& backend = context.backend.get();
         auto& resource_manager = context.resource_manager.get();
 
         auto resolved = ResolvedMaterial {};
-        if (const auto result = resolve_material(*sky_material, resource_manager, resolved);
+        if (const auto result = resolve_material(sky_material, resource_manager, resolved);
             !result)
             return result;
 

@@ -6,42 +6,45 @@
 #include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/pipeline/skybox_operation.h"
 #include "tbx/systems/graphics/pipeline/view_uniform_operation.h"
+#include "tbx/systems/graphics/render_graph.h"
 #include "tbx/systems/math/matrices.h"
 #include <functional>
 #include <utility>
 
 namespace tbx
 {
-    namespace
+    /// @brief
+    /// Purpose: Stores the camera and transform selected for the current render frame.
+    /// @details
+    /// Ownership: Value snapshot. Thread Safety: Safe for concurrent reads.
+    struct RenderView
     {
-        struct RenderView
-        {
-            Camera camera = {};
-            Transform transform = {};
+        Camera camera = {};
+        Transform transform = {};
+    };
+
+    static RenderView find_render_camera(EntityRegistry& registry, const Size resolution)
+    {
+        auto view = RenderView {
+            .transform = Transform(Vec3(0.0F, 2.0F, 8.0F)),
         };
+        auto found = false;
+        registry.for_each_with<Camera, Transform>(
+            [&view, &found](Entity& entity)
+            {
+                if (found)
+                    return;
+                view.camera = entity.get_component<Camera>();
+                view.transform = get_world_space_transform(entity);
+                found = true;
+            });
 
-        RenderView find_render_camera(EntityRegistry& registry, const Size resolution)
-        {
-            auto view = RenderView {
-                .transform = Transform(Vec3(0.0F, 2.0F, 8.0F)),
-            };
-            auto found = false;
-            registry.for_each_with<Camera, Transform>(
-                [&view, &found](Entity& entity)
-                {
-                    if (found)
-                        return;
-                    view.camera = entity.get_component<Camera>();
-                    view.transform = get_world_space_transform(entity);
-                    found = true;
-                });
-
-            const float aspect = resolution.height == 0U
+        const float aspect =
+            resolution.height == 0U
                 ? 1.0F
                 : static_cast<float>(resolution.width) / static_cast<float>(resolution.height);
-            view.camera.set_aspect(aspect);
-            return view;
-        }
+        view.camera.set_aspect(aspect);
+        return view;
     }
 
     Rendering::Rendering(
@@ -88,6 +91,7 @@ namespace tbx
 
         const Size resolution = get_render_resolution();
         const RenderView render_view = find_render_camera(_entity_registry.get(), resolution);
+        auto render_graph = RenderGraphBuilder(_entity_registry.get()).build();
         const Mat4 view_projection = render_view.camera.get_view_projection_matrix(
             render_view.transform.position,
             render_view.transform.rotation);
@@ -98,16 +102,14 @@ namespace tbx
 
         if (const auto result = begin_frame_and_view(render_view.camera, viewport); !result)
         {
-            TBX_TRACE_WARNING(
-                "Toybox renderer frame begin failed: {}",
-                result.get_report());
+            TBX_TRACE_WARNING("Toybox renderer frame begin failed: {}", result.get_report());
             return;
         }
 
         auto context = RenderFrameContext {
             .backend = _backend,
             .resource_manager = *_resource_manager,
-            .entity_registry = _entity_registry,
+            .render_graph = render_graph,
             .view_projection = view_projection,
             .camera_position = render_view.transform.position,
             .frame_index = _render_frame,
@@ -118,12 +120,10 @@ namespace tbx
             auto& backend = _backend.get();
             backend.end_view();
             backend.end_frame();
-            TBX_TRACE_WARNING(
-                "Toybox renderer frame submission failed: {}",
-                failure.get_report());
+            TBX_TRACE_WARNING("Toybox renderer frame submission failed: {}", failure.get_report());
         };
 
-        // Phase 1 — prepare: CPU work, resource uploads, entity queries
+        // Phase 1 — prepare: CPU work, resource uploads, render graph consumption
         for (auto& operation : _operations)
         {
             if (const auto result = operation->prepare(context); !result)
@@ -136,7 +136,8 @@ namespace tbx
         // Phase 2 — execute: GPU commands, one pass per operation
         for (auto& operation : _operations)
         {
-            if (const auto result = operation->execute(_backend.get(), CancellationToken {}); !result)
+            if (const auto result = operation->execute(_backend.get(), CancellationToken {});
+                !result)
             {
                 abort_frame(result);
                 return;
@@ -145,9 +146,7 @@ namespace tbx
 
         if (const auto result = end_view_and_frame(); !result)
         {
-            TBX_TRACE_WARNING(
-                "Toybox renderer frame end failed: {}",
-                result.get_report());
+            TBX_TRACE_WARNING("Toybox renderer frame end failed: {}", result.get_report());
         }
     }
 
