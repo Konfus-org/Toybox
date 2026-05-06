@@ -8,16 +8,17 @@ Honestly, not much yet. There is a plugin system that will find and load plugins
 
 ## Repository Structure
 - `examples/`: Sample projects demonstrating engine functionality.
-- `modules/`: First-class logic that is directly linked to and compiled into the engine.
+- `engine/`: First-class logic that is directly linked to and compiled into the engine.
 - `plugins/`: Runtime-discoverable plugins that extend the engine.
 - `thirdparty/`: Vendored dependencies.
 - `cmake/`, `CMakeLists.txt`, `CMakePresets.json`: Build configuration and presets.
 
-## Modules vs Plugins
-Toybox has two central concepts, *modules* and *plugins*.
-
-- **Modules** ship as part of the engine and live under `modules/`. They define the core behaviour (messaging, windowing, debugging, etc.) that every Toybox application relies on. Replacing a module requires rebuilding the engine as well as plugins that utilize the modules because the modules are compiled directly into the binaries.
-- **Plugins** reside in `plugins/` and follow the dynamic plugin contract. They are designed to be swapped, extended, or omitted without recompiling the engine. At runtime the application can selectively load plugins that implement optional features such as SDL integration or logging backends.
+## Plugins
+Toybox has revolves around *plugins*.
+Plugins are just dlls with some meta files that follow the dynamic plugin contract.
+They are designed to be swapped, extended, or omitted without recompiling the engine.
+At runtime the application can selectively load plugins that implement optional features such as SDL integration or graphics backends.
+The engine also support reloading plugins at runtime!
 
 
 ## Getting Started
