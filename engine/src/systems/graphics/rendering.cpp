@@ -2,10 +2,8 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/camera.h"
-#include "tbx/systems/graphics/pipeline/opaque_scene_operation.h"
 #include "tbx/systems/graphics/pipeline/render_frame_context.h"
-#include "tbx/systems/graphics/pipeline/skybox_operation.h"
-#include "tbx/systems/graphics/pipeline/view_uniform_operation.h"
+#include "tbx/systems/graphics/pipeline/render_pipeline_config.h"
 #include "tbx/systems/graphics/render_graph.h"
 #include "tbx/systems/math/matrices.h"
 #include <functional>
@@ -39,10 +37,9 @@ namespace tbx
                 found = true;
             });
 
-        const float aspect =
-            resolution.height == 0U
-                ? 1.0F
-                : static_cast<float>(resolution.width) / static_cast<float>(resolution.height);
+        const float aspect = resolution.height == 0U ? 1.0F
+                                                     : static_cast<float>(resolution.width)
+                                                           / static_cast<float>(resolution.height);
         view.camera.set_aspect(aspect);
         return view;
     }
@@ -63,9 +60,8 @@ namespace tbx
     {
         _initialization_result = backend.initialize(settings);
 
-        _operations.push_back(std::make_unique<ViewUniformOperation>());
-        _operations.push_back(std::make_unique<SkyboxOperation>());
-        _operations.push_back(std::make_unique<OpaqueSceneOperation>());
+        auto pipeline_config = RenderPipelineConfig::standard();
+        _operations = std::move(pipeline_config.operations);
     }
 
     Rendering::~Rendering() noexcept
@@ -128,6 +124,12 @@ namespace tbx
         {
             if (const auto result = operation->prepare(context); !result)
             {
+                const RenderOperationDebugInfo debug_info = operation->get_debug_info();
+                TBX_TRACE_WARNING(
+                    "Toybox render operation prepare failed [{} / {}]: {}",
+                    debug_info.category,
+                    debug_info.debug_name,
+                    result.get_report());
                 abort_frame(result);
                 return;
             }
@@ -139,6 +141,12 @@ namespace tbx
             if (const auto result = operation->execute(_backend.get(), CancellationToken {});
                 !result)
             {
+                const RenderOperationDebugInfo debug_info = operation->get_debug_info();
+                TBX_TRACE_WARNING(
+                    "Toybox render operation execute failed [{} / {}]: {}",
+                    debug_info.category,
+                    debug_info.debug_name,
+                    result.get_report());
                 abort_frame(result);
                 return;
             }

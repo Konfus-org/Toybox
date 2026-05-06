@@ -2,6 +2,7 @@
 #include "render_material_helpers.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
+#include "tbx/systems/graphics/pipeline/render_command_executor.h"
 #include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/render_graph.h"
 #include "tbx/systems/math/matrices.h"
@@ -9,6 +10,14 @@
 
 namespace tbx
 {
+    RenderOperationDebugInfo SkyboxOperation::get_debug_info() const
+    {
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = "Toybox Skybox Operation";
+        debug_info.category = "Scene Rendering";
+        return debug_info;
+    }
+
     Result SkyboxOperation::ensure_geometry(IGraphicsBackend& backend)
     {
         if (_vertex_buffer.is_valid() && _index_buffer.is_valid() && _index_count > 0U)
@@ -130,8 +139,7 @@ namespace tbx
         auto& resource_manager = context.resource_manager.get();
 
         auto resolved = ResolvedMaterial {};
-        if (const auto result = resolve_material(sky_material, resource_manager, resolved);
-            !result)
+        if (const auto result = resolve_material(sky_material, resource_manager, resolved); !result)
             return result;
 
         if (const auto result = ensure_material_uniform(
@@ -158,9 +166,7 @@ namespace tbx
         return {};
     }
 
-    Result SkyboxOperation::execute(
-        IGraphicsBackend& backend,
-        const CancellationToken& token)
+    Result SkyboxOperation::execute(IGraphicsBackend& backend, const CancellationToken& token)
     {
         if (!_ready)
             return {};
@@ -203,7 +209,8 @@ namespace tbx
                 },
         };
 
-        if (const auto result = execute_indexed_draw(backend, draw); !result)
+        const auto executor = RenderCommandExecutor();
+        if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
             return backend.end_pass(), result;
 
         return backend.end_pass();

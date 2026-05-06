@@ -151,8 +151,7 @@ namespace tbx
                     !result)
                     return result;
             }
-            else if (const auto result =
-                         resource_manager.load_default_texture(texture_resource);
+            else if (const auto result = resource_manager.load_default_texture(texture_resource);
                      !result)
             {
                 return result;
@@ -201,50 +200,8 @@ namespace tbx
             return result;
 
         out.pipeline = material_resource.pipeline;
-        out.uniform_key =
-            make_material_key(out.pipeline, out.uniform_data, out.textures);
+        out.uniform_key = make_material_key(out.pipeline, out.uniform_data, out.textures);
         return {};
     }
 
-    // ---------------------------------------------------------------------------
-    // Indexed draw command execution — mirrors render_pass_operation.cpp logic
-    // ---------------------------------------------------------------------------
-
-    inline Result execute_indexed_draw(
-        IGraphicsBackend& backend,
-        const GraphicsIndexedDrawCommand& command)
-    {
-        if (const auto result = backend.bind_pipeline(command.pipeline); !result)
-            return result;
-        for (const auto& vb : command.vertex_buffers)
-        {
-            if (const auto result = backend.bind_vertex_buffer(vb.slot, vb.resource); !result)
-                return result;
-        }
-        if (const auto result =
-                backend.bind_index_buffer(command.index_buffer, command.index_type);
-            !result)
-            return result;
-        for (const auto& ub : command.uniform_buffers)
-        {
-            if (const auto result = backend.bind_uniform_buffer(ub.slot, ub.resource); !result)
-                return result;
-        }
-        for (const auto& sb : command.storage_buffers)
-        {
-            if (const auto result = backend.bind_storage_buffer(sb.slot, sb.resource); !result)
-                return result;
-        }
-        for (const auto& tex : command.textures)
-        {
-            if (const auto result = backend.bind_texture(tex.slot, tex.resource); !result)
-                return result;
-        }
-        for (const auto& samp : command.samplers)
-        {
-            if (const auto result = backend.bind_sampler(samp.slot, samp.resource); !result)
-                return result;
-        }
-        return backend.draw_indexed(command.draw);
-    }
 }
