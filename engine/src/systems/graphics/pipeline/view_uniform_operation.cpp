@@ -5,13 +5,18 @@
 
 namespace tbx
 {
-    namespace
+    RenderOperationDebugInfo ViewUniformOperation::get_debug_info() const
     {
-        struct ViewUniformBlock
-        {
-            Mat4 view_projection = Mat4(1.0F);
-        };
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = "Toybox View Uniform Operation";
+        debug_info.category = "Frame Setup";
+        return debug_info;
     }
+
+    struct ViewUniformBlock
+    {
+        Mat4 view_projection = Mat4(1.0F);
+    };
 
     Result ViewUniformOperation::prepare(RenderFrameContext& context)
     {

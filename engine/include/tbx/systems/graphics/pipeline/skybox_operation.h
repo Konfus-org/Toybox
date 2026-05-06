@@ -12,10 +12,10 @@ namespace tbx
     /// @brief
     /// Purpose: Renders the sky dome if a Sky component is present in the scene.
     /// @details
-    /// Ownership: Owns all skybox GPU resources — geometry, instance transform, and material uniform buffers.
-    /// Geometry is uploaded once; instance and material buffers are updated per-frame as needed.
-    /// Interaction: Sets context.has_skybox during prepare() so subsequent operations can skip their
-    /// color clear.
+    /// Ownership: Owns all skybox GPU resources — geometry, instance transform, and material
+    /// uniform buffers. Geometry is uploaded once; instance and material buffers are updated
+    /// per-frame as needed. Interaction: Sets context.has_skybox during prepare() so subsequent
+    /// operations can skip their color clear.
     class TBX_API SkyboxOperation final : public IRenderOperation
     {
       public:
@@ -24,6 +24,7 @@ namespace tbx
         SkyboxOperation(SkyboxOperation&&) noexcept = default;
         SkyboxOperation& operator=(SkyboxOperation&&) noexcept = default;
 
+        RenderOperationDebugInfo get_debug_info() const override;
         Result prepare(RenderFrameContext& context) override;
         Result execute(IGraphicsBackend& backend, const CancellationToken& token) override;
         void release(IGraphicsBackend& backend) override;

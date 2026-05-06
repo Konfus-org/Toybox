@@ -1,99 +1,11 @@
 #include "tbx/systems/graphics/pipeline/render_pass_operation.h"
+#include "tbx/systems/graphics/pipeline/render_command_executor.h"
 #include <any>
 #include <optional>
 #include <utility>
 
 namespace tbx
 {
-    static Result bind_common_resources(
-        IGraphicsBackend& backend,
-        const std::vector<GraphicsResourceBinding>& uniform_buffers,
-        const std::vector<GraphicsResourceBinding>& storage_buffers,
-        const std::vector<GraphicsResourceBinding>& textures,
-        const std::vector<GraphicsResourceBinding>& samplers)
-    {
-        for (const auto& binding : uniform_buffers)
-        {
-            if (const auto result = backend.bind_uniform_buffer(binding.slot, binding.resource);
-                !result)
-                return result;
-        }
-
-        for (const auto& binding : storage_buffers)
-        {
-            if (const auto result = backend.bind_storage_buffer(binding.slot, binding.resource);
-                !result)
-                return result;
-        }
-
-        for (const auto& binding : textures)
-        {
-            if (const auto result = backend.bind_texture(binding.slot, binding.resource); !result)
-                return result;
-        }
-
-        for (const auto& binding : samplers)
-        {
-            if (const auto result = backend.bind_sampler(binding.slot, binding.resource); !result)
-                return result;
-        }
-
-        return {};
-    }
-
-    static Result bind_vertex_buffers(
-        IGraphicsBackend& backend,
-        const std::vector<GraphicsResourceBinding>& vertex_buffers)
-    {
-        for (const auto& binding : vertex_buffers)
-        {
-            if (const auto result = backend.bind_vertex_buffer(binding.slot, binding.resource);
-                !result)
-                return result;
-        }
-
-        return {};
-    }
-
-    static Result execute_draw(IGraphicsBackend& backend, const GraphicsDrawCommand& command)
-    {
-        if (const auto result = backend.bind_pipeline(command.pipeline); !result)
-            return result;
-        if (const auto result = bind_vertex_buffers(backend, command.vertex_buffers); !result)
-            return result;
-        if (const auto result = bind_common_resources(
-                backend,
-                command.uniform_buffers,
-                command.storage_buffers,
-                command.textures,
-                command.samplers);
-            !result)
-            return result;
-        return backend.draw(command.vertex_count, command.vertex_offset);
-    }
-
-    static Result execute_draw(
-        IGraphicsBackend& backend,
-        const GraphicsIndexedDrawCommand& command)
-    {
-        if (const auto result = backend.bind_pipeline(command.pipeline); !result)
-            return result;
-        if (const auto result = bind_vertex_buffers(backend, command.vertex_buffers); !result)
-            return result;
-        if (const auto result = backend.bind_index_buffer(command.index_buffer, command.index_type);
-            !result)
-            return result;
-        if (const auto result = bind_common_resources(
-                backend,
-                command.uniform_buffers,
-                command.storage_buffers,
-                command.textures,
-                command.samplers);
-            !result)
-            return result;
-        return backend.draw_indexed(command.draw);
-    }
-
     static bool is_cancelled(const CancellationToken& cancellation_token)
     {
         return cancellation_token && cancellation_token.is_cancelled();
@@ -135,12 +47,13 @@ namespace tbx
         if (const auto result = backend.begin_pass(_pass.pass); !result)
             return result;
 
+        const auto executor = RenderCommandExecutor();
         for (const auto& draw : _pass.draws)
         {
             if (is_cancelled(cancellation_token))
                 return Result(false, "Graphics render pass operation cancelled.");
 
-            if (const auto result = execute_draw(backend, draw); !result)
+            if (const auto result = executor.execute_draw(backend, draw); !result)
                 return result;
         }
 
@@ -149,7 +62,7 @@ namespace tbx
             if (is_cancelled(cancellation_token))
                 return Result(false, "Graphics render pass operation cancelled.");
 
-            if (const auto result = execute_draw(backend, draw); !result)
+            if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
                 return result;
         }
 

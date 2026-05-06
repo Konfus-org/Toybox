@@ -6,6 +6,7 @@
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/model.h"
+#include "tbx/systems/graphics/pipeline/render_command_executor.h"
 #include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/shader.h"
 #include "tbx/systems/math/matrices.h"
@@ -17,289 +18,292 @@
 
 namespace tbx
 {
+    RenderOperationDebugInfo OpaqueSceneOperation::get_debug_info() const
+    {
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = "Toybox Opaque Scene Operation";
+        debug_info.category = "Scene Rendering";
+        return debug_info;
+    }
+
     // ---------------------------------------------------------------------------
     // CPU-side geometry clipping (fallback for non-standard mesh strides)
     // ---------------------------------------------------------------------------
 
-    namespace
+    struct GeometryBuildResult
     {
-        struct GeometryBuildResult
-        {
-            std::vector<float> vertices = {};
-            std::vector<uint32> indices = {};
-        };
+        std::vector<float> vertices = {};
+        std::vector<uint32> indices = {};
+    };
 
-        float get_clip_plane_distance(const Vec4& position, const uint32 plane_index)
+    static float get_clip_plane_distance(const Vec4& position, const uint32 plane_index)
+    {
+        switch (plane_index)
         {
-            switch (plane_index)
-            {
-                case 0U:
-                    return position.x + position.w;
-                case 1U:
-                    return position.w - position.x;
-                case 2U:
-                    return position.y + position.w;
-                case 3U:
-                    return position.w - position.y;
-                case 4U:
-                    return position.z + position.w;
-                case 5U:
-                    return position.w - position.z;
-                default:
-                    return 0.0F;
-            }
+            case 0U:
+                return position.x + position.w;
+            case 1U:
+                return position.w - position.x;
+            case 2U:
+                return position.y + position.w;
+            case 3U:
+                return position.w - position.y;
+            case 4U:
+                return position.z + position.w;
+            case 5U:
+                return position.w - position.z;
+            default:
+                return 0.0F;
         }
+    }
 
-        Vec4 interpolate_clip_position(
-            const Vec4& start,
-            const Vec4& end,
-            const float start_distance,
-            const float end_distance)
-        {
-            const float denominator = start_distance - end_distance;
-            if (std::abs(denominator) <= 0.000001F)
-                return start;
-            const float t = start_distance / denominator;
-            return start + ((end - start) * t);
-        }
+    static Vec4 interpolate_clip_position(
+        const Vec4& start,
+        const Vec4& end,
+        const float start_distance,
+        const float end_distance)
+    {
+        const float denominator = start_distance - end_distance;
+        if (std::abs(denominator) <= 0.000001F)
+            return start;
+        const float t = start_distance / denominator;
+        return start + ((end - start) * t);
+    }
 
-        std::vector<Vec4> clip_polygon_against_plane(
-            const std::vector<Vec4>& polygon,
-            const uint32 plane_index)
-        {
-            auto clipped = std::vector<Vec4> {};
-            if (polygon.empty())
-                return clipped;
-
-            clipped.reserve(polygon.size() + 1U);
-            Vec4 previous = polygon.back();
-            float previous_distance = get_clip_plane_distance(previous, plane_index);
-            bool previous_inside = previous_distance >= 0.0F;
-
-            for (const Vec4& current : polygon)
-            {
-                const float current_distance = get_clip_plane_distance(current, plane_index);
-                const bool current_inside = current_distance >= 0.0F;
-
-                if (current_inside != previous_inside)
-                {
-                    clipped.push_back(interpolate_clip_position(
-                        previous,
-                        current,
-                        previous_distance,
-                        current_distance));
-                }
-                if (current_inside)
-                    clipped.push_back(current);
-
-                previous = current;
-                previous_distance = current_distance;
-                previous_inside = current_inside;
-            }
+    static std::vector<Vec4> clip_polygon_against_plane(
+        const std::vector<Vec4>& polygon,
+        const uint32 plane_index)
+    {
+        auto clipped = std::vector<Vec4> {};
+        if (polygon.empty())
             return clipped;
-        }
 
-        void append_projected_vertex(const Vec4& clip_position, GeometryBuildResult& geometry)
-        {
-            const float inverse_w =
-                std::abs(clip_position.w) <= 0.000001F ? 1.0F : 1.0F / clip_position.w;
-            geometry.vertices.push_back(clip_position.x * inverse_w);
-            geometry.vertices.push_back(clip_position.y * inverse_w);
-            geometry.vertices.push_back(clip_position.z * inverse_w);
-        }
+        clipped.reserve(polygon.size() + 1U);
+        Vec4 previous = polygon.back();
+        float previous_distance = get_clip_plane_distance(previous, plane_index);
+        bool previous_inside = previous_distance >= 0.0F;
 
-        void append_clipped_triangle(
-            const Vec4& v0,
-            const Vec4& v1,
-            const Vec4& v2,
-            GeometryBuildResult& geometry)
+        for (const Vec4& current : polygon)
         {
-            auto polygon = std::vector<Vec4> {v0, v1, v2};
-            for (uint32 plane = 0U; plane < 6U; ++plane)
+            const float current_distance = get_clip_plane_distance(current, plane_index);
+            const bool current_inside = current_distance >= 0.0F;
+
+            if (current_inside != previous_inside)
             {
-                polygon = clip_polygon_against_plane(polygon, plane);
-                if (polygon.size() < 3U)
-                    return;
+                clipped.push_back(interpolate_clip_position(
+                    previous,
+                    current,
+                    previous_distance,
+                    current_distance));
             }
+            if (current_inside)
+                clipped.push_back(current);
 
-            for (uint32 i = 1U; i + 1U < polygon.size(); ++i)
-            {
-                const uint32 base = static_cast<uint32>(geometry.vertices.size() / 3U);
-                append_projected_vertex(polygon[0U], geometry);
-                append_projected_vertex(polygon[i], geometry);
-                append_projected_vertex(polygon[i + 1U], geometry);
-                geometry.indices.push_back(base);
-                geometry.indices.push_back(base + 1U);
-                geometry.indices.push_back(base + 2U);
-            }
+            previous = current;
+            previous_distance = current_distance;
+            previous_inside = current_inside;
         }
+        return clipped;
+    }
 
-        uint32 get_vertex_stride_float_count(const Mesh& mesh)
-        {
-            const uint32 stride_bytes = mesh.vertices.layout.stride;
-            return stride_bytes == 0U ? 16U : stride_bytes / static_cast<uint32>(sizeof(float));
-        }
+    static void append_projected_vertex(const Vec4& clip_position, GeometryBuildResult& geometry)
+    {
+        const float inverse_w =
+            std::abs(clip_position.w) <= 0.000001F ? 1.0F : 1.0F / clip_position.w;
+        geometry.vertices.push_back(clip_position.x * inverse_w);
+        geometry.vertices.push_back(clip_position.y * inverse_w);
+        geometry.vertices.push_back(clip_position.z * inverse_w);
+    }
 
-        bool can_render_mesh_directly(const Mesh& mesh)
+    static void append_clipped_triangle(
+        const Vec4& v0,
+        const Vec4& v1,
+        const Vec4& v2,
+        GeometryBuildResult& geometry)
+    {
+        auto polygon = std::vector<Vec4> {v0, v1, v2};
+        for (uint32 plane = 0U; plane < 6U; ++plane)
         {
-            constexpr uint32 model_pipeline_stride = 16U;
-            return !mesh.vertices.empty() && !mesh.indices.empty()
-                   && get_vertex_stride_float_count(mesh) == model_pipeline_stride;
-        }
-
-        void append_mesh_geometry(
-            const Mesh& mesh,
-            const Mat4& world_to_clip,
-            GeometryBuildResult& geometry)
-        {
-            if (mesh.vertices.empty() || mesh.indices.empty())
+            polygon = clip_polygon_against_plane(polygon, plane);
+            if (polygon.size() < 3U)
                 return;
-
-            const uint32 stride = get_vertex_stride_float_count(mesh);
-            if (stride < 3U)
-                return;
-
-            const uint32 source_vertex_count = static_cast<uint32>(mesh.vertices.size() / stride);
-            auto clip_positions = std::vector<Vec4> {};
-            clip_positions.reserve(source_vertex_count);
-
-            for (uint32 vertex_index = 0U; vertex_index < source_vertex_count; ++vertex_index)
-            {
-                const uint32 offset = vertex_index * stride;
-                const Vec4 local = Vec4(
-                    mesh.vertices.vertices[offset],
-                    mesh.vertices.vertices[offset + 1U],
-                    mesh.vertices.vertices[offset + 2U],
-                    1.0F);
-                clip_positions.push_back(world_to_clip * local);
-            }
-
-            for (uint32 index_offset = 0U; index_offset + 2U < mesh.indices.size();
-                 index_offset += 3U)
-            {
-                const uint32 i0 = mesh.indices[index_offset];
-                const uint32 i1 = mesh.indices[index_offset + 1U];
-                const uint32 i2 = mesh.indices[index_offset + 2U];
-                if (i0 >= source_vertex_count || i1 >= source_vertex_count
-                    || i2 >= source_vertex_count)
-                    continue;
-
-                append_clipped_triangle(
-                    clip_positions[i0],
-                    clip_positions[i1],
-                    clip_positions[i2],
-                    geometry);
-            }
         }
 
-        // ---------------------------------------------------------------------------
-        // Fallback pipeline definition
-        // ---------------------------------------------------------------------------
-
-        Shader make_fallback_shader()
+        for (uint32 i = 1U; i + 1U < polygon.size(); ++i)
         {
-            return Shader(
-                std::vector<ShaderSource> {
-                    ShaderSource(
-                        "#version 450 core\n"
-                        "layout(location = 0) in vec3 a_position;\n"
-                        "out vec3 v_color;\n"
-                        "void main()\n"
-                        "{\n"
-                        "    v_color = (a_position * 0.5) + vec3(0.5, 0.5, 0.75);\n"
-                        "    gl_Position = vec4(a_position, 1.0);\n"
-                        "}\n",
-                        ShaderType::VERTEX),
-                    ShaderSource(
-                        "#version 450 core\n"
-                        "layout(location = 0) out vec4 o_final_color;\n"
-                        "in vec3 v_color;\n"
-                        "void main()\n"
-                        "{\n"
-                        "    o_final_color = vec4(clamp(v_color, 0.15, 1.0), 1.0);\n"
-                        "}\n",
-                        ShaderType::FRAGMENT),
-                });
+            const uint32 base = static_cast<uint32>(geometry.vertices.size() / 3U);
+            append_projected_vertex(polygon[0U], geometry);
+            append_projected_vertex(polygon[i], geometry);
+            append_projected_vertex(polygon[i + 1U], geometry);
+            geometry.indices.push_back(base);
+            geometry.indices.push_back(base + 1U);
+            geometry.indices.push_back(base + 2U);
+        }
+    }
+
+    static uint32 get_vertex_stride_float_count(const Mesh& mesh)
+    {
+        const uint32 stride_bytes = mesh.vertices.layout.stride;
+        return stride_bytes == 0U ? 16U : stride_bytes / static_cast<uint32>(sizeof(float));
+    }
+
+    static bool can_render_mesh_directly(const Mesh& mesh)
+    {
+        constexpr uint32 model_pipeline_stride = 16U;
+        return !mesh.vertices.empty() && !mesh.indices.empty()
+               && get_vertex_stride_float_count(mesh) == model_pipeline_stride;
+    }
+
+    static void append_mesh_geometry(
+        const Mesh& mesh,
+        const Mat4& world_to_clip,
+        GeometryBuildResult& geometry)
+    {
+        if (mesh.vertices.empty() || mesh.indices.empty())
+            return;
+
+        const uint32 stride = get_vertex_stride_float_count(mesh);
+        if (stride < 3U)
+            return;
+
+        const uint32 source_vertex_count = static_cast<uint32>(mesh.vertices.size() / stride);
+        auto clip_positions = std::vector<Vec4> {};
+        clip_positions.reserve(source_vertex_count);
+
+        for (uint32 vertex_index = 0U; vertex_index < source_vertex_count; ++vertex_index)
+        {
+            const uint32 offset = vertex_index * stride;
+            const Vec4 local = Vec4(
+                mesh.vertices.vertices[offset],
+                mesh.vertices.vertices[offset + 1U],
+                mesh.vertices.vertices[offset + 2U],
+                1.0F);
+            clip_positions.push_back(world_to_clip * local);
         }
 
-        GraphicsPipelineDesc make_fallback_pipeline_desc()
+        for (uint32 index_offset = 0U; index_offset + 2U < mesh.indices.size(); index_offset += 3U)
         {
-            return GraphicsPipelineDesc {
-                .shader = make_fallback_shader(),
-                .vertex_buffers =
-                    {
-                        GraphicsVertexBufferLayoutDesc {
-                            .slot = 0U,
-                            .stride = static_cast<uint32>(sizeof(float) * 3U),
-                        },
+            const uint32 i0 = mesh.indices[index_offset];
+            const uint32 i1 = mesh.indices[index_offset + 1U];
+            const uint32 i2 = mesh.indices[index_offset + 2U];
+            if (i0 >= source_vertex_count || i1 >= source_vertex_count || i2 >= source_vertex_count)
+                continue;
+
+            append_clipped_triangle(
+                clip_positions[i0],
+                clip_positions[i1],
+                clip_positions[i2],
+                geometry);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Fallback pipeline definition
+    // ---------------------------------------------------------------------------
+
+    static Shader make_opaque_fallback_shader()
+    {
+        return Shader(
+            std::vector<ShaderSource> {
+                ShaderSource(
+                    "#version 450 core\n"
+                    "layout(location = 0) in vec3 a_position;\n"
+                    "out vec3 v_color;\n"
+                    "void main()\n"
+                    "{\n"
+                    "    v_color = (a_position * 0.5) + vec3(0.5, 0.5, 0.75);\n"
+                    "    gl_Position = vec4(a_position, 1.0);\n"
+                    "}\n",
+                    ShaderType::VERTEX),
+                ShaderSource(
+                    "#version 450 core\n"
+                    "layout(location = 0) out vec4 o_final_color;\n"
+                    "in vec3 v_color;\n"
+                    "void main()\n"
+                    "{\n"
+                    "    o_final_color = vec4(clamp(v_color, 0.15, 1.0), 1.0);\n"
+                    "}\n",
+                    ShaderType::FRAGMENT),
+            });
+    }
+
+    static GraphicsPipelineDesc make_fallback_pipeline_desc()
+    {
+        return GraphicsPipelineDesc {
+            .shader = make_opaque_fallback_shader(),
+            .vertex_buffers =
+                {
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 0U,
+                        .stride = static_cast<uint32>(sizeof(float) * 3U),
                     },
-                .vertex_attributes =
-                    {
-                        GraphicsVertexAttributeDesc {
-                            .location = 0U,
-                            .buffer_slot = 0U,
-                            .offset = 0U,
-                            .format = GraphicsVertexFormat::VEC3,
-                        },
+                },
+            .vertex_attributes =
+                {
+                    GraphicsVertexAttributeDesc {
+                        .location = 0U,
+                        .buffer_slot = 0U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC3,
                     },
-                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
-                .is_depth_test_enabled = true,
-                .is_depth_write_enabled = true,
-                .is_blending_enabled = false,
-                .is_culling_enabled = false,
-                .debug_name = "Toybox Fallback Geometry Pipeline",
-            };
-        }
-
-        uint64 make_mesh_cache_key(const std::shared_ptr<Mesh>& mesh_data)
-        {
-            return reinterpret_cast<uint64>(mesh_data.get());
-        }
-
-        uint64 make_dynamic_batch_key(const uint64 mesh_key, const uint64 material_key)
-        {
-            return hash_value(material_key, hash_value(mesh_key, 14695981039346656037ULL));
-        }
-
-        uint64 make_static_batch_key(
-            const Uuid vertex_buffer,
-            const Uuid index_buffer,
-            const uint32 index_count,
-            const uint64 material_key)
-        {
-            uint64 hash = hash_uuid(vertex_buffer, 14695981039346656037ULL);
-            hash = hash_uuid(index_buffer, hash);
-            hash = hash_value(index_count, hash);
-            hash = hash_value(material_key, hash);
-            return hash == 0U ? 1U : hash;
-        }
-
-        // ---------------------------------------------------------------------------
-        // Batch accumulation structures
-        // ---------------------------------------------------------------------------
-
-        struct DynamicBatch
-        {
-            std::shared_ptr<Mesh> mesh_data = {};
-            Uuid pipeline = {};
-            uint64 material_key = 0U;
-            Uuid material_uniform_buffer = {};
-            std::vector<GraphicsResourceBinding> textures = {};
-            std::vector<Mat4> transforms = {};
-        };
-
-        struct StaticBatch
-        {
-            Uuid vertex_buffer = {};
-            Uuid index_buffer = {};
-            uint32 index_count = 0U;
-            Uuid pipeline = {};
-            uint64 material_key = 0U;
-            Uuid material_uniform_buffer = {};
-            std::vector<GraphicsResourceBinding> textures = {};
-            std::vector<Mat4> transforms = {};
+                },
+            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+            .is_depth_test_enabled = true,
+            .is_depth_write_enabled = true,
+            .is_blending_enabled = false,
+            .is_culling_enabled = false,
+            .debug_name = "Toybox Fallback Geometry Pipeline",
         };
     }
+
+    static uint64 make_mesh_cache_key(const std::shared_ptr<Mesh>& mesh_data)
+    {
+        return reinterpret_cast<uint64>(mesh_data.get());
+    }
+
+    static uint64 make_dynamic_batch_key(const uint64 mesh_key, const uint64 material_key)
+    {
+        return hash_value(material_key, hash_value(mesh_key, 14695981039346656037ULL));
+    }
+
+    static uint64 make_static_batch_key(
+        const Uuid vertex_buffer,
+        const Uuid index_buffer,
+        const uint32 index_count,
+        const uint64 material_key)
+    {
+        uint64 hash = hash_uuid(vertex_buffer, 14695981039346656037ULL);
+        hash = hash_uuid(index_buffer, hash);
+        hash = hash_value(index_count, hash);
+        hash = hash_value(material_key, hash);
+        return hash == 0U ? 1U : hash;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Batch accumulation structures
+    // ---------------------------------------------------------------------------
+
+    struct DynamicBatch
+    {
+        std::shared_ptr<Mesh> mesh_data = {};
+        Uuid pipeline = {};
+        uint64 material_key = 0U;
+        Uuid material_uniform_buffer = {};
+        std::vector<GraphicsResourceBinding> textures = {};
+        std::vector<Mat4> transforms = {};
+    };
+
+    struct StaticBatch
+    {
+        Uuid vertex_buffer = {};
+        Uuid index_buffer = {};
+        uint32 index_count = 0U;
+        Uuid pipeline = {};
+        uint64 material_key = 0U;
+        Uuid material_uniform_buffer = {};
+        std::vector<GraphicsResourceBinding> textures = {};
+        std::vector<Mat4> transforms = {};
+    };
 
     // ---------------------------------------------------------------------------
     // OpaqueSceneOperation implementation
@@ -963,13 +967,14 @@ namespace tbx
             !result)
             return result;
 
+        const auto executor = RenderCommandExecutor();
         for (const auto& draw : _draw_commands)
         {
             if (token && token.is_cancelled())
                 return backend.end_pass(),
                        Result(false, "OpaqueSceneOperation cancelled mid-pass.");
 
-            if (const auto result = execute_indexed_draw(backend, draw); !result)
+            if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
                 return backend.end_pass(), result;
         }
 

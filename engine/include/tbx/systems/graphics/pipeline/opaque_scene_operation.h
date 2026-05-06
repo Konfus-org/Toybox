@@ -28,6 +28,7 @@ namespace tbx
         OpaqueSceneOperation(OpaqueSceneOperation&&) noexcept = default;
         OpaqueSceneOperation& operator=(OpaqueSceneOperation&&) noexcept = default;
 
+        RenderOperationDebugInfo get_debug_info() const override;
         Result prepare(RenderFrameContext& context) override;
         Result execute(IGraphicsBackend& backend, const CancellationToken& token) override;
         void release(IGraphicsBackend& backend) override;
