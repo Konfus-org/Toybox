@@ -8,8 +8,8 @@
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
+#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader.h"
@@ -444,7 +444,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_viewport.width, window_manager.size.width);
         EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
+        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 
@@ -532,13 +532,13 @@ namespace tbx::tests::graphics
             return debug_info;
         }
 
-        Result prepare(RenderFrameContext& context) override
+        Result prepare(RenderData& render_data) override
         {
-            _state.get().prepared = context.frame_index == 42U;
+            _state.get().prepared = render_data.frame.frame_index == 42U;
             return {};
         }
 
-        Result execute(IGraphicsBackend& backend, const CancellationToken&) override
+        Result execute(IGraphicsBackend& backend, RenderData&, const CancellationToken&) override
         {
             _state.get().executed = true;
             return backend.set_viewport(
@@ -567,11 +567,14 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
-        auto render_graph = RenderGraph {};
-        auto context = std::make_shared<RenderFrameContext>(RenderFrameContext {
+        auto registry = EntityRegistry {};
+        auto window_manager = RecordingWindowManager {};
+        auto render_data = std::make_unique<RenderData>(FrameData {
             .backend = backend,
             .resource_manager = resource_manager,
-            .render_graph = render_graph,
+            .entity_registry = registry,
+            .window_manager = window_manager,
+            .output_window = window_manager.window,
             .frame_index = 42U,
         });
         auto state = RenderPipelineOperationState {};
@@ -579,8 +582,8 @@ namespace tbx::tests::graphics
         pipeline.add_operation(std::make_unique<RecordingRenderOperation>(state));
 
         // Act
-        const auto prepare_result = pipeline.prepare(context);
-        const auto execute_result = pipeline.execute(context, CancellationToken {});
+        const auto prepare_result = pipeline.prepare(std::move(render_data));
+        const auto execute_result = pipeline.execute(CancellationToken {});
         pipeline.release();
 
         // Assert
@@ -639,7 +642,7 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::EndFrame,
         };
 
-        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
+        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
@@ -722,7 +725,7 @@ namespace tbx::tests::graphics
         ASSERT_EQ(backend.recorded_passes.size(), 2U);
         EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Skybox Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Geometry Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::DEPTH);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
