@@ -2,6 +2,7 @@
 #include "tbx/systems/assets/fallbacks.h"
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace tbx
@@ -617,12 +618,6 @@ namespace tbx
         if (!fallback)
             return Result(false, "Graphics resource manager: failed to create fallback material.");
 
-        fallback->textures.set("diffuse_map", {});
-        fallback->textures.set("normal_map", {});
-        fallback->textures.set("specular_map", {});
-        fallback->textures.set("shininess_map", {});
-        fallback->textures.set("emissive_map", {});
-
         if (const auto result = upload_material_resource(
                 Handle("Toybox/FallbackMaterial"),
                 *fallback,
@@ -847,18 +842,93 @@ namespace tbx
         };
     }
 
+    static GraphicsVertexFormat to_graphics_vertex_format(const VertexData& data)
+    {
+        if (std::holds_alternative<float>(data))
+            return GraphicsVertexFormat::FLOAT;
+        if (std::holds_alternative<Vec2>(data))
+            return GraphicsVertexFormat::VEC2;
+        if (std::holds_alternative<Vec3>(data))
+            return GraphicsVertexFormat::VEC3;
+        if (std::holds_alternative<Vec4>(data) || std::holds_alternative<Color>(data))
+            return GraphicsVertexFormat::VEC4;
+        if (std::holds_alternative<int>(data))
+            return GraphicsVertexFormat::INT32;
+
+        return GraphicsVertexFormat::FLOAT;
+    }
+
+    static uint32 get_vertex_attribute_location(const VertexAttributeSemantic semantic)
+    {
+        switch (semantic)
+        {
+            case VertexAttributeSemantic::POSITION:
+                return 0U;
+            case VertexAttributeSemantic::COLOR:
+                return 1U;
+            case VertexAttributeSemantic::NORMAL:
+                return 2U;
+            case VertexAttributeSemantic::UV:
+                return 3U;
+            case VertexAttributeSemantic::TANGENT:
+                return 4U;
+            case VertexAttributeSemantic::NONE:
+            default:
+                return 0U;
+        }
+    }
+
+    static void append_vertex_layout_attributes(
+        const VertexBufferLayout& layout,
+        std::vector<GraphicsVertexAttributeDesc>& out_attributes)
+    {
+        for (const auto& attribute : layout.elements)
+        {
+            if (attribute.semantic == VertexAttributeSemantic::NONE)
+                continue;
+
+            out_attributes.push_back(
+                GraphicsVertexAttributeDesc {
+                    .location = get_vertex_attribute_location(attribute.semantic),
+                    .buffer_slot = 0U,
+                    .offset = attribute.offset,
+                    .format = to_graphics_vertex_format(attribute.type),
+                });
+        }
+    }
+
+    static void append_instance_layout_attributes(
+        std::vector<GraphicsVertexAttributeDesc>& out_attributes)
+    {
+        for (uint32 column = 0U; column < 4U; ++column)
+        {
+            out_attributes.push_back(
+                GraphicsVertexAttributeDesc {
+                    .location = 5U + column,
+                    .buffer_slot = 1U,
+                    .offset = static_cast<uint32>(sizeof(float) * 4U * column),
+                    .format = GraphicsVertexFormat::VEC4,
+                });
+        }
+    }
+
     GraphicsPipelineDesc GraphicsResourceManager::make_material_pipeline_desc(
         const Material& material,
         Shader shader,
         const Handle& handle)
     {
+        const VertexBufferLayout vertex_layout = get_default_vertex_buffer_layout();
+        auto vertex_attributes = std::vector<GraphicsVertexAttributeDesc> {};
+        append_vertex_layout_attributes(vertex_layout, vertex_attributes);
+        append_instance_layout_attributes(vertex_attributes);
+
         return GraphicsPipelineDesc {
             .shader = std::move(shader),
             .vertex_buffers =
                 {
                     GraphicsVertexBufferLayoutDesc {
                         .slot = 0U,
-                        .stride = static_cast<uint32>(sizeof(float) * 16U),
+                        .stride = vertex_layout.stride,
                     },
                     GraphicsVertexBufferLayoutDesc {
                         .slot = 1U,
@@ -866,63 +936,7 @@ namespace tbx
                         .is_per_instance = true,
                     },
                 },
-            .vertex_attributes =
-                {
-                    GraphicsVertexAttributeDesc {
-                        .location = 0U,
-                        .buffer_slot = 0U,
-                        .offset = 0U,
-                        .format = GraphicsVertexFormat::VEC3,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 1U,
-                        .buffer_slot = 0U,
-                        .offset = static_cast<uint32>(sizeof(float) * 3U),
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 2U,
-                        .buffer_slot = 0U,
-                        .offset = static_cast<uint32>(sizeof(float) * 7U),
-                        .format = GraphicsVertexFormat::VEC3,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 3U,
-                        .buffer_slot = 0U,
-                        .offset = static_cast<uint32>(sizeof(float) * 10U),
-                        .format = GraphicsVertexFormat::VEC2,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 4U,
-                        .buffer_slot = 0U,
-                        .offset = static_cast<uint32>(sizeof(float) * 12U),
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 5U,
-                        .buffer_slot = 1U,
-                        .offset = 0U,
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 6U,
-                        .buffer_slot = 1U,
-                        .offset = static_cast<uint32>(sizeof(float) * 4U),
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 7U,
-                        .buffer_slot = 1U,
-                        .offset = static_cast<uint32>(sizeof(float) * 8U),
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                    GraphicsVertexAttributeDesc {
-                        .location = 8U,
-                        .buffer_slot = 1U,
-                        .offset = static_cast<uint32>(sizeof(float) * 12U),
-                        .format = GraphicsVertexFormat::VEC4,
-                    },
-                },
+            .vertex_attributes = std::move(vertex_attributes),
             .primitive_type = GraphicsPrimitiveType::TRIANGLES,
             .is_depth_test_enabled = material.config.is_depth_test_enabled,
             .is_depth_write_enabled = material.config.is_depth_write_enabled,

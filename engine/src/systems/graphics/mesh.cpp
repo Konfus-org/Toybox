@@ -11,15 +11,7 @@ namespace tbx
     {
         static VertexBuffer make_vertex_buffer(const std::vector<Vertex>& vertices)
         {
-            return VertexBuffer(
-                vertices,
-                {{
-                    Vec3(0.0F),
-                    Color(),
-                    Vec3(0.0F),
-                    Vec2(0.0F),
-                    Vec4(0.0F),
-                }});
+            return VertexBuffer(vertices, get_default_vertex_buffer_layout());
         }
 
         static Vec3 normalize_or_zero(const Vec3& value)
@@ -503,63 +495,90 @@ namespace tbx
 
     Mesh make_sky_dome()
     {
-        constexpr int stack_count = 32;
-        constexpr int slice_count = 64;
+        constexpr uint32 subdivision_count = 24U;
+        constexpr auto face_count = size_t {6U};
 
+        const auto face_normals = std::array<Vec3, face_count> {
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+        };
+        const auto face_u_axes = std::array<Vec3, face_count> {
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+        };
+        const auto face_v_axes = std::array<Vec3, face_count> {
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+        };
+
+        const uint32 vertices_per_row = subdivision_count + 1U;
+        const uint32 vertices_per_face = vertices_per_row * vertices_per_row;
         auto vertices = std::vector<Vertex> {};
-        vertices.reserve(
-            static_cast<size_t>(stack_count + 1) * static_cast<size_t>(slice_count + 1));
+        vertices.reserve(static_cast<size_t>(vertices_per_face) * face_count);
 
         auto indices = IndexBuffer {};
-        indices.reserve(static_cast<size_t>(stack_count * slice_count * 6));
+        indices.reserve(
+            static_cast<size_t>(subdivision_count) * static_cast<size_t>(subdivision_count) * 6U
+            * face_count);
 
-        const float pi = tbx::PI;
-        const float inverse_stack_count = 1.0F / static_cast<float>(stack_count);
-        const float inverse_slice_count = 1.0F / static_cast<float>(slice_count);
-
-        for (int stack = 0; stack <= stack_count; ++stack)
+        for (size_t face_index = 0U; face_index < face_count; ++face_index)
         {
-            const float v = static_cast<float>(stack) * inverse_stack_count;
-            const float theta = v * pi;
-            const float sin_theta = tbx::sin(theta);
-            const float cos_theta = tbx::cos(theta);
+            const uint32 face_vertex_offset = static_cast<uint32>(vertices.size());
+            const Vec3 face_normal = face_normals[face_index];
+            const Vec3 face_u = face_u_axes[face_index];
+            const Vec3 face_v = face_v_axes[face_index];
 
-            for (int slice = 0; slice <= slice_count; ++slice)
+            for (uint32 y = 0U; y <= subdivision_count; ++y)
             {
-                const float u = static_cast<float>(slice) * inverse_slice_count;
-                const float phi = u * 2.0F * pi;
-                const float sin_phi = tbx::sin(phi);
-                const float cos_phi = tbx::cos(phi);
+                const float v = static_cast<float>(y) / static_cast<float>(subdivision_count);
+                const float cube_y = (v * 2.0F) - 1.0F;
 
-                const float x = sin_theta * cos_phi;
-                const float y = cos_theta;
-                const float z = sin_theta * sin_phi;
+                for (uint32 x = 0U; x <= subdivision_count; ++x)
+                {
+                    const float u = static_cast<float>(x) / static_cast<float>(subdivision_count);
+                    const float cube_x = (u * 2.0F) - 1.0F;
+                    const Vec3 cube_position =
+                        face_normal + (face_u * cube_x) + (face_v * cube_y);
+                    const Vec3 sphere_position = normalize_or_zero(cube_position);
 
-                vertices.push_back(
-                    Vertex {
-                        .position = Vec3(x, y, z),
-                        .uv = Vec2(u, 1.0F - v),
-                    });
+                    vertices.push_back(
+                        Vertex {
+                            .position = sphere_position,
+                            .normal = sphere_position,
+                            .uv = Vec2(u, 1.0F - v),
+                        });
+                }
             }
-        }
 
-        const int stride = slice_count + 1;
-        for (int stack = 0; stack < stack_count; ++stack)
-        {
-            for (int slice = 0; slice < slice_count; ++slice)
+            for (uint32 y = 0U; y < subdivision_count; ++y)
             {
-                const uint32 top_left = static_cast<uint32>(stack * stride + slice);
-                const uint32 bottom_left = static_cast<uint32>((stack + 1) * stride + slice);
-                const uint32 top_right = top_left + 1U;
-                const uint32 bottom_right = bottom_left + 1U;
+                for (uint32 x = 0U; x < subdivision_count; ++x)
+                {
+                    const uint32 top_left = face_vertex_offset + (y * vertices_per_row) + x;
+                    const uint32 top_right = top_left + 1U;
+                    const uint32 bottom_left = top_left + vertices_per_row;
+                    const uint32 bottom_right = bottom_left + 1U;
 
-                indices.push_back(top_left);
-                indices.push_back(bottom_left);
-                indices.push_back(top_right);
+                    indices.push_back(top_left);
+                    indices.push_back(bottom_left);
+                    indices.push_back(top_right);
 
-                indices.push_back(top_right);
-                indices.push_back(bottom_left);
-                indices.push_back(bottom_right);
+                    indices.push_back(top_right);
+                    indices.push_back(bottom_left);
+                    indices.push_back(bottom_right);
+                }
             }
         }
 

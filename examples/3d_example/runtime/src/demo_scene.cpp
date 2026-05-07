@@ -60,6 +60,11 @@ namespace three_d_example
         _sky = tbx::Entity("Sky", entity_registry);
         _sky.add_component<tbx::Sky>(
             tbx::MaterialInstance(tbx::Handle("Materials/AnimeSkybox.mat")));
+        _sky.add_component<tbx::Transform>(
+            tbx::Vec3(0.0F, 0.0F, 0.0F),
+            tbx::Quat(tbx::to_radians(tbx::Vec3(0.0F, 180.0F, 0.0F))),
+            tbx::Vec3(1.0F, 1.0F, 1.0F));
+        _sky_system.set_sky_entity(_sky);
 
         _post_processing = tbx::Entity("PostProcessing", entity_registry);
         auto lut_post_process_material =
@@ -153,6 +158,7 @@ namespace three_d_example
     {
         _camera_controller.update(dt);
         _projectile_system.update(dt);
+        _sky_system.update(dt);
     }
 
     void DemoScene::handle_overlap_begin(const tbx::ColliderOverlapEvent& overlap_event)

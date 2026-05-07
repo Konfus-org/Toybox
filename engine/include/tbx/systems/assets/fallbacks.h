@@ -32,11 +32,17 @@ namespace tbx
         material.parameters.set("normal_strength", 1.0f);
         material.parameters.set("specular_strength", 0.5f);
         material.parameters.set("shininess_strength", 32.0f);
+        material.parameters.set("color_texture_blend", 1.0f);
         material.parameters.set("emissive", Color(1.0f, 0.0f, 1.0f, 1.0f));
         material.parameters.set("emissive_strength", 1.0f);
         material.parameters.set("alpha_cutoff", 0.1f);
         material.parameters.set("transparency_amount", 0.0f);
         material.parameters.set("exposure", 1.0f);
+        material.textures.set("diffuse_map", {});
+        material.textures.set("normal_map", {});
+        material.textures.set("specular_map", {});
+        material.textures.set("shininess_map", {});
+        material.textures.set("emissive_map", {});
         material.config = MaterialConfig {
             .is_depth_test_enabled = true,
             .is_depth_write_enabled = true,

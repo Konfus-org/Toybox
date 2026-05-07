@@ -5,22 +5,7 @@ layout(std140, binding = 0) uniform ToyboxViewBlock
 
 layout(std140, binding = 1) uniform ToyboxMaterialBlock
 {
-    vec4 u_color;
-    vec4 u_emissive;
-    float u_specular_strength;
-    float u_shininess_strength;
-    float u_alpha_cutoff;
-    float u_material_surface_padding0;
-    float u_transparency_amount;
-    float u_exposure;
-    float u_diffuse_strength;
-    float u_normal_strength;
-    float u_emissive_strength;
-    float u_color_texture_blend;
-    float u_wireframe_width;
-    float u_material_surface_padding1;
-    float u_material_surface_padding2;
-    float u_material_surface_padding3;
+    vec4 u_material_uniforms[64];
 };
 
 mat4 tbx_get_model_matrix(const mat4 model)

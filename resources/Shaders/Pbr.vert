@@ -19,7 +19,7 @@ out float v_world_tangent_sign;
 
 void main()
 {
-    v_color = u_color;
+    v_color = u_material_uniforms[0];
     v_tex_coord = a_texcoord;
 
     mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);

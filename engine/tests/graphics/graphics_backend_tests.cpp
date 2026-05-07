@@ -8,7 +8,7 @@
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/render_pipeline.h"
+#include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader.h"
@@ -58,6 +58,7 @@ namespace tbx::tests::graphics
         Result begin_pass(const GraphicsPassDesc& pass) override
         {
             recorded_pass = pass;
+            recorded_passes.push_back(pass);
             callbacks.push_back(GraphicsBackendCallback::BeginPass);
             return {};
         }
@@ -81,6 +82,7 @@ namespace tbx::tests::graphics
         Result bind_pipeline(const Uuid& pipeline_resource_uuid) override
         {
             recorded_pipeline = pipeline_resource_uuid;
+            recorded_pipelines.push_back(pipeline_resource_uuid);
             callbacks.push_back(GraphicsBackendCallback::BindPipeline);
             return {};
         }
@@ -257,7 +259,9 @@ namespace tbx::tests::graphics
         Size recorded_viewport = {};
         Size recorded_scissor = {};
         GraphicsPassDesc recorded_pass = {};
+        std::vector<GraphicsPassDesc> recorded_passes = {};
         Uuid recorded_pipeline = {};
+        std::vector<Uuid> recorded_pipelines = {};
         Uuid recorded_vertex_buffer = {};
         Uuid recorded_index_buffer = {};
         Uuid recorded_uniform_buffer = {};
@@ -614,8 +618,10 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
         auto material_pipeline = Uuid {};
+        auto texture_resource = Uuid {};
         ASSERT_TRUE(resource_manager.load_material(Handle("Materials/Asset.mat"), material_pipeline));
-        auto pipeline = GraphicsRenderPipeline {backend, resource_manager};
+        ASSERT_TRUE(resource_manager.load_texture(Handle("Textures/Asset.png"), texture_resource));
+        auto pipeline = GraphicsRenderPipeline {backend};
         pipeline.add_pass_operation(
             GraphicsRenderPass {
                 .pass =
@@ -632,9 +638,9 @@ namespace tbx::tests::graphics
                                 .resource = Uuid(20U),
                             }},
                             .index_buffer = Uuid(30U),
-                            .texture_assets = {GraphicsAssetResourceBinding {
+                            .textures = {GraphicsResourceBinding {
                                 .slot = 1U,
-                                .asset = Handle("Textures/Asset.png"),
+                                .resource = texture_resource,
                             }},
                             .draw =
                                 GraphicsDrawIndexedDesc {
@@ -711,6 +717,89 @@ namespace tbx::tests::graphics
 
         EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Geometry Pass");
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.callbacks, expected_callbacks);
+    }
+
+    // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
+    TEST(RenderingTests, Render_SkyComponentSubmitsSkyboxPassBeforeGeometryPass)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Shader>(
+            [](const std::filesystem::path&, const ShaderLoadParameters&)
+            {
+                return std::make_shared<Shader>(std::vector<ShaderSource> {
+                    ShaderSource(
+                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
+                        ShaderType::VERTEX),
+                    ShaderSource(
+                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
+                        "vec4(1.0); }\n",
+                        ShaderType::FRAGMENT),
+                });
+            });
+        serialization_registry.register_reader<Material>(
+            [](const std::filesystem::path&, const MaterialLoadParameters&)
+            {
+                auto material = Material {};
+                material.program.vertex = Handle("Shaders/Sky.shader");
+                material.program.fragment = Handle("Shaders/Sky.shader");
+                material.textures.set("diffuse_map", Handle {});
+                material.parameters.set("color", Color(0.25F, 0.5F, 1.0F, 1.0F));
+                return std::make_shared<Material>(std::move(material));
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto sky_entity = Entity("Sky", registry);
+        sky_entity.add_component<Sky>(Sky {
+            .material = MaterialInstance(Handle("Materials/Sky.mat")),
+        });
+        auto mesh_entity = Entity("Triangle", registry);
+        mesh_entity.add_component<DynamicMesh>(triangle);
+        mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+
+        // Act
+        auto rendering = Rendering(
+            backend,
+            registry,
+            asset_manager,
+            window_manager,
+            window_manager.window,
+            settings);
+        rendering.render();
+
+        // Assert
+        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
+            GraphicsBackendCallback::BeginFrame,
+            GraphicsBackendCallback::BeginView,
+            GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindUniformBuffer,
+            GraphicsBackendCallback::BindTexture,
+            GraphicsBackendCallback::Draw,
+            GraphicsBackendCallback::EndPass,
+            GraphicsBackendCallback::BeginPass,
+            GraphicsBackendCallback::BindPipeline,
+            GraphicsBackendCallback::BindVertexBuffer,
+            GraphicsBackendCallback::BindIndexBuffer,
+            GraphicsBackendCallback::DrawIndexed,
+            GraphicsBackendCallback::EndPass,
+            GraphicsBackendCallback::EndView,
+            GraphicsBackendCallback::Present,
+            GraphicsBackendCallback::EndFrame,
+        };
+
+        ASSERT_EQ(backend.recorded_passes.size(), 2U);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Skybox Pass");
+        EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Geometry Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::DEPTH);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 

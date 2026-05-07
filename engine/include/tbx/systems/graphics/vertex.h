@@ -8,10 +8,9 @@
 #include <variant>
 #include <vector>
 
-
 namespace tbx
 {
-    /// ////////// VERTEX DATA //////////////////
+    ///////////// VERTEX DATA //////////////////
     using VertexData = std::variant<int, float, Vec2, Vec3, Vec4, Color>;
 
     inline int32 get_vertex_data_count(const VertexData& data)
@@ -80,7 +79,7 @@ namespace tbx
         }
     }
 
-    /// ////////// VERTEX //////////////////
+    ///////////// VERTEX //////////////////
     struct TBX_API Vertex
     {
         // (x, y, z) in 3D space
@@ -95,49 +94,27 @@ namespace tbx
         Vec4 tangent = Vec4(1.0f, 0.0f, 0.0f, 1.0f);
     };
 
-    /// ////////// VERTEX BUFFER //////////////////
-    inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
+    ///////////// VERTEX BUFFER //////////////////
+    enum class VertexAttributeSemantic
     {
-        const auto vertex_count = vertices.size();
-        auto mesh_points = std::vector<float>(vertex_count * 16);
-        int write_index = 0;
+        NONE,
+        POSITION,
+        COLOR,
+        NORMAL,
+        UV,
+        TANGENT
+    };
 
-        for (const auto& vertex : vertices)
-        {
-            const auto& position = vertex.position;
-            mesh_points[write_index] = position.x;
-            mesh_points[write_index + 1] = position.y;
-            mesh_points[write_index + 2] = position.z;
-
-            const auto& vertex_color = vertex.color;
-            mesh_points[write_index + 3] = vertex_color.r;
-            mesh_points[write_index + 4] = vertex_color.g;
-            mesh_points[write_index + 5] = vertex_color.b;
-            mesh_points[write_index + 6] = vertex_color.a;
-
-            const auto& vertex_normal = vertex.normal;
-            mesh_points[write_index + 7] = vertex_normal.x;
-            mesh_points[write_index + 8] = vertex_normal.y;
-            mesh_points[write_index + 9] = vertex_normal.z;
-
-            const auto& texture_coord = vertex.uv;
-            mesh_points[write_index + 10] = texture_coord.x;
-            mesh_points[write_index + 11] = texture_coord.y;
-
-            const auto& tangent = vertex.tangent;
-            mesh_points[write_index + 12] = tangent.x;
-            mesh_points[write_index + 13] = tangent.y;
-            mesh_points[write_index + 14] = tangent.z;
-            mesh_points[write_index + 15] = tangent.w;
-
-            write_index += 16;
-        }
-
-        return mesh_points;
-    }
+    struct TBX_API VertexLayoutElement
+    {
+        VertexAttributeSemantic semantic = VertexAttributeSemantic::NONE;
+        VertexData type = 0;
+        bool normalized = false;
+    };
 
     struct TBX_API VertexBufferAttribute
     {
+        VertexAttributeSemantic semantic = VertexAttributeSemantic::NONE;
         VertexData type = 0;
         uint32 size = 0;
         uint32 count = 0;
@@ -154,9 +131,20 @@ namespace tbx
         {
             auto attributes = std::vector<VertexBufferAttribute>();
             uint32 current_offset = 0;
-            for (const auto& value : layout)
+            static constexpr VertexAttributeSemantic default_semantics[] = {
+                VertexAttributeSemantic::POSITION,
+                VertexAttributeSemantic::COLOR,
+                VertexAttributeSemantic::NORMAL,
+                VertexAttributeSemantic::UV,
+                VertexAttributeSemantic::TANGENT,
+            };
+
+            for (uint32 index = 0U; index < static_cast<uint32>(layout.size()); ++index)
             {
+                const auto& value = layout[static_cast<size>(index)];
                 VertexBufferAttribute attribute = {};
+                attribute.semantic = index < 5U ? default_semantics[index]
+                                                : VertexAttributeSemantic::NONE;
                 attribute.type = value;
                 attribute.size = get_vertex_data_size(value);
                 attribute.count = get_vertex_data_count(value);
@@ -168,16 +156,114 @@ namespace tbx
             stride = current_offset;
             elements = attributes;
         }
+        VertexBufferLayout(const std::vector<VertexLayoutElement>& layout)
+        {
+            auto attributes = std::vector<VertexBufferAttribute>();
+            uint32 current_offset = 0;
+            for (const auto& value : layout)
+            {
+                VertexBufferAttribute attribute = {};
+                attribute.semantic = value.semantic;
+                attribute.type = value.type;
+                attribute.size = get_vertex_data_size(value.type);
+                attribute.count = get_vertex_data_count(value.type);
+                attribute.offset = current_offset;
+                attribute.normalized = value.normalized;
+                current_offset += attribute.size;
+                attributes.push_back(attribute);
+            }
+            stride = current_offset;
+            elements = attributes;
+        }
 
         std::vector<VertexBufferAttribute> elements = {};
         uint32 stride = 0;
     };
 
+    inline VertexBufferLayout get_default_vertex_buffer_layout()
+    {
+        return VertexBufferLayout(
+            std::vector<VertexLayoutElement> {
+                VertexLayoutElement {
+                    .semantic = VertexAttributeSemantic::POSITION,
+                    .type = Vec3(),
+                },
+                VertexLayoutElement {
+                    .semantic = VertexAttributeSemantic::COLOR,
+                    .type = Color(),
+                },
+                VertexLayoutElement {
+                    .semantic = VertexAttributeSemantic::NORMAL,
+                    .type = Vec3(),
+                },
+                VertexLayoutElement {
+                    .semantic = VertexAttributeSemantic::UV,
+                    .type = Vec2(),
+                },
+                VertexLayoutElement {
+                    .semantic = VertexAttributeSemantic::TANGENT,
+                    .type = Vec4(),
+                },
+            });
+    }
+
+    inline Vec4 get_vertex_attribute_value(
+        const Vertex& vertex,
+        const VertexAttributeSemantic semantic)
+    {
+        switch (semantic)
+        {
+            case VertexAttributeSemantic::POSITION:
+                return Vec4(vertex.position, 0.0F);
+            case VertexAttributeSemantic::COLOR:
+                return Vec4(vertex.color.r, vertex.color.g, vertex.color.b, vertex.color.a);
+            case VertexAttributeSemantic::NORMAL:
+                return Vec4(vertex.normal, 0.0F);
+            case VertexAttributeSemantic::UV:
+                return Vec4(vertex.uv, 0.0F, 0.0F);
+            case VertexAttributeSemantic::TANGENT:
+                return vertex.tangent;
+            case VertexAttributeSemantic::NONE:
+            default:
+                return Vec4(0.0F);
+        }
+    }
+
+    inline void append_vertex_attribute(
+        const Vertex& vertex,
+        const VertexBufferAttribute& attribute,
+        std::vector<float>& out_values)
+    {
+        const Vec4 value = get_vertex_attribute_value(vertex, attribute.semantic);
+        for (uint32 component = 0U; component < attribute.count; ++component)
+            out_values.push_back(value[component]);
+    }
+
+    inline std::vector<float> flatten_vertex_vector(
+        const std::vector<Vertex>& vertices,
+        const VertexBufferLayout& layout)
+    {
+        auto mesh_points = std::vector<float>();
+        mesh_points.reserve(
+            vertices.size() * static_cast<size>(layout.stride / static_cast<uint32>(sizeof(float))));
+
+        for (const auto& vertex : vertices)
+            for (const auto& attribute : layout.elements)
+                append_vertex_attribute(vertex, attribute, mesh_points);
+
+        return mesh_points;
+    }
+
+    inline std::vector<float> flatten_vertex_vector(const std::vector<Vertex>& vertices)
+    {
+        return flatten_vertex_vector(vertices, get_default_vertex_buffer_layout());
+    }
+
     struct TBX_API VertexBuffer
     {
         VertexBuffer() = default;
         VertexBuffer(const std::vector<Vertex>& vertices, VertexBufferLayout layout)
-            : vertices(flatten_vertex_vector(vertices))
+            : vertices(flatten_vertex_vector(vertices, layout))
             , layout(std::move(layout))
         {
         }

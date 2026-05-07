@@ -15,13 +15,13 @@ in vec3 g_barycentric;
 
 void main()
 {
-    vec3 edge_distance = fwidth(g_barycentric) * max(u_wireframe_width, 1.0);
+    vec3 edge_distance = fwidth(g_barycentric) * max(u_material_uniforms[3].x, 1.0);
     vec3 edge_mask = step(g_barycentric, edge_distance);
     float edge_alpha = max(edge_mask.x, max(edge_mask.y, edge_mask.z));
     if (edge_alpha < 0.5)
         discard;
 
-    vec3 emissive = u_emissive.rgb * max(u_exposure, 0.0);
+    vec3 emissive = u_material_uniforms[1].rgb * max(u_material_uniforms[2].x, 0.0);
     vec3 preview_color = clamp(g_color.rgb + emissive, 0.0, 1.0);
 
     vec3 normalized_world_normal = normalize(g_world_normal);

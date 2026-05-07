@@ -2,6 +2,7 @@
 #include "camera_controller.h"
 #include "demo_room.h"
 #include "projectile_system.h"
+#include "sky_system.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/color.h"
@@ -45,6 +46,7 @@ namespace three_d_example
         DemoRoom _demo_room;
         ProjectileSystem _projectile_system;
         CameraController _camera_controller;
+        SkySystem _sky_system;
         tbx::Entity _sun = {};
         tbx::Entity _area_light = {};
         tbx::Entity _sky = {};

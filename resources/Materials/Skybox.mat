@@ -15,10 +15,7 @@
     "shadow_mode": "none"
   },
   "textures": [
-    {
-      "name": "diffuse_map",
-      "value": "10343045"
-    }
+    { "name": "diffuse_map", "value": "" }
   ],
   "parameters": [
     { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },

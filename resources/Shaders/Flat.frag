@@ -13,19 +13,20 @@ in vec4 v_color;
 in vec2 v_tex_coord;
 in vec3 v_world_normal;
 
-layout(binding = 0) uniform sampler2D u_diffuse_map;
+layout(binding = 0) uniform sampler2D u_textures[1];
 
 void main()
 {
     vec4 texture_color = v_color;
-    texture_color *= texture(u_diffuse_map, v_tex_coord);
+    texture_color *= texture(u_textures[0], v_tex_coord);
 
-    float alpha_cutoff = clamp(u_alpha_cutoff, 0.0, 1.0);
+    vec4 emissive_color = u_material_uniforms[1];
+    float alpha_cutoff = clamp(u_material_uniforms[2].x, 0.0, 1.0);
     if (texture_color.a < alpha_cutoff)
         discard;
 
-    float surface_alpha = texture_color.a * (1.0 - clamp(u_transparency_amount, 0.0, 1.0));
-    vec3 emissive = u_emissive.rgb * max(u_exposure, 0.0);
+    float surface_alpha = texture_color.a * (1.0 - clamp(u_material_uniforms[3].x, 0.0, 1.0));
+    vec3 emissive = emissive_color.rgb * max(u_material_uniforms[4].x, 0.0);
     vec3 preview_color = clamp(texture_color.rgb + emissive, 0.0, 1.0);
 
     vec3 normalized_world_normal = normalize(v_world_normal);
