@@ -1,10 +1,10 @@
 #pragma once
-// Internal header — not part of the public API. Shared by operation translation units.
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/pipeline/render_pass.h"
+#include "tbx/systems/graphics/pipeline/commands/render_pass.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader.h"
+#include "tbx/tbx_api.h"
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -179,7 +179,7 @@ namespace tbx
         std::vector<GraphicsResourceBinding> textures = {};
     };
 
-    inline Result resolve_material(
+    inline Result resolve_render_material(
         const MaterialInstance& material,
         GraphicsResourceManager& resource_manager,
         ResolvedMaterial& out)

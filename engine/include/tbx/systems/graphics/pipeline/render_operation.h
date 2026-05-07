@@ -1,14 +1,13 @@
 #pragma once
+#include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/async/cancellation_token.h"
+#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <string>
 
 namespace tbx
 {
-    class IGraphicsBackend;
-    struct RenderFrameContext;
-
     /// @brief
     /// Purpose: Describes render operation identity for diagnostics and pipeline composition.
     struct TBX_API RenderOperationDebugInfo
@@ -39,16 +38,18 @@ namespace tbx
         /// @brief
         /// Purpose: CPU phase — queries scene state, uploads or updates GPU resources.
         /// @details
-        /// Reads from context (camera, frame index) and writes outputs back (e.g.
-        /// view_uniform_buffer). Must be called after begin_frame and before execute.
-        virtual Result prepare(RenderFrameContext& context) = 0;
+        /// Reads and writes RenderData fields. Must complete for all operations before execute.
+        virtual Result prepare(RenderData& render_data) = 0;
 
         /// @brief
         /// Purpose: GPU phase — opens a render pass, binds resources, issues draw calls, closes the
         /// pass.
         /// @details
-        /// Uses only data stored during prepare(); does not read from the context.
-        virtual Result execute(IGraphicsBackend& backend, const CancellationToken& token) = 0;
+        /// Consumes draw lists and pass inputs written into RenderData by earlier operations.
+        virtual Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) = 0;
 
         /// @brief
         /// Purpose: Unloads all owned GPU resources from the backend.

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/pipeline/render_operation.h"
+#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <functional>
@@ -44,17 +44,18 @@ namespace tbx
         /// @brief
         /// Purpose: Executes GPU work for all operations in configured order.
         /// @details
-        /// Ownership: Keeps ownership of operations and context. The context parameter is required
-        /// by the typed render pipeline contract and validated before executing.
-        Result execute(std::shared_ptr<RenderFrameContext> context, const CancellationToken& token)
-            const;
+        /// Ownership: Executes against the render data most recently accepted by prepare().
+        Result execute(const CancellationToken& token) const;
 
         /// @brief
         /// Purpose: Runs CPU preparation work for all operations in configured order.
         /// @details
-        /// Ownership: Keeps ownership of operations and context. Operations may write shared
-        /// outputs into the context for later operations.
-        Result prepare(std::shared_ptr<RenderFrameContext> context);
+        /// Ownership: Takes ownership of render data for the current pipeline submission.
+        Result prepare(std::unique_ptr<RenderData> render_data);
+
+        /// @brief
+        /// Purpose: Returns the render data currently owned by the pipeline.
+        RenderData* get_render_data() const;
 
         /// @brief
         /// Purpose: Releases backend resources owned by operations and clears the pipeline.
@@ -71,6 +72,7 @@ namespace tbx
 
       private:
         std::reference_wrapper<IGraphicsBackend> _backend;
+        std::unique_ptr<RenderData> _render_data = {};
         std::vector<std::unique_ptr<IRenderOperation>> _operations = {};
     };
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/graphics/pipeline/render_pass.h"
+#include "tbx/systems/graphics/pipeline/commands/render_pass.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 

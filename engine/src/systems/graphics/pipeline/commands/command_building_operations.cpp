@@ -1,13 +1,12 @@
-#include "tbx/systems/graphics/pipeline/opaque_scene_operation.h"
-#include "render_material_helpers.h"
+#include "tbx/systems/graphics/pipeline/commands/command_building_operations.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/camera.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/pipeline/render_command_executor.h"
-#include "tbx/systems/graphics/pipeline/render_frame_context.h"
+#include "tbx/systems/graphics/pipeline/context/material_resolution_service.h"
+#include "tbx/systems/graphics/pipeline/commands/render_command_executor.h"
+#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/systems/graphics/shader.h"
 #include "tbx/systems/math/matrices.h"
 #include <cmath>
@@ -18,10 +17,218 @@
 
 namespace tbx
 {
-    RenderOperationDebugInfo OpaqueSceneOperation::get_debug_info() const
+    RenderOperationDebugInfo BuildSkyboxCommandsOperation::get_debug_info() const
     {
         auto debug_info = RenderOperationDebugInfo();
-        debug_info.debug_name = "Toybox Opaque Scene Operation";
+        debug_info.debug_name = "Toybox Build Skybox Commands Operation";
+        debug_info.category = "Scene Rendering";
+        return debug_info;
+    }
+
+    Result BuildSkyboxCommandsOperation::ensure_geometry(IGraphicsBackend& backend)
+    {
+        if (_vertex_buffer.is_valid() && _index_buffer.is_valid() && _index_count > 0U)
+            return {};
+
+        const Mesh& mesh = sky_dome;
+        const uint64 vertex_size =
+            static_cast<uint64>(mesh.vertices.size()) * static_cast<uint64>(sizeof(float));
+        const uint64 index_size =
+            static_cast<uint64>(mesh.indices.size()) * static_cast<uint64>(sizeof(uint32));
+
+        if (const auto result = backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::VERTEX,
+                    .size = vertex_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Sky Dome Vertices",
+                },
+                mesh.vertices.data(),
+                vertex_size,
+                _vertex_buffer);
+            !result)
+            return result;
+
+        if (const auto result = backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::INDEX,
+                    .size = index_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Sky Dome Indices",
+                },
+                mesh.indices.data(),
+                index_size,
+                _index_buffer);
+            !result)
+        {
+            backend.unload(_vertex_buffer);
+            _vertex_buffer = {};
+            return result;
+        }
+
+        _index_count = static_cast<uint32>(mesh.indices.size());
+        return {};
+    }
+
+    Result BuildSkyboxCommandsOperation::ensure_instance_buffer(
+        IGraphicsBackend& backend,
+        const Vec3& camera_position,
+        const Transform& sky_transform)
+    {
+        constexpr float sky_radius = 256.0F;
+        auto placed = sky_transform;
+        placed.position += camera_position;
+        placed.scale *= sky_radius;
+        const Mat4 model = build_transform_matrix(placed);
+        const auto data_size = static_cast<uint64>(sizeof(Mat4));
+
+        if (!_instance_buffer.is_valid())
+        {
+            return backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::VERTEX,
+                    .size = data_size,
+                    .is_dynamic = true,
+                    .debug_name = "Toybox Skybox Instance Transform",
+                },
+                &model,
+                data_size,
+                _instance_buffer);
+        }
+
+        return backend.update_buffer(_instance_buffer, &model, data_size, 0U);
+    }
+
+    Result BuildSkyboxCommandsOperation::ensure_material_uniform(
+        IGraphicsBackend& backend,
+        const uint64 material_key,
+        const void* data,
+        const uint64 data_size)
+    {
+        if (_material_key == material_key && _material_uniform_buffer.is_valid())
+            return {};
+
+        if (_material_uniform_buffer.is_valid())
+        {
+            backend.unload(_material_uniform_buffer);
+            _material_uniform_buffer = {};
+        }
+
+        if (const auto result = backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::UNIFORM,
+                    .size = data_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Skybox Material Uniforms",
+                },
+                data,
+                data_size,
+                _material_uniform_buffer);
+            !result)
+            return result;
+
+        _material_key = material_key;
+        return {};
+    }
+
+    Result BuildSkyboxCommandsOperation::prepare(RenderData& render_data)
+    {
+        auto& frame_data = render_data.frame;
+        render_data.skybox_commands.clear();
+        render_data.has_skybox = false;
+
+        const RenderData& scene_data = render_data;
+        if (!scene_data.sky.sky.material.get_handle().is_valid())
+            return {};
+
+        const MaterialInstance& sky_material = scene_data.sky.sky.material;
+        const Transform& sky_transform = scene_data.sky.transform;
+
+        auto& backend = frame_data.backend.get();
+        auto& resource_manager = frame_data.resource_manager.get();
+
+        auto resolved = ResolvedMaterial {};
+        if (const auto result = resolve_render_material(sky_material, resource_manager, resolved);
+            !result)
+            return result;
+
+        if (const auto result = ensure_material_uniform(
+                backend,
+                resolved.uniform_key,
+                resolved.uniform_data.data(),
+                resolved.uniform_data.byte_size());
+            !result)
+            return result;
+
+        if (const auto result = ensure_geometry(backend); !result)
+            return result;
+
+        if (const auto result =
+                ensure_instance_buffer(backend, frame_data.camera_position, sky_transform);
+            !result)
+            return result;
+
+        render_data.skybox_commands.push_back(
+            GraphicsIndexedDrawCommand {
+                .pipeline = resolved.pipeline,
+                .vertex_buffers =
+                    {
+                        GraphicsResourceBinding {.slot = 0U, .resource = _vertex_buffer},
+                        GraphicsResourceBinding {.slot = 1U, .resource = _instance_buffer},
+                    },
+                .index_buffer = _index_buffer,
+                .index_type = GraphicsIndexType::UINT32,
+                .uniform_buffers =
+                    {
+                        GraphicsResourceBinding {
+                            .slot = 0U,
+                            .resource = frame_data.view_uniform_buffer},
+                        GraphicsResourceBinding {.slot = 1U, .resource = _material_uniform_buffer},
+                    },
+                .textures = std::move(resolved.textures),
+                .draw =
+                    GraphicsDrawIndexedDesc {
+                        .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .index_count = _index_count,
+                        .instance_count = 1U,
+                    },
+            });
+        render_data.has_skybox = true;
+        return {};
+    }
+
+    Result BuildSkyboxCommandsOperation::execute(
+        IGraphicsBackend&,
+        RenderData&,
+        const CancellationToken&)
+    {
+        return {};
+    }
+
+    void BuildSkyboxCommandsOperation::release(IGraphicsBackend& backend)
+    {
+        if (_vertex_buffer.is_valid())
+            backend.unload(_vertex_buffer);
+        if (_index_buffer.is_valid())
+            backend.unload(_index_buffer);
+        if (_instance_buffer.is_valid())
+            backend.unload(_instance_buffer);
+        if (_material_uniform_buffer.is_valid())
+            backend.unload(_material_uniform_buffer);
+
+        _vertex_buffer = {};
+        _index_buffer = {};
+        _index_count = 0U;
+        _instance_buffer = {};
+        _material_uniform_buffer = {};
+        _material_key = 0U;
+    }
+
+    RenderOperationDebugInfo BuildOpaqueCommandsOperation::get_debug_info() const
+    {
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = "Toybox Build Opaque Commands Operation";
         debug_info.category = "Scene Rendering";
         return debug_info;
     }
@@ -306,10 +513,10 @@ namespace tbx
     };
 
     // ---------------------------------------------------------------------------
-    // OpaqueSceneOperation implementation
+    // BuildOpaqueCommandsOperation implementation
     // ---------------------------------------------------------------------------
 
-    Result OpaqueSceneOperation::ensure_material_uniform_buffer(
+    Result BuildOpaqueCommandsOperation::ensure_material_uniform_buffer(
         IGraphicsBackend& backend,
         const uint64 material_key,
         const void* data,
@@ -318,7 +525,7 @@ namespace tbx
     {
         out_buffer = {};
         if (material_key == 0U || data == nullptr || data_size == 0U)
-            return Result(false, "OpaqueSceneOperation: invalid material uniform data.");
+            return Result(false, "BuildOpaqueCommandsOperation: invalid material uniform data.");
 
         const auto iterator = _material_uniform_buffers.find(material_key);
         if (iterator != _material_uniform_buffers.end())
@@ -346,7 +553,7 @@ namespace tbx
         return {};
     }
 
-    Result OpaqueSceneOperation::ensure_dynamic_mesh_buffers(
+    Result BuildOpaqueCommandsOperation::ensure_dynamic_mesh_buffers(
         IGraphicsBackend& backend,
         const std::shared_ptr<Mesh>& mesh,
         Uuid& out_vertex_buffer,
@@ -357,7 +564,7 @@ namespace tbx
         out_index_buffer = {};
         out_index_count = 0U;
         if (!mesh || !can_render_mesh_directly(*mesh))
-            return Result(false, "OpaqueSceneOperation: mesh is not directly renderable.");
+            return Result(false, "BuildOpaqueCommandsOperation: mesh is not directly renderable.");
 
         const uint64 mesh_key = make_mesh_cache_key(mesh);
         const auto vertex_it = _mesh_vertex_buffers.find(mesh_key);
@@ -412,15 +619,13 @@ namespace tbx
         _mesh_vertex_buffers[mesh_key] = vertex_buffer;
         _mesh_index_buffers[mesh_key] = index_buffer;
         _mesh_index_counts[mesh_key] = static_cast<uint32>(mesh->indices.size());
-        _mesh_last_access[mesh_key] = 0U;
-
         out_vertex_buffer = vertex_buffer;
         out_index_buffer = index_buffer;
         out_index_count = static_cast<uint32>(mesh->indices.size());
         return {};
     }
 
-    Result OpaqueSceneOperation::ensure_instance_buffer(
+    Result BuildOpaqueCommandsOperation::ensure_instance_buffer(
         IGraphicsBackend& backend,
         const uint64 batch_key,
         const std::vector<Mat4>& transforms,
@@ -470,14 +675,14 @@ namespace tbx
         return {};
     }
 
-    Result OpaqueSceneOperation::ensure_fallback_pipeline(IGraphicsBackend& backend)
+    Result BuildOpaqueCommandsOperation::ensure_fallback_pipeline(IGraphicsBackend& backend)
     {
         if (_fallback_pipeline.is_valid())
             return {};
         return backend.upload_pipeline(make_fallback_pipeline_desc(), _fallback_pipeline);
     }
 
-    Result OpaqueSceneOperation::ensure_fallback_geometry_buffers(
+    Result BuildOpaqueCommandsOperation::ensure_fallback_geometry_buffers(
         IGraphicsBackend& backend,
         const std::vector<float>& vertices,
         const std::vector<uint32>& indices)
@@ -548,84 +753,14 @@ namespace tbx
         return {};
     }
 
-    void OpaqueSceneOperation::evict_stale_resources(
-        IGraphicsBackend& backend,
-        const uint64 frame_index)
+    Result BuildOpaqueCommandsOperation::prepare(RenderData& render_data)
     {
-        constexpr uint64 unused_frame_limit = 3U;
-
-        // Evict stale instance buffers (keyed by batch hash)
-        auto expired_instances = std::vector<uint64> {};
-        for (const auto& [key, last_access] : _instance_last_access)
-        {
-            if (frame_index >= last_access && frame_index - last_access >= unused_frame_limit)
-                expired_instances.push_back(key);
-        }
-        for (const uint64 key : expired_instances)
-        {
-            if (const auto it = _instance_buffers.find(key); it != _instance_buffers.end())
-            {
-                backend.unload(it->second);
-                _instance_buffers.erase(it);
-            }
-            _instance_buffer_sizes.erase(key);
-            _instance_last_access.erase(key);
-        }
-
-        // Evict stale dynamic mesh geometry (keyed by Mesh* address)
-        auto expired_meshes = std::vector<uint64> {};
-        for (const auto& [key, last_access] : _mesh_last_access)
-        {
-            if (frame_index >= last_access && frame_index - last_access >= unused_frame_limit)
-                expired_meshes.push_back(key);
-        }
-        for (const uint64 key : expired_meshes)
-        {
-            if (const auto it = _mesh_vertex_buffers.find(key); it != _mesh_vertex_buffers.end())
-            {
-                backend.unload(it->second);
-                _mesh_vertex_buffers.erase(it);
-            }
-            if (const auto it = _mesh_index_buffers.find(key); it != _mesh_index_buffers.end())
-            {
-                backend.unload(it->second);
-                _mesh_index_buffers.erase(it);
-            }
-            _mesh_index_counts.erase(key);
-            _mesh_sources.erase(key);
-            _mesh_last_access.erase(key);
-        }
-
-        // Evict stale material uniform buffers (keyed by material content hash)
-        auto expired_materials = std::vector<uint64> {};
-        for (const auto& [key, last_access] : _material_uniform_last_access)
-        {
-            if (frame_index >= last_access && frame_index - last_access >= unused_frame_limit)
-                expired_materials.push_back(key);
-        }
-        for (const uint64 key : expired_materials)
-        {
-            if (const auto it = _material_uniform_buffers.find(key);
-                it != _material_uniform_buffers.end())
-            {
-                backend.unload(it->second);
-                _material_uniform_buffers.erase(it);
-            }
-            _material_uniform_last_access.erase(key);
-        }
-    }
-
-    Result OpaqueSceneOperation::prepare(RenderFrameContext& context)
-    {
-        _draw_commands.clear();
-        _clear_flags =
-            context.has_skybox ? GraphicsClearFlags::DEPTH : GraphicsClearFlags::COLOR_DEPTH;
-
-        auto& backend = context.backend.get();
-        auto& resource_manager = context.resource_manager.get();
-        const RenderGraph& render_graph = context.render_graph.get();
-        const uint64 frame_index = context.frame_index;
-        const Uuid view_uniform_buffer = context.view_uniform_buffer;
+        auto& frame_data = render_data.frame;
+        render_data.opaque_commands.clear();
+        auto& backend = frame_data.backend.get();
+        auto& resource_manager = frame_data.resource_manager.get();
+        const RenderData& scene_data = render_data;
+        const Uuid view_uniform_buffer = frame_data.view_uniform_buffer;
 
         // -------------------------------------------------------------------
         // Touch resource manager to update LRU access — mark all used materials
@@ -653,8 +788,7 @@ namespace tbx
         };
 
         // -------------------------------------------------------------------
-        // Resolve material draw state — uses the shared ensure_material_uniform_buffer
-        // but records the access for eviction purposes
+        // Resolve material draw state — uses the shared ensure_material_uniform_buffer.
         // -------------------------------------------------------------------
         const auto resolve_and_store_material =
             [&](const MaterialInstance& material,
@@ -664,7 +798,8 @@ namespace tbx
                 std::vector<GraphicsResourceBinding>& out_textures) -> Result
         {
             auto resolved = ResolvedMaterial {};
-            if (const auto result = resolve_material(material, resource_manager, resolved); !result)
+            if (const auto result = resolve_render_material(material, resource_manager, resolved);
+                !result)
                 return result;
 
             Uuid uniform_buffer = {};
@@ -676,8 +811,6 @@ namespace tbx
                     uniform_buffer);
                 !result)
                 return result;
-
-            _material_uniform_last_access[resolved.uniform_key] = frame_index;
 
             out_pipeline = resolved.pipeline;
             out_material_key = resolved.uniform_key;
@@ -694,12 +827,12 @@ namespace tbx
         auto dynamic_batches = std::unordered_map<uint64, DynamicBatch> {};
         auto prepare_result = Result {};
 
-        for (const auto& renderable : render_graph.renderables)
+        for (const auto& renderable : scene_data.renderables)
         {
             if (!prepare_result)
                 break;
             if (!renderable.is_visible
-                || renderable.geometry_source != RenderGraphGeometrySource::DynamicMesh)
+                || renderable.geometry_source != RenderDataGeometrySource::DynamicMesh)
                 continue;
 
             const std::shared_ptr<Mesh>& mesh_data = renderable.dynamic_mesh;
@@ -713,7 +846,7 @@ namespace tbx
                 touch_material(renderable.material);
                 append_mesh_geometry(
                     *mesh_data,
-                    context.view_projection * model_to_world,
+                    frame_data.view_projection * model_to_world,
                     fallback_geometry);
                 continue;
             }
@@ -754,12 +887,12 @@ namespace tbx
 
         auto static_batches = std::unordered_map<uint64, StaticBatch> {};
 
-        for (const auto& renderable : render_graph.renderables)
+        for (const auto& renderable : scene_data.renderables)
         {
             if (!prepare_result)
                 break;
             if (!renderable.is_visible
-                || renderable.geometry_source != RenderGraphGeometrySource::StaticMesh)
+                || renderable.geometry_source != RenderDataGeometrySource::StaticMesh)
                 continue;
             if (!renderable.static_mesh.is_valid())
                 continue;
@@ -830,18 +963,13 @@ namespace tbx
                 !result)
                 return result;
 
-            const uint64 mesh_key = make_mesh_cache_key(batch.mesh_data);
-            _mesh_last_access[mesh_key] = frame_index;
-
             Uuid instance_buffer = {};
             if (const auto result =
                     ensure_instance_buffer(backend, batch_key, batch.transforms, instance_buffer);
                 !result)
                 return result;
 
-            _instance_last_access[batch_key] = frame_index;
-
-            _draw_commands.push_back(
+            render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
                     .pipeline = batch.pipeline,
                     .vertex_buffers =
@@ -880,9 +1008,7 @@ namespace tbx
                 !result)
                 return result;
 
-            _instance_last_access[batch_key] = frame_index;
-
-            _draw_commands.push_back(
+            render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
                     .pipeline = batch.pipeline,
                     .vertex_buffers =
@@ -926,7 +1052,7 @@ namespace tbx
                 !result)
                 return result;
 
-            _draw_commands.push_back(
+            render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
                     .pipeline = _fallback_pipeline,
                     .vertex_buffers =
@@ -947,41 +1073,18 @@ namespace tbx
                 });
         }
 
-        evict_stale_resources(backend, frame_index);
         return {};
     }
 
-    Result OpaqueSceneOperation::execute(IGraphicsBackend& backend, const CancellationToken& token)
+    Result BuildOpaqueCommandsOperation::execute(
+        IGraphicsBackend&,
+        RenderData&,
+        const CancellationToken&)
     {
-        if (token && token.is_cancelled())
-            return Result(false, "OpaqueSceneOperation cancelled.");
-
-        if (const auto result = backend.begin_pass(
-                GraphicsPassDesc {
-                    .clear_color = Color::BLACK,
-                    .clear_depth = 1.0F,
-                    .clear_stencil = 0U,
-                    .clear_flags = _clear_flags,
-                    .debug_name = "Toybox Opaque Scene Pass",
-                });
-            !result)
-            return result;
-
-        const auto executor = RenderCommandExecutor();
-        for (const auto& draw : _draw_commands)
-        {
-            if (token && token.is_cancelled())
-                return backend.end_pass(),
-                       Result(false, "OpaqueSceneOperation cancelled mid-pass.");
-
-            if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
-                return backend.end_pass(), result;
-        }
-
-        return backend.end_pass();
+        return {};
     }
 
-    void OpaqueSceneOperation::release(IGraphicsBackend& backend)
+    void BuildOpaqueCommandsOperation::release(IGraphicsBackend& backend)
     {
         for (const auto& [key, uuid] : _mesh_vertex_buffers)
             backend.unload(uuid);
@@ -1003,17 +1106,65 @@ namespace tbx
         _mesh_index_buffers.clear();
         _mesh_index_counts.clear();
         _mesh_sources.clear();
-        _mesh_last_access.clear();
         _instance_buffers.clear();
         _instance_buffer_sizes.clear();
-        _instance_last_access.clear();
         _material_uniform_buffers.clear();
-        _material_uniform_last_access.clear();
         _fallback_pipeline = {};
         _fallback_vertex_buffer = {};
         _fallback_index_buffer = {};
         _fallback_vertex_buffer_size = 0U;
         _fallback_index_buffer_size = 0U;
-        _draw_commands.clear();
+    }
+
+    static RenderOperationDebugInfo make_command_debug_info(
+        const std::string& name,
+        const std::string& category)
+    {
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = name;
+        debug_info.category = category;
+        return debug_info;
+    }
+
+    RenderOperationDebugInfo BuildAlphaCutoutCommandsOperation::get_debug_info() const
+    {
+        return make_command_debug_info(
+            "Toybox Build Alpha Cutout Commands Operation",
+            "Command Building");
+    }
+
+    Result BuildAlphaCutoutCommandsOperation::prepare(RenderData& render_data)
+    {
+        render_data.alpha_cutout_commands.clear();
+        return {};
+    }
+
+    Result BuildAlphaCutoutCommandsOperation::execute(
+        IGraphicsBackend&,
+        RenderData&,
+        const CancellationToken&)
+    {
+        return {};
+    }
+
+    RenderOperationDebugInfo BuildTransparentCommandsOperation::get_debug_info() const
+    {
+        return make_command_debug_info(
+            "Toybox Build Transparent Commands Operation",
+            "Command Building");
+    }
+
+    Result BuildTransparentCommandsOperation::prepare(RenderData& render_data)
+    {
+        render_data.transparent_commands.clear();
+        return {};
+    }
+
+    Result BuildTransparentCommandsOperation::execute(
+        IGraphicsBackend&,
+        RenderData&,
+        const CancellationToken&)
+    {
+        return {};
     }
 }
