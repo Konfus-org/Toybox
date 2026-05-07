@@ -1,6 +1,8 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/assets/fallbacks.h"
+#include "tbx/utils/hash.h"
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -81,9 +83,8 @@ namespace tbx
 
         out_material_resource = material_iterator->second;
         out_material_resource.pipeline = pipeline_resource;
-        out_material_resource.config = instance.has_config_override_enabled()
-                                           ? instance.config
-                                           : out_material_resource.config;
+        out_material_resource.config =
+            instance.has_config_override_enabled() ? instance.config : out_material_resource.config;
 
         for (const auto& parameter : instance.param_overrides)
             out_material_resource.parameters.set(parameter);
@@ -91,16 +92,31 @@ namespace tbx
         for (const auto& texture : instance.texture_overrides)
             out_material_resource.textures.set(texture);
 
-        for (const auto& texture : out_material_resource.textures)
-        {
-            if (!texture.texture.is_valid())
-                continue;
+        return {};
+    }
 
-            auto texture_resource = Uuid {};
-            if (const auto result = load_texture(texture.texture, texture_resource); !result)
-                return result;
-        }
+    Result GraphicsResourceManager::load_material_draw_resource(
+        const MaterialInstance& instance,
+        GraphicsMaterialDrawResource& out_material_resource)
+    {
+        out_material_resource = {};
 
+        auto material_resource = GraphicsMaterialInstanceResource {};
+        if (const auto result = load_material_instance(instance, material_resource); !result)
+            return result;
+
+        out_material_resource.uniform_data =
+            make_material_uniform_data(material_resource.parameters);
+        if (const auto result =
+                load_material_textures(material_resource.textures, out_material_resource.textures);
+            !result)
+            return result;
+
+        out_material_resource.pipeline = material_resource.pipeline;
+        out_material_resource.uniform_key = make_material_key(
+            out_material_resource.pipeline,
+            out_material_resource.uniform_data,
+            out_material_resource.textures);
         return {};
     }
 
@@ -410,6 +426,110 @@ namespace tbx
             return texture_iterator->second;
 
         return std::nullopt;
+    }
+
+    void GraphicsResourceManager::append_parameter_uniform_data(
+        const MaterialParameterData& parameter,
+        std::vector<Vec4>& out_values)
+    {
+        std::visit(
+            [&out_values](const auto& value)
+            {
+                using TValue = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<TValue, bool>)
+                    out_values.push_back(Vec4(value ? 1.0F : 0.0F, 0.0F, 0.0F, 0.0F));
+                else if constexpr (std::is_same_v<TValue, int>)
+                    out_values.push_back(Vec4(static_cast<float>(value), 0.0F, 0.0F, 0.0F));
+                else if constexpr (std::is_same_v<TValue, float>)
+                    out_values.push_back(Vec4(value, 0.0F, 0.0F, 0.0F));
+                else if constexpr (std::is_same_v<TValue, double>)
+                    out_values.push_back(Vec4(static_cast<float>(value), 0.0F, 0.0F, 0.0F));
+                else if constexpr (std::is_same_v<TValue, Vec2>)
+                    out_values.push_back(Vec4(value, 0.0F, 0.0F));
+                else if constexpr (std::is_same_v<TValue, Vec3>)
+                    out_values.push_back(Vec4(value, 0.0F));
+                else if constexpr (std::is_same_v<TValue, Vec4>)
+                    out_values.push_back(value);
+                else if constexpr (std::is_same_v<TValue, Color>)
+                    out_values.push_back(Vec4(value.r, value.g, value.b, value.a));
+                else if constexpr (std::is_same_v<TValue, Mat3>)
+                {
+                    out_values.push_back(Vec4(value[0], 0.0F));
+                    out_values.push_back(Vec4(value[1], 0.0F));
+                    out_values.push_back(Vec4(value[2], 0.0F));
+                }
+                else if constexpr (std::is_same_v<TValue, Mat4>)
+                {
+                    out_values.push_back(value[0]);
+                    out_values.push_back(value[1]);
+                    out_values.push_back(value[2]);
+                    out_values.push_back(value[3]);
+                }
+            },
+            parameter);
+    }
+
+    uint64 GraphicsResourceManager::make_material_key(
+        const Uuid pipeline,
+        const GraphicsMaterialUniformData& uniforms,
+        const std::vector<GraphicsResourceBinding>& textures)
+    {
+        uint64 hash = fnv1a_hash_uuid(pipeline, TBX_FNV1A_OFFSET_BASIS);
+        hash = fnv1a_hash_value(static_cast<uint64>(uniforms.values.size()), hash);
+        if (!uniforms.values.empty())
+            hash = fnv1a_hash_bytes(uniforms.data(), uniforms.byte_size(), hash);
+        for (const auto& texture : textures)
+        {
+            hash = fnv1a_hash_value(texture.slot, hash);
+            hash = fnv1a_hash_uuid(texture.resource, hash);
+        }
+        return hash == 0U ? 1U : hash;
+    }
+
+    GraphicsMaterialUniformData GraphicsResourceManager::make_material_uniform_data(
+        const MaterialParameterBindings& parameters)
+    {
+        auto uniform_data = GraphicsMaterialUniformData {};
+        uniform_data.values.reserve(parameters.values.size());
+        for (const auto& parameter : parameters)
+            append_parameter_uniform_data(parameter.data, uniform_data.values);
+
+        if (uniform_data.values.size() > TBX_MAX_MATERIAL_UNIFORM_VECTORS)
+            uniform_data.values.resize(TBX_MAX_MATERIAL_UNIFORM_VECTORS);
+        else if (uniform_data.values.size() < TBX_MAX_MATERIAL_UNIFORM_VECTORS)
+            uniform_data.values.resize(TBX_MAX_MATERIAL_UNIFORM_VECTORS, Vec4(0.0F));
+
+        return uniform_data;
+    }
+
+    Result GraphicsResourceManager::load_material_textures(
+        const MaterialTextureBindings& texture_bindings,
+        std::vector<GraphicsResourceBinding>& out_textures)
+    {
+        out_textures.clear();
+        auto texture_slot = uint32 {0U};
+        out_textures.reserve(texture_bindings.values.size());
+        for (const auto& texture : texture_bindings)
+        {
+            auto texture_resource = Uuid {};
+            if (texture.texture.is_valid())
+            {
+                if (const auto result = load_texture(texture.texture, texture_resource); !result)
+                    return result;
+            }
+            else if (const auto result = load_default_texture(texture_resource); !result)
+            {
+                return result;
+            }
+
+            out_textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = texture_slot,
+                    .resource = texture_resource,
+                });
+            texture_slot += 1U;
+        }
+        return {};
     }
 
     Result GraphicsResourceManager::load_cached_material(

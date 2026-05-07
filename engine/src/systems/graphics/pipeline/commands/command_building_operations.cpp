@@ -4,15 +4,15 @@
 #include "tbx/systems/graphics/camera.h"
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/graphics/pipeline/context/material_resolution_service.h"
 #include "tbx/systems/graphics/pipeline/commands/render_command_executor.h"
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
+#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader.h"
 #include "tbx/systems/math/matrices.h"
+#include "tbx/utils/hash.h"
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 namespace tbx
@@ -147,16 +147,17 @@ namespace tbx
         auto& backend = frame_data.backend.get();
         auto& resource_manager = frame_data.resource_manager.get();
 
-        auto resolved = ResolvedMaterial {};
-        if (const auto result = resolve_render_material(sky_material, resource_manager, resolved);
+        auto material_resource = GraphicsMaterialDrawResource {};
+        if (const auto result =
+                resource_manager.load_material_draw_resource(sky_material, material_resource);
             !result)
             return result;
 
         if (const auto result = ensure_material_uniform(
                 backend,
-                resolved.uniform_key,
-                resolved.uniform_data.data(),
-                resolved.uniform_data.byte_size());
+                material_resource.uniform_key,
+                material_resource.uniform_data.data(),
+                material_resource.uniform_data.byte_size());
             !result)
             return result;
 
@@ -170,7 +171,7 @@ namespace tbx
 
         render_data.skybox_commands.push_back(
             GraphicsIndexedDrawCommand {
-                .pipeline = resolved.pipeline,
+                .pipeline = material_resource.pipeline,
                 .vertex_buffers =
                     {
                         GraphicsResourceBinding {.slot = 0U, .resource = _vertex_buffer},
@@ -185,7 +186,7 @@ namespace tbx
                             .resource = frame_data.view_uniform_buffer},
                         GraphicsResourceBinding {.slot = 1U, .resource = _material_uniform_buffer},
                     },
-                .textures = std::move(resolved.textures),
+                .textures = std::move(material_resource.textures),
                 .draw =
                     GraphicsDrawIndexedDesc {
                         .primitive_type = GraphicsPrimitiveType::TRIANGLES,
@@ -470,7 +471,7 @@ namespace tbx
 
     static uint64 make_dynamic_batch_key(const uint64 mesh_key, const uint64 material_key)
     {
-        return hash_value(material_key, hash_value(mesh_key, 14695981039346656037ULL));
+        return fnv1a_hash_value(material_key, fnv1a_hash_value(mesh_key, TBX_FNV1A_OFFSET_BASIS));
     }
 
     static uint64 make_static_batch_key(
@@ -479,10 +480,10 @@ namespace tbx
         const uint32 index_count,
         const uint64 material_key)
     {
-        uint64 hash = hash_uuid(vertex_buffer, 14695981039346656037ULL);
-        hash = hash_uuid(index_buffer, hash);
-        hash = hash_value(index_count, hash);
-        hash = hash_value(material_key, hash);
+        uint64 hash = fnv1a_hash_uuid(vertex_buffer, TBX_FNV1A_OFFSET_BASIS);
+        hash = fnv1a_hash_uuid(index_buffer, hash);
+        hash = fnv1a_hash_value(index_count, hash);
+        hash = fnv1a_hash_value(material_key, hash);
         return hash == 0U ? 1U : hash;
     }
 
@@ -763,59 +764,35 @@ namespace tbx
         const Uuid view_uniform_buffer = frame_data.view_uniform_buffer;
 
         // -------------------------------------------------------------------
-        // Touch resource manager to update LRU access — mark all used materials
+        // Load material draw state — uses the shared ensure_material_uniform_buffer.
         // -------------------------------------------------------------------
-        auto touched_materials = std::unordered_set<Handle> {};
-        auto touched_textures = std::unordered_set<Handle> {};
-
-        const auto touch_material = [&](const MaterialInstance& material)
-        {
-            const Handle& handle = material.get_handle();
-            if (handle.is_valid() && touched_materials.insert(handle).second)
-            {
-                auto unused = Uuid {};
-                resource_manager.load_material(handle, unused);
-            }
-            for (const auto& override : material.texture_overrides)
-            {
-                if (!override.texture.is_valid())
-                    continue;
-                if (!touched_textures.insert(override.texture).second)
-                    continue;
-                auto unused = Uuid {};
-                resource_manager.load_texture(override.texture, unused);
-            }
-        };
-
-        // -------------------------------------------------------------------
-        // Resolve material draw state — uses the shared ensure_material_uniform_buffer.
-        // -------------------------------------------------------------------
-        const auto resolve_and_store_material =
+        const auto load_and_store_material =
             [&](const MaterialInstance& material,
                 Uuid& out_pipeline,
                 uint64& out_material_key,
                 Uuid& out_uniform_buffer,
                 std::vector<GraphicsResourceBinding>& out_textures) -> Result
         {
-            auto resolved = ResolvedMaterial {};
-            if (const auto result = resolve_render_material(material, resource_manager, resolved);
+            auto material_resource = GraphicsMaterialDrawResource {};
+            if (const auto result =
+                    resource_manager.load_material_draw_resource(material, material_resource);
                 !result)
                 return result;
 
             Uuid uniform_buffer = {};
             if (const auto result = ensure_material_uniform_buffer(
                     backend,
-                    resolved.uniform_key,
-                    resolved.uniform_data.data(),
-                    resolved.uniform_data.byte_size(),
+                    material_resource.uniform_key,
+                    material_resource.uniform_data.data(),
+                    material_resource.uniform_data.byte_size(),
                     uniform_buffer);
                 !result)
                 return result;
 
-            out_pipeline = resolved.pipeline;
-            out_material_key = resolved.uniform_key;
+            out_pipeline = material_resource.pipeline;
+            out_material_key = material_resource.uniform_key;
             out_uniform_buffer = uniform_buffer;
-            out_textures = std::move(resolved.textures);
+            out_textures = std::move(material_resource.textures);
             return {};
         };
 
@@ -843,7 +820,6 @@ namespace tbx
 
             if (!can_render_mesh_directly(*mesh_data))
             {
-                touch_material(renderable.material);
                 append_mesh_geometry(
                     *mesh_data,
                     frame_data.view_projection * model_to_world,
@@ -855,7 +831,7 @@ namespace tbx
             uint64 material_key = 0U;
             Uuid uniform_buffer = {};
             auto textures = std::vector<GraphicsResourceBinding> {};
-            prepare_result = resolve_and_store_material(
+            prepare_result = load_and_store_material(
                 renderable.material,
                 pipeline,
                 material_key,
@@ -908,7 +884,7 @@ namespace tbx
             uint64 material_key = 0U;
             Uuid uniform_buffer = {};
             auto textures = std::vector<GraphicsResourceBinding> {};
-            prepare_result = resolve_and_store_material(
+            prepare_result = load_and_store_material(
                 renderable.material,
                 pipeline,
                 material_key,

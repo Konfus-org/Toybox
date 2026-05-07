@@ -17,6 +17,32 @@
 
 namespace tbx
 {
+    inline constexpr uint32 TBX_MAX_MATERIAL_UNIFORM_VECTORS = 64U;
+
+    /// @brief
+    /// Purpose: Stores packed material parameter values for the renderer uniform block.
+    /// @details
+    /// Ownership: Owns copied uniform values; safe to keep for command building.
+    /// Thread Safety: Safe to copy between threads.
+    struct TBX_API GraphicsMaterialUniformData
+    {
+        /// @brief
+        /// Purpose: Returns a stable pointer to the packed uniform values.
+        const void* data() const
+        {
+            return values.data();
+        }
+
+        /// @brief
+        /// Purpose: Returns the packed uniform data size in bytes.
+        uint64 byte_size() const
+        {
+            return static_cast<uint64>(values.size()) * static_cast<uint64>(sizeof(Vec4));
+        }
+
+        std::vector<Vec4> values = {};
+    };
+
     /// @brief
     /// Purpose: Describes one GPU resource cached from an asset handle.
     /// @details
@@ -65,6 +91,19 @@ namespace tbx
         MaterialParameterBindings parameters = {};
         MaterialTextureBindings textures = {};
         MaterialConfig config = {};
+    };
+
+    /// @brief
+    /// Purpose: Stores ready-to-bind material draw resources for one render item.
+    /// @details
+    /// Ownership: Owns copied binding data; backend resources remain manager-owned.
+    /// Thread Safety: Safe to copy between threads.
+    struct TBX_API GraphicsMaterialDrawResource
+    {
+        Uuid pipeline = {};
+        uint64 uniform_key = 0U;
+        GraphicsMaterialUniformData uniform_data = {};
+        std::vector<GraphicsResourceBinding> textures = {};
     };
 
     /// @brief
@@ -129,11 +168,21 @@ namespace tbx
         /// @brief
         /// Purpose: Loads a material and returns default bindings merged with instance overrides.
         /// @details
-        /// Ownership: Returned binding data is copied; uploaded resources are owned by this manager.
+        /// Ownership: Returned binding data is copied; use load_material_draw_resource for GPU
+        /// bindings.
         /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
         Result load_material_instance(
             const MaterialInstance& instance,
             GraphicsMaterialInstanceResource& out_material_resource);
+
+        /// @brief
+        /// Purpose: Loads a material instance and returns renderer-ready draw bindings.
+        /// @details
+        /// Ownership: Returned binding data is copied; GPU resources are owned by this manager.
+        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
+        Result load_material_draw_resource(
+            const MaterialInstance& instance,
+            GraphicsMaterialDrawResource& out_material_resource);
 
         /// @brief
         /// Purpose: Loads the renderer-owned fallback texture used for unassigned material maps.
@@ -293,6 +342,15 @@ namespace tbx
             const Material& material,
             Shader shader,
             const Handle& handle);
+        static void append_parameter_uniform_data(
+            const MaterialParameterData& parameter,
+            std::vector<Vec4>& out_values);
+        static uint64 make_material_key(
+            Uuid pipeline,
+            const GraphicsMaterialUniformData& uniforms,
+            const std::vector<GraphicsResourceBinding>& textures);
+        static GraphicsMaterialUniformData make_material_uniform_data(
+            const MaterialParameterBindings& parameters);
         static uint64 get_texture_channel_count(TextureFormat format);
         static uint64 get_texture_pixel_count(const Texture& texture);
         static uint64 get_texture_source_byte_size(const Texture& texture);
@@ -331,6 +389,9 @@ namespace tbx
             Uuid& out_resource_uuid);
         Result load_fallback_material_resource(
             GraphicsMaterialInstanceResource& out_material_resource);
+        Result load_material_textures(
+            const MaterialTextureBindings& texture_bindings,
+            std::vector<GraphicsResourceBinding>& out_textures);
         Result upload_model_resource(
             const Handle& handle,
             const Model& model,
