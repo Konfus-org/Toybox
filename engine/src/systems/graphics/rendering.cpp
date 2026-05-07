@@ -57,16 +57,18 @@ namespace tbx
         , _output_window(std::move(output_window))
         , _requested_resolution(settings.resolution.value)
         , _resource_manager(std::make_unique<GraphicsResourceManager>(backend, asset_manager))
+        , _pipeline(backend)
     {
         _initialization_result = backend.initialize(settings);
 
         auto pipeline_config = RenderPipelineConfig::standard();
-        _operations = std::move(pipeline_config.operations);
+        for (auto& operation : pipeline_config.operations)
+            _pipeline.add_operation(std::move(operation));
     }
 
     Rendering::~Rendering() noexcept
     {
-        release_operations();
+        release_pipeline();
     }
 
     void Rendering::render()
@@ -102,14 +104,14 @@ namespace tbx
             return;
         }
 
-        auto context = RenderFrameContext {
+        auto context = std::make_shared<RenderFrameContext>(RenderFrameContext {
             .backend = _backend,
             .resource_manager = *_resource_manager,
             .render_graph = render_graph,
             .view_projection = view_projection,
             .camera_position = render_view.transform.position,
             .frame_index = _render_frame,
-        };
+        });
 
         const auto abort_frame = [this](const Result& failure)
         {
@@ -119,37 +121,16 @@ namespace tbx
             TBX_TRACE_WARNING("Toybox renderer frame submission failed: {}", failure.get_report());
         };
 
-        // Phase 1 — prepare: CPU work, resource uploads, render graph consumption
-        for (auto& operation : _operations)
+        if (const auto result = _pipeline.prepare(context); !result)
         {
-            if (const auto result = operation->prepare(context); !result)
-            {
-                const RenderOperationDebugInfo debug_info = operation->get_debug_info();
-                TBX_TRACE_WARNING(
-                    "Toybox render operation prepare failed [{} / {}]: {}",
-                    debug_info.category,
-                    debug_info.debug_name,
-                    result.get_report());
-                abort_frame(result);
-                return;
-            }
+            abort_frame(result);
+            return;
         }
 
-        // Phase 2 — execute: GPU commands, one pass per operation
-        for (auto& operation : _operations)
+        if (const auto result = _pipeline.execute(context, CancellationToken {}); !result)
         {
-            if (const auto result = operation->execute(_backend.get(), CancellationToken {});
-                !result)
-            {
-                const RenderOperationDebugInfo debug_info = operation->get_debug_info();
-                TBX_TRACE_WARNING(
-                    "Toybox render operation execute failed [{} / {}]: {}",
-                    debug_info.category,
-                    debug_info.debug_name,
-                    result.get_report());
-                abort_frame(result);
-                return;
-            }
+            abort_frame(result);
+            return;
         }
 
         if (const auto result = end_view_and_frame(); !result)
@@ -210,15 +191,10 @@ namespace tbx
         return _window_manager.get().get_size(_output_window);
     }
 
-    void Rendering::release_operations()
+    void Rendering::release_pipeline()
     {
-        if (_operations.empty())
-            return;
-
         _backend.get().wait_for_idle();
-        for (auto& operation : _operations)
-            operation->release(_backend.get());
-        _operations.clear();
+        _pipeline.release();
 
         if (_resource_manager)
             _resource_manager->unload_all();

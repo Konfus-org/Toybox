@@ -8,6 +8,7 @@
 #include "tbx/systems/graphics/material.h"
 #include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/graphics/model.h"
+#include "tbx/systems/graphics/pipeline/render_frame_context.h"
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
@@ -15,6 +16,7 @@
 #include "tbx/systems/graphics/texture.h"
 #include "tbx/systems/math/transform.h"
 #include <filesystem>
+#include <functional>
 #include <future>
 #include <memory>
 #include <utility>
@@ -506,174 +508,96 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 
-    // Validates Toybox-owned render pipelines execute passes through backend commands.
-    TEST(GraphicsRenderPipelineTests, Execute_SubmitsIndexedDrawPassCommands)
+    struct RenderPipelineOperationState
     {
-        // Arrange
-        auto backend = RecordingGraphicsBackend {};
-        auto pipeline = GraphicsRenderPipeline {backend};
-        pipeline.add_pass_operation(
-            GraphicsRenderPass {
-                .pass =
-                    GraphicsPassDesc {
-                        .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
-                        .debug_name = "Geometry",
-                    },
-                .viewport =
-                    Viewport {
-                        .position = Vec2(0.0F),
-                        .dimensions = Size {320U, 200U},
-                    },
-                .indexed_draws =
-                    {
-                        GraphicsIndexedDrawCommand {
-                            .pipeline = Uuid(1U),
-                            .vertex_buffers = {GraphicsResourceBinding {
-                                .slot = 0U,
-                                .resource = Uuid(2U),
-                            }},
-                            .index_buffer = Uuid(3U),
-                            .index_type = GraphicsIndexType::UINT32,
-                            .uniform_buffers = {GraphicsResourceBinding {
-                                .slot = 0U,
-                                .resource = Uuid(4U),
-                            }},
-                            .textures = {GraphicsResourceBinding {
-                                .slot = 1U,
-                                .resource = Uuid(5U),
-                            }},
-                            .samplers = {GraphicsResourceBinding {
-                                .slot = 1U,
-                                .resource = Uuid(6U),
-                            }},
-                            .draw =
-                                GraphicsDrawIndexedDesc {
-                                    .index_count = 6U,
-                                },
-                        },
-                    },
-            });
+        bool prepared = false;
+        bool executed = false;
+        bool released = false;
+    };
 
-        // Act
-        const auto result = pipeline.execute();
+    class RecordingRenderOperation final : public IRenderOperation
+    {
+      public:
+        RecordingRenderOperation(RenderPipelineOperationState& state)
+            : _state(state)
+        {
+        }
 
-        // Assert
-        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::SetViewport,
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::BindUniformBuffer,
-            GraphicsBackendCallback::BindTexture,
-            GraphicsBackendCallback::BindSampler,
-            GraphicsBackendCallback::DrawIndexed,
-            GraphicsBackendCallback::EndPass,
-        };
+      public:
+        RenderOperationDebugInfo get_debug_info() const override
+        {
+            auto debug_info = RenderOperationDebugInfo();
+            debug_info.debug_name = "Recording Operation";
+            debug_info.category = "Tests";
+            return debug_info;
+        }
 
-        EXPECT_TRUE(result);
-        EXPECT_EQ(backend.callbacks, expected_callbacks);
-    }
+        Result prepare(RenderFrameContext& context) override
+        {
+            _state.get().prepared = context.frame_index == 42U;
+            return {};
+        }
 
-    // Validates asset-backed pipeline commands resolve materials and textures through the cache.
-    TEST(GraphicsRenderPipelineTests, Execute_ResolvesAssetBackedDrawResources)
+        Result execute(IGraphicsBackend& backend, const CancellationToken&) override
+        {
+            _state.get().executed = true;
+            return backend.set_viewport(
+                Viewport {
+                    .position = Vec2(0.0F),
+                    .dimensions = Size {64U, 64U},
+                });
+        }
+
+        void release(IGraphicsBackend&) override
+        {
+            _state.get().released = true;
+        }
+
+      private:
+        std::reference_wrapper<RenderPipelineOperationState> _state;
+    };
+
+    // Validates typed render pipelines prepare, execute, and release owned operations.
+    TEST(RenderPipelineTests, PrepareExecuteRelease_RunsOwnedOperations)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Shader>(
-            [](const std::filesystem::path&, const ShaderLoadParameters&)
-            {
-                return std::make_shared<Shader>(std::vector<ShaderSource> {
-                    ShaderSource(
-                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
-                        ShaderType::VERTEX),
-                    ShaderSource(
-                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
-                        "vec4(1.0); }\n",
-                        ShaderType::FRAGMENT),
-                });
-            });
-        serialization_registry.register_reader<Texture>(
-            [](const std::filesystem::path&, const TextureLoadParameters&)
-            {
-                return std::make_shared<Texture>(
-                    Size {1U, 1U},
-                    TextureWrap::REPEAT,
-                    TextureFilter::LINEAR,
-                    TextureFormat::RGBA,
-                    std::vector<Pixel> {255U, 255U, 255U, 255U});
-            });
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path&, const MaterialLoadParameters&)
-            {
-                auto material = Material {};
-                material.program.vertex = Handle("Shaders/Asset.shader");
-                material.program.fragment = Handle("Shaders/Asset.shader");
-                material.textures.set("diffuse_map", Handle("Textures/Asset.png"));
-                return std::make_shared<Material>(std::move(material));
-            });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
-        auto material_pipeline = Uuid {};
-        auto texture_resource = Uuid {};
-        ASSERT_TRUE(resource_manager.load_material(Handle("Materials/Asset.mat"), material_pipeline));
-        ASSERT_TRUE(resource_manager.load_texture(Handle("Textures/Asset.png"), texture_resource));
-        auto pipeline = GraphicsRenderPipeline {backend};
-        pipeline.add_pass_operation(
-            GraphicsRenderPass {
-                .pass =
-                    GraphicsPassDesc {
-                        .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
-                        .debug_name = "AssetBacked",
-                    },
-                .indexed_draws =
-                    {
-                        GraphicsIndexedDrawCommand {
-                            .pipeline = material_pipeline,
-                            .vertex_buffers = {GraphicsResourceBinding {
-                                .slot = 0U,
-                                .resource = Uuid(20U),
-                            }},
-                            .index_buffer = Uuid(30U),
-                            .textures = {GraphicsResourceBinding {
-                                .slot = 1U,
-                                .resource = texture_resource,
-                            }},
-                            .draw =
-                                GraphicsDrawIndexedDesc {
-                                    .index_count = 3U,
-                                },
-                        },
-                    },
-            });
+        auto render_graph = RenderGraph {};
+        auto context = std::make_shared<RenderFrameContext>(RenderFrameContext {
+            .backend = backend,
+            .resource_manager = resource_manager,
+            .render_graph = render_graph,
+            .frame_index = 42U,
+        });
+        auto state = RenderPipelineOperationState {};
+        auto pipeline = RenderPipeline(backend);
+        pipeline.add_operation(std::make_unique<RecordingRenderOperation>(state));
 
         // Act
-        const auto result = pipeline.execute();
+        const auto prepare_result = pipeline.prepare(context);
+        const auto execute_result = pipeline.execute(context, CancellationToken {});
+        pipeline.release();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::BindTexture,
-            GraphicsBackendCallback::DrawIndexed,
-            GraphicsBackendCallback::EndPass,
+            GraphicsBackendCallback::SetViewport,
         };
 
-        EXPECT_TRUE(result);
+        EXPECT_TRUE(prepare_result);
+        EXPECT_TRUE(execute_result);
+        EXPECT_TRUE(state.prepared);
+        EXPECT_TRUE(state.executed);
+        EXPECT_TRUE(state.released);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
-        EXPECT_EQ(backend.uploaded_pipeline_count, 1U);
-        EXPECT_EQ(backend.uploaded_texture_count, 1U);
-        EXPECT_EQ(backend.recorded_pipeline, Uuid(1001U));
-        EXPECT_EQ(backend.recorded_texture, Uuid(1000U));
     }
 
     // Validates Rendering owns the Toybox geometry pass and submits render() commands.
-    TEST(GraphicsRenderPipelineTests, Rendering_RenderSubmitsGeometryPass)
+    TEST(RenderPipelineTests, Rendering_RenderSubmitsGeometryPass)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
