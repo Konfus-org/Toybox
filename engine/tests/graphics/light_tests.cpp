@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include "tbx/systems/graphics/light.h"
+#include "tbx/types/components/light.h"
 
 namespace tbx::tests::graphics
 {

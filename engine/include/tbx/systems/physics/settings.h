@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/math/vectors.h"
+#include "tbx/types/vectors.h"
 #include "tbx/systems/messaging/observable.h"
 #include "tbx/tbx_api.h"
 #include <cstdint>

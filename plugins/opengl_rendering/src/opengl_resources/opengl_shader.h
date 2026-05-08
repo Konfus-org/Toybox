@@ -1,11 +1,10 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/systems/graphics/shader.h"
+#include "tbx/types/shader.h"
 #include "tbx/types/typedefs.h"
 #include <memory>
 #include <string>
 #include <vector>
-
 
 namespace opengl_rendering
 {

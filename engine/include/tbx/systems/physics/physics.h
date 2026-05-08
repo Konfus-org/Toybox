@@ -3,8 +3,8 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/physics/raycast.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/raycast.h"
 #include "tbx/types/uuid.h"
 #include <functional>
 #include <optional>

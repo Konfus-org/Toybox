@@ -1,9 +1,9 @@
 #include "PCH.h"
-#include "tbx/systems/graphics/camera.h"
-#include "tbx/systems/math/matrices.h"
-#include "tbx/systems/math/quaternions.h"
-#include "tbx/systems/math/trig.h"
-#include "tbx/systems/math/vectors.h"
+#include "tbx/types/components/camera.h"
+#include "tbx/types/matrices.h"
+#include "tbx/types/quaternions.h"
+#include "tbx/types/trig.h"
+#include "tbx/types/vectors.h"
 #include <cmath>
 
 namespace tbx::tests::graphics

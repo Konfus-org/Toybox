@@ -1,13 +1,13 @@
 #pragma once
 #include "tbx/core/systems/files/tests/in_memory_file_ops.h"
 #include "tbx/interfaces/input_manager.h"
-#include "tbx/systems/app/message_coordinator.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/messages/message_coordinator.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include <filesystem>
 #include <memory>
@@ -41,7 +41,7 @@ namespace tbx::tests::plugin_api
         auto service_provider = ServiceProvider {};
 
         service_provider.register_service<IMessageCoordinator>(
-            std::make_unique<AppMessageCoordinator>());
+            std::make_unique<MessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());

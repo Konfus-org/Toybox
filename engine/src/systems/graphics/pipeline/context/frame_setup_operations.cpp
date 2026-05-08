@@ -1,7 +1,7 @@
 #include "tbx/systems/graphics/pipeline/context/frame_setup_operations.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
-#include "tbx/systems/math/matrices.h"
+#include "tbx/types/matrices.h"
 #include <algorithm>
 
 namespace tbx

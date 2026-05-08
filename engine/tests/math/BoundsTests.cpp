@@ -1,6 +1,6 @@
 #include "PCH.h"
-#include "tbx/systems/math/bounds.h"
-#include "tbx/systems/math/trig.h"
+#include "tbx/types/bounds.h"
+#include "tbx/types/trig.h"
 #include <cmath>
 #include <string>
 

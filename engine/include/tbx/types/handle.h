@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/serialization.h"
 #include "tbx/types/uuid.h"
 #include <functional>
 #include <string>
@@ -85,6 +86,8 @@ namespace tbx
       private:
         std::string _name = {};
         Uuid _id = {};
+
+        TBX_SERIALIZABLE_INTRUSIVE(Handle, _name, _id)
     };
 
     inline std::string to_string(const Handle& value)

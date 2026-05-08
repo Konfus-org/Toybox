@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/graphics/viewport.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
+#include "tbx/types/viewport.h"
 #include <optional>
 #include <vector>
 

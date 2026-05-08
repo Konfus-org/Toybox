@@ -3,7 +3,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/graphics/shader.h"
+#include "tbx/types/shader.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>

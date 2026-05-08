@@ -1,5 +1,5 @@
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/material.h"
+#include "tbx/types/material.h"
 #include <string>
 
 namespace tbx

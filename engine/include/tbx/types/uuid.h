@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/serialization.h"
 #include "tbx/types/typedefs.h"
 #include <cstddef>
 #include <functional>
 #include <string>
-
 
 namespace tbx
 {
@@ -44,6 +44,8 @@ namespace tbx
         uint32 value = 0U;
 
         static const Uuid NONE;
+
+        TBX_SERIALIZABLE_INTRUSIVE(Uuid, value)
     };
 
     inline const Uuid Uuid::NONE = {};

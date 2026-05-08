@@ -1,7 +1,7 @@
 #include "sky_system.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/math/quaternions.h"
-#include "tbx/systems/math/transform.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/material.h"
+#include "tbx/types/quaternions.h"
 
 namespace three_d_example
 {

@@ -1,11 +1,11 @@
 #pragma once
-#include "tbx/systems/audio/audio_clip.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/shader.h"
-#include "tbx/systems/graphics/texture.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/audio_clip.h"
+#include "tbx/types/components/model.h"
+#include "tbx/types/material.h"
+#include "tbx/types/shader.h"
+#include "tbx/types/texture.h"
 #include "tbx/utils/result.h"
 #include <filesystem>
 #include <functional>

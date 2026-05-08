@@ -1,16 +1,15 @@
 #pragma once
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/audio/audio_clip.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/shader.h"
-#include "tbx/systems/graphics/texture.h"
+#include "tbx/types/audio_clip.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/model.h"
+#include "tbx/types/material.h"
+#include "tbx/types/shader.h"
+#include "tbx/types/texture.h"
 #include <cstddef>
 #include <memory>
 #include <vector>
-
 
 namespace tbx
 {
@@ -137,8 +136,7 @@ namespace tbx
     }
 
     template <>
-    inline std::shared_ptr<Material> make_fallback_asset<Material>(
-        const MaterialLoadParameters&)
+    inline std::shared_ptr<Material> make_fallback_asset<Material>(const MaterialLoadParameters&)
     {
         return make_fallback_material();
     }

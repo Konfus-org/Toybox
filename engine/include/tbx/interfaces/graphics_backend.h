@@ -1,19 +1,18 @@
 #pragma once
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/graphics/api.h"
-#include "tbx/systems/graphics/camera.h"
-#include "tbx/systems/graphics/color.h"
 #include "tbx/systems/graphics/settings.h"
-#include "tbx/systems/graphics/shader.h"
-#include "tbx/systems/graphics/viewport.h"
-#include "tbx/systems/math/size.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/color.h"
+#include "tbx/types/components/camera.h"
+#include "tbx/types/shader.h"
+#include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
+#include "tbx/types/viewport.h"
 #include "tbx/utils/result.h"
 #include <string>
 #include <vector>
-
 
 namespace tbx
 {

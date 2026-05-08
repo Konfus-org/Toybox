@@ -1,4 +1,4 @@
-#include "tbx/systems/audio/audio_clip.h"
+#include "tbx/types/audio_clip.h"
 
 namespace tbx
 {

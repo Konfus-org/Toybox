@@ -1,10 +1,10 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/graphics/model.h"
-#include "tbx/systems/graphics/vertex.h"
-#include "tbx/systems/math/matrices.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/model.h"
+#include "tbx/types/material.h"
+#include "tbx/types/matrices.h"
+#include "tbx/types/vertex.h"
 #include "tbx/utils/string_utils.h"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>

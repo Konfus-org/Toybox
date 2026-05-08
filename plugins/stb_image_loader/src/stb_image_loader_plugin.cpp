@@ -3,7 +3,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/systems/graphics/texture.h"
+#include "tbx/types/texture.h"
 #include <memory>
 #include <stb_image.h>
 #include <string>

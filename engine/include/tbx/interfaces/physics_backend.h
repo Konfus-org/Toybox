@@ -1,9 +1,9 @@
 #pragma once
-#include "tbx/systems/math/transform.h"
-#include "tbx/systems/physics/raycast.h"
-#include "tbx/systems/physics/rigidbody.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/components/rigidbody.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/raycast.h"
 #include "tbx/types/typedefs.h"
 #include <vector>
 
