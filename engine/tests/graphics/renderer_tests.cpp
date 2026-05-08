@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include "tbx/systems/assets/builtin_assets.h"
-#include "tbx/systems/graphics/post_processing.h"
-#include "tbx/systems/graphics/lods.h"
+#include "tbx/types/components/lods.h"
+#include "tbx/types/components/post_processing.h"
 
 namespace tbx::tests::graphics
 {

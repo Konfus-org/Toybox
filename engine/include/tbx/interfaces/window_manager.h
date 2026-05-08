@@ -1,10 +1,9 @@
 #pragma once
-#include "tbx/systems/math/size.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/size.h"
 #include <string>
 #include <vector>
-
 
 namespace tbx
 {

@@ -3,12 +3,12 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/camera.h"
-#include "tbx/systems/graphics/color.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/math/transform.h"
-#include "tbx/systems/math/trig.h"
+#include "tbx/types/color.h"
+#include "tbx/types/components/camera.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/material.h"
+#include "tbx/types/trig.h"
 #include "tbx/utils/string_utils.h"
 
 namespace two_d_example

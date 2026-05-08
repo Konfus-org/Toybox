@@ -1,9 +1,9 @@
 #pragma once
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/mesh.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/material.h"
 #include "tbx/types/typedefs.h"
 #include <functional>
 #include <memory>

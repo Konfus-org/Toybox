@@ -1,17 +1,16 @@
 #pragma once
-#include "tbx/systems/graphics/color.h"
-#include "tbx/systems/graphics/texture.h"
-#include "tbx/systems/math/matrices.h"
-#include "tbx/systems/math/quaternions.h"
-#include "tbx/systems/math/vectors.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/color.h"
+#include "tbx/types/matrices.h"
+#include "tbx/types/quaternions.h"
+#include "tbx/types/texture.h"
 #include "tbx/types/uuid.h"
+#include "tbx/types/vectors.h"
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
-
 
 namespace tbx
 {

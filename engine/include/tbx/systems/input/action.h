@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/systems/math/vectors.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/vectors.h"
 #include <chrono>
 #include <functional>
 #include <optional>

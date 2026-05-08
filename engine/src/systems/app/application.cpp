@@ -27,7 +27,7 @@ namespace tbx
         auto service_provider = ServiceProvider {};
 
         service_provider.register_service<IMessageCoordinator>(
-            std::make_unique<AppMessageCoordinator>());
+            std::make_unique<MessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());

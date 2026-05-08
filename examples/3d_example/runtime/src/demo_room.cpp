@@ -1,10 +1,10 @@
 #include "demo_room.h"
 #include "tbx/systems/assets/builtin_assets.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/math/transform.h"
-#include "tbx/systems/math/trig.h"
-#include "tbx/systems/physics/collider.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/material.h"
+#include "tbx/types/trig.h"
 
 namespace three_d_example
 {

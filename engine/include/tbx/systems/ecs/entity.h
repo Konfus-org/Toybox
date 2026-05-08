@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/math/transform.h"
+#include "tbx/types/components/transform.h"
 #include "tbx/types/uuid.h"
 #include <functional>
 #include <optional>

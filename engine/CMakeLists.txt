@@ -57,8 +57,8 @@ target_link_libraries(Core
         Tbx::Resources
         EnTT::EnTT
         glm
-    PRIVATE
         nlohmann_json
+    PRIVATE
         spdlog::spdlog
 )
 

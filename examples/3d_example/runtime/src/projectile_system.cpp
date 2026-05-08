@@ -1,8 +1,8 @@
 #include "projectile_system.h"
 #include "tbx/systems/assets/builtin_assets.h"
-#include "tbx/systems/math/transform.h"
-#include "tbx/systems/physics/collider.h"
-#include "tbx/systems/physics/rigidbody.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/components/rigidbody.h"
+#include "tbx/types/components/transform.h"
 #include <cmath>
 #include <string>
 #include <utility>

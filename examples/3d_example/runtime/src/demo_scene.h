@@ -5,12 +5,12 @@
 #include "sky_system.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/color.h"
-#include "tbx/systems/graphics/material.h"
-#include "tbx/systems/graphics/post_processing.h"
-#include "tbx/systems/physics/collider.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/color.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/components/post_processing.h"
+#include "tbx/types/material.h"
 #include "tbx/types/typedefs.h"
 
 namespace three_d_example

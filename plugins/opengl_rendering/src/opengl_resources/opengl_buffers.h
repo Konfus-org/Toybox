@@ -2,12 +2,11 @@
 #include "opengl_resource.h"
 #include "opengl_texture.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/graphics/mesh.h"
-#include "tbx/systems/graphics/vertex.h"
-#include "tbx/systems/math/size.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/types/vertex.h"
 #include <glad/glad.h>
-
 
 namespace opengl_rendering
 {
