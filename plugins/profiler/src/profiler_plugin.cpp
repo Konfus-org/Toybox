@@ -73,9 +73,10 @@ namespace profiler
         if (!_service_provider.has_value() || !_main_window.is_valid())
             return;
 
-        auto window_manager = _service_provider->get().try_get_service<tbx::IWindowManager>();
-        if (window_manager.has_value() && window_manager->get().has(_main_window))
-            _main_window_base_title = window_manager->get().get_title(_main_window);
+        auto window_manager =
+            _service_provider->get().try_get_service<tbx::IWindowManager>().lock();
+        if (window_manager && window_manager->has(_main_window))
+            _main_window_base_title = window_manager->get_title(_main_window);
     }
 
     void ProfilerPlugin::record_frame(const tbx::DeltaTime& dt)
@@ -148,8 +149,9 @@ namespace profiler
         if (!_service_provider.has_value() || !_main_window.is_valid())
             return;
 
-        auto window_manager = _service_provider->get().try_get_service<tbx::IWindowManager>();
-        if (!window_manager.has_value() || !window_manager->get().is_open(_main_window))
+        auto window_manager =
+            _service_provider->get().try_get_service<tbx::IWindowManager>().lock();
+        if (!window_manager || !window_manager->is_open(_main_window))
             return;
 
         _debug_window_title_elapsed_seconds += dt.seconds;
@@ -167,15 +169,18 @@ namespace profiler
             average_fps = static_cast<uint>(std::lround(average_fps_value));
         }
 
-        const auto& settings = _service_provider->get().get_service<tbx::AppSettings>();
+        auto settings = _service_provider->get().get_service<tbx::AppSettings>().lock();
+        if (!settings)
+            return;
+
         const auto next_title = build_debug_window_title(
             _main_window_base_title,
-            settings.graphics.graphics_api,
+            settings->graphics.graphics_api,
             average_fps);
 
         if (_debug_main_window_title != next_title)
         {
-            window_manager->get().set_title(_main_window, next_title);
+            window_manager->set_title(_main_window, next_title);
             _debug_main_window_title = next_title;
         }
 

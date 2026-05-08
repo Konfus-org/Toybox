@@ -4,6 +4,7 @@
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <functional>
+#include <memory>
 #include <optional>
 
 namespace sdl_input
@@ -29,7 +30,7 @@ namespace sdl_input
       private:
         std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
             std::nullopt;
-        std::optional<std::reference_wrapper<SdlInputManager>> _input_manager = std::nullopt;
+        std::weak_ptr<SdlInputManager> _input_manager = {};
         bool _owns_gamepad_subsystem = false;
     };
 }

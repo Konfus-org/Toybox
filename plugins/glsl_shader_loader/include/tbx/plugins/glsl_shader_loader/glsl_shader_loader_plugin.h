@@ -22,9 +22,8 @@ namespace glsl_shader_loader
             const std::filesystem::path& asset_path,
             const tbx::ShaderLoadParameters& parameters);
 
-        std::optional<std::reference_wrapper<tbx::AssetManager>> _asset_manager = std::nullopt;
-        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
-            std::nullopt;
+        std::weak_ptr<tbx::AssetManager> _asset_manager = {};
+        std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
         std::filesystem::path _working_directory = {};
         std::unique_ptr<tbx::IFileOps> _file_ops = {};
     };

@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/serialization.h"
 #include "tbx/types/typedefs.h"
 #include <cstddef>
 #include <functional>

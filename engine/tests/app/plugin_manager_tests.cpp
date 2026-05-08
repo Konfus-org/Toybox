@@ -176,7 +176,7 @@ namespace tbx::tests::app
         void on_attach(ServiceProvider& service_provider) override
         {
             ++_state->attach_count;
-            _state->had_physics_on_attach = service_provider.try_get_service<Physics>().has_value();
+            _state->had_physics_on_attach = !service_provider.try_get_service<Physics>().expired();
         }
 
         void on_detach() override
@@ -198,20 +198,28 @@ namespace tbx::tests::app
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
+        auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
+        auto serialization_registry =
+            service_provider.get_service<SerializationRegistry>().lock();
+        if (!message_coordinator || !serialization_registry)
+            return service_provider;
+
         service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
-            service_provider.get_service<IMessageCoordinator>(),
-            service_provider.get_service<SerializationRegistry>(),
+            *message_coordinator,
+            *serialization_registry,
             working_directory,
             std::vector<std::filesystem::path> {}));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
-            service_provider.get_service<IMessageCoordinator>(),
+            *message_coordinator,
             true,
             GraphicsApi::OPEN_GL,
             Size {1280, 720}));
-        auto& settings = service_provider.get_service<AppSettings>();
-        settings.paths.working_directory = working_directory;
-        settings.paths.logs_directory = working_directory / "logs";
-        settings.icon = ToyboxIcon::HANDLE;
+        if (auto settings = service_provider.get_service<AppSettings>().lock())
+        {
+            settings->paths.working_directory = working_directory;
+            settings->paths.logs_directory = working_directory / "logs";
+            settings->icon = ToyboxIcon::HANDLE;
+        }
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
         service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 
@@ -288,7 +296,9 @@ namespace tbx::tests::app
         auto file_ops =
             std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
-        service_provider.get_service<IMessageCoordinator>().register_handler(
+        auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
+        ASSERT_NE(msg_coordinator, nullptr);
+        msg_coordinator->register_handler(
             [&manager](Message& msg)
             {
                 manager.receive_message(msg);
@@ -341,7 +351,9 @@ namespace tbx::tests::app
         auto file_ops =
             std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
-        service_provider.get_service<IMessageCoordinator>().register_handler(
+        auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
+        ASSERT_NE(msg_coordinator, nullptr);
+        msg_coordinator->register_handler(
             [&manager](Message& msg)
             {
                 manager.receive_message(msg);
@@ -352,11 +364,9 @@ namespace tbx::tests::app
         // Act
         manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
         manager.fixed_update(DeltaTime {.seconds = 0.008, .milliseconds = 8.0});
-        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
-            "before_shutdown");
+        msg_coordinator->send<PluginPingMessage>("before_shutdown");
         EXPECT_TRUE(manager.unload("Solo"));
-        service_provider.get_service<IMessageCoordinator>().send<PluginPingMessage>(
-            "after_shutdown");
+        msg_coordinator->send<PluginPingMessage>("after_shutdown");
 
         // Assert
         ASSERT_NE(plugin, nullptr);

@@ -52,16 +52,4 @@ namespace tbx
 
     WindowModeChangedEvent::~WindowModeChangedEvent() noexcept = default;
 
-    WindowNativeHandleChangedEvent::WindowNativeHandleChangedEvent(
-        const Window& window_id,
-        NativeWindowHandle previous_handle,
-        NativeWindowHandle current_handle)
-        : window(window_id)
-        , previous(previous_handle)
-        , current(current_handle)
-    {
-    }
-
-    WindowNativeHandleChangedEvent::~WindowNativeHandleChangedEvent() noexcept = default;
-
 }

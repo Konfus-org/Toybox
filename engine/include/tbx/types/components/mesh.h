@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/serialization.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vertex.h"
 #include <memory>

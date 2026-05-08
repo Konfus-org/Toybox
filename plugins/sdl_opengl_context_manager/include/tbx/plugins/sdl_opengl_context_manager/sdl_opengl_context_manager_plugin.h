@@ -3,6 +3,7 @@
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <functional>
+#include <memory>
 #include <optional>
 
 namespace sdl_opengl_context_manager
@@ -19,8 +20,7 @@ namespace sdl_opengl_context_manager
         void on_detach() override;
 
       private:
-        std::optional<std::reference_wrapper<SdlOpenGlContextManager>> _context_manager =
-            std::nullopt;
+        std::weak_ptr<SdlOpenGlContextManager> _context_manager = {};
         std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
             std::nullopt;
     };

@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/types/serialization.h"
+#include "tbx/systems/files/serialization.h"
+#include "tbx/tbx_api.h"
 #include "tbx/types/color.h"
+#include "tbx/types/handle.h"
 #include "tbx/types/shader.h"
 #include "tbx/types/vectors.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
@@ -208,6 +208,5 @@ namespace tbx
 
 }
 
-#include "tbx/types/material.inl"
-
 #include "tbx/types/components/material.h"
+#include "tbx/types/material.inl"

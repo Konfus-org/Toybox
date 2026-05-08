@@ -577,14 +577,17 @@ namespace mat_material_loader
 
     void MatMaterialLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _serialization_registry =
-            std::ref(service_provider.get_service<tbx::SerializationRegistry>());
-        _working_directory =
-            service_provider.get_service<tbx::AppSettings>().paths.working_directory;
+        _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
+        auto serialization_registry = _serialization_registry.lock();
+        auto settings = service_provider.get_service<tbx::AppSettings>().lock();
+        if (!serialization_registry || !settings)
+            return;
+
+        _working_directory = settings->paths.working_directory;
         if (!_file_ops)
             _file_ops = std::make_shared<tbx::FileOperator>(_working_directory);
 
-        _serialization_registry->get().register_reader<tbx::Material>(
+        serialization_registry->register_reader<tbx::Material>(
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::MaterialLoadParameters& parameters)
@@ -595,10 +598,10 @@ namespace mat_material_loader
 
     void MatMaterialLoaderPlugin::on_detach()
     {
-        if (_serialization_registry.has_value())
-            _serialization_registry->get().deregister_reader<tbx::Material>();
+        if (auto serialization_registry = _serialization_registry.lock())
+            serialization_registry->deregister_reader<tbx::Material>();
 
-        _serialization_registry = std::nullopt;
+        _serialization_registry = {};
         _working_directory = std::filesystem::path();
     }
 

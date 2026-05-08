@@ -29,7 +29,6 @@ namespace mat_material_loader
 
         std::filesystem::path _working_directory = {};
         std::shared_ptr<tbx::IFileOps> _file_ops = {};
-        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
-            std::nullopt;
+        std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };
 }

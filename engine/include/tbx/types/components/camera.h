@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/types/serialization.h"
+#include "tbx/systems/files/serialization.h"
+#include "tbx/tbx_api.h"
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
-#include "tbx/tbx_api.h"
 
 namespace tbx
 {

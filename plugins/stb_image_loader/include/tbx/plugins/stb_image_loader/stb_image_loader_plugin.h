@@ -27,7 +27,6 @@ namespace stb_image_loader
             const tbx::TextureLoadParameters& parameters) const;
 
         std::unique_ptr<tbx::IFileOps> _file_ops = {};
-        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
-            std::nullopt;
+        std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };
 }

@@ -33,11 +33,12 @@ namespace two_d_example
 
     void TwoDExampleRuntimePlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
-        if (!_entity_registry)
+        _entity_registry = service_provider.get_service<tbx::EntityRegistry>();
+        auto entity_registry = _entity_registry.lock();
+        if (!entity_registry)
             return;
 
-        auto& ent_registry = *_entity_registry;
+        auto& ent_registry = *entity_registry;
         const std::string greeting =
             "Welcome to the 2d example! This plugin just loads a few basic plugins and "
             "makes some entities.";
@@ -74,13 +75,14 @@ namespace two_d_example
 
     void TwoDExampleRuntimePlugin::on_detach()
     {
-        _entity_registry = nullptr;
+        _entity_registry = {};
         _elapsed_seconds = 0.0f;
     }
 
     void TwoDExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
-        if (!_entity_registry)
+        auto entity_registry = _entity_registry.lock();
+        if (!entity_registry)
             return;
 
         _elapsed_seconds += dt.seconds;
@@ -88,7 +90,7 @@ namespace two_d_example
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : _entity_registry->get_with<tbx::Transform, tbx::MaterialInstance>())
+        for (auto& entity : entity_registry->get_with<tbx::Transform, tbx::MaterialInstance>())
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             auto updated_world_transform = world_transform;

@@ -1,50 +1,10 @@
 #pragma once
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
-#include "tbx/types/size.h"
+#include "tbx/interfaces/window.h"
 #include <string>
 #include <vector>
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Carries backend-specific window handle data across systems.
-    /// @details
-    /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
-    /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
-    using NativeWindowHandle = void*;
-
-    /// @brief
-    /// Purpose: Identifies a managed window within the active window manager service.
-    /// @details
-    /// Ownership: Value type copied by callers; the window manager owns the underlying state.
-    /// Thread Safety: Safe to copy and compare across threads.
-    using Window = Handle;
-
-    // Enumerates the presentation modes that a window can be configured for.
-    // Ownership: Represents value semantics only; no ownership concerns.
-    // Thread-safety: Immutable enum used freely across threads.
-    enum class WindowMode
-    {
-        WINDOWED,
-        BORDERLESS,
-        FULLSCREEN,
-        MINIMIZED
-    };
-
-    /// @brief
-    /// Purpose: Describes the initial state used when a window manager creates a window entry.
-    /// @details
-    /// Ownership: Owns copied configuration values used during window creation.
-    /// Thread Safety: Safe to copy; mutable use must be externally synchronized.
-    struct TBX_API WindowCreateInfo
-    {
-        std::string title = "Toybox";
-        Size size = {1280, 720};
-        WindowMode mode = WindowMode::WINDOWED;
-        bool open_on_creation = true;
-    };
-
     /// @brief
     /// Purpose: Provides the runtime API for creating and controlling windows through a service.
     /// @details
@@ -58,18 +18,18 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Creates a managed window entry and optionally opens its native window.
+        /// Purpose: Opens a managed window and returns its id.
         /// @details
         /// Ownership: Returns a copied window id owned by the manager.
         /// Thread Safety: Not thread-safe; call from the owning window thread.
-        virtual Window create(const WindowCreateInfo& create_info = {}) = 0;
+        virtual Window open(const WindowCreateInfo& create_info = {}) = 0;
 
         /// @brief
-        /// Purpose: Removes a managed window entry and releases any native resources it owns.
+        /// Purpose: Closes and removes a managed window.
         /// @details
         /// Ownership: The manager releases ownership of the tracked window and its native handle.
         /// Thread Safety: Not thread-safe; call from the owning window thread.
-        virtual bool destroy(const Window& window) = 0;
+        virtual bool close(const Window& window) = 0;
 
         /// @brief
         /// Purpose: Reports whether the manager is tracking the given window id.
@@ -77,20 +37,6 @@ namespace tbx
         /// Ownership: Does not transfer ownership.
         /// Thread Safety: Matches the concrete implementation's synchronization guarantees.
         virtual bool has(const Window& window) const = 0;
-
-        /// @brief
-        /// Purpose: Opens the native window for an existing managed window entry.
-        /// @details
-        /// Ownership: The manager retains ownership of the native resources it creates.
-        /// Thread Safety: Not thread-safe; call from the owning window thread.
-        virtual bool open(const Window& window) = 0;
-
-        /// @brief
-        /// Purpose: Closes the native window for an existing managed window entry.
-        /// @details
-        /// Ownership: The manager releases the native handle but keeps the tracked window entry.
-        /// Thread Safety: Not thread-safe; call from the owning window thread.
-        virtual bool close(const Window& window) = 0;
 
         /// @brief
         /// Purpose: Reports whether the specified managed window is currently open.
@@ -154,5 +100,19 @@ namespace tbx
         /// Ownership: Returns a caller-owned copy of the current open window ids.
         /// Thread Safety: Matches the concrete implementation's synchronization guarantees.
         virtual std::vector<Window> get_open_windows() const = 0;
+
+        /// @brief
+        /// Purpose: Processes backend window events and applies pending window operations.
+        /// @details
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Not thread-safe; call from the owning window thread.
+        virtual void update() = 0;
+
+        /// @brief
+        /// Purpose: Closes and releases all managed windows.
+        /// @details
+        /// Ownership: The manager releases tracked window records and native resources.
+        /// Thread Safety: Not thread-safe; call from the owning window thread.
+        virtual void shutdown() = 0;
     };
 }

@@ -18,7 +18,6 @@ namespace assimp_model_loader
             const std::filesystem::path& asset_path,
             const tbx::ModelLoadParameters& parameters);
 
-        std::optional<std::reference_wrapper<tbx::SerializationRegistry>> _serialization_registry =
-            std::nullopt;
+        std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };
 }

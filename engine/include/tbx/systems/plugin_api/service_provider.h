@@ -2,9 +2,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
-#include <functional>
 #include <memory>
-#include <optional>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
@@ -16,7 +14,8 @@ namespace tbx
     /// @brief
     /// Purpose: Owns runtime services and exposes typed lookup for plugins and systems.
     /// @details
-    /// Ownership: Owns every registered service instance via std::unique_ptr.
+    /// Ownership: Owns every registered service instance via std::shared_ptr and exposes weak
+    /// lookups to callers.
     /// Thread Safety: Not thread-safe; synchronize external concurrent access.
     class TBX_API ServiceProvider
     {
@@ -39,16 +38,16 @@ namespace tbx
         bool has_service() const;
 
         template <typename TService>
-        TService& get_service();
+        std::weak_ptr<TService> get_service();
 
         template <typename TService>
-        const TService& get_service() const;
+        std::weak_ptr<const TService> get_service() const;
 
         template <typename TService>
-        std::optional<std::reference_wrapper<TService>> try_get_service();
+        std::weak_ptr<TService> try_get_service();
 
         template <typename TService>
-        std::optional<std::reference_wrapper<const TService>> try_get_service() const;
+        std::weak_ptr<const TService> try_get_service() const;
 
         template <typename TService>
         void deregister_service();
@@ -69,7 +68,7 @@ namespace tbx
             {
             }
 
-            std::unique_ptr<TService> service = nullptr;
+            std::shared_ptr<TService> service = nullptr;
         };
 
       private:

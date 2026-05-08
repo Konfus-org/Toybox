@@ -18,55 +18,55 @@ namespace tbx
     template <typename TService>
     bool ServiceProvider::has_service() const
     {
-        return try_get_service<TService>().has_value();
+        return !try_get_service<TService>().expired();
     }
 
     template <typename TService>
-    TService& ServiceProvider::get_service()
+    std::weak_ptr<TService> ServiceProvider::get_service()
     {
         auto service = try_get_service<TService>();
         TBX_ASSERT(
-            service.has_value(),
+            !service.expired(),
             "Requested service type is not registered: {}",
             typeid(TService).name());
-        return service->get();
+        return service;
     }
 
     template <typename TService>
-    const TService& ServiceProvider::get_service() const
+    std::weak_ptr<const TService> ServiceProvider::get_service() const
     {
         const auto service = try_get_service<TService>();
         TBX_ASSERT(
-            service.has_value(),
+            !service.expired(),
             "Requested service type is not registered: {}",
             typeid(TService).name());
-        return service->get();
+        return service;
     }
 
     template <typename TService>
-    std::optional<std::reference_wrapper<TService>> ServiceProvider::try_get_service()
+    std::weak_ptr<TService> ServiceProvider::try_get_service()
     {
         const auto& self = static_cast<const ServiceProvider&>(*this);
         auto service = self.try_get_service<TService>();
-        if (!service.has_value())
-            return std::nullopt;
+        if (service.expired())
+            return {};
 
-        return std::ref(const_cast<TService&>(service->get()));
+        return std::const_pointer_cast<TService>(service.lock());
     }
 
     template <typename TService>
-    std::optional<std::reference_wrapper<const TService>> ServiceProvider::try_get_service() const
+    std::weak_ptr<const TService> ServiceProvider::try_get_service() const
     {
         std::type_index key(typeid(TService));
         const auto it = _entries.find(key);
         if (it == _entries.end() || !it->second)
-            return std::nullopt;
+            return {};
 
         const auto& entry = static_cast<const ServiceEntry<TService>&>(*it->second);
         if (!entry.service)
-            return std::nullopt;
+            return {};
 
-        return std::cref(*entry.service);
+        return std::static_pointer_cast<const TService>(entry.service);
     }
 
     template <typename TService>

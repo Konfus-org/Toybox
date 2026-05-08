@@ -44,13 +44,22 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _serialization_registry =
-            std::ref(service_provider.get_service<tbx::SerializationRegistry>());
-        if (!_file_ops)
-            _file_ops = std::make_unique<tbx::FileOperator>(
-                service_provider.get_service<tbx::AppSettings>().paths.working_directory);
+        _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
+        auto serialization_registry = _serialization_registry.lock();
+        if (!serialization_registry)
+            return;
 
-        _serialization_registry->get().register_reader<tbx::Texture>(
+        if (!_file_ops)
+        {
+            auto settings = service_provider.get_service<tbx::AppSettings>().lock();
+            if (!settings)
+                return;
+
+            _file_ops = std::make_unique<tbx::FileOperator>(
+                settings->paths.working_directory);
+        }
+
+        serialization_registry->register_reader<tbx::Texture>(
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::TextureLoadParameters& parameters)
@@ -61,12 +70,12 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_detach()
     {
-        if (_serialization_registry.has_value())
+        if (auto serialization_registry = _serialization_registry.lock())
         {
-            _serialization_registry->get().deregister_reader<tbx::Texture>();
+            serialization_registry->deregister_reader<tbx::Texture>();
         }
 
-        _serialization_registry = std::nullopt;
+        _serialization_registry = {};
     }
 
     std::shared_ptr<tbx::Texture> StbImageLoaderPlugin::read_texture(

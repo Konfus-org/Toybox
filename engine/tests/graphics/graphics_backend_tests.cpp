@@ -305,13 +305,14 @@ namespace tbx::tests::graphics
     class RecordingWindowManager final : public IWindowManager
     {
       public:
-        Window create(const WindowCreateInfo& create_info = {}) override
+        Window open(const WindowCreateInfo& create_info = {}) override
         {
             (void)create_info;
+            is_window_open = true;
             return window;
         }
 
-        bool destroy(const Window& target_window) override
+        bool close(const Window& target_window) override
         {
             if (target_window != window)
                 return false;
@@ -322,25 +323,7 @@ namespace tbx::tests::graphics
 
         bool has(const Window& target_window) const override
         {
-            return target_window == window;
-        }
-
-        bool open(const Window& target_window) override
-        {
-            if (target_window != window)
-                return false;
-
-            is_window_open = true;
-            return true;
-        }
-
-        bool close(const Window& target_window) override
-        {
-            if (target_window != window)
-                return false;
-
-            is_window_open = false;
-            return true;
+            return target_window == window && is_window_open;
         }
 
         bool is_open(const Window& target_window) const override
@@ -387,6 +370,13 @@ namespace tbx::tests::graphics
         std::vector<Window> get_open_windows() const override
         {
             return is_window_open ? std::vector<Window> {window} : std::vector<Window> {};
+        }
+
+        void update() override {}
+
+        void shutdown() override
+        {
+            is_window_open = false;
         }
 
       public:

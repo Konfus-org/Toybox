@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/ecs/entity_registry.h"
+#include <memory>
 
 
 namespace two_d_example
@@ -19,6 +20,6 @@ namespace two_d_example
 
       private:
         float _elapsed_seconds = 0.0f;
-        tbx::EntityRegistry* _entity_registry = nullptr;
+        std::weak_ptr<tbx::EntityRegistry> _entity_registry = {};
     };
 }

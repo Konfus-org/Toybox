@@ -21,7 +21,12 @@ namespace tbx
 
     void Plugin::attach(ServiceProvider& service_provider)
     {
-        _dispatcher = &service_provider.get_service<IMessageCoordinator>();
+        auto dispatcher = service_provider.get_service<IMessageCoordinator>().lock();
+        TBX_ASSERT(dispatcher != nullptr, "Plugin attach requires IMessageCoordinator service.");
+        if (!dispatcher)
+            return;
+
+        _dispatcher = dispatcher.get();
         on_attach(service_provider);
     }
 

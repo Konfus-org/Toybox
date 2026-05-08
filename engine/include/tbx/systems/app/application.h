@@ -14,9 +14,7 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
-#include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -65,15 +63,15 @@ namespace tbx
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
         Window _main_window = {};
-        std::optional<std::reference_wrapper<IMessageCoordinator>> _msg_coordinator = {};
-        std::optional<std::reference_wrapper<AppSettings>> _settings = {};
-        std::optional<std::reference_wrapper<AssetManager>> _asset_manager = {};
-        std::optional<std::reference_wrapper<EntityRegistry>> _entity_registry = {};
-        std::optional<std::reference_wrapper<ThreadManager>> _thread_manager = {};
-        std::optional<std::reference_wrapper<IWindowManager>> _window_manager = {};
-        std::optional<std::reference_wrapper<IInputManager>> _input_manager = {};
-        std::optional<std::reference_wrapper<Physics>> _physics = {};
-        std::optional<std::reference_wrapper<Rendering>> _rendering = {};
+        std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
+        std::weak_ptr<AppSettings> _settings = {};
+        std::weak_ptr<AssetManager> _asset_manager = {};
+        std::weak_ptr<EntityRegistry> _entity_registry = {};
+        std::weak_ptr<ThreadManager> _thread_manager = {};
+        std::weak_ptr<IWindowManager> _window_manager = {};
+        std::weak_ptr<IInputManager> _input_manager = {};
+        std::weak_ptr<Physics> _physics = {};
+        std::weak_ptr<Rendering> _rendering = {};
 
         uint _update_count = 0;
         double _time_running = 0;

@@ -1,10 +1,12 @@
 #include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
-#include "sdl_window_manager.h"
+#include "sdl_window_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/observable.h"
+#include "tbx/systems/windowing/window_manager.h"
 #include <filesystem>
+#include <memory>
 #include <string_view>
 
 namespace sdl_windowing
@@ -53,17 +55,51 @@ namespace sdl_windowing
 
         TBX_TRACE_INFO("Initialized SDL video subsystem.");
         TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
-        const auto& settings = service_provider.get_service<tbx::AppSettings>();
-        _use_opengl = settings.graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
+        auto settings = service_provider.get_service<tbx::AppSettings>().lock();
+        TBX_ASSERT(settings != nullptr, "SDL windowing plugin requires AppSettings service.");
+        if (!settings)
+            return;
 
-        service_provider.register_service<tbx::IWindowManager>(std::make_unique<SdlWindowManager>(
-            service_provider.get_service<tbx::IMessageCoordinator>()));
-        _window_manager = std::ref(
-            static_cast<SdlWindowManager&>(service_provider.get_service<tbx::IWindowManager>()));
-        _window_manager->get().set_use_opengl(_use_opengl);
+        _use_opengl = settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
 
-        const tbx::AssetManager& asset_manager = service_provider.get_service<tbx::AssetManager>();
-        const std::filesystem::path icon_path = asset_manager.resolve(settings.icon);
+        service_provider.register_service<tbx::IWindowBackend>(
+            std::make_unique<SdlWindowBackend>());
+        auto window_backend_service = service_provider.get_service<tbx::IWindowBackend>().lock();
+        TBX_ASSERT(
+            window_backend_service != nullptr,
+            "SDL windowing plugin requires IWindowBackend service after registration.");
+        if (!window_backend_service)
+            return;
+
+        auto window_backend = std::dynamic_pointer_cast<SdlWindowBackend>(window_backend_service);
+        TBX_ASSERT(window_backend != nullptr, "SDL window backend service has unexpected type.");
+        if (!window_backend)
+            return;
+
+        _window_backend = window_backend;
+        window_backend->set_use_opengl(_use_opengl);
+
+        if (!service_provider.has_service<tbx::IWindowManager>())
+        {
+            auto msg_coordinator = service_provider.get_service<tbx::IMessageCoordinator>().lock();
+            TBX_ASSERT(
+                msg_coordinator != nullptr,
+                "SDL windowing plugin requires IMessageCoordinator service.");
+            if (!msg_coordinator)
+                return;
+
+            service_provider.register_service<tbx::IWindowManager>(std::make_unique<tbx::WindowManager>(
+                *msg_coordinator,
+                *window_backend));
+        }
+
+        auto asset_manager = service_provider.get_service<tbx::AssetManager>().lock();
+        TBX_ASSERT(asset_manager != nullptr, "SDL windowing plugin requires AssetManager service.");
+        if (!asset_manager)
+            return;
+
+        const auto& const_asset_manager = static_cast<const tbx::AssetManager&>(*asset_manager);
+        const std::filesystem::path icon_path = const_asset_manager.resolve(settings->icon);
         if (icon_path.empty())
         {
             TBX_TRACE_WARNING(
@@ -72,20 +108,21 @@ namespace sdl_windowing
         }
 
         _window_icon_surface = try_load_icon_surface(icon_path);
-        if (_window_manager.has_value())
-            _window_manager->get().set_icon_surface(_window_icon_surface);
+        if (auto window_backend_ptr = _window_backend.lock())
+            window_backend_ptr->set_icon_surface(_window_icon_surface);
     }
 
     void SdlWindowingPlugin::on_detach()
     {
-        if (_window_manager.has_value())
-            _window_manager->get().shutdown();
-
         if (_service_provider.has_value()
             && _service_provider->get().has_service<tbx::IWindowManager>())
             _service_provider->get().deregister_service<tbx::IWindowManager>();
 
-        _window_manager = std::nullopt;
+        if (_service_provider.has_value()
+            && _service_provider->get().has_service<tbx::IWindowBackend>())
+            _service_provider->get().deregister_service<tbx::IWindowBackend>();
+
+        _window_backend = {};
         _service_provider = std::nullopt;
 
         if (_window_icon_surface)
@@ -100,26 +137,19 @@ namespace sdl_windowing
 
     void SdlWindowingPlugin::on_update(const tbx::DeltaTime&)
     {
-        if (!_window_manager.has_value())
-            return;
-
-        SDL_Event event = {};
-        while (SDL_PollEvent(&event))
-            _window_manager->get().process_event(event);
-
-        _window_manager->get().process_pending_window_closes();
     }
 
     void SdlWindowingPlugin::on_recieve_message(tbx::Message& msg)
     {
-        if (!_window_manager.has_value())
+        auto window_backend = _window_backend.lock();
+        if (!window_backend)
             return;
 
         if (const auto graphics_event =
                 tbx::handle_property_changed<&tbx::GraphicsSettings::graphics_api>(msg))
         {
             _use_opengl = graphics_event->get().current == tbx::GraphicsApi::OPEN_GL;
-            _window_manager->get().set_use_opengl(_use_opengl);
+            window_backend->set_use_opengl(_use_opengl);
         }
     }
 }

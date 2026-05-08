@@ -45,19 +45,27 @@ namespace tbx::tests::plugin_api
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
+        auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
+        auto serialization_registry =
+            service_provider.get_service<SerializationRegistry>().lock();
+        if (!message_coordinator || !serialization_registry)
+            return service_provider;
+
         service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
-            service_provider.get_service<IMessageCoordinator>(),
-            service_provider.get_service<SerializationRegistry>(),
+            *message_coordinator,
+            *serialization_registry,
             working_directory));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
-            service_provider.get_service<IMessageCoordinator>(),
+            *message_coordinator,
             true,
             GraphicsApi::OPEN_GL,
             Size {640, 480}));
-        auto& settings = service_provider.get_service<AppSettings>();
-        settings.paths.working_directory = working_directory;
-        settings.paths.logs_directory = working_directory / "logs";
-        settings.icon = BoxIcon::HANDLE;
+        if (auto settings = service_provider.get_service<AppSettings>().lock())
+        {
+            settings->paths.working_directory = working_directory;
+            settings->paths.logs_directory = working_directory / "logs";
+            settings->icon = BoxIcon::HANDLE;
+        }
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
         service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 

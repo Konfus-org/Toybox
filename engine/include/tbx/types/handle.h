@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/types/serialization.h"
+#include "tbx/systems/files/serialization.h"
 #include "tbx/types/uuid.h"
 #include <functional>
 #include <string>

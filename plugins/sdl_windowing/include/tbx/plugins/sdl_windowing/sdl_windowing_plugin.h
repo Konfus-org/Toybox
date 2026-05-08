@@ -1,14 +1,16 @@
 #pragma once
+#include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include <SDL3/SDL.h>
 #include <functional>
+#include <memory>
 #include <optional>
 
 namespace sdl_windowing
 {
-    class SdlWindowManager;
+    class SdlWindowBackend;
 
     class TBX_PLUGIN_API SdlWindowingPlugin final : public tbx::Plugin
     {
@@ -21,7 +23,7 @@ namespace sdl_windowing
       private:
         std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
             std::nullopt;
-        std::optional<std::reference_wrapper<SdlWindowManager>> _window_manager = std::nullopt;
+        std::weak_ptr<SdlWindowBackend> _window_backend = {};
         bool _use_opengl = false;
         SDL_Surface* _window_icon_surface = nullptr;
     };

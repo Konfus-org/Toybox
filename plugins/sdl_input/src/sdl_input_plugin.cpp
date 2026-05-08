@@ -14,8 +14,19 @@ namespace sdl_input
     {
         _service_provider = std::ref(service_provider);
         service_provider.register_service<tbx::IInputManager>(std::make_unique<SdlInputManager>());
-        _input_manager = std::ref(
-            static_cast<SdlInputManager&>(service_provider.get_service<tbx::IInputManager>()));
+        auto input_manager_service = service_provider.get_service<tbx::IInputManager>().lock();
+        TBX_ASSERT(
+            input_manager_service != nullptr,
+            "SDL input plugin requires IInputManager after service registration.");
+        if (!input_manager_service)
+            return;
+
+        auto input_manager = std::dynamic_pointer_cast<SdlInputManager>(input_manager_service);
+        TBX_ASSERT(input_manager != nullptr, "SDL input manager service has unexpected type.");
+        if (!input_manager)
+            return;
+
+        _input_manager = input_manager;
 
         if ((SDL_WasInit(GamepadSubsystemMask) & GamepadSubsystemMask) == GamepadSubsystemMask)
         {
@@ -44,7 +55,7 @@ namespace sdl_input
             && _service_provider->get().has_service<tbx::IInputManager>())
             _service_provider->get().deregister_service<tbx::IInputManager>();
 
-        _input_manager = std::nullopt;
+        _input_manager = {};
         _service_provider = std::nullopt;
 
         if (_owns_gamepad_subsystem)
@@ -54,8 +65,8 @@ namespace sdl_input
 
     void SdlInputPlugin::on_update(const tbx::DeltaTime&)
     {
-        if (_input_manager.has_value())
-            _input_manager->get().update_backend_state();
+        if (auto input_manager = _input_manager.lock())
+            input_manager->update_backend_state();
     }
 
     bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
@@ -64,8 +75,8 @@ namespace sdl_input
             return true;
 
         auto* plugin = static_cast<SdlInputPlugin*>(userdata);
-        if (plugin->_input_manager.has_value())
-            plugin->_input_manager->get().add_wheel_delta(event->wheel.y);
+        if (auto input_manager = plugin->_input_manager.lock())
+            input_manager->add_wheel_delta(event->wheel.y);
         return true;
     }
 }

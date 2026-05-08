@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/types/serialization.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/color.h"
-#include "tbx/types/vectors.h"
+#include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/color.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/types/vectors.h"
 #include <utility>
 #include <variant>
 #include <vector>
@@ -126,7 +126,14 @@ namespace tbx
         uint32 offset = 0;
         bool normalized = false;
 
-        TBX_SERIALIZABLE_INTRUSIVE(VertexBufferAttribute, semantic, type, size, count, offset, normalized)
+        TBX_SERIALIZABLE_INTRUSIVE(
+            VertexBufferAttribute,
+            semantic,
+            type,
+            size,
+            count,
+            offset,
+            normalized)
     };
 
     // Used to describe the layout of a vertex buffer.
@@ -150,8 +157,8 @@ namespace tbx
             {
                 const auto& value = layout[static_cast<size>(index)];
                 VertexBufferAttribute attribute = {};
-                attribute.semantic = index < 5U ? default_semantics[index]
-                                                : VertexAttributeSemantic::NONE;
+                attribute.semantic =
+                    index < 5U ? default_semantics[index] : VertexAttributeSemantic::NONE;
                 attribute.type = value;
                 attribute.size = get_vertex_data_size(value);
                 attribute.count = get_vertex_data_count(value);
@@ -254,7 +261,8 @@ namespace tbx
     {
         auto mesh_points = std::vector<float>();
         mesh_points.reserve(
-            vertices.size() * static_cast<size>(layout.stride / static_cast<uint32>(sizeof(float))));
+            vertices.size()
+            * static_cast<size>(layout.stride / static_cast<uint32>(sizeof(float))));
 
         for (const auto& vertex : vertices)
             for (const auto& attribute : layout.elements)

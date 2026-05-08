@@ -85,22 +85,4 @@ namespace tbx
         WindowMode current = WindowMode::WINDOWED;
     };
 
-    /// @brief
-    /// Purpose: Signals that a managed window native handle changed.
-    /// @details
-    /// Ownership: Copies the window id and non-owning handle values by value.
-    /// Thread Safety: Delivered on the dispatcher thread.
-    struct TBX_API WindowNativeHandleChangedEvent : public Event
-    {
-        WindowNativeHandleChangedEvent(
-            const Window& window_id,
-            NativeWindowHandle previous_handle,
-            NativeWindowHandle current_handle);
-        ~WindowNativeHandleChangedEvent() noexcept override;
-
-        Window window = {};
-        NativeWindowHandle previous = nullptr;
-        NativeWindowHandle current = nullptr;
-    };
-
 }
