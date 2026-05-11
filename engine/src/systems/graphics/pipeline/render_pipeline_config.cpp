@@ -16,10 +16,12 @@ namespace tbx
         config.operations.push_back(std::make_unique<ResolveVisibleObjectsOperation>());
         config.operations.push_back(std::make_unique<ResolveMaterialsOperation>());
         config.operations.push_back(std::make_unique<UploadMissingResourcesOperation>());
+        config.operations.push_back(std::make_unique<BuildDirectionalShadowCommandsOperation>());
         config.operations.push_back(std::make_unique<BuildSkyboxCommandsOperation>());
         config.operations.push_back(std::make_unique<BuildOpaqueCommandsOperation>());
         config.operations.push_back(std::make_unique<BuildAlphaCutoutCommandsOperation>());
         config.operations.push_back(std::make_unique<BuildTransparentCommandsOperation>());
+        config.operations.push_back(std::make_unique<ExecuteDirectionalShadowPassOperation>());
         config.operations.push_back(std::make_unique<ExecuteSkyboxPassOperation>());
         config.operations.push_back(std::make_unique<ExecuteOpaquePassOperation>());
         config.operations.push_back(std::make_unique<ExecuteAlphaCutoutPassOperation>());

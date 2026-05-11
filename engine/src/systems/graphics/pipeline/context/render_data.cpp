@@ -23,6 +23,9 @@ namespace tbx
         render_data.sky = RenderDataSky {};
         render_data.post_processing = PostProcessing {};
         render_data.has_skybox = false;
+        render_data.forward_shadow_uniform_buffer = {};
+        render_data.directional_shadow_cascades.clear();
+        render_data.directional_shadow_passes.clear();
         render_data.skybox_commands.clear();
         render_data.opaque_commands.clear();
         render_data.alpha_cutout_commands.clear();

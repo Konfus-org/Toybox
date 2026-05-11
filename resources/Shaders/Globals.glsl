@@ -53,6 +53,7 @@ struct TbxForwardDirectionalLight
 {
     vec4 direction_ambient;
     vec4 radiance;
+    ivec4 shadow_info;
 };
 
 struct TbxForwardPointLight
@@ -86,6 +87,25 @@ layout(std140, binding = 7) uniform ToyboxLightingBlock
     TbxForwardSpotLight u_tbx_spot_lights[TBX_MAX_FORWARD_SPOT_LIGHTS];
     TbxForwardAreaLight u_tbx_area_lights[TBX_MAX_FORWARD_AREA_LIGHTS];
 };
+
+const int TBX_MAX_FORWARD_SHADOW_CASCADES = 3;
+
+struct TbxForwardShadowCascade
+{
+    mat4 light_view_projection;
+    vec4 split_bias_blend;
+};
+
+layout(std140, binding = 8) uniform ToyboxShadowBlock
+{
+    ivec4 u_tbx_shadow_counts;
+    vec4 u_tbx_shadow_settings;
+    vec4 u_tbx_shadow_camera_forward;
+    TbxForwardShadowCascade u_tbx_directional_shadow_cascades[TBX_MAX_FORWARD_SHADOW_CASCADES];
+};
+
+layout(binding = 8) uniform sampler2D
+    u_tbx_directional_shadow_maps[TBX_MAX_FORWARD_SHADOW_CASCADES];
 
 float tbx_forward_distance_attenuation(float distance_squared, float range)
 {
@@ -148,6 +168,115 @@ void tbx_accumulate_forward_light(
     specular_accumulation += vec3(specular_strength * specular_power) * light_energy;
 }
 
+float tbx_forward_shadow_normal_offset(vec3 normal, vec3 light_direction, float normal_bias)
+{
+    return (1.0 - max(dot(normal, light_direction), 0.0)) * normal_bias;
+}
+
+bool tbx_try_project_forward_shadow(vec4 shadow_position, out vec3 projected)
+{
+    if (shadow_position.w <= 0.0)
+        return false;
+
+    projected = shadow_position.xyz / shadow_position.w;
+    projected = (projected * 0.5) + 0.5;
+    return projected.x > 0.0 && projected.x < 1.0 && projected.y > 0.0 && projected.y < 1.0
+           && projected.z > 0.0 && projected.z < 1.0;
+}
+
+float tbx_sample_forward_shadow_map(
+    int cascade_index,
+    vec4 shadow_position,
+    float depth_bias)
+{
+    vec3 projected = vec3(0.0);
+    if (!tbx_try_project_forward_shadow(shadow_position, projected))
+        return 1.0;
+
+    vec2 texel_size = 1.0 / vec2(textureSize(u_tbx_directional_shadow_maps[cascade_index], 0));
+    float filter_radius = max(u_tbx_shadow_settings.x, 0.0);
+    float current_depth = projected.z - depth_bias;
+    float visibility = 0.0;
+    for (int sample_y = -1; sample_y <= 1; ++sample_y)
+        for (int sample_x = -1; sample_x <= 1; ++sample_x)
+        {
+            vec2 sample_uv =
+                projected.xy + (vec2(sample_x, sample_y) * texel_size * filter_radius);
+            float stored_depth = texture(u_tbx_directional_shadow_maps[cascade_index], sample_uv).r;
+            visibility += step(current_depth, stored_depth);
+        }
+
+    return visibility / 9.0;
+}
+
+float tbx_sample_forward_directional_shadow(
+    TbxForwardDirectionalLight light,
+    vec3 world_position,
+    vec3 normal,
+    vec3 light_direction)
+{
+    int cascade_count = min(light.shadow_info.y, u_tbx_shadow_counts.x);
+    if (cascade_count <= 0)
+        return 1.0;
+
+    float view_depth =
+        dot(world_position - u_tbx_camera_position.xyz, u_tbx_shadow_camera_forward.xyz);
+    for (int cascade_index = 0; cascade_index < cascade_count; ++cascade_index)
+    {
+        TbxForwardShadowCascade cascade = u_tbx_directional_shadow_cascades[cascade_index];
+        float normal_offset = tbx_forward_shadow_normal_offset(
+            normal,
+            light_direction,
+            cascade.split_bias_blend.y);
+        vec4 shadow_position =
+            cascade.light_view_projection * vec4(world_position + (normal * normal_offset), 1.0);
+        vec3 projected = vec3(0.0);
+        bool is_inside_cascade = tbx_try_project_forward_shadow(shadow_position, projected);
+        float visibility = tbx_sample_forward_shadow_map(
+            cascade_index,
+            shadow_position,
+            cascade.split_bias_blend.z);
+
+        float split_depth = cascade.split_bias_blend.x;
+        float blend_distance = cascade.split_bias_blend.w;
+        bool is_last_cascade = cascade_index == cascade_count - 1;
+        if (!is_last_cascade && view_depth >= split_depth - blend_distance
+            && view_depth <= split_depth)
+        {
+            TbxForwardShadowCascade next_cascade =
+                u_tbx_directional_shadow_cascades[cascade_index + 1];
+            float next_normal_offset = tbx_forward_shadow_normal_offset(
+                normal,
+                light_direction,
+                next_cascade.split_bias_blend.y);
+            vec4 next_shadow_position = next_cascade.light_view_projection
+                                        * vec4(world_position + (normal * next_normal_offset), 1.0);
+            vec3 next_projected = vec3(0.0);
+            bool is_inside_next_cascade =
+                tbx_try_project_forward_shadow(next_shadow_position, next_projected);
+            float next_visibility = tbx_sample_forward_shadow_map(
+                cascade_index + 1,
+                next_shadow_position,
+                next_cascade.split_bias_blend.z);
+            if (!is_inside_cascade)
+                return is_inside_next_cascade ? next_visibility : 1.0;
+            if (!is_inside_next_cascade)
+                return visibility;
+
+            float blend = clamp(
+                (view_depth - (split_depth - blend_distance)) / max(blend_distance, 0.0001),
+                0.0,
+                1.0);
+            return mix(visibility, next_visibility, blend);
+        }
+
+        if (view_depth <= split_depth || is_last_cascade)
+            return is_inside_cascade ? visibility : 1.0;
+    }
+
+    return 1.0;
+}
+
 vec3 tbx_apply_forward_lighting(
     vec3 albedo,
     vec3 emissive,
@@ -174,6 +303,11 @@ vec3 tbx_apply_forward_lighting(
     {
         TbxForwardDirectionalLight light = u_tbx_directional_lights[light_index];
         vec3 light_direction = normalize(-light.direction_ambient.xyz);
+        float shadow_visibility = tbx_sample_forward_directional_shadow(
+            light,
+            world_position,
+            normalized_normal,
+            light_direction);
         ambient_accumulation += albedo * light.radiance.rgb * light.direction_ambient.w;
         tbx_accumulate_forward_light(
             albedo,
@@ -181,7 +315,7 @@ vec3 tbx_apply_forward_lighting(
             view_direction,
             light_direction,
             light.radiance.rgb,
-            1.0,
+            shadow_visibility,
             specular_strength,
             shininess,
             diffuse_accumulation,

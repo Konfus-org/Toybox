@@ -84,6 +84,63 @@ namespace tbx
         return make_pass_debug_info("Toybox Execute Skybox Pass Operation");
     }
 
+    RenderOperationDebugInfo ExecuteDirectionalShadowPassOperation::get_debug_info() const
+    {
+        return make_pass_debug_info("Toybox Execute Directional Shadow Pass Operation");
+    }
+
+    Result ExecuteDirectionalShadowPassOperation::prepare(RenderData&)
+    {
+        return {};
+    }
+
+    Result ExecuteDirectionalShadowPassOperation::execute(
+        IGraphicsBackend& backend,
+        RenderData& render_data,
+        const CancellationToken& token)
+    {
+        if (render_data.directional_shadow_passes.empty())
+            return {};
+
+        if (const auto result = ensure_frame_started(backend, render_data); !result)
+            return result;
+
+        const auto executor = RenderCommandExecutor();
+        for (const auto& pass : render_data.directional_shadow_passes)
+        {
+            if (token && token.is_cancelled())
+                return Result(false, "ExecuteDirectionalShadowPassOperation cancelled.");
+
+            if (pass.viewport.has_value())
+            {
+                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
+                    return result;
+            }
+
+            if (const auto result = backend.begin_pass(pass.pass); !result)
+                return result;
+
+            for (const auto& draw : pass.indexed_draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    backend.end_pass();
+                    return Result(
+                        false,
+                        "ExecuteDirectionalShadowPassOperation cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
+                    return backend.end_pass(), result;
+            }
+
+            if (const auto result = backend.end_pass(); !result)
+                return result;
+        }
+
+        return backend.set_viewport(render_data.frame.viewport);
+    }
+
     Result ExecuteSkyboxPassOperation::prepare(RenderData&)
     {
         return {};

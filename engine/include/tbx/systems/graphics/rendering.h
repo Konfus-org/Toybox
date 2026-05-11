@@ -46,6 +46,9 @@ namespace tbx
         std::reference_wrapper<IWindowManager> _window_manager;
         Window _output_window = {};
         Size _requested_resolution = {};
+        uint32 _shadow_map_resolution = 1024U;
+        float _shadow_render_distance = 90.0F;
+        float _shadow_softness = 1.0F;
         std::unique_ptr<GraphicsResourceManager> _resource_manager = {};
         RenderPipeline _pipeline;
         uint64 _render_frame = 0U;

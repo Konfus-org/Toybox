@@ -33,6 +33,9 @@ namespace tbx
         Window output_window = {};
         Size requested_resolution = {};
         uint64 frame_index = 0U;
+        uint32 shadow_map_resolution = 1024U;
+        float shadow_render_distance = 90.0F;
+        float shadow_softness = 1.0F;
 
         Size render_resolution = {};
         Viewport viewport = {};
@@ -110,6 +113,18 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Describes one rendered directional shadow cascade.
+    struct TBX_API RenderDataDirectionalShadowCascade
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        float split_depth = 0.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        float blend_distance = 0.0F;
+        Uuid texture = {};
+    };
+
+    /// @brief
     /// Purpose: Describes the sky submitted for rendering and the transform used to place it.
     struct TBX_API RenderDataSky
     {
@@ -140,6 +155,9 @@ namespace tbx
         RenderDataSky sky = {};
         PostProcessing post_processing = {};
         bool has_skybox = false;
+        Uuid forward_shadow_uniform_buffer = {};
+        std::vector<RenderDataDirectionalShadowCascade> directional_shadow_cascades = {};
+        std::vector<GraphicsRenderPass> directional_shadow_passes = {};
 
         std::vector<GraphicsIndexedDrawCommand> skybox_commands = {};
         std::vector<GraphicsIndexedDrawCommand> opaque_commands = {};

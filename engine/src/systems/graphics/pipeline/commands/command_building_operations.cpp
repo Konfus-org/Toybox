@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <unordered_map>
 #include <utility>
 
@@ -523,6 +524,7 @@ namespace tbx
     {
         Vec4 direction_ambient = Vec4(0.0F);
         Vec4 radiance = Vec4(0.0F);
+        IVec4 shadow_info = IVec4(0);
     };
 
     struct ForwardPointLight
@@ -555,6 +557,23 @@ namespace tbx
         ForwardPointLight point_lights[TBX_MAX_FORWARD_POINT_LIGHTS] = {};
         ForwardSpotLight spot_lights[TBX_MAX_FORWARD_SPOT_LIGHTS] = {};
         ForwardAreaLight area_lights[TBX_MAX_FORWARD_AREA_LIGHTS] = {};
+    };
+
+    inline constexpr uint32 TBX_FORWARD_SHADOW_CASCADE_COUNT = 3U;
+    inline constexpr uint32 TBX_FORWARD_SHADOW_TEXTURE_BINDING = 8U;
+
+    struct ForwardShadowCascade
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        Vec4 split_bias_blend = Vec4(0.0F);
+    };
+
+    struct ForwardShadowUniformBlock
+    {
+        IVec4 shadow_counts = IVec4(0);
+        Vec4 shadow_settings = Vec4(0.0F);
+        Vec4 camera_forward = Vec4(0.0F);
+        ForwardShadowCascade directional_cascades[TBX_FORWARD_SHADOW_CASCADE_COUNT] = {};
     };
 
     static Vec3 make_light_direction(const Transform& transform)
@@ -609,6 +628,13 @@ namespace tbx
                 .direction_ambient =
                     Vec4(make_light_direction(light.transform), light.light.ambient),
                 .radiance = make_light_radiance(light.light),
+                .shadow_info = IVec4(
+                    0,
+                    index == 0U
+                        ? static_cast<int>(render_data.directional_shadow_cascades.size())
+                        : 0,
+                    0,
+                    0),
             };
         }
 
@@ -652,6 +678,719 @@ namespace tbx
         }
 
         return uniforms;
+    }
+
+    // ---------------------------------------------------------------------------
+    // BuildDirectionalShadowCommandsOperation implementation
+    // ---------------------------------------------------------------------------
+
+    struct ShadowBatch
+    {
+        Uuid vertex_buffer = {};
+        Uuid index_buffer = {};
+        Uuid instance_buffer = {};
+        uint32 index_count = 0U;
+        std::vector<Mat4> transforms = {};
+    };
+
+    static Shader make_directional_shadow_shader()
+    {
+        return Shader(
+            std::vector<ShaderSource> {
+                ShaderSource(
+                    "#version 450 core\n"
+                    "layout(location = 0) in vec3 a_position;\n"
+                    "layout(location = 5) in vec4 a_model0;\n"
+                    "layout(location = 6) in vec4 a_model1;\n"
+                    "layout(location = 7) in vec4 a_model2;\n"
+                    "layout(location = 8) in vec4 a_model3;\n"
+                    "layout(std140, binding = 0) uniform ToyboxViewBlock\n"
+                    "{\n"
+                    "    mat4 u_view_proj;\n"
+                    "};\n"
+                    "void main()\n"
+                    "{\n"
+                    "    mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);\n"
+                    "    gl_Position = u_view_proj * model * vec4(a_position, 1.0);\n"
+                    "}\n",
+                    ShaderType::VERTEX),
+                ShaderSource(
+                    "#version 450 core\n"
+                    "void main()\n"
+                    "{\n"
+                    "}\n",
+                    ShaderType::FRAGMENT),
+            });
+    }
+
+    static GraphicsPipelineDesc make_directional_shadow_pipeline_desc()
+    {
+        constexpr uint32 model_stride = static_cast<uint32>(sizeof(float) * 16U);
+        return GraphicsPipelineDesc {
+            .shader = make_directional_shadow_shader(),
+            .vertex_buffers =
+                {
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 0U,
+                        .stride = model_stride,
+                    },
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 1U,
+                        .stride = static_cast<uint32>(sizeof(Mat4)),
+                        .is_per_instance = true,
+                    },
+                },
+            .vertex_attributes =
+                {
+                    GraphicsVertexAttributeDesc {
+                        .location = 0U,
+                        .buffer_slot = 0U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC3,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 5U,
+                        .buffer_slot = 1U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 6U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 4U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 7U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 8U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 8U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 12U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                },
+            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+            .is_depth_test_enabled = true,
+            .is_depth_write_enabled = true,
+            .is_blending_enabled = false,
+            .is_culling_enabled = true,
+            .debug_name = "Toybox Directional Shadow Pipeline",
+        };
+    }
+
+    static uint32 clamp_shadow_resolution(const uint32 requested_resolution)
+    {
+        return std::clamp(requested_resolution, 512U, 4096U);
+    }
+
+    static bool material_casts_standard_shadow(const MaterialConfig& config)
+    {
+        if (config.shadow_mode == ShadowMode::None)
+            return false;
+        if (config.shadow_mode == ShadowMode::Always)
+            return true;
+        return config.blend_mode == MaterialBlendMode::Opaque;
+    }
+
+    static std::vector<Vec3> make_cascade_corners(
+        const FrameData& frame_data,
+        const float split_near,
+        const float split_far)
+    {
+        const Vec3 forward =
+            normalize(frame_data.camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+        const Vec3 right =
+            normalize(frame_data.camera_transform.rotation * Vec3(1.0F, 0.0F, 0.0F));
+        const Vec3 up =
+            normalize(frame_data.camera_transform.rotation * Vec3(0.0F, 1.0F, 0.0F));
+
+        const float fov_radians = frame_data.camera.get_fov() * 0.017453292519943295F;
+        const float near_height = 2.0F * std::tan(fov_radians * 0.5F) * split_near;
+        const float near_width = near_height * frame_data.camera.get_aspect();
+        const float far_height = 2.0F * std::tan(fov_radians * 0.5F) * split_far;
+        const float far_width = far_height * frame_data.camera.get_aspect();
+        const Vec3 near_center = frame_data.camera_position + (forward * split_near);
+        const Vec3 far_center = frame_data.camera_position + (forward * split_far);
+
+        return std::vector<Vec3> {
+            near_center - (right * (near_width * 0.5F)) - (up * (near_height * 0.5F)),
+            near_center + (right * (near_width * 0.5F)) - (up * (near_height * 0.5F)),
+            near_center - (right * (near_width * 0.5F)) + (up * (near_height * 0.5F)),
+            near_center + (right * (near_width * 0.5F)) + (up * (near_height * 0.5F)),
+            far_center - (right * (far_width * 0.5F)) - (up * (far_height * 0.5F)),
+            far_center + (right * (far_width * 0.5F)) - (up * (far_height * 0.5F)),
+            far_center - (right * (far_width * 0.5F)) + (up * (far_height * 0.5F)),
+            far_center + (right * (far_width * 0.5F)) + (up * (far_height * 0.5F)),
+        };
+    }
+
+    static RenderDataDirectionalShadowCascade make_shadow_cascade(
+        const FrameData& frame_data,
+        const RenderDataDirectionalLight& light,
+        const float split_near,
+        const float split_far,
+        const float previous_split_far,
+        const uint32 shadow_resolution,
+        const Uuid texture)
+    {
+        const auto corners = make_cascade_corners(frame_data, split_near, split_far);
+        auto center = Vec3(0.0F);
+        for (const Vec3& corner : corners)
+            center += corner;
+        center /= static_cast<float>(corners.size());
+
+        const Vec3 light_direction = make_light_direction(light.transform);
+        Vec3 light_up = Vec3(0.0F, 1.0F, 0.0F);
+        if (std::abs(dot(light_direction, light_up)) > 0.95F)
+            light_up = Vec3(1.0F, 0.0F, 0.0F);
+
+        float radius = 0.0F;
+        for (const Vec3& corner : corners)
+            radius = std::max(radius, distance(center, corner));
+        radius = std::ceil(radius * 16.0F) / 16.0F;
+
+        const float texel_size = (radius * 2.0F) / static_cast<float>(shadow_resolution);
+        if (texel_size > 0.0001F)
+        {
+            const Mat4 snap_view = look_at(center - (light_direction * radius), center, light_up);
+            const Vec4 light_center = snap_view * Vec4(center, 1.0F);
+            center -= normalize(light.transform.rotation * Vec3(1.0F, 0.0F, 0.0F))
+                      * (std::fmod(light_center.x, texel_size));
+            center -= normalize(light.transform.rotation * Vec3(0.0F, 1.0F, 0.0F))
+                      * (std::fmod(light_center.y, texel_size));
+        }
+
+        const Mat4 light_view =
+            look_at(center - (light_direction * (radius * 2.0F)), center, light_up);
+        float minimum_z = std::numeric_limits<float>::max();
+        float maximum_z = std::numeric_limits<float>::lowest();
+        for (const Vec3& corner : corners)
+        {
+            const Vec4 light_space_corner = light_view * Vec4(corner, 1.0F);
+            minimum_z = std::min(minimum_z, light_space_corner.z);
+            maximum_z = std::max(maximum_z, light_space_corner.z);
+        }
+
+        const float depth_margin = std::max(16.0F, radius);
+        const float near_plane = std::max(0.1F, -maximum_z - depth_margin);
+        const float far_plane = std::max(near_plane + 1.0F, -minimum_z + depth_margin);
+        const Mat4 light_projection =
+            ortho_projection(-radius, radius, -radius, radius, near_plane, far_plane);
+
+        const float cascade_span = std::max(split_far - previous_split_far, 0.001F);
+        return RenderDataDirectionalShadowCascade {
+            .light_view_projection = light_projection * light_view,
+            .split_depth = split_far,
+            .normal_bias = std::clamp(radius * 0.0008F, 0.015F, 0.12F),
+            .depth_bias = std::clamp(radius * 0.00004F, 0.0008F, 0.006F),
+            .blend_distance = cascade_span * 0.12F,
+            .texture = texture,
+        };
+    }
+
+    static std::vector<float> make_cascade_splits(const FrameData& frame_data)
+    {
+        const float near_plane = std::max(frame_data.camera.get_z_near(), 0.05F);
+        const float far_plane = std::max(
+            near_plane + 1.0F,
+            std::min(frame_data.camera.get_z_far(), frame_data.shadow_render_distance));
+        constexpr float split_lambda = 0.65F;
+
+        auto splits = std::vector<float> {};
+        splits.reserve(TBX_FORWARD_SHADOW_CASCADE_COUNT);
+        for (uint32 cascade = 1U; cascade <= TBX_FORWARD_SHADOW_CASCADE_COUNT; ++cascade)
+        {
+            const float ratio =
+                static_cast<float>(cascade) / static_cast<float>(TBX_FORWARD_SHADOW_CASCADE_COUNT);
+            const float logarithmic = near_plane * std::pow(far_plane / near_plane, ratio);
+            const float uniform = near_plane + ((far_plane - near_plane) * ratio);
+            splits.push_back((logarithmic * split_lambda) + (uniform * (1.0F - split_lambda)));
+        }
+        return splits;
+    }
+
+    RenderOperationDebugInfo BuildDirectionalShadowCommandsOperation::get_debug_info() const
+    {
+        auto debug_info = RenderOperationDebugInfo();
+        debug_info.debug_name = "Toybox Build Directional Shadow Commands Operation";
+        debug_info.category = "Scene Rendering";
+        return debug_info;
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::ensure_shadow_pipeline(
+        IGraphicsBackend& backend)
+    {
+        if (_shadow_pipeline.is_valid())
+            return {};
+        return backend.upload_pipeline(make_directional_shadow_pipeline_desc(), _shadow_pipeline);
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::ensure_shadow_resources(
+        IGraphicsBackend& backend,
+        const FrameData& frame_data)
+    {
+        const uint32 resolution = clamp_shadow_resolution(frame_data.shadow_map_resolution);
+        if (_shadow_resolution == resolution
+            && _shadow_textures.size() == TBX_FORWARD_SHADOW_CASCADE_COUNT)
+            return {};
+
+        for (const Uuid& texture : _shadow_textures)
+            if (texture.is_valid())
+                backend.unload(texture);
+        _shadow_textures.clear();
+        _shadow_resolution = resolution;
+
+        for (uint32 index = 0U; index < TBX_FORWARD_SHADOW_CASCADE_COUNT; ++index)
+        {
+            auto texture = Uuid {};
+            if (const auto result = backend.upload_texture(
+                    GraphicsTextureDesc {
+                        .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
+                        .format = GraphicsTextureFormat::DEPTH32_FLOAT,
+                        .size = Size {resolution, resolution},
+                        .mip_count = 1U,
+                        .array_layer_count = 1U,
+                        .debug_name = "Toybox Directional Shadow Cascade "
+                                      + std::to_string(index),
+                    },
+                    nullptr,
+                    0U,
+                    texture);
+                !result)
+                return result;
+
+            _shadow_textures.push_back(texture);
+        }
+
+        return {};
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::ensure_shadow_uniform_buffer(
+        IGraphicsBackend& backend,
+        RenderData& render_data)
+    {
+        auto uniforms = ForwardShadowUniformBlock {
+            .shadow_counts =
+                IVec4(static_cast<int>(render_data.directional_shadow_cascades.size()), 0, 0, 0),
+            .shadow_settings =
+                Vec4(std::clamp(render_data.frame.shadow_softness, 0.0F, 3.0F), 0.0F, 0.0F, 0.0F),
+            .camera_forward = Vec4(
+                normalize(render_data.frame.camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F)),
+                0.0F),
+        };
+
+        for (uint32 index = 0U;
+             index < render_data.directional_shadow_cascades.size()
+             && index < TBX_FORWARD_SHADOW_CASCADE_COUNT;
+             ++index)
+        {
+            const auto& cascade = render_data.directional_shadow_cascades[index];
+            uniforms.directional_cascades[index] = ForwardShadowCascade {
+                .light_view_projection = cascade.light_view_projection,
+                .split_bias_blend = Vec4(
+                    cascade.split_depth,
+                    cascade.normal_bias,
+                    cascade.depth_bias,
+                    cascade.blend_distance),
+            };
+        }
+
+        const auto data_size = static_cast<uint64>(sizeof(ForwardShadowUniformBlock));
+        if (!_shadow_uniform_buffer.is_valid())
+        {
+            if (const auto result = backend.upload_buffer(
+                    GraphicsBufferDesc {
+                        .usage = GraphicsBufferUsage::UNIFORM,
+                        .size = data_size,
+                        .is_dynamic = true,
+                        .debug_name = "Toybox Forward Shadow Uniforms",
+                    },
+                    &uniforms,
+                    data_size,
+                    _shadow_uniform_buffer);
+                !result)
+                return result;
+        }
+        else if (const auto result =
+                     backend.update_buffer(_shadow_uniform_buffer, &uniforms, data_size, 0U);
+                 !result)
+        {
+            return result;
+        }
+
+        render_data.forward_shadow_uniform_buffer = _shadow_uniform_buffer;
+        return {};
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::ensure_dynamic_mesh_buffers(
+        IGraphicsBackend& backend,
+        const std::shared_ptr<Mesh>& mesh,
+        Uuid& out_vertex_buffer,
+        Uuid& out_index_buffer,
+        uint32& out_index_count)
+    {
+        out_vertex_buffer = {};
+        out_index_buffer = {};
+        out_index_count = 0U;
+        if (!mesh || !can_render_mesh_directly(*mesh))
+            return {};
+
+        const uint64 mesh_key = make_mesh_cache_key(mesh);
+        const auto vertex_it = _mesh_vertex_buffers.find(mesh_key);
+        const auto index_it = _mesh_index_buffers.find(mesh_key);
+        const auto count_it = _mesh_index_counts.find(mesh_key);
+        if (vertex_it != _mesh_vertex_buffers.end() && index_it != _mesh_index_buffers.end()
+            && count_it != _mesh_index_counts.end())
+        {
+            out_vertex_buffer = vertex_it->second;
+            out_index_buffer = index_it->second;
+            out_index_count = count_it->second;
+            return {};
+        }
+
+        const uint64 vertex_size =
+            static_cast<uint64>(mesh->vertices.size()) * static_cast<uint64>(sizeof(float));
+        const uint64 index_size =
+            static_cast<uint64>(mesh->indices.size()) * static_cast<uint64>(sizeof(uint32));
+
+        auto vertex_buffer = Uuid {};
+        if (const auto result = backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::VERTEX,
+                    .size = vertex_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Shadow Dynamic Mesh Vertices",
+                },
+                mesh->vertices.data(),
+                vertex_size,
+                vertex_buffer);
+            !result)
+            return result;
+
+        auto index_buffer = Uuid {};
+        if (const auto result = backend.upload_buffer(
+                GraphicsBufferDesc {
+                    .usage = GraphicsBufferUsage::INDEX,
+                    .size = index_size,
+                    .is_dynamic = false,
+                    .debug_name = "Toybox Shadow Dynamic Mesh Indices",
+                },
+                mesh->indices.data(),
+                index_size,
+                index_buffer);
+            !result)
+        {
+            backend.unload(vertex_buffer);
+            return result;
+        }
+
+        _mesh_vertex_buffers[mesh_key] = vertex_buffer;
+        _mesh_index_buffers[mesh_key] = index_buffer;
+        _mesh_index_counts[mesh_key] = static_cast<uint32>(mesh->indices.size());
+        out_vertex_buffer = vertex_buffer;
+        out_index_buffer = index_buffer;
+        out_index_count = static_cast<uint32>(mesh->indices.size());
+        return {};
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::ensure_instance_buffer(
+        IGraphicsBackend& backend,
+        const uint64 batch_key,
+        const std::vector<Mat4>& transforms,
+        Uuid& out_buffer)
+    {
+        out_buffer = {};
+        if (transforms.empty())
+            return {};
+
+        const uint64 data_size =
+            static_cast<uint64>(transforms.size()) * static_cast<uint64>(sizeof(Mat4));
+        const auto buffer_it = _instance_buffers.find(batch_key);
+        const auto size_it = _instance_buffer_sizes.find(batch_key);
+        if (buffer_it == _instance_buffers.end() || size_it == _instance_buffer_sizes.end()
+            || data_size > size_it->second)
+        {
+            if (buffer_it != _instance_buffers.end())
+                backend.unload(buffer_it->second);
+
+            auto buffer = Uuid {};
+            if (const auto result = backend.upload_buffer(
+                    GraphicsBufferDesc {
+                        .usage = GraphicsBufferUsage::VERTEX,
+                        .size = data_size,
+                        .is_dynamic = true,
+                        .debug_name = "Toybox Shadow Instance Transforms",
+                    },
+                    transforms.data(),
+                    data_size,
+                    buffer);
+                !result)
+                return result;
+
+            _instance_buffers[batch_key] = buffer;
+            _instance_buffer_sizes[batch_key] = data_size;
+            out_buffer = buffer;
+            return {};
+        }
+
+        if (const auto result =
+                backend.update_buffer(buffer_it->second, transforms.data(), data_size, 0U);
+            !result)
+            return result;
+
+        out_buffer = buffer_it->second;
+        return {};
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::prepare(RenderData& render_data)
+    {
+        render_data.directional_shadow_cascades.clear();
+        render_data.directional_shadow_passes.clear();
+        auto& backend = render_data.frame.backend.get();
+
+        if (render_data.directional_lights.empty())
+            return {};
+
+        if (const auto result = ensure_shadow_pipeline(backend); !result)
+            return result;
+        if (const auto result = ensure_shadow_resources(backend, render_data.frame); !result)
+            return result;
+
+        const auto splits = make_cascade_splits(render_data.frame);
+        float split_near = std::max(render_data.frame.camera.get_z_near(), 0.05F);
+        float previous_split_far = split_near;
+        const auto& shadow_light = render_data.directional_lights.front();
+        for (uint32 cascade_index = 0U; cascade_index < TBX_FORWARD_SHADOW_CASCADE_COUNT;
+             ++cascade_index)
+        {
+            const float split_far = splits[cascade_index];
+            render_data.directional_shadow_cascades.push_back(make_shadow_cascade(
+                render_data.frame,
+                shadow_light,
+                split_near,
+                split_far,
+                previous_split_far,
+                _shadow_resolution,
+                _shadow_textures[cascade_index]));
+            previous_split_far = split_far;
+            split_near = split_far;
+        }
+
+        auto& resource_manager = render_data.frame.resource_manager.get();
+        auto batches = std::unordered_map<uint64, ShadowBatch> {};
+        auto prepare_result = Result {};
+
+        for (const auto& renderable : render_data.renderables)
+        {
+            if (!prepare_result)
+                break;
+            if (!renderable.is_visible)
+                continue;
+
+            auto material_resource = GraphicsMaterialInstanceResource {};
+            prepare_result =
+                resource_manager.load_material_instance(renderable.material, material_resource);
+            if (!prepare_result)
+                break;
+            if (!material_casts_standard_shadow(material_resource.config))
+                continue;
+
+            const Mat4 model_to_world = build_transform_matrix(renderable.transform);
+            if (renderable.geometry_source == RenderDataGeometrySource::DynamicMesh)
+            {
+                Uuid vertex_buffer = {};
+                Uuid index_buffer = {};
+                uint32 index_count = 0U;
+                prepare_result = ensure_dynamic_mesh_buffers(
+                    backend,
+                    renderable.dynamic_mesh,
+                    vertex_buffer,
+                    index_buffer,
+                    index_count);
+                if (!prepare_result || !vertex_buffer.is_valid())
+                    continue;
+
+                const uint64 batch_key =
+                    make_dynamic_batch_key(make_mesh_cache_key(renderable.dynamic_mesh), 0U);
+                auto& batch = batches[batch_key];
+                batch.vertex_buffer = vertex_buffer;
+                batch.index_buffer = index_buffer;
+                batch.index_count = index_count;
+                batch.transforms.push_back(model_to_world);
+                continue;
+            }
+
+            if (!renderable.static_mesh.is_valid())
+                continue;
+
+            auto model_resource = GraphicsModelResource {};
+            prepare_result = resource_manager.load_model(renderable.static_mesh, model_resource);
+            if (!prepare_result)
+                break;
+
+            for (const auto& mesh : model_resource.meshes)
+            {
+                const uint64 batch_key = make_static_batch_key(
+                    mesh.vertex_buffer,
+                    mesh.index_buffer,
+                    mesh.index_count,
+                    0U);
+                auto& batch = batches[batch_key];
+                batch.vertex_buffer = mesh.vertex_buffer;
+                batch.index_buffer = mesh.index_buffer;
+                batch.index_count = mesh.index_count;
+                batch.transforms.push_back(model_to_world);
+            }
+        }
+
+        if (!prepare_result)
+            return prepare_result;
+
+        for (auto& [batch_key, batch] : batches)
+        {
+            if (batch.transforms.empty())
+                continue;
+            if (const auto result = ensure_instance_buffer(
+                    backend,
+                    batch_key,
+                    batch.transforms,
+                    batch.instance_buffer);
+                !result)
+                return result;
+        }
+
+        if (_shadow_view_uniform_buffers.size() < render_data.directional_shadow_cascades.size())
+            _shadow_view_uniform_buffers.resize(render_data.directional_shadow_cascades.size());
+
+        for (uint32 cascade_index = 0U;
+             cascade_index < render_data.directional_shadow_cascades.size();
+             ++cascade_index)
+        {
+            auto& cascade = render_data.directional_shadow_cascades[cascade_index];
+            Uuid& view_buffer = _shadow_view_uniform_buffers[cascade_index];
+            const auto data_size = static_cast<uint64>(sizeof(Mat4));
+            if (!view_buffer.is_valid())
+            {
+                if (const auto result = backend.upload_buffer(
+                        GraphicsBufferDesc {
+                            .usage = GraphicsBufferUsage::UNIFORM,
+                            .size = data_size,
+                            .is_dynamic = true,
+                            .debug_name = "Toybox Directional Shadow View Uniforms",
+                        },
+                        &cascade.light_view_projection,
+                        data_size,
+                        view_buffer);
+                    !result)
+                    return result;
+            }
+            else if (const auto result = backend.update_buffer(
+                         view_buffer,
+                         &cascade.light_view_projection,
+                         data_size,
+                         0U);
+                     !result)
+            {
+                return result;
+            }
+
+            auto pass = GraphicsRenderPass {
+                .pass =
+                    GraphicsPassDesc {
+                        .depth_stencil_target = cascade.texture,
+                        .clear_depth = 1.0F,
+                        .clear_flags = GraphicsClearFlags::DEPTH,
+                        .debug_name = "Toybox Directional Shadow Pass",
+                    },
+                .viewport =
+                    Viewport {
+                        .position = Vec2(0.0F),
+                        .dimensions = Size {_shadow_resolution, _shadow_resolution},
+                    },
+            };
+
+            for (auto& [batch_key, batch] : batches)
+            {
+                (void)batch_key;
+                if (!batch.vertex_buffer.is_valid() || !batch.instance_buffer.is_valid()
+                    || batch.transforms.empty())
+                    continue;
+
+                pass.indexed_draws.push_back(
+                    GraphicsIndexedDrawCommand {
+                        .pipeline = _shadow_pipeline,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = 0U,
+                                    .resource = batch.vertex_buffer},
+                                GraphicsResourceBinding {
+                                    .slot = 1U,
+                                    .resource = batch.instance_buffer},
+                            },
+                        .index_buffer = batch.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .uniform_buffers =
+                            {
+                                GraphicsResourceBinding {.slot = 0U, .resource = view_buffer},
+                            },
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = batch.index_count,
+                                .instance_count = static_cast<uint32>(batch.transforms.size()),
+                            },
+                    });
+            }
+
+            render_data.directional_shadow_passes.push_back(std::move(pass));
+        }
+
+        return ensure_shadow_uniform_buffer(backend, render_data);
+    }
+
+    Result BuildDirectionalShadowCommandsOperation::execute(
+        IGraphicsBackend&,
+        RenderData&,
+        const CancellationToken&)
+    {
+        return {};
+    }
+
+    void BuildDirectionalShadowCommandsOperation::release(IGraphicsBackend& backend)
+    {
+        for (const auto& [key, buffer] : _mesh_vertex_buffers)
+            backend.unload(buffer);
+        for (const auto& [key, buffer] : _mesh_index_buffers)
+            backend.unload(buffer);
+        for (const auto& [key, buffer] : _instance_buffers)
+            backend.unload(buffer);
+        for (const Uuid& texture : _shadow_textures)
+            if (texture.is_valid())
+                backend.unload(texture);
+        for (const Uuid& buffer : _shadow_view_uniform_buffers)
+            if (buffer.is_valid())
+                backend.unload(buffer);
+        if (_shadow_pipeline.is_valid())
+            backend.unload(_shadow_pipeline);
+        if (_shadow_uniform_buffer.is_valid())
+            backend.unload(_shadow_uniform_buffer);
+
+        _mesh_vertex_buffers.clear();
+        _mesh_index_buffers.clear();
+        _mesh_index_counts.clear();
+        _instance_buffers.clear();
+        _instance_buffer_sizes.clear();
+        _shadow_textures.clear();
+        _shadow_view_uniform_buffers.clear();
+        _shadow_pipeline = {};
+        _shadow_uniform_buffer = {};
+        _shadow_resolution = 0U;
     }
 
     // ---------------------------------------------------------------------------
@@ -932,6 +1671,48 @@ namespace tbx
         return {};
     }
 
+    static void append_directional_shadow_texture_bindings(
+        const RenderData& render_data,
+        std::vector<GraphicsResourceBinding>& textures)
+    {
+        for (uint32 index = 0U;
+             index < render_data.directional_shadow_cascades.size()
+             && index < TBX_FORWARD_SHADOW_CASCADE_COUNT;
+             ++index)
+        {
+            const Uuid texture = render_data.directional_shadow_cascades[index].texture;
+            if (!texture.is_valid())
+                continue;
+
+            textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = TBX_FORWARD_SHADOW_TEXTURE_BINDING + index,
+                    .resource = texture,
+                });
+        }
+    }
+
+    static std::vector<GraphicsResourceBinding> make_scene_uniform_bindings(
+        const Uuid view_uniform_buffer,
+        const Uuid material_uniform_buffer,
+        const Uuid lighting_uniform_buffer,
+        const Uuid shadow_uniform_buffer)
+    {
+        auto uniforms = std::vector<GraphicsResourceBinding> {
+            GraphicsResourceBinding {.slot = 0U, .resource = view_uniform_buffer},
+            GraphicsResourceBinding {.slot = 1U, .resource = material_uniform_buffer},
+            GraphicsResourceBinding {.slot = 7U, .resource = lighting_uniform_buffer},
+        };
+
+        if (shadow_uniform_buffer.is_valid())
+        {
+            uniforms.push_back(
+                GraphicsResourceBinding {.slot = 8U, .resource = shadow_uniform_buffer});
+        }
+
+        return uniforms;
+    }
+
     Result BuildOpaqueCommandsOperation::prepare(RenderData& render_data)
     {
         auto& frame_data = render_data.frame;
@@ -1128,6 +1909,9 @@ namespace tbx
                 !result)
                 return result;
 
+            auto textures = std::move(batch.textures);
+            append_directional_shadow_texture_bindings(render_data, textures);
+
             render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
                     .pipeline = batch.pipeline,
@@ -1138,17 +1922,12 @@ namespace tbx
                         },
                     .index_buffer = index_buffer,
                     .index_type = GraphicsIndexType::UINT32,
-                    .uniform_buffers =
-                        {
-                            GraphicsResourceBinding {.slot = 0U, .resource = view_uniform_buffer},
-                            GraphicsResourceBinding {
-                                .slot = 1U,
-                                .resource = batch.material_uniform_buffer},
-                            GraphicsResourceBinding {
-                                .slot = 7U,
-                                .resource = lighting_uniform_buffer},
-                        },
-                    .textures = std::move(batch.textures),
+                    .uniform_buffers = make_scene_uniform_bindings(
+                        view_uniform_buffer,
+                        batch.material_uniform_buffer,
+                        lighting_uniform_buffer,
+                        render_data.forward_shadow_uniform_buffer),
+                    .textures = std::move(textures),
                     .draw =
                         GraphicsDrawIndexedDesc {
                             .primitive_type = GraphicsPrimitiveType::TRIANGLES,
@@ -1170,6 +1949,9 @@ namespace tbx
                 !result)
                 return result;
 
+            auto textures = std::move(batch.textures);
+            append_directional_shadow_texture_bindings(render_data, textures);
+
             render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
                     .pipeline = batch.pipeline,
@@ -1180,17 +1962,12 @@ namespace tbx
                         },
                     .index_buffer = batch.index_buffer,
                     .index_type = GraphicsIndexType::UINT32,
-                    .uniform_buffers =
-                        {
-                            GraphicsResourceBinding {.slot = 0U, .resource = view_uniform_buffer},
-                            GraphicsResourceBinding {
-                                .slot = 1U,
-                                .resource = batch.material_uniform_buffer},
-                            GraphicsResourceBinding {
-                                .slot = 7U,
-                                .resource = lighting_uniform_buffer},
-                        },
-                    .textures = std::move(batch.textures),
+                    .uniform_buffers = make_scene_uniform_bindings(
+                        view_uniform_buffer,
+                        batch.material_uniform_buffer,
+                        lighting_uniform_buffer,
+                        render_data.forward_shadow_uniform_buffer),
+                    .textures = std::move(textures),
                     .draw =
                         GraphicsDrawIndexedDesc {
                             .primitive_type = GraphicsPrimitiveType::TRIANGLES,

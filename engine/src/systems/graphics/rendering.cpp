@@ -19,6 +19,9 @@ namespace tbx
         , _window_manager(window_manager)
         , _output_window(std::move(output_window))
         , _requested_resolution(settings.resolution.value)
+        , _shadow_map_resolution(settings.shadow_map_resolution.value)
+        , _shadow_render_distance(settings.shadow_render_distance.value)
+        , _shadow_softness(settings.shadow_softness.value)
         , _resource_manager(std::make_unique<GraphicsResourceManager>(backend, asset_manager))
         , _pipeline(backend)
     {
@@ -58,6 +61,9 @@ namespace tbx
             .output_window = _output_window,
             .requested_resolution = _requested_resolution,
             .frame_index = _render_frame,
+            .shadow_map_resolution = _shadow_map_resolution,
+            .shadow_render_distance = _shadow_render_distance,
+            .shadow_softness = _shadow_softness,
         });
 
         const auto abort_frame = [this](const Result& failure)

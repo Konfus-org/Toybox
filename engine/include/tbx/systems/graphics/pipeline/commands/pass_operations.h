@@ -5,6 +5,19 @@
 namespace tbx
 {
     /// @brief
+    /// Purpose: Executes prepared directional shadow-map passes before camera color rendering.
+    class TBX_API ExecuteDirectionalShadowPassOperation final : public IRenderOperation
+    {
+      public:
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+    };
+
+    /// @brief
     /// Purpose: Executes prepared skybox draw commands.
     class TBX_API ExecuteSkyboxPassOperation final : public IRenderOperation
     {

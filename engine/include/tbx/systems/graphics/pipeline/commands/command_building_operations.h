@@ -2,6 +2,7 @@
 #include "tbx/systems/graphics/pipeline/render_operation.h"
 #include "tbx/systems/graphics/pipeline/commands/render_pass.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/matrices.h"
 #include "tbx/types/uuid.h"
 #include <memory>
 #include <unordered_map>
@@ -11,6 +12,50 @@ namespace tbx
 {
     struct Mesh;
     struct Transform;
+    struct FrameData;
+
+    /// @brief
+    /// Purpose: Builds directional shadow-map commands for visible shadow-casting renderables.
+    class TBX_API BuildDirectionalShadowCommandsOperation final : public IRenderOperation
+    {
+      public:
+        ~BuildDirectionalShadowCommandsOperation() noexcept override = default;
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+        void release(IGraphicsBackend& backend) override;
+
+      private:
+        Result ensure_dynamic_mesh_buffers(
+            IGraphicsBackend& backend,
+            const std::shared_ptr<Mesh>& mesh,
+            Uuid& out_vertex_buffer,
+            Uuid& out_index_buffer,
+            uint32& out_index_count);
+        Result ensure_instance_buffer(
+            IGraphicsBackend& backend,
+            uint64 batch_key,
+            const std::vector<Mat4>& transforms,
+            Uuid& out_buffer);
+        Result ensure_shadow_pipeline(IGraphicsBackend& backend);
+        Result ensure_shadow_resources(IGraphicsBackend& backend, const FrameData& frame_data);
+        Result ensure_shadow_uniform_buffer(IGraphicsBackend& backend, RenderData& render_data);
+
+      private:
+        std::unordered_map<uint64, Uuid> _mesh_vertex_buffers = {};
+        std::unordered_map<uint64, Uuid> _mesh_index_buffers = {};
+        std::unordered_map<uint64, uint32> _mesh_index_counts = {};
+        std::unordered_map<uint64, Uuid> _instance_buffers = {};
+        std::unordered_map<uint64, uint64> _instance_buffer_sizes = {};
+        Uuid _shadow_pipeline = {};
+        std::vector<Uuid> _shadow_textures = {};
+        std::vector<Uuid> _shadow_view_uniform_buffers = {};
+        Uuid _shadow_uniform_buffer = {};
+        uint32 _shadow_resolution = 0U;
+    };
 
     /// @brief
     /// Purpose: Builds skybox draw commands from prepared render data.
