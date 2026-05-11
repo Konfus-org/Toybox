@@ -168,6 +168,7 @@ namespace tbx
 
       private:
         void append_dynamic_meshes(RenderData& render_data) const;
+        void append_lights(RenderData& render_data) const;
         void append_sky(RenderData& render_data) const;
         void append_static_meshes(RenderData& render_data) const;
         MaterialInstance get_material(Entity& entity) const;

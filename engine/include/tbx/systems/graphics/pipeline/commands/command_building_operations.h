@@ -79,6 +79,10 @@ namespace tbx
             uint64 batch_key,
             const std::vector<Mat4>& transforms,
             Uuid& out_buffer);
+        Result ensure_lighting_uniform_buffer(
+            IGraphicsBackend& backend,
+            const RenderData& render_data,
+            Uuid& out_buffer);
         Result ensure_fallback_pipeline(IGraphicsBackend& backend);
         Result ensure_fallback_geometry_buffers(
             IGraphicsBackend& backend,
@@ -93,6 +97,7 @@ namespace tbx
         std::unordered_map<uint64, Uuid> _instance_buffers = {};
         std::unordered_map<uint64, uint64> _instance_buffer_sizes = {};
         std::unordered_map<uint64, Uuid> _material_uniform_buffers = {};
+        Uuid _lighting_uniform_buffer = {};
         Uuid _fallback_pipeline = {};
         Uuid _fallback_vertex_buffer = {};
         Uuid _fallback_index_buffer = {};

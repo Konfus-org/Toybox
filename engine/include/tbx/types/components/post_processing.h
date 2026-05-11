@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/components/material.h"
+#include "tbx/types/components/material_instance.h"
 #include <initializer_list>
 #include <utility>
 #include <vector>

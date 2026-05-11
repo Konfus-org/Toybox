@@ -10,6 +10,7 @@
 #include "tbx/types/matrices.h"
 #include "tbx/types/shader.h"
 #include "tbx/utils/hash.h"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
@@ -513,6 +514,146 @@ namespace tbx
         std::vector<Mat4> transforms = {};
     };
 
+    inline constexpr uint32 TBX_MAX_FORWARD_DIRECTIONAL_LIGHTS = 4U;
+    inline constexpr uint32 TBX_MAX_FORWARD_POINT_LIGHTS = 16U;
+    inline constexpr uint32 TBX_MAX_FORWARD_SPOT_LIGHTS = 8U;
+    inline constexpr uint32 TBX_MAX_FORWARD_AREA_LIGHTS = 4U;
+
+    struct ForwardDirectionalLight
+    {
+        Vec4 direction_ambient = Vec4(0.0F);
+        Vec4 radiance = Vec4(0.0F);
+    };
+
+    struct ForwardPointLight
+    {
+        Vec4 position_range = Vec4(0.0F);
+        Vec4 radiance = Vec4(0.0F);
+    };
+
+    struct ForwardSpotLight
+    {
+        Vec4 position_range = Vec4(0.0F);
+        Vec4 direction_inner_cos = Vec4(0.0F);
+        Vec4 radiance_outer_cos = Vec4(0.0F);
+    };
+
+    struct ForwardAreaLight
+    {
+        Vec4 position_range = Vec4(0.0F);
+        Vec4 direction_half_width = Vec4(0.0F);
+        Vec4 radiance_half_height = Vec4(0.0F);
+        Vec4 right = Vec4(0.0F);
+        Vec4 up = Vec4(0.0F);
+    };
+
+    struct ForwardLightingUniformBlock
+    {
+        Vec4 camera_position = Vec4(0.0F);
+        IVec4 light_counts = IVec4(0);
+        ForwardDirectionalLight directional_lights[TBX_MAX_FORWARD_DIRECTIONAL_LIGHTS] = {};
+        ForwardPointLight point_lights[TBX_MAX_FORWARD_POINT_LIGHTS] = {};
+        ForwardSpotLight spot_lights[TBX_MAX_FORWARD_SPOT_LIGHTS] = {};
+        ForwardAreaLight area_lights[TBX_MAX_FORWARD_AREA_LIGHTS] = {};
+    };
+
+    static Vec3 make_light_direction(const Transform& transform)
+    {
+        return normalize(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+    }
+
+    static Vec4 make_light_radiance(const Light& light)
+    {
+        const float strongest_channel =
+            std::max(light.color.r, std::max(light.color.g, light.color.b));
+        const float normalization = strongest_channel <= 0.0001F ? 0.0F : 1.0F / strongest_channel;
+        return Vec4(
+            light.color.r * normalization * light.intensity,
+            light.color.g * normalization * light.intensity,
+            light.color.b * normalization * light.intensity,
+            light.intensity);
+    }
+
+    static float angle_to_cosine(const float angle_degrees)
+    {
+        constexpr float degrees_to_radians = 0.017453292519943295F;
+        return std::cos(angle_degrees * degrees_to_radians);
+    }
+
+    static ForwardLightingUniformBlock make_forward_lighting_uniforms(const RenderData& render_data)
+    {
+        auto uniforms = ForwardLightingUniformBlock {
+            .camera_position = Vec4(render_data.frame.camera_position, 1.0F),
+        };
+
+        const uint32 directional_count = std::min(
+            static_cast<uint32>(render_data.directional_lights.size()),
+            TBX_MAX_FORWARD_DIRECTIONAL_LIGHTS);
+        const uint32 point_count = std::min(
+            static_cast<uint32>(render_data.point_lights.size()),
+            TBX_MAX_FORWARD_POINT_LIGHTS);
+        const uint32 spot_count = std::min(
+            static_cast<uint32>(render_data.spot_lights.size()),
+            TBX_MAX_FORWARD_SPOT_LIGHTS);
+        const uint32 area_count = std::min(
+            static_cast<uint32>(render_data.area_lights.size()),
+            TBX_MAX_FORWARD_AREA_LIGHTS);
+
+        uniforms.light_counts =
+            IVec4(directional_count, point_count, spot_count, area_count);
+
+        for (uint32 index = 0U; index < directional_count; ++index)
+        {
+            const auto& light = render_data.directional_lights[index];
+            uniforms.directional_lights[index] = ForwardDirectionalLight {
+                .direction_ambient =
+                    Vec4(make_light_direction(light.transform), light.light.ambient),
+                .radiance = make_light_radiance(light.light),
+            };
+        }
+
+        for (uint32 index = 0U; index < point_count; ++index)
+        {
+            const auto& light = render_data.point_lights[index];
+            uniforms.point_lights[index] = ForwardPointLight {
+                .position_range = Vec4(light.transform.position, light.light.range),
+                .radiance = make_light_radiance(light.light),
+            };
+        }
+
+        for (uint32 index = 0U; index < spot_count; ++index)
+        {
+            const auto& light = render_data.spot_lights[index];
+            const float inner_cos = angle_to_cosine(light.light.inner_angle);
+            const float outer_cos = angle_to_cosine(light.light.outer_angle);
+            const Vec4 radiance = make_light_radiance(light.light);
+            uniforms.spot_lights[index] = ForwardSpotLight {
+                .position_range = Vec4(light.transform.position, light.light.range),
+                .direction_inner_cos = Vec4(make_light_direction(light.transform), inner_cos),
+                .radiance_outer_cos = Vec4(Vec3(radiance), outer_cos),
+            };
+        }
+
+        for (uint32 index = 0U; index < area_count; ++index)
+        {
+            const auto& light = render_data.area_lights[index];
+            const Vec3 direction = make_light_direction(light.transform);
+            const Vec3 right = normalize(light.transform.rotation * Vec3(1.0F, 0.0F, 0.0F));
+            const Vec3 up = normalize(light.transform.rotation * Vec3(0.0F, 1.0F, 0.0F));
+            const Vec4 radiance = make_light_radiance(light.light);
+            uniforms.area_lights[index] = ForwardAreaLight {
+                .position_range = Vec4(light.transform.position, light.light.range),
+                .direction_half_width = Vec4(direction, light.light.area_size.x * 0.5F),
+                .radiance_half_height =
+                    Vec4(Vec3(radiance), light.light.area_size.y * 0.5F),
+                .right = Vec4(right, 0.0F),
+                .up = Vec4(up, 0.0F),
+            };
+        }
+
+        return uniforms;
+    }
+
     // ---------------------------------------------------------------------------
     // BuildOpaqueCommandsOperation implementation
     // ---------------------------------------------------------------------------
@@ -676,6 +817,43 @@ namespace tbx
         return {};
     }
 
+    Result BuildOpaqueCommandsOperation::ensure_lighting_uniform_buffer(
+        IGraphicsBackend& backend,
+        const RenderData& render_data,
+        Uuid& out_buffer)
+    {
+        out_buffer = {};
+
+        const auto uniforms = make_forward_lighting_uniforms(render_data);
+        const auto data_size = static_cast<uint64>(sizeof(ForwardLightingUniformBlock));
+        if (!_lighting_uniform_buffer.is_valid())
+        {
+            if (const auto result = backend.upload_buffer(
+                    GraphicsBufferDesc {
+                        .usage = GraphicsBufferUsage::UNIFORM,
+                        .size = data_size,
+                        .is_dynamic = true,
+                        .debug_name = "Toybox Forward Lighting Uniforms",
+                    },
+                    &uniforms,
+                    data_size,
+                    _lighting_uniform_buffer);
+                !result)
+                return result;
+
+            out_buffer = _lighting_uniform_buffer;
+            return {};
+        }
+
+        if (const auto result =
+                backend.update_buffer(_lighting_uniform_buffer, &uniforms, data_size, 0U);
+            !result)
+            return result;
+
+        out_buffer = _lighting_uniform_buffer;
+        return {};
+    }
+
     Result BuildOpaqueCommandsOperation::ensure_fallback_pipeline(IGraphicsBackend& backend)
     {
         if (_fallback_pipeline.is_valid())
@@ -762,6 +940,11 @@ namespace tbx
         auto& resource_manager = frame_data.resource_manager.get();
         const RenderData& scene_data = render_data;
         const Uuid view_uniform_buffer = frame_data.view_uniform_buffer;
+        auto lighting_uniform_buffer = Uuid {};
+        if (const auto result =
+                ensure_lighting_uniform_buffer(backend, render_data, lighting_uniform_buffer);
+            !result)
+            return result;
 
         // -------------------------------------------------------------------
         // Load material draw state — uses the shared ensure_material_uniform_buffer.
@@ -961,6 +1144,9 @@ namespace tbx
                             GraphicsResourceBinding {
                                 .slot = 1U,
                                 .resource = batch.material_uniform_buffer},
+                            GraphicsResourceBinding {
+                                .slot = 7U,
+                                .resource = lighting_uniform_buffer},
                         },
                     .textures = std::move(batch.textures),
                     .draw =
@@ -1000,6 +1186,9 @@ namespace tbx
                             GraphicsResourceBinding {
                                 .slot = 1U,
                                 .resource = batch.material_uniform_buffer},
+                            GraphicsResourceBinding {
+                                .slot = 7U,
+                                .resource = lighting_uniform_buffer},
                         },
                     .textures = std::move(batch.textures),
                     .draw =
@@ -1071,6 +1260,8 @@ namespace tbx
         for (const auto& [key, uuid] : _material_uniform_buffers)
             backend.unload(uuid);
 
+        if (_lighting_uniform_buffer.is_valid())
+            backend.unload(_lighting_uniform_buffer);
         if (_fallback_pipeline.is_valid())
             backend.unload(_fallback_pipeline);
         if (_fallback_vertex_buffer.is_valid())
@@ -1085,6 +1276,7 @@ namespace tbx
         _instance_buffers.clear();
         _instance_buffer_sizes.clear();
         _material_uniform_buffers.clear();
+        _lighting_uniform_buffer = {};
         _fallback_pipeline = {};
         _fallback_vertex_buffer = {};
         _fallback_index_buffer = {};

@@ -11,6 +11,7 @@ layout(location = 8) in vec4 a_model3;
 
 out vec4 v_color;
 out vec2 v_tex_coord;
+out vec3 v_world_position;
 out vec3 v_world_normal;
 
 void main()
@@ -20,6 +21,7 @@ void main()
 
     mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);
     vec4 world_position = tbx_get_model_matrix(model) * vec4(a_position, 1.0);
+    v_world_position = world_position.xyz;
     mat3 normal_matrix = mat3(transpose(inverse(tbx_get_model_matrix(model))));
     v_world_normal = normalize(normal_matrix * a_normal);
 

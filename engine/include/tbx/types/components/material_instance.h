@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/types/material.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/material.h"
 #include <string_view>
 
 namespace tbx
@@ -73,4 +73,4 @@ namespace tbx
     };
 }
 
-#include "tbx/types/components/material.inl"
+#include "tbx/types/components/material_instance.inl"

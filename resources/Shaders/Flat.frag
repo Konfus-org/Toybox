@@ -11,6 +11,7 @@ layout(location = 6) out vec4 o_material;
 
 in vec4 v_color;
 in vec2 v_tex_coord;
+in vec3 v_world_position;
 in vec3 v_world_normal;
 
 layout(binding = 0) uniform sampler2D u_textures[1];
@@ -26,10 +27,15 @@ void main()
         discard;
 
     float surface_alpha = texture_color.a * (1.0 - clamp(u_material_uniforms[3].x, 0.0, 1.0));
-    vec3 emissive = emissive_color.rgb * max(u_material_uniforms[4].x, 0.0);
-    vec3 preview_color = clamp(texture_color.rgb + emissive, 0.0, 1.0);
-
     vec3 normalized_world_normal = normalize(v_world_normal);
+    vec3 emissive = emissive_color.rgb * max(u_material_uniforms[4].x, 0.0);
+    vec3 preview_color = tbx_apply_forward_lighting(
+        texture_color.rgb,
+        emissive,
+        v_world_position,
+        normalized_world_normal,
+        0.0,
+        1.0);
     float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
     o_final_color = vec4(preview_color, surface_alpha);

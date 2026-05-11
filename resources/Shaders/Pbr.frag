@@ -37,10 +37,6 @@ void main()
         discard;
 
     float surface_alpha = surface_color.a * (1.0 - transparency_amount);
-    vec3 emissive_sample = texture(u_textures[4], v_tex_coord).rgb;
-    vec3 emissive = emissive_color.rgb * emissive_sample * emissive_strength * exposure;
-    vec3 preview_color = clamp(surface_color.rgb + emissive, 0.0, 1.0);
-
     vec3 normalized_world_normal = normalize(v_world_normal);
     float specular =
         clamp(texture(u_textures[2], v_tex_coord).r * specular_strength, 0.0, 1.0);
@@ -48,6 +44,15 @@ void main()
         texture(u_textures[3], v_tex_coord).r * shininess_strength,
         1.0,
         256.0);
+    vec3 emissive_sample = texture(u_textures[4], v_tex_coord).rgb;
+    vec3 emissive = emissive_color.rgb * emissive_sample * emissive_strength * exposure;
+    vec3 preview_color = tbx_apply_forward_lighting(
+        surface_color.rgb,
+        emissive,
+        v_world_position,
+        normalized_world_normal,
+        specular,
+        shininess);
     float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
     o_final_color = vec4(preview_color, surface_alpha);

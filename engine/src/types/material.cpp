@@ -1,4 +1,4 @@
-#include "tbx/types/components/material.h"
+#include "tbx/types/components/material_instance.h"
 #include <variant>
 
 namespace tbx

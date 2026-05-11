@@ -29,6 +29,7 @@ namespace tbx
         render_data.transparent_commands.clear();
 
         append_sky(render_data);
+        append_lights(render_data);
         append_dynamic_meshes(render_data);
         append_static_meshes(render_data);
     }
@@ -48,6 +49,53 @@ namespace tbx
                         .geometry_source = RenderDataGeometrySource::DynamicMesh,
                         .dynamic_mesh = dynamic_mesh.data,
                         .material = get_material(entity),
+                        .transform = get_world_space_transform(entity),
+                    });
+            });
+    }
+
+    void RenderDataBuilder::append_lights(RenderData& render_data) const
+    {
+        _registry.get().for_each_with<PointLight, Transform>(
+            [&render_data](Entity& entity)
+            {
+                render_data.point_lights.push_back(
+                    RenderDataPointLight {
+                        .entity_uuid = entity.get_id(),
+                        .light = entity.get_component<PointLight>(),
+                        .transform = get_world_space_transform(entity),
+                    });
+            });
+
+        _registry.get().for_each_with<SpotLight, Transform>(
+            [&render_data](Entity& entity)
+            {
+                render_data.spot_lights.push_back(
+                    RenderDataSpotLight {
+                        .entity_uuid = entity.get_id(),
+                        .light = entity.get_component<SpotLight>(),
+                        .transform = get_world_space_transform(entity),
+                    });
+            });
+
+        _registry.get().for_each_with<AreaLight, Transform>(
+            [&render_data](Entity& entity)
+            {
+                render_data.area_lights.push_back(
+                    RenderDataAreaLight {
+                        .entity_uuid = entity.get_id(),
+                        .light = entity.get_component<AreaLight>(),
+                        .transform = get_world_space_transform(entity),
+                    });
+            });
+
+        _registry.get().for_each_with<DirectionalLight, Transform>(
+            [&render_data](Entity& entity)
+            {
+                render_data.directional_lights.push_back(
+                    RenderDataDirectionalLight {
+                        .entity_uuid = entity.get_id(),
+                        .light = entity.get_component<DirectionalLight>(),
                         .transform = get_world_space_transform(entity),
                     });
             });

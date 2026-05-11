@@ -208,5 +208,5 @@ namespace tbx
 
 }
 
-#include "tbx/types/components/material.h"
+#include "tbx/types/components/material_instance.h"
 #include "tbx/types/material.inl"
