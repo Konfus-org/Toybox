@@ -121,6 +121,35 @@ namespace tbx
         return {};
     }
 
+    RenderOperationDebugInfo BeginFrameOperation::get_debug_info() const
+    {
+        return make_debug_info("Toybox Begin Frame Operation", "Frame Setup");
+    }
+
+    Result BeginFrameOperation::prepare(RenderData& render_data)
+    {
+        auto& frame_data = render_data.frame;
+        if (frame_data.frame_started)
+            return {};
+
+        if (const auto result = frame_data.backend.get().begin_frame(
+                GraphicsFrameInfo {
+                    .output_window = frame_data.output_window,
+                    .render_resolution = frame_data.render_resolution,
+                    .output_resolution = frame_data.render_resolution,
+                });
+            !result)
+            return result;
+
+        frame_data.frame_started = true;
+        return {};
+    }
+
+    Result BeginFrameOperation::execute(IGraphicsBackend&, RenderData&, const CancellationToken&)
+    {
+        return {};
+    }
+
     RenderOperationDebugInfo UpdateViewUniformsOperation::get_debug_info() const
     {
         return make_debug_info("Toybox Update View Uniforms Operation", "Frame Setup");

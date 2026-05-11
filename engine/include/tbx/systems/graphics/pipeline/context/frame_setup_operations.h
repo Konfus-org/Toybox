@@ -45,6 +45,19 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Starts the backend frame once frame output and viewport data are resolved.
+    class TBX_API BeginFrameOperation final : public IRenderOperation
+    {
+      public:
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+    };
+
+    /// @brief
     /// Purpose: Allocates and updates the per-frame view/projection uniform buffer.
     class TBX_API UpdateViewUniformsOperation final : public IRenderOperation
     {

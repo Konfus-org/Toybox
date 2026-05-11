@@ -11,6 +11,7 @@ namespace tbx
         config.operations.push_back(std::make_unique<BuildRenderDataOperation>());
         config.operations.push_back(std::make_unique<CullNonVisibleRenderDataItemsOperation>());
         config.operations.push_back(std::make_unique<SelectCameraOperation>());
+        config.operations.push_back(std::make_unique<BeginFrameOperation>());
         config.operations.push_back(std::make_unique<UpdateViewUniformsOperation>());
         config.operations.push_back(std::make_unique<ResolveVisibleObjectsOperation>());
         config.operations.push_back(std::make_unique<ResolveMaterialsOperation>());
