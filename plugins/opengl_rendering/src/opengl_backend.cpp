@@ -1,5 +1,6 @@
 #include "opengl_backend.h"
 #include "opengl_resources/opengl_utils.h"
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -37,6 +38,11 @@ namespace opengl_rendering
         glDepthMask(desc.is_depth_write_enabled ? GL_TRUE : GL_FALSE);
         desc.is_blending_enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
         desc.is_culling_enabled ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
+        if (desc.is_culling_enabled)
+        {
+            glCullFace(
+                desc.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
+        }
 
         if (desc.is_blending_enabled)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -175,7 +181,14 @@ namespace opengl_rendering
                     return make_failure(
                         "OpenGL backend: render pass depth target description was not found.");
 
-                _pass_framebuffer->attach_depth_stencil(texture_it->second, desc_it->second.format);
+                const bool has_layered_depth_texture =
+                    texture_it->second.get_array_layer_count() > 1U;
+                const int32 attachment_layer =
+                    has_layered_depth_texture ? pass.depth_stencil_layer : -1;
+                _pass_framebuffer->attach_depth_stencil(
+                    texture_it->second,
+                    desc_it->second.format,
+                    attachment_layer);
             }
 
             _pass_framebuffer->set_draw_buffers(static_cast<uint32>(pass.color_targets.size()));
@@ -668,6 +681,8 @@ namespace opengl_rendering
         if (desc.x + desc.width > texture_desc.size.width
             || desc.y + desc.height > texture_desc.size.height)
             return make_failure("OpenGL backend: texture update exceeds texture bounds.");
+        if (desc.array_layer >= std::max(texture_desc.array_layer_count, 1U))
+            return make_failure("OpenGL backend: texture update array layer is out of bounds.");
 
         const uint64 update_byte_size = static_cast<uint64>(desc.width)
                                         * static_cast<uint64>(desc.height)

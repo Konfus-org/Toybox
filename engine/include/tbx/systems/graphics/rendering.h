@@ -2,6 +2,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/resource_manager.h"
@@ -9,6 +10,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <functional>
+#include <future>
 #include <memory>
 
 namespace tbx
@@ -26,6 +28,7 @@ namespace tbx
             IGraphicsBackend& backend,
             EntityRegistry& entity_registry,
             AssetManager& asset_manager,
+            ThreadManager& thread_manager,
             IWindowManager& window_manager,
             Window output_window,
             const GraphicsSettings& settings);
@@ -39,8 +42,13 @@ namespace tbx
         void render();
 
       private:
+        void initialize(const GraphicsSettings& settings);
+        void render_frame();
         void release_pipeline();
+        void wait_for_initialization() noexcept;
+        void wait_for_render_frame() noexcept;
 
+        std::reference_wrapper<ThreadManager> _thread_manager;
         std::reference_wrapper<IGraphicsBackend> _backend;
         std::reference_wrapper<EntityRegistry> _entity_registry;
         std::reference_wrapper<IWindowManager> _window_manager;
@@ -51,6 +59,8 @@ namespace tbx
         float _shadow_softness = 1.0F;
         std::unique_ptr<GraphicsResourceManager> _resource_manager = {};
         RenderPipeline _pipeline;
+        std::future<void> _initialization_future = {};
+        std::future<void> _render_future = {};
         uint64 _render_frame = 0U;
         Result _initialization_result = {};
     };

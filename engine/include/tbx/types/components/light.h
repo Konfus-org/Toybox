@@ -32,7 +32,14 @@ namespace tbx
         /// intensity 1.0).
         float intensity = 1.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(Light, color, intensity)
+        /// @brief
+        /// Purpose: Controls whether this light contributes realtime shadowing.
+        /// @details
+        /// Ownership: Stored by value.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        bool cast_shadows = true;
+
+        TBX_SERIALIZABLE_INTRUSIVE(Light, color, intensity, cast_shadows)
     };
 
     /// @brief
@@ -52,14 +59,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float range = 10.0f;
 
-        /// @brief
-        /// Purpose: Controls whether this point light renders realtime shadows.
-        /// @details
-        /// Ownership: Stored by value.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        bool shadows_enabled = true;
-
-        TBX_SERIALIZABLE_INTRUSIVE(PointLight, color, intensity, range, shadows_enabled)
+        TBX_SERIALIZABLE_INTRUSIVE(PointLight, range)
     };
 
     /// @brief
@@ -98,7 +98,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float outer_angle = 35.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(SpotLight, color, intensity, range, inner_angle, outer_angle)
+        TBX_SERIALIZABLE_INTRUSIVE(SpotLight, range, inner_angle, outer_angle)
     };
 
     /// @brief
@@ -129,7 +129,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Vec2 area_size = Vec2(1.0f, 1.0f);
 
-        TBX_SERIALIZABLE_INTRUSIVE(AreaLight, color, intensity, range, area_size)
+        TBX_SERIALIZABLE_INTRUSIVE(AreaLight, range, area_size)
     };
 
     /// @brief
@@ -151,6 +151,6 @@ namespace tbx
         /// contributions across all directional lights.
         float ambient = 0.03f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(DirectionalLight, color, intensity, ambient)
+        TBX_SERIALIZABLE_INTRUSIVE(DirectionalLight, ambient)
     };
 }

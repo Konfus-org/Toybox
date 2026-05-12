@@ -24,8 +24,18 @@ namespace tbx
         render_data.post_processing = PostProcessing {};
         render_data.has_skybox = false;
         render_data.forward_shadow_uniform_buffer = {};
+        render_data.directional_shadow_light_entity = {};
         render_data.directional_shadow_cascades.clear();
+        render_data.point_shadow_maps.clear();
+        render_data.spot_shadow_maps.clear();
+        render_data.area_shadow_maps.clear();
         render_data.directional_shadow_passes.clear();
+        render_data.point_shadow_passes.clear();
+        render_data.spot_shadow_passes.clear();
+        render_data.area_shadow_passes.clear();
+        render_data.point_shadow_texture = {};
+        render_data.spot_shadow_texture = {};
+        render_data.area_shadow_texture = {};
         render_data.skybox_commands.clear();
         render_data.opaque_commands.clear();
         render_data.alpha_cutout_commands.clear();

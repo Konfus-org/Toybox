@@ -3,6 +3,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
@@ -15,10 +16,12 @@
 #include "tbx/types/material.h"
 #include "tbx/types/shader.h"
 #include "tbx/types/texture.h"
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <future>
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -53,6 +56,7 @@ namespace tbx::tests::graphics
         {
             recorded_output_window = frame.output_window;
             recorded_render_resolution = frame.render_resolution;
+            begin_frame_thread_id = std::this_thread::get_id();
             callbacks.push_back(GraphicsBackendCallback::BeginFrame);
             return {};
         }
@@ -165,6 +169,7 @@ namespace tbx::tests::graphics
 
         Result initialize(const GraphicsSettings&) override
         {
+            initialize_thread_id = std::this_thread::get_id();
             return {};
         }
 
@@ -251,11 +256,14 @@ namespace tbx::tests::graphics
 
         void wait_for_idle() override
         {
+            wait_for_idle_thread_id = std::this_thread::get_id();
             callbacks.push_back(GraphicsBackendCallback::WaitForIdle);
         }
 
       public:
         std::vector<GraphicsBackendCallback> callbacks = {};
+        std::thread::id begin_frame_thread_id = {};
+        std::thread::id initialize_thread_id = {};
         Window recorded_output_window = {};
         Size recorded_render_resolution = {};
         Size recorded_viewport = {};
@@ -284,6 +292,7 @@ namespace tbx::tests::graphics
         uint uploaded_pipeline_count = 0U;
         uint uploaded_texture_count = 0U;
         uint32 next_uploaded_resource = 1000U;
+        std::thread::id wait_for_idle_thread_id = {};
     };
 
     class NullMessageDispatcher final : public IMessageDispatcher
@@ -385,12 +394,75 @@ namespace tbx::tests::graphics
         bool is_window_open = true;
     };
 
+    class BlockingGraphicsBackend final : public RecordingGraphicsBackend
+    {
+      public:
+        BlockingGraphicsBackend(std::shared_future<void> allow_begin_frame)
+            : _allow_begin_frame(std::move(allow_begin_frame))
+        {
+        }
+
+        Result begin_frame(const GraphicsFrameInfo& frame) override
+        {
+            auto result = RecordingGraphicsBackend::begin_frame(frame);
+            _begin_frame_started.set_value();
+            _allow_begin_frame.wait();
+            return result;
+        }
+
+        std::future<void> take_begin_frame_started_future()
+        {
+            return _begin_frame_started.get_future();
+        }
+
+      private:
+        std::shared_future<void> _allow_begin_frame = {};
+        std::promise<void> _begin_frame_started = {};
+    };
+
+    class InitBlockingGraphicsBackend final : public RecordingGraphicsBackend
+    {
+      public:
+        InitBlockingGraphicsBackend(std::shared_future<void> allow_initialize)
+            : _allow_initialize(std::move(allow_initialize))
+        {
+        }
+
+        Result initialize(const GraphicsSettings& settings) override
+        {
+            auto result = RecordingGraphicsBackend::initialize(settings);
+            _initialize_started.set_value();
+            _allow_initialize.wait();
+            return result;
+        }
+
+        std::future<void> take_initialize_started_future()
+        {
+            return _initialize_started.get_future();
+        }
+
+      private:
+        std::shared_future<void> _allow_initialize = {};
+        std::promise<void> _initialize_started = {};
+    };
+
+    static void wait_for_render_lane(ThreadManager& thread_manager)
+    {
+        auto completion = thread_manager.post_with_future(
+            "render",
+            []()
+            {
+            });
+        completion.get();
+    }
+
     // Validates Rendering opens frame state and submits geometry through render().
     TEST(RenderingTests, Render_DelegatesFrameAndGeometryPassCommands)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
         auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
@@ -407,10 +479,12 @@ namespace tbx::tests::graphics
             backend,
             registry,
             asset_manager,
+            thread_manager,
             window_manager,
             window_manager.window,
             settings);
         rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -436,6 +510,150 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.callbacks, expected_callbacks);
+    }
+
+    // Validates initialization runs asynchronously and the first render waits for it.
+    TEST(RenderingTests, ConstructorDoesNotWaitForInitializationAndFirstRenderDoes)
+    {
+        // Arrange
+        auto allow_initialize = std::promise<void> {};
+        auto backend = InitBlockingGraphicsBackend(allow_initialize.get_future().share());
+        auto initialize_started = backend.take_initialize_started_future();
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto entity = Entity("Triangle", registry);
+        entity.add_component<DynamicMesh>(triangle);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+
+        // Act
+        auto rendering = Rendering(
+            backend,
+            registry,
+            asset_manager,
+            thread_manager,
+            window_manager,
+            window_manager.window,
+            settings);
+        ASSERT_EQ(initialize_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+        auto lane_drain = thread_manager.post_with_future(
+            "render",
+            []()
+            {
+            });
+        auto render_call = std::async(
+            std::launch::async,
+            [&rendering]()
+            {
+                rendering.render();
+            });
+
+        // Assert
+        EXPECT_EQ(
+            lane_drain.wait_for(std::chrono::milliseconds(10)),
+            std::future_status::timeout);
+        EXPECT_EQ(
+            render_call.wait_for(std::chrono::milliseconds(10)),
+            std::future_status::timeout);
+
+        // Cleanup
+        allow_initialize.set_value();
+        lane_drain.get();
+        render_call.get();
+        wait_for_render_lane(thread_manager);
+    }
+
+    // Validates render() returns before the submitted frame finishes on the render lane.
+    TEST(RenderingTests, Render_ReturnsBeforeSubmittedFrameCompletes)
+    {
+        // Arrange
+        auto allow_begin_frame = std::promise<void> {};
+        auto backend = BlockingGraphicsBackend(allow_begin_frame.get_future().share());
+        auto begin_frame_started = backend.take_begin_frame_started_future();
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto entity = Entity("Triangle", registry);
+        entity.add_component<DynamicMesh>(triangle);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto rendering = Rendering(
+            backend,
+            registry,
+            asset_manager,
+            thread_manager,
+            window_manager,
+            window_manager.window,
+            settings);
+
+        // Act
+        rendering.render();
+        ASSERT_EQ(begin_frame_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+        auto lane_drain = thread_manager.post_with_future(
+            "render",
+            []()
+            {
+            });
+
+        // Assert
+        EXPECT_EQ(
+            lane_drain.wait_for(std::chrono::milliseconds(10)),
+            std::future_status::timeout);
+
+        // Cleanup
+        allow_begin_frame.set_value();
+        lane_drain.get();
+    }
+
+    // Validates renderer lifecycle work stays on the dedicated render lane.
+    TEST(RenderingTests, Render_UsesDedicatedRenderLaneForLifecycleWork)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        const auto caller_thread_id = std::this_thread::get_id();
+
+        // Act
+        {
+            auto rendering = Rendering(
+                backend,
+                registry,
+                asset_manager,
+                thread_manager,
+                window_manager,
+                window_manager.window,
+                settings);
+            rendering.render();
+            wait_for_render_lane(thread_manager);
+        }
+
+        // Assert
+        EXPECT_NE(backend.initialize_thread_id, std::thread::id {});
+        EXPECT_NE(backend.begin_frame_thread_id, std::thread::id {});
+        EXPECT_NE(backend.wait_for_idle_thread_id, std::thread::id {});
+        EXPECT_NE(backend.initialize_thread_id, caller_thread_id);
+        EXPECT_EQ(backend.initialize_thread_id, backend.begin_frame_thread_id);
+        EXPECT_EQ(backend.begin_frame_thread_id, backend.wait_for_idle_thread_id);
+        EXPECT_FALSE(thread_manager.has_lane("render"));
     }
 
     // Validates Toybox pass code can own draw behavior with explicit backend commands.
@@ -595,6 +813,7 @@ namespace tbx::tests::graphics
         // Arrange
         auto backend = RecordingGraphicsBackend {};
         auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
@@ -611,10 +830,12 @@ namespace tbx::tests::graphics
             backend,
             registry,
             asset_manager,
+            thread_manager,
             window_manager,
             window_manager.window,
             settings);
         rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -643,6 +864,7 @@ namespace tbx::tests::graphics
         // Arrange
         auto backend = RecordingGraphicsBackend {};
         auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
@@ -686,10 +908,12 @@ namespace tbx::tests::graphics
             backend,
             registry,
             asset_manager,
+            thread_manager,
             window_manager,
             window_manager.window,
             settings);
         rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -726,6 +950,7 @@ namespace tbx::tests::graphics
         // Arrange
         auto backend = RecordingGraphicsBackend {};
         auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
@@ -748,15 +973,18 @@ namespace tbx::tests::graphics
             backend,
             registry,
             asset_manager,
+            thread_manager,
             window_manager,
             window_manager.window,
             settings);
 
         // Act
         rendering.render();
+        wait_for_render_lane(thread_manager);
         asset_manager.unload_unreferenced();
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
         rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         EXPECT_EQ(model_load_count, 1U);

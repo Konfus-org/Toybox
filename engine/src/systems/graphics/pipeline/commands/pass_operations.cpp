@@ -79,6 +79,53 @@ namespace tbx
         return backend.end_pass();
     }
 
+    static Result execute_shadow_pass_list(
+        IGraphicsBackend& backend,
+        RenderData& render_data,
+        const std::vector<GraphicsRenderPass>& passes,
+        const CancellationToken& token,
+        const std::string& cancel_report)
+    {
+        if (passes.empty())
+            return {};
+
+        if (const auto result = ensure_frame_started(backend, render_data); !result)
+            return result;
+
+        const auto executor = RenderCommandExecutor();
+        for (const auto& pass : passes)
+        {
+            if (token && token.is_cancelled())
+                return Result(false, cancel_report + " cancelled.");
+
+            if (pass.viewport.has_value())
+            {
+                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
+                    return result;
+            }
+
+            if (const auto result = backend.begin_pass(pass.pass); !result)
+                return result;
+
+            for (const auto& draw : pass.indexed_draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    backend.end_pass();
+                    return Result(false, cancel_report + " cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
+                    return backend.end_pass(), result;
+            }
+
+            if (const auto result = backend.end_pass(); !result)
+                return result;
+        }
+
+        return {};
+    }
+
     RenderOperationDebugInfo ExecuteSkyboxPassOperation::get_debug_info() const
     {
         return make_pass_debug_info("Toybox Execute Skybox Pass Operation");
@@ -99,44 +146,53 @@ namespace tbx
         RenderData& render_data,
         const CancellationToken& token)
     {
-        if (render_data.directional_shadow_passes.empty())
-            return {};
-
-        if (const auto result = ensure_frame_started(backend, render_data); !result)
-            return result;
-
-        const auto executor = RenderCommandExecutor();
-        for (const auto& pass : render_data.directional_shadow_passes)
+        if (const auto result = execute_shadow_pass_list(
+                backend,
+                render_data,
+                render_data.directional_shadow_passes,
+                token,
+                "ExecuteDirectionalShadowPassOperation (directional)");
+            !result)
         {
-            if (token && token.is_cancelled())
-                return Result(false, "ExecuteDirectionalShadowPassOperation cancelled.");
-
-            if (pass.viewport.has_value())
-            {
-                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
-                    return result;
-            }
-
-            if (const auto result = backend.begin_pass(pass.pass); !result)
-                return result;
-
-            for (const auto& draw : pass.indexed_draws)
-            {
-                if (token && token.is_cancelled())
-                {
-                    backend.end_pass();
-                    return Result(
-                        false,
-                        "ExecuteDirectionalShadowPassOperation cancelled mid-pass.");
-                }
-
-                if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
-                    return backend.end_pass(), result;
-            }
-
-            if (const auto result = backend.end_pass(); !result)
-                return result;
+            return result;
         }
+
+        if (const auto result = execute_shadow_pass_list(
+                backend,
+                render_data,
+                render_data.point_shadow_passes,
+                token,
+                "ExecuteDirectionalShadowPassOperation (point)");
+            !result)
+        {
+            return result;
+        }
+
+        if (const auto result = execute_shadow_pass_list(
+                backend,
+                render_data,
+                render_data.spot_shadow_passes,
+                token,
+                "ExecuteDirectionalShadowPassOperation (spot)");
+            !result)
+        {
+            return result;
+        }
+
+        if (const auto result = execute_shadow_pass_list(
+                backend,
+                render_data,
+                render_data.area_shadow_passes,
+                token,
+                "ExecuteDirectionalShadowPassOperation (area)");
+            !result)
+        {
+            return result;
+        }
+
+        if (render_data.directional_shadow_passes.empty() && render_data.point_shadow_passes.empty()
+            && render_data.spot_shadow_passes.empty() && render_data.area_shadow_passes.empty())
+            return {};
 
         return backend.set_viewport(render_data.frame.viewport);
     }

@@ -9,6 +9,22 @@
 
 namespace tbx
 {
+    static bool texture_binding_name_matches(
+        const std::string_view binding_name,
+        const std::string_view canonical_name)
+    {
+        if (binding_name == canonical_name)
+            return true;
+
+        if (binding_name.size() == canonical_name.size() + 2U && binding_name[0] == 'u'
+            && binding_name[1] == '_')
+        {
+            return binding_name.substr(2U) == canonical_name;
+        }
+
+        return false;
+    }
+
     GraphicsResourceManager::GraphicsResourceManager(
         IGraphicsBackend& backend,
         AssetManager& asset_manager,
@@ -148,6 +164,73 @@ namespace tbx
 
         out_resource_uuid = _default_texture;
         return {};
+    }
+
+    Result GraphicsResourceManager::ensure_solid_fallback_texture(
+        const std::string_view debug_name,
+        const Pixel r,
+        const Pixel g,
+        const Pixel b,
+        const Pixel a,
+        Uuid& out_resource_uuid)
+    {
+        if (out_resource_uuid.is_valid())
+            return {};
+
+        const auto texture = Texture(
+            Size {1U, 1U},
+            TextureWrap::REPEAT,
+            TextureFilter::LINEAR,
+            TextureFormat::RGBA,
+            TextureMipmaps::DISABLED,
+            TextureCompression::DISABLED,
+            std::vector<Pixel> {r, g, b, a});
+
+        return upload_texture_resource(Handle(std::string(debug_name)), texture, out_resource_uuid);
+    }
+
+    Result GraphicsResourceManager::load_default_texture_for_binding(
+        const std::string_view binding_name,
+        Uuid& out_resource_uuid)
+    {
+        if (texture_binding_name_matches(binding_name, "normal_map"))
+        {
+            if (const auto result = ensure_solid_fallback_texture(
+                    "Toybox/DefaultNormalTexture",
+                    static_cast<Pixel>(128U),
+                    static_cast<Pixel>(128U),
+                    static_cast<Pixel>(255U),
+                    static_cast<Pixel>(255U),
+                    _default_normal_texture);
+                !result)
+            {
+                return result;
+            }
+
+            out_resource_uuid = _default_normal_texture;
+            return {};
+        }
+
+        if (texture_binding_name_matches(binding_name, "specular_map")
+            || texture_binding_name_matches(binding_name, "emissive_map"))
+        {
+            if (const auto result = ensure_solid_fallback_texture(
+                    "Toybox/DefaultBlackTexture",
+                    static_cast<Pixel>(0U),
+                    static_cast<Pixel>(0U),
+                    static_cast<Pixel>(0U),
+                    static_cast<Pixel>(255U),
+                    _default_black_texture);
+                !result)
+            {
+                return result;
+            }
+
+            out_resource_uuid = _default_black_texture;
+            return {};
+        }
+
+        return load_default_texture(out_resource_uuid);
     }
 
     Result GraphicsResourceManager::load_material(const Handle& handle, uint& out_gpu_handle)
@@ -326,6 +409,16 @@ namespace tbx
         {
             _backend.unload(_default_texture);
             _default_texture = {};
+        }
+        if (_default_normal_texture.is_valid())
+        {
+            _backend.unload(_default_normal_texture);
+            _default_normal_texture = {};
+        }
+        if (_default_black_texture.is_valid())
+        {
+            _backend.unload(_default_black_texture);
+            _default_black_texture = {};
         }
         if (_fallback_material_pipeline.is_valid())
         {
@@ -517,7 +610,9 @@ namespace tbx
                 if (const auto result = load_texture(texture.texture, texture_resource); !result)
                     return result;
             }
-            else if (const auto result = load_default_texture(texture_resource); !result)
+            else if (const auto result =
+                         load_default_texture_for_binding(texture.name, texture_resource);
+                     !result)
             {
                 return result;
             }

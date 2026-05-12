@@ -232,8 +232,10 @@ namespace opengl_rendering
 
       public:
         void attach_color(uint32 index, const OpenGlTexture& texture) const;
-        void attach_depth_stencil(const OpenGlTexture& texture, tbx::GraphicsTextureFormat format)
-            const;
+        void attach_depth_stencil(
+            const OpenGlTexture& texture,
+            tbx::GraphicsTextureFormat format,
+            int32 layer) const;
         void bind() override;
         bool is_complete() const;
         void set_draw_buffers(uint32 color_target_count) const;

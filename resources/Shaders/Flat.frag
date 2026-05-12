@@ -29,13 +29,7 @@ void main()
     float surface_alpha = texture_color.a * (1.0 - clamp(u_material_uniforms[3].x, 0.0, 1.0));
     vec3 normalized_world_normal = normalize(v_world_normal);
     vec3 emissive = emissive_color.rgb * max(u_material_uniforms[4].x, 0.0);
-    vec3 preview_color = tbx_apply_forward_lighting(
-        texture_color.rgb,
-        emissive,
-        v_world_position,
-        normalized_world_normal,
-        0.0,
-        1.0);
+    vec3 preview_color = clamp(texture_color.rgb + emissive, 0.0, 1.0);
     float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
     o_final_color = vec4(preview_color, surface_alpha);
@@ -44,5 +38,5 @@ void main()
     o_normal = vec4((normalized_world_normal * 0.5) + 0.5, surface_alpha);
     o_depth_preview = vec4(vec3(depth_preview), 1.0);
     o_emissive = vec4(emissive, 1.0);
-    o_material = vec4(0.0, 1.0, 1.0, 1.0);
+    o_material = vec4(0.0, 1.0, 0.0, 1.0);
 }

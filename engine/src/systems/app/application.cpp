@@ -281,13 +281,15 @@ namespace tbx
             if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>().lock())
             {
                 auto window_manager = _window_manager.lock();
-                if (!window_manager)
+                auto thread_manager = _thread_manager.lock();
+                if (!window_manager || !thread_manager)
                 {
-                    TBX_TRACE_ERROR("Application requires an IWindowManager service for rendering.");
+                    TBX_TRACE_ERROR(
+                        "Application requires window and thread services for rendering.");
                     _should_exit = true;
                     TBX_ASSERT(
-                        window_manager != nullptr,
-                        "Application requires an IWindowManager service for rendering.");
+                        window_manager != nullptr && thread_manager != nullptr,
+                        "Application requires window and thread services for rendering.");
                     return;
                 }
 
@@ -295,6 +297,7 @@ namespace tbx
                     *graphics_backend,
                     *entity_registry,
                     *asset_manager,
+                    *thread_manager,
                     *window_manager,
                     _main_window,
                     settings->graphics));

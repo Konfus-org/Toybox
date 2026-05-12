@@ -1,20 +1,26 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/pipeline/render_pipeline_config.h"
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
+#include "tbx/systems/graphics/pipeline/render_pipeline_config.h"
 #include <functional>
+#include <stdexcept>
+#include <string_view>
 #include <utility>
 
 namespace tbx
 {
+    constexpr auto RENDER_LANE_NAME = std::string_view("render");
+
     Rendering::Rendering(
         IGraphicsBackend& backend,
         EntityRegistry& entity_registry,
         AssetManager& asset_manager,
+        ThreadManager& thread_manager,
         IWindowManager& window_manager,
         Window output_window,
         const GraphicsSettings& settings)
-        : _backend(backend)
+        : _thread_manager(thread_manager)
+        , _backend(backend)
         , _entity_registry(entity_registry)
         , _window_manager(window_manager)
         , _output_window(std::move(output_window))
@@ -25,19 +31,95 @@ namespace tbx
         , _resource_manager(std::make_unique<GraphicsResourceManager>(backend, asset_manager))
         , _pipeline(backend)
     {
-        _initialization_result = backend.initialize(settings);
+        _thread_manager.get().try_create_lane(RENDER_LANE_NAME);
+        if (!_thread_manager.get().has_lane(RENDER_LANE_NAME))
+        {
+            _initialization_result.flag_failure("Rendering could not acquire the render lane.");
+            return;
+        }
+
+        try
+        {
+            _initialization_future = _thread_manager.get().post_with_future(
+                RENDER_LANE_NAME,
+                [this, &settings]()
+                {
+                    initialize(settings);
+                });
+        }
+        catch (const std::exception& ex)
+        {
+            _initialization_result.flag_failure(ex.what());
+        }
+    }
+
+    Rendering::~Rendering() noexcept
+    {
+        try
+        {
+            wait_for_render_frame();
+            wait_for_initialization();
+            if (_thread_manager.get().has_lane(RENDER_LANE_NAME))
+            {
+                auto release_future = _thread_manager.get().post_with_future(
+                    RENDER_LANE_NAME,
+                    [this]()
+                    {
+                        release_pipeline();
+                    });
+                release_future.get();
+                _thread_manager.get().stop_lane(RENDER_LANE_NAME);
+                return;
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_TRACE_ERROR("Toybox renderer shutdown failed: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_TRACE_ERROR("Toybox renderer shutdown failed with an unknown error.");
+        }
+
+        release_pipeline();
+    }
+
+    void Rendering::render()
+    {
+        if (!_thread_manager.get().has_lane(RENDER_LANE_NAME))
+        {
+            TBX_TRACE_ERROR("Toybox renderer render lane is unavailable.");
+            return;
+        }
+
+        wait_for_initialization();
+        wait_for_render_frame();
+
+        try
+        {
+            _render_future = _thread_manager.get().post_with_future(
+                RENDER_LANE_NAME,
+                [this]()
+                {
+                    render_frame();
+                });
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_TRACE_ERROR("Toybox renderer dispatch failed: {}", ex.what());
+        }
+    }
+
+    void Rendering::initialize(const GraphicsSettings& settings)
+    {
+        _initialization_result = _backend.get().initialize(settings);
 
         auto pipeline_config = RenderPipelineConfig::standard();
         for (auto& operation : pipeline_config.operations)
             _pipeline.add_operation(std::move(operation));
     }
 
-    Rendering::~Rendering() noexcept
-    {
-        release_pipeline();
-    }
-
-    void Rendering::render()
+    void Rendering::render_frame()
     {
         if (!_initialization_result)
         {
@@ -87,11 +169,23 @@ namespace tbx
             abort_frame(result);
             return;
         }
+        else if (!result.get_report().empty())
+        {
+            TBX_TRACE_WARNING(
+                "Toybox renderer recoverable prepare issues: {}",
+                result.get_report());
+        }
 
         if (const auto result = _pipeline.execute(CancellationToken {}); !result)
         {
             abort_frame(result);
             return;
+        }
+        else if (!result.get_report().empty())
+        {
+            TBX_TRACE_WARNING(
+                "Toybox renderer recoverable execute issues: {}",
+                result.get_report());
         }
     }
 
@@ -102,5 +196,44 @@ namespace tbx
 
         if (_resource_manager)
             _resource_manager->unload_all();
+    }
+
+    void Rendering::wait_for_initialization() noexcept
+    {
+        if (!_initialization_future.valid())
+            return;
+
+        try
+        {
+            _initialization_future.get();
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_TRACE_ERROR("Toybox renderer initialization completion failed: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_TRACE_ERROR(
+                "Toybox renderer initialization completion failed with an unknown error.");
+        }
+    }
+
+    void Rendering::wait_for_render_frame() noexcept
+    {
+        if (!_render_future.valid())
+            return;
+
+        try
+        {
+            _render_future.get();
+        }
+        catch (const std::exception& ex)
+        {
+            TBX_TRACE_ERROR("Toybox renderer frame completion failed: {}", ex.what());
+        }
+        catch (...)
+        {
+            TBX_TRACE_ERROR("Toybox renderer frame completion failed with an unknown error.");
+        }
     }
 }

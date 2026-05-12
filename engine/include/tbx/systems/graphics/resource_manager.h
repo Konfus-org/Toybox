@@ -11,6 +11,7 @@
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -392,6 +393,16 @@ namespace tbx
         Result load_material_textures(
             const MaterialTextureBindings& texture_bindings,
             std::vector<GraphicsResourceBinding>& out_textures);
+        Result load_default_texture_for_binding(
+            std::string_view binding_name,
+            Uuid& out_resource_uuid);
+        Result ensure_solid_fallback_texture(
+            std::string_view debug_name,
+            Pixel r,
+            Pixel g,
+            Pixel b,
+            Pixel a,
+            Uuid& out_resource_uuid);
         Result upload_model_resource(
             const Handle& handle,
             const Model& model,
@@ -419,6 +430,8 @@ namespace tbx
         std::unordered_map<Uuid, GraphicsResourceUsage> _textures = {};
         std::unordered_map<Uuid, uint> _texture_last_access_frames = {};
         Uuid _default_texture = {};
+        Uuid _default_normal_texture = {};
+        Uuid _default_black_texture = {};
         Uuid _fallback_material_pipeline = {};
         GraphicsMaterialInstanceResource _fallback_material = {};
         uint _current_frame = 0U;

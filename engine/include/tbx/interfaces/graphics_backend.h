@@ -53,6 +53,17 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Selects which winding side is rejected when face culling is enabled.
+    /// @details
+    /// Ownership: Enum values are copied by value by pipeline descriptions.
+    /// Thread Safety: Thread-safe as immutable enum constants.
+    enum class GraphicsCullMode
+    {
+        BACK,
+        FRONT,
+    };
+
+    /// @brief
     /// Purpose: Defines one vertex attribute's packed data format.
     /// @details
     /// Ownership: Enum values are copied by value by pipeline descriptions.
@@ -240,6 +251,7 @@ namespace tbx
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
         bool is_culling_enabled = true;
+        GraphicsCullMode cull_mode = GraphicsCullMode::BACK;
         std::string debug_name = {};
     };
 
@@ -253,6 +265,7 @@ namespace tbx
     {
         std::vector<Uuid> color_targets = {};
         Uuid depth_stencil_target = {};
+        int32 depth_stencil_layer = -1;
         Color clear_color = Color::BLACK;
         float clear_depth = 1.0F;
         uint32 clear_stencil = 0U;

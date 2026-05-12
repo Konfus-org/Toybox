@@ -560,8 +560,20 @@ namespace opengl_rendering
 
     void OpenGlFramebuffer::attach_depth_stencil(
         const OpenGlTexture& texture,
-        const tbx::GraphicsTextureFormat format) const
+        const tbx::GraphicsTextureFormat format,
+        const int32 layer) const
     {
+        if (layer >= 0)
+        {
+            glNamedFramebufferTextureLayer(
+                _framebuffer_id,
+                get_depth_attachment(format),
+                texture.get_texture_id(),
+                0,
+                layer);
+            return;
+        }
+
         glNamedFramebufferTexture(
             _framebuffer_id,
             get_depth_attachment(format),

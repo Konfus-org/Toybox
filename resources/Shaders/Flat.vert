@@ -1,5 +1,6 @@
 #version 450 core
 #include Globals.glsl
+#include TransformUtils.glsl
 
 layout(location = 0) in vec3 a_position;
 layout(location = 2) in vec3 a_normal;

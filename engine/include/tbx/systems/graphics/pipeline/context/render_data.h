@@ -125,6 +125,31 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Describes one point-light dual-paraboloid shadow map.
+    struct TBX_API RenderDataPointShadowMap
+    {
+        Uuid entity_uuid = {};
+        Mat4 world_to_light = Mat4(1.0F);
+        float range = 1.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        uint32 layer_offset = 0U;
+    };
+
+    /// @brief
+    /// Purpose: Describes one projected shadow map used by spot or area lights.
+    struct TBX_API RenderDataProjectedShadowMap
+    {
+        Uuid entity_uuid = {};
+        Mat4 light_view_projection = Mat4(1.0F);
+        float z_near = 0.1F;
+        float z_far = 1.0F;
+        float normal_bias = 0.0F;
+        float depth_bias = 0.0F;
+        uint32 texture_layer = 0U;
+    };
+
+    /// @brief
     /// Purpose: Describes the sky submitted for rendering and the transform used to place it.
     struct TBX_API RenderDataSky
     {
@@ -156,8 +181,18 @@ namespace tbx
         PostProcessing post_processing = {};
         bool has_skybox = false;
         Uuid forward_shadow_uniform_buffer = {};
+        Uuid directional_shadow_light_entity = {};
         std::vector<RenderDataDirectionalShadowCascade> directional_shadow_cascades = {};
+        std::vector<RenderDataPointShadowMap> point_shadow_maps = {};
+        std::vector<RenderDataProjectedShadowMap> spot_shadow_maps = {};
+        std::vector<RenderDataProjectedShadowMap> area_shadow_maps = {};
         std::vector<GraphicsRenderPass> directional_shadow_passes = {};
+        std::vector<GraphicsRenderPass> point_shadow_passes = {};
+        std::vector<GraphicsRenderPass> spot_shadow_passes = {};
+        std::vector<GraphicsRenderPass> area_shadow_passes = {};
+        Uuid point_shadow_texture = {};
+        Uuid spot_shadow_texture = {};
+        Uuid area_shadow_texture = {};
 
         std::vector<GraphicsIndexedDrawCommand> skybox_commands = {};
         std::vector<GraphicsIndexedDrawCommand> opaque_commands = {};

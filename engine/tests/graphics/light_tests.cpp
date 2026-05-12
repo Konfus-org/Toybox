@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "tbx/types/components/light.h"
+#include <nlohmann/json.hpp>
 
 namespace tbx::tests::graphics
 {
@@ -18,8 +19,8 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.b, 1.0f, 1e-5f);
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
+        EXPECT_TRUE(light.cast_shadows);
         EXPECT_NEAR(light.range, 10.0f, 1e-5f);
-        EXPECT_TRUE(light.shadows_enabled);
     }
 
     // Validates default SpotLight settings.
@@ -37,6 +38,7 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.b, 1.0f, 1e-5f);
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
+        EXPECT_TRUE(light.cast_shadows);
         EXPECT_NEAR(light.range, 10.0f, 1e-5f);
         EXPECT_NEAR(light.inner_angle, 20.0f, 1e-5f);
         EXPECT_NEAR(light.outer_angle, 35.0f, 1e-5f);
@@ -57,6 +59,7 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.b, 1.0f, 1e-5f);
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
+        EXPECT_TRUE(light.cast_shadows);
         EXPECT_NEAR(light.range, 10.0f, 1e-5f);
         EXPECT_NEAR(light.area_size.x, 1.0f, 1e-5f);
         EXPECT_NEAR(light.area_size.y, 1.0f, 1e-5f);
@@ -77,6 +80,33 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.color.b, 1.0f, 1e-5f);
         EXPECT_NEAR(light.color.a, 1.0f, 1e-5f);
         EXPECT_NEAR(light.intensity, 1.0f, 1e-5f);
+        EXPECT_TRUE(light.cast_shadows);
         EXPECT_NEAR(light.ambient, 0.03f, 1e-5f);
+    }
+
+    TEST(LightTests, PointLight_FromLegacyShadowsEnabled_DisablesCastShadows)
+    {
+        // Arrange
+        const auto json = nlohmann::json::parse(
+            R"({"color":{"r":1.0,"g":1.0,"b":1.0,"a":1.0},"intensity":1.0,"range":10.0,"shadows_enabled":false})");
+
+        // Act
+        const auto light = json.get<PointLight>();
+
+        // Assert
+        EXPECT_FALSE(light.cast_shadows);
+    }
+
+    TEST(LightTests, SpotLight_MissingCastShadows_DefaultsToTrue)
+    {
+        // Arrange
+        const auto json = nlohmann::json::parse(
+            R"({"color":{"r":1.0,"g":1.0,"b":1.0,"a":1.0},"intensity":1.0,"range":9.0,"inner_angle":15.0,"outer_angle":30.0})");
+
+        // Act
+        const auto light = json.get<SpotLight>();
+
+        // Assert
+        EXPECT_TRUE(light.cast_shadows);
     }
 }

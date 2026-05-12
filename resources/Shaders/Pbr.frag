@@ -1,5 +1,6 @@
 #version 450 core
 #include Globals.glsl
+#include ForwardLighting.glsl
 
 layout(location = 0) out vec4 o_final_color;
 layout(location = 1) out vec4 o_geometry_preview_color;
@@ -21,6 +22,7 @@ layout(binding = 0) uniform sampler2D u_textures[5];
 void main()
 {
     float diffuse_strength = max(u_material_uniforms[1].x, 0.0);
+    float normal_strength = clamp(u_material_uniforms[2].x, 0.0, 1.0);
     float specular_strength = max(u_material_uniforms[3].x, 0.0);
     float shininess_strength = max(u_material_uniforms[4].x, 1.0);
     float color_texture_blend = clamp(u_material_uniforms[5].x, 0.0, 1.0);
@@ -38,6 +40,23 @@ void main()
 
     float surface_alpha = surface_color.a * (1.0 - transparency_amount);
     vec3 normalized_world_normal = normalize(v_world_normal);
+    vec3 tangent =
+        v_world_tangent
+        - (normalized_world_normal * dot(v_world_tangent, normalized_world_normal));
+    if (dot(tangent, tangent) <= 0.000001)
+    {
+        vec3 tangent_reference = abs(normalized_world_normal.y) < 0.999
+                                     ? vec3(0.0, 1.0, 0.0)
+                                     : vec3(1.0, 0.0, 0.0);
+        tangent = cross(tangent_reference, normalized_world_normal);
+    }
+    tangent = normalize(tangent);
+    vec3 bitangent = normalize(cross(normalized_world_normal, tangent)) * v_world_tangent_sign;
+    vec3 tangent_space_normal = texture(u_textures[1], v_tex_coord).xyz * 2.0 - 1.0;
+    vec3 mapped_world_normal =
+        normalize(mat3(tangent, bitangent, normalized_world_normal) * tangent_space_normal);
+    vec3 surface_normal =
+        normalize(mix(normalized_world_normal, mapped_world_normal, normal_strength));
     float specular =
         clamp(texture(u_textures[2], v_tex_coord).r * specular_strength, 0.0, 1.0);
     float shininess = clamp(
@@ -50,7 +69,7 @@ void main()
         surface_color.rgb,
         emissive,
         v_world_position,
-        normalized_world_normal,
+        surface_normal,
         specular,
         shininess);
     float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
@@ -58,7 +77,7 @@ void main()
     o_final_color = vec4(preview_color, surface_alpha);
     o_geometry_preview_color = vec4(preview_color, surface_alpha);
     o_albedo = vec4(surface_color.rgb, surface_alpha);
-    o_normal = vec4((normalized_world_normal * 0.5) + 0.5, 1.0);
+    o_normal = vec4((surface_normal * 0.5) + 0.5, 1.0);
     o_depth_preview = vec4(vec3(depth_preview), 1.0);
     o_emissive = vec4(emissive, exposure);
     o_material = vec4(specular, shininess, 1.0, 1.0);

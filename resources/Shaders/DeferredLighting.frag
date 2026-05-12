@@ -1,4 +1,5 @@
 #version 450 core
+#include ColorUtils.glsl
 
 in vec2 v_tex_coord;
 
@@ -132,31 +133,6 @@ layout(std430, binding = 11) readonly buffer AreaShadowMapsBuffer
     ProjectedShadow u_area_shadow_maps[];
 };
 
-vec3 tbx_srgb_to_linear(vec3 color)
-{
-    return pow(max(color, vec3(0.0)), vec3(2.2));
-}
-
-vec3 tbx_linear_to_srgb(vec3 color)
-{
-    return pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
-}
-
-vec3 tbx_tonemap_aces(vec3 color)
-{
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
-}
-
-float tbx_interleaved_gradient_noise(vec2 pixel_coord)
-{
-    return fract(52.9829189 * fract(dot(pixel_coord, vec2(0.06711056, 0.00583715))));
-}
-
 vec3 tbx_reconstruct_world_position(vec2 uv, float depth, mat4 inverse_view_projection)
 {
     vec4 clip_position = vec4((uv * 2.0) - 1.0, (depth * 2.0) - 1.0, 1.0);
@@ -217,12 +193,13 @@ float tbx_sample_projected_shadow(
         return 1.0;
 
     vec2 texel_size = 1.0 / vec2(textureSize(shadow_texture, 0).xy);
+    vec2 sample_center = clamp(projected.xy, texel_size, vec2(1.0) - texel_size);
     float current_depth = projected.z - depth_bias;
     float visibility = 0.0;
     for (int sample_y = -1; sample_y <= 1; ++sample_y)
         for (int sample_x = -1; sample_x <= 1; ++sample_x)
         {
-            vec2 sample_uv = projected.xy + (vec2(sample_x, sample_y) * texel_size);
+            vec2 sample_uv = sample_center + (vec2(sample_x, sample_y) * texel_size);
             float stored_depth = texture(
                 shadow_texture,
                 vec3(sample_uv, float(texture_layer))).r;
@@ -413,7 +390,16 @@ void main()
 
     float specular_strength = clamp(material_sample.r, 0.0, 1.0);
     float shininess = clamp(material_sample.g, 1.0, 256.0);
+    bool is_unlit = material_sample.b < 0.5;
     float exposure = max(emissive_sample.a, 0.0001);
+
+    if (is_unlit)
+    {
+        vec3 unlit_hdr_color = (albedo + emissive) * exposure;
+        vec3 unlit_presented_color = tbx_linear_to_srgb(unlit_hdr_color);
+        o_final_color = vec4(clamp(unlit_presented_color, 0.0, 1.0), albedo_sample.a);
+        return;
+    }
 
     vec3 diffuse_accumulation = vec3(0.0);
     vec3 specular_accumulation = vec3(0.0);
@@ -552,6 +538,6 @@ void main()
     hdr_lighting_color += emissive;
     hdr_lighting_color *= exposure;
 
-    vec3 presented_color = tbx_linear_to_srgb(tbx_tonemap_aces(hdr_lighting_color));
+    vec3 presented_color = tbx_linear_to_srgb(hdr_lighting_color);
     o_final_color = vec4(clamp(presented_color, 0.0, 1.0), albedo_sample.a);
 }

@@ -530,7 +530,8 @@ namespace tbx
     struct ForwardPointLight
     {
         Vec4 position_range = Vec4(0.0F);
-        Vec4 radiance = Vec4(0.0F);
+        Vec4 radiance_shadow_bias = Vec4(0.0F);
+        IVec4 shadow_info = IVec4(-1);
     };
 
     struct ForwardSpotLight
@@ -538,6 +539,7 @@ namespace tbx
         Vec4 position_range = Vec4(0.0F);
         Vec4 direction_inner_cos = Vec4(0.0F);
         Vec4 radiance_outer_cos = Vec4(0.0F);
+        IVec4 shadow_info = IVec4(-1);
     };
 
     struct ForwardAreaLight
@@ -547,6 +549,7 @@ namespace tbx
         Vec4 radiance_half_height = Vec4(0.0F);
         Vec4 right = Vec4(0.0F);
         Vec4 up = Vec4(0.0F);
+        IVec4 shadow_info = IVec4(-1);
     };
 
     struct ForwardLightingUniformBlock
@@ -561,6 +564,12 @@ namespace tbx
 
     inline constexpr uint32 TBX_FORWARD_SHADOW_CASCADE_COUNT = 3U;
     inline constexpr uint32 TBX_FORWARD_SHADOW_TEXTURE_BINDING = 8U;
+    inline constexpr uint32 TBX_FORWARD_POINT_SHADOW_TEXTURE_BINDING = 11U;
+    inline constexpr uint32 TBX_FORWARD_SPOT_SHADOW_TEXTURE_BINDING = 12U;
+    inline constexpr uint32 TBX_FORWARD_AREA_SHADOW_TEXTURE_BINDING = 13U;
+    inline constexpr uint32 TBX_MAX_FORWARD_POINT_SHADOWS = TBX_MAX_FORWARD_POINT_LIGHTS;
+    inline constexpr uint32 TBX_MAX_FORWARD_SPOT_SHADOWS = TBX_MAX_FORWARD_SPOT_LIGHTS;
+    inline constexpr uint32 TBX_MAX_FORWARD_AREA_SHADOWS = TBX_MAX_FORWARD_AREA_LIGHTS;
 
     struct ForwardShadowCascade
     {
@@ -568,12 +577,29 @@ namespace tbx
         Vec4 split_bias_blend = Vec4(0.0F);
     };
 
+    struct ForwardPointShadowMap
+    {
+        Mat4 world_to_light = Mat4(1.0F);
+        Vec4 range_and_bias = Vec4(1.0F, 0.0F, 0.0F, 0.0F);
+        IVec4 layers = IVec4(0);
+    };
+
+    struct ForwardProjectedShadowMap
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        Vec4 planes_and_bias = Vec4(0.1F, 1.0F, 0.0F, 0.0F);
+        IVec4 texture_layer = IVec4(-1);
+    };
+
     struct ForwardShadowUniformBlock
     {
         IVec4 shadow_counts = IVec4(0);
         Vec4 shadow_settings = Vec4(0.0F);
-        Vec4 camera_forward = Vec4(0.0F);
+        Mat4 camera_view = Mat4(1.0F);
         ForwardShadowCascade directional_cascades[TBX_FORWARD_SHADOW_CASCADE_COUNT] = {};
+        ForwardPointShadowMap point_shadow_maps[TBX_MAX_FORWARD_POINT_SHADOWS] = {};
+        ForwardProjectedShadowMap spot_shadow_maps[TBX_MAX_FORWARD_SPOT_SHADOWS] = {};
+        ForwardProjectedShadowMap area_shadow_maps[TBX_MAX_FORWARD_AREA_SHADOWS] = {};
     };
 
     static Vec3 make_light_direction(const Transform& transform)
@@ -601,6 +627,39 @@ namespace tbx
 
     static ForwardLightingUniformBlock make_forward_lighting_uniforms(const RenderData& render_data)
     {
+        const auto find_point_shadow_index =
+            [&render_data](const Uuid entity_uuid) -> int
+        {
+            for (uint32 index = 0U; index < render_data.point_shadow_maps.size(); ++index)
+            {
+                if (render_data.point_shadow_maps[index].entity_uuid == entity_uuid)
+                    return static_cast<int>(index);
+            }
+            return -1;
+        };
+
+        const auto find_spot_shadow_index =
+            [&render_data](const Uuid entity_uuid) -> int
+        {
+            for (uint32 index = 0U; index < render_data.spot_shadow_maps.size(); ++index)
+            {
+                if (render_data.spot_shadow_maps[index].entity_uuid == entity_uuid)
+                    return static_cast<int>(index);
+            }
+            return -1;
+        };
+
+        const auto find_area_shadow_index =
+            [&render_data](const Uuid entity_uuid) -> int
+        {
+            for (uint32 index = 0U; index < render_data.area_shadow_maps.size(); ++index)
+            {
+                if (render_data.area_shadow_maps[index].entity_uuid == entity_uuid)
+                    return static_cast<int>(index);
+            }
+            return -1;
+        };
+
         auto uniforms = ForwardLightingUniformBlock {
             .camera_position = Vec4(render_data.frame.camera_position, 1.0F),
         };
@@ -624,13 +683,16 @@ namespace tbx
         for (uint32 index = 0U; index < directional_count; ++index)
         {
             const auto& light = render_data.directional_lights[index];
+            const bool has_directional_shadows =
+                light.entity_uuid == render_data.directional_shadow_light_entity
+                && !render_data.directional_shadow_cascades.empty();
             uniforms.directional_lights[index] = ForwardDirectionalLight {
                 .direction_ambient =
                     Vec4(make_light_direction(light.transform), light.light.ambient),
                 .radiance = make_light_radiance(light.light),
                 .shadow_info = IVec4(
                     0,
-                    index == 0U
+                    has_directional_shadows
                         ? static_cast<int>(render_data.directional_shadow_cascades.size())
                         : 0,
                     0,
@@ -641,9 +703,13 @@ namespace tbx
         for (uint32 index = 0U; index < point_count; ++index)
         {
             const auto& light = render_data.point_lights[index];
+            const int point_shadow_index =
+                light.light.cast_shadows ? find_point_shadow_index(light.entity_uuid) : -1;
             uniforms.point_lights[index] = ForwardPointLight {
                 .position_range = Vec4(light.transform.position, light.light.range),
-                .radiance = make_light_radiance(light.light),
+                .radiance_shadow_bias =
+                    Vec4(Vec3(make_light_radiance(light.light)), 0.00035F),
+                .shadow_info = IVec4(point_shadow_index, 0, 0, 0),
             };
         }
 
@@ -653,10 +719,13 @@ namespace tbx
             const float inner_cos = angle_to_cosine(light.light.inner_angle);
             const float outer_cos = angle_to_cosine(light.light.outer_angle);
             const Vec4 radiance = make_light_radiance(light.light);
+            const int spot_shadow_index =
+                light.light.cast_shadows ? find_spot_shadow_index(light.entity_uuid) : -1;
             uniforms.spot_lights[index] = ForwardSpotLight {
                 .position_range = Vec4(light.transform.position, light.light.range),
                 .direction_inner_cos = Vec4(make_light_direction(light.transform), inner_cos),
                 .radiance_outer_cos = Vec4(Vec3(radiance), outer_cos),
+                .shadow_info = IVec4(spot_shadow_index, 0, 0, 0),
             };
         }
 
@@ -667,6 +736,8 @@ namespace tbx
             const Vec3 right = normalize(light.transform.rotation * Vec3(1.0F, 0.0F, 0.0F));
             const Vec3 up = normalize(light.transform.rotation * Vec3(0.0F, 1.0F, 0.0F));
             const Vec4 radiance = make_light_radiance(light.light);
+            const int area_shadow_index =
+                light.light.cast_shadows ? find_area_shadow_index(light.entity_uuid) : -1;
             uniforms.area_lights[index] = ForwardAreaLight {
                 .position_range = Vec4(light.transform.position, light.light.range),
                 .direction_half_width = Vec4(direction, light.light.area_size.x * 0.5F),
@@ -674,6 +745,7 @@ namespace tbx
                     Vec4(Vec3(radiance), light.light.area_size.y * 0.5F),
                 .right = Vec4(right, 0.0F),
                 .up = Vec4(up, 0.0F),
+                .shadow_info = IVec4(area_shadow_index, 0, 0, 0),
             };
         }
 
@@ -691,6 +763,12 @@ namespace tbx
         Uuid instance_buffer = {};
         uint32 index_count = 0U;
         std::vector<Mat4> transforms = {};
+    };
+
+    struct PointShadowPassUniform
+    {
+        Mat4 world_to_light = Mat4(1.0F);
+        Vec4 shadow_params = Vec4(1.0F, 1.0F, 0.0F, 0.0F);
     };
 
     static Shader make_directional_shadow_shader()
@@ -778,7 +856,117 @@ namespace tbx
             .is_depth_write_enabled = true,
             .is_blending_enabled = false,
             .is_culling_enabled = true,
+            .cull_mode = GraphicsCullMode::FRONT,
             .debug_name = "Toybox Directional Shadow Pipeline",
+        };
+    }
+
+    static Shader make_point_shadow_shader()
+    {
+        return Shader(
+            std::vector<ShaderSource> {
+                ShaderSource(
+                    "#version 450 core\n"
+                    "layout(location = 0) in vec3 a_position;\n"
+                    "layout(location = 5) in vec4 a_model0;\n"
+                    "layout(location = 6) in vec4 a_model1;\n"
+                    "layout(location = 7) in vec4 a_model2;\n"
+                    "layout(location = 8) in vec4 a_model3;\n"
+                    "layout(std140, binding = 0) uniform ToyboxPointShadowBlock\n"
+                    "{\n"
+                    "    mat4 u_world_to_light;\n"
+                    "    vec4 u_shadow_params;\n"
+                    "};\n"
+                    "out vec2 v_depth_and_facing;\n"
+                    "void main()\n"
+                    "{\n"
+                    "    mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);\n"
+                    "    vec3 world_position = (model * vec4(a_position, 1.0)).xyz;\n"
+                    "    vec3 light_space = (u_world_to_light * vec4(world_position, 1.0)).xyz;\n"
+                    "    float distance_to_light = length(light_space);\n"
+                    "    vec3 direction = light_space / max(distance_to_light, 0.0001);\n"
+                    "    float hemisphere_sign = u_shadow_params.y;\n"
+                    "    float facing = hemisphere_sign > 0.0 ? direction.z : -direction.z;\n"
+                    "    float denominator = hemisphere_sign > 0.0\n"
+                    "                            ? max(1.0 + direction.z, 0.0001)\n"
+                    "                            : max(1.0 - direction.z, 0.0001);\n"
+                    "    vec2 projected = direction.xy / denominator;\n"
+                    "    gl_Position = vec4(projected, 0.0, 1.0);\n"
+                    "    v_depth_and_facing = vec2(\n"
+                    "        distance_to_light / max(u_shadow_params.x, 0.0001),\n"
+                    "        facing);\n"
+                    "}\n",
+                    ShaderType::VERTEX),
+                ShaderSource(
+                    "#version 450 core\n"
+                    "in vec2 v_depth_and_facing;\n"
+                    "void main()\n"
+                    "{\n"
+                    "    if (v_depth_and_facing.y <= 0.0)\n"
+                    "        discard;\n"
+                    "    gl_FragDepth = clamp(v_depth_and_facing.x, 0.0, 1.0);\n"
+                    "}\n",
+                    ShaderType::FRAGMENT),
+            });
+    }
+
+    static GraphicsPipelineDesc make_point_shadow_pipeline_desc()
+    {
+        constexpr uint32 model_stride = static_cast<uint32>(sizeof(float) * 16U);
+        return GraphicsPipelineDesc {
+            .shader = make_point_shadow_shader(),
+            .vertex_buffers =
+                {
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 0U,
+                        .stride = model_stride,
+                    },
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 1U,
+                        .stride = static_cast<uint32>(sizeof(Mat4)),
+                        .is_per_instance = true,
+                    },
+                },
+            .vertex_attributes =
+                {
+                    GraphicsVertexAttributeDesc {
+                        .location = 0U,
+                        .buffer_slot = 0U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC3,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 5U,
+                        .buffer_slot = 1U,
+                        .offset = 0U,
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 6U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 4U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 7U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 8U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                    GraphicsVertexAttributeDesc {
+                        .location = 8U,
+                        .buffer_slot = 1U,
+                        .offset = static_cast<uint32>(sizeof(float) * 12U),
+                        .format = GraphicsVertexFormat::VEC4,
+                    },
+                },
+            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+            .is_depth_test_enabled = true,
+            .is_depth_write_enabled = true,
+            .is_blending_enabled = false,
+            .is_culling_enabled = true,
+            .cull_mode = GraphicsCullMode::FRONT,
+            .debug_name = "Toybox Point Shadow Pipeline",
         };
     }
 
@@ -858,10 +1046,10 @@ namespace tbx
         {
             const Mat4 snap_view = look_at(center - (light_direction * radius), center, light_up);
             const Vec4 light_center = snap_view * Vec4(center, 1.0F);
-            center -= normalize(light.transform.rotation * Vec3(1.0F, 0.0F, 0.0F))
-                      * (std::fmod(light_center.x, texel_size));
-            center -= normalize(light.transform.rotation * Vec3(0.0F, 1.0F, 0.0F))
-                      * (std::fmod(light_center.y, texel_size));
+            const float snapped_x = std::floor(light_center.x / texel_size) * texel_size;
+            const float snapped_y = std::floor(light_center.y / texel_size) * texel_size;
+            const Vec4 snapped_light_center = Vec4(snapped_x, snapped_y, light_center.z, 1.0F);
+            center = Vec3(inverse(snap_view) * snapped_light_center);
         }
 
         const Mat4 light_view =
@@ -882,13 +1070,93 @@ namespace tbx
             ortho_projection(-radius, radius, -radius, radius, near_plane, far_plane);
 
         const float cascade_span = std::max(split_far - previous_split_far, 0.001F);
+        const float normal_bias = std::clamp(texel_size * 0.12F, 0.0008F, 0.012F);
+        const float depth_bias = std::clamp(texel_size * 0.006F, 0.0001F, 0.0012F);
         return RenderDataDirectionalShadowCascade {
             .light_view_projection = light_projection * light_view,
             .split_depth = split_far,
-            .normal_bias = std::clamp(radius * 0.0008F, 0.015F, 0.12F),
-            .depth_bias = std::clamp(radius * 0.00004F, 0.0008F, 0.006F),
+            .normal_bias = normal_bias,
+            .depth_bias = depth_bias,
             .blend_distance = cascade_span * 0.12F,
             .texture = texture,
+        };
+    }
+
+    static RenderDataProjectedShadowMap make_spot_shadow_map(
+        const RenderDataSpotLight& light,
+        const uint32 texture_layer)
+    {
+        const Vec3 position = light.transform.position;
+        const Vec3 direction = make_light_direction(light.transform);
+        Vec3 up = Vec3(0.0F, 1.0F, 0.0F);
+        if (std::abs(dot(direction, up)) > 0.95F)
+            up = Vec3(1.0F, 0.0F, 0.0F);
+
+        const float z_near = 0.05F;
+        const float z_far = std::max(light.light.range, z_near + 0.1F);
+        const float fov = std::clamp(light.light.outer_angle * 2.0F, 5.0F, 170.0F);
+        const float fov_radians = fov * 0.017453292519943295F;
+        const Mat4 light_view = look_at(position, position + direction, up);
+        const Mat4 light_projection = perspective_projection(fov_radians, 1.0F, z_near, z_far);
+        const float texel_world = z_far / 2048.0F;
+
+        return RenderDataProjectedShadowMap {
+            .entity_uuid = light.entity_uuid,
+            .light_view_projection = light_projection * light_view,
+            .z_near = z_near,
+            .z_far = z_far,
+            .normal_bias = std::clamp(texel_world * 0.6F, 0.0004F, 0.01F),
+            .depth_bias = std::clamp(texel_world * 0.008F, 0.00008F, 0.0018F),
+            .texture_layer = texture_layer,
+        };
+    }
+
+    static RenderDataProjectedShadowMap make_area_shadow_map(
+        const RenderDataAreaLight& light,
+        const uint32 texture_layer)
+    {
+        const Vec3 position = light.transform.position;
+        const Vec3 direction = make_light_direction(light.transform);
+        Vec3 up = normalize(light.transform.rotation * Vec3(0.0F, 1.0F, 0.0F));
+        if (std::abs(dot(direction, up)) > 0.95F)
+            up = Vec3(1.0F, 0.0F, 0.0F);
+
+        const float z_near = 0.1F;
+        const float z_far = std::max(light.light.range, z_near + 0.1F);
+        const float extent = std::max(light.light.area_size.x, light.light.area_size.y);
+        const float fov_radians =
+            std::clamp(2.0F * std::atan((extent + 0.25F) / z_near), 0.2617994F, 2.9670596F);
+        const Mat4 light_view = look_at(position, position + direction, up);
+        const Mat4 light_projection = perspective_projection(fov_radians, 1.0F, z_near, z_far);
+        const float texel_world = z_far / 2048.0F;
+
+        return RenderDataProjectedShadowMap {
+            .entity_uuid = light.entity_uuid,
+            .light_view_projection = light_projection * light_view,
+            .z_near = z_near,
+            .z_far = z_far,
+            .normal_bias = std::clamp(texel_world * 0.6F, 0.0004F, 0.01F),
+            .depth_bias = std::clamp(texel_world * 0.008F, 0.00008F, 0.0018F),
+            .texture_layer = texture_layer,
+        };
+    }
+
+    static RenderDataPointShadowMap make_point_shadow_map(
+        const RenderDataPointLight& light,
+        const uint32 texture_layer_offset,
+        const uint32 shadow_resolution)
+    {
+        auto light_transform = light.transform;
+        light_transform.scale = Vec3(1.0F);
+        const float texel_world =
+            std::max(light.light.range, 0.1F) / static_cast<float>(std::max(shadow_resolution, 1U));
+        return RenderDataPointShadowMap {
+            .entity_uuid = light.entity_uuid,
+            .world_to_light = inverse(build_transform_matrix(light_transform)),
+            .range = std::max(light.light.range, 0.1F),
+            .normal_bias = std::clamp(texel_world * 0.9F, 0.0008F, 0.015F),
+            .depth_bias = std::clamp(texel_world * 0.12F, 0.0001F, 0.003F),
+            .layer_offset = texture_layer_offset,
         };
     }
 
@@ -929,41 +1197,155 @@ namespace tbx
         return backend.upload_pipeline(make_directional_shadow_pipeline_desc(), _shadow_pipeline);
     }
 
+    Result BuildDirectionalShadowCommandsOperation::ensure_point_shadow_pipeline(
+        IGraphicsBackend& backend)
+    {
+        if (_point_shadow_pipeline.is_valid())
+            return {};
+        return backend.upload_pipeline(make_point_shadow_pipeline_desc(), _point_shadow_pipeline);
+    }
+
     Result BuildDirectionalShadowCommandsOperation::ensure_shadow_resources(
         IGraphicsBackend& backend,
-        const FrameData& frame_data)
+        const FrameData& frame_data,
+        const uint32 directional_shadow_count,
+        const uint32 point_shadow_count,
+        const uint32 spot_shadow_count,
+        const uint32 area_shadow_count)
     {
         const uint32 resolution = clamp_shadow_resolution(frame_data.shadow_map_resolution);
-        if (_shadow_resolution == resolution
-            && _shadow_textures.size() == TBX_FORWARD_SHADOW_CASCADE_COUNT)
-            return {};
-
-        for (const Uuid& texture : _shadow_textures)
-            if (texture.is_valid())
-                backend.unload(texture);
-        _shadow_textures.clear();
+        const bool resolution_changed = _shadow_resolution != resolution;
         _shadow_resolution = resolution;
 
-        for (uint32 index = 0U; index < TBX_FORWARD_SHADOW_CASCADE_COUNT; ++index)
+        if (directional_shadow_count == 0U)
         {
-            auto texture = Uuid {};
+            for (const Uuid& texture : _shadow_textures)
+                if (texture.is_valid())
+                    backend.unload(texture);
+            _shadow_textures.clear();
+        }
+        else if (resolution_changed || _shadow_textures.size() != TBX_FORWARD_SHADOW_CASCADE_COUNT)
+        {
+            for (const Uuid& texture : _shadow_textures)
+                if (texture.is_valid())
+                    backend.unload(texture);
+            _shadow_textures.clear();
+
+            for (uint32 index = 0U; index < TBX_FORWARD_SHADOW_CASCADE_COUNT; ++index)
+            {
+                auto texture = Uuid {};
+                if (const auto result = backend.upload_texture(
+                        GraphicsTextureDesc {
+                            .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
+                            .format = GraphicsTextureFormat::DEPTH32_FLOAT,
+                            .size = Size {resolution, resolution},
+                            .mip_count = 1U,
+                            .array_layer_count = 1U,
+                            .debug_name = "Toybox Directional Shadow Cascade "
+                                          + std::to_string(index),
+                        },
+                        nullptr,
+                        0U,
+                        texture);
+                    !result)
+                    return result;
+
+                _shadow_textures.push_back(texture);
+            }
+        }
+
+        if (resolution_changed)
+        {
+            if (_point_shadow_texture.is_valid())
+                backend.unload(_point_shadow_texture);
+            if (_spot_shadow_texture.is_valid())
+                backend.unload(_spot_shadow_texture);
+            if (_area_shadow_texture.is_valid())
+                backend.unload(_area_shadow_texture);
+            _point_shadow_texture = {};
+            _spot_shadow_texture = {};
+            _area_shadow_texture = {};
+            _point_shadow_texture_layers = 0U;
+            _spot_shadow_texture_layers = 0U;
+            _area_shadow_texture_layers = 0U;
+        }
+
+        auto ensure_array_shadow_texture = [&backend, resolution](
+                                             const uint32 required_layers,
+                                             Uuid& texture,
+                                             uint32& capacity_layers,
+                                             const std::string& name) -> Result
+        {
+            if (required_layers == 0U)
+            {
+                if (texture.is_valid())
+                    backend.unload(texture);
+                texture = {};
+                capacity_layers = 0U;
+                return {};
+            }
+
+            if (texture.is_valid() && capacity_layers >= required_layers)
+                return {};
+
+            if (texture.is_valid())
+            {
+                backend.unload(texture);
+                texture = {};
+                capacity_layers = 0U;
+            }
+
+            auto created = Uuid {};
             if (const auto result = backend.upload_texture(
                     GraphicsTextureDesc {
                         .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
                         .format = GraphicsTextureFormat::DEPTH32_FLOAT,
                         .size = Size {resolution, resolution},
                         .mip_count = 1U,
-                        .array_layer_count = 1U,
-                        .debug_name = "Toybox Directional Shadow Cascade "
-                                      + std::to_string(index),
+                        .array_layer_count = required_layers,
+                        .debug_name = name,
                     },
                     nullptr,
                     0U,
-                    texture);
+                    created);
                 !result)
+            {
                 return result;
+            }
 
-            _shadow_textures.push_back(texture);
+            texture = created;
+            capacity_layers = required_layers;
+            return {};
+        };
+
+        if (const auto result = ensure_array_shadow_texture(
+                point_shadow_count * 2U,
+                _point_shadow_texture,
+                _point_shadow_texture_layers,
+                "Toybox Point Shadow Maps");
+            !result)
+        {
+            return result;
+        }
+
+        if (const auto result = ensure_array_shadow_texture(
+                spot_shadow_count,
+                _spot_shadow_texture,
+                _spot_shadow_texture_layers,
+                "Toybox Spot Shadow Maps");
+            !result)
+        {
+            return result;
+        }
+
+        if (const auto result = ensure_array_shadow_texture(
+                area_shadow_count,
+                _area_shadow_texture,
+                _area_shadow_texture_layers,
+                "Toybox Area Shadow Maps");
+            !result)
+        {
+            return result;
         }
 
         return {};
@@ -974,13 +1356,24 @@ namespace tbx
         RenderData& render_data)
     {
         auto uniforms = ForwardShadowUniformBlock {
-            .shadow_counts =
-                IVec4(static_cast<int>(render_data.directional_shadow_cascades.size()), 0, 0, 0),
+            .shadow_counts = IVec4(
+                static_cast<int>(std::min<uint32>(
+                    static_cast<uint32>(render_data.directional_shadow_cascades.size()),
+                    TBX_FORWARD_SHADOW_CASCADE_COUNT)),
+                static_cast<int>(std::min<uint32>(
+                    static_cast<uint32>(render_data.point_shadow_maps.size()),
+                    TBX_MAX_FORWARD_POINT_SHADOWS)),
+                static_cast<int>(std::min<uint32>(
+                    static_cast<uint32>(render_data.spot_shadow_maps.size()),
+                    TBX_MAX_FORWARD_SPOT_SHADOWS)),
+                static_cast<int>(std::min<uint32>(
+                    static_cast<uint32>(render_data.area_shadow_maps.size()),
+                    TBX_MAX_FORWARD_AREA_SHADOWS))),
             .shadow_settings =
                 Vec4(std::clamp(render_data.frame.shadow_softness, 0.0F, 3.0F), 0.0F, 0.0F, 0.0F),
-            .camera_forward = Vec4(
-                normalize(render_data.frame.camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F)),
-                0.0F),
+            .camera_view = render_data.frame.camera.get_view_matrix(
+                render_data.frame.camera_transform.position,
+                render_data.frame.camera_transform.rotation),
         };
 
         for (uint32 index = 0U;
@@ -996,6 +1389,51 @@ namespace tbx
                     cascade.normal_bias,
                     cascade.depth_bias,
                     cascade.blend_distance),
+            };
+        }
+
+        for (uint32 index = 0U;
+             index < render_data.point_shadow_maps.size() && index < TBX_MAX_FORWARD_POINT_SHADOWS;
+             ++index)
+        {
+            const auto& shadow_map = render_data.point_shadow_maps[index];
+            uniforms.point_shadow_maps[index] = ForwardPointShadowMap {
+                .world_to_light = shadow_map.world_to_light,
+                .range_and_bias =
+                    Vec4(shadow_map.range, shadow_map.normal_bias, shadow_map.depth_bias, 0.0F),
+                .layers = IVec4(static_cast<int>(shadow_map.layer_offset), 0, 0, 0),
+            };
+        }
+
+        for (uint32 index = 0U;
+             index < render_data.spot_shadow_maps.size() && index < TBX_MAX_FORWARD_SPOT_SHADOWS;
+             ++index)
+        {
+            const auto& shadow_map = render_data.spot_shadow_maps[index];
+            uniforms.spot_shadow_maps[index] = ForwardProjectedShadowMap {
+                .light_view_projection = shadow_map.light_view_projection,
+                .planes_and_bias = Vec4(
+                    shadow_map.z_near,
+                    shadow_map.z_far,
+                    shadow_map.normal_bias,
+                    shadow_map.depth_bias),
+                .texture_layer = IVec4(static_cast<int>(shadow_map.texture_layer), 0, 0, 0),
+            };
+        }
+
+        for (uint32 index = 0U;
+             index < render_data.area_shadow_maps.size() && index < TBX_MAX_FORWARD_AREA_SHADOWS;
+             ++index)
+        {
+            const auto& shadow_map = render_data.area_shadow_maps[index];
+            uniforms.area_shadow_maps[index] = ForwardProjectedShadowMap {
+                .light_view_projection = shadow_map.light_view_projection,
+                .planes_and_bias = Vec4(
+                    shadow_map.z_near,
+                    shadow_map.z_far,
+                    shadow_map.normal_bias,
+                    shadow_map.depth_bias),
+                .texture_layer = IVec4(static_cast<int>(shadow_map.texture_layer), 0, 0, 0),
             };
         }
 
@@ -1149,35 +1587,149 @@ namespace tbx
     Result BuildDirectionalShadowCommandsOperation::prepare(RenderData& render_data)
     {
         render_data.directional_shadow_cascades.clear();
+        render_data.point_shadow_maps.clear();
+        render_data.spot_shadow_maps.clear();
+        render_data.area_shadow_maps.clear();
         render_data.directional_shadow_passes.clear();
+        render_data.point_shadow_passes.clear();
+        render_data.spot_shadow_passes.clear();
+        render_data.area_shadow_passes.clear();
+        render_data.point_shadow_texture = {};
+        render_data.spot_shadow_texture = {};
+        render_data.area_shadow_texture = {};
+        render_data.directional_shadow_light_entity = {};
         auto& backend = render_data.frame.backend.get();
 
-        if (render_data.directional_lights.empty())
-            return {};
-
-        if (const auto result = ensure_shadow_pipeline(backend); !result)
-            return result;
-        if (const auto result = ensure_shadow_resources(backend, render_data.frame); !result)
-            return result;
-
-        const auto splits = make_cascade_splits(render_data.frame);
-        float split_near = std::max(render_data.frame.camera.get_z_near(), 0.05F);
-        float previous_split_far = split_near;
-        const auto& shadow_light = render_data.directional_lights.front();
-        for (uint32 cascade_index = 0U; cascade_index < TBX_FORWARD_SHADOW_CASCADE_COUNT;
-             ++cascade_index)
+        const RenderDataDirectionalLight* directional_shadow_light = nullptr;
+        for (const auto& light : render_data.directional_lights)
         {
-            const float split_far = splits[cascade_index];
-            render_data.directional_shadow_cascades.push_back(make_shadow_cascade(
+            if (light.light.cast_shadows)
+            {
+                directional_shadow_light = &light;
+                break;
+            }
+        }
+
+        auto point_shadow_lights = std::vector<const RenderDataPointLight*> {};
+        point_shadow_lights.reserve(TBX_MAX_FORWARD_POINT_SHADOWS);
+        for (const auto& light : render_data.point_lights)
+        {
+            if (!light.light.cast_shadows)
+                continue;
+            point_shadow_lights.push_back(&light);
+            if (point_shadow_lights.size() >= TBX_MAX_FORWARD_POINT_SHADOWS)
+                break;
+        }
+
+        auto spot_shadow_lights = std::vector<const RenderDataSpotLight*> {};
+        spot_shadow_lights.reserve(TBX_MAX_FORWARD_SPOT_SHADOWS);
+        for (const auto& light : render_data.spot_lights)
+        {
+            if (!light.light.cast_shadows)
+                continue;
+            spot_shadow_lights.push_back(&light);
+            if (spot_shadow_lights.size() >= TBX_MAX_FORWARD_SPOT_SHADOWS)
+                break;
+        }
+
+        auto area_shadow_lights = std::vector<const RenderDataAreaLight*> {};
+        area_shadow_lights.reserve(TBX_MAX_FORWARD_AREA_SHADOWS);
+        for (const auto& light : render_data.area_lights)
+        {
+            if (!light.light.cast_shadows)
+                continue;
+            area_shadow_lights.push_back(&light);
+            if (area_shadow_lights.size() >= TBX_MAX_FORWARD_AREA_SHADOWS)
+                break;
+        }
+
+        const bool has_directional_shadows = directional_shadow_light != nullptr;
+        const bool has_point_shadows = !point_shadow_lights.empty();
+        const bool has_spot_or_area_shadows =
+            !spot_shadow_lights.empty() || !area_shadow_lights.empty();
+        if (!has_directional_shadows && !has_point_shadows && !has_spot_or_area_shadows)
+        {
+            if (const auto result = ensure_shadow_resources(backend, render_data.frame, 0U, 0U, 0U, 0U);
+                !result)
+            {
+                return result;
+            }
+            return ensure_shadow_uniform_buffer(backend, render_data);
+        }
+
+        if (has_directional_shadows || has_spot_or_area_shadows)
+        {
+            if (const auto result = ensure_shadow_pipeline(backend); !result)
+                return result;
+        }
+        if (has_point_shadows)
+        {
+            if (const auto result = ensure_point_shadow_pipeline(backend); !result)
+                return result;
+        }
+
+        if (const auto result = ensure_shadow_resources(
+                backend,
                 render_data.frame,
-                shadow_light,
-                split_near,
-                split_far,
-                previous_split_far,
-                _shadow_resolution,
-                _shadow_textures[cascade_index]));
-            previous_split_far = split_far;
-            split_near = split_far;
+                has_directional_shadows ? TBX_FORWARD_SHADOW_CASCADE_COUNT : 0U,
+                static_cast<uint32>(point_shadow_lights.size()),
+                static_cast<uint32>(spot_shadow_lights.size()),
+                static_cast<uint32>(area_shadow_lights.size()));
+            !result)
+        {
+            return result;
+        }
+
+        render_data.point_shadow_texture = _point_shadow_texture;
+        render_data.spot_shadow_texture = _spot_shadow_texture;
+        render_data.area_shadow_texture = _area_shadow_texture;
+
+        if (has_directional_shadows)
+        {
+            render_data.directional_shadow_light_entity = directional_shadow_light->entity_uuid;
+            const auto splits = make_cascade_splits(render_data.frame);
+            float split_near = std::max(render_data.frame.camera.get_z_near(), 0.05F);
+            float previous_split_far = split_near;
+            for (uint32 cascade_index = 0U; cascade_index < TBX_FORWARD_SHADOW_CASCADE_COUNT;
+                 ++cascade_index)
+            {
+                const float split_far = splits[cascade_index];
+                render_data.directional_shadow_cascades.push_back(make_shadow_cascade(
+                    render_data.frame,
+                    *directional_shadow_light,
+                    split_near,
+                    split_far,
+                    previous_split_far,
+                    _shadow_resolution,
+                    _shadow_textures[cascade_index]));
+                previous_split_far = split_far;
+                split_near = split_far;
+            }
+        }
+
+        if (has_point_shadows)
+        {
+            for (uint32 index = 0U; index < point_shadow_lights.size(); ++index)
+            {
+                render_data.point_shadow_maps.push_back(make_point_shadow_map(
+                    *point_shadow_lights[index],
+                    index * 2U,
+                    _shadow_resolution));
+            }
+        }
+
+        if (!spot_shadow_lights.empty())
+        {
+            for (uint32 index = 0U; index < spot_shadow_lights.size(); ++index)
+                render_data.spot_shadow_maps.push_back(
+                    make_spot_shadow_map(*spot_shadow_lights[index], index));
+        }
+
+        if (!area_shadow_lights.empty())
+        {
+            for (uint32 index = 0U; index < area_shadow_lights.size(); ++index)
+                render_data.area_shadow_maps.push_back(
+                    make_area_shadow_map(*area_shadow_lights[index], index));
         }
 
         auto& resource_manager = render_data.frame.resource_manager.get();
@@ -1351,6 +1903,287 @@ namespace tbx
             render_data.directional_shadow_passes.push_back(std::move(pass));
         }
 
+        if (_spot_shadow_view_uniform_buffers.size() < render_data.spot_shadow_maps.size())
+            _spot_shadow_view_uniform_buffers.resize(render_data.spot_shadow_maps.size());
+        for (uint32 map_index = 0U; map_index < render_data.spot_shadow_maps.size(); ++map_index)
+        {
+            const auto& shadow_map = render_data.spot_shadow_maps[map_index];
+            Uuid& view_buffer = _spot_shadow_view_uniform_buffers[map_index];
+            const auto data_size = static_cast<uint64>(sizeof(Mat4));
+            if (!view_buffer.is_valid())
+            {
+                if (const auto result = backend.upload_buffer(
+                        GraphicsBufferDesc {
+                            .usage = GraphicsBufferUsage::UNIFORM,
+                            .size = data_size,
+                            .is_dynamic = true,
+                            .debug_name = "Toybox Spot Shadow View Uniforms",
+                        },
+                        &shadow_map.light_view_projection,
+                        data_size,
+                        view_buffer);
+                    !result)
+                {
+                    return result;
+                }
+            }
+            else if (const auto result = backend.update_buffer(
+                         view_buffer,
+                         &shadow_map.light_view_projection,
+                         data_size,
+                         0U);
+                     !result)
+            {
+                return result;
+            }
+
+            auto pass = GraphicsRenderPass {
+                .pass =
+                    GraphicsPassDesc {
+                        .depth_stencil_target = _spot_shadow_texture,
+                        .depth_stencil_layer = static_cast<int32>(shadow_map.texture_layer),
+                        .clear_depth = 1.0F,
+                        .clear_flags = GraphicsClearFlags::DEPTH,
+                        .debug_name = "Toybox Spot Shadow Pass",
+                    },
+                .viewport =
+                    Viewport {
+                        .position = Vec2(0.0F),
+                        .dimensions = Size {_shadow_resolution, _shadow_resolution},
+                    },
+            };
+
+            for (const auto& [batch_key, batch] : batches)
+            {
+                (void)batch_key;
+                if (!batch.vertex_buffer.is_valid() || !batch.instance_buffer.is_valid()
+                    || batch.transforms.empty())
+                    continue;
+
+                pass.indexed_draws.push_back(
+                    GraphicsIndexedDrawCommand {
+                        .pipeline = _shadow_pipeline,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = 0U,
+                                    .resource = batch.vertex_buffer},
+                                GraphicsResourceBinding {
+                                    .slot = 1U,
+                                    .resource = batch.instance_buffer},
+                            },
+                        .index_buffer = batch.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .uniform_buffers =
+                            {
+                                GraphicsResourceBinding {.slot = 0U, .resource = view_buffer},
+                            },
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = batch.index_count,
+                                .instance_count = static_cast<uint32>(batch.transforms.size()),
+                            },
+                    });
+            }
+
+            render_data.spot_shadow_passes.push_back(std::move(pass));
+        }
+
+        if (_area_shadow_view_uniform_buffers.size() < render_data.area_shadow_maps.size())
+            _area_shadow_view_uniform_buffers.resize(render_data.area_shadow_maps.size());
+        for (uint32 map_index = 0U; map_index < render_data.area_shadow_maps.size(); ++map_index)
+        {
+            const auto& shadow_map = render_data.area_shadow_maps[map_index];
+            Uuid& view_buffer = _area_shadow_view_uniform_buffers[map_index];
+            const auto data_size = static_cast<uint64>(sizeof(Mat4));
+            if (!view_buffer.is_valid())
+            {
+                if (const auto result = backend.upload_buffer(
+                        GraphicsBufferDesc {
+                            .usage = GraphicsBufferUsage::UNIFORM,
+                            .size = data_size,
+                            .is_dynamic = true,
+                            .debug_name = "Toybox Area Shadow View Uniforms",
+                        },
+                        &shadow_map.light_view_projection,
+                        data_size,
+                        view_buffer);
+                    !result)
+                {
+                    return result;
+                }
+            }
+            else if (const auto result = backend.update_buffer(
+                         view_buffer,
+                         &shadow_map.light_view_projection,
+                         data_size,
+                         0U);
+                     !result)
+            {
+                return result;
+            }
+
+            auto pass = GraphicsRenderPass {
+                .pass =
+                    GraphicsPassDesc {
+                        .depth_stencil_target = _area_shadow_texture,
+                        .depth_stencil_layer = static_cast<int32>(shadow_map.texture_layer),
+                        .clear_depth = 1.0F,
+                        .clear_flags = GraphicsClearFlags::DEPTH,
+                        .debug_name = "Toybox Area Shadow Pass",
+                    },
+                .viewport =
+                    Viewport {
+                        .position = Vec2(0.0F),
+                        .dimensions = Size {_shadow_resolution, _shadow_resolution},
+                    },
+            };
+
+            for (const auto& [batch_key, batch] : batches)
+            {
+                (void)batch_key;
+                if (!batch.vertex_buffer.is_valid() || !batch.instance_buffer.is_valid()
+                    || batch.transforms.empty())
+                    continue;
+
+                pass.indexed_draws.push_back(
+                    GraphicsIndexedDrawCommand {
+                        .pipeline = _shadow_pipeline,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = 0U,
+                                    .resource = batch.vertex_buffer},
+                                GraphicsResourceBinding {
+                                    .slot = 1U,
+                                    .resource = batch.instance_buffer},
+                            },
+                        .index_buffer = batch.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .uniform_buffers =
+                            {
+                                GraphicsResourceBinding {.slot = 0U, .resource = view_buffer},
+                            },
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = batch.index_count,
+                                .instance_count = static_cast<uint32>(batch.transforms.size()),
+                            },
+                    });
+            }
+
+            render_data.area_shadow_passes.push_back(std::move(pass));
+        }
+
+        const uint32 point_shadow_pass_count =
+            static_cast<uint32>(render_data.point_shadow_maps.size()) * 2U;
+        if (_point_shadow_uniform_buffers.size() < point_shadow_pass_count)
+            _point_shadow_uniform_buffers.resize(point_shadow_pass_count);
+        for (uint32 map_index = 0U; map_index < render_data.point_shadow_maps.size(); ++map_index)
+        {
+            const auto& shadow_map = render_data.point_shadow_maps[map_index];
+            for (uint32 hemisphere = 0U; hemisphere < 2U; ++hemisphere)
+            {
+                const uint32 pass_index = (map_index * 2U) + hemisphere;
+                Uuid& pass_uniform_buffer = _point_shadow_uniform_buffers[pass_index];
+                const auto uniforms = PointShadowPassUniform {
+                    .world_to_light = shadow_map.world_to_light,
+                    .shadow_params = Vec4(
+                        shadow_map.range,
+                        hemisphere == 0U ? 1.0F : -1.0F,
+                        shadow_map.normal_bias,
+                        shadow_map.depth_bias),
+                };
+                const auto data_size = static_cast<uint64>(sizeof(PointShadowPassUniform));
+                if (!pass_uniform_buffer.is_valid())
+                {
+                    if (const auto result = backend.upload_buffer(
+                            GraphicsBufferDesc {
+                                .usage = GraphicsBufferUsage::UNIFORM,
+                                .size = data_size,
+                                .is_dynamic = true,
+                                .debug_name = "Toybox Point Shadow Uniforms",
+                            },
+                            &uniforms,
+                            data_size,
+                            pass_uniform_buffer);
+                        !result)
+                    {
+                        return result;
+                    }
+                }
+                else if (const auto result = backend.update_buffer(
+                             pass_uniform_buffer,
+                             &uniforms,
+                             data_size,
+                             0U);
+                         !result)
+                {
+                    return result;
+                }
+
+                auto pass = GraphicsRenderPass {
+                    .pass =
+                        GraphicsPassDesc {
+                            .depth_stencil_target = _point_shadow_texture,
+                            .depth_stencil_layer = static_cast<int32>(
+                                shadow_map.layer_offset + hemisphere),
+                            .clear_depth = 1.0F,
+                            .clear_flags = GraphicsClearFlags::DEPTH,
+                            .debug_name = "Toybox Point Shadow Pass",
+                        },
+                    .viewport =
+                        Viewport {
+                            .position = Vec2(0.0F),
+                            .dimensions = Size {_shadow_resolution, _shadow_resolution},
+                        },
+                };
+
+                for (const auto& [batch_key, batch] : batches)
+                {
+                    (void)batch_key;
+                    if (!batch.vertex_buffer.is_valid() || !batch.instance_buffer.is_valid()
+                        || batch.transforms.empty())
+                        continue;
+
+                    pass.indexed_draws.push_back(
+                        GraphicsIndexedDrawCommand {
+                            .pipeline = _point_shadow_pipeline,
+                            .vertex_buffers =
+                                {
+                                    GraphicsResourceBinding {
+                                        .slot = 0U,
+                                        .resource = batch.vertex_buffer},
+                                    GraphicsResourceBinding {
+                                        .slot = 1U,
+                                        .resource = batch.instance_buffer},
+                                },
+                            .index_buffer = batch.index_buffer,
+                            .index_type = GraphicsIndexType::UINT32,
+                            .uniform_buffers =
+                                {
+                                    GraphicsResourceBinding {
+                                        .slot = 0U,
+                                        .resource = pass_uniform_buffer},
+                                },
+                            .draw =
+                                GraphicsDrawIndexedDesc {
+                                    .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+                                    .index_type = GraphicsIndexType::UINT32,
+                                    .index_count = batch.index_count,
+                                    .instance_count = static_cast<uint32>(batch.transforms.size()),
+                                },
+                        });
+                }
+
+                render_data.point_shadow_passes.push_back(std::move(pass));
+            }
+        }
+
         return ensure_shadow_uniform_buffer(backend, render_data);
     }
 
@@ -1376,8 +2209,25 @@ namespace tbx
         for (const Uuid& buffer : _shadow_view_uniform_buffers)
             if (buffer.is_valid())
                 backend.unload(buffer);
+        for (const Uuid& buffer : _spot_shadow_view_uniform_buffers)
+            if (buffer.is_valid())
+                backend.unload(buffer);
+        for (const Uuid& buffer : _area_shadow_view_uniform_buffers)
+            if (buffer.is_valid())
+                backend.unload(buffer);
+        for (const Uuid& buffer : _point_shadow_uniform_buffers)
+            if (buffer.is_valid())
+                backend.unload(buffer);
+        if (_point_shadow_texture.is_valid())
+            backend.unload(_point_shadow_texture);
+        if (_spot_shadow_texture.is_valid())
+            backend.unload(_spot_shadow_texture);
+        if (_area_shadow_texture.is_valid())
+            backend.unload(_area_shadow_texture);
         if (_shadow_pipeline.is_valid())
             backend.unload(_shadow_pipeline);
+        if (_point_shadow_pipeline.is_valid())
+            backend.unload(_point_shadow_pipeline);
         if (_shadow_uniform_buffer.is_valid())
             backend.unload(_shadow_uniform_buffer);
 
@@ -1388,9 +2238,19 @@ namespace tbx
         _instance_buffer_sizes.clear();
         _shadow_textures.clear();
         _shadow_view_uniform_buffers.clear();
+        _spot_shadow_view_uniform_buffers.clear();
+        _area_shadow_view_uniform_buffers.clear();
+        _point_shadow_uniform_buffers.clear();
         _shadow_pipeline = {};
+        _point_shadow_pipeline = {};
         _shadow_uniform_buffer = {};
+        _point_shadow_texture = {};
+        _spot_shadow_texture = {};
+        _area_shadow_texture = {};
         _shadow_resolution = 0U;
+        _point_shadow_texture_layers = 0U;
+        _spot_shadow_texture_layers = 0U;
+        _area_shadow_texture_layers = 0U;
     }
 
     // ---------------------------------------------------------------------------
@@ -1671,7 +2531,7 @@ namespace tbx
         return {};
     }
 
-    static void append_directional_shadow_texture_bindings(
+    static void append_shadow_texture_bindings(
         const RenderData& render_data,
         std::vector<GraphicsResourceBinding>& textures)
     {
@@ -1688,6 +2548,33 @@ namespace tbx
                 GraphicsResourceBinding {
                     .slot = TBX_FORWARD_SHADOW_TEXTURE_BINDING + index,
                     .resource = texture,
+                });
+        }
+
+        if (render_data.point_shadow_texture.is_valid())
+        {
+            textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = TBX_FORWARD_POINT_SHADOW_TEXTURE_BINDING,
+                    .resource = render_data.point_shadow_texture,
+                });
+        }
+
+        if (render_data.spot_shadow_texture.is_valid())
+        {
+            textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = TBX_FORWARD_SPOT_SHADOW_TEXTURE_BINDING,
+                    .resource = render_data.spot_shadow_texture,
+                });
+        }
+
+        if (render_data.area_shadow_texture.is_valid())
+        {
+            textures.push_back(
+                GraphicsResourceBinding {
+                    .slot = TBX_FORWARD_AREA_SHADOW_TEXTURE_BINDING,
+                    .resource = render_data.area_shadow_texture,
                 });
         }
     }
@@ -1910,7 +2797,7 @@ namespace tbx
                 return result;
 
             auto textures = std::move(batch.textures);
-            append_directional_shadow_texture_bindings(render_data, textures);
+            append_shadow_texture_bindings(render_data, textures);
 
             render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {
@@ -1950,7 +2837,7 @@ namespace tbx
                 return result;
 
             auto textures = std::move(batch.textures);
-            append_directional_shadow_texture_bindings(render_data, textures);
+            append_shadow_texture_bindings(render_data, textures);
 
             render_data.opaque_commands.push_back(
                 GraphicsIndexedDrawCommand {

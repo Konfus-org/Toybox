@@ -41,7 +41,14 @@ namespace tbx
             const std::vector<Mat4>& transforms,
             Uuid& out_buffer);
         Result ensure_shadow_pipeline(IGraphicsBackend& backend);
-        Result ensure_shadow_resources(IGraphicsBackend& backend, const FrameData& frame_data);
+        Result ensure_point_shadow_pipeline(IGraphicsBackend& backend);
+        Result ensure_shadow_resources(
+            IGraphicsBackend& backend,
+            const FrameData& frame_data,
+            uint32 directional_shadow_count,
+            uint32 point_shadow_count,
+            uint32 spot_shadow_count,
+            uint32 area_shadow_count);
         Result ensure_shadow_uniform_buffer(IGraphicsBackend& backend, RenderData& render_data);
 
       private:
@@ -51,10 +58,20 @@ namespace tbx
         std::unordered_map<uint64, Uuid> _instance_buffers = {};
         std::unordered_map<uint64, uint64> _instance_buffer_sizes = {};
         Uuid _shadow_pipeline = {};
+        Uuid _point_shadow_pipeline = {};
         std::vector<Uuid> _shadow_textures = {};
         std::vector<Uuid> _shadow_view_uniform_buffers = {};
+        std::vector<Uuid> _spot_shadow_view_uniform_buffers = {};
+        std::vector<Uuid> _area_shadow_view_uniform_buffers = {};
+        std::vector<Uuid> _point_shadow_uniform_buffers = {};
         Uuid _shadow_uniform_buffer = {};
+        Uuid _point_shadow_texture = {};
+        Uuid _spot_shadow_texture = {};
+        Uuid _area_shadow_texture = {};
         uint32 _shadow_resolution = 0U;
+        uint32 _point_shadow_texture_layers = 0U;
+        uint32 _spot_shadow_texture_layers = 0U;
+        uint32 _area_shadow_texture_layers = 0U;
     };
 
     /// @brief
