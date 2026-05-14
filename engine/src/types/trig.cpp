@@ -82,4 +82,13 @@ namespace tbx
     {
         return glm::atan(x);
     }
+
+    Vec3 normalize_or_zero(const Vec3& value)
+    {
+        const float length_squared = value.x * value.x + value.y * value.y + value.z * value.z;
+        if (length_squared <= 0.0F)
+            return Vec3(0.0F, 0.0F, 0.0F);
+
+        return normalize(value);
+    }
 }

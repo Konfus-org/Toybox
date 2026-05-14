@@ -1,4 +1,4 @@
-set(plugin_name MatMaterialLoaderPlugin)
+set(plugin_name TbxMaterialLoaderPlugin)
 
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
@@ -15,8 +15,8 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
         TARGET ${plugin_name}
-        CLASS mat_material_loader::MatMaterialLoaderPlugin
-        HEADER "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
+        CLASS tbx_material_loader::TbxMaterialLoaderPlugin
+        HEADER "tbx/plugins/tbx_material_loader/tbx_material_loader_plugin.h"
         NAME "${plugin_name}"
         VERSION "1.0.0"
         CATEGORY "default"

@@ -14,7 +14,7 @@ namespace sdl_base_systems
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:

@@ -180,4 +180,26 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(sphere_has_data);
         EXPECT_TRUE(capsule_has_data);
     }
+
+    // Validates built-in mesh factory outputs include computed local bounds.
+    TEST(MeshTests, BuiltInMeshFactories_PopulateBounds)
+    {
+        // Arrange
+        const auto meshes = std::array<Mesh, 7> {
+            make_triangle(),
+            make_quad(),
+            make_fullscreen_quad(),
+            make_cube(),
+            make_sphere(),
+            make_capsule(),
+            make_sky_dome(),
+        };
+
+        // Act / Assert
+        for (const auto& mesh : meshes)
+        {
+            EXPECT_TRUE(mesh.bounds.is_valid);
+            EXPECT_GE(mesh.bounds.sphere.radius, 0.0F);
+        }
+    }
 }

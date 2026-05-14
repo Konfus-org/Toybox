@@ -44,7 +44,8 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Controls when shadows are rendered for a material.
+    /// Purpose: Controls when shadows are rendered for a material. Always ignores the global
+    /// shadow caster distance limit so distant geometry can still cast.
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.

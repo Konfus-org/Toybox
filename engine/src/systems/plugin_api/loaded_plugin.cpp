@@ -20,7 +20,7 @@ namespace tbx
 
     LoadedPlugin::~LoadedPlugin() noexcept
     {
-        detach();
+        // Plugin teardown requires a ServiceProvider, so detach is performed by PluginManager.
     }
 
     bool LoadedPlugin::is_valid() const
@@ -46,13 +46,13 @@ namespace tbx
         }
     }
 
-    void LoadedPlugin::detach()
+    void LoadedPlugin::detach(ServiceProvider& service_provider)
     {
         if (!is_valid() || _state != LoadedPluginState::ATTACHED)
             return;
 
         TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
-        instance->detach();
+        instance->detach(service_provider);
         _state = LoadedPluginState::DETACHED;
     }
 

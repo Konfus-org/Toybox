@@ -4,37 +4,38 @@
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/typedefs.h"
-#include <functional>
-#include <optional>
+#include <memory>
 #include <string>
 
 namespace tbx
 {
     class Application;
+    class AppSettings;
 }
 
-namespace profiler
+namespace tbx_performance_monitor
 {
     /// @brief
     /// Purpose: Collects frame profiling data and reports runtime debug/performance diagnostics.
     /// @details
     /// Ownership: Does not own application services; samples frame timing from app lifecycle
     /// events. Thread Safety: Not thread-safe; expected to run on the main thread.
-    class TBX_PLUGIN_API ProfilerPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API TbxPerformanceMonitorPlugin final : public tbx::Plugin
     {
       public:
-        ProfilerPlugin() = default;
-        ~ProfilerPlugin() noexcept override = default;
+        TbxPerformanceMonitorPlugin() = default;
+        ~TbxPerformanceMonitorPlugin() noexcept override = default;
 
       public:
-        ProfilerPlugin(const ProfilerPlugin&) = delete;
-        ProfilerPlugin& operator=(const ProfilerPlugin&) = delete;
-        ProfilerPlugin(ProfilerPlugin&&) noexcept = default;
-        ProfilerPlugin& operator=(ProfilerPlugin&&) noexcept = default;
+        TbxPerformanceMonitorPlugin(const TbxPerformanceMonitorPlugin&) = delete;
+        TbxPerformanceMonitorPlugin& operator=(const TbxPerformanceMonitorPlugin&) = delete;
+        TbxPerformanceMonitorPlugin(TbxPerformanceMonitorPlugin&&) noexcept = default;
+        TbxPerformanceMonitorPlugin& operator=(TbxPerformanceMonitorPlugin&&) noexcept = default;
 
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
+        void on_update(const tbx::DeltaTime& dt) override;
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
@@ -47,8 +48,9 @@ namespace profiler
 #endif
 
       private:
-        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
-            std::nullopt;
+        tbx::ServiceProvider* _service_provider = nullptr;
+        std::weak_ptr<tbx::IWindowManager> _window_manager = {};
+        std::weak_ptr<tbx::AppSettings> _settings = {};
         tbx::Window _main_window = {};
         std::string _main_window_base_title = {};
 

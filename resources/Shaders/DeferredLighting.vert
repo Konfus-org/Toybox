@@ -1,16 +1,12 @@
 #version 450 core
 
-out vec2 v_tex_coord;
+layout(location = 0) in vec3 a_position;
+layout(location = 3) in vec2 a_texcoord;
 
-const vec2 k_positions[3] = vec2[](
-    vec2(-1.0, -1.0),
-    vec2(3.0, -1.0),
-    vec2(-1.0, 3.0)
-);
+out vec2 v_tex_coord;
 
 void main()
 {
-    vec2 position = k_positions[gl_VertexID];
-    v_tex_coord = position * 0.5 + 0.5;
-    gl_Position = vec4(position, 0.0, 1.0);
+    v_tex_coord = a_texcoord;
+    gl_Position = vec4(a_position.xy, 0.0, 1.0);
 }

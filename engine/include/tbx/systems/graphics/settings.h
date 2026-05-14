@@ -22,7 +22,9 @@ namespace tbx
             Size resolution = {0, 0},
             uint32 shadow_map_resolution = 2048U,
             float shadow_render_distance = 90.0F,
-            float shadow_softness = 1.0F);
+            float shadow_softness = 1.0F,
+            float local_light_max_distance = 64.0F,
+            float shadow_caster_max_distance = 96.0F);
 
         /// @brief
         /// Purpose: Toggles presentation sync with the display refresh rate.
@@ -67,5 +69,23 @@ namespace tbx
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         Observable<GraphicsSettings, float> shadow_softness;
+
+        /// @brief
+        /// Purpose: Maximum distance from the active camera at which point, spot, and area lights
+        /// are evaluated for scene lighting. Directional lights ignore this limit. Zero or
+        /// negative values disable the limit (unbounded local lights).
+        /// @details
+        /// Ownership: Value owned by this settings object.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        Observable<GraphicsSettings, float> local_light_max_distance;
+
+        /// @brief
+        /// Purpose: Maximum distance from the active camera at which opaque meshes may cast
+        /// shadows for local lights and directional cascades. Materials with shadow mode Always
+        /// ignore this limit. Zero or negative values disable the limit.
+        /// @details
+        /// Ownership: Value owned by this settings object.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        Observable<GraphicsSettings, float> shadow_caster_max_distance;
     };
 }

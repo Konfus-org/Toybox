@@ -3,22 +3,56 @@
 #include "tbx/systems/graphics/pipeline/commands/render_pass.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/matrices.h"
+#include "tbx/types/size.h"
 #include "tbx/types/uuid.h"
+#include <array>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 namespace tbx
 {
+    class IGraphicsBackend;
+    class GraphicsResourceManager;
+    struct GraphicsMaterialDrawResource;
     struct Mesh;
     struct Transform;
-    struct FrameData;
+    struct RenderData;
+
+    /// @brief
+    /// Purpose: Builds reusable fullscreen-quad GPU resources for screen-space passes.
+    class TBX_API BuildFullscreenQuadResourcesOperation final : public IRenderOperation
+    {
+      public:
+        explicit BuildFullscreenQuadResourcesOperation(std::weak_ptr<IGraphicsBackend> backend);
+        ~BuildFullscreenQuadResourcesOperation() noexcept override = default;
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+        void release(IGraphicsBackend& backend) override;
+
+      private:
+        Result ensure_geometry(IGraphicsBackend& backend);
+
+      private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        Uuid _vertex_buffer = {};
+        Uuid _index_buffer = {};
+        uint32 _index_count = 0U;
+    };
 
     /// @brief
     /// Purpose: Builds directional shadow-map commands for visible shadow-casting renderables.
     class TBX_API BuildDirectionalShadowCommandsOperation final : public IRenderOperation
     {
       public:
+        BuildDirectionalShadowCommandsOperation(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager);
         ~BuildDirectionalShadowCommandsOperation() noexcept override = default;
         RenderOperationDebugInfo get_debug_info() const override;
         Result prepare(RenderData& render_data) override;
@@ -44,14 +78,15 @@ namespace tbx
         Result ensure_point_shadow_pipeline(IGraphicsBackend& backend);
         Result ensure_shadow_resources(
             IGraphicsBackend& backend,
-            const FrameData& frame_data,
+            const RenderData& frame_data,
             uint32 directional_shadow_count,
             uint32 point_shadow_count,
             uint32 spot_shadow_count,
             uint32 area_shadow_count);
-        Result ensure_shadow_uniform_buffer(IGraphicsBackend& backend, RenderData& render_data);
 
       private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::reference_wrapper<GraphicsResourceManager> _resource_manager;
         std::unordered_map<uint64, Uuid> _mesh_vertex_buffers = {};
         std::unordered_map<uint64, Uuid> _mesh_index_buffers = {};
         std::unordered_map<uint64, uint32> _mesh_index_counts = {};
@@ -59,12 +94,11 @@ namespace tbx
         std::unordered_map<uint64, uint64> _instance_buffer_sizes = {};
         Uuid _shadow_pipeline = {};
         Uuid _point_shadow_pipeline = {};
-        std::vector<Uuid> _shadow_textures = {};
+        Uuid _directional_shadow_texture = {};
         std::vector<Uuid> _shadow_view_uniform_buffers = {};
         std::vector<Uuid> _spot_shadow_view_uniform_buffers = {};
         std::vector<Uuid> _area_shadow_view_uniform_buffers = {};
         std::vector<Uuid> _point_shadow_uniform_buffers = {};
-        Uuid _shadow_uniform_buffer = {};
         Uuid _point_shadow_texture = {};
         Uuid _spot_shadow_texture = {};
         Uuid _area_shadow_texture = {};
@@ -79,6 +113,9 @@ namespace tbx
     class TBX_API BuildSkyboxCommandsOperation final : public IRenderOperation
     {
       public:
+        BuildSkyboxCommandsOperation(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager);
         ~BuildSkyboxCommandsOperation() noexcept override = default;
         RenderOperationDebugInfo get_debug_info() const override;
         Result prepare(RenderData& render_data) override;
@@ -101,6 +138,8 @@ namespace tbx
             uint64 data_size);
 
       private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::reference_wrapper<GraphicsResourceManager> _resource_manager;
         Uuid _vertex_buffer = {};
         Uuid _index_buffer = {};
         uint32 _index_count = 0U;
@@ -114,6 +153,9 @@ namespace tbx
     class TBX_API BuildOpaqueCommandsOperation final : public IRenderOperation
     {
       public:
+        BuildOpaqueCommandsOperation(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager);
         ~BuildOpaqueCommandsOperation() noexcept override = default;
         RenderOperationDebugInfo get_debug_info() const override;
         Result prepare(RenderData& render_data) override;
@@ -141,10 +183,6 @@ namespace tbx
             uint64 batch_key,
             const std::vector<Mat4>& transforms,
             Uuid& out_buffer);
-        Result ensure_lighting_uniform_buffer(
-            IGraphicsBackend& backend,
-            const RenderData& render_data,
-            Uuid& out_buffer);
         Result ensure_fallback_pipeline(IGraphicsBackend& backend);
         Result ensure_fallback_geometry_buffers(
             IGraphicsBackend& backend,
@@ -152,6 +190,8 @@ namespace tbx
             const std::vector<uint32>& indices);
 
       private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::reference_wrapper<GraphicsResourceManager> _resource_manager;
         std::unordered_map<uint64, Uuid> _mesh_vertex_buffers = {};
         std::unordered_map<uint64, Uuid> _mesh_index_buffers = {};
         std::unordered_map<uint64, uint32> _mesh_index_counts = {};
@@ -159,7 +199,6 @@ namespace tbx
         std::unordered_map<uint64, Uuid> _instance_buffers = {};
         std::unordered_map<uint64, uint64> _instance_buffer_sizes = {};
         std::unordered_map<uint64, Uuid> _material_uniform_buffers = {};
-        Uuid _lighting_uniform_buffer = {};
         Uuid _fallback_pipeline = {};
         Uuid _fallback_vertex_buffer = {};
         Uuid _fallback_index_buffer = {};
@@ -191,5 +230,135 @@ namespace tbx
             IGraphicsBackend& backend,
             RenderData& render_data,
             const CancellationToken& token) override;
+    };
+
+    /// @brief
+    /// Purpose: Builds the scene lighting pass and GPU lighting inputs for scene composition.
+    class TBX_API BuildLightingCommandsOperation final : public IRenderOperation
+    {
+      public:
+        BuildLightingCommandsOperation(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager);
+        ~BuildLightingCommandsOperation() noexcept override = default;
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+        void release(IGraphicsBackend& backend) override;
+
+      private:
+        static uint32 get_albedo_texture_slot();
+        static uint32 get_normal_texture_slot();
+        static uint32 get_emissive_texture_slot();
+        static uint32 get_material_texture_slot();
+        static uint32 get_depth_texture_slot();
+        static uint32 get_directional_shadow_texture_slot();
+        static uint32 get_point_shadow_texture_slot();
+        static uint32 get_spot_shadow_texture_slot();
+        static uint32 get_area_shadow_texture_slot();
+        static uint32 get_material_uniform_slot();
+        static uint32 get_lighting_info_uniform_slot();
+        static uint32 get_point_lights_storage_slot();
+        static uint32 get_spot_lights_storage_slot();
+        static uint32 get_tile_light_spans_storage_slot();
+        static uint32 get_tile_point_light_indices_storage_slot();
+        static uint32 get_tile_spot_light_indices_storage_slot();
+        static uint32 get_area_lights_storage_slot();
+        static uint32 get_tile_area_light_indices_storage_slot();
+        static uint32 get_directional_shadow_cascades_storage_slot();
+        static uint32 get_spot_shadow_maps_storage_slot();
+        static uint32 get_area_shadow_maps_storage_slot();
+        static void set_texture_binding(
+            std::vector<GraphicsResourceBinding>& bindings,
+            uint32 slot,
+            Uuid resource);
+        Result ensure_material_uniform_buffer(
+            IGraphicsBackend& backend,
+            uint64 material_key,
+            const void* data,
+            uint64 data_size,
+            Uuid& out_buffer);
+        Result ensure_lighting_buffers(
+            IGraphicsBackend& backend,
+            const RenderData& render_data);
+        Result ensure_render_targets(IGraphicsBackend& backend, const Size& resolution);
+
+      private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::reference_wrapper<GraphicsResourceManager> _resource_manager;
+        std::unordered_map<uint64, Uuid> _material_uniform_buffers = {};
+        std::array<Uuid, 7U> _scene_color_targets = {};
+        Uuid _scene_depth_target = {};
+        Uuid _lighting_info_uniform_buffer = {};
+        Uuid _point_lights_storage_buffer = {};
+        Uuid _spot_lights_storage_buffer = {};
+        Uuid _tile_light_spans_storage_buffer = {};
+        Uuid _tile_point_light_indices_storage_buffer = {};
+        Uuid _tile_spot_light_indices_storage_buffer = {};
+        Uuid _area_lights_storage_buffer = {};
+        Uuid _tile_area_light_indices_storage_buffer = {};
+        Uuid _directional_shadow_cascades_storage_buffer = {};
+        Uuid _spot_shadow_maps_storage_buffer = {};
+        Uuid _area_shadow_maps_storage_buffer = {};
+        uint64 _lighting_info_uniform_buffer_size = 0U;
+        uint64 _point_lights_storage_buffer_size = 0U;
+        uint64 _spot_lights_storage_buffer_size = 0U;
+        uint64 _tile_light_spans_storage_buffer_size = 0U;
+        uint64 _tile_point_light_indices_storage_buffer_size = 0U;
+        uint64 _tile_spot_light_indices_storage_buffer_size = 0U;
+        uint64 _area_lights_storage_buffer_size = 0U;
+        uint64 _tile_area_light_indices_storage_buffer_size = 0U;
+        uint64 _directional_shadow_cascades_storage_buffer_size = 0U;
+        uint64 _spot_shadow_maps_storage_buffer_size = 0U;
+        uint64 _area_shadow_maps_storage_buffer_size = 0U;
+        Size _target_resolution = {};
+    };
+
+    /// @brief
+    /// Purpose: Builds material-driven post-processing passes from the PostProcessing component.
+    class TBX_API BuildPostProcessCommandsOperation final : public IRenderOperation
+    {
+      public:
+        BuildPostProcessCommandsOperation(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager);
+        ~BuildPostProcessCommandsOperation() noexcept override = default;
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+        void release(IGraphicsBackend& backend) override;
+
+      private:
+        static int32 find_parameter_index(
+            const GraphicsMaterialDrawResource& resource,
+            const char* parameter_name);
+        static int32 find_texture_binding_slot(
+            const GraphicsMaterialDrawResource& resource,
+            const char* texture_name);
+        static void apply_effect_blend_uniform(GraphicsMaterialDrawResource& resource, float blend);
+        static void set_texture_binding(
+            std::vector<GraphicsResourceBinding>& bindings,
+            uint32 slot,
+            Uuid resource);
+        Result ensure_material_uniform_buffer(
+            IGraphicsBackend& backend,
+            uint64 material_key,
+            const void* data,
+            uint64 data_size,
+            Uuid& out_buffer);
+        Result ensure_post_process_targets(IGraphicsBackend& backend, const Size& resolution);
+
+      private:
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::reference_wrapper<GraphicsResourceManager> _resource_manager;
+        std::unordered_map<uint64, Uuid> _material_uniform_buffers = {};
+        std::array<Uuid, 2U> _post_process_targets = {};
+        Size _target_resolution = {};
     };
 }

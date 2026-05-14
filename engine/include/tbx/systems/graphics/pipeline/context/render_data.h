@@ -1,9 +1,8 @@
 #pragma once
-#include "tbx/interfaces/window_manager.h"
+#include "tbx/interfaces/window.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/pipeline/commands/render_pass.h"
-#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
@@ -12,6 +11,7 @@
 #include "tbx/types/components/transform.h"
 #include "tbx/types/material.h"
 #include "tbx/types/matrices.h"
+#include "tbx/types/sphere.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/viewport.h"
 #include <functional>
@@ -20,35 +20,6 @@
 
 namespace tbx
 {
-    class IGraphicsBackend;
-
-    /// @brief
-    /// Purpose: Stores frame-level inputs, derived camera state, and backend lifecycle flags.
-    struct TBX_API FrameData
-    {
-        std::reference_wrapper<IGraphicsBackend> backend;
-        std::reference_wrapper<GraphicsResourceManager> resource_manager;
-        std::reference_wrapper<EntityRegistry> entity_registry;
-        std::reference_wrapper<IWindowManager> window_manager;
-        Window output_window = {};
-        Size requested_resolution = {};
-        uint64 frame_index = 0U;
-        uint32 shadow_map_resolution = 1024U;
-        float shadow_render_distance = 90.0F;
-        float shadow_softness = 1.0F;
-
-        Size render_resolution = {};
-        Viewport viewport = {};
-        Camera camera = {};
-        Transform camera_transform = {};
-        Mat4 view_projection = Mat4(1.0F);
-        Vec3 camera_position = {};
-
-        Uuid view_uniform_buffer = {};
-        bool frame_started = false;
-        bool view_started = false;
-    };
-
     /// @brief
     /// Purpose: Identifies where renderable geometry comes from before backend resources are
     /// resolved.
@@ -69,6 +40,7 @@ namespace tbx
         Handle static_mesh = {};
         MaterialInstance material = {};
         Transform transform = {};
+        Sphere world_bounds = {};
         bool is_visible = true;
     };
 
@@ -169,18 +141,38 @@ namespace tbx
     /// Purpose: Stores all backend-neutral scene, frame, and prepared draw data for one render.
     struct TBX_API RenderData
     {
-        RenderData(FrameData frame_data);
+        Window output_window = {};
+        Size requested_resolution = {};
+        uint64 frame_index = 0U;
+        uint32 shadow_map_resolution = 1024U;
+        float shadow_render_distance = 90.0F;
+        float shadow_softness = 1.0F;
+        float local_light_max_distance = 64.0F;
+        float shadow_caster_max_distance = 96.0F;
 
-        FrameData frame;
+        Size render_resolution = {};
+        Viewport viewport = {};
+        Camera camera = {};
+        Transform camera_transform = {};
+        /// Entity that owns the active Camera (reserved for future view-relative effects).
+        Uuid active_camera_entity_id = {};
+        Mat4 view_projection = Mat4(1.0F);
+        Vec3 camera_position = {};
+
+        Uuid view_uniform_buffer = {};
+        bool frame_started = false;
+        bool view_started = false;
+
         std::vector<RenderDataRenderable> renderables = {};
         std::vector<RenderDataPointLight> point_lights = {};
         std::vector<RenderDataSpotLight> spot_lights = {};
         std::vector<RenderDataAreaLight> area_lights = {};
         std::vector<RenderDataDirectionalLight> directional_lights = {};
+
         RenderDataSky sky = {};
         PostProcessing post_processing = {};
         bool has_skybox = false;
-        Uuid forward_shadow_uniform_buffer = {};
+
         Uuid directional_shadow_light_entity = {};
         std::vector<RenderDataDirectionalShadowCascade> directional_shadow_cascades = {};
         std::vector<RenderDataPointShadowMap> point_shadow_maps = {};
@@ -190,9 +182,25 @@ namespace tbx
         std::vector<GraphicsRenderPass> point_shadow_passes = {};
         std::vector<GraphicsRenderPass> spot_shadow_passes = {};
         std::vector<GraphicsRenderPass> area_shadow_passes = {};
+        Uuid directional_shadow_texture = {};
         Uuid point_shadow_texture = {};
         Uuid spot_shadow_texture = {};
         Uuid area_shadow_texture = {};
+
+        std::vector<Uuid> scene_color_targets = {};
+        Uuid scene_color_target = {};
+        Uuid scene_world_position_target = {};
+        Uuid scene_albedo_target = {};
+        Uuid scene_normal_target = {};
+        Uuid scene_emissive_target = {};
+        Uuid scene_material_target = {};
+        Uuid scene_depth_target = {};
+        std::vector<GraphicsRenderPass> lighting_passes = {};
+        std::vector<GraphicsRenderPass> post_process_passes = {};
+
+        Uuid fullscreen_quad_vertex_buffer = {};
+        Uuid fullscreen_quad_index_buffer = {};
+        uint32 fullscreen_quad_index_count = 0U;
 
         std::vector<GraphicsIndexedDrawCommand> skybox_commands = {};
         std::vector<GraphicsIndexedDrawCommand> opaque_commands = {};
@@ -205,7 +213,7 @@ namespace tbx
     class TBX_API RenderDataBuilder final
     {
       public:
-        RenderDataBuilder(EntityRegistry& registry);
+        explicit RenderDataBuilder(std::weak_ptr<EntityRegistry> registry);
         ~RenderDataBuilder() noexcept = default;
 
       public:
@@ -217,17 +225,26 @@ namespace tbx
       public:
         /// @brief
         /// Purpose: Captures the current ECS render data into the render data.
-        void build(RenderData& render_data) const;
+        RenderData build(
+            const Window& output_window,
+            const Size& requested_resolution,
+            uint64 frame_index,
+            uint32 shadow_map_resolution,
+            float shadow_render_distance,
+            float shadow_softness,
+            float local_light_max_distance,
+            float shadow_caster_max_distance) const;
 
       private:
         void append_dynamic_meshes(RenderData& render_data) const;
         void append_lights(RenderData& render_data) const;
+        void append_post_processing(RenderData& render_data) const;
         void append_sky(RenderData& render_data) const;
         void append_static_meshes(RenderData& render_data) const;
         MaterialInstance get_material(Entity& entity) const;
 
       private:
-        std::reference_wrapper<EntityRegistry> _registry;
+        std::weak_ptr<EntityRegistry> _registry;
         MaterialInstance _default_material = MaterialInstance(Handle("Materials/Flat.mat"));
     };
 }

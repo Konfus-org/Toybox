@@ -55,7 +55,7 @@ namespace tbx
         /// @brief Purpose: Detaches the loaded plugin instance from its current service provider.
         /// @details Ownership: Does not transfer ownership.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        void detach();
+        void detach(ServiceProvider& service_provider);
 
         /// @brief Purpose: Forwards a dispatched message to the loaded plugin instance.
         /// @details Ownership: Does not take ownership of the message.

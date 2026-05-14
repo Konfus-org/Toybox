@@ -1,4 +1,4 @@
-set(plugin_name ProfilerPlugin)
+set(plugin_name TbxPerformanceMonitorPlugin)
 
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
@@ -13,8 +13,8 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
         TARGET ${plugin_name}
-        CLASS profiler::ProfilerPlugin
-        HEADER "tbx/plugins/profiler/profiler_plugin.h"
+        CLASS tbx_performance_monitor::TbxPerformanceMonitorPlugin
+        HEADER "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
         NAME "${plugin_name}"
         VERSION "1.0.0"
         CATEGORY "logging"

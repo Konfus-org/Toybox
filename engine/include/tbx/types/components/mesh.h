@@ -2,6 +2,7 @@
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vertex.h"
 #include <memory>
@@ -20,19 +21,32 @@ namespace tbx
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};
+        /// @brief
+        /// Purpose: Stores local-space mesh bounds used for visibility and lighting culling.
+        /// @details
+        /// Ownership: Value-owned by the mesh. Notes: Static meshes are populated during model
+        /// load. Dynamic mesh producers are responsible for refreshing bounds after mutating
+        /// vertices/indices.
+        MeshBounds bounds = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Mesh, vertices, indices)
+        TBX_SERIALIZABLE_INTRUSIVE(Mesh, vertices, indices, bounds)
     };
 
     TBX_API Mesh make_triangle();
+
     TBX_API Mesh make_quad();
+
     /// @brief Purpose: Creates a clip-space fullscreen quad mesh.
     /// @details Ownership: Returns a mesh value owned by the caller.
     /// Thread Safety: Safe to call concurrently.
     TBX_API Mesh make_fullscreen_quad();
+
     TBX_API Mesh make_cube();
+
     TBX_API Mesh make_sphere();
+
     TBX_API Mesh make_capsule();
+
     /// @brief Purpose: Creates a panoramic sky dome mesh.
     /// @details Ownership: Returns a mesh value owned by the caller.
     /// Thread Safety: Safe to call concurrently.

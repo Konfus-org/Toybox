@@ -190,7 +190,7 @@ namespace assimp_model_loader
             serialization_registry->register_reader<tbx::Model>(read_model);
     }
 
-    void AssimpModelLoaderPlugin::on_detach()
+    void AssimpModelLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
             serialization_registry->deregister_reader<tbx::Model>();

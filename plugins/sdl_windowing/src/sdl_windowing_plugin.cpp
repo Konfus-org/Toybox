@@ -45,8 +45,6 @@ namespace sdl_windowing
 
     void SdlWindowingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = std::ref(service_provider);
-
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
         {
             TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. Error: {}", SDL_GetError());
@@ -112,18 +110,15 @@ namespace sdl_windowing
             window_backend_ptr->set_icon_surface(_window_icon_surface);
     }
 
-    void SdlWindowingPlugin::on_detach()
+    void SdlWindowingPlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
-        if (_service_provider.has_value()
-            && _service_provider->get().has_service<tbx::IWindowManager>())
-            _service_provider->get().deregister_service<tbx::IWindowManager>();
+        if (service_provider.has_service<tbx::IWindowManager>())
+            service_provider.deregister_service<tbx::IWindowManager>();
 
-        if (_service_provider.has_value()
-            && _service_provider->get().has_service<tbx::IWindowBackend>())
-            _service_provider->get().deregister_service<tbx::IWindowBackend>();
+        if (service_provider.has_service<tbx::IWindowBackend>())
+            service_provider.deregister_service<tbx::IWindowBackend>();
 
         _window_backend = {};
-        _service_provider = std::nullopt;
 
         if (_window_icon_surface)
         {

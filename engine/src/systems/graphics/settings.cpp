@@ -9,7 +9,9 @@ namespace tbx
         Size resolution,
         uint32 shadow_map_resolution,
         float shadow_render_distance,
-        float shadow_softness)
+        float shadow_softness,
+        float local_light_max_distance,
+        float shadow_caster_max_distance)
         : vsync_enabled(dispatcher, *this, &GraphicsSettings::vsync_enabled, vsync)
         , graphics_api(dispatcher, *this, &GraphicsSettings::graphics_api, api)
         , resolution(dispatcher, *this, &GraphicsSettings::resolution, resolution)
@@ -24,6 +26,16 @@ namespace tbx
               &GraphicsSettings::shadow_render_distance,
               shadow_render_distance)
         , shadow_softness(dispatcher, *this, &GraphicsSettings::shadow_softness, shadow_softness)
+        , local_light_max_distance(
+              dispatcher,
+              *this,
+              &GraphicsSettings::local_light_max_distance,
+              local_light_max_distance)
+        , shadow_caster_max_distance(
+              dispatcher,
+              *this,
+              &GraphicsSettings::shadow_caster_max_distance,
+              shadow_caster_max_distance)
     {
     }
 }

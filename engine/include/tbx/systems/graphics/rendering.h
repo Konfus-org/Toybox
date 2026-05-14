@@ -9,7 +9,6 @@
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
-#include <functional>
 #include <future>
 #include <memory>
 
@@ -25,11 +24,11 @@ namespace tbx
     {
       public:
         Rendering(
-            IGraphicsBackend& backend,
-            EntityRegistry& entity_registry,
-            AssetManager& asset_manager,
-            ThreadManager& thread_manager,
-            IWindowManager& window_manager,
+            std::weak_ptr<IGraphicsBackend> backend,
+            std::weak_ptr<EntityRegistry> entity_registry,
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<ThreadManager> thread_manager,
+            std::weak_ptr<IWindowManager> window_manager,
             Window output_window,
             const GraphicsSettings& settings);
         ~Rendering() noexcept;
@@ -48,15 +47,17 @@ namespace tbx
         void wait_for_initialization() noexcept;
         void wait_for_render_frame() noexcept;
 
-        std::reference_wrapper<ThreadManager> _thread_manager;
-        std::reference_wrapper<IGraphicsBackend> _backend;
-        std::reference_wrapper<EntityRegistry> _entity_registry;
-        std::reference_wrapper<IWindowManager> _window_manager;
+        std::weak_ptr<ThreadManager> _thread_manager;
+        std::weak_ptr<IGraphicsBackend> _backend;
+        std::weak_ptr<EntityRegistry> _entity_registry;
+        std::weak_ptr<IWindowManager> _window_manager;
         Window _output_window = {};
         Size _requested_resolution = {};
         uint32 _shadow_map_resolution = 1024U;
         float _shadow_render_distance = 90.0F;
         float _shadow_softness = 1.0F;
+        float _local_light_max_distance = 64.0F;
+        float _shadow_caster_max_distance = 96.0F;
         std::unique_ptr<GraphicsResourceManager> _resource_manager = {};
         RenderPipeline _pipeline;
         std::future<void> _initialization_future = {};

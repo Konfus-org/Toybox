@@ -9,13 +9,13 @@
 #include <memory>
 #include <optional>
 
-namespace glsl_shader_loader
+namespace tbx_shader_loader
 {
-    class TBX_PLUGIN_API GlslShaderLoaderPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API TbxShaderLoaderPlugin final : public tbx::Plugin
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
         std::shared_ptr<tbx::Shader> read_shader(

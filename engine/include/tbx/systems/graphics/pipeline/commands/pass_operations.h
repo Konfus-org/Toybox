@@ -70,6 +70,32 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Executes prepared fullscreen lighting/composition passes.
+    class TBX_API ExecuteLightingPassOperation final : public IRenderOperation
+    {
+      public:
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+    };
+
+    /// @brief
+    /// Purpose: Executes prepared fullscreen post-processing passes.
+    class TBX_API ExecutePostProcessPassOperation final : public IRenderOperation
+    {
+      public:
+        RenderOperationDebugInfo get_debug_info() const override;
+        Result prepare(RenderData& render_data) override;
+        Result execute(
+            IGraphicsBackend& backend,
+            RenderData& render_data,
+            const CancellationToken& token) override;
+    };
+
+    /// @brief
     /// Purpose: Presents the completed frame and ends backend frame lifecycle.
     class TBX_API PresentOperation final : public IRenderOperation
     {

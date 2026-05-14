@@ -4,7 +4,6 @@
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -18,7 +17,7 @@ namespace tbx
     class TBX_API RenderPipeline final
     {
       public:
-        RenderPipeline(IGraphicsBackend& backend);
+        explicit RenderPipeline(std::weak_ptr<IGraphicsBackend> backend);
         ~RenderPipeline() noexcept = default;
 
       public:
@@ -71,7 +70,7 @@ namespace tbx
             const Result& result) const;
 
       private:
-        std::reference_wrapper<IGraphicsBackend> _backend;
+        std::weak_ptr<IGraphicsBackend> _backend;
         std::unique_ptr<RenderData> _render_data = {};
         std::vector<std::unique_ptr<IRenderOperation>> _operations = {};
     };

@@ -1,6 +1,5 @@
 #version 450 core
 #include Globals.glsl
-#include ForwardLighting.glsl
 
 layout(location = 0) out vec4 o_final_color;
 layout(location = 1) out vec4 o_geometry_preview_color;
@@ -65,13 +64,7 @@ void main()
         256.0);
     vec3 emissive_sample = texture(u_textures[4], v_tex_coord).rgb;
     vec3 emissive = emissive_color.rgb * emissive_sample * emissive_strength * exposure;
-    vec3 preview_color = tbx_apply_forward_lighting(
-        surface_color.rgb,
-        emissive,
-        v_world_position,
-        surface_normal,
-        specular,
-        shininess);
+    vec3 preview_color = clamp(surface_color.rgb + emissive, 0.0, 1.0);
     float depth_preview = 1.0 - pow(clamp(gl_FragCoord.z, 0.0, 1.0), 24.0);
 
     o_final_color = vec4(preview_color, surface_alpha);

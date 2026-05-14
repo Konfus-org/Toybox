@@ -10,8 +10,6 @@ namespace opengl_rendering
 {
     void OpenGlRenderingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = std::ref(service_provider);
-
         auto context_manager = service_provider.get_service<tbx::IOpenGlContextManager>().lock();
         TBX_ASSERT(context_manager != nullptr, "OpenGL rendering plugin requires context manager.");
         if (!context_manager)
@@ -29,17 +27,15 @@ namespace opengl_rendering
         _backend = backend_ptr;
     }
 
-    void OpenGlRenderingPlugin::on_detach()
+    void OpenGlRenderingPlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         if (auto backend = _backend.lock())
             backend->shutdown();
 
-        if (_service_provider.has_value()
-            && _service_provider->get().has_service<tbx::IGraphicsBackend>())
-            _service_provider->get().deregister_service<tbx::IGraphicsBackend>();
+        if (service_provider.has_service<tbx::IGraphicsBackend>())
+            service_provider.deregister_service<tbx::IGraphicsBackend>();
 
         _backend = {};
-        _service_provider = std::nullopt;
     }
 
     void OpenGlRenderingPlugin::on_update(const tbx::DeltaTime&) {}

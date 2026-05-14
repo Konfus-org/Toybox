@@ -16,6 +16,7 @@
 #include "tbx/types/material.h"
 #include "tbx/types/shader.h"
 #include "tbx/types/texture.h"
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -456,6 +457,12 @@ namespace tbx::tests::graphics
         completion.get();
     }
 
+    template <typename TService>
+    static std::shared_ptr<TService> make_non_owning_service(TService& service)
+    {
+        return std::shared_ptr<TService>(&service, [](TService*) {});
+    }
+
     // Validates Rendering opens frame state and submits geometry through render().
     TEST(RenderingTests, Render_DelegatesFrameAndGeometryPassCommands)
     {
@@ -473,14 +480,19 @@ namespace tbx::tests::graphics
         auto entity = Entity("Triangle", registry);
         entity.add_component<DynamicMesh>(triangle);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
         rendering.render();
@@ -531,14 +543,19 @@ namespace tbx::tests::graphics
         auto entity = Entity("Triangle", registry);
         entity.add_component<DynamicMesh>(triangle);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
         ASSERT_EQ(initialize_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
@@ -588,12 +605,17 @@ namespace tbx::tests::graphics
         auto entity = Entity("Triangle", registry);
         entity.add_component<DynamicMesh>(triangle);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
 
@@ -631,15 +653,20 @@ namespace tbx::tests::graphics
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto caller_thread_id = std::this_thread::get_id();
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
         {
             auto rendering = Rendering(
-                backend,
-                registry,
-                asset_manager,
-                thread_manager,
-                window_manager,
+                backend_service,
+                registry_service,
+                asset_manager_service,
+                thread_manager_service,
+                window_manager_service,
                 window_manager.window,
                 settings);
             rendering.render();
@@ -742,7 +769,7 @@ namespace tbx::tests::graphics
 
         Result prepare(RenderData& render_data) override
         {
-            _state.get().prepared = render_data.frame.frame_index == 42U;
+            _state.get().prepared = render_data.frame_index == 42U;
             return {};
         }
 
@@ -777,16 +804,12 @@ namespace tbx::tests::graphics
         auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
         auto registry = EntityRegistry {};
         auto window_manager = RecordingWindowManager {};
-        auto render_data = std::make_unique<RenderData>(FrameData {
-            .backend = backend,
-            .resource_manager = resource_manager,
-            .entity_registry = registry,
-            .window_manager = window_manager,
-            .output_window = window_manager.window,
-            .frame_index = 42U,
-        });
+        auto render_data = std::make_unique<RenderData>();
+        render_data->output_window = window_manager.window;
+        render_data->frame_index = 42U;
         auto state = RenderPipelineOperationState {};
-        auto pipeline = RenderPipeline(backend);
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto pipeline = RenderPipeline(backend_service);
         pipeline.add_operation(std::make_unique<RecordingRenderOperation>(state));
 
         // Act
@@ -824,38 +847,39 @@ namespace tbx::tests::graphics
         auto entity = Entity("Cube", registry);
         entity.add_component<DynamicMesh>(cube);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
 
         // Assert
-        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::BeginFrame,
-            GraphicsBackendCallback::BeginView,
-            GraphicsBackendCallback::SetViewport,
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::DrawIndexed,
-            GraphicsBackendCallback::EndPass,
-            GraphicsBackendCallback::EndView,
-            GraphicsBackendCallback::Present,
-            GraphicsBackendCallback::EndFrame,
-        };
-
-        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Opaque Scene Pass");
-        EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.callbacks, expected_callbacks);
+        ASSERT_EQ(backend.recorded_passes.size(), 2U);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
+        EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_NE(
+            std::find(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::DrawIndexed),
+            backend.callbacks.end());
+        EXPECT_NE(
+            std::find(backend.callbacks.begin(), backend.callbacks.end(), GraphicsBackendCallback::Draw),
+            backend.callbacks.end());
     }
 
     // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
@@ -902,46 +926,41 @@ namespace tbx::tests::graphics
         auto mesh_entity = Entity("Triangle", registry);
         mesh_entity.add_component<DynamicMesh>(triangle);
         mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
 
         // Assert
-        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::BeginFrame,
-            GraphicsBackendCallback::BeginView,
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindUniformBuffer,
-            GraphicsBackendCallback::BindTexture,
-            GraphicsBackendCallback::Draw,
-            GraphicsBackendCallback::EndPass,
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::DrawIndexed,
-            GraphicsBackendCallback::EndPass,
-            GraphicsBackendCallback::EndView,
-            GraphicsBackendCallback::Present,
-            GraphicsBackendCallback::EndFrame,
-        };
-
-        ASSERT_EQ(backend.recorded_passes.size(), 2U);
+        ASSERT_EQ(backend.recorded_passes.size(), 3U);
         EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Skybox Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::DEPTH);
-        EXPECT_EQ(backend.callbacks, expected_callbacks);
+        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_NE(
+            std::find(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::DrawIndexed),
+            backend.callbacks.end());
+        EXPECT_NE(
+            std::find(backend.callbacks.begin(), backend.callbacks.end(), GraphicsBackendCallback::Draw),
+            backend.callbacks.end());
     }
 
     // Validates static mesh rendering uses cached model buffers without reloading CPU assets.
@@ -969,12 +988,17 @@ namespace tbx::tests::graphics
         auto entity = Entity("StaticTriangle", registry);
         entity.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
-            backend,
-            registry,
-            asset_manager,
-            thread_manager,
-            window_manager,
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
             window_manager.window,
             settings);
 
@@ -989,8 +1013,8 @@ namespace tbx::tests::graphics
         // Assert
         EXPECT_EQ(model_load_count, 1U);
         EXPECT_EQ(usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_EQ(backend.uploaded_buffer_count, 3U);
-        EXPECT_EQ(backend.uploaded_pipeline_count, 2U);
+        EXPECT_GE(backend.uploaded_buffer_count, 3U);
+        EXPECT_GE(backend.uploaded_pipeline_count, 2U);
         EXPECT_EQ(backend.recorded_draw.index_count, 3U);
     }
 

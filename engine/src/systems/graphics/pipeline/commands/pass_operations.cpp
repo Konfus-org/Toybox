@@ -14,7 +14,7 @@ namespace tbx
 
     static Result ensure_frame_started(IGraphicsBackend& backend, RenderData& render_data)
     {
-        auto& frame_data = render_data.frame;
+        auto& frame_data = render_data;
         if (!frame_data.frame_started)
         {
             if (const auto result = backend.begin_frame(
@@ -70,13 +70,32 @@ namespace tbx
         for (const auto& draw : draw_commands)
         {
             if (token && token.is_cancelled())
-                return backend.end_pass(), Result(false, cancel_report + " cancelled mid-pass.");
+            {
+                (void)backend.end_pass();
+                return Result(false, cancel_report + " cancelled mid-pass.");
+            }
 
             if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
-                return backend.end_pass(), result;
+            {
+                (void)backend.end_pass();
+                return result;
+            }
         }
 
         return backend.end_pass();
+    }
+
+    static GraphicsPassDesc make_scene_pass_desc(
+        const RenderData& render_data,
+        GraphicsPassDesc pass_desc)
+    {
+        if (!render_data.scene_color_targets.empty())
+            pass_desc.color_targets = render_data.scene_color_targets;
+        else if (render_data.scene_color_target.is_valid())
+            pass_desc.color_targets = {render_data.scene_color_target};
+        if (render_data.scene_depth_target.is_valid())
+            pass_desc.depth_stencil_target = render_data.scene_depth_target;
+        return pass_desc;
     }
 
     static Result execute_shadow_pass_list(
@@ -116,7 +135,10 @@ namespace tbx
                 }
 
                 if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
-                    return backend.end_pass(), result;
+                {
+                    (void)backend.end_pass();
+                    return result;
+                }
             }
 
             if (const auto result = backend.end_pass(); !result)
@@ -194,7 +216,7 @@ namespace tbx
             && render_data.spot_shadow_passes.empty() && render_data.area_shadow_passes.empty())
             return {};
 
-        return backend.set_viewport(render_data.frame.viewport);
+        return backend.set_viewport(render_data.viewport);
     }
 
     Result ExecuteSkyboxPassOperation::prepare(RenderData&)
@@ -211,13 +233,15 @@ namespace tbx
             backend,
             render_data,
             render_data.skybox_commands,
-            GraphicsPassDesc {
-                .clear_color = Color::BLACK,
-                .clear_depth = 1.0F,
-                .clear_stencil = 0U,
-                .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
-                .debug_name = "Toybox Skybox Pass",
-            },
+            make_scene_pass_desc(
+                render_data,
+                GraphicsPassDesc {
+                    .clear_color = Color::BLACK,
+                    .clear_depth = 1.0F,
+                    .clear_stencil = 0U,
+                    .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
+                    .debug_name = "Toybox Skybox Pass",
+                }),
             token,
             "ExecuteSkyboxPassOperation");
     }
@@ -241,14 +265,16 @@ namespace tbx
             backend,
             render_data,
             render_data.opaque_commands,
-            GraphicsPassDesc {
-                .clear_color = Color::BLACK,
-                .clear_depth = 1.0F,
-                .clear_stencil = 0U,
-                .clear_flags = render_data.has_skybox ? GraphicsClearFlags::DEPTH
-                                                      : GraphicsClearFlags::COLOR_DEPTH,
-                .debug_name = "Toybox Opaque Scene Pass",
-            },
+            make_scene_pass_desc(
+                render_data,
+                GraphicsPassDesc {
+                    .clear_color = Color::BLACK,
+                    .clear_depth = 1.0F,
+                    .clear_stencil = 0U,
+                    .clear_flags = render_data.has_skybox ? GraphicsClearFlags::DEPTH
+                                                          : GraphicsClearFlags::COLOR_DEPTH,
+                    .debug_name = "Toybox Opaque Scene Pass",
+                }),
             token,
             "ExecuteOpaquePassOperation");
     }
@@ -272,13 +298,15 @@ namespace tbx
             backend,
             render_data,
             render_data.alpha_cutout_commands,
-            GraphicsPassDesc {
-                .clear_color = Color::BLACK,
-                .clear_depth = 1.0F,
-                .clear_stencil = 0U,
-                .clear_flags = GraphicsClearFlags::NONE,
-                .debug_name = "Toybox Alpha Cutout Pass",
-            },
+            make_scene_pass_desc(
+                render_data,
+                GraphicsPassDesc {
+                    .clear_color = Color::BLACK,
+                    .clear_depth = 1.0F,
+                    .clear_stencil = 0U,
+                    .clear_flags = GraphicsClearFlags::NONE,
+                    .debug_name = "Toybox Alpha Cutout Pass",
+                }),
             token,
             "ExecuteAlphaCutoutPassOperation");
     }
@@ -302,15 +330,163 @@ namespace tbx
             backend,
             render_data,
             render_data.transparent_commands,
-            GraphicsPassDesc {
-                .clear_color = Color::BLACK,
-                .clear_depth = 1.0F,
-                .clear_stencil = 0U,
-                .clear_flags = GraphicsClearFlags::NONE,
-                .debug_name = "Toybox Transparent Pass",
-            },
+            make_scene_pass_desc(
+                render_data,
+                GraphicsPassDesc {
+                    .clear_color = Color::BLACK,
+                    .clear_depth = 1.0F,
+                    .clear_stencil = 0U,
+                    .clear_flags = GraphicsClearFlags::NONE,
+                    .debug_name = "Toybox Transparent Pass",
+                }),
             token,
             "ExecuteTransparentPassOperation");
+    }
+
+    RenderOperationDebugInfo ExecuteLightingPassOperation::get_debug_info() const
+    {
+        return make_pass_debug_info("Toybox Execute Lighting Pass Operation");
+    }
+
+    Result ExecuteLightingPassOperation::prepare(RenderData&)
+    {
+        return {};
+    }
+
+    Result ExecuteLightingPassOperation::execute(
+        IGraphicsBackend& backend,
+        RenderData& render_data,
+        const CancellationToken& token)
+    {
+        if (render_data.lighting_passes.empty())
+            return {};
+
+        if (const auto result = ensure_frame_started(backend, render_data); !result)
+            return result;
+
+        const auto executor = RenderCommandExecutor();
+        for (const auto& pass : render_data.lighting_passes)
+        {
+            if (token && token.is_cancelled())
+                return Result(false, "ExecuteLightingPassOperation cancelled.");
+
+            if (pass.viewport.has_value())
+            {
+                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
+                    return result;
+            }
+
+            if (const auto result = backend.begin_pass(pass.pass); !result)
+                return result;
+
+            for (const auto& draw : pass.draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    (void)backend.end_pass();
+                    return Result(false, "ExecuteLightingPassOperation cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_draw(backend, draw); !result)
+                {
+                    (void)backend.end_pass();
+                    return result;
+                }
+            }
+
+            for (const auto& draw : pass.indexed_draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    (void)backend.end_pass();
+                    return Result(false, "ExecuteLightingPassOperation cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
+                {
+                    (void)backend.end_pass();
+                    return result;
+                }
+            }
+
+            if (const auto result = backend.end_pass(); !result)
+                return result;
+        }
+
+        return backend.set_viewport(render_data.viewport);
+    }
+
+    RenderOperationDebugInfo ExecutePostProcessPassOperation::get_debug_info() const
+    {
+        return make_pass_debug_info("Toybox Execute Post Process Pass Operation");
+    }
+
+    Result ExecutePostProcessPassOperation::prepare(RenderData&)
+    {
+        return {};
+    }
+
+    Result ExecutePostProcessPassOperation::execute(
+        IGraphicsBackend& backend,
+        RenderData& render_data,
+        const CancellationToken& token)
+    {
+        if (render_data.post_process_passes.empty())
+            return {};
+
+        if (const auto result = ensure_frame_started(backend, render_data); !result)
+            return result;
+
+        const auto executor = RenderCommandExecutor();
+        for (const auto& pass : render_data.post_process_passes)
+        {
+            if (token && token.is_cancelled())
+                return Result(false, "ExecutePostProcessPassOperation cancelled.");
+
+            if (pass.viewport.has_value())
+            {
+                if (const auto result = backend.set_viewport(pass.viewport.value()); !result)
+                    return result;
+            }
+
+            if (const auto result = backend.begin_pass(pass.pass); !result)
+                return result;
+
+            for (const auto& draw : pass.draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    (void)backend.end_pass();
+                    return Result(false, "ExecutePostProcessPassOperation cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_draw(backend, draw); !result)
+                {
+                    (void)backend.end_pass();
+                    return result;
+                }
+            }
+
+            for (const auto& draw : pass.indexed_draws)
+            {
+                if (token && token.is_cancelled())
+                {
+                    (void)backend.end_pass();
+                    return Result(false, "ExecutePostProcessPassOperation cancelled mid-pass.");
+                }
+
+                if (const auto result = executor.execute_indexed_draw(backend, draw); !result)
+                {
+                    (void)backend.end_pass();
+                    return result;
+                }
+            }
+
+            if (const auto result = backend.end_pass(); !result)
+                return result;
+        }
+
+        return backend.set_viewport(render_data.viewport);
     }
 
     RenderOperationDebugInfo PresentOperation::get_debug_info() const
@@ -328,7 +504,7 @@ namespace tbx
         RenderData& render_data,
         const CancellationToken& token)
     {
-        auto& frame_data = render_data.frame;
+        auto& frame_data = render_data;
         if (token && token.is_cancelled())
             return Result(false, "PresentOperation cancelled.");
 
@@ -355,3 +531,4 @@ namespace tbx
         return {};
     }
 }
+

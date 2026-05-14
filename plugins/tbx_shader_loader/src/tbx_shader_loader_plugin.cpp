@@ -1,4 +1,4 @@
-#include "tbx/plugins/glsl_shader_loader/glsl_shader_loader_plugin.h"
+#include "tbx/plugins/tbx_shader_loader/tbx_shader_loader_plugin.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace glsl_shader_loader
+namespace tbx_shader_loader
 {
     struct ShaderLoadResult
     {
@@ -306,7 +306,7 @@ namespace glsl_shader_loader
         return make_shader_load_success({});
     }
 
-    void GlslShaderLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void TbxShaderLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _asset_manager = service_provider.get_service<tbx::AssetManager>();
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
@@ -328,7 +328,7 @@ namespace glsl_shader_loader
             });
     }
 
-    void GlslShaderLoaderPlugin::on_detach()
+    void TbxShaderLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
             serialization_registry->deregister_reader<tbx::Shader>();
@@ -338,7 +338,7 @@ namespace glsl_shader_loader
         _working_directory = std::filesystem::path();
     }
 
-    std::shared_ptr<tbx::Shader> GlslShaderLoaderPlugin::read_shader(
+    std::shared_ptr<tbx::Shader> TbxShaderLoaderPlugin::read_shader(
         const std::filesystem::path& asset_path,
         const tbx::ShaderLoadParameters&)
     {

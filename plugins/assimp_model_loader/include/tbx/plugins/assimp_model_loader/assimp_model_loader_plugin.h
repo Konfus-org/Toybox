@@ -11,7 +11,7 @@ namespace assimp_model_loader
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
         static std::shared_ptr<tbx::Model> read_model(

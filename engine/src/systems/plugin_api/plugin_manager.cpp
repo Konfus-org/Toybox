@@ -58,10 +58,10 @@ namespace tbx
             return;
 
         service_provider.register_service<Physics>(std::make_unique<Physics>(
-            *physics_backend,
-            *entity_registry,
-            *asset_manager,
-            *settings));
+            service_provider.try_get_service<IPhysicsBackend>(),
+            service_provider.try_get_service<EntityRegistry>(),
+            service_provider.try_get_service<AssetManager>(),
+            service_provider.try_get_service<AppSettings>()));
     }
 
     PluginManager::PluginManager(
@@ -218,7 +218,7 @@ namespace tbx
 
         _loaded = std::move(unloaded_plugins);
         auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
-        unload_plugins(_loaded, msg_coordinator.get());
+        unload_plugins(_loaded, _service_provider, msg_coordinator.get());
         _loaded = std::move(retained_plugins);
         return true;
     }
@@ -226,7 +226,7 @@ namespace tbx
     void PluginManager::detach_all()
     {
         auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
-        detach_plugins(_loaded, msg_coordinator.get());
+        detach_plugins(_loaded, _service_provider, msg_coordinator.get());
     }
 
     void PluginManager::unload_all()
@@ -238,7 +238,7 @@ namespace tbx
 
         _watcher.reset();
         auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
-        unload_plugins(_loaded, msg_coordinator.get());
+        unload_plugins(_loaded, _service_provider, msg_coordinator.get());
 
         _directory = std::filesystem::path {};
         _working_directory = std::filesystem::path {};

@@ -3,7 +3,6 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include <memory>
 
-
 namespace two_d_example
 {
     /// @brief
@@ -15,7 +14,7 @@ namespace two_d_example
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:

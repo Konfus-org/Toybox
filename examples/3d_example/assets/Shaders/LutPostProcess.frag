@@ -4,16 +4,20 @@ layout(location = 0) out vec4 o_color;
 
 in vec2 v_tex_coord;
 
-uniform vec4 u_color;
-uniform vec4 u_emissive;
+layout(std140, binding = 1) uniform ToyboxMaterialBlock
+{
+    vec4 u_material_uniforms[64];
+};
 
-uniform sampler2D u_scene_color;
-uniform sampler2D u_lut;
-uniform float u_strength = 1.0;
-uniform float u_blend = 1.0;
+layout(binding = 0) uniform sampler2D u_scene_color;
+layout(binding = 1) uniform sampler2D u_lut;
 
 void main()
 {
+    vec4 tint = u_material_uniforms[0];
+    vec4 emissive = u_material_uniforms[1];
+    float strength = max(u_material_uniforms[2].x, 0.0);
+    float blend = clamp(u_material_uniforms[3].x, 0.0, 1.0);
     vec4 source = texture(u_scene_color, v_tex_coord);
     vec3 color = clamp(source.rgb, 0.0, 1.0);
 
@@ -46,7 +50,7 @@ void main()
     vec3 graded1 = textureLod(u_lut, uv1, 0.0).rgb;
 
     vec3 final_color = mix(graded0, graded1, fract(blue));
-    vec3 graded = mix(source.rgb, final_color, u_strength * u_blend);
-    graded *= u_color.rgb;
-    o_color = vec4(graded + u_emissive.rgb, source.a * u_color.a);
+    vec3 graded = mix(source.rgb, final_color, strength * blend);
+    graded *= tint.rgb;
+    o_color = vec4(graded + emissive.rgb, source.a * tint.a);
 }

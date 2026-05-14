@@ -97,6 +97,7 @@ namespace opengl_rendering
         void destroy_resources();
         tbx::Result ensure_frame_context(const tbx::Window& window);
         tbx::Result ensure_gl_loaded();
+        tbx::Result require_gl_ready_for_resource_ops() const;
         tbx::Result require_current_pipeline() const;
 
       private:

@@ -215,6 +215,9 @@ namespace opengl_rendering
         }
         if (has_clear_flag(pass.clear_flags, tbx::GraphicsClearFlags::DEPTH))
         {
+            // Clear happens before pipeline state is applied for this pass; force depth writes on
+            // so stale GL state from a previous pass cannot block the depth clear.
+            glDepthMask(GL_TRUE);
             glClearDepth(pass.clear_depth);
             clear_mask |= GL_DEPTH_BUFFER_BIT;
         }
@@ -562,6 +565,9 @@ namespace opengl_rendering
         const uint64 data_size,
         tbx::Uuid& out_resource_uuid)
     {
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
         if (desc.size == 0U)
             return make_failure("OpenGL backend: buffer size must be greater than zero.");
 
@@ -581,6 +587,9 @@ namespace opengl_rendering
         const tbx::GraphicsPipelineDesc& desc,
         tbx::Uuid& out_resource_uuid)
     {
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
         auto shaders = std::vector<std::shared_ptr<OpenGlShader>> {};
         if (auto result = create_shaders(desc.shader, shaders); !result)
             return result;
@@ -616,6 +625,9 @@ namespace opengl_rendering
         const uint64 data_size,
         tbx::Uuid& out_resource_uuid)
     {
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
         if (desc.size.width == 0U || desc.size.height == 0U)
             return make_failure("OpenGL backend: texture size must be greater than zero.");
 
@@ -644,6 +656,9 @@ namespace opengl_rendering
         const uint64 data_size,
         const uint64 offset)
     {
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
         const auto buffer_it = _buffers.find(resource_uuid);
         if (buffer_it == _buffers.end())
             return make_failure("OpenGL backend: buffer was not found.");
@@ -667,6 +682,9 @@ namespace opengl_rendering
         const void* data,
         const uint64 data_size)
     {
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
         const auto texture_it = _textures.find(resource_uuid);
         if (texture_it == _textures.end())
             return make_failure("OpenGL backend: texture was not found.");
@@ -788,6 +806,21 @@ namespace opengl_rendering
             || !_pipeline_descs.contains(_current_pipeline)
             || !_pipeline_vertex_arrays.contains(_current_pipeline))
             return make_failure("OpenGL backend: no pipeline is currently bound.");
+
+        return make_success();
+    }
+
+    tbx::Result OpenGlGraphicsBackend::require_gl_ready_for_resource_ops() const
+    {
+        if (!_is_initialized)
+            return make_failure("OpenGL backend: initialize must be called before resource upload.");
+        if (!_active_window.is_valid())
+        {
+            return make_failure(
+                "OpenGL backend: begin_frame must be called before resource upload.");
+        }
+        if (!_is_gl_loaded)
+            return make_failure("OpenGL backend: OpenGL functions are not loaded.");
 
         return make_success();
     }

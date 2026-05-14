@@ -6,6 +6,11 @@
 
 namespace tbx
 {
+    class IGraphicsBackend;
+    class GraphicsResourceManager;
+    class EntityRegistry;
+    class IWindowManager;
+
     /// @brief
     /// Purpose: Declares the ordered render operations that make up the scene rendering pipeline.
     struct TBX_API RenderPipelineConfig
@@ -20,6 +25,10 @@ namespace tbx
 
         std::vector<std::unique_ptr<IRenderOperation>> operations = {};
 
-        static RenderPipelineConfig standard();
+        static RenderPipelineConfig standard(
+            std::weak_ptr<IGraphicsBackend> backend,
+            GraphicsResourceManager& resource_manager,
+            std::weak_ptr<EntityRegistry> entity_registry,
+            std::weak_ptr<IWindowManager> window_manager);
     };
 }

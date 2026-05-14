@@ -30,9 +30,9 @@ namespace tbx
         on_attach(service_provider);
     }
 
-    void Plugin::detach()
+    void Plugin::detach(ServiceProvider& service_provider)
     {
-        on_detach();
+        on_detach(service_provider);
         _dispatcher = nullptr;
     }
 

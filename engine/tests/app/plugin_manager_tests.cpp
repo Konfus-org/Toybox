@@ -64,7 +64,7 @@ namespace tbx::tests::app
                 send_message<PluginPingMessage>(_state->name);
         }
 
-        void on_detach() override
+        void on_detach(ServiceProvider&) override
         {
             ++_state->detach_count;
             if (_state->emit_detach_message)
@@ -143,25 +143,18 @@ namespace tbx::tests::app
       protected:
         void on_attach(ServiceProvider& service_provider) override
         {
-            _service_provider = std::ref(service_provider);
             service_provider.register_service<IPhysicsBackend>(
                 std::make_unique<FakePhysicsBackend>());
         }
 
-        void on_detach() override
+        void on_detach(ServiceProvider& service_provider) override
         {
-            if (_service_provider.has_value() && _service_provider->get().has_service<Physics>())
-                _service_provider->get().deregister_service<Physics>();
+            if (service_provider.has_service<Physics>())
+                service_provider.deregister_service<Physics>();
 
-            if (_service_provider.has_value()
-                && _service_provider->get().has_service<IPhysicsBackend>())
-                _service_provider->get().deregister_service<IPhysicsBackend>();
-
-            _service_provider = std::nullopt;
+            if (service_provider.has_service<IPhysicsBackend>())
+                service_provider.deregister_service<IPhysicsBackend>();
         }
-
-      private:
-        std::optional<std::reference_wrapper<ServiceProvider>> _service_provider = std::nullopt;
     };
 
     class PhysicsConsumerPlugin final : public Plugin
@@ -179,7 +172,7 @@ namespace tbx::tests::app
             _state->had_physics_on_attach = !service_provider.try_get_service<Physics>().expired();
         }
 
-        void on_detach() override
+        void on_detach(ServiceProvider&) override
         {
             ++_state->detach_count;
         }

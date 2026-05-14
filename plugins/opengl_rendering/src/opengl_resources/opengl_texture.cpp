@@ -257,13 +257,20 @@ namespace opengl_rendering
             }
         }
 
-        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        const bool is_depth_format = is_depth_texture_format(desc.format);
+        glTextureParameteri(
+            _texture_id,
+            GL_TEXTURE_MIN_FILTER,
+            is_depth_format ? GL_NEAREST : GL_LINEAR);
+        glTextureParameteri(
+            _texture_id,
+            GL_TEXTURE_MAG_FILTER,
+            is_depth_format ? GL_NEAREST : GL_LINEAR);
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         if (is_array_texture)
             glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-        if (is_depth_texture_format(desc.format))
+        if (is_depth_format)
             glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
         if (desc.mip_count > 1U)

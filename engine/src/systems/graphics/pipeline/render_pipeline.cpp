@@ -1,11 +1,12 @@
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
+#include "tbx/systems/debugging/macros.h"
 #include <string>
 #include <utility>
 
 namespace tbx
 {
-    RenderPipeline::RenderPipeline(IGraphicsBackend& backend)
-        : _backend(backend)
+    RenderPipeline::RenderPipeline(std::weak_ptr<IGraphicsBackend> backend)
+        : _backend(std::move(backend))
     {
     }
 
@@ -24,6 +25,10 @@ namespace tbx
 
     Result RenderPipeline::execute(const CancellationToken& token) const
     {
+        auto backend = _backend.lock();
+        if (!backend)
+            return Result(false, "Render pipeline execute failed: graphics backend is unavailable.");
+
         if (!_render_data)
             return Result(false, "Render pipeline execute failed: render data is null.");
 
@@ -36,7 +41,7 @@ namespace tbx
             if (!operation)
                 continue;
 
-            if (const auto result = operation->execute(_backend.get(), *_render_data, token);
+            if (const auto result = operation->execute(*backend, *_render_data, token);
                 !result)
             {
                 had_recoverable_failures = true;
@@ -114,10 +119,19 @@ namespace tbx
 
     void RenderPipeline::release()
     {
+        auto backend = _backend.lock();
+        if (!backend && !_operations.empty())
+        {
+            TBX_TRACE_ERROR(
+                "Render pipeline release: graphics backend is unavailable; skipping operation "
+                "release — GPU resources owned by operations may leak until the backend is torn "
+                "down.");
+        }
+
         for (auto& operation : _operations)
         {
-            if (operation)
-                operation->release(_backend.get());
+            if (operation && backend)
+                operation->release(*backend);
         }
 
         _render_data.reset();

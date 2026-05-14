@@ -57,6 +57,7 @@ namespace tbx
                     typeid(TAsset).name());
                 asset_record.asset = make_fallback_asset<TAsset>(parameters);
             }
+            populate_loaded_asset_data<TAsset>(asset_record.asset);
             store_asset_load_parameters(asset_record, parameters);
             asset_record.pending_load = {};
             asset_record.stream_state =
@@ -161,6 +162,7 @@ namespace tbx
                 promise.promise = completion.get_future().share();
             }
         }
+        populate_loaded_asset_data<TAsset>(promise.asset);
         asset_record.asset = std::move(promise.asset);
         asset_record.pending_load = promise.promise;
         store_asset_load_parameters(asset_record, parameters);

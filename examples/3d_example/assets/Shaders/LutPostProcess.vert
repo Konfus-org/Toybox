@@ -5,9 +5,6 @@ layout(location = 3) in vec2 a_texcoord;
 
 out vec2 v_tex_coord;
 
-uniform vec4 u_color;
-uniform vec4 u_emissive;
-
 void main()
 {
     v_tex_coord = a_texcoord;

@@ -14,7 +14,7 @@ namespace three_d_example
         _scene = std::make_unique<DemoScene>(*entity_registry, *input_manager, *physics);
     }
 
-    void ThreeDExampleRuntimePlugin::on_detach()
+    void ThreeDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         _scene.reset();
     }

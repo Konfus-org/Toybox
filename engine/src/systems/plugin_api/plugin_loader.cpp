@@ -622,7 +622,10 @@ namespace tbx
         }
     }
 
-    void detach_plugins(std::vector<LoadedPlugin>& loaded_plugins, IMessageCoordinator* coordinator)
+    void detach_plugins(
+        std::vector<LoadedPlugin>& loaded_plugins,
+        ServiceProvider& service_provider,
+        IMessageCoordinator* coordinator)
     {
         const size plugin_count = static_cast<size>(loaded_plugins.size());
         auto detached = std::vector<bool>(plugin_count, false);
@@ -689,7 +692,7 @@ namespace tbx
                 });
 
             const size selected_index = candidates.front();
-            loaded_plugins[selected_index].detach();
+            loaded_plugins[selected_index].detach(service_provider);
             if (coordinator)
                 coordinator->flush();
 
@@ -698,9 +701,12 @@ namespace tbx
         }
     }
 
-    void unload_plugins(std::vector<LoadedPlugin>& loaded_plugins, IMessageCoordinator* coordinator)
+    void unload_plugins(
+        std::vector<LoadedPlugin>& loaded_plugins,
+        ServiceProvider& service_provider,
+        IMessageCoordinator* coordinator)
     {
-        detach_plugins(loaded_plugins, coordinator);
+        detach_plugins(loaded_plugins, service_provider, coordinator);
         loaded_plugins.clear();
     }
 }

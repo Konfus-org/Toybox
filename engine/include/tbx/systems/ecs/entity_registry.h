@@ -3,6 +3,7 @@
 #include "tbx/types/uuid.h"
 #include <functional>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -16,7 +17,9 @@ namespace tbx
     /// Purpose: Owns the ECS registry backend and provides entity lifecycle operations.
     /// @details
     /// Ownership: Owns the underlying entt registry instance.
-    /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+    /// Thread Safety: Thread-safe for concurrent registry API calls via internal locking.
+    /// Notes: References returned from component access APIs are only safe while callers
+    /// externally prevent concurrent mutation of the same entity/component.
     class TBX_API EntityRegistry
     {
       public:
@@ -30,7 +33,7 @@ namespace tbx
         /// Purpose: Checks whether this registry currently owns an entity for the specified id.
         /// @details
         /// Ownership: Does not transfer ownership; inspects registry-owned entity state only.
-        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+        /// Thread Safety: Thread-safe.
         bool has(const Uuid& id) const;
 
         template <typename TComponent>
@@ -52,6 +55,8 @@ namespace tbx
         decltype(auto) get_with(const Uuid& id) const;
         template <typename... TComponent>
         std::vector<Entity> get_with() const;
+        template <typename... TComponent>
+        Entity first_with() const;
         std::vector<Entity> get_all() const;
         Entity get(const Uuid& id) const;
 
@@ -74,6 +79,7 @@ namespace tbx
         std::string get_layer(const Uuid& id) const;
         void set_layer(const Uuid& id, const std::string& layer);
 
+        mutable std::shared_mutex _mutex = {};
         std::unique_ptr<entt::registry> _impl = nullptr;
     };
 }

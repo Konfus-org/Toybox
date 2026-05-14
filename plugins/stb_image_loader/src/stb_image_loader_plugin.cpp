@@ -68,7 +68,7 @@ namespace stb_image_loader
             });
     }
 
-    void StbImageLoaderPlugin::on_detach()
+    void StbImageLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
         {

@@ -112,7 +112,9 @@ namespace three_d_example
 
         _camera_entity = tbx::Entity("Camera", _character_entity.get_id(), entity_registry);
         _camera_entity.add_component<tbx::Camera>();
-        _camera_entity.add_component<tbx::SpotLight>(tbx::Color::WHITE, 0.0F, 20.0F, 16.0F, 28.0F);
+        auto flashlight = tbx::SpotLight(tbx::Color::WHITE, 0.0F, 48.0F, 16.0F, 28.0F);
+        flashlight.cast_shadows = false;
+        _camera_entity.add_component<tbx::SpotLight>(flashlight);
         _camera_entity.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, 0.0F),
             tbx::Quat(tbx::Vec3(settings.initial_pitch, 0.0F, 0.0F)),

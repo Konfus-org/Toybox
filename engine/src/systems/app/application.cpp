@@ -49,6 +49,10 @@ namespace tbx
             false,
             GraphicsApi::OPEN_GL,
             Size {0, 0});
+#if defined(TBX_DEBUG)
+        // Smaller shadow maps keep interactive debug builds closer to real-time on modest GPUs.
+        settings->graphics.shadow_map_resolution = 1024U;
+#endif
         settings->icon = desc.icon;
         service_provider.register_service<AppSettings>(std::move(settings));
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
@@ -237,14 +241,14 @@ namespace tbx
             {
                 if (!_service_provider.has_service<Physics>())
                 {
-                    if (auto physics_backend =
-                            _service_provider.try_get_service<IPhysicsBackend>().lock())
+                    auto physics_backend = _service_provider.try_get_service<IPhysicsBackend>();
+                    if (physics_backend.lock())
                     {
                         _service_provider.register_service<Physics>(std::make_unique<Physics>(
-                            *physics_backend,
-                            *entity_registry,
-                            *asset_manager,
-                            *settings));
+                            physics_backend,
+                            _entity_registry,
+                            _asset_manager,
+                            _settings));
                     }
                 }
 
@@ -278,7 +282,8 @@ namespace tbx
             }
 
             // Setup rendering
-            if (auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>().lock())
+            auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>();
+            if (graphics_backend.lock())
             {
                 auto window_manager = _window_manager.lock();
                 auto thread_manager = _thread_manager.lock();
@@ -294,11 +299,11 @@ namespace tbx
                 }
 
                 _service_provider.register_service<Rendering>(std::make_unique<Rendering>(
-                    *graphics_backend,
-                    *entity_registry,
-                    *asset_manager,
-                    *thread_manager,
-                    *window_manager,
+                    graphics_backend,
+                    _entity_registry,
+                    _asset_manager,
+                    _thread_manager,
+                    _window_manager,
                     _main_window,
                     settings->graphics));
                 _rendering = _service_provider.try_get_service<Rendering>();
@@ -377,15 +382,15 @@ namespace tbx
         // Physics tick
         fixed_update(dt);
 
-        // Run frame systems.
+        // Run frame systems: pump OS/window events, apply fresh device input, simulate, then draw.
         {
-            _plugin_manager.update(dt);
             if (auto window_manager = _window_manager.lock())
                 window_manager->update();
-            if (auto rendering = _rendering.lock())
-                rendering->render();
             if (auto input_manager = _input_manager.lock())
                 input_manager->update(dt);
+            _plugin_manager.update(dt);
+            if (auto rendering = _rendering.lock())
+                rendering->render();
         }
 
         // End update

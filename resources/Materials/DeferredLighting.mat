@@ -1,5 +1,15 @@
 {
   "shaders": { "vertex": "00000009", "fragment": "0000000A" },
-  "textures": [],
+  "textures": [
+    { "name": "u_albedo", "value": "" },
+    { "name": "u_normal", "value": "" },
+    { "name": "u_emissive", "value": "" },
+    { "name": "u_material", "value": "" },
+    { "name": "u_depth", "value": "" },
+    { "name": "u_directional_shadows", "value": "" },
+    { "name": "u_point_shadows", "value": "" },
+    { "name": "u_spot_shadows", "value": "" },
+    { "name": "u_area_shadows", "value": "" }
+  ],
   "parameters": []
 }

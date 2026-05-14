@@ -69,6 +69,6 @@ namespace three_d_example
         float _move_speed = 6.0F;
         float _look_sensitivity = 0.0025F;
         bool _is_flashlight_enabled = false;
-        float _flashlight_intensity = 8.0F;
+        float _flashlight_intensity = 180.0F;
     };
 }

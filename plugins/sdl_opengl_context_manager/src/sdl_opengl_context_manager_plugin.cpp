@@ -7,7 +7,6 @@ namespace sdl_opengl_context_manager
 {
     void SdlOpenGlContextManagerPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = std::ref(service_provider);
         auto window_manager = service_provider.get_service<tbx::IWindowManager>().lock();
         if (!window_manager)
             return;
@@ -25,15 +24,14 @@ namespace sdl_opengl_context_manager
         _context_manager = context_manager_ptr;
     }
 
-    void SdlOpenGlContextManagerPlugin::on_detach()
+    void SdlOpenGlContextManagerPlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         if (auto context_manager = _context_manager.lock())
             context_manager->shutdown();
 
-        if (_service_provider.has_value())
-            _service_provider->get().deregister_service<tbx::IOpenGlContextManager>();
+        if (service_provider.has_service<tbx::IOpenGlContextManager>())
+            service_provider.deregister_service<tbx::IOpenGlContextManager>();
 
         _context_manager = {};
-        _service_provider = std::nullopt;
     }
 }

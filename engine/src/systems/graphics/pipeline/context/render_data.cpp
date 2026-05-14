@@ -1,55 +1,49 @@
 #include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/systems/ecs/entity.h"
+#include <utility>
 
 namespace tbx
 {
-    RenderData::RenderData(FrameData frame_data)
-        : frame(frame_data)
+    RenderDataBuilder::RenderDataBuilder(std::weak_ptr<EntityRegistry> registry)
+        : _registry(std::move(registry))
     {
     }
 
-    RenderDataBuilder::RenderDataBuilder(EntityRegistry& registry)
-        : _registry(registry)
+    RenderData RenderDataBuilder::build(
+        const Window& output_window,
+        const Size& requested_resolution,
+        const uint64 frame_index,
+        const uint32 shadow_map_resolution,
+        const float shadow_render_distance,
+        const float shadow_softness,
+        const float local_light_max_distance,
+        const float shadow_caster_max_distance) const
     {
-    }
-
-    void RenderDataBuilder::build(RenderData& render_data) const
-    {
-        render_data.renderables.clear();
-        render_data.point_lights.clear();
-        render_data.spot_lights.clear();
-        render_data.area_lights.clear();
-        render_data.directional_lights.clear();
-        render_data.sky = RenderDataSky {};
-        render_data.post_processing = PostProcessing {};
-        render_data.has_skybox = false;
-        render_data.forward_shadow_uniform_buffer = {};
-        render_data.directional_shadow_light_entity = {};
-        render_data.directional_shadow_cascades.clear();
-        render_data.point_shadow_maps.clear();
-        render_data.spot_shadow_maps.clear();
-        render_data.area_shadow_maps.clear();
-        render_data.directional_shadow_passes.clear();
-        render_data.point_shadow_passes.clear();
-        render_data.spot_shadow_passes.clear();
-        render_data.area_shadow_passes.clear();
-        render_data.point_shadow_texture = {};
-        render_data.spot_shadow_texture = {};
-        render_data.area_shadow_texture = {};
-        render_data.skybox_commands.clear();
-        render_data.opaque_commands.clear();
-        render_data.alpha_cutout_commands.clear();
-        render_data.transparent_commands.clear();
+        auto render_data = RenderData {};
+        render_data.output_window = output_window;
+        render_data.requested_resolution = requested_resolution;
+        render_data.frame_index = frame_index;
+        render_data.shadow_map_resolution = shadow_map_resolution;
+        render_data.shadow_render_distance = shadow_render_distance;
+        render_data.shadow_softness = shadow_softness;
+        render_data.local_light_max_distance = local_light_max_distance;
+        render_data.shadow_caster_max_distance = shadow_caster_max_distance;
 
         append_sky(render_data);
         append_lights(render_data);
         append_dynamic_meshes(render_data);
         append_static_meshes(render_data);
+        append_post_processing(render_data);
+        return render_data;
     }
 
     void RenderDataBuilder::append_dynamic_meshes(RenderData& render_data) const
     {
-        _registry.get().for_each_with<DynamicMesh, Transform>(
+        auto registry = _registry.lock();
+        if (!registry)
+            return;
+
+        registry->for_each_with<DynamicMesh, Transform>(
             [this, &render_data](Entity& entity)
             {
                 const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
@@ -69,7 +63,11 @@ namespace tbx
 
     void RenderDataBuilder::append_lights(RenderData& render_data) const
     {
-        _registry.get().for_each_with<PointLight, Transform>(
+        auto registry = _registry.lock();
+        if (!registry)
+            return;
+
+        registry->for_each_with<PointLight, Transform>(
             [&render_data](Entity& entity)
             {
                 render_data.point_lights.push_back(
@@ -80,7 +78,7 @@ namespace tbx
                     });
             });
 
-        _registry.get().for_each_with<SpotLight, Transform>(
+        registry->for_each_with<SpotLight, Transform>(
             [&render_data](Entity& entity)
             {
                 render_data.spot_lights.push_back(
@@ -91,7 +89,7 @@ namespace tbx
                     });
             });
 
-        _registry.get().for_each_with<AreaLight, Transform>(
+        registry->for_each_with<AreaLight, Transform>(
             [&render_data](Entity& entity)
             {
                 render_data.area_lights.push_back(
@@ -102,7 +100,7 @@ namespace tbx
                     });
             });
 
-        _registry.get().for_each_with<DirectionalLight, Transform>(
+        registry->for_each_with<DirectionalLight, Transform>(
             [&render_data](Entity& entity)
             {
                 render_data.directional_lights.push_back(
@@ -116,23 +114,39 @@ namespace tbx
 
     void RenderDataBuilder::append_sky(RenderData& render_data) const
     {
-        auto found = false;
-        _registry.get().for_each_with<Sky>(
-            [&render_data, &found](Entity& entity)
-            {
-                if (found)
-                    return;
+        auto registry = _registry.lock();
+        if (!registry)
+            return;
 
-                render_data.sky.sky = entity.get_component<Sky>();
-                if (entity.has_component<Transform>())
-                    render_data.sky.transform = get_world_space_transform(entity);
-                found = true;
-            });
+        const auto sky_entity = registry->first_with<Sky>();
+        if (!sky_entity.get_id().is_valid())
+            return;
+
+        render_data.sky.sky = sky_entity.get_component<Sky>();
+        if (sky_entity.has_component<Transform>())
+            render_data.sky.transform = get_world_space_transform(sky_entity);
+    }
+
+    void RenderDataBuilder::append_post_processing(RenderData& render_data) const
+    {
+        auto registry = _registry.lock();
+        if (!registry)
+            return;
+
+        const auto post_processing_entity = registry->first_with<PostProcessing>();
+        if (!post_processing_entity.get_id().is_valid())
+            return;
+
+        render_data.post_processing = post_processing_entity.get_component<PostProcessing>();
     }
 
     void RenderDataBuilder::append_static_meshes(RenderData& render_data) const
     {
-        _registry.get().for_each_with<StaticMesh, Transform>(
+        auto registry = _registry.lock();
+        if (!registry)
+            return;
+
+        registry->for_each_with<StaticMesh, Transform>(
             [this, &render_data](Entity& entity)
             {
                 const auto& static_mesh = entity.get_component<StaticMesh>();

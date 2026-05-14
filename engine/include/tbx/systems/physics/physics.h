@@ -6,7 +6,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/raycast.h"
 #include "tbx/types/uuid.h"
-#include <functional>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -35,10 +35,10 @@ namespace tbx
     {
       public:
         Physics(
-            IPhysicsBackend& backend,
-            EntityRegistry& entity_registry,
-            AssetManager& asset_manager,
-            AppSettings& settings);
+            std::weak_ptr<IPhysicsBackend> backend,
+            std::weak_ptr<EntityRegistry> entity_registry,
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<AppSettings> settings);
         ~Physics() noexcept;
 
       public:
@@ -61,10 +61,10 @@ namespace tbx
         Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
 
       private:
-        std::reference_wrapper<IPhysicsBackend> _backend;
-        std::reference_wrapper<EntityRegistry> _entity_registry;
-        std::reference_wrapper<AssetManager> _asset_manager;
-        std::reference_wrapper<AppSettings> _settings;
+        std::weak_ptr<IPhysicsBackend> _backend;
+        std::weak_ptr<EntityRegistry> _entity_registry;
+        std::weak_ptr<AssetManager> _asset_manager;
+        std::weak_ptr<AppSettings> _settings;
         std::unordered_map<Uuid, PhysicsEntityRecord> _records_by_entity = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};

@@ -1,5 +1,6 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/assets/fallbacks.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/utils/hash.h"
 #include <string>
 #include <type_traits>
@@ -123,12 +124,92 @@ namespace tbx
 
         out_material_resource.uniform_data =
             make_material_uniform_data(material_resource.parameters);
+        out_material_resource.parameter_names.reserve(material_resource.parameters.values.size());
+        for (const auto& parameter : material_resource.parameters)
+            out_material_resource.parameter_names.push_back(parameter.name);
+
+        out_material_resource.texture_names.reserve(material_resource.textures.values.size());
+        for (const auto& texture_binding : material_resource.textures)
+            out_material_resource.texture_names.push_back(texture_binding.name);
+
         if (const auto result =
                 load_material_textures(material_resource.textures, out_material_resource.textures);
             !result)
             return result;
 
         out_material_resource.pipeline = material_resource.pipeline;
+        out_material_resource.uniform_key = make_material_key(
+            out_material_resource.pipeline,
+            out_material_resource.uniform_data,
+            out_material_resource.textures);
+        return {};
+    }
+
+    Result GraphicsResourceManager::load_post_process_material_draw_resource(
+        const MaterialInstance& instance,
+        GraphicsMaterialDrawResource& out_material_resource)
+    {
+        out_material_resource = {};
+
+        const Handle& handle = instance.get_handle();
+        if (!handle.is_valid())
+            return Result(false, "Graphics resource manager: post-process material handle is invalid.");
+
+        const Uuid asset_id = resolve_asset_id(handle);
+        if (!asset_id.is_valid())
+            return Result(false, "Graphics resource manager: post-process material asset id is invalid.");
+
+        const std::shared_ptr<Material> material = _asset_manager.load<Material>(handle);
+        if (!material)
+            return Result(false, "Graphics resource manager: failed to load post-process material asset.");
+
+        auto pipeline = Uuid {};
+        auto iterator = _post_process_materials.find(asset_id);
+        if (iterator != _post_process_materials.end())
+        {
+            auto& usage = iterator->second;
+            usage.access_count += 1U;
+            pipeline = usage.resource;
+        }
+        else
+        {
+            if (const auto result =
+                    upload_post_process_material_resource(handle, *material, pipeline);
+                !result)
+            {
+                return result;
+            }
+
+            _post_process_materials.emplace(
+                asset_id,
+                GraphicsResourceUsage {
+                    .asset = handle,
+                    .resource = pipeline,
+                    .access_count = 1U,
+                });
+        }
+
+        auto parameters = material->parameters;
+        auto textures = material->textures;
+        for (const auto& parameter : instance.param_overrides)
+            parameters.set(parameter);
+        for (const auto& texture : instance.texture_overrides)
+            textures.set(texture);
+
+        out_material_resource.uniform_data = make_material_uniform_data(parameters);
+        out_material_resource.parameter_names.reserve(parameters.values.size());
+        for (const auto& parameter : parameters)
+            out_material_resource.parameter_names.push_back(parameter.name);
+
+        out_material_resource.texture_names.reserve(textures.values.size());
+        for (const auto& texture_binding : textures)
+            out_material_resource.texture_names.push_back(texture_binding.name);
+
+        if (const auto result = load_material_textures(textures, out_material_resource.textures);
+            !result)
+            return result;
+
+        out_material_resource.pipeline = pipeline;
         out_material_resource.uniform_key = make_material_key(
             out_material_resource.pipeline,
             out_material_resource.uniform_data,
@@ -389,15 +470,54 @@ namespace tbx
     void GraphicsResourceManager::unload_all()
     {
         for (const auto& entry : _materials)
-            unload_backend_resources(entry.first, entry.second);
+        {
+            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
+            {
+                TBX_TRACE_ERROR(
+                    "GraphicsResourceManager::unload_all: failed to unload material GPU resource "
+                    "({}). {}",
+                    entry.second.asset.get_name(),
+                    result.get_report());
+            }
+        }
+        for (const auto& entry : _post_process_materials)
+        {
+            if (const auto result = _backend.unload(entry.second.resource); !result)
+            {
+                TBX_TRACE_ERROR(
+                    "GraphicsResourceManager::unload_all: failed to unload post-process material "
+                    "GPU resource ({}). {}",
+                    entry.second.asset.get_name(),
+                    result.get_report());
+            }
+        }
         for (const auto& entry : _models)
-            unload_backend_resources(entry.first, entry.second);
+        {
+            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
+            {
+                TBX_TRACE_ERROR(
+                    "GraphicsResourceManager::unload_all: failed to unload model GPU resource ({}). "
+                    "{}",
+                    entry.second.asset.get_name(),
+                    result.get_report());
+            }
+        }
         for (const auto& entry : _textures)
-            unload_backend_resources(entry.first, entry.second);
+        {
+            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
+            {
+                TBX_TRACE_ERROR(
+                    "GraphicsResourceManager::unload_all: failed to unload texture GPU resource "
+                    "({}). {}",
+                    entry.second.asset.get_name(),
+                    result.get_report());
+            }
+        }
 
         _materials.clear();
         _material_resources.clear();
         _material_last_access_frames.clear();
+        _post_process_materials.clear();
         _failed_materials.clear();
         _models.clear();
         _model_resources.clear();
@@ -820,6 +940,30 @@ namespace tbx
         return _backend.upload_pipeline(desc, out_resource_uuid);
     }
 
+    Result GraphicsResourceManager::upload_post_process_material_resource(
+        const Handle& handle,
+        const Material& material,
+        Uuid& out_resource_uuid)
+    {
+        auto shader = Shader {};
+        if (const auto result = build_material_shader(material, shader); !result)
+            return result;
+
+        for (const auto& texture_binding : material.textures)
+        {
+            if (!texture_binding.texture.is_valid())
+                continue;
+
+            auto texture_resource = Uuid {};
+            if (const auto result = load_texture(texture_binding.texture, texture_resource);
+                !result)
+                return result;
+        }
+
+        const auto desc = make_post_process_pipeline_desc(std::move(shader), handle);
+        return _backend.upload_pipeline(desc, out_resource_uuid);
+    }
+
     Result GraphicsResourceManager::load_fallback_material_resource(
         GraphicsMaterialInstanceResource& out_material_resource)
     {
@@ -868,6 +1012,11 @@ namespace tbx
             auto mesh_resource = GraphicsModelMeshResource {
                 .index_count = static_cast<uint32>(mesh.indices.size()),
             };
+            if (mesh.bounds.is_valid)
+            {
+                mesh_resource.local_bounds = mesh.bounds.sphere;
+                mesh_resource.has_local_bounds = true;
+            }
 
             if (!mesh.vertices.empty())
             {
@@ -1158,6 +1307,33 @@ namespace tbx
             .is_blending_enabled = material.config.blend_mode == MaterialBlendMode::AlphaBlend,
             .is_culling_enabled = material.config.is_cullable && !material.config.is_two_sided,
             .debug_name = std::string("Material ") + to_string(handle),
+        };
+    }
+
+    GraphicsPipelineDesc GraphicsResourceManager::make_post_process_pipeline_desc(
+        Shader shader,
+        const Handle& handle)
+    {
+        const VertexBufferLayout vertex_layout = get_default_vertex_buffer_layout();
+        auto vertex_attributes = std::vector<GraphicsVertexAttributeDesc> {};
+        append_vertex_layout_attributes(vertex_layout, vertex_attributes);
+
+        return GraphicsPipelineDesc {
+            .shader = std::move(shader),
+            .vertex_buffers =
+                {
+                    GraphicsVertexBufferLayoutDesc {
+                        .slot = 0U,
+                        .stride = vertex_layout.stride,
+                    },
+                },
+            .vertex_attributes = std::move(vertex_attributes),
+            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
+            .is_depth_test_enabled = false,
+            .is_depth_write_enabled = false,
+            .is_blending_enabled = false,
+            .is_culling_enabled = false,
+            .debug_name = std::string("Post Process Material ") + to_string(handle),
         };
     }
 

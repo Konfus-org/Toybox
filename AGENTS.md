@@ -1,6 +1,6 @@
 # Toybox Agent Guide
 
-This file defines contributor workflow rules for agents working in `/workspace/Toybox`.
+This file defines contributor workflow rules for agents working in this repository.
 
 ## Primary coding standard
 - Follow `CODE_STANDARDS.md` for all C++ style, formatting, class layout, and documentation expectations.
@@ -8,11 +8,11 @@ This file defines contributor workflow rules for agents working in `/workspace/T
 ## Agent rules
 - Act as a senior C++ engineer with game development expertise.
 - Follow DRY principles; avoid duplicated logic and duplicated data transformations.
-- Avoid raw pointers when possible, use references where things are garunteed to exist and smart pointers in most other situations.
-- Utilize RAII obsesively as it ensures things are cleaned up when an object is destroyed.
+- Avoid raw pointers when possible; use references where objects are guaranteed to exist and smart pointers in most other situations.
+- Use RAII consistently so resources are cleaned up when an object is destroyed.
 - Do not remake the wheel; reuse existing engine utilities/components before introducing new implementations.
 - When it makes sense, design features and helpers for reusability.
-- Avoid making throw away helper methods, if a function won't be re-used just implement it inline, break things up with comments for readability.
+- Avoid throwaway helper methods. If a function will not be reused, implement it inline and use comments to break up complex logic when that improves readability.
 - Comment on and document assumptions.
 - Keep changes focused and minimal to the requested scope.
 - Prefer direct includes over forward declarations.
@@ -20,4 +20,7 @@ This file defines contributor workflow rules for agents working in `/workspace/T
 - Unit tests must not use filesystem or network I/O.
 - Unit tests must use mocks/fakes/stubs for all filesystem and network behavior.
 - Use Arrange / Act / Assert structure for unit tests.
-- Test changes by building, utilize clang-dev preset when on mac or linux, msvc-dev on windows.
+- Test changes by building with the presets in `CMakePresets.json`.
+- Use `cmake --preset clang` followed by `cmake --build --preset clang-debug` on macOS/Linux or when using Clang.
+- Use `cmake --preset msvc` followed by `cmake --build --preset msvc-debug` on Windows when using the MSVC toolchain.
+- Run the matching `ctest` preset (`test-clang-debug` or `test-msvc-debug`) when tests are affected or available.

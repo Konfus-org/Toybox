@@ -5,15 +5,15 @@ in vec2 v_tex_coord;
 
 layout(location = 0) out vec4 o_final_color;
 
-uniform sampler2D u_albedo;
-uniform sampler2D u_normal;
-uniform sampler2D u_emissive;
-uniform sampler2D u_material;
-uniform sampler2D u_depth;
-uniform sampler2DArray u_directional_shadows;
-uniform samplerCubeArray u_point_shadows;
-uniform sampler2DArray u_spot_shadows;
-uniform sampler2DArray u_area_shadows;
+layout(binding = 0) uniform sampler2D u_albedo;
+layout(binding = 1) uniform sampler2D u_normal;
+layout(binding = 2) uniform sampler2D u_emissive;
+layout(binding = 3) uniform sampler2D u_material;
+layout(binding = 4) uniform sampler2D u_depth;
+layout(binding = 5) uniform sampler2DArray u_directional_shadows;
+layout(binding = 6) uniform sampler2DArray u_point_shadows;
+layout(binding = 7) uniform sampler2DArray u_spot_shadows;
+layout(binding = 8) uniform sampler2DArray u_area_shadows;
 
 struct DirectionalLight
 {
@@ -137,7 +137,10 @@ vec3 tbx_reconstruct_world_position(vec2 uv, float depth, mat4 inverse_view_proj
 {
     vec4 clip_position = vec4((uv * 2.0) - 1.0, (depth * 2.0) - 1.0, 1.0);
     vec4 world_position = inverse_view_projection * clip_position;
-    return world_position.xyz / max(world_position.w, 0.0001);
+    float w = world_position.w;
+    if (abs(w) < 0.0001)
+        w = w < 0.0 ? -0.0001 : 0.0001;
+    return world_position.xyz / w;
 }
 
 float tbx_get_distance_attenuation(float distance_squared, float range)
@@ -174,7 +177,9 @@ float tbx_get_area_light_attenuation(AreaLight light, vec3 light_direction, floa
 
 float tbx_get_shadow_normal_offset(vec3 normal, vec3 light_direction, float normal_bias)
 {
-    return (1.0 - max(dot(normal, light_direction), 0.0)) * normal_bias;
+    float ndotl = max(dot(normal, light_direction), 0.0);
+    float slope_factor = 1.0 - ndotl;
+    return slope_factor * slope_factor * normal_bias;
 }
 
 float tbx_sample_projected_shadow(
@@ -334,9 +339,21 @@ float tbx_sample_point_shadow(PointLight light, vec3 world_position, vec3 normal
         (receiver_distance - bias) / max(light.position_range.w, 0.0001),
         0.0,
         1.0);
+
+    float hemisphere_sign = receiver_direction.z >= 0.0 ? 1.0 : -1.0;
+    float denominator = hemisphere_sign > 0.0
+                            ? max(1.0 + receiver_direction.z, 0.0001)
+                            : max(1.0 - receiver_direction.z, 0.0001);
+    vec2 projected = receiver_direction.xy / denominator;
+    vec2 uv = (projected * 0.5) + 0.5;
+    if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0)
+        return 1.0;
+
+    int layer_offset = light.shadow_info.x;
+    int layer = hemisphere_sign > 0.0 ? layer_offset : (layer_offset + 1);
     float stored_depth = texture(
         u_point_shadows,
-        vec4(receiver_direction, float(light.shadow_info.x))).r;
+        vec3(uv, float(layer))).r;
     return step(current_depth, stored_depth);
 }
 

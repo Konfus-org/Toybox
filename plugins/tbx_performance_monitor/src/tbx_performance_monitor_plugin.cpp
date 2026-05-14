@@ -1,4 +1,4 @@
-#include "tbx/plugins/profiler/profiler_plugin.h"
+#include "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"
@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace profiler
+namespace tbx_performance_monitor
 {
 #if defined(TBX_DEBUG)
     static std::string build_debug_window_title(
@@ -25,15 +25,19 @@ namespace profiler
     }
 #endif
 
-    void ProfilerPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void TbxPerformanceMonitorPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = std::ref(service_provider);
+        _service_provider = &service_provider;
+        _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
+        _settings = service_provider.try_get_service<tbx::AppSettings>();
         reset_performance_sample();
     }
 
-    void ProfilerPlugin::on_detach()
+    void TbxPerformanceMonitorPlugin::on_detach(tbx::ServiceProvider&)
     {
-        _service_provider = std::nullopt;
+        _service_provider = nullptr;
+        _window_manager = {};
+        _settings = {};
         _main_window = {};
         _main_window_base_title.clear();
         reset_performance_sample();
@@ -45,7 +49,14 @@ namespace profiler
 #endif
     }
 
-    void ProfilerPlugin::on_recieve_message(tbx::Message& msg)
+    void TbxPerformanceMonitorPlugin::on_update(const tbx::DeltaTime& dt)
+    {
+#if defined(TBX_DEBUG)
+        update_debug_main_window_title(dt);
+#endif
+    }
+
+    void TbxPerformanceMonitorPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (auto initialized_event = tbx::handle_message<tbx::ApplicationInitializedEvent>(msg))
         {
@@ -57,29 +68,30 @@ namespace profiler
         {
             const auto& dt = update_end_event->get().delta_time;
             record_frame(dt);
-
-#if defined(TBX_DEBUG)
-            update_debug_main_window_title(dt);
-#endif
         }
     }
 
-    void ProfilerPlugin::initialize_main_window(tbx::Application& application)
+    void TbxPerformanceMonitorPlugin::initialize_main_window(tbx::Application& application)
     {
+        if (!_service_provider)
+            _service_provider = &application.get_service_provider();
+
+        if (_window_manager.expired() && _service_provider)
+            _window_manager = _service_provider->try_get_service<tbx::IWindowManager>();
+
         _main_window = application.get_main_window();
         _main_window_base_title = application.get_name().empty() ? std::string("Toybox Application")
                                                                  : application.get_name();
 
-        if (!_service_provider.has_value() || !_main_window.is_valid())
+        if (!_main_window.is_valid())
             return;
 
-        auto window_manager =
-            _service_provider->get().try_get_service<tbx::IWindowManager>().lock();
+        auto window_manager = _window_manager.lock();
         if (window_manager && window_manager->has(_main_window))
             _main_window_base_title = window_manager->get_title(_main_window);
     }
 
-    void ProfilerPlugin::record_frame(const tbx::DeltaTime& dt)
+    void TbxPerformanceMonitorPlugin::record_frame(const tbx::DeltaTime& dt)
     {
         ++_performance_sample_frame_count;
         _performance_sample_elapsed_seconds += dt.seconds;
@@ -134,7 +146,7 @@ namespace profiler
         }
     }
 
-    void ProfilerPlugin::reset_performance_sample()
+    void TbxPerformanceMonitorPlugin::reset_performance_sample()
     {
         _performance_sample_elapsed_seconds = 0.0;
         _performance_sample_frame_count = 0U;
@@ -144,13 +156,15 @@ namespace profiler
     }
 
 #if defined(TBX_DEBUG)
-    void ProfilerPlugin::update_debug_main_window_title(const tbx::DeltaTime& dt)
+    void TbxPerformanceMonitorPlugin::update_debug_main_window_title(const tbx::DeltaTime& dt)
     {
-        if (!_service_provider.has_value() || !_main_window.is_valid())
+        if (!_main_window.is_valid())
             return;
 
-        auto window_manager =
-            _service_provider->get().try_get_service<tbx::IWindowManager>().lock();
+        if (_window_manager.expired() && _service_provider)
+            _window_manager = _service_provider->try_get_service<tbx::IWindowManager>();
+
+        auto window_manager = _window_manager.lock();
         if (!window_manager || !window_manager->is_open(_main_window))
             return;
 
@@ -169,7 +183,7 @@ namespace profiler
             average_fps = static_cast<uint>(std::lround(average_fps_value));
         }
 
-        auto settings = _service_provider->get().get_service<tbx::AppSettings>().lock();
+        auto settings = _settings.lock();
         if (!settings)
             return;
 

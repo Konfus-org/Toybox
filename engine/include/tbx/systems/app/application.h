@@ -60,9 +60,11 @@ namespace tbx
       private:
         bool _should_exit = false;
         std::string _name = "App";
+
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
         Window _main_window = {};
+
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
         std::weak_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
@@ -76,6 +78,7 @@ namespace tbx
         uint _update_count = 0;
         double _time_running = 0;
 
+        // TODO: asset manager should own this unload logic inside an 'update' method
         double _asset_unload_elapsed_seconds = 0.0;
         double _fixed_update_accumulator_seconds = 0.0;
     };

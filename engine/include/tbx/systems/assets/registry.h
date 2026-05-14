@@ -2,6 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
@@ -123,6 +124,9 @@ namespace tbx
     };
 
     template <typename TAsset>
+    void populate_loaded_asset_data(const std::shared_ptr<TAsset>& asset);
+
+    template <typename TAsset>
     struct AssetStore final : IAssetStore
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records = {};
@@ -166,6 +170,7 @@ namespace tbx
                     promise.promise = completion.get_future().share();
                 }
             }
+            populate_loaded_asset_data<TAsset>(promise.asset);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             record.load_parameters = parameters;
@@ -232,6 +237,21 @@ namespace tbx
     {
         record.load_parameters = parameters;
         record.has_load_parameters = true;
+    }
+
+    template <typename TAsset>
+    void populate_loaded_asset_data(const std::shared_ptr<TAsset>&)
+    {
+    }
+
+    template <>
+    inline void populate_loaded_asset_data<Model>(const std::shared_ptr<Model>& asset)
+    {
+        if (!asset)
+            return;
+
+        for (auto& mesh : asset->meshes)
+            update_mesh_bounds(mesh);
     }
 
     template <typename TAsset>

@@ -73,7 +73,7 @@ namespace two_d_example
         }
     }
 
-    void TwoDExampleRuntimePlugin::on_detach()
+    void TwoDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         _entity_registry = {};
         _elapsed_seconds = 0.0f;

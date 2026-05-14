@@ -6,11 +6,13 @@
 #include "tbx/types/handle.h"
 #include "tbx/types/material.h"
 #include "tbx/types/shader.h"
+#include "tbx/types/sphere.h"
 #include "tbx/types/texture.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -66,6 +68,8 @@ namespace tbx
         Uuid vertex_buffer = {};
         Uuid index_buffer = {};
         uint32 index_count = 0U;
+        Sphere local_bounds = {};
+        bool has_local_bounds = false;
     };
 
     /// @brief
@@ -104,6 +108,8 @@ namespace tbx
         Uuid pipeline = {};
         uint64 uniform_key = 0U;
         GraphicsMaterialUniformData uniform_data = {};
+        std::vector<std::string> parameter_names = {};
+        std::vector<std::string> texture_names = {};
         std::vector<GraphicsResourceBinding> textures = {};
     };
 
@@ -182,6 +188,15 @@ namespace tbx
         /// Ownership: Returned binding data is copied; GPU resources are owned by this manager.
         /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
         Result load_material_draw_resource(
+            const MaterialInstance& instance,
+            GraphicsMaterialDrawResource& out_material_resource);
+
+        /// @brief
+        /// Purpose: Loads a material instance for fullscreen post-processing.
+        /// @details
+        /// Ownership: Returned binding data is copied; GPU resources are owned by this manager.
+        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
+        Result load_post_process_material_draw_resource(
             const MaterialInstance& instance,
             GraphicsMaterialDrawResource& out_material_resource);
 
@@ -343,6 +358,9 @@ namespace tbx
             const Material& material,
             Shader shader,
             const Handle& handle);
+        static GraphicsPipelineDesc make_post_process_pipeline_desc(
+            Shader shader,
+            const Handle& handle);
         static void append_parameter_uniform_data(
             const MaterialParameterData& parameter,
             std::vector<Vec4>& out_values);
@@ -388,6 +406,10 @@ namespace tbx
             const Handle& handle,
             const Material& material,
             Uuid& out_resource_uuid);
+        Result upload_post_process_material_resource(
+            const Handle& handle,
+            const Material& material,
+            Uuid& out_resource_uuid);
         Result load_fallback_material_resource(
             GraphicsMaterialInstanceResource& out_material_resource);
         Result load_material_textures(
@@ -422,6 +444,7 @@ namespace tbx
         std::unordered_map<Uuid, GraphicsResourceUsage> _materials = {};
         std::unordered_map<Uuid, GraphicsMaterialInstanceResource> _material_resources = {};
         std::unordered_map<Uuid, uint> _material_last_access_frames = {};
+        std::unordered_map<Uuid, GraphicsResourceUsage> _post_process_materials = {};
         std::unordered_set<Uuid> _failed_materials = {};
         std::unordered_map<Uuid, GraphicsResourceUsage> _models = {};
         std::unordered_map<Uuid, GraphicsModelResource> _model_resources = {};

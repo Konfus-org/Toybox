@@ -8,7 +8,7 @@
 #include <memory>
 #include <optional>
 
-namespace mat_material_loader
+namespace tbx_material_loader
 {
     /// @brief
     /// Purpose: Loads material assets from .mat JSON files.
@@ -16,11 +16,11 @@ namespace mat_material_loader
     /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the
     /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
     /// synchronization.
-    class TBX_PLUGIN_API MatMaterialLoaderPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API TbxMaterialLoaderPlugin final : public tbx::Plugin
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
         std::shared_ptr<tbx::Material> read_material(

@@ -11,6 +11,7 @@
 #include "tbx/types/quaternions.h"
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -411,26 +412,32 @@ namespace tbx
     }
 
     Physics::Physics(
-        IPhysicsBackend& backend,
-        EntityRegistry& entity_registry,
-        AssetManager& asset_manager,
-        AppSettings& settings)
-        : _backend(backend)
-        , _entity_registry(entity_registry)
-        , _asset_manager(asset_manager)
-        , _settings(settings)
+        std::weak_ptr<IPhysicsBackend> backend,
+        std::weak_ptr<EntityRegistry> entity_registry,
+        std::weak_ptr<AssetManager> asset_manager,
+        std::weak_ptr<AppSettings> settings)
+        : _backend(std::move(backend))
+        , _entity_registry(std::move(entity_registry))
+        , _asset_manager(std::move(asset_manager))
+        , _settings(std::move(settings))
     {
-        _backend.get().initialize(get_backend_settings());
+        if (auto backend_strong = _backend.lock())
+            backend_strong->initialize(get_backend_settings());
     }
 
     Physics::~Physics() noexcept
     {
         clear_resources();
-        _backend.get().shutdown();
+        if (auto backend = _backend.lock())
+            backend->shutdown();
     }
 
     RaycastResult Physics::raycast(const RaycastQuery& raycast_query) const
     {
+        auto backend = _backend.lock();
+        if (!backend)
+            return {};
+
         auto ignored_rigidbody = PhysicsRigidbodyHandle {};
         if (raycast_query.ignore_entity && raycast_query.ignored_entity_id.is_valid())
         {
@@ -440,7 +447,7 @@ namespace tbx
         }
 
         auto backend_hit = PhysicsRaycastHit {};
-        if (!_backend.get().raycast(raycast_query, ignored_rigidbody, backend_hit) || !backend_hit)
+        if (!backend->raycast(raycast_query, ignored_rigidbody, backend_hit) || !backend_hit)
             return {};
 
         return RaycastResult {
@@ -453,8 +460,12 @@ namespace tbx
 
     void Physics::update(const DeltaTime& dt)
     {
+        if (_backend.expired())
+            return;
+
         sync_entities_to_backend(static_cast<float>(dt.seconds));
-        _backend.get().update(get_backend_settings(), dt);
+        if (auto backend = _backend.lock())
+            backend->update(get_backend_settings(), dt);
         sync_backend_to_entities();
         process_trigger_colliders();
     }
@@ -471,11 +482,14 @@ namespace tbx
 
     void Physics::destroy_record(PhysicsEntityRecord& record)
     {
-        if (record.rigidbody.is_valid())
-            _backend.get().destroy_rigidbody(record.rigidbody);
+        if (auto backend = _backend.lock())
+        {
+            if (record.rigidbody.is_valid())
+                backend->destroy_rigidbody(record.rigidbody);
 
-        if (record.collider.is_valid())
-            _backend.get().destroy_collider(record.collider);
+            if (record.collider.is_valid())
+                backend->destroy_collider(record.collider);
+        }
 
         _entity_by_rigidbody_handle.erase(record.rigidbody.value);
         record = {};
@@ -483,24 +497,32 @@ namespace tbx
 
     PhysicsBackendSettings Physics::get_backend_settings() const
     {
-        const auto& settings = _settings.get().physics;
+        auto settings = _settings.lock();
+        if (!settings)
+            return {};
+
+        const auto& physics_settings = settings->physics;
         return PhysicsBackendSettings {
-            .gravity = settings.gravity.value,
-            .max_body_count = settings.max_body_count.value,
-            .max_contact_constraints = settings.max_contact_constraints.value,
-            .max_body_pairs = settings.max_body_pairs.value,
-            .solver_velocity_iterations = settings.solver_velocity_iterations.value,
-            .solver_position_iterations = settings.solver_position_iterations.value,
-            .max_linear_velocity = settings.max_linear_velocity.value,
-            .max_angular_velocity = settings.max_angular_velocity.value,
+            .gravity = physics_settings.gravity.value,
+            .max_body_count = physics_settings.max_body_count.value,
+            .max_contact_constraints = physics_settings.max_contact_constraints.value,
+            .max_body_pairs = physics_settings.max_body_pairs.value,
+            .solver_velocity_iterations = physics_settings.solver_velocity_iterations.value,
+            .solver_position_iterations = physics_settings.solver_position_iterations.value,
+            .max_linear_velocity = physics_settings.max_linear_velocity.value,
+            .max_angular_velocity = physics_settings.max_angular_velocity.value,
         };
     }
 
     void Physics::process_trigger_colliders()
     {
-        auto& registry = _entity_registry.get();
+        auto registry = _entity_registry.lock();
+        auto backend = _backend.lock();
+        if (!registry || !backend)
+            return;
+
         auto active_trigger_entities = std::unordered_set<Uuid>();
-        auto trigger_entities = registry.get_with<Transform>();
+        auto trigger_entities = registry->get_with<Transform>();
         for (auto& trigger_entity : trigger_entities)
         {
             const Uuid trigger_entity_id = trigger_entity.get_id();
@@ -530,7 +552,7 @@ namespace tbx
                 record_it != _records_by_entity.end())
             {
                 auto overlapped_rigidbodies = std::vector<PhysicsRigidbodyHandle> {};
-                _backend.get().get_rigidbody_overlaps(
+                backend->get_rigidbody_overlaps(
                     record_it->second.rigidbody,
                     overlapped_rigidbodies);
                 current_overlaps.reserve(overlapped_rigidbodies.size());
@@ -604,11 +626,15 @@ namespace tbx
 
     void Physics::sync_entities_to_backend(float dt_seconds)
     {
-        auto& registry = _entity_registry.get();
-        auto& asset_manager = _asset_manager.get();
+        auto registry = _entity_registry.lock();
+        auto asset_manager = _asset_manager.lock();
+        auto backend = _backend.lock();
+        if (!registry || !asset_manager || !backend)
+            return;
+
         auto active_entities = std::unordered_set<Uuid>();
 
-        auto entities = registry.get_with<Transform>();
+        auto entities = registry->get_with<Transform>();
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
@@ -642,11 +668,11 @@ namespace tbx
             if (record_it == _records_by_entity.end())
             {
                 const PhysicsColliderCreateInfo collider_info = create_collider_info_for_entity(
-                    asset_manager,
+                    *asset_manager,
                     entity,
                     world_transform,
                     is_physics_driven);
-                PhysicsColliderHandle collider = _backend.get().create_collider(collider_info);
+                PhysicsColliderHandle collider = backend->create_collider(collider_info);
                 if (!collider.is_valid())
                     continue;
 
@@ -658,10 +684,10 @@ namespace tbx
                     .is_trigger_only = is_trigger_only,
                 };
                 PhysicsRigidbodyHandle rigidbody_handle =
-                    _backend.get().create_rigidbody(rigidbody_info);
+                    backend->create_rigidbody(rigidbody_info);
                 if (!rigidbody_handle.is_valid())
                 {
-                    _backend.get().destroy_collider(collider);
+                    backend->destroy_collider(collider);
                     continue;
                 }
 
@@ -699,7 +725,7 @@ namespace tbx
                 && rigidbody->transform_sync_mode == PhysicsTransformSyncMode::SWEEP)
             {
                 const PhysicsRigidbodyState current_state =
-                    _backend.get().get_rigidbody_state(record.rigidbody);
+                    backend->get_rigidbody_state(record.rigidbody);
                 const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
                 if (current_state.is_valid)
                 {
@@ -713,7 +739,7 @@ namespace tbx
                 }
             }
 
-            _backend.get().update_rigidbody(record.rigidbody, update_info);
+            backend->update_rigidbody(record.rigidbody, update_info);
             if (!is_physics_driven || (rigidbody != nullptr && rigidbody->is_kinematic))
             {
                 record.last_position = world_transform.position;
@@ -746,21 +772,25 @@ namespace tbx
 
     void Physics::sync_backend_to_entities()
     {
-        auto& registry = _entity_registry.get();
+        auto registry = _entity_registry.lock();
+        auto backend = _backend.lock();
+        if (!registry || !backend)
+            return;
+
         for (auto& record_entry : _records_by_entity)
         {
             const Uuid& entity_id = record_entry.first;
             auto& record = record_entry.second;
 
-            if (!registry.has<Transform>(entity_id))
+            if (!registry->has<Transform>(entity_id))
                 continue;
 
-            auto& transform = registry.get_with<Transform>(entity_id);
-            auto entity = registry.get(entity_id);
+            auto& transform = registry->get_with<Transform>(entity_id);
+            auto entity = registry->get(entity_id);
             if (!entity.get_id().is_valid())
                 continue;
 
-            if (!registry.has<Rigidbody>(entity_id))
+            if (!registry->has<Rigidbody>(entity_id))
             {
                 const auto world_transform = get_world_space_transform(entity);
                 record.last_position = world_transform.position;
@@ -770,11 +800,11 @@ namespace tbx
                 continue;
             }
 
-            PhysicsRigidbodyState state = _backend.get().get_rigidbody_state(record.rigidbody);
+            PhysicsRigidbodyState state = backend->get_rigidbody_state(record.rigidbody);
             if (!state.is_valid)
                 continue;
 
-            auto& rigidbody = registry.get_with<Rigidbody>(entity_id);
+            auto& rigidbody = registry->get_with<Rigidbody>(entity_id);
             rigidbody.linear_velocity = state.linear_velocity;
             rigidbody.angular_velocity = state.angular_velocity;
 

@@ -12,7 +12,6 @@ namespace sdl_input
 
     void SdlInputPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _service_provider = std::ref(service_provider);
         service_provider.register_service<tbx::IInputManager>(std::make_unique<SdlInputManager>());
         auto input_manager_service = service_provider.get_service<tbx::IInputManager>().lock();
         TBX_ASSERT(
@@ -47,16 +46,14 @@ namespace sdl_input
         _owns_gamepad_subsystem = true;
     }
 
-    void SdlInputPlugin::on_detach()
+    void SdlInputPlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
 
-        if (_service_provider.has_value()
-            && _service_provider->get().has_service<tbx::IInputManager>())
-            _service_provider->get().deregister_service<tbx::IInputManager>();
+        if (service_provider.has_service<tbx::IInputManager>())
+            service_provider.deregister_service<tbx::IInputManager>();
 
         _input_manager = {};
-        _service_provider = std::nullopt;
 
         if (_owns_gamepad_subsystem)
             SDL_QuitSubSystem(GamepadSubsystemMask);

@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-
 namespace tbx
 {
     // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
@@ -38,7 +37,7 @@ namespace tbx
         /// @details
         /// Ownership: Does not own the provider or dispatcher references.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        void detach();
+        void detach(ServiceProvider& service_provider);
 
         // Ticks the plugin for the given frame delta.
         void update(const DeltaTime& dt);
@@ -65,7 +64,7 @@ namespace tbx
         virtual void on_attach(ServiceProvider& service_provider) = 0;
 
         // Called before the plugin is detached from the service provider.
-        virtual void on_detach() {}
+        virtual void on_detach(ServiceProvider& service_provider) {}
 
         // Per-frame update with delta timing.
         virtual void on_update(const DeltaTime& dt) {}

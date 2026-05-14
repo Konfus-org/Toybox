@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-#include <functional>
 #include <memory>
-#include <optional>
 
 namespace tbx
 {
@@ -23,13 +21,11 @@ namespace opengl_rendering
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
         void on_update(const tbx::DeltaTime& dt) override;
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
         std::weak_ptr<OpenGlGraphicsBackend> _backend = {};
-        std::optional<std::reference_wrapper<tbx::ServiceProvider>> _service_provider =
-            std::nullopt;
     };
 }

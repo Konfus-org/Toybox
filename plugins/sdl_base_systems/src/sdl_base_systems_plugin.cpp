@@ -72,7 +72,7 @@ namespace sdl_base_systems
         TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
-    void SdlBaseSystemsPlugin::on_detach()
+    void SdlBaseSystemsPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (_owns_sdl)
             SDL_QuitSubSystem(SDL_INIT_EVENTS);

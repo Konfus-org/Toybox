@@ -1,6 +1,7 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
+#include <mutex>
 
 namespace tbx
 {
@@ -80,17 +81,20 @@ namespace tbx
 
     bool EntityRegistry::is_empty() const
     {
+        auto guard = std::shared_lock(_mutex);
         auto view = _impl->view<EntityNameComponent>();
         return view.empty();
     }
 
     void EntityRegistry::clear()
     {
+        auto guard = std::unique_lock(_mutex);
         _impl = std::make_unique<entt::registry>();
     }
 
     bool EntityRegistry::has(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         return _impl->valid(to_entity_handle(id));
     }
 
@@ -100,6 +104,7 @@ namespace tbx
         const std::string& layer,
         const Uuid& parent)
     {
+        auto guard = std::unique_lock(_mutex);
         EntityHandle handle = _impl->create();
 
         auto id = to_entity_id(handle);
@@ -117,6 +122,7 @@ namespace tbx
 
     void EntityRegistry::remove(Entity& entity)
     {
+        auto guard = std::unique_lock(_mutex);
         if (!entity._registry.has_value() || &entity._registry->get() != this)
             return;
 
@@ -134,6 +140,7 @@ namespace tbx
 
     Entity EntityRegistry::get(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         if (!_impl->valid(to_entity_handle(id)))
             return {};
 
@@ -145,6 +152,7 @@ namespace tbx
 
     std::vector<Entity> EntityRegistry::get_all() const
     {
+        auto guard = std::shared_lock(_mutex);
         std::vector<Entity> entities = {};
         auto view = _impl->view<EntityNameComponent>();
 
@@ -165,54 +173,66 @@ namespace tbx
         if (!callback)
             return;
 
-        auto view = _impl->view<EntityNameComponent>();
-        for (const auto entityHandle : view)
+        auto ids = std::vector<Uuid> {};
         {
-            auto id = to_entity_id(entityHandle);
-            auto entity = Entity {};
-            entity._id = id;
-            entity._registry = std::ref(*this);
+            auto guard = std::shared_lock(_mutex);
+            auto view = _impl->view<EntityNameComponent>();
+            for (const auto entityHandle : view)
+                ids.push_back(to_entity_id(entityHandle));
+        }
+
+        for (const auto& id : ids)
+        {
+            auto entity = get(id);
             callback(entity);
         }
     }
 
     std::string EntityRegistry::get_name(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         return get_component_value<EntityNameComponent, std::string>(*_impl, id);
     }
 
     void EntityRegistry::set_name(const Uuid& id, const std::string& name)
     {
+        auto guard = std::unique_lock(_mutex);
         set_component_value<EntityNameComponent>(*_impl, id, name);
     }
 
     std::string EntityRegistry::get_tag(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         return get_component_value<EntityTagComponent, std::string>(*_impl, id);
     }
 
     void EntityRegistry::set_tag(const Uuid& id, const std::string& tag)
     {
+        auto guard = std::unique_lock(_mutex);
         set_component_value<EntityTagComponent>(*_impl, id, tag);
     }
 
     Uuid EntityRegistry::get_parent_id(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         return get_component_value<EntityParentComponent, Uuid>(*_impl, id);
     }
 
     void EntityRegistry::set_parent_id(const Uuid& id, const Uuid& parent)
     {
+        auto guard = std::unique_lock(_mutex);
         set_component_value<EntityParentComponent>(*_impl, id, parent);
     }
 
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         return get_component_value<EntityLayerComponent, std::string>(*_impl, id);
     }
 
     void EntityRegistry::set_layer(const Uuid& id, const std::string& layer)
     {
+        auto guard = std::unique_lock(_mutex);
         set_component_value<EntityLayerComponent>(*_impl, id, layer);
     }
 }

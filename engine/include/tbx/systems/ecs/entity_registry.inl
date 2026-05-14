@@ -1,10 +1,12 @@
 #pragma once
+#include <mutex>
 
 namespace tbx
 {
     template <typename TComponent, typename... TArgs>
     TComponent& EntityRegistry::add(const Uuid& id, TArgs&&... args)
     {
+        auto guard = std::unique_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
         return _impl->emplace_or_replace<TComponent>(handle, std::forward<TArgs>(args)...);
     }
@@ -12,6 +14,7 @@ namespace tbx
     template <typename TComponent>
     void EntityRegistry::remove(const Uuid& id)
     {
+        auto guard = std::unique_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
         if (!_impl->valid(handle))
             return;
@@ -22,15 +25,45 @@ namespace tbx
     template <typename... TComponent>
     std::vector<Entity> EntityRegistry::get_with() const
     {
-        std::vector<Entity> entities = {};
-        auto view = _impl->view<TComponent...>();
-        for (const auto entityHandle : view)
+        auto ids = std::vector<Uuid> {};
         {
-            auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
+            auto guard = std::shared_lock(_mutex);
+            auto view = _impl->view<TComponent...>();
+            for (const auto entityHandle : view)
+            {
+                const auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
+                ids.push_back(id);
+            }
+        }
+
+        std::vector<Entity> entities = {};
+        entities.reserve(ids.size());
+        for (const auto& id : ids)
+        {
             entities.push_back(get(id));
         }
 
         return entities;
+    }
+
+    template <typename... TComponent>
+    Entity EntityRegistry::first_with() const
+    {
+        auto first_id = Uuid {};
+        {
+            auto guard = std::shared_lock(_mutex);
+            auto view = _impl->view<TComponent...>();
+            for (const auto entityHandle : view)
+            {
+                first_id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
+                break;
+            }
+        }
+
+        if (!first_id.is_valid())
+            return {};
+
+        return get(first_id);
     }
 
     template <typename... TComponent>
@@ -39,10 +72,19 @@ namespace tbx
         if (!callback)
             return;
 
-        auto view = _impl->view<TComponent...>();
-        for (const auto entityHandle : view)
+        auto ids = std::vector<Uuid> {};
         {
-            auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
+            auto guard = std::shared_lock(_mutex);
+            auto view = _impl->view<TComponent...>();
+            for (const auto entityHandle : view)
+            {
+                const auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
+                ids.push_back(id);
+            }
+        }
+
+        for (const auto& id : ids)
+        {
             auto entity = get(id);
             callback(entity);
         }
@@ -51,6 +93,7 @@ namespace tbx
     template <typename... TComponent>
     decltype(auto) EntityRegistry::get_with(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
         return _impl->get<TComponent...>(handle);
     }
@@ -58,6 +101,7 @@ namespace tbx
     template <typename TComponent>
     bool EntityRegistry::has(const Uuid& id) const
     {
+        auto guard = std::shared_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
         if (!_impl->valid(handle))
             return false;

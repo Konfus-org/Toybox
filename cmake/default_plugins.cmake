@@ -29,22 +29,22 @@ function(tbx_define_default_plugins)
     if (NOT TARGET Tbx::Plugins::AssimpModelLoaderPlugin)
         message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::AssimpModelLoaderPlugin (call after add_subdirectory(plugins))")
     endif ()
-    if (NOT TARGET Tbx::Plugins::GlslShaderLoaderPlugin)
-        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::GlslShaderLoaderPlugin (call after add_subdirectory(plugins))")
+    if (NOT TARGET Tbx::Plugins::TbxShaderLoaderPlugin)
+        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::TbxShaderLoaderPlugin (call after add_subdirectory(plugins))")
     endif ()
-    if (NOT TARGET Tbx::Plugins::MatMaterialLoaderPlugin)
-        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::MatMaterialLoaderPlugin (call after add_subdirectory(plugins))")
+    if (NOT TARGET Tbx::Plugins::TbxMaterialLoaderPlugin)
+        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::TbxMaterialLoaderPlugin (call after add_subdirectory(plugins))")
     endif ()
     if (NOT TARGET Tbx::Plugins::SdlOpenGlContextManagerPlugin)
         message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::SdlOpenGlContextManagerPlugin (call after add_subdirectory(plugins))")
     endif ()
-    if (NOT TARGET Tbx::Plugins::ProfilerPlugin)
-        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::ProfilerPlugin (call after add_subdirectory(plugins))")
+    if (NOT TARGET Tbx::Plugins::TbxPerformanceMonitorPlugin)
+        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::TbxPerformanceMonitorPlugin (call after add_subdirectory(plugins))")
     endif ()
 
     target_link_libraries(TbxDefaultPlugins INTERFACE
             Tbx::Core
-            Tbx::Plugins::ProfilerPlugin
+            Tbx::Plugins::TbxPerformanceMonitorPlugin
             Tbx::Plugins::SdlInputPlugin
             Tbx::Plugins::JoltPhysicsPlugin
             Tbx::Plugins::SdlWindowingPlugin
@@ -52,7 +52,8 @@ function(tbx_define_default_plugins)
             Tbx::Plugins::OpenGlRenderingPlugin
             Tbx::Plugins::StbImageLoaderPlugin
             Tbx::Plugins::AssimpModelLoaderPlugin
-            Tbx::Plugins::GlslShaderLoaderPlugin
-            Tbx::Plugins::MatMaterialLoaderPlugin
+            Tbx::Plugins::TbxShaderLoaderPlugin
+            Tbx::Plugins::TbxMaterialLoaderPlugin
     )
 endfunction()
+

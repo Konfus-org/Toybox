@@ -1,4 +1,4 @@
-#include "tbx/plugins/mat_material_loader/mat_material_loader_plugin.h"
+#include "tbx/plugins/tbx_material_loader/tbx_material_loader_plugin.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
@@ -11,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace mat_material_loader
+namespace tbx_material_loader
 {
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
@@ -575,7 +575,7 @@ namespace mat_material_loader
         }
     }
 
-    void MatMaterialLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void TbxMaterialLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
         auto serialization_registry = _serialization_registry.lock();
@@ -596,7 +596,7 @@ namespace mat_material_loader
             });
     }
 
-    void MatMaterialLoaderPlugin::on_detach()
+    void TbxMaterialLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
             serialization_registry->deregister_reader<tbx::Material>();
@@ -605,7 +605,7 @@ namespace mat_material_loader
         _working_directory = std::filesystem::path();
     }
 
-    std::shared_ptr<tbx::Material> MatMaterialLoaderPlugin::read_material(
+    std::shared_ptr<tbx::Material> TbxMaterialLoaderPlugin::read_material(
         const std::filesystem::path& asset_path,
         const tbx::MaterialLoadParameters&)
     {

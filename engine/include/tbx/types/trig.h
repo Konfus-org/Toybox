@@ -82,4 +82,11 @@ namespace tbx
     TBX_API float acos(float x);
     TBX_API float asin(float x);
     TBX_API float atan(float x);
+
+    /// @brief
+    /// Purpose: Returns a normalized vector, or zero when the input has no length.
+    /// @details
+    /// Ownership: Returns a value type.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    TBX_API Vec3 normalize_or_zero(const Vec3& value);
 }

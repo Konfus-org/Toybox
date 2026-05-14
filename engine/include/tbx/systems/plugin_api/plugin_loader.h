@@ -56,6 +56,7 @@ namespace tbx
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void detach_plugins(
         std::vector<LoadedPlugin>& loaded_plugins,
+        ServiceProvider& service_provider,
         IMessageCoordinator* coordinator = nullptr);
 
     // Unloads plugins in a deterministic dependency-aware order.
@@ -63,6 +64,7 @@ namespace tbx
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void unload_plugins(
         std::vector<LoadedPlugin>& loaded_plugins,
+        ServiceProvider& service_provider,
         IMessageCoordinator* coordinator = nullptr);
 
     /// @brief
