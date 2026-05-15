@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/async/thread_manager.h"
 #include <atomic>
 #include <chrono>

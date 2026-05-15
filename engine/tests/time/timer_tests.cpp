@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/time/timer.h"
 
 namespace tbx::tests::time

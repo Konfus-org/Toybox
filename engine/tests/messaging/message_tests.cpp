@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/messaging/message.h"
 
 namespace tbx::tests::messaging

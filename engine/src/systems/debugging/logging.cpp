@@ -1,11 +1,13 @@
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/interfaces/file_ops.h"
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog-inl.h>
+#include <unordered_set>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <spdlog/sinks/msvc_sink.h>
@@ -15,7 +17,9 @@
 namespace tbx
 {
     static std::mutex logger_mutex = {};
+    static std::mutex once_mutex = {};
     static std::shared_ptr<spdlog::logger> logger = {};
+    static std::unordered_set<size_t> once_message_hashes = {};
 
     static std::shared_ptr<spdlog::logger> create_default_logger()
     {
@@ -83,6 +87,18 @@ namespace tbx
         }
 
         return std::string(message);
+    }
+
+    bool Log::should_write_once(LogLevel level, const std::string& message)
+    {
+        const auto message_hash = std::hash<std::string> {}(message);
+        const auto level_hash = std::hash<int> {}(static_cast<int>(level));
+        const auto hash = message_hash ^ (level_hash + 0x9E3779B9U + (message_hash << 6U)
+                                          + (message_hash >> 2U));
+
+        std::lock_guard<std::mutex> lock(once_mutex);
+        const auto insert_result = once_message_hashes.insert(hash);
+        return insert_result.second;
     }
 
     void Log::write_internal(LogLevel level, const char* file, int line, const std::string& message)

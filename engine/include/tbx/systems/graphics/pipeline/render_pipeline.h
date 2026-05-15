@@ -10,10 +10,10 @@
 namespace tbx
 {
     /// @brief
-    /// Purpose: Runs typed render operations through prepare, execute, and release phases.
+    /// Purpose: Runs typed render operations through prepare and execute phases.
     /// @details
-    /// Ownership: Owns operations via unique pointers. Borrows the backend used for execute and
-    /// release. Thread Safety: Not thread-safe; call from the owning render thread.
+    /// Ownership: Owns operations via unique pointers. Borrows the backend used for execute.
+    /// Thread Safety: Not thread-safe; call from the owning render thread.
     class TBX_API RenderPipeline final
     {
       public:
@@ -34,10 +34,9 @@ namespace tbx
         void add_operation(std::unique_ptr<IRenderOperation> operation);
 
         /// @brief
-        /// Purpose: Removes all operations without calling release().
+        /// Purpose: Removes all operations from the pipeline.
         /// @details
-        /// Ownership: Destroys stored operations immediately; callers should call release() first
-        /// when operations own backend resources.
+        /// Ownership: Destroys stored operations immediately.
         void clear();
 
         /// @brief
@@ -53,15 +52,14 @@ namespace tbx
         Result prepare(std::unique_ptr<RenderData> render_data);
 
         /// @brief
-        /// Purpose: Returns the render data currently owned by the pipeline.
-        RenderData* get_render_data() const;
+        /// Purpose: Prepares every operation, then executes every operation in configured order.
+        /// @details
+        /// Ownership: Takes ownership of render data for the current pipeline submission.
+        Result run(std::unique_ptr<RenderData> render_data, const CancellationToken& token);
 
         /// @brief
-        /// Purpose: Releases backend resources owned by operations and clears the pipeline.
-        /// @details
-        /// Ownership: Keeps the borrowed backend alive externally; clears unique ownership of
-        /// operations after release.
-        void release();
+        /// Purpose: Returns the render data currently owned by the pipeline.
+        RenderData* get_render_data() const;
 
       private:
         Result make_failure_result(
@@ -73,5 +71,6 @@ namespace tbx
         std::weak_ptr<IGraphicsBackend> _backend;
         std::unique_ptr<RenderData> _render_data = {};
         std::vector<std::unique_ptr<IRenderOperation>> _operations = {};
+        bool _is_prepared = false;
     };
 }

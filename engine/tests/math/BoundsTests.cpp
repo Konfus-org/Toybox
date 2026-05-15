@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "tbx/types/bounds.h"
 #include "tbx/types/trig.h"
 #include <cmath>

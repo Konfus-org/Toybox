@@ -52,6 +52,13 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently.
     TBX_API Mesh make_sky_dome();
 
+    /// @brief
+    /// Purpose: Returns the number of float components in each mesh vertex.
+    /// @details
+    /// Ownership: Reads mesh metadata and returns a value type.
+    /// Thread Safety: Safe to call concurrently when the mesh is not being mutated.
+    TBX_API uint32 get_vertex_stride_float_count(const Mesh& mesh);
+
     /// @brief Purpose: Provides a triangle mesh.
     /// @details Ownership: Returns a reference to the default triangle mesh owned
     /// by the module.

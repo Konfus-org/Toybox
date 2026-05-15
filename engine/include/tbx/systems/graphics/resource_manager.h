@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/graphics/graphics_resource_map.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/handle.h"
@@ -11,16 +12,29 @@
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"
+#include <any>
+#include <memory>
 #include <optional>
+#include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace tbx
 {
     inline constexpr uint32 TBX_MAX_MATERIAL_UNIFORM_VECTORS = 64U;
+
+    /// @brief
+    /// Purpose: Selects the pipeline shape used when uploading a material draw resource.
+    /// @details
+    /// Ownership: Value type only.
+    /// Thread Safety: Safe to copy between threads.
+    enum class GraphicsMaterialUploadMode : uint8_t
+    {
+        STANDARD = 0U,
+        POST_PROCESS = 1U,
+    };
 
     /// @brief
     /// Purpose: Stores packed material parameter values for the renderer uniform block.
@@ -44,18 +58,6 @@ namespace tbx
         }
 
         std::vector<Vec4> values = {};
-    };
-
-    /// @brief
-    /// Purpose: Describes one GPU resource cached from an asset handle.
-    /// @details
-    /// Ownership: Stores copied identifiers and usage counters; does not own backend resources.
-    /// Thread Safety: Safe to copy between threads.
-    struct TBX_API GraphicsResourceUsage
-    {
-        Handle asset = {};
-        Uuid resource = {};
-        uint access_count = 0U;
     };
 
     /// @brief
@@ -114,7 +116,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Loads commonly reused graphics assets and keeps their uploaded GPU resources hot.
+    /// Purpose: Uploads commonly reused graphics assets and keeps their GPU resources hot.
     /// @details
     /// Ownership: Owns cache metadata and releases backend resources when evicted or destroyed.
     /// Thread Safety: Not inherently thread-safe; call from the graphics/backend thread.
@@ -122,8 +124,8 @@ namespace tbx
     {
       public:
         GraphicsResourceManager(
-            IGraphicsBackend& backend,
-            AssetManager& asset_manager,
+            std::weak_ptr<IGraphicsBackend> backend,
+            std::weak_ptr<AssetManager> asset_manager,
             uint unused_frame_limit = 3U);
         ~GraphicsResourceManager() noexcept;
 
@@ -135,214 +137,134 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Advances resource lifetime tracking and unloads stale resources.
-        /// @details
-        /// Ownership: Releases stale backend resources owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread once per frame.
-        uint update();
-
-        /// @brief
-        /// Purpose: Returns true when an asset currently has an uploaded GPU resource.
-        /// @details
-        /// Ownership: Does not transfer ownership.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        bool is_loaded(const Handle& handle);
+        /// Purpose: Sets how many untouched frames a resource may remain cached.
+        void set_unused_frame_limit(uint unused_frame_limit);
 
         /// @brief
         /// Purpose: Returns cached usage information for an asset when loaded.
-        /// @details
-        /// Ownership: Returns copied usage data.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
         std::optional<GraphicsResourceUsage> get_usage(const Handle& handle);
 
         /// @brief
-        /// Purpose: Loads a material asset, uploads its pipeline when needed, and returns it.
-        /// @details
-        /// Ownership: The returned UUID is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material(const Handle& handle, Uuid& out_resource_uuid);
+        /// Purpose: Returns true when an asset currently has an uploaded GPU resource.
+        bool is_loaded(const Handle& handle);
 
         /// @brief
-        /// Purpose: Loads a material asset with custom parameters and returns the cached pipeline.
-        /// @details
-        /// Ownership: The returned UUID is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material(
+        /// Purpose: Uploads a material asset and returns its cached pipeline resource.
+        Result upload(
             const Handle& handle,
             const MaterialLoadParameters& parameters,
             Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Loads a material and returns default bindings merged with instance overrides.
-        /// @details
-        /// Ownership: Returned binding data is copied; use load_material_draw_resource for GPU
-        /// bindings.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material_instance(
+        /// Purpose: Uploads a material asset and returns the backend pipeline id as a raw uint.
+        Result upload(
+            const Handle& handle,
+            const MaterialLoadParameters& parameters,
+            uint& out_gpu_handle);
+
+        /// @brief
+        /// Purpose: Uploads a material and returns default bindings merged with instance overrides.
+        Result upload(
             const MaterialInstance& instance,
             GraphicsMaterialInstanceResource& out_material_resource);
 
         /// @brief
-        /// Purpose: Loads a material instance and returns renderer-ready draw bindings.
-        /// @details
-        /// Ownership: Returned binding data is copied; GPU resources are owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material_draw_resource(
+        /// Purpose: Uploads a material instance and returns renderer-ready draw bindings.
+        Result upload(
             const MaterialInstance& instance,
-            GraphicsMaterialDrawResource& out_material_resource);
+            GraphicsMaterialDrawResource& out_material_resource,
+            GraphicsMaterialUploadMode mode = GraphicsMaterialUploadMode::STANDARD);
 
         /// @brief
-        /// Purpose: Loads a material instance for fullscreen post-processing.
-        /// @details
-        /// Ownership: Returned binding data is copied; GPU resources are owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_post_process_material_draw_resource(
-            const MaterialInstance& instance,
-            GraphicsMaterialDrawResource& out_material_resource);
-
-        /// @brief
-        /// Purpose: Loads the renderer-owned fallback texture used for unassigned material maps.
-        /// @details
-        /// Ownership: The returned UUID is owned by this manager until unload_all or destruction.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_default_texture(Uuid& out_resource_uuid);
-
-        /// @brief
-        /// Purpose: Loads a material asset and returns the backend pipeline id as a raw uint.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material(const Handle& handle, uint& out_gpu_handle);
-
-        /// @brief
-        /// Purpose: Loads a material asset with custom parameters and returns the raw backend id.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_material(
-            const Handle& handle,
-            const MaterialLoadParameters& parameters,
-            uint& out_gpu_handle);
-
-        /// @brief
-        /// Purpose: Unloads one cached material pipeline resource.
-        /// @details
-        /// Ownership: Releases the backend resource owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        bool unload_material(const Handle& handle);
-
-        /// @brief
-        /// Purpose: Loads a model asset, uploads its mesh buffers when needed, and returns it.
-        /// @details
-        /// Ownership: The returned UUID identifies the manager-owned model GPU resource group.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(const Handle& handle, Uuid& out_resource_uuid);
-
-        /// @brief
-        /// Purpose: Loads a model asset with custom parameters and returns the cached resource.
-        /// @details
-        /// Ownership: The returned UUID identifies the manager-owned model GPU resource group.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(
+        /// Purpose: Uploads a model asset and returns its cached resource group id.
+        Result upload(
             const Handle& handle,
             const ModelLoadParameters& parameters,
             Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Loads a model asset and returns the manager resource id as a raw uint.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(const Handle& handle, uint& out_gpu_handle);
-
-        /// @brief
-        /// Purpose: Loads a model asset with custom parameters and returns the raw resource id.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(
+        /// Purpose: Uploads a model asset and returns its cached resource group id as a raw uint.
+        Result upload(
             const Handle& handle,
             const ModelLoadParameters& parameters,
             uint& out_gpu_handle);
 
         /// @brief
-        /// Purpose: Loads a model asset and returns cached GPU draw metadata.
-        /// @details
-        /// Ownership: Returns copied metadata; model CPU data may be streamed out after upload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(const Handle& handle, GraphicsModelResource& out_model_resource);
-
-        /// @brief
-        /// Purpose: Loads a model with custom parameters and returns cached GPU draw metadata.
-        /// @details
-        /// Ownership: Returns copied metadata; model CPU data may be streamed out after upload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_model(
+        /// Purpose: Uploads a model asset and returns cached GPU draw metadata.
+        Result upload(
             const Handle& handle,
             const ModelLoadParameters& parameters,
             GraphicsModelResource& out_model_resource);
 
         /// @brief
-        /// Purpose: Unloads one cached model resource group.
-        /// @details
-        /// Ownership: Releases all backend mesh buffer resources owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        bool unload_model(const Handle& handle);
+        /// Purpose: Uploads a runtime-owned GPU buffer through the manager.
+        Result upload(
+            const GraphicsBufferDesc& desc,
+            const void* data,
+            uint64 data_size,
+            Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Loads a texture asset, uploads it when needed, and returns the cached resource.
-        /// @details
-        /// Ownership: The returned UUID is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_texture(const Handle& handle, Uuid& out_resource_uuid);
+        /// Purpose: Uploads a runtime-owned GPU pipeline through the manager.
+        Result upload(const GraphicsPipelineDesc& desc, Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Loads a texture asset with custom parameters and returns the cached resource.
-        /// @details
-        /// Ownership: The returned UUID is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_texture(
+        /// Purpose: Uploads a runtime-owned GPU sampler through the manager.
+        Result upload(const GraphicsSamplerDesc& desc, Uuid& out_resource_uuid);
+
+        /// @brief
+        /// Purpose: Uploads a texture asset and returns its cached resource.
+        Result upload(
             const Handle& handle,
             const TextureLoadParameters& parameters,
             Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Loads a texture asset and returns the backend resource id as a raw uint.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_texture(const Handle& handle, uint& out_gpu_handle);
-
-        /// @brief
-        /// Purpose: Loads a texture asset with custom parameters and returns the raw backend id.
-        /// @details
-        /// Ownership: The returned id is owned by this manager until eviction or unload.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        Result load_texture(
+        /// Purpose: Uploads a texture asset and returns the backend resource id as a raw uint.
+        Result upload(
             const Handle& handle,
             const TextureLoadParameters& parameters,
             uint& out_gpu_handle);
 
         /// @brief
-        /// Purpose: Unloads one cached texture resource.
-        /// @details
-        /// Ownership: Releases the backend resource owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        bool unload_texture(const Handle& handle);
+        /// Purpose: Uploads a runtime-owned GPU texture through the manager.
+        Result upload(
+            const GraphicsTextureDesc& desc,
+            const void* data,
+            uint64 data_size,
+            Uuid& out_resource_uuid);
 
         /// @brief
-        /// Purpose: Sets how many untouched frames a resource may remain cached.
-        /// @details
-        /// Ownership: Copies the provided frame count.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        void set_unused_frame_limit(uint unused_frame_limit);
+        /// Purpose: Marks one runtime-owned GPU resource as used for this frame.
+        Result update(const Uuid& resource_uuid);
 
         /// @brief
-        /// Purpose: Unloads all cached GPU resources.
-        /// @details
-        /// Ownership: Releases backend resources owned by this manager.
-        /// Thread Safety: Not thread-safe; call from the graphics/backend thread.
-        void unload_all();
+        /// Purpose: Updates one runtime-owned GPU buffer through the manager.
+        Result update(
+            const Uuid& resource_uuid,
+            const void* data,
+            uint64 data_size,
+            uint64 offset);
+
+        /// @brief
+        /// Purpose: Updates one runtime-owned GPU texture through the manager.
+        Result update(
+            const Uuid& resource_uuid,
+            const GraphicsTextureUpdateDesc& desc,
+            const void* data,
+            uint64 data_size);
+
+        /// @brief
+        /// Purpose: Unloads every manager-owned resource associated with an asset handle.
+        Result unload(const Handle& handle);
+
+        /// @brief
+        /// Purpose: Unloads one manager-owned runtime GPU resource.
+        Result unload(const Uuid& resource_uuid);
+
+        /// @brief
+        /// Purpose: Advances resource lifetime tracking and unloads stale resources.
+        uint unload_stale();
 
       private:
         static std::vector<Pixel> expand_rgb_to_rgba(const Texture& texture);
@@ -381,27 +303,31 @@ namespace tbx
             std::vector<Uuid>& loaded_shader_ids,
             std::vector<ShaderSource>& shader_sources);
         Result build_material_shader(const Material& material, Shader& out_shader);
-        void erase_usage(
-            Uuid asset_id,
-            std::unordered_map<Uuid, GraphicsResourceUsage>& resources,
-            std::unordered_map<Uuid, uint>& last_access_frames);
+        static GraphicsResourceKey make_asset_resource_key(Uuid asset_id, uint32 bucket);
+        static GraphicsResourceKey make_runtime_resource_key(Uuid resource_uuid);
+        static bool should_pin_asset_for_bucket(uint32 bucket);
+        void erase_usage(const GraphicsResourceKey& key);
+        void pin_asset_if_tracked(const GraphicsResourceKey& key, const Handle& handle);
+        void unpin_asset_if_unused(const GraphicsResourceKey& key, const Handle& handle);
         std::optional<GraphicsResourceUsage> find_usage(const Handle& handle);
-        Result load_cached_material(
+        GraphicsResourceRecord* find_record(const GraphicsResourceKey& key);
+        const GraphicsResourceRecord* find_record(const GraphicsResourceKey& key) const;
+        std::shared_ptr<AssetManager> lock_asset_manager() const;
+        std::shared_ptr<IGraphicsBackend> lock_backend() const;
+        Result upload_cached_material(
             const Handle& handle,
             const MaterialLoadParameters& parameters,
             Uuid& out_resource_uuid);
-        Result load_cached_model(
+        Result upload_cached_model(
             const Handle& handle,
             const ModelLoadParameters& parameters,
             Uuid& out_resource_uuid);
-        Result load_cached_texture(
+        Result upload_cached_texture(
             const Handle& handle,
             const TextureLoadParameters& parameters,
             Uuid& out_resource_uuid);
-        Result unload_backend_resources(Uuid asset_id, const GraphicsResourceUsage& usage);
-        uint unload_unused(
-            std::unordered_map<Uuid, GraphicsResourceUsage>& resources,
-            std::unordered_map<Uuid, uint>& last_access_frames);
+        Result unload_backend_resources(const GraphicsResourceRecord& record);
+        Result unload_resource(const GraphicsResourceKey& key, const GraphicsResourceRecord& record);
         Result upload_material_resource(
             const Handle& handle,
             const Material& material,
@@ -415,6 +341,7 @@ namespace tbx
         Result load_material_textures(
             const MaterialTextureBindings& texture_bindings,
             std::vector<GraphicsResourceBinding>& out_textures);
+        Result load_default_texture(Uuid& out_resource_uuid);
         Result load_default_texture_for_binding(
             std::string_view binding_name,
             Uuid& out_resource_uuid);
@@ -435,23 +362,27 @@ namespace tbx
             const Handle& handle,
             const Texture& texture,
             Uuid& out_resource_uuid);
+        void track_resource(
+            const GraphicsResourceKey& key,
+            const Handle& handle,
+            Uuid resource_uuid,
+            std::vector<Uuid> backend_resources = {},
+            std::any payload = {});
+        bool touch_resource(const GraphicsResourceKey& key);
+        bool touch_runtime_resource(const Uuid& resource_uuid);
+        Result upload_runtime_resource(
+            const Handle& handle,
+            Uuid& out_resource_uuid,
+            const Result& upload_result);
+        void unload_all();
         uint unload_unused();
         Uuid resolve_asset_id(const Handle& handle);
 
       private:
-        IGraphicsBackend& _backend;
-        AssetManager& _asset_manager;
-        std::unordered_map<Uuid, GraphicsResourceUsage> _materials = {};
-        std::unordered_map<Uuid, GraphicsMaterialInstanceResource> _material_resources = {};
-        std::unordered_map<Uuid, uint> _material_last_access_frames = {};
-        std::unordered_map<Uuid, GraphicsResourceUsage> _post_process_materials = {};
+        std::weak_ptr<IGraphicsBackend> _backend = {};
+        std::weak_ptr<AssetManager> _asset_manager = {};
+        GraphicsResourceMap _resources = {};
         std::unordered_set<Uuid> _failed_materials = {};
-        std::unordered_map<Uuid, GraphicsResourceUsage> _models = {};
-        std::unordered_map<Uuid, GraphicsModelResource> _model_resources = {};
-        std::unordered_map<Uuid, uint> _model_last_access_frames = {};
-        std::unordered_map<Uuid, std::vector<Uuid>> _model_backend_resources = {};
-        std::unordered_map<Uuid, GraphicsResourceUsage> _textures = {};
-        std::unordered_map<Uuid, uint> _texture_last_access_frames = {};
         Uuid _default_texture = {};
         Uuid _default_normal_texture = {};
         Uuid _default_black_texture = {};

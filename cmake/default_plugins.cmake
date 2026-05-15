@@ -8,8 +8,8 @@ function(tbx_define_default_plugins)
     add_library(TbxDefaultPlugins INTERFACE)
     add_library(Tbx::DefaultPlugins ALIAS TbxDefaultPlugins)
 
-    if (NOT TARGET Tbx::Core)
-        message(FATAL_ERROR "Tbx::DefaultPlugins requires Tbx::Core (call after add_subdirectory(core))")
+    if (NOT TARGET Tbx::Engine)
+        message(FATAL_ERROR "Tbx::DefaultPlugins requires Tbx::Engine (call after add_subdirectory(engine))")
     endif ()
     if (NOT TARGET Tbx::Plugins::SdlInputPlugin)
         message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::SdlInputPlugin (call after add_subdirectory(plugins))")
@@ -43,7 +43,7 @@ function(tbx_define_default_plugins)
     endif ()
 
     target_link_libraries(TbxDefaultPlugins INTERFACE
-            Tbx::Core
+            Tbx::Engine
             Tbx::Plugins::TbxPerformanceMonitorPlugin
             Tbx::Plugins::SdlInputPlugin
             Tbx::Plugins::JoltPhysicsPlugin

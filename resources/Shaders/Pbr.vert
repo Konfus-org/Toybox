@@ -24,9 +24,9 @@ void main()
     v_tex_coord = a_texcoord;
 
     mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);
-    vec4 world_position = tbx_get_model_matrix(model) * vec4(a_position, 1.0);
+    vec4 world_position = model * vec4(a_position, 1.0);
     v_world_position = world_position.xyz;
-    mat3 normal_matrix = mat3(transpose(inverse(tbx_get_model_matrix(model))));
+    mat3 normal_matrix = mat3(transpose(inverse(model)));
     v_world_normal = normalize(normal_matrix * a_normal);
     v_world_tangent = normalize(normal_matrix * a_tangent.xyz);
     v_world_tangent_sign = a_tangent.w;

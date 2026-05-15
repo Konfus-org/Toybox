@@ -6,12 +6,10 @@ tbx_set_test_output(TbxPluginApiTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-target_precompile_headers(TbxPluginApiTests PRIVATE "pch.h")
+target_precompile_headers(TbxPluginApiTests PRIVATE "../pch.h")
 target_sources(TbxPluginApiTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxPluginApiTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -20,7 +18,7 @@ target_include_directories(TbxPluginApiTests PRIVATE
 )
 
 target_link_libraries(TbxPluginApiTests PRIVATE
-    Tbx::Core
+    Tbx::Engine
     gtest
     gtest_main
     gmock

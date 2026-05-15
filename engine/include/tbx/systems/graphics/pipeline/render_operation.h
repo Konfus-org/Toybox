@@ -20,7 +20,7 @@ namespace tbx
     /// Purpose: Defines a self-contained unit of rendering work with explicit prepare and execute
     /// phases.
     /// @details
-    /// Ownership: Owns all GPU resource handles it requires. Releases them via release().
+    /// Ownership: Owns CPU-side operation state. GPU resources are owned by GraphicsResourceManager.
     /// Thread Safety: Not thread-safe; call from the owning render thread.
     class TBX_API IRenderOperation
     {
@@ -50,12 +50,6 @@ namespace tbx
             IGraphicsBackend& backend,
             RenderData& render_data,
             const CancellationToken& token) = 0;
-
-        /// @brief
-        /// Purpose: Unloads all owned GPU resources from the backend.
-        /// @details
-        /// Called before backend shutdown or when the operation is destroyed.
-        virtual void release(IGraphicsBackend& backend) {}
 
       protected:
         IRenderOperation() = default;

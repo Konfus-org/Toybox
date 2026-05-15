@@ -5,7 +5,6 @@
 #include <string>
 #include <utility>
 
-
 namespace opengl_rendering
 {
     static uint32 take_gl_handle(uint32& id) noexcept
@@ -181,18 +180,11 @@ namespace opengl_rendering
                 glDetachShader(_program_id, shader->get_shader_id());
             }
         }
-
-        _instance_model_attribute_location = 8;
-        _instance_id_attribute_location = 12;
     }
 
     OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
         : _program_id(take_gl_handle(other._program_id))
-        , _instance_model_attribute_location(other._instance_model_attribute_location)
-        , _instance_id_attribute_location(other._instance_id_attribute_location)
     {
-        other._instance_model_attribute_location = 8;
-        other._instance_id_attribute_location = 12;
     }
 
     OpenGlShaderProgram& OpenGlShaderProgram::operator=(OpenGlShaderProgram&& other) noexcept
@@ -204,10 +196,6 @@ namespace opengl_rendering
             glDeleteProgram(_program_id);
 
         _program_id = take_gl_handle(other._program_id);
-        _instance_model_attribute_location = other._instance_model_attribute_location;
-        _instance_id_attribute_location = other._instance_id_attribute_location;
-        other._instance_model_attribute_location = 8;
-        other._instance_id_attribute_location = 12;
         return *this;
     }
 
@@ -234,15 +222,4 @@ namespace opengl_rendering
     {
         return _program_id;
     }
-
-    int OpenGlShaderProgram::get_instance_model_attribute_location() const
-    {
-        return _instance_model_attribute_location;
-    }
-
-    int OpenGlShaderProgram::get_instance_id_attribute_location() const
-    {
-        return _instance_id_attribute_location;
-    }
-
 }

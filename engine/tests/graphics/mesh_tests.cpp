@@ -1,14 +1,8 @@
-#include "PCH.h"
 #include "tbx/types/components/mesh.h"
 #include <array>
 
 namespace tbx::tests::graphics
 {
-    static size_t get_vertex_stride_float_count(const Mesh& mesh)
-    {
-        return mesh.vertices.layout.stride / sizeof(float);
-    }
-
     static bool are_all_triangles_outward_facing(const Mesh& mesh)
     {
         const size_t vertex_stride = get_vertex_stride_float_count(mesh);

@@ -13,10 +13,30 @@
             msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
+#define TBX_TRACE_INFO_ONCE(msg, ...)                                                              \
+    do                                                                                             \
+    {                                                                                              \
+        ::tbx::Log::write_once(                                                                    \
+            ::tbx::LogLevel::INFO,                                                                 \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
+    } while (0)
+
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \
         ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::WARNING,                                                              \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
+    } while (0)
+
+#define TBX_TRACE_WARNING_ONCE(msg, ...)                                                           \
+    do                                                                                             \
+    {                                                                                              \
+        ::tbx::Log::write_once(                                                                    \
             ::tbx::LogLevel::WARNING,                                                              \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -33,10 +53,30 @@
             msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
+#define TBX_TRACE_ERROR_ONCE(msg, ...)                                                             \
+    do                                                                                             \
+    {                                                                                              \
+        ::tbx::Log::write_once(                                                                    \
+            ::tbx::LogLevel::ERROR,                                                                \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
+    } while (0)
+
 #define TBX_TRACE_CRITICAL(msg, ...)                                                               \
     do                                                                                             \
     {                                                                                              \
         ::tbx::Log::write(                                                                         \
+            ::tbx::LogLevel::CRITICAL,                                                             \
+            __FILE__,                                                                              \
+            __LINE__,                                                                              \
+            msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
+    } while (0)
+
+#define TBX_TRACE_CRITICAL_ONCE(msg, ...)                                                          \
+    do                                                                                             \
+    {                                                                                              \
+        ::tbx::Log::write_once(                                                                    \
             ::tbx::LogLevel::CRITICAL,                                                             \
             __FILE__,                                                                              \
             __LINE__,                                                                              \

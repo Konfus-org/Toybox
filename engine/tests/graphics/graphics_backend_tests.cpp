@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
@@ -50,7 +49,7 @@ namespace tbx::tests::graphics
         WaitForIdle,
     };
 
-    class RecordingGraphicsBackend final : public IGraphicsBackend
+    class RecordingGraphicsBackend : public IGraphicsBackend
     {
       public:
         Result begin_frame(const GraphicsFrameInfo& frame) override
@@ -460,7 +459,11 @@ namespace tbx::tests::graphics
     template <typename TService>
     static std::shared_ptr<TService> make_non_owning_service(TService& service)
     {
-        return std::shared_ptr<TService>(&service, [](TService*) {});
+        return std::shared_ptr<TService>(
+            &service,
+            [](TService*)
+            {
+            });
     }
 
     // Validates Rendering opens frame state and submits geometry through render().
@@ -572,12 +575,8 @@ namespace tbx::tests::graphics
             });
 
         // Assert
-        EXPECT_EQ(
-            lane_drain.wait_for(std::chrono::milliseconds(10)),
-            std::future_status::timeout);
-        EXPECT_EQ(
-            render_call.wait_for(std::chrono::milliseconds(10)),
-            std::future_status::timeout);
+        EXPECT_EQ(lane_drain.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
+        EXPECT_EQ(render_call.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
 
         // Cleanup
         allow_initialize.set_value();
@@ -629,9 +628,7 @@ namespace tbx::tests::graphics
             });
 
         // Assert
-        EXPECT_EQ(
-            lane_drain.wait_for(std::chrono::milliseconds(10)),
-            std::future_status::timeout);
+        EXPECT_EQ(lane_drain.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
 
         // Cleanup
         allow_begin_frame.set_value();
@@ -747,7 +744,6 @@ namespace tbx::tests::graphics
     {
         bool prepared = false;
         bool executed = false;
-        bool released = false;
     };
 
     class RecordingRenderOperation final : public IRenderOperation
@@ -783,17 +779,12 @@ namespace tbx::tests::graphics
                 });
         }
 
-        void release(IGraphicsBackend&) override
-        {
-            _state.get().released = true;
-        }
-
       private:
         std::reference_wrapper<RenderPipelineOperationState> _state;
     };
 
-    // Validates typed render pipelines prepare, execute, and release owned operations.
-    TEST(RenderPipelineTests, PrepareExecuteRelease_RunsOwnedOperations)
+    // Validates typed render pipelines prepare and execute owned operations.
+    TEST(RenderPipelineTests, PrepareExecute_RunsOwnedOperations)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -801,7 +792,10 @@ namespace tbx::tests::graphics
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            3U);
         auto registry = EntityRegistry {};
         auto window_manager = RecordingWindowManager {};
         auto render_data = std::make_unique<RenderData>();
@@ -815,7 +809,7 @@ namespace tbx::tests::graphics
         // Act
         const auto prepare_result = pipeline.prepare(std::move(render_data));
         const auto execute_result = pipeline.execute(CancellationToken {});
-        pipeline.release();
+        pipeline.clear();
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
@@ -826,7 +820,6 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(execute_result);
         EXPECT_TRUE(state.prepared);
         EXPECT_TRUE(state.executed);
-        EXPECT_TRUE(state.released);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 
@@ -878,7 +871,10 @@ namespace tbx::tests::graphics
                 GraphicsBackendCallback::DrawIndexed),
             backend.callbacks.end());
         EXPECT_NE(
-            std::find(backend.callbacks.begin(), backend.callbacks.end(), GraphicsBackendCallback::Draw),
+            std::find(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::Draw),
             backend.callbacks.end());
     }
 
@@ -959,7 +955,10 @@ namespace tbx::tests::graphics
                 GraphicsBackendCallback::DrawIndexed),
             backend.callbacks.end());
         EXPECT_NE(
-            std::find(backend.callbacks.begin(), backend.callbacks.end(), GraphicsBackendCallback::Draw),
+            std::find(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::Draw),
             backend.callbacks.end());
     }
 
@@ -1050,16 +1049,22 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            3U);
         const auto texture_handle = Handle("Textures/Diffuse.png");
 
         // Act
         auto first_resource = Uuid {};
         auto second_resource = Uuid {};
         auto raw_gpu_handle = uint {};
-        const auto first_result = resource_manager.load_texture(texture_handle, first_resource);
-        const auto second_result = resource_manager.load_texture(texture_handle, second_resource);
-        const auto raw_result = resource_manager.load_texture(texture_handle, raw_gpu_handle);
+        const auto first_result =
+            resource_manager.upload(texture_handle, TextureLoadParameters {}, first_resource);
+        const auto second_result =
+            resource_manager.upload(texture_handle, TextureLoadParameters {}, second_resource);
+        const auto raw_result =
+            resource_manager.upload(texture_handle, TextureLoadParameters {}, raw_gpu_handle);
         const auto usage = resource_manager.get_usage(texture_handle);
 
         // Assert
@@ -1117,14 +1122,19 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            3U);
         const auto material_handle = Handle("Materials/Test.mat");
 
         // Act
         auto first_resource = Uuid {};
         auto second_resource = Uuid {};
-        const auto first_result = resource_manager.load_material(material_handle, first_resource);
-        const auto second_result = resource_manager.load_material(material_handle, second_resource);
+        const auto first_result =
+            resource_manager.upload(material_handle, MaterialLoadParameters {}, first_resource);
+        const auto second_result =
+            resource_manager.upload(material_handle, MaterialLoadParameters {}, second_resource);
         const auto usage = resource_manager.get_usage(material_handle);
         const bool is_texture_loaded = resource_manager.is_loaded(Handle("Textures/Diffuse.png"));
 
@@ -1138,6 +1148,87 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.uploaded_texture_count, 1U);
         EXPECT_TRUE(is_texture_loaded);
         EXPECT_EQ(backend.recorded_pipeline_desc.debug_name, "Material Materials/Test.mat");
+    }
+
+    // Validates active material/texture resources keep source assets pinned between cleanup ticks.
+    TEST(GraphicsResourceManagerTests, LoadMaterial_KeepsAssetsPinnedWhileResourceTracked)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Shader>(
+            [](const std::filesystem::path&, const ShaderLoadParameters&)
+            {
+                return std::make_shared<Shader>(std::vector<ShaderSource> {
+                    ShaderSource(
+                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
+                        ShaderType::VERTEX),
+                    ShaderSource(
+                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
+                        "vec4(1.0); }\n",
+                        ShaderType::FRAGMENT),
+                });
+            });
+        serialization_registry.register_reader<Texture>(
+            [](const std::filesystem::path&, const TextureLoadParameters&)
+            {
+                return std::make_shared<Texture>(
+                    Size {1U, 1U},
+                    TextureWrap::REPEAT,
+                    TextureFilter::LINEAR,
+                    TextureFormat::RGBA,
+                    std::vector<Pixel> {255U, 255U, 255U, 255U});
+            });
+        serialization_registry.register_reader<Material>(
+            [](const std::filesystem::path&, const MaterialLoadParameters&)
+            {
+                auto material = Material {};
+                material.program.vertex = Handle("Shaders/Test.shader");
+                material.program.fragment = Handle("Shaders/Test.shader");
+                material.textures.set("diffuse_map", Handle("Textures/Diffuse.png"));
+                return std::make_shared<Material>(std::move(material));
+            });
+
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            2U);
+
+        const auto material_handle = Handle("Materials/Test.mat");
+        const auto texture_handle = Handle("Textures/Diffuse.png");
+        auto material_resource = Uuid {};
+
+        // Act
+        const auto load_result =
+            resource_manager.upload(material_handle, MaterialLoadParameters {}, material_resource);
+        asset_manager.unload_unreferenced();
+        const AssetUsage material_usage_while_tracked =
+            asset_manager.get_usage<Material>(material_handle);
+        const AssetUsage texture_usage_while_tracked =
+            asset_manager.get_usage<Texture>(texture_handle);
+
+        resource_manager.unload_stale();
+        resource_manager.unload_stale();
+        asset_manager.unload_unreferenced();
+        const AssetUsage material_usage_after_eviction =
+            asset_manager.get_usage<Material>(material_handle);
+        const AssetUsage texture_usage_after_eviction =
+            asset_manager.get_usage<Texture>(texture_handle);
+
+        // Assert
+        ASSERT_TRUE(load_result);
+        EXPECT_EQ(material_usage_while_tracked.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(texture_usage_while_tracked.stream_state, AssetStreamState::LOADED);
+        EXPECT_TRUE(material_usage_while_tracked.is_pinned);
+        EXPECT_TRUE(texture_usage_while_tracked.is_pinned);
+
+        EXPECT_EQ(material_usage_after_eviction.stream_state, AssetStreamState::UNLOADED);
+        EXPECT_EQ(texture_usage_after_eviction.stream_state, AssetStreamState::UNLOADED);
+        EXPECT_FALSE(material_usage_after_eviction.is_pinned);
+        EXPECT_FALSE(texture_usage_after_eviction.is_pinned);
     }
 
     // Validates GraphicsResourceManager uploads model mesh buffers as one cached resource group.
@@ -1154,18 +1245,23 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 2U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            2U);
         const auto model_handle = Handle("Models/Triangle.fbx");
 
         // Act
         auto first_resource = Uuid {};
         auto second_resource = Uuid {};
-        const auto first_result = resource_manager.load_model(model_handle, first_resource);
-        const auto second_result = resource_manager.load_model(model_handle, second_resource);
+        const auto first_result =
+            resource_manager.upload(model_handle, ModelLoadParameters {}, first_resource);
+        const auto second_result =
+            resource_manager.upload(model_handle, ModelLoadParameters {}, second_resource);
         const auto usage = resource_manager.get_usage(model_handle);
         const bool loaded_before_unload = resource_manager.is_loaded(model_handle);
-        resource_manager.update();
-        const uint unloaded_count = resource_manager.update();
+        resource_manager.unload_stale();
+        const uint unloaded_count = resource_manager.unload_stale();
         const bool loaded_after_unload = resource_manager.is_loaded(model_handle);
 
         // Assert
@@ -1199,17 +1295,22 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 2U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            2U);
         const auto model_handle = Handle("Models/Triangle.fbx");
 
         // Act
         auto first_model_resource = GraphicsModelResource {};
-        const auto first_result = resource_manager.load_model(model_handle, first_model_resource);
+        const auto first_result =
+            resource_manager.upload(model_handle, ModelLoadParameters {}, first_model_resource);
         asset_manager.unload_unreferenced();
 
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
         auto second_model_resource = GraphicsModelResource {};
-        const auto second_result = resource_manager.load_model(model_handle, second_model_resource);
+        const auto second_result =
+            resource_manager.upload(model_handle, ModelLoadParameters {}, second_model_resource);
         const auto resource_usage = resource_manager.get_usage(model_handle);
 
         // Assert
@@ -1251,21 +1352,26 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(backend, asset_manager, 3U);
+        auto resource_manager = GraphicsResourceManager(
+            make_non_owning_service<IGraphicsBackend>(backend),
+            make_non_owning_service(asset_manager),
+            3U);
         const auto texture_handle = Handle("Textures/Stale.png");
 
         auto first_resource = Uuid {};
-        const auto load_result = resource_manager.load_texture(texture_handle, first_resource);
+        const auto load_result =
+            resource_manager.upload(texture_handle, TextureLoadParameters {}, first_resource);
 
         // Act
-        const uint first_unload_count = resource_manager.update();
-        const uint second_unload_count = resource_manager.update();
+        const uint first_unload_count = resource_manager.unload_stale();
+        const uint second_unload_count = resource_manager.unload_stale();
         const bool loaded_before_limit = resource_manager.is_loaded(texture_handle);
-        const uint third_unload_count = resource_manager.update();
+        const uint third_unload_count = resource_manager.unload_stale();
         const bool loaded_after_limit = resource_manager.is_loaded(texture_handle);
 
         auto second_resource = Uuid {};
-        const auto reload_result = resource_manager.load_texture(texture_handle, second_resource);
+        const auto reload_result =
+            resource_manager.upload(texture_handle, TextureLoadParameters {}, second_resource);
 
         // Assert
         ASSERT_TRUE(load_result);

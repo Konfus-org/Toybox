@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include <filesystem>
 #include <vector>

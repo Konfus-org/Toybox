@@ -5,7 +5,7 @@ add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
 
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-        Tbx::Core
+        Tbx::Engine
         EnTT::EnTT
         Tbx::Resources
         assimp::assimp

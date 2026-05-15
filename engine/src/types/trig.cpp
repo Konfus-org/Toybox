@@ -13,6 +13,11 @@ namespace tbx
         return glm::degrees(radians);
     }
 
+    float angle_to_cosine(float degrees)
+    {
+        return glm::cos(glm::radians(degrees));
+    }
+
     Vec3 to_radians(const Vec3& degrees)
     {
         return glm::radians(degrees);

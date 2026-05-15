@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace tbx::tests::file_system
+namespace tbx::tests
 {
     class InMemoryFileOps final : public IFileOps
     {

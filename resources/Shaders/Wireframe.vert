@@ -17,8 +17,8 @@ void main()
     v_color = u_material_uniforms[0];
 
     mat4 model = mat4(a_model0, a_model1, a_model2, a_model3);
-    vec4 world_position = tbx_get_model_matrix(model) * vec4(a_position, 1.0);
-    mat3 normal_matrix = mat3(transpose(inverse(tbx_get_model_matrix(model))));
+    vec4 world_position = model * vec4(a_position, 1.0);
+    mat3 normal_matrix = mat3(transpose(inverse(model)));
     v_world_normal = normalize(normal_matrix * a_normal);
 
     gl_Position = u_view_proj * world_position;

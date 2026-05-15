@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/time/delta_time.h"
 #include <chrono>
 #include <thread>

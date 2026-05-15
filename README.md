@@ -90,7 +90,7 @@ ctest --preset test-msvc-release
 ```
 
 ## Contributing and AI Usage
-Look to the contributing documentation [here](CONTRIBUTING.md).
+Look to the contributing documentation [here](docs/Contributing.md).
 
 In regards to AI usage:
 

@@ -47,13 +47,8 @@ namespace opengl_rendering
         void unbind() override;
 
         uint32 get_program_id() const;
-        int get_instance_model_attribute_location() const;
-        int get_instance_id_attribute_location() const;
 
       private:
         uint32 _program_id = 0;
-
-        int _instance_model_attribute_location = 8;
-        int _instance_id_attribute_location = 12;
     };
 }

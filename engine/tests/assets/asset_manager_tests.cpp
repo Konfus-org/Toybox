@@ -1,7 +1,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
-#include "tbx/core/systems/files/tests/in_memory_file_ops.h"
+#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/types/handle.h"
 #include "tbx/utils/result.h"
 #include <chrono>
@@ -106,9 +106,7 @@ namespace tbx
         if (is_registered)
             return;
 
-        registry.register_reader<TestAsset>(
-            read_test_asset,
-            read_test_asset_async);
+        registry.register_reader<TestAsset>(read_test_asset, read_test_asset_async);
         is_registered = true;
     }
 
@@ -131,7 +129,7 @@ namespace tbx
 
 namespace tbx::tests::assets
 {
-    using InMemoryFileOps = ::tbx::tests::file_system::InMemoryFileOps;
+    using InMemoryFileOps = ::tbx::tests::InMemoryFileOps;
 
     static IMessageDispatcher& get_null_dispatcher()
     {

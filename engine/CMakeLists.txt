@@ -1,10 +1,10 @@
-option(TBX_BUILD_SHARED "Build Toybox core as a shared library" ON)
+option(TBX_BUILD_SHARED "Build Toybox core engine as a shared library" ON)
 option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
 
 set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
 
 message(STATUS "")
-message(STATUS "Configuring Toybox Core:")
+message(STATUS "Configuring Toybox Engine:")
 
 if(CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
@@ -15,26 +15,26 @@ message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
 message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
 
 if(TBX_BUILD_SHARED)
-    add_library(Core SHARED)
-    target_compile_definitions(Core
+    add_library(Engine SHARED)
+    target_compile_definitions(Engine
         PUBLIC
             TBX_SHARED_LIB
         PRIVATE
             TBX_EXPORTING_SYMBOLS
     )
 else()
-    add_library(Core STATIC)
+    add_library(Engine STATIC)
 endif()
 
-add_library(Tbx::Core ALIAS Core)
+add_library(Tbx::Engine ALIAS Engine)
 
-file(GLOB_RECURSE TBX_CORE_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
-file(GLOB_RECURSE TBX_CORE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+file(GLOB_RECURSE TBX_Engine_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
+file(GLOB_RECURSE TBX_Engine_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 
-target_sources(Core PRIVATE ${TBX_CORE_SOURCES} ${TBX_CORE_INCLUDES})
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${TBX_CORE_SOURCES} ${TBX_CORE_INCLUDES})
+target_sources(Engine PRIVATE ${TBX_Engine_SOURCES} ${TBX_Engine_INCLUDES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${TBX_Engine_SOURCES} ${TBX_Engine_INCLUDES})
 
-target_include_directories(Core
+target_include_directories(Engine
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -45,14 +45,14 @@ target_include_directories(Core
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_definitions(Core
+target_compile_definitions(Engine
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
 )
 
-target_precompile_headers(Core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/pch.h")
+target_precompile_headers(Engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/pch.h")
 
-target_link_libraries(Core
+target_link_libraries(Engine
     PUBLIC
         Tbx::Resources
         EnTT::EnTT
@@ -62,7 +62,6 @@ target_link_libraries(Core
         spdlog::spdlog
 )
 
-# TODO: seperate testing from the rest of the engines builds, it should be its own thing seperate from the runtime
-#set(CMAKE_FOLDER "tests")
-#add_subdirectory(tests)
-#unset(CMAKE_FOLDER)
+set(CMAKE_FOLDER "tests")
+add_subdirectory(tests)
+unset(CMAKE_FOLDER)

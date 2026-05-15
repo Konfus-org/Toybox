@@ -1,9 +1,7 @@
-#include "pch.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/pipeline.h"
 #include <any>
 #include <memory>
-
 
 namespace tbx::tests::utils
 {

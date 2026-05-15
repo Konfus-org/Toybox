@@ -16,9 +16,19 @@ namespace tbx
             std::string_view fmt,
             Args&&... args);
 
+        template <typename... Args>
+        static void write_once(
+            LogLevel level,
+            const char* file,
+            int line,
+            std::string_view fmt,
+            Args&&... args);
+
         static void flush();
 
       private:
+        static bool should_write_once(LogLevel level, const std::string& message);
+
         static void write_internal(
             LogLevel level,
             const char* file,

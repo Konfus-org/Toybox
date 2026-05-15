@@ -15,6 +15,21 @@ namespace tbx
         write_internal(level, file, line, format(fmt, std::forward<Args>(args)...));
     }
 
+    template <typename... Args>
+    void Log::write_once(
+        LogLevel level,
+        const char* file,
+        int line,
+        std::string_view fmt,
+        Args&&... args)
+    {
+        const std::string message = format(fmt, std::forward<Args>(args)...);
+        if (!should_write_once(level, message))
+            return;
+
+        write_internal(level, file, line, message);
+    }
+
     template <typename T>
     auto Log::format(T&& value)
     {

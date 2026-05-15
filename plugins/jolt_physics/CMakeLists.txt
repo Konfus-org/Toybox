@@ -9,7 +9,7 @@ target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/sr
 
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-        Tbx::Core
+        Tbx::Engine
         Jolt::Jolt
         EnTT::EnTT
         glm

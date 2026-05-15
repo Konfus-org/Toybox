@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/async/cancellation_token.h"
 
 namespace tbx::tests::async

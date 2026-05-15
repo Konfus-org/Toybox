@@ -24,6 +24,7 @@ void main()
         longitude / (2.0 * TBX_PI) + 0.5,
         0.5 - latitude / TBX_PI
     );
+    
     // At the poles longitude becomes degenerate — a tiny spatial step spans the
     // full U range, so the GPU's auto-LOD picks an incorrect (blurry) mip level.
     // Override with explicit derivatives, clamping the longitude component to

@@ -10,6 +10,12 @@
 
 namespace tbx
 {
+    static constexpr uint32 MATERIAL_RESOURCE_BUCKET = 1U;
+    static constexpr uint32 POST_PROCESS_MATERIAL_RESOURCE_BUCKET = 2U;
+    static constexpr uint32 MODEL_RESOURCE_BUCKET = 3U;
+    static constexpr uint32 TEXTURE_RESOURCE_BUCKET = 4U;
+    static constexpr uint32 RUNTIME_RESOURCE_BUCKET = 5U;
+
     static bool texture_binding_name_matches(
         const std::string_view binding_name,
         const std::string_view canonical_name)
@@ -27,11 +33,11 @@ namespace tbx
     }
 
     GraphicsResourceManager::GraphicsResourceManager(
-        IGraphicsBackend& backend,
-        AssetManager& asset_manager,
+        std::weak_ptr<IGraphicsBackend> backend,
+        std::weak_ptr<AssetManager> asset_manager,
         const uint unused_frame_limit)
-        : _backend(backend)
-        , _asset_manager(asset_manager)
+        : _backend(std::move(backend))
+        , _asset_manager(std::move(asset_manager))
         , _unused_frame_limit(unused_frame_limit)
     {
     }
@@ -41,15 +47,9 @@ namespace tbx
         unload_all();
     }
 
-    uint GraphicsResourceManager::update()
+    void GraphicsResourceManager::set_unused_frame_limit(const uint unused_frame_limit)
     {
-        _current_frame += 1U;
-        return unload_unused();
-    }
-
-    bool GraphicsResourceManager::is_loaded(const Handle& handle)
-    {
-        return find_usage(handle).has_value();
+        _unused_frame_limit = unused_frame_limit;
     }
 
     std::optional<GraphicsResourceUsage> GraphicsResourceManager::get_usage(const Handle& handle)
@@ -57,20 +57,31 @@ namespace tbx
         return find_usage(handle);
     }
 
-    Result GraphicsResourceManager::load_material(const Handle& handle, Uuid& out_resource_uuid)
+    bool GraphicsResourceManager::is_loaded(const Handle& handle)
     {
-        return load_material(handle, MaterialLoadParameters {}, out_resource_uuid);
+        return find_usage(handle).has_value();
     }
 
-    Result GraphicsResourceManager::load_material(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const MaterialLoadParameters& parameters,
         Uuid& out_resource_uuid)
     {
-        return load_cached_material(handle, parameters, out_resource_uuid);
+        return upload_cached_material(handle, parameters, out_resource_uuid);
     }
 
-    Result GraphicsResourceManager::load_material_instance(
+    Result GraphicsResourceManager::upload(
+        const Handle& handle,
+        const MaterialLoadParameters& parameters,
+        uint& out_gpu_handle)
+    {
+        auto resource_uuid = Uuid {};
+        const auto result = upload(handle, parameters, resource_uuid);
+        out_gpu_handle = static_cast<uint>(resource_uuid);
+        return result;
+    }
+
+    Result GraphicsResourceManager::upload(
         const MaterialInstance& instance,
         GraphicsMaterialInstanceResource& out_material_resource)
     {
@@ -85,23 +96,32 @@ namespace tbx
             return load_fallback_material_resource(out_material_resource);
 
         auto pipeline_resource = Uuid {};
-        if (const auto result = load_material(handle, pipeline_resource); !result)
+        if (const auto result = upload(handle, MaterialLoadParameters {}, pipeline_resource);
+            !result)
         {
             _failed_materials.insert(asset_id);
             return load_fallback_material_resource(out_material_resource);
         }
 
-        const auto material_iterator = _material_resources.find(asset_id);
-        if (material_iterator == _material_resources.end())
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return Result(false, "Graphics resource manager: asset manager is unavailable.");
+
+        const std::shared_ptr<Material> material =
+            asset_manager->load<Material>(handle, MaterialLoadParameters {});
+        if (!material)
         {
             _failed_materials.insert(asset_id);
             return load_fallback_material_resource(out_material_resource);
         }
 
-        out_material_resource = material_iterator->second;
-        out_material_resource.pipeline = pipeline_resource;
-        out_material_resource.config =
-            instance.has_config_override_enabled() ? instance.config : out_material_resource.config;
+        out_material_resource = GraphicsMaterialInstanceResource {
+            .material = handle,
+            .pipeline = pipeline_resource,
+            .parameters = material->parameters,
+            .textures = material->textures,
+            .config = instance.has_config_override_enabled() ? instance.config : material->config,
+        };
 
         for (const auto& parameter : instance.param_overrides)
             out_material_resource.parameters.set(parameter);
@@ -112,15 +132,84 @@ namespace tbx
         return {};
     }
 
-    Result GraphicsResourceManager::load_material_draw_resource(
+    Result GraphicsResourceManager::upload(
         const MaterialInstance& instance,
-        GraphicsMaterialDrawResource& out_material_resource)
+        GraphicsMaterialDrawResource& out_material_resource,
+        const GraphicsMaterialUploadMode mode)
     {
         out_material_resource = {};
 
         auto material_resource = GraphicsMaterialInstanceResource {};
-        if (const auto result = load_material_instance(instance, material_resource); !result)
-            return result;
+        if (mode == GraphicsMaterialUploadMode::STANDARD)
+        {
+            if (const auto result = upload(instance, material_resource); !result)
+                return result;
+        }
+        else
+        {
+            const Handle& handle = instance.get_handle();
+            if (!handle.is_valid())
+            {
+                return Result(
+                    false,
+                    "Graphics resource manager: post-process material handle is invalid.");
+            }
+
+            const Uuid asset_id = resolve_asset_id(handle);
+            if (!asset_id.is_valid())
+            {
+                return Result(
+                    false,
+                    "Graphics resource manager: post-process material asset id is invalid.");
+            }
+
+            const auto asset_manager = lock_asset_manager();
+            if (!asset_manager)
+                return Result(false, "Graphics resource manager: asset manager is unavailable.");
+
+            const std::shared_ptr<Material> material =
+                asset_manager->load<Material>(handle, MaterialLoadParameters {});
+            if (!material)
+            {
+                return Result(
+                    false,
+                    "Graphics resource manager: failed to load post-process material asset.");
+            }
+
+            const GraphicsResourceKey key =
+                make_asset_resource_key(asset_id, POST_PROCESS_MATERIAL_RESOURCE_BUCKET);
+            auto pipeline = Uuid {};
+            if (auto* record = find_record(key); record != nullptr)
+            {
+                touch_resource(key);
+                pipeline = record->usage.resource;
+            }
+            else
+            {
+                if (const auto result =
+                        upload_post_process_material_resource(handle, *material, pipeline);
+                    !result)
+                {
+                    return result;
+                }
+
+                track_resource(key, handle, pipeline);
+            }
+
+            material_resource = GraphicsMaterialInstanceResource {
+                .material = handle,
+                .pipeline = pipeline,
+                .parameters = material->parameters,
+                .textures = material->textures,
+                .config =
+                    instance.has_config_override_enabled() ? instance.config : material->config,
+            };
+
+            for (const auto& parameter : instance.param_overrides)
+                material_resource.parameters.set(parameter);
+            for (const auto& texture : instance.texture_overrides)
+                material_resource.textures.set(texture);
+        }
 
         out_material_resource.uniform_data =
             make_material_uniform_data(material_resource.parameters);
@@ -135,7 +224,9 @@ namespace tbx
         if (const auto result =
                 load_material_textures(material_resource.textures, out_material_resource.textures);
             !result)
+        {
             return result;
+        }
 
         out_material_resource.pipeline = material_resource.pipeline;
         out_material_resource.uniform_key = make_material_key(
@@ -145,76 +236,10 @@ namespace tbx
         return {};
     }
 
-    Result GraphicsResourceManager::load_post_process_material_draw_resource(
-        const MaterialInstance& instance,
-        GraphicsMaterialDrawResource& out_material_resource)
+    uint GraphicsResourceManager::unload_stale()
     {
-        out_material_resource = {};
-
-        const Handle& handle = instance.get_handle();
-        if (!handle.is_valid())
-            return Result(false, "Graphics resource manager: post-process material handle is invalid.");
-
-        const Uuid asset_id = resolve_asset_id(handle);
-        if (!asset_id.is_valid())
-            return Result(false, "Graphics resource manager: post-process material asset id is invalid.");
-
-        const std::shared_ptr<Material> material = _asset_manager.load<Material>(handle);
-        if (!material)
-            return Result(false, "Graphics resource manager: failed to load post-process material asset.");
-
-        auto pipeline = Uuid {};
-        auto iterator = _post_process_materials.find(asset_id);
-        if (iterator != _post_process_materials.end())
-        {
-            auto& usage = iterator->second;
-            usage.access_count += 1U;
-            pipeline = usage.resource;
-        }
-        else
-        {
-            if (const auto result =
-                    upload_post_process_material_resource(handle, *material, pipeline);
-                !result)
-            {
-                return result;
-            }
-
-            _post_process_materials.emplace(
-                asset_id,
-                GraphicsResourceUsage {
-                    .asset = handle,
-                    .resource = pipeline,
-                    .access_count = 1U,
-                });
-        }
-
-        auto parameters = material->parameters;
-        auto textures = material->textures;
-        for (const auto& parameter : instance.param_overrides)
-            parameters.set(parameter);
-        for (const auto& texture : instance.texture_overrides)
-            textures.set(texture);
-
-        out_material_resource.uniform_data = make_material_uniform_data(parameters);
-        out_material_resource.parameter_names.reserve(parameters.values.size());
-        for (const auto& parameter : parameters)
-            out_material_resource.parameter_names.push_back(parameter.name);
-
-        out_material_resource.texture_names.reserve(textures.values.size());
-        for (const auto& texture_binding : textures)
-            out_material_resource.texture_names.push_back(texture_binding.name);
-
-        if (const auto result = load_material_textures(textures, out_material_resource.textures);
-            !result)
-            return result;
-
-        out_material_resource.pipeline = pipeline;
-        out_material_resource.uniform_key = make_material_key(
-            out_material_resource.pipeline,
-            out_material_resource.uniform_data,
-            out_material_resource.textures);
-        return {};
+        _current_frame += 1U;
+        return unload_unused();
     }
 
     Result GraphicsResourceManager::load_default_texture(Uuid& out_resource_uuid)
@@ -314,235 +339,265 @@ namespace tbx
         return load_default_texture(out_resource_uuid);
     }
 
-    Result GraphicsResourceManager::load_material(const Handle& handle, uint& out_gpu_handle)
-    {
-        return load_material(handle, MaterialLoadParameters {}, out_gpu_handle);
-    }
-
-    Result GraphicsResourceManager::load_material(
-        const Handle& handle,
-        const MaterialLoadParameters& parameters,
-        uint& out_gpu_handle)
-    {
-        auto resource_uuid = Uuid {};
-        const auto result = load_material(handle, parameters, resource_uuid);
-        out_gpu_handle = static_cast<uint>(resource_uuid);
-        return result;
-    }
-
-    bool GraphicsResourceManager::unload_material(const Handle& handle)
-    {
-        const Uuid asset_id = resolve_asset_id(handle);
-        auto iterator = _materials.find(asset_id);
-        if (iterator == _materials.end())
-            return false;
-
-        const auto result = unload_backend_resources(asset_id, iterator->second);
-        if (!result)
-            return false;
-
-        erase_usage(asset_id, _materials, _material_last_access_frames);
-        _material_resources.erase(asset_id);
-        return true;
-    }
-
-    Result GraphicsResourceManager::load_model(const Handle& handle, Uuid& out_resource_uuid)
-    {
-        return load_model(handle, ModelLoadParameters {}, out_resource_uuid);
-    }
-
-    Result GraphicsResourceManager::load_model(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const ModelLoadParameters& parameters,
         Uuid& out_resource_uuid)
     {
-        return load_cached_model(handle, parameters, out_resource_uuid);
+        return upload_cached_model(handle, parameters, out_resource_uuid);
     }
 
-    Result GraphicsResourceManager::load_model(const Handle& handle, uint& out_gpu_handle)
-    {
-        return load_model(handle, ModelLoadParameters {}, out_gpu_handle);
-    }
-
-    Result GraphicsResourceManager::load_model(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const ModelLoadParameters& parameters,
         uint& out_gpu_handle)
     {
         auto resource_uuid = Uuid {};
-        const auto result = load_model(handle, parameters, resource_uuid);
+        const auto result = upload(handle, parameters, resource_uuid);
         out_gpu_handle = static_cast<uint>(resource_uuid);
         return result;
     }
 
-    Result GraphicsResourceManager::load_model(
-        const Handle& handle,
-        GraphicsModelResource& out_model_resource)
-    {
-        return load_model(handle, ModelLoadParameters {}, out_model_resource);
-    }
-
-    Result GraphicsResourceManager::load_model(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const ModelLoadParameters& parameters,
         GraphicsModelResource& out_model_resource)
     {
         out_model_resource = {};
         auto resource_uuid = Uuid {};
-        if (const auto result = load_model(handle, parameters, resource_uuid); !result)
+        if (const auto result = upload(handle, parameters, resource_uuid); !result)
             return result;
 
         const Uuid asset_id = resolve_asset_id(handle);
-        const auto iterator = _model_resources.find(asset_id);
-        if (iterator == _model_resources.end())
+        const GraphicsResourceKey key = make_asset_resource_key(asset_id, MODEL_RESOURCE_BUCKET);
+        const auto* record = find_record(key);
+        if (record == nullptr)
             return Result(false, "Graphics resource manager: model resource metadata was missing.");
 
-        out_model_resource = iterator->second;
+        const auto* meshes = std::any_cast<std::vector<GraphicsModelMeshResource>>(
+            &record->payload);
+        if (meshes == nullptr)
+            return Result(false, "Graphics resource manager: model resource metadata was invalid.");
+
+        out_model_resource = GraphicsModelResource {
+            .asset = handle,
+            .resource = record->usage.resource,
+            .meshes = *meshes,
+        };
         return {};
     }
 
-    bool GraphicsResourceManager::unload_model(const Handle& handle)
-    {
-        const Uuid asset_id = resolve_asset_id(handle);
-        auto iterator = _models.find(asset_id);
-        if (iterator == _models.end())
-            return false;
-
-        const auto result = unload_backend_resources(asset_id, iterator->second);
-        if (!result)
-            return false;
-
-        erase_usage(asset_id, _models, _model_last_access_frames);
-        _model_resources.erase(asset_id);
-        _model_backend_resources.erase(asset_id);
-        return true;
-    }
-
-    Result GraphicsResourceManager::load_texture(const Handle& handle, Uuid& out_resource_uuid)
-    {
-        return load_texture(handle, TextureLoadParameters {}, out_resource_uuid);
-    }
-
-    Result GraphicsResourceManager::load_texture(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const TextureLoadParameters& parameters,
         Uuid& out_resource_uuid)
     {
-        return load_cached_texture(handle, parameters, out_resource_uuid);
+        return upload_cached_texture(handle, parameters, out_resource_uuid);
     }
 
-    Result GraphicsResourceManager::load_texture(const Handle& handle, uint& out_gpu_handle)
-    {
-        return load_texture(handle, TextureLoadParameters {}, out_gpu_handle);
-    }
-
-    Result GraphicsResourceManager::load_texture(
+    Result GraphicsResourceManager::upload(
         const Handle& handle,
         const TextureLoadParameters& parameters,
         uint& out_gpu_handle)
     {
         auto resource_uuid = Uuid {};
-        const auto result = load_texture(handle, parameters, resource_uuid);
+        const auto result = upload(handle, parameters, resource_uuid);
         out_gpu_handle = static_cast<uint>(resource_uuid);
         return result;
     }
 
-    bool GraphicsResourceManager::unload_texture(const Handle& handle)
+    Result GraphicsResourceManager::upload(
+        const GraphicsBufferDesc& desc,
+        const void* data,
+        const uint64 data_size,
+        Uuid& out_resource_uuid)
     {
-        const Uuid asset_id = resolve_asset_id(handle);
-        auto iterator = _textures.find(asset_id);
-        if (iterator == _textures.end())
-            return false;
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
 
-        const auto result = unload_backend_resources(asset_id, iterator->second);
-        if (!result)
-            return false;
-
-        erase_usage(asset_id, _textures, _texture_last_access_frames);
-        return true;
+        return upload_runtime_resource(
+            Handle(desc.debug_name),
+            out_resource_uuid,
+            backend->upload_buffer(desc, data, data_size, out_resource_uuid));
     }
 
-    void GraphicsResourceManager::set_unused_frame_limit(const uint unused_frame_limit)
+    Result GraphicsResourceManager::upload(
+        const GraphicsPipelineDesc& desc,
+        Uuid& out_resource_uuid)
     {
-        _unused_frame_limit = unused_frame_limit;
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return upload_runtime_resource(
+            Handle(desc.debug_name),
+            out_resource_uuid,
+            backend->upload_pipeline(desc, out_resource_uuid));
+    }
+
+    Result GraphicsResourceManager::upload(
+        const GraphicsSamplerDesc& desc,
+        Uuid& out_resource_uuid)
+    {
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return upload_runtime_resource(
+            Handle(desc.debug_name),
+            out_resource_uuid,
+            backend->upload_sampler(desc, out_resource_uuid));
+    }
+
+    Result GraphicsResourceManager::upload(
+        const GraphicsTextureDesc& desc,
+        const void* data,
+        const uint64 data_size,
+        Uuid& out_resource_uuid)
+    {
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return upload_runtime_resource(
+            Handle(desc.debug_name),
+            out_resource_uuid,
+            backend->upload_texture(desc, data, data_size, out_resource_uuid));
+    }
+
+    Result GraphicsResourceManager::update(const Uuid& resource_uuid)
+    {
+        return touch_runtime_resource(resource_uuid)
+                   ? Result {}
+                   : Result(false, "Graphics resource manager: runtime resource is not tracked.");
+    }
+
+    Result GraphicsResourceManager::update(
+        const Uuid& resource_uuid,
+        const void* data,
+        const uint64 data_size,
+        const uint64 offset)
+    {
+        touch_runtime_resource(resource_uuid);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return backend->update_buffer(resource_uuid, data, data_size, offset);
+    }
+
+    Result GraphicsResourceManager::update(
+        const Uuid& resource_uuid,
+        const GraphicsTextureUpdateDesc& desc,
+        const void* data,
+        const uint64 data_size)
+    {
+        touch_runtime_resource(resource_uuid);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return backend->update_texture(resource_uuid, desc, data, data_size);
+    }
+
+    Result GraphicsResourceManager::unload(const Handle& handle)
+    {
+        const Uuid asset_id = resolve_asset_id(handle);
+        if (!asset_id.is_valid())
+            return Result(false, "Graphics resource manager: asset id is invalid.");
+
+        const auto buckets = {
+            MATERIAL_RESOURCE_BUCKET,
+            POST_PROCESS_MATERIAL_RESOURCE_BUCKET,
+            MODEL_RESOURCE_BUCKET,
+            TEXTURE_RESOURCE_BUCKET,
+        };
+        auto unloaded_count = 0U;
+        auto failure = Result {};
+        for (const uint32 bucket : buckets)
+        {
+            const GraphicsResourceKey key = make_asset_resource_key(asset_id, bucket);
+            const GraphicsResourceRecord* record = find_record(key);
+            if (record == nullptr)
+                continue;
+
+            if (const auto result = unload_resource(key, *record); result)
+            {
+                erase_usage(key);
+                unloaded_count += 1U;
+            }
+            else
+            {
+                failure = result;
+            }
+        }
+
+        if (unloaded_count > 0U)
+            return {};
+
+        if (!failure)
+            return failure;
+
+        return Result(false, "Graphics resource manager: asset resource is not loaded.");
+    }
+
+    Result GraphicsResourceManager::unload(const Uuid& resource_uuid)
+    {
+        const GraphicsResourceKey key = make_runtime_resource_key(resource_uuid);
+        const GraphicsResourceRecord* record = find_record(key);
+        if (record == nullptr)
+        {
+            return Result(
+                false,
+                "Graphics resource manager: resource is not runtime-managed and cannot be "
+                "unloaded through the runtime API.");
+        }
+
+        const auto result = unload_resource(key, *record);
+        if (result)
+            erase_usage(key);
+        return result;
     }
 
     void GraphicsResourceManager::unload_all()
     {
-        for (const auto& entry : _materials)
+        const auto backend = lock_backend();
+        if (!backend)
+            return;
+
+        for (const auto& entry : _resources)
         {
-            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
+            if (const auto result = unload_resource(entry.first, entry.second); !result)
             {
-                TBX_TRACE_ERROR(
-                    "GraphicsResourceManager::unload_all: failed to unload material GPU resource "
+                TBX_TRACE_ERROR_ONCE(
+                    "GraphicsResourceManager::unload_all: failed to unload managed GPU resource "
                     "({}). {}",
-                    entry.second.asset.get_name(),
-                    result.get_report());
-            }
-        }
-        for (const auto& entry : _post_process_materials)
-        {
-            if (const auto result = _backend.unload(entry.second.resource); !result)
-            {
-                TBX_TRACE_ERROR(
-                    "GraphicsResourceManager::unload_all: failed to unload post-process material "
-                    "GPU resource ({}). {}",
-                    entry.second.asset.get_name(),
-                    result.get_report());
-            }
-        }
-        for (const auto& entry : _models)
-        {
-            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
-            {
-                TBX_TRACE_ERROR(
-                    "GraphicsResourceManager::unload_all: failed to unload model GPU resource ({}). "
-                    "{}",
-                    entry.second.asset.get_name(),
-                    result.get_report());
-            }
-        }
-        for (const auto& entry : _textures)
-        {
-            if (const auto result = unload_backend_resources(entry.first, entry.second); !result)
-            {
-                TBX_TRACE_ERROR(
-                    "GraphicsResourceManager::unload_all: failed to unload texture GPU resource "
-                    "({}). {}",
-                    entry.second.asset.get_name(),
+                    entry.second.usage.asset.get_name(),
                     result.get_report());
             }
         }
 
-        _materials.clear();
-        _material_resources.clear();
-        _material_last_access_frames.clear();
-        _post_process_materials.clear();
+        _resources.clear();
         _failed_materials.clear();
-        _models.clear();
-        _model_resources.clear();
-        _model_last_access_frames.clear();
-        _model_backend_resources.clear();
-        _textures.clear();
-        _texture_last_access_frames.clear();
         if (_default_texture.is_valid())
         {
-            _backend.unload(_default_texture);
+            backend->unload(_default_texture);
             _default_texture = {};
         }
         if (_default_normal_texture.is_valid())
         {
-            _backend.unload(_default_normal_texture);
+            backend->unload(_default_normal_texture);
             _default_normal_texture = {};
         }
         if (_default_black_texture.is_valid())
         {
-            _backend.unload(_default_black_texture);
+            backend->unload(_default_black_texture);
             _default_black_texture = {};
         }
         if (_fallback_material_pipeline.is_valid())
         {
-            _backend.unload(_fallback_material_pipeline);
+            backend->unload(_fallback_material_pipeline);
             _fallback_material_pipeline = {};
             _fallback_material = {};
         }
@@ -563,7 +618,12 @@ namespace tbx
                 return true;
         }
 
-        const std::shared_ptr<Shader> shader = _asset_manager.load<Shader>(handle);
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return false;
+
+        const std::shared_ptr<Shader> shader =
+            asset_manager->load<Shader>(handle, ShaderLoadParameters {});
         if (!shader)
             return false;
 
@@ -614,31 +674,100 @@ namespace tbx
         return {};
     }
 
-    void GraphicsResourceManager::erase_usage(
+    GraphicsResourceKey GraphicsResourceManager::make_asset_resource_key(
         const Uuid asset_id,
-        std::unordered_map<Uuid, GraphicsResourceUsage>& resources,
-        std::unordered_map<Uuid, uint>& last_access_frames)
+        const uint32 bucket)
     {
-        resources.erase(asset_id);
-        last_access_frames.erase(asset_id);
+        return GraphicsResourceKey {.id = asset_id, .bucket = bucket};
+    }
+
+    GraphicsResourceKey GraphicsResourceManager::make_runtime_resource_key(
+        const Uuid resource_uuid)
+    {
+        return GraphicsResourceKey {.id = resource_uuid, .bucket = RUNTIME_RESOURCE_BUCKET};
+    }
+
+    bool GraphicsResourceManager::should_pin_asset_for_bucket(const uint32 bucket)
+    {
+        return bucket == MATERIAL_RESOURCE_BUCKET || bucket == POST_PROCESS_MATERIAL_RESOURCE_BUCKET
+               || bucket == TEXTURE_RESOURCE_BUCKET;
+    }
+
+    void GraphicsResourceManager::erase_usage(const GraphicsResourceKey& key)
+    {
+        _resources.erase(key);
+    }
+
+    void GraphicsResourceManager::pin_asset_if_tracked(
+        const GraphicsResourceKey& key,
+        const Handle& handle)
+    {
+        if (!handle.is_valid() || !should_pin_asset_for_bucket(key.bucket))
+            return;
+
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return;
+
+        asset_manager->set_pinned(handle, true);
+    }
+
+    void GraphicsResourceManager::unpin_asset_if_unused(
+        const GraphicsResourceKey& key,
+        const Handle& handle)
+    {
+        if (!handle.is_valid() || !should_pin_asset_for_bucket(key.bucket))
+            return;
+
+        for (const auto& entry : _resources)
+        {
+            if (entry.first == key)
+                continue;
+            if (!should_pin_asset_for_bucket(entry.first.bucket))
+                continue;
+            if (entry.second.usage.asset == handle)
+                return;
+        }
+
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return;
+
+        asset_manager->set_pinned(handle, false);
     }
 
     std::optional<GraphicsResourceUsage> GraphicsResourceManager::find_usage(const Handle& handle)
     {
         const Uuid asset_id = resolve_asset_id(handle);
-        const auto material_iterator = _materials.find(asset_id);
-        if (material_iterator != _materials.end())
-            return material_iterator->second;
+        return _resources.find_usage(
+            asset_id,
+            {
+                MATERIAL_RESOURCE_BUCKET,
+                POST_PROCESS_MATERIAL_RESOURCE_BUCKET,
+                MODEL_RESOURCE_BUCKET,
+                TEXTURE_RESOURCE_BUCKET,
+            });
+    }
 
-        const auto model_iterator = _models.find(asset_id);
-        if (model_iterator != _models.end())
-            return model_iterator->second;
+    GraphicsResourceRecord* GraphicsResourceManager::find_record(const GraphicsResourceKey& key)
+    {
+        return _resources.find(key);
+    }
 
-        const auto texture_iterator = _textures.find(asset_id);
-        if (texture_iterator != _textures.end())
-            return texture_iterator->second;
+    const GraphicsResourceRecord* GraphicsResourceManager::find_record(
+        const GraphicsResourceKey& key) const
+    {
+        return _resources.find(key);
+    }
 
-        return std::nullopt;
+    std::shared_ptr<AssetManager> GraphicsResourceManager::lock_asset_manager() const
+    {
+        return _asset_manager.lock();
+    }
+
+    std::shared_ptr<IGraphicsBackend> GraphicsResourceManager::lock_backend() const
+    {
+        return _backend.lock();
     }
 
     void GraphicsResourceManager::append_parameter_uniform_data(
@@ -727,8 +856,12 @@ namespace tbx
             auto texture_resource = Uuid {};
             if (texture.texture.is_valid())
             {
-                if (const auto result = load_texture(texture.texture, texture_resource); !result)
+                if (const auto result =
+                        upload(texture.texture, TextureLoadParameters {}, texture_resource);
+                    !result)
+                {
                     return result;
+                }
             }
             else if (const auto result =
                          load_default_texture_for_binding(texture.name, texture_resource);
@@ -747,7 +880,7 @@ namespace tbx
         return {};
     }
 
-    Result GraphicsResourceManager::load_cached_material(
+    Result GraphicsResourceManager::upload_cached_material(
         const Handle& handle,
         const MaterialLoadParameters& parameters,
         Uuid& out_resource_uuid)
@@ -760,18 +893,20 @@ namespace tbx
         if (!asset_id.is_valid())
             return Result(false, "Graphics resource manager: material asset id is invalid.");
 
-        auto iterator = _materials.find(asset_id);
-        if (iterator != _materials.end())
+        const GraphicsResourceKey key = make_asset_resource_key(asset_id, MATERIAL_RESOURCE_BUCKET);
+        if (auto* record = find_record(key); record != nullptr)
         {
-            auto& usage = iterator->second;
-            usage.access_count += 1U;
-            _material_last_access_frames[asset_id] = _current_frame;
-            out_resource_uuid = usage.resource;
+            touch_resource(key);
+            out_resource_uuid = record->usage.resource;
             return {};
         }
 
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return Result(false, "Graphics resource manager: asset manager is unavailable.");
+
         const std::shared_ptr<Material> material =
-            _asset_manager.load<Material>(handle, parameters);
+            asset_manager->load<Material>(handle, parameters);
         if (!material)
             return Result(false, "Graphics resource manager: failed to load material asset.");
 
@@ -779,26 +914,12 @@ namespace tbx
         if (const auto result = upload_material_resource(handle, *material, resource_uuid); !result)
             return result;
 
-        _materials.emplace(
-            asset_id,
-            GraphicsResourceUsage {
-                .asset = handle,
-                .resource = resource_uuid,
-                .access_count = 1U,
-            });
-        _material_resources[asset_id] = GraphicsMaterialInstanceResource {
-            .material = handle,
-            .pipeline = resource_uuid,
-            .parameters = material->parameters,
-            .textures = material->textures,
-            .config = material->config,
-        };
-        _material_last_access_frames[asset_id] = _current_frame;
+        track_resource(key, handle, resource_uuid);
         out_resource_uuid = resource_uuid;
         return {};
     }
 
-    Result GraphicsResourceManager::load_cached_model(
+    Result GraphicsResourceManager::upload_cached_model(
         const Handle& handle,
         const ModelLoadParameters& parameters,
         Uuid& out_resource_uuid)
@@ -811,17 +932,19 @@ namespace tbx
         if (!asset_id.is_valid())
             return Result(false, "Graphics resource manager: model asset id is invalid.");
 
-        auto iterator = _models.find(asset_id);
-        if (iterator != _models.end())
+        const GraphicsResourceKey key = make_asset_resource_key(asset_id, MODEL_RESOURCE_BUCKET);
+        if (auto* record = find_record(key); record != nullptr)
         {
-            auto& usage = iterator->second;
-            usage.access_count += 1U;
-            _model_last_access_frames[asset_id] = _current_frame;
-            out_resource_uuid = usage.resource;
+            touch_resource(key);
+            out_resource_uuid = record->usage.resource;
             return {};
         }
 
-        const std::shared_ptr<Model> model = _asset_manager.load<Model>(handle, parameters);
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return Result(false, "Graphics resource manager: asset manager is unavailable.");
+
+        const std::shared_ptr<Model> model = asset_manager->load<Model>(handle, parameters);
         if (!model)
             return Result(false, "Graphics resource manager: failed to load model asset.");
 
@@ -837,25 +960,17 @@ namespace tbx
             !result)
             return result;
 
-        _models.emplace(
-            asset_id,
-            GraphicsResourceUsage {
-                .asset = handle,
-                .resource = resource_uuid,
-                .access_count = 1U,
-            });
-        _model_resources[asset_id] = GraphicsModelResource {
-            .asset = handle,
-            .resource = resource_uuid,
-            .meshes = std::move(mesh_resources),
-        };
-        _model_backend_resources[asset_id] = std::move(backend_resources);
-        _model_last_access_frames[asset_id] = _current_frame;
+        track_resource(
+            key,
+            handle,
+            resource_uuid,
+            std::move(backend_resources),
+            std::move(mesh_resources));
         out_resource_uuid = resource_uuid;
         return {};
     }
 
-    Result GraphicsResourceManager::load_cached_texture(
+    Result GraphicsResourceManager::upload_cached_texture(
         const Handle& handle,
         const TextureLoadParameters& parameters,
         Uuid& out_resource_uuid)
@@ -868,17 +983,19 @@ namespace tbx
         if (!asset_id.is_valid())
             return Result(false, "Graphics resource manager: texture asset id is invalid.");
 
-        auto iterator = _textures.find(asset_id);
-        if (iterator != _textures.end())
+        const GraphicsResourceKey key = make_asset_resource_key(asset_id, TEXTURE_RESOURCE_BUCKET);
+        if (auto* record = find_record(key); record != nullptr)
         {
-            auto& usage = iterator->second;
-            usage.access_count += 1U;
-            _texture_last_access_frames[asset_id] = _current_frame;
-            out_resource_uuid = usage.resource;
+            touch_resource(key);
+            out_resource_uuid = record->usage.resource;
             return {};
         }
 
-        const std::shared_ptr<Texture> texture = _asset_manager.load<Texture>(handle, parameters);
+        const auto asset_manager = lock_asset_manager();
+        if (!asset_manager)
+            return Result(false, "Graphics resource manager: asset manager is unavailable.");
+
+        const std::shared_ptr<Texture> texture = asset_manager->load<Texture>(handle, parameters);
         if (!texture)
             return Result(false, "Graphics resource manager: failed to load texture asset.");
 
@@ -886,34 +1003,38 @@ namespace tbx
         if (const auto result = upload_texture_resource(handle, *texture, resource_uuid); !result)
             return result;
 
-        _textures.emplace(
-            asset_id,
-            GraphicsResourceUsage {
-                .asset = handle,
-                .resource = resource_uuid,
-                .access_count = 1U,
-            });
-        _texture_last_access_frames[asset_id] = _current_frame;
+        track_resource(key, handle, resource_uuid);
 
         out_resource_uuid = resource_uuid;
         return {};
     }
 
-    Result GraphicsResourceManager::unload_backend_resources(
-        const Uuid asset_id,
-        const GraphicsResourceUsage& usage)
+    Result GraphicsResourceManager::unload_backend_resources(const GraphicsResourceRecord& record)
     {
-        auto model_resources = _model_backend_resources.find(asset_id);
-        if (model_resources == _model_backend_resources.end())
-            return _backend.unload(usage.resource);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
 
-        for (const Uuid resource : model_resources->second)
+        if (record.backend_resources.empty())
+            return backend->unload(record.usage.resource);
+
+        for (const Uuid resource : record.backend_resources)
         {
-            if (const auto result = _backend.unload(resource); !result)
+            if (const auto result = backend->unload(resource); !result)
                 return result;
         }
 
         return {};
+    }
+
+    Result GraphicsResourceManager::unload_resource(
+        const GraphicsResourceKey& key,
+        const GraphicsResourceRecord& record)
+    {
+        const auto result = unload_backend_resources(record);
+        if (result)
+            unpin_asset_if_unused(key, record.usage.asset);
+        return result;
     }
 
     Result GraphicsResourceManager::upload_material_resource(
@@ -931,13 +1052,20 @@ namespace tbx
                 continue;
 
             auto texture_resource = Uuid {};
-            if (const auto result = load_texture(texture_binding.texture, texture_resource);
+            if (const auto result =
+                    upload(texture_binding.texture, TextureLoadParameters {}, texture_resource);
                 !result)
+            {
                 return result;
+            }
         }
 
         const auto desc = make_material_pipeline_desc(material, std::move(shader), handle);
-        return _backend.upload_pipeline(desc, out_resource_uuid);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return backend->upload_pipeline(desc, out_resource_uuid);
     }
 
     Result GraphicsResourceManager::upload_post_process_material_resource(
@@ -955,13 +1083,20 @@ namespace tbx
                 continue;
 
             auto texture_resource = Uuid {};
-            if (const auto result = load_texture(texture_binding.texture, texture_resource);
+            if (const auto result =
+                    upload(texture_binding.texture, TextureLoadParameters {}, texture_resource);
                 !result)
+            {
                 return result;
+            }
         }
 
         const auto desc = make_post_process_pipeline_desc(std::move(shader), handle);
-        return _backend.upload_pipeline(desc, out_resource_uuid);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return backend->upload_pipeline(desc, out_resource_uuid);
     }
 
     Result GraphicsResourceManager::load_fallback_material_resource(
@@ -1005,6 +1140,10 @@ namespace tbx
     {
         out_backend_resources.clear();
         out_meshes.clear();
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
         for (uint mesh_index = 0U; mesh_index < static_cast<uint>(model.meshes.size());
              ++mesh_index)
         {
@@ -1023,7 +1162,7 @@ namespace tbx
                 const uint64 vertex_data_size =
                     static_cast<uint64>(mesh.vertices.size()) * static_cast<uint64>(sizeof(float));
                 auto vertex_buffer = Uuid {};
-                if (const auto result = _backend.upload_buffer(
+                if (const auto result = backend->upload_buffer(
                         make_model_vertex_buffer_desc(handle, mesh_index, vertex_data_size),
                         mesh.vertices.data(),
                         vertex_data_size,
@@ -1031,7 +1170,7 @@ namespace tbx
                     !result)
                 {
                     for (const Uuid resource : out_backend_resources)
-                        _backend.unload(resource);
+                        backend->unload(resource);
                     out_backend_resources.clear();
                     out_meshes.clear();
                     return result;
@@ -1045,7 +1184,7 @@ namespace tbx
                 const uint64 index_data_size =
                     static_cast<uint64>(mesh.indices.size()) * static_cast<uint64>(sizeof(uint32));
                 auto index_buffer = Uuid {};
-                if (const auto result = _backend.upload_buffer(
+                if (const auto result = backend->upload_buffer(
                         make_model_index_buffer_desc(handle, mesh_index, index_data_size),
                         mesh.indices.data(),
                         index_data_size,
@@ -1053,7 +1192,7 @@ namespace tbx
                     !result)
                 {
                     for (const Uuid resource : out_backend_resources)
-                        _backend.unload(resource);
+                        backend->unload(resource);
                     out_backend_resources.clear();
                     out_meshes.clear();
                     return result;
@@ -1111,49 +1250,68 @@ namespace tbx
             }
         }
 
-        return _backend.upload_texture(desc, upload_data, upload_data_size, out_resource_uuid);
+        const auto backend = lock_backend();
+        if (!backend)
+            return Result(false, "Graphics resource manager: graphics backend is unavailable.");
+
+        return backend->upload_texture(desc, upload_data, upload_data_size, out_resource_uuid);
+    }
+
+    void GraphicsResourceManager::track_resource(
+        const GraphicsResourceKey& key,
+        const Handle& handle,
+        const Uuid resource_uuid,
+        std::vector<Uuid> backend_resources,
+        std::any payload)
+    {
+        _resources.track(
+            key,
+            handle,
+            resource_uuid,
+            _current_frame,
+            std::move(backend_resources),
+            std::move(payload));
+        pin_asset_if_tracked(key, handle);
+    }
+
+    bool GraphicsResourceManager::touch_resource(const GraphicsResourceKey& key)
+    {
+        return _resources.touch(key, _current_frame);
+    }
+
+    bool GraphicsResourceManager::touch_runtime_resource(const Uuid& resource_uuid)
+    {
+        return touch_resource(make_runtime_resource_key(resource_uuid));
+    }
+
+    Result GraphicsResourceManager::upload_runtime_resource(
+        const Handle& handle,
+        Uuid& out_resource_uuid,
+        const Result& upload_result)
+    {
+        if (!upload_result)
+            return upload_result;
+
+        track_resource(make_runtime_resource_key(out_resource_uuid), handle, out_resource_uuid);
+        return upload_result;
     }
 
     uint GraphicsResourceManager::unload_unused()
     {
-        uint unloaded_count = unload_unused(_materials, _material_last_access_frames);
-        unloaded_count += unload_unused(_models, _model_last_access_frames);
-        unloaded_count += unload_unused(_textures, _texture_last_access_frames);
-        return unloaded_count;
-    }
-
-    uint GraphicsResourceManager::unload_unused(
-        std::unordered_map<Uuid, GraphicsResourceUsage>& resources,
-        std::unordered_map<Uuid, uint>& last_access_frames)
-    {
         auto unloaded_count = 0U;
-        auto expired_assets = std::vector<Uuid> {};
+        auto expired_resources = _resources.get_stale(_current_frame, _unused_frame_limit);
 
-        for (const auto& entry : resources)
+        for (const auto& key : expired_resources)
         {
-            auto frame_iterator = last_access_frames.find(entry.first);
-            const uint last_access_frame =
-                frame_iterator == last_access_frames.end() ? 0U : frame_iterator->second;
-            if (_current_frame < last_access_frame)
+            const auto* record = find_record(key);
+            if (record == nullptr)
                 continue;
 
-            const uint frame_age = _current_frame - last_access_frame;
-            if (frame_age < _unused_frame_limit)
-                continue;
-
-            if (const auto result = unload_backend_resources(entry.first, entry.second); result)
+            if (const auto result = unload_resource(key, *record); result)
             {
-                expired_assets.push_back(entry.first);
                 unloaded_count += 1U;
+                erase_usage(key);
             }
-        }
-
-        for (const Uuid asset_id : expired_assets)
-        {
-            erase_usage(asset_id, resources, last_access_frames);
-            _material_resources.erase(asset_id);
-            _model_resources.erase(asset_id);
-            _model_backend_resources.erase(asset_id);
         }
 
         return unloaded_count;
@@ -1161,7 +1319,8 @@ namespace tbx
 
     Uuid GraphicsResourceManager::resolve_asset_id(const Handle& handle)
     {
-        return _asset_manager.ensure(handle);
+        const auto asset_manager = lock_asset_manager();
+        return asset_manager ? asset_manager->ensure(handle) : Uuid {};
     }
 
     GraphicsTextureDesc GraphicsResourceManager::make_texture_desc(

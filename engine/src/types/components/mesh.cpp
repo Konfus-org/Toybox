@@ -308,4 +308,10 @@ namespace tbx
         update_mesh_bounds(mesh);
         return mesh;
     }
+
+    uint32 get_vertex_stride_float_count(const Mesh& mesh)
+    {
+        const uint32 stride_bytes = mesh.vertices.layout.stride;
+        return stride_bytes == 0U ? 16U : stride_bytes / static_cast<uint32>(sizeof(float));
+    }
 }

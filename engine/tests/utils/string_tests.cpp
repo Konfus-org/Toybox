@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/utils/string_utils.h"
 #include <array>
 #include <string>

@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/interfaces/input_manager.h"
 
 namespace tbx::tests::input

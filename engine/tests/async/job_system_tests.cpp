@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tbx/systems/async/job_system.h"
 #include <atomic>
 #include <chrono>

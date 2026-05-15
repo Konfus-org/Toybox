@@ -102,6 +102,7 @@ namespace opengl_rendering
 
       private:
         tbx::IOpenGlContextManager& _context_manager;
+
         std::unordered_map<tbx::Uuid, OpenGlGraphicsBuffer> _buffers = {};
         std::unordered_map<tbx::Uuid, tbx::GraphicsBufferDesc> _buffer_descs = {};
         std::unordered_map<tbx::Uuid, std::unordered_map<uint32, tbx::Uuid>>
@@ -115,8 +116,10 @@ namespace opengl_rendering
         std::unordered_map<tbx::Uuid, tbx::GraphicsTextureDesc> _texture_descs = {};
         std::unordered_map<tbx::Window, OpenGlContext> _contexts = {};
         std::unique_ptr<OpenGlFramebuffer> _pass_framebuffer = {};
+
         tbx::Window _active_window = {};
         tbx::Uuid _current_pipeline = {};
+
         bool _is_gl_loaded = false;
         bool _is_initialized = false;
         bool _is_pass_active = false;

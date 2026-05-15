@@ -1,5 +1,3 @@
-#include "pch.h"
-#include "tbx/core/systems/files/tests/in_memory_file_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
@@ -8,6 +6,7 @@
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/messages/message_coordinator.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/physics/physics.h"
@@ -192,8 +191,7 @@ namespace tbx::tests::app
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
-        auto serialization_registry =
-            service_provider.get_service<SerializationRegistry>().lock();
+        auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
         if (!message_coordinator || !serialization_registry)
             return service_provider;
 
@@ -286,8 +284,7 @@ namespace tbx::tests::app
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
         auto service_provider = make_test_service_provider(working_directory);
-        auto file_ops =
-            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         ASSERT_NE(msg_coordinator, nullptr);
@@ -320,8 +317,7 @@ namespace tbx::tests::app
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
         auto service_provider = make_test_service_provider(working_directory);
-        auto file_ops =
-            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         std::shared_ptr<TestPluginState> consumer = {};
 
@@ -341,8 +337,7 @@ namespace tbx::tests::app
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
         auto service_provider = make_test_service_provider(working_directory);
-        auto file_ops =
-            std::make_shared<tbx::tests::file_system::InMemoryFileOps>(working_directory);
+        auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         ASSERT_NE(msg_coordinator, nullptr);

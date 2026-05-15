@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/material.h"

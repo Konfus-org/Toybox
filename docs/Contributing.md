@@ -1,7 +1,7 @@
 ### Contributing
 
 ### Code of Conduct
-Read the code of conduct [here](CODE_OF_CONDUCT.md)
+Read the code of conduct [here](CodeOfConduct.md)
 
 ### Coding Guidelines
 Follow `CODE_STANDARDS.md`

@@ -5,12 +5,10 @@ tbx_set_test_output(TbxFileSystemTests)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-target_precompile_headers(TbxFileSystemTests PRIVATE "pch.h")
+target_precompile_headers(TbxFileSystemTests PRIVATE "../pch.h")
 target_sources(TbxFileSystemTests PRIVATE ${TEST_SOURCES})
 target_include_directories(TbxFileSystemTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -18,7 +16,7 @@ target_include_directories(TbxFileSystemTests PRIVATE
 )
 
 target_link_libraries(TbxFileSystemTests PRIVATE
-    Tbx::Core
+    Tbx::Engine
     gtest
     gtest_main
     gmock

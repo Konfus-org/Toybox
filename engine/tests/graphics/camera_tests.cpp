@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"

@@ -8,12 +8,12 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-target_precompile_headers(TbxAsyncTests PRIVATE "pch.h") 
+target_precompile_headers(TbxAsyncTests PRIVATE "../pch.h") 
 target_sources(TbxAsyncTests PRIVATE ${TEST_SOURCES}) 
 target_include_directories(TbxAsyncTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(TbxAsyncTests PRIVATE
-    Tbx::Core
+    Tbx::Engine
     gtest
     gtest_main
     gmock

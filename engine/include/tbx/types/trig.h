@@ -21,6 +21,13 @@ namespace tbx
     TBX_API float to_degrees(float radians);
 
     /// @brief
+    /// Purpose: Converts an angle in degrees to its cosine.
+    /// @details
+    /// Ownership: Returns a value type.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    TBX_API float angle_to_cosine(float degrees);
+
+    /// @brief
     /// Purpose: Converts degrees to radians.
     /// @details
     /// Ownership: Returns a value type.

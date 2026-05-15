@@ -14,6 +14,7 @@
 #include "tbx/types/sphere.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/viewport.h"
+#include <array>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -138,6 +139,81 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Describes deferred-render G-buffer targets shared across geometry, lighting, and
+    /// post-processing passes.
+    struct TBX_API RenderGBuffer
+    {
+        static constexpr uint32 COLOR_INDEX = 0U;
+        static constexpr uint32 GEOMETRY_PREVIEW_INDEX = 1U;
+        static constexpr uint32 ALBEDO_INDEX = 2U;
+        static constexpr uint32 NORMAL_INDEX = 3U;
+        static constexpr uint32 DEPTH_PREVIEW_INDEX = 4U;
+        static constexpr uint32 EMISSIVE_INDEX = 5U;
+        static constexpr uint32 MATERIAL_INDEX = 6U;
+        static constexpr uint32 COLOR_TARGET_COUNT = 7U;
+
+        std::array<Uuid, COLOR_TARGET_COUNT> color_targets = {};
+        Uuid depth_target = {};
+
+        void clear()
+        {
+            for (auto& target : color_targets)
+                target = {};
+            depth_target = {};
+        }
+
+        bool has_all_color_targets() const
+        {
+            for (const auto target : color_targets)
+            {
+                if (!target.is_valid())
+                    return false;
+            }
+            return true;
+        }
+
+        std::vector<Uuid> to_color_target_list() const
+        {
+            return std::vector<Uuid>(color_targets.begin(), color_targets.end());
+        }
+
+        Uuid get_color_target() const
+        {
+            return color_targets[COLOR_INDEX];
+        }
+
+        Uuid get_geometry_preview_target() const
+        {
+            return color_targets[GEOMETRY_PREVIEW_INDEX];
+        }
+
+        Uuid get_albedo_target() const
+        {
+            return color_targets[ALBEDO_INDEX];
+        }
+
+        Uuid get_normal_target() const
+        {
+            return color_targets[NORMAL_INDEX];
+        }
+
+        Uuid get_depth_preview_target() const
+        {
+            return color_targets[DEPTH_PREVIEW_INDEX];
+        }
+
+        Uuid get_emissive_target() const
+        {
+            return color_targets[EMISSIVE_INDEX];
+        }
+
+        Uuid get_material_target() const
+        {
+            return color_targets[MATERIAL_INDEX];
+        }
+    };
+
+    /// @brief
     /// Purpose: Stores all backend-neutral scene, frame, and prepared draw data for one render.
     struct TBX_API RenderData
     {
@@ -187,14 +263,7 @@ namespace tbx
         Uuid spot_shadow_texture = {};
         Uuid area_shadow_texture = {};
 
-        std::vector<Uuid> scene_color_targets = {};
-        Uuid scene_color_target = {};
-        Uuid scene_world_position_target = {};
-        Uuid scene_albedo_target = {};
-        Uuid scene_normal_target = {};
-        Uuid scene_emissive_target = {};
-        Uuid scene_material_target = {};
-        Uuid scene_depth_target = {};
+        RenderGBuffer gbuffer = {};
         std::vector<GraphicsRenderPass> lighting_passes = {};
         std::vector<GraphicsRenderPass> post_process_passes = {};
 

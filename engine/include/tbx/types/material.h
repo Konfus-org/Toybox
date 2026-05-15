@@ -173,10 +173,10 @@ namespace tbx
         bool is_depth_test_enabled = true;
         bool is_depth_write_enabled = true;
         bool is_depth_prepass_enabled = false;
-        MaterialDepthFunction depth_function = MaterialDepthFunction::Less;
-        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
         bool is_two_sided = false;
         bool is_cullable = true;
+        MaterialDepthFunction depth_function = MaterialDepthFunction::Less;
+        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
         ShadowMode shadow_mode = ShadowMode::Standard;
 
         TBX_SERIALIZABLE_INTRUSIVE(
@@ -184,10 +184,10 @@ namespace tbx
             is_depth_test_enabled,
             is_depth_write_enabled,
             is_depth_prepass_enabled,
-            depth_function,
-            blend_mode,
             is_two_sided,
             is_cullable,
+            depth_function,
+            blend_mode,
             shadow_mode)
     };
 

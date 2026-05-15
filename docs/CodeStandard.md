@@ -82,3 +82,6 @@ struct Name
 - Use LF line endings.
 - Keep `#include` directives contiguous.
 - Prefer simple, flat control flow and remove unnecessary nesting.
+
+## Graphics Pipeline
+Refer to Graphics Pipeline Docs [here](GraphicsPipeline.md)

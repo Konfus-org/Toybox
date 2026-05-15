@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "tbx/types/components/light.h"
 #include <nlohmann/json.hpp>
 
