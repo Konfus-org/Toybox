@@ -105,7 +105,7 @@ namespace tbx
     {
         if (!_initialization_result)
         {
-            TBX_TRACE_ERROR(
+            TBX_TRACE_ERROR_ONCE(
                 "Toybox renderer initialization failed. {}",
                 _initialization_result.get_report());
             return;
@@ -113,7 +113,7 @@ namespace tbx
 
         if (!_resource_manager)
         {
-            TBX_TRACE_ERROR("Toybox renderer resource manager is unavailable.");
+            TBX_TRACE_ERROR_ONCE("Toybox renderer resource manager is unavailable.");
             return;
         }
 
@@ -124,14 +124,14 @@ namespace tbx
             frame_data);
         if (!create_result)
         {
-            TBX_TRACE_ERROR("Toybox frame data creation failed. {}", create_result.get_report());
+            TBX_TRACE_ERROR_ONCE("Toybox frame data creation failed. {}", create_result.get_report());
             return;
         }
 
         const auto render_result = _pipeline.run(frame_data, CancellationToken {});
         if (!render_result)
         {
-            TBX_TRACE_ERROR("Toybox render pipeline failed. {}", render_result.get_report());
+            TBX_TRACE_ERROR_ONCE("Toybox render pipeline failed. {}", render_result.get_report());
             return;
         }
 

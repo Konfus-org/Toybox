@@ -31,6 +31,14 @@ namespace tbx
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,
+            Window default_output_window,
+            const GraphicsSettings& settings);
+        Rendering(
+            std::weak_ptr<IGraphicsBackend> backend,
+            std::weak_ptr<EntityRegistry> entity_registry,
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<ThreadManager> thread_manager,
+            std::weak_ptr<IWindowManager> window_manager,
             const GraphicsSettings& settings);
         ~Rendering() noexcept;
 

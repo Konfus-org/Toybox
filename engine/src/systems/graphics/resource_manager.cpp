@@ -38,6 +38,8 @@ namespace tbx
         const uint unused_frame_limit)
         : _backend(std::move(backend))
         , _asset_manager(std::move(asset_manager))
+        , _backend_ref(_backend.lock())
+        , _asset_manager_ref(_asset_manager.lock())
         , _unused_frame_limit(unused_frame_limit)
     {
     }
@@ -825,11 +827,17 @@ namespace tbx
 
     std::shared_ptr<AssetManager> GraphicsResourceManager::lock_asset_manager() const
     {
+        if (_asset_manager_ref)
+            return _asset_manager_ref;
+
         return _asset_manager.lock();
     }
 
     std::shared_ptr<IGraphicsBackend> GraphicsResourceManager::lock_backend() const
     {
+        if (_backend_ref)
+            return _backend_ref;
+
         return _backend.lock();
     }
 
