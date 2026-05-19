@@ -87,30 +87,6 @@ Operations must not create, update, cache, unload, or destroy graphics resources
 
 ---
 
-## Frame Flow
-
-Do not introduce a separate `FrameBuilder` or one large `RenderData` blob.
-
-Use explicit RAII-scoped objects:
-
-```cpp
-auto frame = RenderFrameData(...);
-
-for (const View& view : views)
-{
-    auto render_view = RenderViewData(view);
-
-    begin_render();
-    render(render_view);
-    end_render();
-}
-```
-
-`RenderFrameData` handles frame-wide setup and cleanup.  
-`RenderViewData` handles surface/camera-specific setup, culling, and cleanup.
-
----
-
 ## Responsibilities
 
 ### Rendering
@@ -131,7 +107,7 @@ Does not:
 - Own raw backend resources
 - Call backend resource endpoints
 
-### Surface
+### RenderTarget
 
 Represents a renderable output target.
 
@@ -157,19 +133,6 @@ Owns frame-scoped data:
 - View-independent scene inputs
 - Shared lighting/shadow inputs
 - Frame-scoped temporary resources
-
-Does not execute rendering or own backend resources.
-
-### RenderViewData
-
-Owns view-scoped data:
-
-- Target surface id
-- Camera/view/projection data
-- Culling results
-- Visible render items
-- View uniforms
-- View-dependent render targets
 
 Does not execute rendering or own backend resources.
 
@@ -360,8 +323,7 @@ Do not change high-level rendering policy, resource lifetime policy, stale unloa
 
 Avoid:
 
-- Reintroducing `FrameBuilder`
-- Creating one monolithic frame/view `RenderData`
+- Creating monolithic classes/files
 - Letting the backend own resource policy
 - Letting operations call backend resource endpoints
 - Putting GPU command execution on `GraphicsResourceManager`

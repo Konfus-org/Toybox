@@ -94,14 +94,6 @@ namespace tbx
         TextureCompression compression = TextureCompression::DISABLED;
         std::vector<Pixel> pixels = {255, 255, 255};
 
-        TBX_SERIALIZABLE_INTRUSIVE(
-            Texture,
-            resolution,
-            wrap,
-            filter,
-            format,
-            mipmaps,
-            compression,
-            pixels)
+        TBX_SERIALIZABLE(Texture, resolution, wrap, filter, format, mipmaps, compression, pixels)
     };
 }

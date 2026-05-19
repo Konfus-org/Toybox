@@ -50,7 +50,7 @@ namespace tbx
         bool _is_dirty = true;
         bool _has_config_override = false;
 
-        TBX_SERIALIZABLE_INTRUSIVE(
+        TBX_SERIALIZABLE(
             MaterialInstance,
             material,
             texture_overrides,
@@ -69,7 +69,7 @@ namespace tbx
     {
         MaterialInstance material = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Sky, material)
+        TBX_SERIALIZABLE(Sky, material)
     };
 }
 

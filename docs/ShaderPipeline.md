@@ -23,11 +23,9 @@ User shaders provide main().
 Every shader should generally look like this:
 
 ```glsl
-#version 450
+#include "ShaderBase.glsl"
 
-#include "Toybox/Base/ShaderFragBase.glsl"
-#include "Toybox/Materials/PbrMaterial.glsl"
-#include "Toybox/Lighting/PbrLighting.glsl"
+// Shader uniforms here
 
 void main()
 {

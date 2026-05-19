@@ -32,7 +32,7 @@ namespace tbx
         // Thread Safety: synchronize external access when sharing instances.
         Vec3 scale = Vec3(1.0f);
 
-        TBX_SERIALIZABLE_INTRUSIVE(Transform, position, rotation, scale)
+        TBX_SERIALIZABLE(Transform, position, rotation, scale)
     };
 
     /// @brief

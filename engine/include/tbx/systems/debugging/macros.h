@@ -110,3 +110,20 @@
             TBX_DEBUG_BREAK();                                                                     \
         }                                                                                          \
     } while (0)
+
+#define TBX_TRY_CATCH_ASSERT(to_try, failure_msg)                                                  \
+    do                                                                                             \
+    {                                                                                              \
+        try                                                                                        \
+        {                                                                                          \
+            to_try                                                                                 \
+        }                                                                                          \
+        catch (std::exception ex)                                                                  \
+        {                                                                                          \
+            TBX_ASSERT(false, "{}\nException:\n{}", failure_msg, ex.what());                       \
+        }                                                                                          \
+        catch (...)                                                                                \
+        {                                                                                          \
+            TBX_ASSERT(false, "{}\nUnkown Exception...");                                          \
+        }                                                                                          \
+    } while (0)

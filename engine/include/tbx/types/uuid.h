@@ -45,7 +45,7 @@ namespace tbx
 
         static const Uuid NONE;
 
-        TBX_SERIALIZABLE_INTRUSIVE(Uuid, value)
+        TBX_SERIALIZABLE(Uuid, value)
     };
 
     inline const Uuid Uuid::NONE = {};

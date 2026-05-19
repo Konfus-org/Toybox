@@ -16,7 +16,7 @@ namespace tbx
         Handle handle = {};
         float max_distance = 0.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(Lod, handle, max_distance)
+        TBX_SERIALIZABLE(Lod, handle, max_distance)
     };
 
     /// @brief
@@ -29,6 +29,6 @@ namespace tbx
         std::vector<Lod> values = {};
         float render_distance = 0.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(Lods, values, render_distance)
+        TBX_SERIALIZABLE(Lods, values, render_distance)
     };
 }

@@ -71,7 +71,7 @@ namespace tbx
         std::string name = "";
         MaterialParameterData data = 0.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(MaterialParameter, name, data)
+        TBX_SERIALIZABLE(MaterialParameter, name, data)
     };
 
     /// @brief
@@ -109,7 +109,7 @@ namespace tbx
 
         std::vector<MaterialParameter> values = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(MaterialParameterBindings, values)
+        TBX_SERIALIZABLE(MaterialParameterBindings, values)
     };
 
     /// @brief
@@ -122,7 +122,7 @@ namespace tbx
         std::string name = {};
         Handle texture = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(MaterialTextureBinding, name, texture)
+        TBX_SERIALIZABLE(MaterialTextureBinding, name, texture)
     };
 
     /// @brief
@@ -160,7 +160,7 @@ namespace tbx
 
         std::vector<MaterialTextureBinding> values = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(MaterialTextureBindings, values)
+        TBX_SERIALIZABLE(MaterialTextureBindings, values)
     };
 
     /// @brief
@@ -175,11 +175,12 @@ namespace tbx
         bool is_depth_prepass_enabled = false;
         bool is_two_sided = false;
         bool is_cullable = true;
+
         MaterialDepthFunction depth_function = MaterialDepthFunction::Less;
         MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
         ShadowMode shadow_mode = ShadowMode::Standard;
 
-        TBX_SERIALIZABLE_INTRUSIVE(
+        TBX_SERIALIZABLE(
             MaterialConfig,
             is_depth_test_enabled,
             is_depth_write_enabled,
@@ -204,7 +205,7 @@ namespace tbx
         MaterialTextureBindings textures = {};
         MaterialConfig config = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Material, program, parameters, textures, config)
+        TBX_SERIALIZABLE(Material, program, parameters, textures, config)
     };
 
 }

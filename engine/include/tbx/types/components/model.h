@@ -26,7 +26,7 @@ namespace tbx
         uint32 material_index = 0U;
         std::vector<uint32> children = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(ModelPart, transform, mesh_index, material_index, children)
+        TBX_SERIALIZABLE(ModelPart, transform, mesh_index, material_index, children)
     };
 
     /// @brief
@@ -44,6 +44,6 @@ namespace tbx
         std::vector<Material> materials = {};
         std::vector<ModelPart> parts = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Model, meshes, materials, parts)
+        TBX_SERIALIZABLE(Model, meshes, materials, parts)
     };
 }

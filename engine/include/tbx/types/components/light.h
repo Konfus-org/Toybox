@@ -39,7 +39,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         bool cast_shadows = true;
 
-        TBX_SERIALIZABLE_INTRUSIVE(Light, color, intensity, cast_shadows)
+        TBX_SERIALIZABLE(Light, color, intensity, cast_shadows)
     };
 
     /// @brief
@@ -59,7 +59,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float range = 10.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(PointLight, range)
+        TBX_SERIALIZABLE(PointLight, range)
     };
 
     /// @brief
@@ -98,7 +98,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float outer_angle = 35.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(SpotLight, range, inner_angle, outer_angle)
+        TBX_SERIALIZABLE(SpotLight, range, inner_angle, outer_angle)
     };
 
     /// @brief
@@ -129,7 +129,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Vec2 area_size = Vec2(1.0f, 1.0f);
 
-        TBX_SERIALIZABLE_INTRUSIVE(AreaLight, range, area_size)
+        TBX_SERIALIZABLE(AreaLight, range, area_size)
     };
 
     /// @brief
@@ -151,6 +151,6 @@ namespace tbx
         /// contributions across all directional lights.
         float ambient = 0.03f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(DirectionalLight, ambient)
+        TBX_SERIALIZABLE(DirectionalLight, ambient)
     };
 }

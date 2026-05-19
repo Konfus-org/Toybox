@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/async/cancellation_token.h"
-#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <string>
@@ -20,16 +19,16 @@ namespace tbx
     /// Purpose: Defines a self-contained unit of rendering work with explicit prepare and execute
     /// phases.
     /// @details
-    /// Ownership: Owns CPU-side operation state. GPU resources are owned by GraphicsResourceManager.
-    /// Thread Safety: Not thread-safe; call from the owning render thread.
+    /// Ownership: Owns CPU-side operation state. GPU resources are owned by
+    /// GraphicsResourceManager. Thread Safety: Not thread-safe; call from the owning render thread.
     class TBX_API IRenderOperation
     {
       public:
         virtual ~IRenderOperation() noexcept = default;
         IRenderOperation(const IRenderOperation&) = delete;
         IRenderOperation& operator=(const IRenderOperation&) = delete;
-        IRenderOperation(IRenderOperation&&) noexcept = default;
-        IRenderOperation& operator=(IRenderOperation&&) noexcept = default;
+        IRenderOperation(IRenderOperation&&) noexcept = delete;
+        IRenderOperation& operator=(IRenderOperation&&) noexcept = delete;
 
         /// @brief
         /// Purpose: Returns debug info for logs, tooling, and debug labels.
@@ -39,7 +38,7 @@ namespace tbx
         /// Purpose: CPU phase — queries scene state, uploads or updates GPU resources.
         /// @details
         /// Reads and writes RenderData fields. Must complete for all operations before execute.
-        virtual Result prepare(RenderData& render_data) = 0;
+        virtual Result prepare(FrameData& render_data) = 0;
 
         /// @brief
         /// Purpose: GPU phase — opens a render pass, binds resources, issues draw calls, closes the
@@ -48,10 +47,7 @@ namespace tbx
         /// Consumes draw lists and pass inputs written into RenderData by earlier operations.
         virtual Result execute(
             IGraphicsBackend& backend,
-            RenderData& render_data,
+            FrameData& render_data,
             const CancellationToken& token) = 0;
-
-      protected:
-        IRenderOperation() = default;
     };
 }

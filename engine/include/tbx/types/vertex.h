@@ -94,7 +94,7 @@ namespace tbx
         // (tx, ty, tz, handedness) for tangent-space normal mapping
         Vec4 tangent = Vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
-        TBX_SERIALIZABLE_INTRUSIVE(Vertex, position, normal, uv, color, tangent)
+        TBX_SERIALIZABLE(Vertex, position, normal, uv, color, tangent)
     };
 
     ///////////// VERTEX BUFFER //////////////////
@@ -114,7 +114,7 @@ namespace tbx
         VertexData type = 0;
         bool normalized = false;
 
-        TBX_SERIALIZABLE_INTRUSIVE(VertexLayoutElement, semantic, type, normalized)
+        TBX_SERIALIZABLE(VertexLayoutElement, semantic, type, normalized)
     };
 
     struct TBX_API VertexBufferAttribute
@@ -126,14 +126,7 @@ namespace tbx
         uint32 offset = 0;
         bool normalized = false;
 
-        TBX_SERIALIZABLE_INTRUSIVE(
-            VertexBufferAttribute,
-            semantic,
-            type,
-            size,
-            count,
-            offset,
-            normalized)
+        TBX_SERIALIZABLE(VertexBufferAttribute, semantic, type, size, count, offset, normalized)
     };
 
     // Used to describe the layout of a vertex buffer.
@@ -193,7 +186,7 @@ namespace tbx
         std::vector<VertexBufferAttribute> elements = {};
         uint32 stride = 0;
 
-        TBX_SERIALIZABLE_INTRUSIVE(VertexBufferLayout, elements, stride)
+        TBX_SERIALIZABLE(VertexBufferLayout, elements, stride)
     };
 
     inline VertexBufferLayout get_default_vertex_buffer_layout()
@@ -313,6 +306,6 @@ namespace tbx
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(VertexBuffer, vertices, layout)
+        TBX_SERIALIZABLE(VertexBuffer, vertices, layout)
     };
 }

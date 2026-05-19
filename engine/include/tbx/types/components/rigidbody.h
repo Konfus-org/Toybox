@@ -44,7 +44,7 @@ namespace tbx
 
         bool is_valid() const;
 
-        TBX_SERIALIZABLE_INTRUSIVE(
+        TBX_SERIALIZABLE(
             Rigidbody,
             mass,
             is_kinematic,

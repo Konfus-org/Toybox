@@ -38,7 +38,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float blend = 1.0f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(PostProcessingEffect, material, is_enabled, blend)
+        TBX_SERIALIZABLE(PostProcessingEffect, material, is_enabled, blend)
     };
 
     /// @brief
@@ -64,6 +64,6 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         bool is_enabled = true;
 
-        TBX_SERIALIZABLE_INTRUSIVE(PostProcessing, effects, is_enabled)
+        TBX_SERIALIZABLE(PostProcessing, effects, is_enabled)
     };
 }

@@ -108,7 +108,7 @@ namespace tbx
             return Result(false, "Graphics resource manager: asset manager is unavailable.");
 
         const std::shared_ptr<Material> material =
-            asset_manager->load<Material>(handle, MaterialLoadParameters {});
+            asset_manager->load<Material>(handle, MaterialLoadParameters());
         if (!material)
         {
             _failed_materials.insert(asset_id);
@@ -168,7 +168,7 @@ namespace tbx
                 return Result(false, "Graphics resource manager: asset manager is unavailable.");
 
             const std::shared_ptr<Material> material =
-                asset_manager->load<Material>(handle, MaterialLoadParameters {});
+                asset_manager->load<Material>(handle, MaterialLoadParameters());
             if (!material)
             {
                 return Result(
@@ -374,8 +374,8 @@ namespace tbx
         if (record == nullptr)
             return Result(false, "Graphics resource manager: model resource metadata was missing.");
 
-        const auto* meshes = std::any_cast<std::vector<GraphicsModelMeshResource>>(
-            &record->payload);
+        const auto* meshes =
+            std::any_cast<std::vector<GraphicsModelMeshResource>>(&record->payload);
         if (meshes == nullptr)
             return Result(false, "Graphics resource manager: model resource metadata was invalid.");
 
@@ -436,9 +436,7 @@ namespace tbx
             backend->upload_pipeline(desc, out_resource_uuid));
     }
 
-    Result GraphicsResourceManager::upload(
-        const GraphicsSamplerDesc& desc,
-        Uuid& out_resource_uuid)
+    Result GraphicsResourceManager::upload(const GraphicsSamplerDesc& desc, Uuid& out_resource_uuid)
     {
         const auto backend = lock_backend();
         if (!backend)
@@ -681,8 +679,7 @@ namespace tbx
         return GraphicsResourceKey {.id = asset_id, .bucket = bucket};
     }
 
-    GraphicsResourceKey GraphicsResourceManager::make_runtime_resource_key(
-        const Uuid resource_uuid)
+    GraphicsResourceKey GraphicsResourceManager::make_runtime_resource_key(const Uuid resource_uuid)
     {
         return GraphicsResourceKey {.id = resource_uuid, .bucket = RUNTIME_RESOURCE_BUCKET};
     }
@@ -863,9 +860,10 @@ namespace tbx
                     return result;
                 }
             }
-            else if (const auto result =
-                         load_default_texture_for_binding(texture.name, texture_resource);
-                     !result)
+            else if (
+                const auto result =
+                    load_default_texture_for_binding(texture.name, texture_resource);
+                !result)
             {
                 return result;
             }

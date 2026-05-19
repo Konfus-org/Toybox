@@ -13,6 +13,8 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned name strings and UUID values.
     /// Thread Safety: Safe to copy between threads; there are no mutating public APIs.
+    // TODO: add a is_valid bool that is a shared ptr. Then we can flag invalid when something is
+    // put in an invalid state (like deleting an asset, or closing a window, or anything like that)
     class Handle
     {
       public:
@@ -35,31 +37,16 @@ namespace tbx
         }
 
       public:
-        /// @brief
-        /// Purpose: Returns true when the handle has a valid id.
-        /// @details
-        /// Ownership: Does not transfer ownership.
-        /// Thread Safety: Safe to call concurrently.
         bool is_valid() const
         {
             return _id.is_valid();
         }
 
-        /// @brief
-        /// Purpose: Returns the immutable logical name associated with the handle.
-        /// @details
-        /// Ownership: Returns a const reference owned by the handle.
-        /// Thread Safety: Safe to call concurrently.
         const std::string& get_name() const
         {
             return _name;
         }
 
-        /// @brief
-        /// Purpose: Returns the immutable id associated with the handle.
-        /// @details
-        /// Ownership: Returns a const reference owned by the handle.
-        /// Thread Safety: Safe to call concurrently.
         const Uuid& get_id() const
         {
             return _id;
@@ -75,7 +62,13 @@ namespace tbx
             return !(*this == other);
         }
 
+        operator std::string() const
+        {
+            return _name;
+        }
+
       public:
+        // TODO: Move this to our hash.h and call it tbx::hash_name_to_uuid
         static Uuid hash_name_to_id(std::string_view handle_name)
         {
             const auto hasher = std::hash<std::string_view>();
@@ -87,9 +80,10 @@ namespace tbx
         std::string _name = {};
         Uuid _id = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Handle, _name, _id)
+        TBX_SERIALIZABLE(Handle, _name, _id)
     };
 
+    // TODO: remove all tbx to_string and utilize implicit conversions
     inline std::string to_string(const Handle& value)
     {
         if (!value.get_name().empty())

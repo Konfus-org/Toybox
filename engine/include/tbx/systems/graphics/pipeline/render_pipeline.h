@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/graphics/pipeline/render_operation.h"
-#include "tbx/systems/graphics/pipeline/context/render_data.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <memory>
@@ -27,41 +26,24 @@ namespace tbx
         RenderPipeline& operator=(RenderPipeline&&) noexcept = default;
 
       public:
-        /// @brief
-        /// Purpose: Adds a render operation to the end of the pipeline.
-        /// @details
-        /// Ownership: Takes unique ownership of the operation.
         void add_operation(std::unique_ptr<IRenderOperation> operation);
-
-        /// @brief
-        /// Purpose: Removes all operations from the pipeline.
-        /// @details
-        /// Ownership: Destroys stored operations immediately.
         void clear();
 
+        // TODO: Result run(FrameData& frame_data, const CancellationToken& token);
+
+      private:
         /// @brief
         /// Purpose: Executes GPU work for all operations in configured order.
         /// @details
         /// Ownership: Executes against the render data most recently accepted by prepare().
-        Result execute(const CancellationToken& token) const;
+        Result execute(FrameData& frame_data, const CancellationToken& token) const;
 
         /// @brief
         /// Purpose: Runs CPU preparation work for all operations in configured order.
         /// @details
         /// Ownership: Takes ownership of render data for the current pipeline submission.
-        Result prepare(std::unique_ptr<RenderData> render_data);
+        Result prepare(FrameData& frame_data, const CancellationToken& token);
 
-        /// @brief
-        /// Purpose: Prepares every operation, then executes every operation in configured order.
-        /// @details
-        /// Ownership: Takes ownership of render data for the current pipeline submission.
-        Result run(std::unique_ptr<RenderData> render_data, const CancellationToken& token);
-
-        /// @brief
-        /// Purpose: Returns the render data currently owned by the pipeline.
-        RenderData* get_render_data() const;
-
-      private:
         Result make_failure_result(
             const char* phase,
             const RenderOperationDebugInfo& debug_info,
@@ -69,8 +51,6 @@ namespace tbx
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend;
-        std::unique_ptr<RenderData> _render_data = {};
         std::vector<std::unique_ptr<IRenderOperation>> _operations = {};
-        bool _is_prepared = false;
     };
 }

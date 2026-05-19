@@ -34,10 +34,10 @@ namespace tbx
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API ShaderSource
+    struct TBX_API Shader
     {
-        ShaderSource() = default;
-        ShaderSource(std::string shader_source, ShaderType shader_type)
+        Shader() = default;
+        Shader(std::string shader_source, ShaderType shader_type)
             : source(std::move(shader_source))
             , type(shader_type)
         {
@@ -46,29 +46,7 @@ namespace tbx
         std::string source = "";
         ShaderType type = ShaderType::NONE;
 
-        TBX_SERIALIZABLE_INTRUSIVE(ShaderSource, source, type)
-    };
-
-    /// @brief
-    /// Purpose: Aggregates shader sources into a program description.
-    /// @details
-    /// Ownership: Owns the shader source collection.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API Shader
-    {
-        Shader() = default;
-        Shader(ShaderSource shader_source)
-            : sources({std::move(shader_source)})
-        {
-        }
-        Shader(std::vector<ShaderSource> shader_sources)
-            : sources(std::move(shader_sources))
-        {
-        }
-
-        std::vector<ShaderSource> sources = {};
-
-        TBX_SERIALIZABLE_INTRUSIVE(Shader, sources)
+        TBX_SERIALIZABLE(Shader, source, type)
     };
 
     /// @brief
@@ -133,6 +111,6 @@ namespace tbx
             return true;
         }
 
-        TBX_SERIALIZABLE_INTRUSIVE(ShaderProgram, vertex, fragment, tesselation, geometry, compute)
+        TBX_SERIALIZABLE(ShaderProgram, vertex, fragment, tesselation, geometry, compute)
     };
 }

@@ -29,7 +29,7 @@ namespace tbx
         /// vertices/indices.
         MeshBounds bounds = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(Mesh, vertices, indices, bounds)
+        TBX_SERIALIZABLE(Mesh, vertices, indices, bounds)
     };
 
     TBX_API Mesh make_triangle();
@@ -115,7 +115,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Handle handle = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(StaticMesh, handle)
+        TBX_SERIALIZABLE(StaticMesh, handle)
     };
 
     /// @brief
@@ -143,6 +143,6 @@ namespace tbx
         /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.
         std::shared_ptr<Mesh> data = {};
 
-        TBX_SERIALIZABLE_INTRUSIVE(DynamicMesh, data)
+        TBX_SERIALIZABLE(DynamicMesh, data)
     };
 }

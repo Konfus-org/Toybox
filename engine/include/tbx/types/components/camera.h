@@ -4,7 +4,9 @@
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"
+#include "tbx/types/render_target.h"
 #include "tbx/types/vectors.h"
+#include "tbx/types/viewport.h"
 
 namespace tbx
 {
@@ -12,12 +14,19 @@ namespace tbx
     {
       public:
         Camera();
+
+      public:
         void set_orthographic(float size, float aspect, float z_near, float z_far);
         void set_perspective(float fov, float aspect, float z_near, float z_far);
         void set_aspect(float aspect);
 
         bool is_perspective() const;
         bool is_orthographic() const;
+
+        void set_target(RenderTarget target);
+        void set_viewport(Viewport viewport);
+        RenderTarget get_render_target() const;
+        Viewport get_viewport() const;
 
         float get_aspect() const;
         float get_fov() const;
@@ -31,6 +40,8 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
+        RenderTarget _render_target = {};
+        Viewport _viewport = {};
         Mat4 _projection_matrix = Mat4(1.0f);
         bool _is_perspective = true;
         float _z_near = 0.1f;
@@ -38,7 +49,7 @@ namespace tbx
         float _fov = 60.0f;
         float _aspect = 1.78f;
 
-        TBX_SERIALIZABLE_INTRUSIVE(
+        TBX_SERIALIZABLE(
             Camera,
             _projection_matrix,
             _is_perspective,

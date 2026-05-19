@@ -29,40 +29,42 @@ namespace tbx
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,
-            Window output_window,
             const GraphicsSettings& settings);
         ~Rendering() noexcept;
 
+      public:
         Rendering(const Rendering&) = delete;
         Rendering& operator=(const Rendering&) = delete;
         Rendering(Rendering&&) noexcept = delete;
         Rendering& operator=(Rendering&&) noexcept = delete;
 
+      public:
         void render();
 
       private:
         void initialize(const GraphicsSettings& settings);
         void render_frame();
-        void release_pipeline();
+
         void wait_for_initialization() noexcept;
         void wait_for_render_frame() noexcept;
 
         std::weak_ptr<ThreadManager> _thread_manager;
+
+        // TODO: Backend, ent registry, and window manager should not be required to be held by
+        // rendering, the things that actually require these (frame factory, pipeline, etc...)
+        // should take these in their constructors and hold weak refs themselves
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<EntityRegistry> _entity_registry;
         std::weak_ptr<IWindowManager> _window_manager;
-        Window _output_window = {};
-        Size _requested_resolution = {};
-        uint32 _shadow_map_resolution = 1024U;
-        float _shadow_render_distance = 90.0F;
-        float _shadow_softness = 1.0F;
-        float _local_light_max_distance = 64.0F;
-        float _shadow_caster_max_distance = 96.0F;
-        std::unique_ptr<GraphicsResourceManager> _resource_manager = {};
+
+        GraphicsResourceManager _resource_manager;
+        // TODO: Implement frame factory that creates frame data, its job is to construct a
+        // 'frame_data'.
+        // FrameDataFactory _frame_data_factory;
         RenderPipeline _pipeline;
+
+        Result _initialization_result = {};
         std::future<void> _initialization_future = {};
         std::future<void> _render_future = {};
-        uint64 _render_frame = 0U;
-        Result _initialization_result = {};
     };
 }
