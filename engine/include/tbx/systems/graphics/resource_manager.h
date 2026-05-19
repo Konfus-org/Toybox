@@ -197,6 +197,13 @@ namespace tbx
             GraphicsModelResource& out_model_resource);
 
         /// @brief
+        /// Purpose: Uploads caller-owned mesh data and returns cached GPU draw metadata.
+        Result upload(
+            const Handle& handle,
+            const Mesh& mesh,
+            GraphicsModelResource& out_model_resource);
+
+        /// @brief
         /// Purpose: Uploads a runtime-owned GPU buffer through the manager.
         Result upload(
             const GraphicsBufferDesc& desc,

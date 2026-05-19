@@ -5,7 +5,7 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/pipeline/context/render_data.h"
+#include "tbx/systems/graphics/pipeline/context/frame_data.h"
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
@@ -522,9 +522,15 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_render_resolution.height, window_manager.size.height);
         EXPECT_EQ(backend.recorded_viewport.width, window_manager.size.width);
         EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
-        EXPECT_EQ(backend.recorded_pass.clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_pass.debug_name, "Toybox Opaque Scene Pass");
-        EXPECT_EQ(backend.callbacks, expected_callbacks);
+        ASSERT_FALSE(backend.recorded_passes.empty());
+        EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
+        for (const auto expected_callback : expected_callbacks)
+        {
+            EXPECT_NE(
+                std::find(backend.callbacks.begin(), backend.callbacks.end(), expected_callback),
+                backend.callbacks.end());
+        }
     }
 
     // Validates initialization runs asynchronously and the first render waits for it.

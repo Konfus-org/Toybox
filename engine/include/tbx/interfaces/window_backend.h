@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/interfaces/window.h"
+#include "tbx/types/window.h"
 #include "tbx/tbx_api.h"
 #include <string>
 #include <vector>

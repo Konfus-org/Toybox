@@ -34,10 +34,10 @@ namespace tbx
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API Shader
+    struct TBX_API ShaderSource
     {
-        Shader() = default;
-        Shader(std::string shader_source, ShaderType shader_type)
+        ShaderSource() = default;
+        ShaderSource(std::string shader_source, ShaderType shader_type)
             : source(std::move(shader_source))
             , type(shader_type)
         {
@@ -46,7 +46,33 @@ namespace tbx
         std::string source = "";
         ShaderType type = ShaderType::NONE;
 
-        TBX_SERIALIZABLE(Shader, source, type)
+        TBX_SERIALIZABLE(ShaderSource, source, type)
+    };
+
+    /// @brief
+    /// Purpose: Stores one or more shader stages that can be linked into a graphics pipeline.
+    /// @details
+    /// Ownership: Owns copied shader stage sources.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    struct TBX_API Shader
+    {
+        Shader() = default;
+        Shader(std::string shader_source, ShaderType shader_type)
+            : sources({ShaderSource(std::move(shader_source), shader_type)})
+        {
+        }
+        explicit Shader(ShaderSource shader_source)
+            : sources({std::move(shader_source)})
+        {
+        }
+        explicit Shader(std::vector<ShaderSource> shader_sources)
+            : sources(std::move(shader_sources))
+        {
+        }
+
+        std::vector<ShaderSource> sources = {};
+
+        TBX_SERIALIZABLE(Shader, sources)
     };
 
     /// @brief
