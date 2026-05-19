@@ -24,8 +24,6 @@ namespace tbx
     inline std::shared_ptr<Material> make_fallback_material()
     {
         auto material = Material();
-        material.program.vertex = PbrVertexShader::HANDLE;
-        material.program.fragment = PbrFragmentShader::HANDLE;
         material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
         material.parameters.set("diffuse_strength", 1.0f);
         material.parameters.set("normal_strength", 1.0f);

@@ -197,6 +197,13 @@ namespace tbx
             GraphicsModelResource& out_model_resource);
 
         /// @brief
+        /// Purpose: Uploads caller-owned mesh data and returns cached GPU draw metadata.
+        Result upload(
+            const Handle& handle,
+            const Mesh& mesh,
+            GraphicsModelResource& out_model_resource);
+
+        /// @brief
         /// Purpose: Uploads a runtime-owned GPU buffer through the manager.
         Result upload(
             const GraphicsBufferDesc& desc,
@@ -381,6 +388,8 @@ namespace tbx
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
+        std::shared_ptr<IGraphicsBackend> _backend_ref = nullptr;
+        std::shared_ptr<AssetManager> _asset_manager_ref = nullptr;
         GraphicsResourceMap _resources = {};
         std::unordered_set<Uuid> _failed_materials = {};
         Uuid _default_texture = {};

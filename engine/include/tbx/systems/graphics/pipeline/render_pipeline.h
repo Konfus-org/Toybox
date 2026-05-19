@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/systems/graphics/pipeline/context/frame_data.h"
 #include "tbx/systems/graphics/pipeline/render_operation.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
@@ -29,21 +30,19 @@ namespace tbx
         void add_operation(std::unique_ptr<IRenderOperation> operation);
         void clear();
 
-        // TODO: Result run(FrameData& frame_data, const CancellationToken& token);
-
-      private:
-        /// @brief
-        /// Purpose: Executes GPU work for all operations in configured order.
-        /// @details
-        /// Ownership: Executes against the render data most recently accepted by prepare().
-        Result execute(FrameData& frame_data, const CancellationToken& token) const;
+        Result run(FrameData& frame_data, const CancellationToken& token);
 
         /// @brief
         /// Purpose: Runs CPU preparation work for all operations in configured order.
-        /// @details
-        /// Ownership: Takes ownership of render data for the current pipeline submission.
         Result prepare(FrameData& frame_data, const CancellationToken& token);
+        Result prepare(std::unique_ptr<FrameData> frame_data);
 
+        /// @brief
+        /// Purpose: Executes GPU work for all operations in configured order.
+        Result execute(FrameData& frame_data, const CancellationToken& token) const;
+        Result execute(const CancellationToken& token) const;
+
+      private:
         Result make_failure_result(
             const char* phase,
             const RenderOperationDebugInfo& debug_info,
@@ -52,5 +51,6 @@ namespace tbx
       private:
         std::weak_ptr<IGraphicsBackend> _backend;
         std::vector<std::unique_ptr<IRenderOperation>> _operations = {};
+        std::unique_ptr<FrameData> _prepared_frame_data = nullptr;
     };
 }
