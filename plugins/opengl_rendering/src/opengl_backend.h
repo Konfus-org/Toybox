@@ -33,8 +33,8 @@ namespace opengl_rendering
 
         tbx::GraphicsApi get_api() const override;
 
-        tbx::Result begin_frame(const tbx::GraphicsFrameInfo& frame) override;
-        tbx::Result begin_view(const tbx::GraphicsView& view) override;
+        tbx::Result begin_frame(const tbx::RenderFrameInfo& frame) override;
+        tbx::Result begin_view(const tbx::RenderView& view) override;
         tbx::Result end_frame() override;
         tbx::Result end_view() override;
 

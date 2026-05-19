@@ -56,20 +56,38 @@ namespace tbx
         return std::nullopt;
     }
 
-    std::vector<GraphicsResourceKey> GraphicsResourceMap::get_stale(
+    std::vector<GraphicsResourceKey> GraphicsResourceMap::erase_stale(
         const uint current_frame,
-        const uint frame_limit) const
+        const uint frame_limit,
+        const std::function<bool(
+            const GraphicsResourceKey& key,
+            const GraphicsResourceRecord& record)>& erase_callback)
     {
         auto keys = std::vector<GraphicsResourceKey> {};
-        for (const auto& entry : _records)
+        for (auto iterator = _records.begin(); iterator != _records.end();)
         {
-            const uint last_access_frame = entry.second.last_access_frame;
+            const uint last_access_frame = iterator->second.last_access_frame;
             if (current_frame < last_access_frame)
+            {
+                ++iterator;
                 continue;
+            }
 
             const uint frame_age = current_frame - last_access_frame;
-            if (frame_age >= frame_limit)
-                keys.push_back(entry.first);
+            if (frame_age < frame_limit)
+            {
+                ++iterator;
+                continue;
+            }
+
+            if (!erase_callback(iterator->first, iterator->second))
+            {
+                ++iterator;
+                continue;
+            }
+
+            keys.push_back(iterator->first);
+            iterator = _records.erase(iterator);
         }
 
         return keys;
@@ -80,7 +98,7 @@ namespace tbx
         const Handle& handle,
         const Uuid resource,
         const uint current_frame,
-        std::vector<Uuid> backend_resources,
+        std::shared_ptr<GraphicsResource> resource_instance,
         std::any payload)
     {
         if (!resource.is_valid())
@@ -97,7 +115,7 @@ namespace tbx
 
         _records[key] = GraphicsResourceRecord {
             .usage = std::move(usage),
-            .backend_resources = std::move(backend_resources),
+            .resource = std::move(resource_instance),
             .payload = std::move(payload),
             .last_access_frame = current_frame,
         };
@@ -114,3 +132,4 @@ namespace tbx
         return true;
     }
 }
+

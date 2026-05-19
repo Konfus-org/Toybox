@@ -7,14 +7,11 @@ layout(location = 0) out vec4 o_color;
 
 layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxTonemapData
 {
-    // x = exposure
-    // y = gamma
-    // zw = unused
-    vec4 u_params0;
+    float u_exposure;
+    vec3 _tbx_pad_u_exposure;
+    float u_gamma;
+    vec3 _tbx_pad_u_gamma;
 };
-
-#define u_exposure u_params0.x
-#define u_gamma    u_params0.y
 
 void main()
 {

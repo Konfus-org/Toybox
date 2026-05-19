@@ -93,7 +93,5 @@ namespace tbx
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
         TextureCompression compression = TextureCompression::DISABLED;
         std::vector<Pixel> pixels = {255, 255, 255};
-
-        TBX_SERIALIZABLE(Texture, resolution, wrap, filter, format, mipmaps, compression, pixels)
     };
 }

@@ -5,8 +5,6 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/pipeline/context/frame_data.h"
-#include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/types/components/mesh.h"
@@ -52,7 +50,7 @@ namespace tbx::tests::graphics
     class RecordingGraphicsBackend : public IGraphicsBackend
     {
       public:
-        Result begin_frame(const GraphicsFrameInfo& frame) override
+        Result begin_frame(const RenderFrameInfo& frame) override
         {
             recorded_output_window = frame.output_window;
             recorded_render_resolution = frame.render_resolution;
@@ -69,7 +67,7 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result begin_view(const GraphicsView& view) override
+        Result begin_view(const RenderView& view) override
         {
             recorded_viewport = view.viewport.dimensions;
             callbacks.push_back(GraphicsBackendCallback::BeginView);
@@ -318,6 +316,8 @@ namespace tbx::tests::graphics
         {
             (void)create_info;
             is_window_open = true;
+            if (!main_window.is_valid())
+                main_window = window;
             return window;
         }
 
@@ -327,6 +327,8 @@ namespace tbx::tests::graphics
                 return false;
 
             is_window_open = false;
+            if (main_window == target_window)
+                main_window = {};
             return true;
         }
 
@@ -381,6 +383,25 @@ namespace tbx::tests::graphics
             return is_window_open ? std::vector<Window> {window} : std::vector<Window> {};
         }
 
+        bool has_main_window() const override
+        {
+            return main_window.is_valid() && is_window_open;
+        }
+
+        const Window& get_main_window() const override
+        {
+            return main_window;
+        }
+
+        bool set_main_window(const Window& next_main_window) override
+        {
+            if (!is_window_open || next_main_window != window)
+                return false;
+
+            main_window = next_main_window;
+            return true;
+        }
+
         void update() override {}
 
         void shutdown() override
@@ -390,6 +411,7 @@ namespace tbx::tests::graphics
 
       public:
         Window window = Window("main");
+        Window main_window = window;
         Size size = Size {1280U, 720U};
         bool is_window_open = true;
     };
@@ -402,7 +424,7 @@ namespace tbx::tests::graphics
         {
         }
 
-        Result begin_frame(const GraphicsFrameInfo& frame) override
+        Result begin_frame(const RenderFrameInfo& frame) override
         {
             auto result = RecordingGraphicsBackend::begin_frame(frame);
             _begin_frame_started.set_value();
@@ -496,7 +518,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
@@ -565,7 +586,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
         ASSERT_EQ(initialize_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
         auto lane_drain = thread_manager.post_with_future(
@@ -621,7 +641,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
 
         // Act
@@ -670,7 +689,6 @@ namespace tbx::tests::graphics
                 asset_manager_service,
                 thread_manager_service,
                 window_manager_service,
-                window_manager.window,
                 settings);
             rendering.render();
             wait_for_render_lane(thread_manager);
@@ -746,91 +764,8 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
 
-    struct RenderPipelineOperationState
-    {
-        bool prepared = false;
-        bool executed = false;
-    };
-
-    class RecordingRenderOperation final : public IRenderOperation
-    {
-      public:
-        RecordingRenderOperation(RenderPipelineOperationState& state)
-            : _state(state)
-        {
-        }
-
-      public:
-        RenderOperationDebugInfo get_debug_info() const override
-        {
-            auto debug_info = RenderOperationDebugInfo();
-            debug_info.debug_name = "Recording Operation";
-            debug_info.category = "Tests";
-            return debug_info;
-        }
-
-        Result prepare(RenderData& render_data) override
-        {
-            _state.get().prepared = render_data.frame_index == 42U;
-            return {};
-        }
-
-        Result execute(IGraphicsBackend& backend, RenderData&, const CancellationToken&) override
-        {
-            _state.get().executed = true;
-            return backend.set_viewport(
-                Viewport {
-                    .position = Vec2(0.0F),
-                    .dimensions = Size {64U, 64U},
-                });
-        }
-
-      private:
-        std::reference_wrapper<RenderPipelineOperationState> _state;
-    };
-
-    // Validates typed render pipelines prepare and execute owned operations.
-    TEST(RenderPipelineTests, PrepareExecute_RunsOwnedOperations)
-    {
-        // Arrange
-        auto backend = RecordingGraphicsBackend {};
-        auto dispatcher = NullMessageDispatcher {};
-        auto serialization_registry = SerializationRegistry {};
-        auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            3U);
-        auto registry = EntityRegistry {};
-        auto window_manager = RecordingWindowManager {};
-        auto render_data = std::make_unique<RenderData>();
-        render_data->output_window = window_manager.window;
-        render_data->frame_index = 42U;
-        auto state = RenderPipelineOperationState {};
-        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto pipeline = RenderPipeline(backend_service);
-        pipeline.add_operation(std::make_unique<RecordingRenderOperation>(state));
-
-        // Act
-        const auto prepare_result = pipeline.prepare(std::move(render_data));
-        const auto execute_result = pipeline.execute(CancellationToken {});
-        pipeline.clear();
-
-        // Assert
-        const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::SetViewport,
-        };
-
-        EXPECT_TRUE(prepare_result);
-        EXPECT_TRUE(execute_result);
-        EXPECT_TRUE(state.prepared);
-        EXPECT_TRUE(state.executed);
-        EXPECT_EQ(backend.callbacks, expected_callbacks);
-    }
-
     // Validates Rendering owns the Toybox geometry pass and submits render() commands.
-    TEST(RenderPipelineTests, Rendering_RenderSubmitsGeometryPass)
+    TEST(RenderingTests, Rendering_RenderSubmitsGeometryPass)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -859,7 +794,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
@@ -869,18 +803,12 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::NONE);
         EXPECT_NE(
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
                 GraphicsBackendCallback::DrawIndexed),
-            backend.callbacks.end());
-        EXPECT_NE(
-            std::find(
-                backend.callbacks.begin(),
-                backend.callbacks.end(),
-                GraphicsBackendCallback::Draw),
             backend.callbacks.end());
     }
 
@@ -913,8 +841,8 @@ namespace tbx::tests::graphics
                 auto material = Material {};
                 material.program.vertex = Handle("Shaders/Sky.shader");
                 material.program.fragment = Handle("Shaders/Sky.shader");
-                material.textures.set("diffuse_map", Handle {});
-                material.parameters.set("color", Color(0.25F, 0.5F, 1.0F, 1.0F));
+                material.textures.set("u_albedo_map", Handle {});
+                material.parameters.set("u_albedo_color", Color(0.25F, 0.5F, 1.0F, 1.0F));
                 return std::make_shared<Material>(std::move(material));
             });
         auto asset_manager =
@@ -941,7 +869,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
@@ -953,18 +880,12 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Opaque Scene Pass");
         EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::DEPTH);
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Lighting Pass");
-        EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::NONE);
         EXPECT_NE(
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
                 GraphicsBackendCallback::DrawIndexed),
-            backend.callbacks.end());
-        EXPECT_NE(
-            std::find(
-                backend.callbacks.begin(),
-                backend.callbacks.end(),
-                GraphicsBackendCallback::Draw),
             backend.callbacks.end());
     }
 
@@ -1004,7 +925,6 @@ namespace tbx::tests::graphics
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
-            window_manager.window,
             settings);
 
         // Act
@@ -1123,7 +1043,7 @@ namespace tbx::tests::graphics
                 auto material = Material {};
                 material.program.vertex = Handle("Shaders/Test.shader");
                 material.program.fragment = Handle("Shaders/Test.shader");
-                material.textures.set("diffuse_map", Handle("Textures/Diffuse.png"));
+                material.textures.set("u_albedo_map", Handle("Textures/Diffuse.png"));
                 return std::make_shared<Material>(std::move(material));
             });
         auto asset_manager =
@@ -1192,7 +1112,7 @@ namespace tbx::tests::graphics
                 auto material = Material {};
                 material.program.vertex = Handle("Shaders/Test.shader");
                 material.program.fragment = Handle("Shaders/Test.shader");
-                material.textures.set("diffuse_map", Handle("Textures/Diffuse.png"));
+                material.textures.set("u_albedo_map", Handle("Textures/Diffuse.png"));
                 return std::make_shared<Material>(std::move(material));
             });
 

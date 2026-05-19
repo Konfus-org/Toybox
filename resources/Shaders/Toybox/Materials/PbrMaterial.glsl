@@ -6,7 +6,6 @@ struct PbrSurface
     vec3 normal;
     vec3 albedo;
     vec3 emissive;
-
     float alpha;
     float metallic;
     float roughness;
@@ -17,34 +16,22 @@ layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxPbrMaterialData
 {
     vec4 u_albedo_color;
 
-    // x = metallic
-    // y = roughness
-    // z = normal_strength
-    // w = ao
-    vec4 u_params0;
-
     vec4 u_emissive_color;
+    float u_metallic;
+    vec3 _tbx_pad_u_metallic;
+    float u_roughness;
+    vec3 _tbx_pad_u_roughness;
+    float u_normal_strength;
+    vec3 _tbx_pad_u_normal_strength;
+    float u_ao;
+    vec3 _tbx_pad_u_ao;
 };
 
-layout(binding = TBX_BINDING_ALBEDO_MAP)
-uniform sampler2D u_albedo_map;
-
-layout(binding = TBX_BINDING_NORMAL_MAP)
-uniform sampler2D u_normal_map;
-
-layout(binding = TBX_BINDING_METALLIC_ROUGHNESS_MAP)
-uniform sampler2D u_metallic_roughness_map;
-
-layout(binding = TBX_BINDING_AO_MAP)
-uniform sampler2D u_ao_map;
-
-layout(binding = TBX_BINDING_EMISSIVE_MAP)
-uniform sampler2D u_emissive_map;
-
-#define u_metallic        u_params0.x
-#define u_roughness       u_params0.y
-#define u_normal_strength u_params0.z
-#define u_ao              u_params0.w
+layout(binding = TBX_BINDING_ALBEDO_MAP) uniform sampler2D u_albedo_map;
+layout(binding = TBX_BINDING_NORMAL_MAP) uniform sampler2D u_normal_map;
+layout(binding = TBX_BINDING_METALLIC_ROUGHNESS_MAP) uniform sampler2D u_metallic_roughness_map;
+layout(binding = TBX_BINDING_AO_MAP) uniform sampler2D u_ao_map;
+layout(binding = TBX_BINDING_EMISSIVE_MAP) uniform sampler2D u_emissive_map;
 
 vec3 tbx_sample_normal(vec2 uv, vec3 normal, vec4 tangent)
 {

@@ -2,8 +2,6 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
-#include "tbx/types/viewport.h"
-#include <optional>
 #include <vector>
 
 namespace tbx
@@ -33,10 +31,9 @@ namespace tbx
         GraphicsDrawIndexedDesc draw = {};
     };
 
-    struct TBX_API GraphicsRenderPass
+    struct TBX_API RenderPass
     {
         GraphicsPassDesc pass = {};
-        std::optional<Viewport> viewport = std::nullopt;
         std::vector<GraphicsDrawCommand> draws = {};
         std::vector<GraphicsIndexedDrawCommand> indexed_draws = {};
     };

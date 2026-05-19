@@ -63,8 +63,6 @@ namespace tbx
 
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
-        Window _main_window = {};
-
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
         std::weak_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};

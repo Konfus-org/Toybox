@@ -147,9 +147,12 @@ namespace three_d_example
     tbx::MaterialInstance ProjectileSystem::create_projectile_material() const
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
-        material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
-        material.set_parameter(tbx::PbrMaterial::EMISSIVE, tbx::Color(1.0F, 0.82F, 0.12F, 1.0F));
-        material.set_parameter(tbx::PbrMaterial::EMISSIVE_STRENGTH, 1.75F);
+        material.set_parameter(
+            tbx::PbrMaterial::U_ALBEDO_COLOR,
+            tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
+        material.set_parameter(
+            tbx::PbrMaterial::U_EMISSIVE_COLOR,
+            tbx::Color(1.75F, 1.435F, 0.21F, 1.0F));
         return material;
     }
 }

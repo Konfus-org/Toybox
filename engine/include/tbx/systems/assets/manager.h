@@ -231,7 +231,9 @@ namespace tbx
             const Handle& handle) const;
 
       private:
-        mutable std::mutex _mutex = {};
+        // Asset readers can synchronously re-enter AssetManager APIs (for example shader includes
+        // resolving additional asset paths) on the same thread during load.
+        mutable std::recursive_mutex _mutex = {};
         IMessageDispatcher& _dispatcher;
         SerializationRegistry& _serialization_registry;
         std::shared_ptr<IFileOps> _file_ops = nullptr;

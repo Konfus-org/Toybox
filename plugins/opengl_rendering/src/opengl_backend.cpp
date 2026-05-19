@@ -17,10 +17,10 @@ namespace opengl_rendering
 
     static tbx::Result require_opengl_4_5_direct_state_access()
     {
-        if (GLAD_GL_VERSION_4_5 && glCreateBuffers && glNamedBufferData
-            && glNamedBufferSubData && glCreateVertexArrays && glVertexArrayVertexBuffer
-            && glVertexArrayElementBuffer && glCreateFramebuffers && glNamedFramebufferTexture
-            && glNamedFramebufferDrawBuffers && glCreateTextures)
+        if (GLAD_GL_VERSION_4_5 && glCreateBuffers && glNamedBufferData && glNamedBufferSubData
+            && glCreateVertexArrays && glVertexArrayVertexBuffer && glVertexArrayElementBuffer
+            && glCreateFramebuffers && glNamedFramebufferTexture && glNamedFramebufferDrawBuffers
+            && glCreateTextures)
             return make_success();
 
         auto message = std::string("OpenGL backend requires OpenGL 4.5 direct state access. ");
@@ -40,8 +40,7 @@ namespace opengl_rendering
         desc.is_culling_enabled ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
         if (desc.is_culling_enabled)
         {
-            glCullFace(
-                desc.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
+            glCullFace(desc.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
         }
 
         if (desc.is_blending_enabled)
@@ -93,7 +92,7 @@ namespace opengl_rendering
         return tbx::GraphicsApi::OPEN_GL;
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::GraphicsFrameInfo& frame)
+    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::RenderFrameInfo& frame)
     {
         if (!_is_initialized)
             return make_failure("OpenGL backend: initialize must be called before begin_frame.");
@@ -116,7 +115,7 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_view(const tbx::GraphicsView& view)
+    tbx::Result OpenGlGraphicsBackend::begin_view(const tbx::RenderView& view)
     {
         return set_viewport(view.viewport);
     }
@@ -813,7 +812,8 @@ namespace opengl_rendering
     tbx::Result OpenGlGraphicsBackend::require_gl_ready_for_resource_ops() const
     {
         if (!_is_initialized)
-            return make_failure("OpenGL backend: initialize must be called before resource upload.");
+            return make_failure(
+                "OpenGL backend: initialize must be called before resource upload.");
         if (!_active_window.is_valid())
         {
             return make_failure(

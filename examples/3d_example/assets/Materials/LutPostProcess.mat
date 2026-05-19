@@ -18,7 +18,7 @@
   },
   "textures": [
     {
-      "name": "u_scene_color",
+      "name": "u_source_color",
       "value": ""
     },
     {
@@ -27,9 +27,9 @@
     }
   ],
   "parameters": [
-    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "strength", "type": "float", "value": 1.0 },
-    { "name": "blend", "type": "float", "value": 1.0 }
+    { "name": "u_lut_tint", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "u_lut_emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "u_lut_strength", "type": "float", "value": 1.0 },
+    { "name": "u_lut_blend", "type": "float", "value": 1.0 }
   ]
 }

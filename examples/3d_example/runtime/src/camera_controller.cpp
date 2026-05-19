@@ -122,7 +122,7 @@ namespace three_d_example
 
         _reticle_entity = tbx::Entity("Reticle", _camera_entity.get_id(), entity_registry);
         auto reticle_material = tbx::MaterialInstance(tbx::FlatMaterial::HANDLE);
-        reticle_material.set_parameter(tbx::FlatMaterial::COLOR, tbx::Color::WHITE);
+        reticle_material.set_parameter(tbx::FlatMaterial::U_ALBEDO_COLOR, tbx::Color::WHITE);
         _reticle_entity.add_component<tbx::MaterialInstance>(reticle_material);
         _reticle_entity.add_component<tbx::DynamicMesh>(tbx::quad);
         _reticle_entity.add_component<tbx::Transform>(

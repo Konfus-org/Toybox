@@ -8,14 +8,14 @@
 
 namespace tbx
 {
-    namespace
+    namespace detail
     {
-        bool are_sizes_equal(const Size& left, const Size& right)
+        static bool are_sizes_equal(const Size& left, const Size& right)
         {
             return left.width == right.width && left.height == right.height;
         }
 
-        std::string sanitize_window_handle_name(std::string title)
+        static std::string sanitize_window_handle_name(std::string title)
         {
             if (title.empty())
                 return "Toybox";
@@ -37,7 +37,7 @@ namespace tbx
 
     Window WindowManager::open(const WindowCreateInfo& create_info)
     {
-        const auto base_name = sanitize_window_handle_name(create_info.title);
+        const auto base_name = detail::sanitize_window_handle_name(create_info.title);
         auto handle_name = base_name;
         auto duplicate_index = uint32 {2U};
         auto window = Handle(handle_name);
@@ -53,9 +53,8 @@ namespace tbx
         record.title = create_info.title;
         record.size = create_info.size;
         record.mode = create_info.mode;
-        record.mode_to_restore = create_info.mode == WindowMode::MINIMIZED
-                                     ? WindowMode::WINDOWED
-                                     : create_info.mode;
+        record.mode_to_restore =
+            create_info.mode == WindowMode::MINIMIZED ? WindowMode::WINDOWED : create_info.mode;
         record.is_open = true;
 
         auto native_handle = NativeWindowHandle {nullptr};
@@ -73,6 +72,8 @@ namespace tbx
 
         record.native_handle = native_handle;
         _windows[window] = std::move(record);
+        if (!_main_window.is_valid())
+            _main_window = window;
         send_window_opened(window);
         return window;
     }
@@ -86,11 +87,14 @@ namespace tbx
         if (!_backend.destroy_window(window))
             return false;
 
+        const bool was_main_window = (_main_window == window);
         send_window_closed(record->id);
         _windows.erase(window);
         auto pending_it = std::ranges::find(_pending_close_window_ids, window);
         if (pending_it != _pending_close_window_ids.end())
             _pending_close_window_ids.erase(pending_it);
+        if (was_main_window)
+            _main_window = {};
         return true;
     }
 
@@ -180,6 +184,25 @@ namespace tbx
         return windows;
     }
 
+    bool WindowManager::has_main_window() const
+    {
+        return _main_window.is_valid() && has(_main_window);
+    }
+
+    const Window& WindowManager::get_main_window() const
+    {
+        return _main_window;
+    }
+
+    bool WindowManager::set_main_window(const Window& window)
+    {
+        if (!has(window))
+            return false;
+
+        _main_window = window;
+        return true;
+    }
+
     void WindowManager::update()
     {
         auto events = std::vector<WindowBackendEvent> {};
@@ -204,6 +227,7 @@ namespace tbx
 
         _pending_close_window_ids.clear();
         _windows.clear();
+        _main_window = {};
     }
 
     void WindowManager::handle_backend_event(const WindowBackendEvent& event)
@@ -296,7 +320,7 @@ namespace tbx
         const Size& size,
         bool apply_to_native_window)
     {
-        if (are_sizes_equal(record.size, size))
+        if (detail::are_sizes_equal(record.size, size))
             return true;
 
         if (apply_to_native_window)

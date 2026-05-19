@@ -110,7 +110,7 @@ namespace three_d_example
 
         _falling_sphere = tbx::Entity("FallingSphere", entity_registry);
         auto falling_sphere_material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
-        falling_sphere_material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color::RED);
+        falling_sphere_material.set_parameter(tbx::PbrMaterial::U_ALBEDO_COLOR, tbx::Color::RED);
         _falling_sphere.add_component<tbx::MaterialInstance>(falling_sphere_material);
         _falling_sphere.add_component<tbx::DynamicMesh>(tbx::sphere);
         _falling_sphere.add_component<tbx::Transform>(tbx::Vec3(0.0F, 6.0F, -5.2F));
@@ -196,18 +196,15 @@ namespace three_d_example
     tbx::MaterialInstance DemoScene::create_trigger_zone_material(const tbx::Color& color) const
     {
         auto material = tbx::MaterialInstance(tbx::WireframeMaterial::HANDLE);
-        material.set_parameter(tbx::WireframeMaterial::COLOR, color);
-        material.set_parameter(tbx::WireframeMaterial::WIREFRAME_WIDTH, 1.0F);
+        material.set_parameter(tbx::WireframeMaterial::U_ALBEDO_COLOR, color);
         return material;
     }
 
     tbx::MaterialInstance DemoScene::create_falling_box_material() const
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
-        material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color::GREEN);
-        material.set_parameter(tbx::PbrMaterial::COLOR_TEXTURE_BLEND, 0.45F);
-        material.set_parameter(tbx::PbrMaterial::ALPHA_CUTOFF, 0.0F);
-        material.set_texture(tbx::PbrMaterial::DIFFUSE_MAP, tbx::Handle("Textures/Smily.png"));
+        material.set_parameter(tbx::PbrMaterial::U_ALBEDO_COLOR, tbx::Color::GREEN);
+        material.set_texture(tbx::PbrMaterial::U_ALBEDO_MAP, tbx::Handle("Textures/Smily.png"));
         return material;
     }
 

@@ -50,6 +50,9 @@ namespace tbx
         Size get_size(const Window& window) const override;
         bool set_size(const Window& window, const Size& size) override;
         std::vector<Window> get_open_windows() const override;
+        bool has_main_window() const override;
+        const Window& get_main_window() const override;
+        bool set_main_window(const Window& window) override;
         void update() override;
         void shutdown() override;
 
@@ -87,5 +90,6 @@ namespace tbx
         IWindowBackend& _backend;
         std::unordered_map<Window, ManagedWindowRecord> _windows = {};
         std::vector<Window> _pending_close_window_ids = {};
+        Window _main_window = {};
     };
 }

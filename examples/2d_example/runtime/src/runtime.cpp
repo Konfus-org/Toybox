@@ -67,7 +67,7 @@ namespace two_d_example
                 0,
                 0));
             auto material = tbx::MaterialInstance(tbx::FlatMaterial::HANDLE);
-            material.set_parameter(tbx::FlatMaterial::COLOR, tbx::Color::WHITE);
+            material.set_parameter(tbx::FlatMaterial::U_ALBEDO_COLOR, tbx::Color::WHITE);
             ent.add_component<tbx::MaterialInstance>(material);
             ent.add_component<tbx::DynamicMesh>(tbx::quad);
         }
@@ -106,7 +106,7 @@ namespace two_d_example
             const float b = 0.5f + 0.5f * sin(t + 4.0f * tbx::PI / 3.0f);
 
             auto color = tbx::Color(r, g, b, 1.0f);
-            material.set_parameter(tbx::FlatMaterial::COLOR, color);
+            material.set_parameter(tbx::FlatMaterial::U_ALBEDO_COLOR, color);
 
             offset += 0.1f;
         }

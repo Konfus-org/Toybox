@@ -28,8 +28,6 @@ namespace tbx
         /// load. Dynamic mesh producers are responsible for refreshing bounds after mutating
         /// vertices/indices.
         MeshBounds bounds = {};
-
-        TBX_SERIALIZABLE(Mesh, vertices, indices, bounds)
     };
 
     TBX_API Mesh make_triangle();
@@ -114,8 +112,6 @@ namespace tbx
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Handle handle = {};
-
-        TBX_SERIALIZABLE(StaticMesh, handle)
     };
 
     /// @brief
@@ -142,7 +138,5 @@ namespace tbx
         /// Ownership: Shared ownership of the mesh data via std::shared_ptr.
         /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.
         std::shared_ptr<Mesh> data = {};
-
-        TBX_SERIALIZABLE(DynamicMesh, data)
     };
 }

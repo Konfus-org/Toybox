@@ -1,23 +1,18 @@
 #include "Toybox/ShaderBase.glsl"
 
-layout(binding = TBX_BINDING_SHADOW_MAP)
-uniform sampler2DShadow u_shadow_map;
+layout(binding = TBX_BINDING_SHADOW_MAP) uniform sampler2DShadow u_shadow_map;
 
 layout(std140, binding = TBX_BINDING_SHADOW_PASS_DATA) uniform TbxShadowPassData
 {
     mat4 u_light_view_projection;
     vec4 u_light_direction;
-
-    // x = depth bias
-    // y = normal bias
-    // z = shadow strength
-    // w = unused
-    vec4 u_shadow_params0;
+    float u_shadow_depth_bias;
+    vec3 _tbx_pad_u_shadow_depth_bias;
+    float u_shadow_normal_bias;
+    vec3 _tbx_pad_u_shadow_normal_bias;
+    float u_shadow_strength;
+    vec3 _tbx_pad_u_shadow_strength;
 };
-
-#define u_shadow_depth_bias  u_shadow_params0.x
-#define u_shadow_normal_bias u_shadow_params0.y
-#define u_shadow_strength    u_shadow_params0.z
 
 vec3 tbx_project_shadow_coord(vec3 world_position)
 {

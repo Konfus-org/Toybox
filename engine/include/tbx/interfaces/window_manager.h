@@ -102,6 +102,28 @@ namespace tbx
         virtual std::vector<Window> get_open_windows() const = 0;
 
         /// @brief
+        /// Purpose: Reports whether a main window is currently designated.
+        /// @details
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Matches the concrete implementation's synchronization guarantees.
+        virtual bool has_main_window() const = 0;
+
+        /// @brief
+        /// Purpose: Returns the designated main window handle.
+        /// @details
+        /// Ownership: Returns a reference owned by the manager; may be invalid when no main
+        /// window is set.
+        /// Thread Safety: Matches the concrete implementation's synchronization guarantees.
+        virtual const Window& get_main_window() const = 0;
+
+        /// @brief
+        /// Purpose: Designates which managed window is treated as the main window.
+        /// @details
+        /// Ownership: Does not transfer ownership.
+        /// Thread Safety: Not thread-safe; call from the owning window thread.
+        virtual bool set_main_window(const Window& window) = 0;
+
+        /// @brief
         /// Purpose: Processes backend window events and applies pending window operations.
         /// @details
         /// Ownership: Does not transfer ownership.

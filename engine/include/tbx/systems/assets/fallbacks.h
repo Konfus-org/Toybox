@@ -24,22 +24,20 @@ namespace tbx
     inline std::shared_ptr<Material> make_fallback_material()
     {
         auto material = Material();
-        material.parameters.set("color", Color(1.0f, 0.0f, 1.0f, 1.0f));
-        material.parameters.set("diffuse_strength", 1.0f);
-        material.parameters.set("normal_strength", 1.0f);
-        material.parameters.set("specular_strength", 0.5f);
-        material.parameters.set("shininess_strength", 32.0f);
-        material.parameters.set("color_texture_blend", 1.0f);
-        material.parameters.set("emissive", Color(1.0f, 0.0f, 1.0f, 1.0f));
-        material.parameters.set("emissive_strength", 1.0f);
-        material.parameters.set("alpha_cutoff", 0.1f);
-        material.parameters.set("transparency_amount", 0.0f);
-        material.parameters.set("exposure", 1.0f);
-        material.textures.set("diffuse_map", {});
-        material.textures.set("normal_map", {});
-        material.textures.set("specular_map", {});
-        material.textures.set("shininess_map", {});
-        material.textures.set("emissive_map", {});
+        material.program.vertex = DefaultPbrVertexShader::HANDLE;
+        material.program.fragment = DefaultPbrFragmentShader::HANDLE;
+
+        material.parameters.set("u_albedo_color", Color(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("u_emissive_color", Color(1.0f, 0.0f, 1.0f, 1.0f));
+        material.parameters.set("u_metallic", 0.0f);
+        material.parameters.set("u_roughness", 1.0f);
+        material.parameters.set("u_normal_strength", 1.0f);
+        material.parameters.set("u_ao", 1.0f);
+        material.textures.set("u_albedo_map", {});
+        material.textures.set("u_normal_map", {});
+        material.textures.set("u_metallic_roughness_map", {});
+        material.textures.set("u_ao_map", {});
+        material.textures.set("u_emissive_map", {});
         material.config = MaterialConfig {
             .is_depth_test_enabled = true,
             .is_depth_write_enabled = true,
@@ -117,8 +115,8 @@ namespace tbx
     inline std::shared_ptr<Model> make_fallback_model()
     {
         auto material = Material();
-        material.textures.set("diffuse_map", NotFoundIcon::HANDLE);
-        return std::make_shared<Model>(make_two_sided_fallback_mesh(), material);
+        material.textures.set("u_albedo_map", NotFoundIcon::HANDLE);
+        return std::make_shared<Model>(make_cube(), material);
     }
 
     template <typename TAsset>

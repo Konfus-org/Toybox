@@ -39,8 +39,10 @@ OpenGL / Vulkan / SDL GPU / Diligent / Other API
 - `RenderViewData` owns view-scoped setup and cleanup.
 - `RenderPipeline` sequences render operations.
 - `IRenderOperation` implements one focused rendering step.
-- `GraphicsResourceManager` owns all graphics resource lifetime, caching, fallback, upload, update, and unload policy.
-- `IGraphicsBackend` executes GPU commands and performs backend-native resource work when requested by the manager.
+- `GraphicsResourceManager` owns resource tracking, caching, fallback choice, usage tracking, and lifetime policy.
+- `GraphicsResourceFactory` creates concrete resource objects and hides backend-specific construction details.
+- `IGraphicsResource` owns backend upload, update, and unload behavior for one concrete graphics resource or resource group.
+- `IGraphicsBackend` executes GPU commands and performs backend-native resource work when requested by a resource object.
 
 Graphics resources are manager-owned.  
 GPU commands are operation-driven.  
@@ -71,7 +73,7 @@ Present
 
 ### Resource Endpoints
 
-Used only by `GraphicsResourceManager`.
+Used only by `IGraphicsResource` implementations, typically created by `GraphicsResourceFactory`.
 
 Examples:
 
@@ -200,16 +202,35 @@ Owns:
 - Asset-backed resources
 - Runtime resources
 - Surface backing resources
-- Buffers, textures, samplers, shaders, pipelines, render targets
-- Upload/update/unload behavior
 - Resource caching
 - Usage tracking
 - Stale resource unloading
 - Fallback/default resources
 
-It may call backend resource endpoints.
+It coordinates `GraphicsResourceFactory` and tracks `IGraphicsResource` instances.
 
-It does not issue draw calls, decide render order, execute pipelines, or own command policy.
+It does not issue draw calls, decide render order, execute pipelines, or perform low-level backend resource work directly.
+
+### GraphicsResourceFactory
+
+Owns:
+
+- Resource object construction
+- Backend-neutral description building
+- Asset-to-resource translation
+
+It does not track lifetime, cache policy, or draw ordering.
+
+### IGraphicsResource
+
+Owns:
+
+- GPU upload/allocation
+- GPU updates
+- GPU unload/deallocation
+- Concrete resource-local backend details
+
+It does not decide cache policy, fallback policy, or render ordering.
 
 ### IGraphicsBackend
 
@@ -290,6 +311,7 @@ Failures should use the engine’s standard result/error flow.
 
 - `IGraphicsBackend` reports GPU/backend failures.
 - `GraphicsResourceManager` decides whether to fall back or fail.
+- `IGraphicsResource` reports concrete upload/update/unload failures.
 - `RenderPipeline` adds operation context.
 - `Rendering` decides whether to skip or abort a frame.
 

@@ -28,8 +28,6 @@ namespace tbx
     {
         Uuid trigger_entity_id = {};
         Uuid overlapped_entity_id = {};
-
-        TBX_SERIALIZABLE(ColliderOverlapEvent, trigger_entity_id, overlapped_entity_id)
     };
 
     /// @brief
@@ -61,13 +59,6 @@ namespace tbx
         /// Ownership: Mutates this trigger collider state in place.
         /// Thread Safety: Not thread-safe; call from the main thread.
         void request_overlap_scan();
-
-        TBX_SERIALIZABLE(
-            ColliderTrigger,
-            is_trigger_only,
-            is_overlap_enabled,
-            is_manual_scan_requested,
-            overlap_execution_mode)
     };
 
     /// @brief
@@ -80,8 +71,6 @@ namespace tbx
     {
         bool is_convex = true;
         ColliderTrigger trigger = {};
-
-        TBX_SERIALIZABLE(MeshCollider, is_convex, trigger)
     };
 
     /// @brief
@@ -93,8 +82,6 @@ namespace tbx
     {
         Vec3 half_extents = Vec3(0.5F, 0.5F, 0.5F);
         ColliderTrigger trigger = {};
-
-        TBX_SERIALIZABLE(CubeCollider, half_extents, trigger)
     };
 
     /// @brief
@@ -106,8 +93,6 @@ namespace tbx
     {
         float radius = 0.5F;
         ColliderTrigger trigger = {};
-
-        TBX_SERIALIZABLE(SphereCollider, radius, trigger)
     };
 
     /// @brief
@@ -120,8 +105,6 @@ namespace tbx
         float radius = 0.5F;
         float half_height = 0.5F;
         ColliderTrigger trigger = {};
-
-        TBX_SERIALIZABLE(CapsuleCollider, radius, half_height, trigger)
     };
 
 }

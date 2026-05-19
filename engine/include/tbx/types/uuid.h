@@ -44,8 +44,6 @@ namespace tbx
         uint32 value = 0U;
 
         static const Uuid NONE;
-
-        TBX_SERIALIZABLE(Uuid, value)
     };
 
     inline const Uuid Uuid::NONE = {};

@@ -43,21 +43,5 @@ namespace tbx
         float sleep_time_seconds = 0.5F;
 
         bool is_valid() const;
-
-        TBX_SERIALIZABLE(
-            Rigidbody,
-            mass,
-            is_kinematic,
-            is_gravity_enabled,
-            transform_sync_mode,
-            linear_velocity,
-            angular_velocity,
-            friction,
-            restitution,
-            linear_damping,
-            angular_damping,
-            is_sleep_enabled,
-            sleep_velocity_threshold,
-            sleep_time_seconds)
     };
 }

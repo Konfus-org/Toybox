@@ -15,8 +15,6 @@ namespace tbx
     {
         Handle handle = {};
         float max_distance = 0.0f;
-
-        TBX_SERIALIZABLE(Lod, handle, max_distance)
     };
 
     /// @brief
@@ -28,7 +26,5 @@ namespace tbx
     {
         std::vector<Lod> values = {};
         float render_distance = 0.0f;
-
-        TBX_SERIALIZABLE(Lods, values, render_distance)
     };
 }

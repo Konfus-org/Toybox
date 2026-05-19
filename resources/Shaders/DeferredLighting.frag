@@ -5,23 +5,12 @@
 layout(location = 0) in vec2 v_tex_coord;
 layout(location = 0) out vec4 o_color;
 
-layout(binding = TBX_BINDING_GBUFFER_ALBEDO)
-uniform sampler2D u_gbuffer_albedo;
-
-layout(binding = TBX_BINDING_GBUFFER_NORMAL)
-uniform sampler2D u_gbuffer_normal;
-
-layout(binding = TBX_BINDING_GBUFFER_MATERIAL)
-uniform sampler2D u_gbuffer_material;
-
-layout(binding = TBX_BINDING_GBUFFER_EMISSIVE)
-uniform sampler2D u_gbuffer_emissive;
-
-layout(binding = TBX_BINDING_GBUFFER_DEPTH)
-uniform sampler2D u_gbuffer_depth;
-
-layout(binding = TBX_BINDING_SHADOW_MASK)
-uniform sampler2D u_shadow_mask;
+layout(binding = TBX_BINDING_GBUFFER_ALBEDO) uniform sampler2D u_gbuffer_albedo;
+layout(binding = TBX_BINDING_GBUFFER_NORMAL) uniform sampler2D u_gbuffer_normal;
+layout(binding = TBX_BINDING_GBUFFER_MATERIAL) uniform sampler2D u_gbuffer_material;
+layout(binding = TBX_BINDING_GBUFFER_EMISSIVE) uniform sampler2D u_gbuffer_emissive;
+layout(binding = TBX_BINDING_GBUFFER_DEPTH) uniform sampler2D u_gbuffer_depth;
+layout(binding = TBX_BINDING_SHADOW_MASK) uniform sampler2D u_shadow_mask;
 
 PbrSurface tbx_reconstruct_pbr_surface_from_gbuffer(vec2 uv)
 {

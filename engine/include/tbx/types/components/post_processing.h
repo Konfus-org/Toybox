@@ -37,8 +37,6 @@ namespace tbx
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float blend = 1.0f;
-
-        TBX_SERIALIZABLE(PostProcessingEffect, material, is_enabled, blend)
     };
 
     /// @brief
@@ -63,7 +61,5 @@ namespace tbx
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         bool is_enabled = true;
-
-        TBX_SERIALIZABLE(PostProcessing, effects, is_enabled)
     };
 }

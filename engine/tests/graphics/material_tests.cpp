@@ -9,28 +9,30 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto material = MaterialInstance(PbrMaterial::HANDLE);
-        material.set_parameter(PbrMaterial::COLOR, Color(0.25f, 0.5f, 0.75f, 1.0f));
-        material.set_parameter(PbrMaterial::DIFFUSE_STRENGTH, 0.9f);
-        material.set_parameter(PbrMaterial::EMISSIVE_STRENGTH, 0.5f);
-        material.set_texture(PbrMaterial::DIFFUSE_MAP, CheckerboardTexture::HANDLE);
-        material.set_texture(PbrMaterial::NORMAL_MAP, Handle("Textures/NeutralNormal.png"));
+        material.set_parameter(PbrMaterial::U_ALBEDO_COLOR, Color(0.25f, 0.5f, 0.75f, 1.0f));
+        material.set_parameter(PbrMaterial::U_EMISSIVE_COLOR, Color(0.5f, 0.25f, 0.1f, 1.0f));
+        material.set_parameter(PbrMaterial::U_METALLIC, 0.5f);
+        material.set_parameter(PbrMaterial::U_ROUGHNESS, 0.9f);
+        material.set_parameter(PbrMaterial::U_NORMAL_STRENGTH, 1.0f);
+        material.set_parameter(PbrMaterial::U_AO, 1.0f);
+        material.set_texture(PbrMaterial::U_ALBEDO_MAP, CheckerboardTexture::HANDLE);
+        material.set_texture(PbrMaterial::U_NORMAL_MAP, Handle("Textures/NeutralNormal.png"));
 
         // Act
-        const auto color = material.get_parameter_or(PbrMaterial::COLOR, Color::BLACK);
-        const auto diffuse_strength =
-            material.get_float_parameter_or(PbrMaterial::DIFFUSE_STRENGTH, 0.0f);
-        const auto emissive_strength =
-            material.get_float_parameter_or(PbrMaterial::EMISSIVE_STRENGTH, 0.0f);
-        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::DIFFUSE_MAP);
-        const auto normal_map = material.get_texture_handle_or(PbrMaterial::NORMAL_MAP);
+        const auto color = material.get_parameter_or(PbrMaterial::U_ALBEDO_COLOR, Color::BLACK);
+        const auto emissive =
+            material.get_parameter_or(PbrMaterial::U_EMISSIVE_COLOR, Color::BLACK);
+        const auto roughness = material.get_parameter_or(PbrMaterial::U_ROUGHNESS, 0.0f);
+        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::U_ALBEDO_MAP);
+        const auto normal_map = material.get_texture_handle_or(PbrMaterial::U_NORMAL_MAP);
 
         // Assert
         EXPECT_EQ(material.get_handle().get_id(), PbrMaterial::HANDLE.get_id());
         EXPECT_FLOAT_EQ(color.r, 0.25f);
         EXPECT_FLOAT_EQ(color.g, 0.5f);
         EXPECT_FLOAT_EQ(color.b, 0.75f);
-        EXPECT_FLOAT_EQ(diffuse_strength, 0.9f);
-        EXPECT_FLOAT_EQ(emissive_strength, 0.5f);
+        EXPECT_FLOAT_EQ(emissive.r, 0.5f);
+        EXPECT_FLOAT_EQ(roughness, 0.9f);
         EXPECT_EQ(diffuse_map.get_id(), CheckerboardTexture::HANDLE.get_id());
         EXPECT_EQ(normal_map.get_name(), "Textures/NeutralNormal.png");
     }

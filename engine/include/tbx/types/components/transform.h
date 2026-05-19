@@ -31,8 +31,6 @@ namespace tbx
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
         Vec3 scale = Vec3(1.0f);
-
-        TBX_SERIALIZABLE(Transform, position, rotation, scale)
     };
 
     /// @brief

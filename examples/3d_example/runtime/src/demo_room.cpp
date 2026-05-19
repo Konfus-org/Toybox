@@ -11,8 +11,8 @@ namespace three_d_example
     static tbx::MaterialInstance create_room_material(const tbx::Color& color)
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
-        material.set_parameter(tbx::PbrMaterial::COLOR, color);
-        material.set_parameter(tbx::PbrMaterial::EMISSIVE, tbx::Color::BLACK);
+        material.set_parameter(tbx::PbrMaterial::U_ALBEDO_COLOR, color);
+        material.set_parameter(tbx::PbrMaterial::U_EMISSIVE_COLOR, tbx::Color::BLACK);
         return material;
     }
 

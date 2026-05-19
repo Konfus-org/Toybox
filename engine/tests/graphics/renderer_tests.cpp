@@ -87,10 +87,12 @@ namespace tbx::tests::graphics
         material_instance.clear_dirty();
 
         // Act
-        material_instance.set_parameter(tbx::FlatMaterial::COLOR, Color(1.0f, 0.5f, 0.25f, 1.0f));
+        material_instance.set_parameter(
+            tbx::FlatMaterial::U_ALBEDO_COLOR,
+            Color(1.0f, 0.5f, 0.25f, 1.0f));
         const auto dirty_after_parameter_set = material_instance.is_dirty();
         material_instance.clear_dirty();
-        material_instance.set_texture(tbx::FlatMaterial::DIFFUSE_MAP, Handle("Diffuse"));
+        material_instance.set_texture(tbx::FlatMaterial::U_ALBEDO_MAP, Handle("Diffuse"));
         const auto dirty_after_texture_set = material_instance.is_dirty();
 
         // Assert
@@ -98,16 +100,16 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(dirty_after_texture_set);
     }
 
-    // Validates MaterialParameterBindings supports normalized lookup and iteration.
+    // Validates MaterialParameterBindings supports exact-name lookup and iteration.
     TEST(RendererTests, MaterialParameterBindings_GetAndIterate_WorkAsExpected)
     {
         // Arrange
         auto parameters = MaterialParameterBindings {};
-        parameters.set("color", Color(1.0f, 0.5f, 0.25f, 1.0f));
-        parameters.set("shininess_strength", 32.0f);
+        parameters.set("u_color", Color(1.0f, 0.5f, 0.25f, 1.0f));
+        parameters.set("u_shininess_strength", 32.0f);
 
         // Act
-        const auto color = parameters.get("color");
+        const auto color = parameters.get("u_color");
         int parameter_count = 0;
         for (const auto& parameter : parameters)
         {
@@ -122,19 +124,19 @@ namespace tbx::tests::graphics
         EXPECT_NE(parameters.begin(), parameters.end());
     }
 
-    // Validates MaterialTextureBindings supports normalized lookup and iteration.
+    // Validates MaterialTextureBindings supports exact-name lookup and iteration.
     TEST(RendererTests, MaterialTextureBindings_GetAndIterate_WorkAsExpected)
     {
         // Arrange
         auto textures = MaterialTextureBindings {};
-        textures.set("diffuse_map", Handle("Diffuse"));
-        textures.set("normal_map", Handle("Normal"));
-        textures.set("specular_map", Handle("Specular"));
-        textures.set("shininess_map", Handle("Shininess"));
-        textures.set("emissive_map", Handle("Emissive"));
+        textures.set("u_albedo_map", Handle("Diffuse"));
+        textures.set("u_normal_map", Handle("Normal"));
+        textures.set("u_metallic_roughness_map", Handle("Specular"));
+        textures.set("u_ao_map", Handle("Shininess"));
+        textures.set("u_emissive_map", Handle("Emissive"));
 
         // Act
-        const auto diffuse_map = textures.get("diffuse_map");
+        const auto diffuse_map = textures.get("u_albedo_map");
         int texture_count = 0;
         for (const auto& texture_binding : textures)
         {
@@ -144,7 +146,7 @@ namespace tbx::tests::graphics
 
         // Assert
         ASSERT_TRUE(diffuse_map.has_value());
-        EXPECT_EQ(diffuse_map->get().name, "u_diffuse_map");
+        EXPECT_EQ(diffuse_map->get().name, "u_albedo_map");
         EXPECT_EQ(texture_count, 5);
         EXPECT_NE(textures.begin(), textures.end());
     }
@@ -154,12 +156,12 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto material = MaterialInstance(PbrMaterial::HANDLE);
-        material.set_parameter(PbrMaterial::COLOR, Color::RED);
-        material.set_texture(PbrMaterial::DIFFUSE_MAP, CheckerboardTexture::HANDLE);
+        material.set_parameter(PbrMaterial::U_ALBEDO_COLOR, Color::RED);
+        material.set_texture(PbrMaterial::U_ALBEDO_MAP, CheckerboardTexture::HANDLE);
 
         // Act
-        const auto color = material.get_parameter_or(PbrMaterial::COLOR, Color::BLACK);
-        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::DIFFUSE_MAP);
+        const auto color = material.get_parameter_or(PbrMaterial::U_ALBEDO_COLOR, Color::BLACK);
+        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::U_ALBEDO_MAP);
 
         // Assert
         EXPECT_TRUE(PbrMaterial::HANDLE.is_valid());

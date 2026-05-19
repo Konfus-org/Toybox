@@ -19,6 +19,11 @@ namespace tbx
         int value = 0;
     };
 
+    struct ReentrantResolveAsset
+    {
+        std::filesystem::path resolved_include_path = {};
+    };
+
     struct TestAssetLoadParameters
     {
         int value = 0;
@@ -26,10 +31,23 @@ namespace tbx
         bool operator==(const TestAssetLoadParameters& other) const = default;
     };
 
+    struct ReentrantResolveAssetLoadParameters
+    {
+        std::filesystem::path include_path = {};
+
+        bool operator==(const ReentrantResolveAssetLoadParameters& other) const = default;
+    };
+
     template <>
     struct AssetSerializationTraits<TestAsset>
     {
         using Parameters = TestAssetLoadParameters;
+    };
+
+    template <>
+    struct AssetSerializationTraits<ReentrantResolveAsset>
+    {
+        using Parameters = ReentrantResolveAssetLoadParameters;
     };
 
     struct TestAssetLoaderState
@@ -107,6 +125,52 @@ namespace tbx
             return;
 
         registry.register_reader<TestAsset>(read_test_asset, read_test_asset_async);
+        is_registered = true;
+    }
+
+    struct ReentrantResolveLoaderState
+    {
+        const AssetManager* manager = nullptr;
+        std::filesystem::path last_resolved_include_path = {};
+        int sync_load_count = 0;
+    };
+
+    static ReentrantResolveLoaderState& get_reentrant_resolve_loader_state()
+    {
+        static ReentrantResolveLoaderState state = {};
+        return state;
+    }
+
+    static void reset_reentrant_resolve_loader_state()
+    {
+        auto& state = get_reentrant_resolve_loader_state();
+        state.manager = nullptr;
+        state.last_resolved_include_path = std::filesystem::path("");
+        state.sync_load_count = 0;
+    }
+
+    static std::shared_ptr<ReentrantResolveAsset> read_reentrant_resolve_asset(
+        const std::filesystem::path&,
+        const ReentrantResolveAssetLoadParameters& parameters = {})
+    {
+        auto& state = get_reentrant_resolve_loader_state();
+        auto asset = std::make_shared<ReentrantResolveAsset>();
+        if (state.manager != nullptr)
+        {
+            state.last_resolved_include_path = state.manager->resolve(parameters.include_path);
+            asset->resolved_include_path = state.last_resolved_include_path;
+        }
+        state.sync_load_count += 1;
+        return asset;
+    }
+
+    static void register_reentrant_resolve_asset_reader(SerializationRegistry& registry)
+    {
+        static bool is_registered = false;
+        if (is_registered)
+            return;
+
+        registry.register_reader<ReentrantResolveAsset>(read_reentrant_resolve_asset);
         is_registered = true;
     }
 
@@ -615,6 +679,38 @@ namespace tbx::tests::assets
         // Assert
         EXPECT_EQ(resolved, working_directory / relative_path);
     }
+
+    TEST(asset_manager, allows_reentrant_resolve_during_load)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        register_reentrant_resolve_asset_reader(get_test_serialization_registry());
+        reset_reentrant_resolve_loader_state();
+
+        auto& loader_state = get_reentrant_resolve_loader_state();
+        loader_state.manager = &manager;
+
+        Handle handle("Materials/Reentrant.mat");
+        ReentrantResolveAssetLoadParameters parameters = {
+            .include_path = "Shaders/Toybox/ShaderBase.glsl",
+        };
+
+        // Act
+        std::shared_ptr<ReentrantResolveAsset> loaded_asset = {};
+        EXPECT_NO_THROW(loaded_asset = manager.load<ReentrantResolveAsset>(handle, parameters));
+
+        // Assert
+        ASSERT_NE(loaded_asset, nullptr);
+        EXPECT_EQ(loader_state.sync_load_count, 1);
+        EXPECT_EQ(
+            loaded_asset->resolved_include_path,
+            working_directory / "Shaders/Toybox/ShaderBase.glsl");
+        EXPECT_EQ(
+            loader_state.last_resolved_include_path,
+            working_directory / "Shaders/Toybox/ShaderBase.glsl");
+    }
+
     TEST(asset_manager, constructor_keeps_explicit_directories)
     {
         // Arrange

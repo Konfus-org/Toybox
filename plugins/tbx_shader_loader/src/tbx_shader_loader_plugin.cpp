@@ -387,7 +387,7 @@ namespace tbx_shader_loader
             *_file_ops,
             *asset_manager,
             asset_path,
-            shader.source,
+            std::string(shader.source),
             include_stack,
             included_files,
             0U);

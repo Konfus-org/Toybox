@@ -49,15 +49,6 @@ namespace tbx
       private:
         bool _is_dirty = true;
         bool _has_config_override = false;
-
-        TBX_SERIALIZABLE(
-            MaterialInstance,
-            material,
-            texture_overrides,
-            param_overrides,
-            config,
-            _is_dirty,
-            _has_config_override)
     };
 
     /// @brief
@@ -68,8 +59,6 @@ namespace tbx
     struct TBX_API Sky
     {
         MaterialInstance material = {};
-
-        TBX_SERIALIZABLE(Sky, material)
     };
 }
 

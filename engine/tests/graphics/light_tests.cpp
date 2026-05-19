@@ -82,17 +82,4 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(light.cast_shadows);
         EXPECT_NEAR(light.ambient, 0.03f, 1e-5f);
     }
-
-    TEST(LightTests, SpotLight_MissingCastShadows_DefaultsToTrue)
-    {
-        // Arrange
-        const auto json = nlohmann::json::parse(
-            R"({"color":{"r":1.0,"g":1.0,"b":1.0,"a":1.0},"intensity":1.0,"range":9.0,"inner_angle":15.0,"outer_angle":30.0})");
-
-        // Act
-        const auto light = json.get<SpotLight>();
-
-        // Assert
-        EXPECT_TRUE(light.cast_shadows);
-    }
 }

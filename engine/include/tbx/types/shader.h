@@ -37,16 +37,14 @@ namespace tbx
     struct TBX_API ShaderSource
     {
         ShaderSource() = default;
-        ShaderSource(std::string shader_source, ShaderType shader_type)
+        ShaderSource(std::string_view shader_source, ShaderType shader_type)
             : source(std::move(shader_source))
             , type(shader_type)
         {
         }
 
-        std::string source = "";
+        std::string_view source = "";
         ShaderType type = ShaderType::NONE;
-
-        TBX_SERIALIZABLE(ShaderSource, source, type)
     };
 
     /// @brief
@@ -54,10 +52,12 @@ namespace tbx
     /// @details
     /// Ownership: Owns copied shader stage sources.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    // TODO: rename to ShaderProgram and rename ShaderProgram to Shader. Also add is_valid to this
+    // so we can validate the combo of shader sources is valid.
     struct TBX_API Shader
     {
         Shader() = default;
-        Shader(std::string shader_source, ShaderType shader_type)
+        Shader(std::string_view shader_source, ShaderType shader_type)
             : sources({ShaderSource(std::move(shader_source), shader_type)})
         {
         }
@@ -71,8 +71,6 @@ namespace tbx
         }
 
         std::vector<ShaderSource> sources = {};
-
-        TBX_SERIALIZABLE(Shader, sources)
     };
 
     /// @brief
@@ -136,7 +134,5 @@ namespace tbx
 
             return true;
         }
-
-        TBX_SERIALIZABLE(ShaderProgram, vertex, fragment, tesselation, geometry, compute)
     };
 }

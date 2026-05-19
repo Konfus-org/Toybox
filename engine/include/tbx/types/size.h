@@ -30,7 +30,5 @@ namespace tbx
 
         uint32 width = 0;
         uint32 height = 0;
-
-        TBX_SERIALIZABLE(Size, width, height)
     };
 }

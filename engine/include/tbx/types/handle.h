@@ -79,8 +79,6 @@ namespace tbx
       private:
         std::string _name = {};
         Uuid _id = {};
-
-        TBX_SERIALIZABLE(Handle, _name, _id)
     };
 
     // TODO: remove all tbx to_string and utilize implicit conversions

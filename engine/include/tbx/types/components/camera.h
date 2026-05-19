@@ -48,14 +48,5 @@ namespace tbx
         float _z_far = 1000.0f;
         float _fov = 60.0f;
         float _aspect = 1.78f;
-
-        TBX_SERIALIZABLE(
-            Camera,
-            _projection_matrix,
-            _is_perspective,
-            _z_near,
-            _z_far,
-            _fov,
-            _aspect)
     };
 }

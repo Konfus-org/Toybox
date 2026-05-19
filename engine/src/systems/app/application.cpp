@@ -118,16 +118,6 @@ namespace tbx
         try
         {
             auto timer = DeltaTimer();
-            if (!_main_window.is_valid())
-            {
-                TBX_TRACE_ERROR("Application main window must be valid before run.");
-                _should_exit = true;
-                TBX_ASSERT(
-                    _main_window.is_valid(),
-                    "Application main window must be valid before run.");
-                return -1;
-            }
-
             auto window_manager = _window_manager.lock();
             if (!window_manager)
             {
@@ -137,7 +127,14 @@ namespace tbx
                 return -1;
             }
 
-            if (!window_manager->is_open(_main_window))
+            if (!window_manager->has_main_window())
+            {
+                TBX_TRACE_ERROR("Application requires a main window before run.");
+                _should_exit = true;
+                return -1;
+            }
+
+            if (!window_manager->is_open(window_manager->get_main_window()))
             {
                 TBX_TRACE_ERROR("Application main window must be open before run.");
                 _should_exit = true;
@@ -170,7 +167,12 @@ namespace tbx
 
     const Window& Application::get_main_window() const
     {
-        return _main_window;
+        static const auto invalid_window = Window {};
+        const auto window_manager = _window_manager.lock();
+        if (!window_manager || !window_manager->has_main_window())
+            return invalid_window;
+
+        return window_manager->get_main_window();
     }
 
     ServiceProvider& Application::get_service_provider()
@@ -221,9 +223,10 @@ namespace tbx
                         return;
                     }
 
-                    if (auto closed_event = handle_message<WindowClosedEvent>(msg))
+                    if (handle_message<WindowClosedEvent>(msg))
                     {
-                        if (closed_event->get().window == _main_window)
+                        auto window_manager = _window_manager.lock();
+                        if (!window_manager || !window_manager->has_main_window())
                             _should_exit = true;
                     }
 
@@ -273,7 +276,7 @@ namespace tbx
 
                 const auto main_window_title =
                     _name.empty() ? std::string("Toybox Application") : _name;
-                _main_window = window_manager_strong->open(
+                (void)window_manager_strong->open(
                     WindowCreateInfo {
                         .title = main_window_title,
                         .size = {1280, 720},
@@ -304,7 +307,6 @@ namespace tbx
                     _asset_manager,
                     _thread_manager,
                     _window_manager,
-                    _main_window,
                     settings->graphics));
                 _rendering = _service_provider.try_get_service<Rendering>();
             }
@@ -472,7 +474,6 @@ namespace tbx
             // 3. Close all managed windows.
             if (auto window_manager = _window_manager.lock())
                 window_manager->shutdown();
-            _main_window = {};
             _window_manager = {};
             _should_exit = true;
 

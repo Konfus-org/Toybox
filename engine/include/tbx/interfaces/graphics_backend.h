@@ -126,7 +126,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns submission state by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsFrameInfo
+    struct TBX_API RenderFrameInfo
     {
         Window output_window = {};
         Size render_resolution = {};
@@ -138,7 +138,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns camera and viewport data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsView
+    struct TBX_API RenderView
     {
         Camera camera = {};
         Viewport viewport = {};
@@ -307,10 +307,10 @@ namespace tbx
 
         virtual GraphicsApi get_api() const = 0;
 
-        virtual Result begin_frame(const GraphicsFrameInfo& frame) = 0;
+        virtual Result begin_frame(const RenderFrameInfo& frame) = 0;
         virtual Result end_frame() = 0;
 
-        virtual Result begin_view(const GraphicsView& view) = 0;
+        virtual Result begin_view(const RenderView& view) = 0;
         virtual Result end_view() = 0;
 
         virtual Result begin_pass(const GraphicsPassDesc& pass) = 0;

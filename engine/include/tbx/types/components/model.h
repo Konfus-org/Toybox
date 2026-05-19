@@ -25,8 +25,6 @@ namespace tbx
         uint32 mesh_index = 0U;
         uint32 material_index = 0U;
         std::vector<uint32> children = {};
-
-        TBX_SERIALIZABLE(ModelPart, transform, mesh_index, material_index, children)
     };
 
     /// @brief
@@ -43,7 +41,5 @@ namespace tbx
         std::vector<Mesh> meshes = {};
         std::vector<Material> materials = {};
         std::vector<ModelPart> parts = {};
-
-        TBX_SERIALIZABLE(Model, meshes, materials, parts)
     };
 }

@@ -1,24 +1,31 @@
 #version 450 core
 
+#include "Toybox/ShaderBase.glsl"
+
 layout(location = 0) out vec4 o_color;
 
 in vec2 v_tex_coord;
 
-layout(std140, binding = 1) uniform ToyboxMaterialBlock
+layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxLutPostData
 {
-    vec4 u_material_uniforms[64];
+    vec4 u_lut_tint;
+    vec4 u_lut_emissive;
+    float u_lut_strength;
+    vec3 _tbx_pad_u_lut_strength;
+    float u_lut_blend;
+    vec3 _tbx_pad_u_lut_blend;
 };
 
-layout(binding = 0) uniform sampler2D u_scene_color;
+layout(binding = TBX_BINDING_POST_SOURCE_COLOR) uniform sampler2D u_source_color;
 layout(binding = 1) uniform sampler2D u_lut;
 
 void main()
 {
-    vec4 tint = u_material_uniforms[0];
-    vec4 emissive = u_material_uniforms[1];
-    float strength = max(u_material_uniforms[2].x, 0.0);
-    float blend = clamp(u_material_uniforms[3].x, 0.0, 1.0);
-    vec4 source = texture(u_scene_color, v_tex_coord);
+    vec4 tint = u_lut_tint;
+    vec4 emissive = u_lut_emissive;
+    float strength = max(u_lut_strength, 0.0);
+    float blend = clamp(u_lut_blend, 0.0, 1.0);
+    vec4 source = texture(u_source_color, v_tex_coord);
     vec3 color = clamp(source.rgb, 0.0, 1.0);
 
     // Dimensions for 1024x32

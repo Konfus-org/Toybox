@@ -93,11 +93,12 @@ namespace tbx
         Color color = {1.0f, 1.0f, 1.0f, 1.0f};
         // (tx, ty, tz, handedness) for tangent-space normal mapping
         Vec4 tangent = Vec4(1.0f, 0.0f, 0.0f, 1.0f);
-
-        TBX_SERIALIZABLE(Vertex, position, normal, uv, color, tangent)
     };
 
     ///////////// VERTEX BUFFER //////////////////
+
+    // TODO: semantic seems redundant with the count and size we can caclulate above, remove and
+    // replace with that.
     enum class VertexAttributeSemantic
     {
         NONE,
@@ -113,8 +114,6 @@ namespace tbx
         VertexAttributeSemantic semantic = VertexAttributeSemantic::NONE;
         VertexData type = 0;
         bool normalized = false;
-
-        TBX_SERIALIZABLE(VertexLayoutElement, semantic, type, normalized)
     };
 
     struct TBX_API VertexBufferAttribute
@@ -125,8 +124,6 @@ namespace tbx
         uint32 count = 0;
         uint32 offset = 0;
         bool normalized = false;
-
-        TBX_SERIALIZABLE(VertexBufferAttribute, semantic, type, size, count, offset, normalized)
     };
 
     // Used to describe the layout of a vertex buffer.
@@ -185,8 +182,6 @@ namespace tbx
 
         std::vector<VertexBufferAttribute> elements = {};
         uint32 stride = 0;
-
-        TBX_SERIALIZABLE(VertexBufferLayout, elements, stride)
     };
 
     inline VertexBufferLayout get_default_vertex_buffer_layout()
@@ -305,7 +300,5 @@ namespace tbx
 
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
-
-        TBX_SERIALIZABLE(VertexBuffer, vertices, layout)
     };
 }

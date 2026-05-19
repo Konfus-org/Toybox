@@ -1,11 +1,14 @@
 #pragma once
+#include "tbx/systems/graphics/graphics_resource.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include <any>
 #include <cstddef>
+#include <functional>
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -15,7 +18,7 @@ namespace tbx
     /// @brief
     /// Purpose: Describes one GPU resource cached from an asset handle.
     /// @details
-    /// Ownership: Stores copied identifiers and usage counters; does not own backend resources.
+    /// Ownership: Stores copied identifiers and usage counters only.
     /// Thread Safety: Safe to copy between threads.
     struct TBX_API GraphicsResourceUsage
     {
@@ -45,12 +48,13 @@ namespace tbx
     /// @brief
     /// Purpose: Stores manager metadata for one uploaded graphics resource or resource group.
     /// @details
-    /// Ownership: Owns copied ids and optional type-specific payload data.
+    /// Ownership: Owns copied ids, one lifecycle resource object that tears down its backend state
+    /// on destruction, and optional type-specific payload data.
     /// Thread Safety: Not inherently thread-safe; synchronize access externally.
     struct TBX_API GraphicsResourceRecord
     {
         GraphicsResourceUsage usage = {};
-        std::vector<Uuid> backend_resources = {};
+        std::shared_ptr<GraphicsResource> resource = {};
         std::any payload = {};
         uint last_access_frame = 0U;
     };
@@ -99,16 +103,15 @@ namespace tbx
         ConstIterator end() const;
 
         /// @brief
-        /// Purpose: Removes every tracked resource record without unloading backend resources.
+        /// Purpose: Removes every tracked resource record and releases owned resource objects.
         void clear();
 
         /// @brief
-        /// Purpose: Removes one tracked resource record without unloading backend resources.
+        /// Purpose: Removes one tracked resource record and releases its owned resource object.
         void erase(const GraphicsResourceKey& key);
 
         /// @brief
         /// Purpose: Returns one mutable resource record by key when tracked.
-
         GraphicsResourceRecord* find(const GraphicsResourceKey& key);
 
         /// @brief
@@ -122,8 +125,13 @@ namespace tbx
             std::initializer_list<uint32> buckets) const;
 
         /// @brief
-        /// Purpose: Returns keys that have not been touched within the frame limit.
-        std::vector<GraphicsResourceKey> get_stale(uint current_frame, uint frame_limit) const;
+        /// Purpose: Removes stale records whose callback approves the erase.
+        std::vector<GraphicsResourceKey> erase_stale(
+            uint current_frame,
+            uint frame_limit,
+            const std::function<bool(
+                const GraphicsResourceKey& key,
+                const GraphicsResourceRecord& record)>& erase_callback);
 
         /// @brief
         /// Purpose: Adds or replaces a resource record and marks it used for the current frame.
@@ -132,7 +140,7 @@ namespace tbx
             const Handle& handle,
             Uuid resource,
             uint current_frame,
-            std::vector<Uuid> backend_resources = {},
+            std::shared_ptr<GraphicsResource> resource_instance = {},
             std::any payload = {});
 
         /// @brief
@@ -143,3 +151,4 @@ namespace tbx
         RecordMap _records = {};
     };
 }
+
