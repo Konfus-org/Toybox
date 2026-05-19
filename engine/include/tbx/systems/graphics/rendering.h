@@ -63,7 +63,7 @@ namespace tbx
         std::unique_ptr<GraphicsResourceManager> _resource_manager = nullptr;
         FrameDataFactory _frame_data_factory;
         RenderPipeline _pipeline;
-        uint64 _frame_index = 0U;
+        uint64 _frame_index = 0U; // Monotonic frame counter used for per-frame cache/lifetime tracking.
 
         Result _initialization_result = {};
         std::future<void> _initialization_future = {};

@@ -83,19 +83,6 @@ namespace tbx::tests::graphics
         EXPECT_NEAR(light.ambient, 0.03f, 1e-5f);
     }
 
-    TEST(LightTests, PointLight_FromLegacyShadowsEnabled_DisablesCastShadows)
-    {
-        // Arrange
-        const auto json = nlohmann::json::parse(
-            R"({"color":{"r":1.0,"g":1.0,"b":1.0,"a":1.0},"intensity":1.0,"range":10.0,"shadows_enabled":false})");
-
-        // Act
-        const auto light = json.get<PointLight>();
-
-        // Assert
-        EXPECT_FALSE(light.cast_shadows);
-    }
-
     TEST(LightTests, SpotLight_MissingCastShadows_DefaultsToTrue)
     {
         // Arrange

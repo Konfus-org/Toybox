@@ -13,12 +13,10 @@ namespace tbx
 {
     FrameDataFactory::FrameDataFactory(
         std::weak_ptr<EntityRegistry> entity_registry,
-        std::weak_ptr<IWindowManager> window_manager,
-        Window default_output_window,
+        std::weak_ptr<IWindowManager> window_manager
         const GraphicsSettings& settings)
         : _entity_registry(std::move(entity_registry))
         , _window_manager(std::move(window_manager))
-        , _default_output_window(std::move(default_output_window))
         , _configured_resolution(settings.resolution.value)
     {
     }
@@ -36,9 +34,8 @@ namespace tbx
         if (!entity_registry || !window_manager)
             return Result(false, "Frame data factory: required scene/window services unavailable.");
 
-        const Window output_window = _default_output_window.is_valid()
-                                       ? _default_output_window
-                                       : Window("Toybox/MainWindow");
+        // Always render to the window-manager main window identity.
+        const Window output_window = Window("Toybox/MainWindow");
         Size output_resolution = window_manager->get_size(output_window);
         if (output_resolution.width == 0U || output_resolution.height == 0U)
             output_resolution = Size {1U, 1U};

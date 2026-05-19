@@ -20,8 +20,7 @@ namespace tbx
       public:
         FrameDataFactory(
             std::weak_ptr<EntityRegistry> entity_registry,
-            std::weak_ptr<IWindowManager> window_manager,
-            Window default_output_window,
+            std::weak_ptr<IWindowManager> window_manager
             const GraphicsSettings& settings);
 
         Result create(
@@ -32,7 +31,6 @@ namespace tbx
       private:
         std::weak_ptr<EntityRegistry> _entity_registry = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
-        Window _default_output_window = {};
         Size _configured_resolution = {};
     };
 }

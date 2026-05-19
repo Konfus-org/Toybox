@@ -8,72 +8,6 @@ namespace tbx
 {
     constexpr auto RENDER_LANE_NAME = std::string_view("render");
 
-    Rendering::Rendering(
-        std::weak_ptr<IGraphicsBackend> backend,
-        std::weak_ptr<EntityRegistry> entity_registry,
-        std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<ThreadManager> thread_manager,
-        std::weak_ptr<IWindowManager> window_manager,
-        Window default_output_window,
-        const GraphicsSettings& settings)
-        : _thread_manager(std::move(thread_manager))
-        , _backend(std::move(backend))
-        , _frame_data_factory(
-              entity_registry,
-              window_manager,
-              std::move(default_output_window),
-              settings)
-        , _pipeline(_backend)
-    {
-        auto backend_strong = _backend.lock();
-        auto asset_manager_strong = asset_manager.lock();
-        auto thread_manager_strong = _thread_manager.lock();
-        if (!backend_strong || !asset_manager_strong || !thread_manager_strong)
-        {
-            _initialization_result.flag_failure(
-                "Rendering requires graphics, assets, and thread services.");
-            return;
-        }
-
-        _resource_manager = std::make_unique<GraphicsResourceManager>(_backend, asset_manager);
-
-        thread_manager_strong->try_create_lane(RENDER_LANE_NAME);
-        if (!thread_manager_strong->has_lane(RENDER_LANE_NAME))
-        {
-            _initialization_result.flag_failure("Rendering could not acquire the render lane.");
-            return;
-        }
-
-        TBX_TRY_CATCH_ASSERT(
-            {
-                _initialization_future = thread_manager_strong->post_with_future(
-                    std::string(RENDER_LANE_NAME),
-                    [this, settings]()
-                    {
-                        initialize(settings);
-                    });
-            },
-            "Toybox renderer init failed.");
-    }
-
-    Rendering::Rendering(
-        std::weak_ptr<IGraphicsBackend> backend,
-        std::weak_ptr<EntityRegistry> entity_registry,
-        std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<ThreadManager> thread_manager,
-        std::weak_ptr<IWindowManager> window_manager,
-        const GraphicsSettings& settings)
-        : Rendering(
-              std::move(backend),
-              std::move(entity_registry),
-              std::move(asset_manager),
-              std::move(thread_manager),
-              std::move(window_manager),
-              Window {},
-              settings)
-    {
-    }
-
     Rendering::~Rendering() noexcept
     {
         TBX_TRY_CATCH_ASSERT(
@@ -140,36 +74,30 @@ namespace tbx
 
         _pipeline.clear();
         _pipeline.add_operation(std::make_unique<BeginFrameOperation>());
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Skybox Passes",
-                "Deferred Setup",
-                &FrameData::skybox_passes));
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Opaque Geometry Passes",
-                "Deferred Geometry",
-                &FrameData::opaque_passes));
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Alpha Cutout Geometry Passes",
-                "Deferred Geometry",
-                &FrameData::alpha_cutout_passes));
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Lighting Passes",
-                "Deferred Lighting",
-                &FrameData::lighting_passes));
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Transparent Forward Passes",
-                "Forward Transparency",
-                &FrameData::transparent_passes));
-        _pipeline.add_operation(
-            std::make_unique<RenderPassListOperation>(
-                "Post Process Passes",
-                "Post Process",
-                &FrameData::post_process_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Skybox Passes",
+            "Deferred Setup",
+            &FrameData::skybox_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Opaque Geometry Passes",
+            "Deferred Geometry",
+            &FrameData::opaque_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Alpha Cutout Geometry Passes",
+            "Deferred Geometry",
+            &FrameData::alpha_cutout_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Lighting Passes",
+            "Deferred Lighting",
+            &FrameData::lighting_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Transparent Forward Passes",
+            "Forward Transparency",
+            &FrameData::transparent_passes));
+        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
+            "Post Process Passes",
+            "Post Process",
+            &FrameData::post_process_passes));
         _pipeline.add_operation(std::make_unique<EndFrameOperation>());
     }
 
@@ -190,13 +118,13 @@ namespace tbx
         }
 
         auto frame_data = FrameData {};
-        const auto create_result =
-            _frame_data_factory.create(*_resource_manager, _frame_index, frame_data);
+        const auto create_result = _frame_data_factory.create(
+            *_resource_manager,
+            _frame_index,
+            frame_data);
         if (!create_result)
         {
-            TBX_TRACE_ERROR_ONCE(
-                "Toybox frame data creation failed. {}",
-                create_result.get_report());
+            TBX_TRACE_ERROR_ONCE("Toybox frame data creation failed. {}", create_result.get_report());
             return;
         }
 
@@ -216,8 +144,9 @@ namespace tbx
         if (!_initialization_future.valid())
             return;
 
-        TBX_TRY_CATCH_ASSERT(_initialization_future.get();
-                             , "Toybox renderer initialization completion failed.");
+        TBX_TRY_CATCH_ASSERT(
+            _initialization_future.get();,
+            "Toybox renderer initialization completion failed.");
     }
 
     void Rendering::wait_for_render_frame() noexcept

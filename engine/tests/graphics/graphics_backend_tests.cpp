@@ -5,7 +5,7 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/pipeline/context/render_data.h"
+#include "tbx/systems/graphics/pipeline/context/frame_data.h"
 #include "tbx/systems/graphics/pipeline/render_pipeline.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
