@@ -140,30 +140,36 @@ namespace tbx
 
         _pipeline.clear();
         _pipeline.add_operation(std::make_unique<BeginFrameOperation>());
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Skybox Passes",
-            "Deferred Setup",
-            &FrameData::skybox_passes));
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Opaque Geometry Passes",
-            "Deferred Geometry",
-            &FrameData::opaque_passes));
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Alpha Cutout Geometry Passes",
-            "Deferred Geometry",
-            &FrameData::alpha_cutout_passes));
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Lighting Passes",
-            "Deferred Lighting",
-            &FrameData::lighting_passes));
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Transparent Forward Passes",
-            "Forward Transparency",
-            &FrameData::transparent_passes));
-        _pipeline.add_operation(std::make_unique<RenderPassListOperation>(
-            "Post Process Passes",
-            "Post Process",
-            &FrameData::post_process_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Skybox Passes",
+                "Deferred Setup",
+                &FrameData::skybox_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Opaque Geometry Passes",
+                "Deferred Geometry",
+                &FrameData::opaque_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Alpha Cutout Geometry Passes",
+                "Deferred Geometry",
+                &FrameData::alpha_cutout_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Lighting Passes",
+                "Deferred Lighting",
+                &FrameData::lighting_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Transparent Forward Passes",
+                "Forward Transparency",
+                &FrameData::transparent_passes));
+        _pipeline.add_operation(
+            std::make_unique<RenderPassListOperation>(
+                "Post Process Passes",
+                "Post Process",
+                &FrameData::post_process_passes));
         _pipeline.add_operation(std::make_unique<EndFrameOperation>());
     }
 
@@ -171,7 +177,7 @@ namespace tbx
     {
         if (!_initialization_result)
         {
-            TBX_TRACE_ERROR(
+            TBX_TRACE_ERROR_ONCE(
                 "Toybox renderer initialization failed. {}",
                 _initialization_result.get_report());
             return;
@@ -179,25 +185,25 @@ namespace tbx
 
         if (!_resource_manager)
         {
-            TBX_TRACE_ERROR("Toybox renderer resource manager is unavailable.");
+            TBX_TRACE_ERROR_ONCE("Toybox renderer resource manager is unavailable.");
             return;
         }
 
         auto frame_data = FrameData {};
-        const auto create_result = _frame_data_factory.create(
-            *_resource_manager,
-            _frame_index,
-            frame_data);
+        const auto create_result =
+            _frame_data_factory.create(*_resource_manager, _frame_index, frame_data);
         if (!create_result)
         {
-            TBX_TRACE_ERROR("Toybox frame data creation failed. {}", create_result.get_report());
+            TBX_TRACE_ERROR_ONCE(
+                "Toybox frame data creation failed. {}",
+                create_result.get_report());
             return;
         }
 
         const auto render_result = _pipeline.run(frame_data, CancellationToken {});
         if (!render_result)
         {
-            TBX_TRACE_ERROR("Toybox render pipeline failed. {}", render_result.get_report());
+            TBX_TRACE_ERROR_ONCE("Toybox render pipeline failed. {}", render_result.get_report());
             return;
         }
 
@@ -210,9 +216,8 @@ namespace tbx
         if (!_initialization_future.valid())
             return;
 
-        TBX_TRY_CATCH_ASSERT(
-            _initialization_future.get();,
-            "Toybox renderer initialization completion failed.");
+        TBX_TRY_CATCH_ASSERT(_initialization_future.get();
+                             , "Toybox renderer initialization completion failed.");
     }
 
     void Rendering::wait_for_render_frame() noexcept
