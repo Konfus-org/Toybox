@@ -38,6 +38,8 @@ namespace tbx
         const uint unused_frame_limit)
         : _backend(std::move(backend))
         , _asset_manager(std::move(asset_manager))
+        , _backend_ref(_backend.lock())
+        , _asset_manager_ref(_asset_manager.lock())
         , _unused_frame_limit(unused_frame_limit)
     {
     }
@@ -406,6 +408,65 @@ namespace tbx
         return result;
     }
 
+
+    Result GraphicsResourceManager::upload(
+        const Handle& handle,
+        const Mesh& mesh,
+        GraphicsModelResource& out_model_resource)
+    {
+        out_model_resource = {};
+        if (!handle.is_valid())
+            return Result(false, "Graphics resource manager: mesh handle is invalid.");
+
+        const Uuid asset_id = resolve_asset_id(handle);
+        const GraphicsResourceKey key = make_asset_resource_key(asset_id, MODEL_RESOURCE_BUCKET);
+        if (auto* record = find_record(key); record != nullptr)
+        {
+            touch_resource(key);
+            const auto* meshes =
+                std::any_cast<std::vector<GraphicsModelMeshResource>>(&record->payload);
+            if (meshes == nullptr)
+                return Result(false, "Graphics resource manager: mesh resource metadata invalid.");
+
+            out_model_resource = GraphicsModelResource {
+                .asset = handle,
+                .resource = record->usage.resource,
+                .meshes = *meshes,
+            };
+            return {};
+        }
+
+        auto model = Model {};
+        model.meshes.push_back(mesh);
+
+        auto resource_uuid = Uuid {};
+        auto backend_resources = std::vector<Uuid> {};
+        auto mesh_resources = std::vector<GraphicsModelMeshResource> {};
+        if (const auto result = upload_model_resource(
+                handle,
+                model,
+                backend_resources,
+                mesh_resources,
+                resource_uuid);
+            !result)
+        {
+            return result;
+        }
+
+        track_resource(
+            key,
+            handle,
+            resource_uuid,
+            std::move(backend_resources),
+            mesh_resources);
+        out_model_resource = GraphicsModelResource {
+            .asset = handle,
+            .resource = resource_uuid,
+            .meshes = std::move(mesh_resources),
+        };
+        return {};
+    }
+
     Result GraphicsResourceManager::upload(
         const GraphicsBufferDesc& desc,
         const void* data,
@@ -666,7 +727,14 @@ namespace tbx
         }
 
         if (shader_sources.empty())
-            return Result(false, "Graphics resource manager: material has no shader sources.");
+        {
+            const auto fallback_shader = make_fallback_shader();
+            if (!fallback_shader || fallback_shader->sources.empty())
+                return Result(false, "Graphics resource manager: material has no shader sources.");
+
+            out_shader = *fallback_shader;
+            return {};
+        }
 
         out_shader = Shader(std::move(shader_sources));
         return {};
@@ -759,11 +827,17 @@ namespace tbx
 
     std::shared_ptr<AssetManager> GraphicsResourceManager::lock_asset_manager() const
     {
+        if (_asset_manager_ref)
+            return _asset_manager_ref;
+
         return _asset_manager.lock();
     }
 
     std::shared_ptr<IGraphicsBackend> GraphicsResourceManager::lock_backend() const
     {
+        if (_backend_ref)
+            return _backend_ref;
+
         return _backend.lock();
     }
 

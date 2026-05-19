@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/render_target.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/size.h"
 #include <string>

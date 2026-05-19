@@ -59,7 +59,30 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float range = 10.0f;
 
-        TBX_SERIALIZABLE(PointLight, range)
+        friend void to_json(nlohmann::json& json, const PointLight& light)
+        {
+            json = nlohmann::json {
+                {"color", light.color},
+                {"intensity", light.intensity},
+                {"cast_shadows", light.cast_shadows},
+                {"range", light.range},
+            };
+        }
+
+        friend void from_json(const nlohmann::json& json, PointLight& light)
+        {
+            light = PointLight {};
+            if (json.contains("color"))
+                json.at("color").get_to(light.color);
+            if (json.contains("intensity"))
+                json.at("intensity").get_to(light.intensity);
+            if (json.contains("cast_shadows"))
+                json.at("cast_shadows").get_to(light.cast_shadows);
+            else if (json.contains("shadows_enabled"))
+                json.at("shadows_enabled").get_to(light.cast_shadows);
+            if (json.contains("range"))
+                json.at("range").get_to(light.range);
+        }
     };
 
     /// @brief
@@ -98,7 +121,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float outer_angle = 35.0f;
 
-        TBX_SERIALIZABLE(SpotLight, range, inner_angle, outer_angle)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(SpotLight, color, intensity, cast_shadows, range, inner_angle, outer_angle)
     };
 
     /// @brief
@@ -129,7 +152,7 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Vec2 area_size = Vec2(1.0f, 1.0f);
 
-        TBX_SERIALIZABLE(AreaLight, range, area_size)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(AreaLight, color, intensity, cast_shadows, range, area_size)
     };
 
     /// @brief
@@ -151,6 +174,6 @@ namespace tbx
         /// contributions across all directional lights.
         float ambient = 0.03f;
 
-        TBX_SERIALIZABLE(DirectionalLight, ambient)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(DirectionalLight, color, intensity, cast_shadows, ambient)
     };
 }

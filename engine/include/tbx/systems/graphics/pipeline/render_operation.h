@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/systems/graphics/pipeline/context/frame_data.h"
 #include "tbx/systems/async/cancellation_token.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
@@ -24,6 +25,7 @@ namespace tbx
     class TBX_API IRenderOperation
     {
       public:
+        IRenderOperation() = default;
         virtual ~IRenderOperation() noexcept = default;
         IRenderOperation(const IRenderOperation&) = delete;
         IRenderOperation& operator=(const IRenderOperation&) = delete;
