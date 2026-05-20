@@ -1069,6 +1069,8 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.0375F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].position_type.w, 0.0F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].color_intensity.w, 2.0F);
+        EXPECT_EQ(light_shader_data->light_meta.y, 1);
+        EXPECT_FLOAT_EQ(light_shader_data->lights[0U].params.z, 0.0F);
     }
 
     // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
@@ -1443,6 +1445,79 @@ namespace tbx::tests::graphics
         // Assert
         EXPECT_GT(count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads), dynamic_upload_count);
         EXPECT_FALSE(mesh_data->is_dirty());
+    }
+
+    // Validates discarded dynamic mesh buffers are removed from the upload cache.
+    TEST(RenderingTests, ResourceUploader_DiscardCachedDynamicMeshResourceForcesReupload)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto resource_uploader = ResourceUploader(backend_service, asset_manager_service);
+        auto resource_tracker = RenderingResourceTracker {};
+        auto mesh_data = std::make_shared<DynamicMeshData>(triangle);
+        auto first_mesh = RenderingMeshUploadData {};
+        const Result first_result =
+            resource_uploader.upload_dynamic_mesh(mesh_data, resource_tracker, first_mesh);
+        const uint uploaded_buffer_count = backend.uploaded_buffer_count;
+
+        // Act
+        resource_uploader.discard_cached_resource(first_mesh.vertex_buffer);
+        auto second_mesh = RenderingMeshUploadData {};
+        const Result second_result =
+            resource_uploader.upload_dynamic_mesh(mesh_data, resource_tracker, second_mesh);
+
+        // Assert
+        EXPECT_TRUE(first_result);
+        EXPECT_TRUE(second_result);
+        EXPECT_TRUE(first_mesh.vertex_buffer.is_valid());
+        EXPECT_TRUE(second_mesh.vertex_buffer.is_valid());
+        EXPECT_NE(first_mesh.vertex_buffer, second_mesh.vertex_buffer);
+        EXPECT_GT(backend.uploaded_buffer_count, uploaded_buffer_count);
+        EXPECT_FALSE(mesh_data->is_dirty());
+    }
+
+    // Validates discarded instance vertex buffers are removed from the upload cache.
+    TEST(RenderingTests, ResourceUploader_DiscardCachedInstanceResourceForcesReupload)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto resource_uploader = ResourceUploader(backend_service, asset_manager_service);
+        auto resource_tracker = RenderingResourceTracker {};
+        auto instance = RenderingDrawInstanceData {};
+        const GraphicsResourceBinding first_binding = resource_uploader.upload_instance_buffer(
+            resource_tracker,
+            "Toybox/Test/Instances",
+            0U,
+            &instance,
+            static_cast<uint64>(sizeof(instance)));
+        const uint uploaded_buffer_count = backend.uploaded_buffer_count;
+
+        // Act
+        resource_uploader.discard_cached_resource(first_binding.resource);
+        const GraphicsResourceBinding second_binding = resource_uploader.upload_instance_buffer(
+            resource_tracker,
+            "Toybox/Test/Instances",
+            0U,
+            &instance,
+            static_cast<uint64>(sizeof(instance)));
+
+        // Assert
+        EXPECT_TRUE(first_binding.resource.is_valid());
+        EXPECT_TRUE(second_binding.resource.is_valid());
+        EXPECT_NE(first_binding.resource, second_binding.resource);
+        EXPECT_GT(backend.uploaded_buffer_count, uploaded_buffer_count);
     }
 
 }

@@ -1,6 +1,6 @@
 #include "Toybox/ShaderBase.glsl"
 
-layout(binding = TBX_BINDING_SHADOW_MAP) uniform sampler2DShadow u_shadow_map;
+layout(binding = TBX_BINDING_SHADOW_MAP) uniform sampler2D u_shadow_map;
 
 layout(std140, binding = TBX_BINDING_SHADOW_PASS_DATA) uniform TbxShadowPassData
 {
@@ -42,7 +42,8 @@ float tbx_sample_shadow_pcf(vec3 shadow_coord, float bias)
         for (int y = -1; y <= 1; ++y)
         {
             vec2 offset = vec2(x, y) * texel_size;
-            visibility += texture(u_shadow_map, vec3(shadow_coord.xy + offset, shadow_coord.z - bias));
+            float shadow_depth = texture(u_shadow_map, shadow_coord.xy + offset).r;
+            visibility += shadow_coord.z - bias <= shadow_depth ? 1.0 : 0.0;
         }
     }
 

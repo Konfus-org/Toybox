@@ -20,6 +20,92 @@ namespace tbx::detail
     constexpr uint32 MAX_MATERIAL_UNIFORM_VECTORS = 64U;
     constexpr size UNIFORM_BUFFER_RING_SIZE = 3U;
 
+    static bool uses_mesh_resource(
+        const RenderingMeshUploadData& mesh,
+        const Uuid& resource)
+    {
+        return mesh.vertex_buffer == resource || mesh.index_buffer == resource;
+    }
+
+    template <typename TKey>
+    static void erase_uuid_cache_entry(
+        std::unordered_map<TKey, Uuid>& cache,
+        const Uuid& resource)
+    {
+        for (auto iterator = cache.begin(); iterator != cache.end();)
+        {
+            if (iterator->second == resource)
+                iterator = cache.erase(iterator);
+            else
+                ++iterator;
+        }
+    }
+
+    static void discard_cached_mesh_resource(
+        MeshResourceCache& cache,
+        const Uuid& resource)
+    {
+        for (auto iterator = cache.model_meshes.begin(); iterator != cache.model_meshes.end();)
+        {
+            const auto& meshes = iterator->second;
+            const bool uses_resource = std::any_of(
+                meshes.begin(),
+                meshes.end(),
+                [resource](const RenderingMeshUploadData& mesh)
+                {
+                    return uses_mesh_resource(mesh, resource);
+                });
+            if (uses_resource)
+                iterator = cache.model_meshes.erase(iterator);
+            else
+                ++iterator;
+        }
+
+        for (auto iterator = cache.runtime_meshes.begin(); iterator != cache.runtime_meshes.end();)
+        {
+            if (uses_mesh_resource(iterator->second, resource))
+                iterator = cache.runtime_meshes.erase(iterator);
+            else
+                ++iterator;
+        }
+
+        for (auto iterator = cache.dynamic_meshes.begin(); iterator != cache.dynamic_meshes.end();)
+        {
+            if (uses_mesh_resource(iterator->second.mesh, resource))
+                iterator = cache.dynamic_meshes.erase(iterator);
+            else
+                ++iterator;
+        }
+    }
+
+    static void discard_cached_uniform_resource(
+        UniformBufferCache& cache,
+        const Uuid& resource)
+    {
+        for (auto cache_iterator = cache.uniform_buffers.begin();
+             cache_iterator != cache.uniform_buffers.end();)
+        {
+            auto& ring = cache_iterator->second;
+            for (auto& entry : ring)
+            {
+                if (entry.resource == resource)
+                    entry = UniformBufferCacheEntry {};
+            }
+
+            const bool is_empty = std::all_of(
+                ring.begin(),
+                ring.end(),
+                [](const UniformBufferCacheEntry& entry)
+                {
+                    return !entry.resource.is_valid();
+                });
+            if (is_empty)
+                cache_iterator = cache.uniform_buffers.erase(cache_iterator);
+            else
+                ++cache_iterator;
+        }
+    }
+
     static void append_instance_layout_attributes(
         std::vector<GraphicsVertexAttributeDesc>& out_attributes)
     {
@@ -1022,5 +1108,51 @@ namespace tbx
             frame_index,
             data,
             byte_size);
+    }
+
+    GraphicsResourceBinding ResourceUploader::upload_texture(
+        RenderingResourceTracker& resource_tracker,
+        const uint32 slot,
+        const std::string& cache_key,
+        const GraphicsTextureDesc& desc) const
+    {
+        const auto backend = _backend.lock();
+        if (!backend)
+            return GraphicsResourceBinding {.slot = slot};
+
+        if (const auto cached = _caches.textures.render_targets.find(cache_key);
+            cached != _caches.textures.render_targets.end())
+        {
+            resource_tracker.track(cached->second);
+            return GraphicsResourceBinding {.slot = slot, .resource = cached->second};
+        }
+
+        auto resource = Uuid {};
+        const Result result = backend->upload_texture(desc, nullptr, 0U, resource);
+        if (!result)
+        {
+            TBX_TRACE_ERROR_ONCE(
+                "Rendering texture target upload failed: {}",
+                result.get_report());
+            return GraphicsResourceBinding {.slot = slot};
+        }
+
+        resource_tracker.track(resource);
+        _caches.textures.render_targets[cache_key] = resource;
+        return GraphicsResourceBinding {.slot = slot, .resource = resource};
+    }
+
+    void ResourceUploader::discard_cached_resource(const Uuid& resource)
+    {
+        if (!resource.is_valid())
+            return;
+
+        detail::erase_uuid_cache_entry(_caches.pipelines.pipelines, resource);
+        detail::discard_cached_mesh_resource(_caches.meshes, resource);
+        detail::erase_uuid_cache_entry(_caches.textures.textures, resource);
+        detail::erase_uuid_cache_entry(_caches.textures.default_textures, resource);
+        detail::erase_uuid_cache_entry(_caches.textures.render_targets, resource);
+        detail::discard_cached_uniform_resource(_caches.uniforms, resource);
+        detail::discard_cached_uniform_resource(_caches.instances, resource);
     }
 }

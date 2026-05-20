@@ -24,7 +24,7 @@ namespace tbx
               std::move(entity_registry),
               std::move(asset_manager),
               std::move(window_manager),
-              settings.resolution.value)
+              settings)
     {
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
@@ -250,6 +250,7 @@ namespace tbx
                 continue;
             }
 
+            _pass_factory.discard_cached_resource(Uuid(resource));
             _resource_tracker.untrack(resource);
             unloaded_count += 1U;
         }

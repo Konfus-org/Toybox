@@ -1,3 +1,6 @@
+#ifndef TBX_SHADER_BASE_GLSL
+#define TBX_SHADER_BASE_GLSL
+
 #define TBX_PI 3.14159265359
 #define TBX_EPSILON 0.00001
 
@@ -145,3 +148,5 @@ vec3 tbx_apply_exposure_tonemap_gamma(vec3 color, float exposure, float gamma)
 
     return color;
 }
+
+#endif

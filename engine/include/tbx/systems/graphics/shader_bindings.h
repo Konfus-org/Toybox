@@ -7,6 +7,8 @@
 
 namespace tbx
 {
+    // IMPORTANT: KEEP THESE BINDINGS AND SHADER STRUCTS IN SYNC WITH SHADERS!
+
     constexpr uint32 BINDING_FRAME_DATA = 0U;
     constexpr uint32 BINDING_CAMERA_DATA = 1U;
     constexpr uint32 BINDING_OBJECT_DATA = 2U;
@@ -65,10 +67,11 @@ namespace tbx
         Vec4 world_position = Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     };
 
+    // TODO: rename to ModelShaderData
     struct alignas(16) ObjectShaderData
     {
         Mat4 model = Mat4(1.0F);
-        Mat4 normal_matrix = Mat4(1.0F);
+        Mat4 normal_matrix = Mat4(1.0F); // TODO: rename to normal
     };
 
     struct alignas(16) ShaderLightData
@@ -85,6 +88,18 @@ namespace tbx
         IVec4 light_meta = IVec4(0, 0, 0, 0);
         Vec4 light_padding = Vec4(0.0F);
         std::array<ShaderLightData, MAX_LIGHTS> lights = {};
+    };
+
+    struct alignas(16) ShadowPassShaderData
+    {
+        Mat4 light_view_projection = Mat4(1.0F);
+        Vec4 light_direction = Vec4(0.0F, -1.0F, 0.0F, 0.0F);
+        float shadow_depth_bias = 0.0015F;
+        Vec3 shadow_depth_bias_padding = Vec3(0.0F);
+        float shadow_normal_bias = 0.02F;
+        Vec3 shadow_normal_bias_padding = Vec3(0.0F);
+        float shadow_strength = 0.75F;
+        Vec3 shadow_strength_padding = Vec3(0.0F);
     };
 
     inline std::optional<uint32> resolve_shader_texture_slot(const std::string_view binding_name)

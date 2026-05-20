@@ -1,4 +1,5 @@
 #include "Toybox/Materials/PbrMaterial.glsl"
+#include "Toybox/Lighting/ShadowSampling.glsl"
 
 float tbx_distribution_ggx(vec3 normal, vec3 half_vector, float roughness)
 {
@@ -129,6 +130,16 @@ vec3 tbx_evaluate_light_pbr(TbxLight light, PbrSurface surface, vec3 view_dir)
         surface.roughness);
 }
 
+vec3 tbx_get_shadow_light_direction(TbxLight light, PbrSurface surface)
+{
+    if (light.position_type.w == TBX_LIGHT_TYPE_DIRECTIONAL)
+    {
+        return light.direction_range.xyz;
+    }
+
+    return normalize(surface.world_position - light.position_type.xyz);
+}
+
 vec3 tbx_shade_pbr(PbrSurface surface)
 {
     vec3 view_dir = normalize(u_camera_world_position.xyz - surface.world_position);
@@ -136,7 +147,16 @@ vec3 tbx_shade_pbr(PbrSurface surface)
 
     for (int i = 0; i < u_light_count; ++i)
     {
-        color += tbx_evaluate_light_pbr(u_lights[i], surface, view_dir);
+        vec3 contribution = tbx_evaluate_light_pbr(u_lights[i], surface, view_dir);
+        if (u_lights[i].params.z >= 0.0)
+        {
+            contribution *= tbx_sample_shadow(
+                surface.world_position,
+                surface.normal,
+                tbx_get_shadow_light_direction(u_lights[i], surface));
+        }
+
+        color += contribution;
     }
 
     color += surface.emissive;

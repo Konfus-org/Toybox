@@ -21,6 +21,6 @@ void main()
     surface.albedo *= v_color.rgb;
     surface.alpha *= v_color.a;
 
-    vec3 color = tbx_shade_pbr(surface);
+    vec3 color = pow(max(tbx_shade_pbr(surface), vec3(0.0)), vec3(1.0 / 2.2));
     o_color = vec4(color, surface.alpha);
 }

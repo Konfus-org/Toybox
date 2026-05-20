@@ -81,6 +81,7 @@ namespace tbx
     {
         std::unordered_map<Handle, Uuid> textures = {};
         std::unordered_map<std::string, Uuid> default_textures = {};
+        std::unordered_map<std::string, Uuid> render_targets = {};
     };
 
     /// @brief
@@ -184,6 +185,18 @@ namespace tbx
             uint64 frame_index,
             const void* data,
             uint64 byte_size) const;
+
+        /// @brief
+        /// Purpose: Uploads or reuses a renderer-owned texture such as a pass target.
+        GraphicsResourceBinding upload_texture(
+            RenderingResourceTracker& resource_tracker,
+            uint32 slot,
+            const std::string& cache_key,
+            const GraphicsTextureDesc& desc) const;
+
+        /// @brief
+        /// Purpose: Removes any cached upload entry that references an unloaded backend resource.
+        void discard_cached_resource(const Uuid& resource);
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};

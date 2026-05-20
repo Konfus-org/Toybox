@@ -8,6 +8,7 @@
 #include "tbx/systems/graphics/resource_tracker.h"
 #include "tbx/systems/graphics/resource_uploader.h"
 #include "tbx/systems/graphics/shader_bindings.h"
+#include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/mesh.h"
@@ -31,7 +32,7 @@ namespace tbx
             std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<IWindowManager> window_manager,
-            Size configured_resolution);
+            const GraphicsSettings& settings);
         ~RenderingPassFactory() = default;
 
       public:
@@ -55,6 +56,10 @@ namespace tbx
             RenderTarget& out_render_target,
             RenderView& out_view);
 
+        /// @brief
+        /// Purpose: Removes cached upload data that references an unloaded backend resource.
+        void discard_cached_resource(const Uuid& resource);
+
       private:
         Result build_frame_data(
             EntityRegistry& entity_registry,
@@ -66,11 +71,17 @@ namespace tbx
         std::weak_ptr<EntityRegistry> _entity_registry = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         Size _configured_resolution = {};
+        uint32 _shadow_map_resolution = 2048U;
+        float _shadow_render_distance = 90.0F;
+        float _shadow_softness = 1.0F;
+        float _local_light_max_distance = 64.0F;
+        float _shadow_caster_max_distance = 96.0F;
         ResourceUploader _resource_uploader;
         RenderingDrawCommandFactory _draw_command_factory = {};
         std::shared_ptr<Mesh> _sky_dome_mesh = {};
         FrameShaderData _frame_shader_data = {};
         CameraShaderData _camera_shader_data = {};
         LightShaderData _light_shader_data = {};
+        ShadowPassShaderData _shadow_pass_shader_data = {};
     };
 }

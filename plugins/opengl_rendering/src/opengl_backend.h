@@ -118,6 +118,7 @@ namespace opengl_rendering
         std::unique_ptr<OpenGlFramebuffer> _pass_framebuffer = {};
 
         tbx::Window _active_window = {};
+        tbx::Viewport _active_viewport = {};
         tbx::Uuid _current_pipeline = {};
 
         bool _is_gl_loaded = false;

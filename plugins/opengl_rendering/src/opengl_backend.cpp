@@ -109,6 +109,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::begin_view(const tbx::RenderView& view)
     {
+        _active_viewport = view.viewport;
         return set_viewport(view.viewport);
     }
 
@@ -189,10 +190,38 @@ namespace opengl_rendering
                 return make_failure("OpenGL backend: render pass framebuffer is incomplete.");
 
             _pass_framebuffer->bind();
+
+            auto target_size = tbx::Size {};
+            if (!pass.color_targets.empty())
+            {
+                const auto desc_it = _texture_descs.find(pass.color_targets.front());
+                if (desc_it != _texture_descs.end())
+                    target_size = desc_it->second.size;
+            }
+            else if (pass.depth_stencil_target.is_valid())
+            {
+                const auto desc_it = _texture_descs.find(pass.depth_stencil_target);
+                if (desc_it != _texture_descs.end())
+                    target_size = desc_it->second.size;
+            }
+
+            if (target_size.width > 0U && target_size.height > 0U)
+            {
+                glViewport(
+                    0,
+                    0,
+                    static_cast<GLsizei>(target_size.width),
+                    static_cast<GLsizei>(target_size.height));
+            }
         }
         else
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0U);
+            glViewport(
+                static_cast<GLint>(_active_viewport.position.x),
+                static_cast<GLint>(_active_viewport.position.y),
+                static_cast<GLsizei>(_active_viewport.dimensions.width),
+                static_cast<GLsizei>(_active_viewport.dimensions.height));
         }
 
         GLbitfield clear_mask = 0U;

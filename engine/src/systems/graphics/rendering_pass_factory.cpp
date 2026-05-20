@@ -10,6 +10,7 @@
 #include "tbx/types/trig.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <sstream>
@@ -101,6 +102,21 @@ namespace tbx::detail
         return Vec3(light.color.r, light.color.g, light.color.b);
     }
 
+    static bool is_within_distance_limit(
+        const Vec3& source,
+        const Vec3& target,
+        const float max_distance)
+    {
+        return max_distance <= 0.0F || distance(source, target) <= max_distance;
+    }
+
+    static Vec3 make_shadow_up_vector(const Vec3& direction)
+    {
+        return std::abs(dot(direction, Vec3(0.0F, 1.0F, 0.0F))) > 0.95F
+                   ? Vec3(0.0F, 0.0F, 1.0F)
+                   : Vec3(0.0F, 1.0F, 0.0F);
+    }
+
     static void append_shader_light(
         LightShaderData& light_data,
         const ShaderLightData& shader_light)
@@ -113,11 +129,15 @@ namespace tbx::detail
         light_data.light_meta.x = light_count + 1;
     }
 
-    static LightShaderData build_light_shader_data(EntityRegistry& entity_registry)
+    static LightShaderData build_light_shader_data(
+        EntityRegistry& entity_registry,
+        const Vec3& camera_position,
+        const float local_light_max_distance)
     {
         auto light_data = LightShaderData();
         auto ambient_color = Vec3(0.0F);
         auto has_directional_ambient = false;
+        auto has_shadowed_light = false;
 
         for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
         {
@@ -136,14 +156,31 @@ namespace tbx::detail
                     .position_type = Vec4(0.0F, 0.0F, 0.0F, SHADER_LIGHT_TYPE_DIRECTIONAL),
                     .direction_range = Vec4(direction, 0.0F),
                     .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(0.0F, 0.0F, -1.0F, 0.0F),
+                    .params = Vec4(
+                        0.0F,
+                        0.0F,
+                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
+                        0.0F),
                 });
+            if (light.cast_shadows && !has_shadowed_light)
+            {
+                has_shadowed_light = true;
+                light_data.light_meta.y = 1;
+            }
         }
 
         for (auto& entity : entity_registry.get_with<PointLight, Transform>())
         {
             const auto& light = entity.get_component<PointLight>();
             const Transform transform = get_world_space_transform(entity);
+            if (!is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
             const Vec3 color = make_light_color(light);
 
             append_shader_light(
@@ -152,14 +189,31 @@ namespace tbx::detail
                     .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
                     .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
                     .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(0.0F, 0.0F, -1.0F, 0.0F),
+                    .params = Vec4(
+                        0.0F,
+                        0.0F,
+                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
+                        0.0F),
                 });
+            if (light.cast_shadows && !has_shadowed_light)
+            {
+                has_shadowed_light = true;
+                light_data.light_meta.y = 1;
+            }
         }
 
         for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
         {
             const auto& light = entity.get_component<SpotLight>();
             const Transform transform = get_world_space_transform(entity);
+            if (!is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
             const Vec3 direction =
                 normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
             const Vec3 color = make_light_color(light);
@@ -173,15 +227,215 @@ namespace tbx::detail
                     .params = Vec4(
                         angle_to_cosine(light.inner_angle),
                         angle_to_cosine(light.outer_angle),
-                        -1.0F,
+                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
                         0.0F),
                 });
+            if (light.cast_shadows && !has_shadowed_light)
+            {
+                has_shadowed_light = true;
+                light_data.light_meta.y = 1;
+            }
+        }
+
+        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
+        {
+            const auto& light = entity.get_component<AreaLight>();
+            const Transform transform = get_world_space_transform(entity);
+            if (!is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
+            const Vec3 color = make_light_color(light);
+            append_shader_light(
+                light_data,
+                ShaderLightData {
+                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
+                    .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
+                    .color_intensity = Vec4(color, light.intensity),
+                    .params = Vec4(
+                        0.0F,
+                        0.0F,
+                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
+                        0.0F),
+                });
+            if (light.cast_shadows && !has_shadowed_light)
+            {
+                has_shadowed_light = true;
+                light_data.light_meta.y = 1;
+            }
         }
 
         if (has_directional_ambient)
             light_data.ambient_color = Vec4(ambient_color, 1.0F);
 
         return light_data;
+    }
+
+    static ShadowPassShaderData build_shadow_shader_data(
+        EntityRegistry& entity_registry,
+        const Vec3& camera_position,
+        const float shadow_render_distance,
+        const float shadow_softness,
+        const float local_light_max_distance)
+    {
+        auto shadow_data = ShadowPassShaderData();
+        const float shadow_distance = std::max(shadow_render_distance, 1.0F);
+        for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
+        {
+            const auto& light = entity.get_component<DirectionalLight>();
+            if (!light.cast_shadows)
+                continue;
+
+            const Transform transform = get_world_space_transform(entity);
+            const Vec3 direction =
+                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+            const Vec3 light_position = camera_position - direction * (shadow_distance * 0.5F);
+            const Mat4 view =
+                look_at(light_position, camera_position, make_shadow_up_vector(direction));
+            const float half_extent = shadow_distance * 0.5F;
+            const Mat4 projection = ortho_projection(
+                -half_extent,
+                half_extent,
+                -half_extent,
+                half_extent,
+                0.1F,
+                shadow_distance);
+
+            shadow_data.light_view_projection = projection * view;
+            shadow_data.light_direction = Vec4(direction, 0.0F);
+            shadow_data.shadow_depth_bias = 0.0015F;
+            shadow_data.shadow_normal_bias = 0.02F;
+            shadow_data.shadow_strength = 0.75F;
+            (void)shadow_softness;
+            return shadow_data;
+        }
+
+        for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
+        {
+            const auto& light = entity.get_component<SpotLight>();
+            const Transform transform = get_world_space_transform(entity);
+            if (!light.cast_shadows
+                || !is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
+            const Vec3 direction =
+                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+            const float range = std::max(light.range, 1.0F);
+            const Mat4 view = look_at(
+                transform.position,
+                transform.position + direction,
+                make_shadow_up_vector(direction));
+            const Mat4 projection = perspective_projection(
+                to_radians(std::max(light.outer_angle * 2.0F, 1.0F)),
+                1.0F,
+                0.1F,
+                range);
+
+            shadow_data.light_view_projection = projection * view;
+            shadow_data.light_direction = Vec4(direction, 0.0F);
+            shadow_data.shadow_depth_bias = 0.0015F;
+            shadow_data.shadow_normal_bias = 0.02F;
+            shadow_data.shadow_strength = 0.85F;
+            (void)shadow_softness;
+            return shadow_data;
+        }
+
+        for (auto& entity : entity_registry.get_with<PointLight, Transform>())
+        {
+            const auto& light = entity.get_component<PointLight>();
+            const Transform transform = get_world_space_transform(entity);
+            if (!light.cast_shadows
+                || !is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
+            Vec3 direction = normalize_or_zero(camera_position - transform.position);
+            if (dot(direction, direction) <= 0.0001F)
+                direction = Vec3(0.0F, -1.0F, 0.0F);
+
+            const float range = std::max(light.range, 1.0F);
+            const Mat4 view = look_at(
+                transform.position,
+                transform.position + direction,
+                make_shadow_up_vector(direction));
+            const Mat4 projection = perspective_projection(to_radians(90.0F), 1.0F, 0.1F, range);
+
+            shadow_data.light_view_projection = projection * view;
+            shadow_data.light_direction = Vec4(direction, 0.0F);
+            shadow_data.shadow_depth_bias = 0.0015F;
+            shadow_data.shadow_normal_bias = 0.02F;
+            shadow_data.shadow_strength = 0.85F;
+            (void)shadow_softness;
+            return shadow_data;
+        }
+
+        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
+        {
+            const auto& light = entity.get_component<AreaLight>();
+            const Transform transform = get_world_space_transform(entity);
+            if (!light.cast_shadows
+                || !is_within_distance_limit(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+            {
+                continue;
+            }
+
+            const Vec3 direction = Vec3(0.0F, -1.0F, 0.0F);
+            const float range = std::max(light.range, 1.0F);
+            const Mat4 view = look_at(
+                transform.position,
+                transform.position + direction,
+                make_shadow_up_vector(direction));
+            const Mat4 projection = ortho_projection(
+                -range,
+                range,
+                -range,
+                range,
+                0.1F,
+                range * 2.0F);
+
+            shadow_data.light_view_projection = projection * view;
+            shadow_data.light_direction = Vec4(direction, 0.0F);
+            shadow_data.shadow_depth_bias = 0.0015F;
+            shadow_data.shadow_normal_bias = 0.02F;
+            shadow_data.shadow_strength = 0.85F;
+            (void)shadow_softness;
+            return shadow_data;
+        }
+
+        return shadow_data;
+    }
+
+    static bool should_material_cast_shadows(
+        const MaterialInstance& material,
+        const Vec3& position,
+        const Vec3& camera_position,
+        const float shadow_caster_max_distance)
+    {
+        const ShadowMode shadow_mode = material.has_config_override_enabled()
+                                           ? material.config.shadow_mode
+                                           : ShadowMode::Standard;
+        if (shadow_mode == ShadowMode::None)
+            return false;
+        if (shadow_mode == ShadowMode::Always)
+            return true;
+
+        return is_within_distance_limit(position, camera_position, shadow_caster_max_distance);
     }
 
     struct DynamicMeshRenderBatch
@@ -199,10 +453,15 @@ namespace tbx
         std::weak_ptr<EntityRegistry> entity_registry,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<IWindowManager> window_manager,
-        const Size configured_resolution)
+        const GraphicsSettings& settings)
         : _entity_registry(std::move(entity_registry))
         , _window_manager(std::move(window_manager))
-        , _configured_resolution(configured_resolution)
+        , _configured_resolution(settings.resolution.value)
+        , _shadow_map_resolution(settings.shadow_map_resolution.value)
+        , _shadow_render_distance(settings.shadow_render_distance.value)
+        , _shadow_softness(settings.shadow_softness.value)
+        , _local_light_max_distance(settings.local_light_max_distance.value)
+        , _shadow_caster_max_distance(settings.shadow_caster_max_distance.value)
         , _resource_uploader(std::move(backend), std::move(asset_manager))
         , _sky_dome_mesh(std::make_shared<Mesh>(sky_dome))
     {
@@ -217,7 +476,7 @@ namespace tbx
         if (!entity_registry)
             return Result(false, "Frame pipeline factory failed: scene service unavailable.");
 
-        out_render_passes.reserve(out_render_passes.size() + 5U);
+        out_render_passes.reserve(out_render_passes.size() + 6U);
 
         const auto frame_uniform_buffers = std::array<GraphicsResourceBinding, 3U> {
             _resource_uploader.upload_uniform_buffer(
@@ -245,13 +504,67 @@ namespace tbx
                 &_light_shader_data,
                 static_cast<uint64>(sizeof(_light_shader_data))),
         };
+        const GraphicsResourceBinding shadow_pass_uniform_buffer =
+            _resource_uploader.upload_uniform_buffer(
+                resource_tracker,
+                BINDING_SHADOW_PASS_DATA,
+                "Shadow Pass Shader Data",
+                "Toybox/Uniforms/ShadowPass",
+                frame_index,
+                &_shadow_pass_shader_data,
+                static_cast<uint64>(sizeof(_shadow_pass_shader_data)));
         if (!frame_uniform_buffers[0].resource.is_valid()
             || !frame_uniform_buffers[1].resource.is_valid()
-            || !frame_uniform_buffers[2].resource.is_valid())
+            || !frame_uniform_buffers[2].resource.is_valid()
+            || !shadow_pass_uniform_buffer.resource.is_valid())
         {
             return Result(false, "Frame pipeline factory failed: frame uniform upload failed.");
         }
 
+        const bool has_shadowed_light = _light_shader_data.light_meta.y > 0;
+        const uint32 shadow_resolution = std::max(_shadow_map_resolution, 1U);
+        const GraphicsResourceBinding shadow_map = has_shadowed_light
+                                                       ? _resource_uploader.upload_texture(
+                                                             resource_tracker,
+                                                             BINDING_SHADOW_MAP,
+                                                             std::string("Toybox/ShadowMap/")
+                                                                 + std::to_string(
+                                                                     shadow_resolution),
+                                                             GraphicsTextureDesc {
+                                                                 .usage =
+                                                                     GraphicsTextureUsage::
+                                                                         SAMPLED_DEPTH_STENCIL,
+                                                                 .format =
+                                                                     GraphicsTextureFormat::
+                                                                         DEPTH32_FLOAT,
+                                                                 .size = Size {
+                                                                     shadow_resolution,
+                                                                     shadow_resolution},
+                                                                 .mip_count = 1U,
+                                                                 .array_layer_count = 1U,
+                                                                 .debug_name =
+                                                                     "Toybox Directional "
+                                                                     "Shadow Map",
+                                                             })
+                                                       : GraphicsResourceBinding {
+                                                             .slot = BINDING_SHADOW_MAP};
+        if (has_shadowed_light && !shadow_map.resource.is_valid())
+            return Result(false, "Frame pipeline factory failed: shadow map upload failed.");
+
+        const auto shadow_uniform_buffers = std::array<GraphicsResourceBinding, 3U> {
+            frame_uniform_buffers[0],
+            frame_uniform_buffers[1],
+            shadow_pass_uniform_buffer,
+        };
+        auto shadow_pass = RenderPass {
+            .pass =
+                GraphicsPassDesc {
+                    .depth_stencil_target = shadow_map.resource,
+                    .clear_depth = 1.0F,
+                    .clear_flags = GraphicsClearFlags::DEPTH,
+                    .debug_name = "Toybox Directional Shadow Pass",
+                },
+        };
         auto skybox_pass = RenderPass {
             .pass =
                 GraphicsPassDesc {
@@ -295,6 +608,8 @@ namespace tbx
         };
 
         const auto fallback_material = MaterialInstance(PbrMaterial::HANDLE);
+        const auto shadow_material = MaterialInstance(Handle("Materials/DirectionalShadowMap.mat"));
+        const Vec3 camera_position = Vec3(_camera_shader_data.world_position);
         auto has_static_geometry = false;
         auto has_sky_geometry = false;
         auto max_dynamic_index_count = uint32 {};
@@ -330,6 +645,34 @@ namespace tbx
                     .model_matrix = model_matrix,
                     .normal_matrix = normal(model_matrix),
                 });
+
+            if (has_shadowed_light
+                && detail::should_material_cast_shadows(
+                    material,
+                    get_world_space_transform(entity).position,
+                    camera_position,
+                    _shadow_caster_max_distance))
+            {
+                const auto result = _draw_command_factory.create(
+                    frame_index,
+                    shadow_uniform_buffers,
+                    RenderingDrawCommandInput {
+                        .type = RenderingDrawCommandInputType::DYNAMIC,
+                        .handle = Handle(std::string("Toybox/DynamicMeshShadow/") + batch_key),
+                        .instance_key =
+                            std::string("Toybox/DynamicMeshShadow/")
+                            + to_string(entity.get_id()),
+                        .dynamic_mesh = mesh_data,
+                        .material = shadow_material,
+                        .model_matrix = model_matrix,
+                        .normal_matrix = normal(model_matrix),
+                    },
+                    _resource_uploader,
+                    resource_tracker,
+                    shadow_pass.indexed_draws);
+                if (!result)
+                    return result;
+            }
         }
 
         for (const auto& [batch_key, batch] : dynamic_batches)
@@ -362,7 +705,9 @@ namespace tbx
             const auto* material_instance = entity.has_component<MaterialInstance>()
                                                 ? &entity.get_component<MaterialInstance>()
                                                 : nullptr;
-            const auto model_matrix = build_transform_matrix(get_world_space_transform(entity));
+            const Transform transform = get_world_space_transform(entity);
+            const auto model_matrix = build_transform_matrix(transform);
+            const auto material = material_instance ? *material_instance : fallback_material;
             const auto result = _draw_command_factory.create(
                 frame_index,
                 frame_uniform_buffers,
@@ -370,7 +715,7 @@ namespace tbx
                     .type = RenderingDrawCommandInputType::STATIC,
                     .handle = static_mesh.handle,
                     .instance_key = std::string("Toybox/Entity/") + to_string(entity.get_id()),
-                    .material = material_instance ? *material_instance : fallback_material,
+                    .material = material,
                     .model_matrix = model_matrix,
                     .normal_matrix = normal(model_matrix),
                 },
@@ -379,6 +724,32 @@ namespace tbx
                 opaque_pass.indexed_draws);
             if (!result)
                 return result;
+
+            if (has_shadowed_light
+                && detail::should_material_cast_shadows(
+                    material,
+                    transform.position,
+                    camera_position,
+                    _shadow_caster_max_distance))
+            {
+                const auto shadow_result = _draw_command_factory.create(
+                    frame_index,
+                    shadow_uniform_buffers,
+                    RenderingDrawCommandInput {
+                        .type = RenderingDrawCommandInputType::STATIC,
+                        .handle = static_mesh.handle,
+                        .instance_key =
+                            std::string("Toybox/Shadow/Entity/") + to_string(entity.get_id()),
+                        .material = shadow_material,
+                        .model_matrix = model_matrix,
+                        .normal_matrix = normal(model_matrix),
+                    },
+                    _resource_uploader,
+                    resource_tracker,
+                    shadow_pass.indexed_draws);
+                if (!shadow_result)
+                    return shadow_result;
+            }
         }
 
         for (auto& entity : entity_registry->get_with<Sky, Transform>())
@@ -407,6 +778,9 @@ namespace tbx
 
         const bool has_skybox_pass =
             !skybox_pass.draws.empty() || !skybox_pass.indexed_draws.empty();
+        if (!shadow_pass.draws.empty() || !shadow_pass.indexed_draws.empty())
+            out_render_passes.push_back(std::move(shadow_pass));
+
         if (has_skybox_pass)
             out_render_passes.push_back(std::move(skybox_pass));
 
@@ -414,6 +788,18 @@ namespace tbx
         {
             if (has_skybox_pass)
                 opaque_pass.pass.clear_flags = GraphicsClearFlags::DEPTH;
+            for (auto& draw : opaque_pass.draws)
+            {
+                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
+                if (shadow_map.resource.is_valid())
+                    draw.textures.push_back(shadow_map);
+            }
+            for (auto& draw : opaque_pass.indexed_draws)
+            {
+                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
+                if (shadow_map.resource.is_valid())
+                    draw.textures.push_back(shadow_map);
+            }
             out_render_passes.push_back(std::move(opaque_pass));
         }
 
@@ -464,6 +850,11 @@ namespace tbx
             delta_time,
             out_render_target,
             out_view);
+    }
+
+    void RenderingPassFactory::discard_cached_resource(const Uuid& resource)
+    {
+        _resource_uploader.discard_cached_resource(resource);
     }
 
     Result RenderingPassFactory::build_frame_data(
@@ -520,7 +911,16 @@ namespace tbx
             .inverse_projection = inverse(projection_matrix),
             .world_position = Vec4(active_camera_transform.position, 1.0F),
         };
-        _light_shader_data = detail::build_light_shader_data(entity_registry);
+        _light_shader_data = detail::build_light_shader_data(
+            entity_registry,
+            active_camera_transform.position,
+            _local_light_max_distance);
+        _shadow_pass_shader_data = detail::build_shadow_shader_data(
+            entity_registry,
+            active_camera_transform.position,
+            _shadow_render_distance,
+            _shadow_softness,
+            _local_light_max_distance);
         out_render_target = render_target;
         out_view = RenderView {
             .camera = active_camera,
