@@ -1,81 +1,11 @@
 #include "tbx/systems/files/watcher.h"
+#include "tbx/systems/files/internal/watcher_internal.h"
 #include <algorithm>
 #include <memory>
 #include <system_error>
 #include <utility>
-
 namespace tbx
 {
-    static std::filesystem::path get_snapshot_path(
-        const IFileOps& file_ops,
-        const std::filesystem::path& watched_path,
-        const std::filesystem::path& resolved_path)
-    {
-        if (watched_path.is_absolute())
-            return resolved_path.lexically_normal();
-
-        std::error_code error = {};
-        const auto relative_path =
-            std::filesystem::relative(resolved_path, file_ops.get_working_directory(), error);
-        if (error)
-        {
-            return resolved_path.lexically_normal();
-        }
-
-        return relative_path.lexically_normal();
-    }
-
-    static FileWatchSnapshot read_snapshot(
-        const IFileOps& file_ops,
-        const std::filesystem::path& root)
-    {
-        FileWatchSnapshot snapshot = {};
-        if (root.empty())
-            return snapshot;
-
-        const FileType type = file_ops.get_type(root);
-        if (type == FileType::FILE)
-        {
-            const auto path = root.is_absolute() ? file_ops.resolve(root) : root.lexically_normal();
-            snapshot.emplace(path, file_ops.get_last_write_time(root));
-            return snapshot;
-        }
-
-        if (type != FileType::DIRECTORY)
-            return snapshot;
-
-        for (const auto& entry : file_ops.read_directory(root))
-        {
-            if (file_ops.get_type(entry) != FileType::FILE)
-                continue;
-
-            const auto resolved_entry = file_ops.resolve(entry);
-            snapshot.emplace(
-                get_snapshot_path(file_ops, root, resolved_entry),
-                file_ops.get_last_write_time(entry));
-        }
-
-        return snapshot;
-    }
-
-    static void sort_changes(std::vector<FileWatchChange>& changes)
-    {
-        std::sort(
-            changes.begin(),
-            changes.end(),
-            [](const FileWatchChange& lhs, const FileWatchChange& rhs)
-            {
-                const std::string lhs_path = lhs.path.generic_string();
-                const std::string rhs_path = rhs.path.generic_string();
-                if (lhs_path == rhs_path)
-                {
-                    return static_cast<int>(lhs.type) < static_cast<int>(rhs.type);
-                }
-
-                return lhs_path < rhs_path;
-            });
-    }
-
     std::vector<FileWatchChange> diff_file_watch_snapshots(
         const FileWatchSnapshot& previous_snapshot,
         const FileWatchSnapshot& current_snapshot)
@@ -118,7 +48,7 @@ namespace tbx
                 });
         }
 
-        sort_changes(changes);
+        internal::sort_changes(changes);
         return changes;
     }
 
@@ -140,7 +70,7 @@ namespace tbx
         if (_watched_path.empty() || !_on_changed)
             return;
 
-        _snapshot = read_snapshot(*_file_ops, _watched_path);
+        _snapshot = internal::read_snapshot(*_file_ops, _watched_path);
 
         _worker = std::jthread(
             [this](std::stop_token stop_token)
@@ -172,7 +102,7 @@ namespace tbx
         if (_watched_path.empty() || !_on_changed)
             return;
 
-        FileWatchSnapshot current_snapshot = read_snapshot(*_file_ops, _watched_path);
+        FileWatchSnapshot current_snapshot = internal::read_snapshot(*_file_ops, _watched_path);
         const std::vector<FileWatchChange> changes =
             diff_file_watch_snapshots(_snapshot, current_snapshot);
 

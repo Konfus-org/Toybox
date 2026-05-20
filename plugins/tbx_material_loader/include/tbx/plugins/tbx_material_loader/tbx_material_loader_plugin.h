@@ -8,7 +8,7 @@
 #include <memory>
 #include <optional>
 
-namespace tbx_material_loader
+namespace tbx::material_loader
 {
     /// @brief
     /// Purpose: Loads material assets from .mat JSON files.

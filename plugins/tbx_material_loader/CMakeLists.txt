@@ -15,7 +15,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
         TARGET ${plugin_name}
-        CLASS tbx_material_loader::TbxMaterialLoaderPlugin
+        CLASS tbx::material_loader::TbxMaterialLoaderPlugin
         HEADER "tbx/plugins/tbx_material_loader/tbx_material_loader_plugin.h"
         NAME "${plugin_name}"
         VERSION "1.0.0"

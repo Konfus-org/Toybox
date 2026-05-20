@@ -1,15 +1,10 @@
 #include "tbx/plugins/sdl_input/sdl_input_plugin.h"
+#include "internal/sdl_input_plugin_internal.h"
 #include "sdl_input_manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include <memory>
-
 namespace sdl_input
 {
-    namespace
-    {
-        constexpr Uint32 GamepadSubsystemMask = SDL_INIT_GAMEPAD;
-    }
-
     void SdlInputPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         service_provider.register_service<tbx::IInputManager>(std::make_unique<SdlInputManager>());
@@ -27,14 +22,15 @@ namespace sdl_input
 
         _input_manager = input_manager;
 
-        if ((SDL_WasInit(GamepadSubsystemMask) & GamepadSubsystemMask) == GamepadSubsystemMask)
+        if ((SDL_WasInit(internal::GamepadSubsystemMask) & internal::GamepadSubsystemMask)
+            == internal::GamepadSubsystemMask)
         {
             _owns_gamepad_subsystem = false;
             SDL_AddEventWatch(accumulate_wheel_delta, this);
             return;
         }
 
-        if (!SDL_InitSubSystem(GamepadSubsystemMask))
+        if (!SDL_InitSubSystem(internal::GamepadSubsystemMask))
         {
             TBX_TRACE_ERROR("Failed to initialize SDL gamepad subsystem.");
             _owns_gamepad_subsystem = false;
@@ -56,7 +52,7 @@ namespace sdl_input
         _input_manager = {};
 
         if (_owns_gamepad_subsystem)
-            SDL_QuitSubSystem(GamepadSubsystemMask);
+            SDL_QuitSubSystem(internal::GamepadSubsystemMask);
         _owns_gamepad_subsystem = false;
     }
 

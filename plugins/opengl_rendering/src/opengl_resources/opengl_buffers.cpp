@@ -1,51 +1,13 @@
 #include "opengl_buffers.h"
+#include "internal/opengl_buffers_internal.h"
 #include "opengl_utils.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <array>
 #include <glad/glad.h>
 #include <utility>
-
 namespace opengl_rendering
 {
-    static uint32 take_gl_handle(uint32& id) noexcept
-    {
-        return std::exchange(id, 0);
-    }
-
-    static constexpr auto GeometryPassDrawBuffers = std::array<GLenum, 7U> {
-        GL_NONE,
-        GL_COLOR_ATTACHMENT1,
-        GL_COLOR_ATTACHMENT2,
-        GL_COLOR_ATTACHMENT3,
-        GL_COLOR_ATTACHMENT4,
-        GL_COLOR_ATTACHMENT5,
-        GL_COLOR_ATTACHMENT6,
-    };
-
-    static void add_attribute(
-        const uint32 vertex_array_id,
-        const uint32 index,
-        const uint32 size,
-        const uint32 type,
-        const uint32 offset,
-        const bool normalized)
-    {
-        glEnableVertexArrayAttrib(vertex_array_id, index);
-        if (type == GL_INT && !normalized)
-            glVertexArrayAttribIFormat(vertex_array_id, index, size, type, offset);
-        else
-            glVertexArrayAttribFormat(
-                vertex_array_id,
-                index,
-                size,
-                type,
-                normalized ? GL_TRUE : GL_FALSE,
-                offset);
-
-        glVertexArrayAttribBinding(vertex_array_id, index, 0);
-    }
-
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(
         const tbx::GraphicsBufferDesc& desc,
         const void* data,
@@ -70,7 +32,7 @@ namespace opengl_rendering
     }
 
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(OpenGlGraphicsBuffer&& other) noexcept
-        : _buffer_id(take_gl_handle(other._buffer_id))
+        : _buffer_id(internal::take_gl_handle(other._buffer_id))
         , _target(other._target)
     {
         other._target = GL_ARRAY_BUFFER;
@@ -84,7 +46,7 @@ namespace opengl_rendering
         if (_buffer_id != 0U)
             glDeleteBuffers(1, &_buffer_id);
 
-        _buffer_id = take_gl_handle(other._buffer_id);
+        _buffer_id = internal::take_gl_handle(other._buffer_id);
         _target = other._target;
         other._target = GL_ARRAY_BUFFER;
         return *this;
@@ -126,7 +88,7 @@ namespace opengl_rendering
     }
 
     OpenGlVertexBuffer::OpenGlVertexBuffer(OpenGlVertexBuffer&& other) noexcept
-        : _buffer_id(take_gl_handle(other._buffer_id))
+        : _buffer_id(internal::take_gl_handle(other._buffer_id))
         , _count(other._count)
     {
         other._count = 0;
@@ -140,7 +102,7 @@ namespace opengl_rendering
         if (_buffer_id != 0)
             glDeleteBuffers(1, &_buffer_id);
 
-        _buffer_id = take_gl_handle(other._buffer_id);
+        _buffer_id = internal::take_gl_handle(other._buffer_id);
         _count = other._count;
         other._count = 0;
         return *this;
@@ -172,7 +134,7 @@ namespace opengl_rendering
         uint32 index = 0;
         for (const auto& element : layout.elements)
         {
-            add_attribute(
+            internal::add_attribute(
                 vertex_array_id,
                 index,
                 static_cast<uint32>(get_vertex_component_count(element.type)),
@@ -204,7 +166,7 @@ namespace opengl_rendering
     }
 
     OpenGlIndexBuffer::OpenGlIndexBuffer(OpenGlIndexBuffer&& other) noexcept
-        : _buffer_id(take_gl_handle(other._buffer_id))
+        : _buffer_id(internal::take_gl_handle(other._buffer_id))
         , _count(other._count)
     {
         other._count = 0;
@@ -218,7 +180,7 @@ namespace opengl_rendering
         if (_buffer_id != 0)
             glDeleteBuffers(1, &_buffer_id);
 
-        _buffer_id = take_gl_handle(other._buffer_id);
+        _buffer_id = internal::take_gl_handle(other._buffer_id);
         _count = other._count;
         other._count = 0;
         return *this;
@@ -301,8 +263,8 @@ namespace opengl_rendering
         glNamedFramebufferTexture(_geometry_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
         glNamedFramebufferDrawBuffers(
             _geometry_framebuffer,
-            static_cast<GLsizei>(GeometryPassDrawBuffers.size()),
-            GeometryPassDrawBuffers.data());
+            static_cast<GLsizei>(internal::GeometryPassDrawBuffers.size()),
+            internal::GeometryPassDrawBuffers.data());
 
         glNamedFramebufferTexture(_final_color_framebuffer, GL_COLOR_ATTACHMENT0, _final_color, 0);
         glNamedFramebufferTexture(_final_color_framebuffer, GL_DEPTH_ATTACHMENT, _depth, 0);
@@ -500,7 +462,7 @@ namespace opengl_rendering
     }
 
     OpenGlFramebuffer::OpenGlFramebuffer(OpenGlFramebuffer&& other) noexcept
-        : _framebuffer_id(take_gl_handle(other._framebuffer_id))
+        : _framebuffer_id(internal::take_gl_handle(other._framebuffer_id))
     {
     }
 
@@ -512,7 +474,7 @@ namespace opengl_rendering
         if (_framebuffer_id != 0U)
             glDeleteFramebuffers(1, &_framebuffer_id);
 
-        _framebuffer_id = take_gl_handle(other._framebuffer_id);
+        _framebuffer_id = internal::take_gl_handle(other._framebuffer_id);
         return *this;
     }
 

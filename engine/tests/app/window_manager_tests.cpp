@@ -7,7 +7,7 @@
 
 namespace tbx::tests::app
 {
-    namespace detail
+    namespace internal
     {
         class RecordingWindowBackend final : public IWindowBackend
         {
@@ -67,7 +67,7 @@ namespace tbx::tests::app
     {
         // Arrange
         auto dispatcher = MessageCoordinator {};
-        auto backend = detail::RecordingWindowBackend {};
+        auto backend = internal::RecordingWindowBackend {};
         auto manager = WindowManager(dispatcher, backend);
         const Window main_window = manager.open(
             WindowCreateInfo {

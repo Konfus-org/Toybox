@@ -1,4 +1,5 @@
 #include "tbx/systems/files/json.h"
+#include "tbx/systems/files/internal/json_internal.h"
 #include "tbx/utils/string_utils.h"
 #include <cctype>
 #include <charconv>
@@ -6,7 +7,6 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
-
 namespace tbx
 {
     class Json::Impl
@@ -37,46 +37,10 @@ namespace tbx
         return _data->Data.dump(indent);
     }
 
-    static std::optional<std::reference_wrapper<const nlohmann::json>> try_get_value(
-        const nlohmann::json& data,
-        const std::string& key)
-    {
-        if (!data.is_object())
-            return std::nullopt;
-
-        const auto iterator = data.find(key);
-        if (iterator == data.end())
-            return std::nullopt;
-
-        return std::cref(*iterator);
-    }
-
-    static bool try_parse_float_components(
-        const nlohmann::json& data,
-        const std::string& key,
-        std::span<float> components)
-    {
-        const auto value = try_get_value(data, key);
-        if (!value.has_value() || !value->get().is_array()
-            || value->get().size() != components.size())
-            return false;
-
-        for (std::size_t index = 0; index < components.size(); ++index)
-        {
-            const auto& item = value->get()[index];
-            if (!item.is_number())
-                return false;
-
-            components[index] = item.get<float>();
-        }
-
-        return true;
-    }
-
     template <>
     bool Json::try_get<int>(const std::string& key, int& out_value) const
     {
-        const auto value = try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->Data, key);
         if (!value.has_value() || !value->get().is_number_integer())
             return false;
 
@@ -87,7 +51,7 @@ namespace tbx
     template <>
     bool Json::try_get<bool>(const std::string& key, bool& out_value) const
     {
-        const auto value = try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->Data, key);
         if (!value.has_value() || !value->get().is_boolean())
             return false;
 
@@ -98,7 +62,7 @@ namespace tbx
     template <>
     bool Json::try_get<float>(const std::string& key, float& out_value) const
     {
-        const auto value = try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->Data, key);
         if (!value.has_value() || !value->get().is_number())
             return false;
 
@@ -109,47 +73,12 @@ namespace tbx
     template <>
     bool Json::try_get<std::string>(const std::string& key, std::string& out_value) const
     {
-        const auto value = try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->Data, key);
         if (!value.has_value() || !value->get().is_string())
             return false;
 
         out_value = value->get().get<std::string>();
         return true;
-    }
-
-    static Uuid parse_uuid_text(std::string_view value)
-    {
-        const std::string trimmed = trim(value);
-        if (trimmed.empty())
-        {
-            return {};
-        }
-        auto start = trimmed.data();
-        auto end = trimmed.data() + trimmed.size();
-        while (start < end && !std::isxdigit(static_cast<unsigned char>(*start)))
-        {
-            start += 1;
-        }
-        if (start == end)
-        {
-            return {};
-        }
-        auto token_end = start;
-        while (token_end < end && std::isxdigit(static_cast<unsigned char>(*token_end)))
-        {
-            token_end += 1;
-        }
-        uint32 parsed = 0U;
-        auto result = std::from_chars(start, token_end, parsed, 16);
-        if (result.ec != std::errc())
-        {
-            return {};
-        }
-        if (parsed == 0U)
-        {
-            return {};
-        }
-        return Uuid(parsed);
     }
 
     template <>
@@ -159,7 +88,7 @@ namespace tbx
         if (!try_get<std::string>(key, text))
             return false;
 
-        out_value = parse_uuid_text(text);
+        out_value = internal::parse_uuid_text(text);
         return out_value.is_valid();
     }
 
@@ -167,7 +96,7 @@ namespace tbx
     bool Json::try_get<Vec2>(const std::string& key, Vec2& out_value) const
     {
         float components[2] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Vec2(components[0], components[1]);
@@ -178,7 +107,7 @@ namespace tbx
     bool Json::try_get<Vec3>(const std::string& key, Vec3& out_value) const
     {
         float components[3] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Vec3(components[0], components[1], components[2]);
@@ -189,7 +118,7 @@ namespace tbx
     bool Json::try_get<Vec4>(const std::string& key, Vec4& out_value) const
     {
         float components[4] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Vec4(components[0], components[1], components[2], components[3]);
@@ -200,7 +129,7 @@ namespace tbx
     bool Json::try_get<Quat>(const std::string& key, Quat& out_value) const
     {
         float components[4] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Quat(components[3], components[0], components[1], components[2]);
@@ -211,7 +140,7 @@ namespace tbx
     bool Json::try_get<Mat3>(const std::string& key, Mat3& out_value) const
     {
         float components[9] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Mat3(1.0f);
@@ -225,7 +154,7 @@ namespace tbx
     bool Json::try_get<Mat4>(const std::string& key, Mat4& out_value) const
     {
         float components[16] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Mat4(1.0f);
@@ -239,96 +168,11 @@ namespace tbx
     bool Json::try_get<Color>(const std::string& key, Color& out_value) const
     {
         float components[4] = {};
-        if (!try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->Data, key, components))
             return false;
 
         out_value = Color(components[0], components[1], components[2], components[3]);
         return true;
-    }
-
-    static bool try_parse_texture_wrap(std::string_view value, TextureWrap& out_value)
-    {
-        auto lowered = to_lower(trim(value));
-        if (lowered == "clamp_to_edge")
-        {
-            out_value = TextureWrap::CLAMP_TO_EDGE;
-            return true;
-        }
-        if (lowered == "mirrored_repeat")
-        {
-            out_value = TextureWrap::MIRRORED_REPEAT;
-            return true;
-        }
-        if (lowered == "repeat")
-        {
-            out_value = TextureWrap::REPEAT;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_filter(std::string_view value, TextureFilter& out_value)
-    {
-        auto lowered = to_lower(trim(value));
-        if (lowered == "nearest")
-        {
-            out_value = TextureFilter::NEAREST;
-            return true;
-        }
-        if (lowered == "linear")
-        {
-            out_value = TextureFilter::LINEAR;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_format(std::string_view value, TextureFormat& out_value)
-    {
-        auto lowered = to_lower(trim(value));
-        if (lowered == "rgb")
-        {
-            out_value = TextureFormat::RGB;
-            return true;
-        }
-        if (lowered == "rgba")
-        {
-            out_value = TextureFormat::RGBA;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_mipmaps(std::string_view value, TextureMipmaps& out_value)
-    {
-        auto lowered = to_lower(trim(value));
-        if (lowered == "disabled")
-        {
-            out_value = TextureMipmaps::DISABLED;
-            return true;
-        }
-        if (lowered == "enabled")
-        {
-            out_value = TextureMipmaps::ENABLED;
-            return true;
-        }
-        return false;
-    }
-
-    static bool try_parse_texture_compression(std::string_view value, TextureCompression& out_value)
-    {
-        auto lowered = to_lower(trim(value));
-        if (lowered == "disabled")
-        {
-            out_value = TextureCompression::DISABLED;
-            return true;
-        }
-        if (lowered == "auto")
-        {
-            out_value = TextureCompression::AUTO;
-            return true;
-        }
-        return false;
     }
 
     template <>
@@ -337,7 +181,7 @@ namespace tbx
         auto text = std::string();
         if (!try_get<std::string>(key, text))
             return false;
-        return try_parse_texture_wrap(text, out_value);
+        return internal::try_parse_texture_wrap(text, out_value);
     }
 
     template <>
@@ -346,7 +190,7 @@ namespace tbx
         auto text = std::string();
         if (!try_get<std::string>(key, text))
             return false;
-        return try_parse_texture_filter(text, out_value);
+        return internal::try_parse_texture_filter(text, out_value);
     }
 
     template <>
@@ -355,7 +199,7 @@ namespace tbx
         auto text = std::string();
         if (!try_get<std::string>(key, text))
             return false;
-        return try_parse_texture_format(text, out_value);
+        return internal::try_parse_texture_format(text, out_value);
     }
 
     template <>
@@ -364,7 +208,7 @@ namespace tbx
         auto text = std::string();
         if (!try_get<std::string>(key, text))
             return false;
-        return try_parse_texture_mipmaps(text, out_value);
+        return internal::try_parse_texture_mipmaps(text, out_value);
     }
 
     template <>
@@ -374,35 +218,13 @@ namespace tbx
         auto text = std::string();
         if (!try_get<std::string>(key, text))
             return false;
-        return try_parse_texture_compression(text, out_value);
-    }
-
-    template <typename TValue>
-    static bool try_get_array_impl(
-        const nlohmann::json& data,
-        const std::string& key,
-        std::vector<TValue>& out_values,
-        const std::function<bool(const nlohmann::json&)>& condition,
-        const std::function<TValue(const nlohmann::json&)>& parser)
-    {
-        const auto value = try_get_value(data, key);
-        if (!value.has_value() || !value->get().is_array())
-            return false;
-
-        bool found = false;
-        for (const auto& entry : value->get())
-            if (condition(entry))
-            {
-                out_values.push_back(parser(entry));
-                found = true;
-            }
-        return found;
+        return internal::try_parse_texture_compression(text, out_value);
     }
 
     template <>
     bool Json::try_get<int>(const std::string& key, std::vector<int>& out_values) const
     {
-        return try_get_array_impl<int>(
+        return internal::try_get_array_impl<int>(
             _data->Data,
             key,
             out_values,
@@ -419,7 +241,7 @@ namespace tbx
     template <>
     bool Json::try_get<bool>(const std::string& key, std::vector<bool>& out_values) const
     {
-        return try_get_array_impl<bool>(
+        return internal::try_get_array_impl<bool>(
             _data->Data,
             key,
             out_values,
@@ -436,7 +258,7 @@ namespace tbx
     template <>
     bool Json::try_get<float>(const std::string& key, std::vector<float>& out_values) const
     {
-        return try_get_array_impl<float>(
+        return internal::try_get_array_impl<float>(
             _data->Data,
             key,
             out_values,
@@ -454,7 +276,7 @@ namespace tbx
     bool Json::try_get<std::string>(const std::string& key, std::vector<std::string>& out_values)
         const
     {
-        return try_get_array_impl<std::string>(
+        return internal::try_get_array_impl<std::string>(
             _data->Data,
             key,
             out_values,

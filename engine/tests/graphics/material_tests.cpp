@@ -50,7 +50,7 @@ namespace tbx::tests::graphics
                 .is_depth_test_enabled = false,
                 .is_depth_write_enabled = false,
                 .is_depth_prepass_enabled = true,
-                .depth_function = MaterialDepthFunction::Always,
+                .depth_function = MaterialDepthFunction::ALWAYS,
             });
 
         // Assert
@@ -59,7 +59,7 @@ namespace tbx::tests::graphics
         EXPECT_FALSE(material.config.is_depth_test_enabled);
         EXPECT_FALSE(material.config.is_depth_write_enabled);
         EXPECT_TRUE(material.config.is_depth_prepass_enabled);
-        EXPECT_EQ(material.config.depth_function, MaterialDepthFunction::Always);
+        EXPECT_EQ(material.config.depth_function, MaterialDepthFunction::ALWAYS);
     }
 
     // Validates that Material config owns material render state.
@@ -82,10 +82,10 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(is_depth_test_enabled);
         EXPECT_TRUE(is_depth_write_enabled);
         EXPECT_FALSE(is_depth_prepass_enabled);
-        EXPECT_EQ(depth_function, MaterialDepthFunction::Less);
-        EXPECT_EQ(blend_mode, MaterialBlendMode::Opaque);
+        EXPECT_EQ(depth_function, MaterialDepthFunction::LESS);
+        EXPECT_EQ(blend_mode, MaterialBlendMode::OPAQUE);
         EXPECT_FALSE(is_two_sided);
         EXPECT_TRUE(is_cullable);
-        EXPECT_EQ(shadow_mode, ShadowMode::Standard);
+        EXPECT_EQ(shadow_mode, ShadowMode::STANDARD);
     }
 }

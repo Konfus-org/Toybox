@@ -1,4 +1,5 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
+#include "internal/stb_image_loader_plugin_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
@@ -8,40 +9,8 @@
 #include <stb_image.h>
 #include <string>
 #include <vector>
-
 namespace stb_image_loader
 {
-    static bool try_parse_texture(const tbx::Json& data, tbx::Texture& out_texture)
-    {
-        auto texture_data = tbx::Json();
-        if (!data.try_get_child("texture", texture_data))
-            return false;
-
-        auto texture = out_texture;
-        texture_data.try_get<tbx::TextureWrap>("wrap", texture.wrap);
-        texture_data.try_get<tbx::TextureFilter>("filter", texture.filter);
-        texture_data.try_get<tbx::TextureFormat>("format", texture.format);
-        texture_data.try_get<tbx::TextureMipmaps>("mipmaps", texture.mipmaps);
-        texture_data.try_get<tbx::TextureCompression>("compression", texture.compression);
-        out_texture = texture;
-        return true;
-    }
-
-    static std::string build_load_failure_message(
-        const std::filesystem::path& path,
-        const char* reason)
-    {
-        std::string message = "Stb image loader failed to load image: ";
-        message.append(path.string());
-        if (reason && *reason)
-        {
-            message.append(" (reason: ");
-            message.append(reason);
-            message.append(")");
-        }
-        return message;
-    }
-
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
@@ -55,8 +24,7 @@ namespace stb_image_loader
             if (!settings)
                 return;
 
-            _file_ops = std::make_unique<tbx::FileOperator>(
-                settings->paths.working_directory);
+            _file_ops = std::make_unique<tbx::FileOperator>(settings->paths.working_directory);
         }
 
         serialization_registry->register_reader<tbx::Texture>(
@@ -98,7 +66,7 @@ namespace stb_image_loader
             try
             {
                 const auto data = tbx::Json(meta_data);
-                try_parse_texture(data, load_texture);
+                internal::try_parse_texture(data, load_texture);
             }
             catch (...)
             {
@@ -112,7 +80,7 @@ namespace stb_image_loader
         {
             TBX_TRACE_WARNING(
                 "{}",
-                build_load_failure_message(asset_path, "file could not be read"));
+                internal::build_load_failure_message(asset_path, "file could not be read"));
             return {};
         }
 
@@ -129,7 +97,9 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            TBX_TRACE_WARNING("{}", build_load_failure_message(asset_path, stbi_failure_reason()));
+            TBX_TRACE_WARNING(
+                "{}",
+                internal::build_load_failure_message(asset_path, stbi_failure_reason()));
             return {};
         }
 

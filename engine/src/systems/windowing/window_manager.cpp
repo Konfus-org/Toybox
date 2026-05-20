@@ -1,29 +1,13 @@
 #include "tbx/systems/windowing/window_manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
+#include "tbx/systems/windowing/internal/window_manager_internal.h"
 #include <algorithm>
-#include <ranges>
 #include <string_view>
 #include <utility>
 
 namespace tbx
 {
-    namespace detail
-    {
-        static bool are_sizes_equal(const Size& left, const Size& right)
-        {
-            return left.width == right.width && left.height == right.height;
-        }
-
-        static std::string sanitize_window_handle_name(std::string title)
-        {
-            if (title.empty())
-                return "Toybox";
-
-            return title;
-        }
-    }
-
     WindowManager::WindowManager(IMessageDispatcher& dispatcher, IWindowBackend& backend)
         : _dispatcher(dispatcher)
         , _backend(backend)
@@ -37,7 +21,7 @@ namespace tbx
 
     Window WindowManager::open(const WindowCreateInfo& create_info)
     {
-        const auto base_name = detail::sanitize_window_handle_name(create_info.title);
+        const auto base_name = internal::sanitize_window_handle_name(create_info.title);
         auto handle_name = base_name;
         auto duplicate_index = uint32 {2U};
         auto window = Handle(handle_name);
@@ -322,7 +306,7 @@ namespace tbx
         const Size& size,
         bool apply_to_native_window)
     {
-        if (detail::are_sizes_equal(record.size, size))
+        if (internal::are_sizes_equal(record.size, size))
             return true;
 
         if (apply_to_native_window)

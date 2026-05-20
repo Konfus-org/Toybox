@@ -9,7 +9,7 @@
 #include <memory>
 #include <optional>
 
-namespace tbx_shader_loader
+namespace tbx::shader_loader
 {
     class TBX_PLUGIN_API TbxShaderLoaderPlugin final : public tbx::Plugin
     {

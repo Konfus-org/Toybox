@@ -1,10 +1,10 @@
 #include "tbx/types/uuid.h"
+#include "tbx/types/internal/uuid_internal.h"
 #include <functional>
 #include <limits>
 #include <random>
 #include <sstream>
 #include <string>
-
 namespace tbx
 {
     Uuid::Uuid() = default;
@@ -26,13 +26,6 @@ namespace tbx
         return id;
     }
 
-    static uint32 combine_value(uint32 seed, uint32 value)
-    {
-        auto hashed = std::hash<uint32> {}(value);
-        seed ^= hashed + 0x9e3779b9U + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-
     Uuid Uuid::combine(Uuid base, uint32 value)
     {
         base.combine(value);
@@ -41,7 +34,7 @@ namespace tbx
 
     void Uuid::combine(uint32 value)
     {
-        this->value = combine_value(this->value, value);
+        this->value = internal::combine_value(this->value, value);
         if (this->value == 0U)
         {
             this->value = 1U;

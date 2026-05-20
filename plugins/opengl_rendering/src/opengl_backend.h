@@ -90,6 +90,7 @@ namespace opengl_rendering
             const tbx::GraphicsTextureUpdateDesc& desc,
             const void* data,
             uint64 data_size) override;
+
         void destroy_context(const tbx::Window& window);
 
       private:
@@ -119,10 +120,16 @@ namespace opengl_rendering
 
         tbx::Window _active_window = {};
         tbx::Viewport _active_viewport = {};
+        tbx::Viewport _active_scissor = {};
         tbx::Uuid _current_pipeline = {};
+        std::unordered_map<uint32, tbx::Uuid> _uniform_buffer_bindings = {};
+        std::unordered_map<uint32, tbx::Uuid> _storage_buffer_bindings = {};
+        std::unordered_map<uint32, tbx::Uuid> _texture_bindings = {};
+        std::unordered_map<uint32, tbx::Uuid> _sampler_bindings = {};
 
         bool _is_gl_loaded = false;
         bool _is_initialized = false;
         bool _is_pass_active = false;
+        bool _is_scissor_enabled = false;
     };
 }

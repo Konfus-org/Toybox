@@ -11,20 +11,21 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tbx
 {
     /// @brief
-    /// Purpose: Identifies the geometry source stored in a draw command input.
+    /// Purpose: Identifies the geometry source stored in a batched draw command input.
     /// @details
     /// Ownership: Enum values are copied by value by frame pipeline construction.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class RenderingDrawCommandInputType
+    enum class RenderingMeshSourceType
     {
-        STATIC,
-        STATIC_RUNTIME,
-        DYNAMIC,
+        MODEL_ASSET,
+        STATIC_RUNTIME_MESH,
+        DYNAMIC_RUNTIME_MESH,
     };
 
     /// @brief
@@ -36,20 +37,20 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores entity-extracted CPU draw data before command construction.
+    /// Purpose: Stores extracted and batched CPU draw data before command construction.
     /// @details
-    /// Ownership: Owns copied material, transform uniform data, and a geometry source payload.
+    /// Ownership: Owns copied material, transform instances, and a geometry source payload.
     /// Thread Safety: Safe to move between frame stages; synchronize pointed-to mesh mutation.
-    struct TBX_API RenderingDrawCommandInput
+    struct TBX_API RenderingDrawBatchInput
     {
-        RenderingDrawCommandInputType type = RenderingDrawCommandInputType::STATIC;
-        Handle handle = {};
-        std::string instance_key = {};
+        RenderingMeshSourceType mesh_source = RenderingMeshSourceType::MODEL_ASSET;
+        Handle mesh_handle = {};
+        uint64 batch_key = 0U;
+        std::string debug_name = {};
         std::shared_ptr<DynamicMeshData> dynamic_mesh = {};
         std::shared_ptr<Mesh> runtime_mesh = {};
         MaterialInstance material = {};
-        Mat4 model_matrix = Mat4(1.0F);
-        Mat4 normal_matrix = Mat4(1.0F);
+        uint64 material_key = 0U;
         std::vector<RenderingDrawInstanceData> instances = {};
     };
 
@@ -72,13 +73,15 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Creates draw commands for one extracted render item.
+        /// Purpose: Creates draw commands for one extracted render batch.
         Result create(
             uint64 frame_index,
             const std::array<GraphicsResourceBinding, 3U>& frame_uniform_buffers,
-            const RenderingDrawCommandInput& input,
+            const RenderingDrawBatchInput& input,
             ResourceUploader& resource_uploader,
             RenderingResourceTracker& resource_tracker,
+            std::unordered_map<uint64, RenderingMaterialUploadData>& material_uploads,
+            std::unordered_map<uint64, GraphicsResourceBinding>& material_uniform_buffers,
             std::vector<GraphicsIndexedDrawCommand>& out_draw_commands) const;
     };
 }

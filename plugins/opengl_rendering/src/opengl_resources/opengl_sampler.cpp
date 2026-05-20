@@ -1,22 +1,16 @@
 #include "opengl_sampler.h"
+#include "internal/opengl_sampler_internal.h"
 #include <utility>
-
 namespace opengl_rendering
 {
-    static GLuint take_gl_handle(GLuint& handle) noexcept
-    {
-        return std::exchange(handle, 0U);
-    }
-
     OpenGlSampler::OpenGlSampler(const tbx::GraphicsSamplerDesc& desc)
     {
         glCreateSamplers(1, &_sampler_id);
 
-        const GLint min_filter = desc.is_linear_filtering_enabled
-                                     ? (desc.is_mipmapping_enabled ? GL_LINEAR_MIPMAP_LINEAR
-                                                                   : GL_LINEAR)
-                                     : (desc.is_mipmapping_enabled ? GL_NEAREST_MIPMAP_NEAREST
-                                                                   : GL_NEAREST);
+        const GLint min_filter =
+            desc.is_linear_filtering_enabled
+                ? (desc.is_mipmapping_enabled ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR)
+                : (desc.is_mipmapping_enabled ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST);
         const GLint mag_filter = desc.is_linear_filtering_enabled ? GL_LINEAR : GL_NEAREST;
         const GLint wrap = desc.is_repeating ? GL_REPEAT : GL_CLAMP_TO_EDGE;
 
@@ -33,7 +27,7 @@ namespace opengl_rendering
     }
 
     OpenGlSampler::OpenGlSampler(OpenGlSampler&& other) noexcept
-        : _sampler_id(take_gl_handle(other._sampler_id))
+        : _sampler_id(internal::take_gl_handle(other._sampler_id))
     {
     }
 
@@ -45,7 +39,7 @@ namespace opengl_rendering
         if (_sampler_id != 0U)
             glDeleteSamplers(1, &_sampler_id);
 
-        _sampler_id = take_gl_handle(other._sampler_id);
+        _sampler_id = internal::take_gl_handle(other._sampler_id);
         return *this;
     }
 

@@ -15,7 +15,7 @@ target_link_libraries(${plugin_name} PRIVATE
 
 tbx_register_plugin(
         TARGET ${plugin_name}
-        CLASS tbx_shader_loader::TbxShaderLoaderPlugin
+        CLASS tbx::shader_loader::TbxShaderLoaderPlugin
         HEADER "tbx/plugins/tbx_shader_loader/tbx_shader_loader_plugin.h"
         NAME "${plugin_name}"
         VERSION "1.0.0"

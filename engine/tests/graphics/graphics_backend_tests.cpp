@@ -33,24 +33,24 @@ namespace tbx::tests::graphics
 {
     enum class GraphicsBackendCallback
     {
-        BeginFrame,
-        BeginView,
-        SetViewport,
-        BeginPass,
-        EndPass,
-        BindPipeline,
-        BindVertexBuffer,
-        BindIndexBuffer,
-        BindUniformBuffer,
-        BindStorageBuffer,
-        BindTexture,
-        BindSampler,
-        Draw,
-        DrawIndexed,
-        EndView,
-        Present,
-        EndFrame,
-        WaitForIdle,
+        BEGIN_FRAME,
+        BEGIN_VIEW,
+        SET_VIEWPORT,
+        BEGIN_PASS,
+        END_PASS,
+        BIND_PIPELINE,
+        BIND_VERTEX_BUFFER,
+        BIND_INDEX_BUFFER,
+        BIND_UNIFORM_BUFFER,
+        BIND_STORAGE_BUFFER,
+        BIND_TEXTURE,
+        BIND_SAMPLER,
+        DRAW,
+        DRAW_INDEXED,
+        END_VIEW,
+        PRESENT,
+        END_FRAME,
+        WAIT_FOR_IDLE,
     };
 
     struct RecordedBufferUpload
@@ -66,7 +66,7 @@ namespace tbx::tests::graphics
         {
             recorded_output_window = output_target;
             begin_frame_thread_id = std::this_thread::get_id();
-            callbacks.push_back(GraphicsBackendCallback::BeginFrame);
+            callbacks.push_back(GraphicsBackendCallback::BEGIN_FRAME);
             return {};
         }
 
@@ -74,14 +74,14 @@ namespace tbx::tests::graphics
         {
             recorded_pass = pass;
             recorded_passes.push_back(pass);
-            callbacks.push_back(GraphicsBackendCallback::BeginPass);
+            callbacks.push_back(GraphicsBackendCallback::BEGIN_PASS);
             return {};
         }
 
         Result begin_view(const RenderView& view) override
         {
             recorded_viewport = view.viewport.dimensions;
-            callbacks.push_back(GraphicsBackendCallback::BeginView);
+            callbacks.push_back(GraphicsBackendCallback::BEGIN_VIEW);
             return {};
         }
 
@@ -90,7 +90,7 @@ namespace tbx::tests::graphics
         {
             recorded_index_buffer = buffer_resource_uuid;
             recorded_index_type = index_type;
-            callbacks.push_back(GraphicsBackendCallback::BindIndexBuffer);
+            callbacks.push_back(GraphicsBackendCallback::BIND_INDEX_BUFFER);
             return {};
         }
 
@@ -98,7 +98,7 @@ namespace tbx::tests::graphics
         {
             recorded_pipeline = pipeline_resource_uuid;
             recorded_pipelines.push_back(pipeline_resource_uuid);
-            callbacks.push_back(GraphicsBackendCallback::BindPipeline);
+            callbacks.push_back(GraphicsBackendCallback::BIND_PIPELINE);
             return {};
         }
 
@@ -106,13 +106,13 @@ namespace tbx::tests::graphics
         {
             recorded_sampler_slot = slot;
             recorded_sampler = sampler_resource_uuid;
-            callbacks.push_back(GraphicsBackendCallback::BindSampler);
+            callbacks.push_back(GraphicsBackendCallback::BIND_SAMPLER);
             return {};
         }
 
         Result bind_storage_buffer(uint32, const Uuid&) override
         {
-            callbacks.push_back(GraphicsBackendCallback::BindStorageBuffer);
+            callbacks.push_back(GraphicsBackendCallback::BIND_STORAGE_BUFFER);
             return {};
         }
 
@@ -120,7 +120,7 @@ namespace tbx::tests::graphics
         {
             recorded_texture_slot = slot;
             recorded_texture = texture_resource_uuid;
-            callbacks.push_back(GraphicsBackendCallback::BindTexture);
+            callbacks.push_back(GraphicsBackendCallback::BIND_TEXTURE);
             return {};
         }
 
@@ -128,7 +128,7 @@ namespace tbx::tests::graphics
         {
             recorded_uniform_slot = slot;
             recorded_uniform_buffer = buffer_resource_uuid;
-            callbacks.push_back(GraphicsBackendCallback::BindUniformBuffer);
+            callbacks.push_back(GraphicsBackendCallback::BIND_UNIFORM_BUFFER);
             return {};
         }
 
@@ -138,13 +138,13 @@ namespace tbx::tests::graphics
             recorded_vertex_buffer = buffer_resource_uuid;
             recorded_vertex_slots.push_back(slot);
             recorded_vertex_buffers.push_back(buffer_resource_uuid);
-            callbacks.push_back(GraphicsBackendCallback::BindVertexBuffer);
+            callbacks.push_back(GraphicsBackendCallback::BIND_VERTEX_BUFFER);
             return {};
         }
 
         Result draw(uint32, uint32) override
         {
-            callbacks.push_back(GraphicsBackendCallback::Draw);
+            callbacks.push_back(GraphicsBackendCallback::DRAW);
             return {};
         }
 
@@ -152,25 +152,25 @@ namespace tbx::tests::graphics
         {
             recorded_draw = draw;
             recorded_draws.push_back(draw);
-            callbacks.push_back(GraphicsBackendCallback::DrawIndexed);
+            callbacks.push_back(GraphicsBackendCallback::DRAW_INDEXED);
             return {};
         }
 
         Result end_frame() override
         {
-            callbacks.push_back(GraphicsBackendCallback::EndFrame);
+            callbacks.push_back(GraphicsBackendCallback::END_FRAME);
             return {};
         }
 
         Result end_pass() override
         {
-            callbacks.push_back(GraphicsBackendCallback::EndPass);
+            callbacks.push_back(GraphicsBackendCallback::END_PASS);
             return {};
         }
 
         Result end_view() override
         {
-            callbacks.push_back(GraphicsBackendCallback::EndView);
+            callbacks.push_back(GraphicsBackendCallback::END_VIEW);
             return {};
         }
 
@@ -187,7 +187,7 @@ namespace tbx::tests::graphics
 
         Result present() override
         {
-            callbacks.push_back(GraphicsBackendCallback::Present);
+            callbacks.push_back(GraphicsBackendCallback::PRESENT);
             return {};
         }
 
@@ -200,7 +200,7 @@ namespace tbx::tests::graphics
         Result set_viewport(const Viewport& viewport) override
         {
             recorded_viewport = viewport.dimensions;
-            callbacks.push_back(GraphicsBackendCallback::SetViewport);
+            callbacks.push_back(GraphicsBackendCallback::SET_VIEWPORT);
             return {};
         }
 
@@ -269,6 +269,7 @@ namespace tbx::tests::graphics
             Uuid& out_resource_uuid) override
         {
             recorded_texture_desc = desc;
+            recorded_texture_descs.push_back(desc);
             recorded_texture_upload_data.clear();
             if (data != nullptr && data_size > 0U)
             {
@@ -284,7 +285,7 @@ namespace tbx::tests::graphics
         void wait_for_idle() override
         {
             wait_for_idle_thread_id = std::this_thread::get_id();
-            callbacks.push_back(GraphicsBackendCallback::WaitForIdle);
+            callbacks.push_back(GraphicsBackendCallback::WAIT_FOR_IDLE);
         }
 
       public:
@@ -316,6 +317,7 @@ namespace tbx::tests::graphics
         std::vector<GraphicsBufferDesc> recorded_buffer_descs = {};
         std::vector<RecordedBufferUpload> recorded_buffer_uploads = {};
         GraphicsTextureDesc recorded_texture_desc = {};
+        std::vector<GraphicsTextureDesc> recorded_texture_descs = {};
         std::vector<uint8> recorded_texture_upload_data = {};
         std::vector<Uuid> unloaded_resources = {};
         uint64 recorded_texture_upload_size = 0U;
@@ -596,6 +598,20 @@ namespace tbx::tests::graphics
         return count;
     }
 
+    static uint count_texture_uploads_named(
+        const std::vector<GraphicsTextureDesc>& textures,
+        const std::string& debug_name)
+    {
+        auto count = uint {};
+        for (const auto& texture : textures)
+        {
+            if (texture.debug_name == debug_name)
+                count += 1U;
+        }
+
+        return count;
+    }
+
     static bool contains_vertex_slot(const RecordingGraphicsBackend& backend, const uint32 slot)
     {
         return std::find(
@@ -641,18 +657,18 @@ namespace tbx::tests::graphics
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::BeginFrame,
-            GraphicsBackendCallback::BeginView,
-            GraphicsBackendCallback::SetViewport,
-            GraphicsBackendCallback::BeginPass,
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::DrawIndexed,
-            GraphicsBackendCallback::EndPass,
-            GraphicsBackendCallback::EndView,
-            GraphicsBackendCallback::Present,
-            GraphicsBackendCallback::EndFrame,
+            GraphicsBackendCallback::BEGIN_FRAME,
+            GraphicsBackendCallback::BEGIN_VIEW,
+            GraphicsBackendCallback::SET_VIEWPORT,
+            GraphicsBackendCallback::BEGIN_PASS,
+            GraphicsBackendCallback::BIND_PIPELINE,
+            GraphicsBackendCallback::BIND_VERTEX_BUFFER,
+            GraphicsBackendCallback::BIND_INDEX_BUFFER,
+            GraphicsBackendCallback::DRAW_INDEXED,
+            GraphicsBackendCallback::END_PASS,
+            GraphicsBackendCallback::END_VIEW,
+            GraphicsBackendCallback::PRESENT,
+            GraphicsBackendCallback::END_FRAME,
         };
 
         EXPECT_EQ(backend.recorded_output_window.get_id(), window_manager.window.get_id());
@@ -857,7 +873,7 @@ namespace tbx::tests::graphics
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
-                GraphicsBackendCallback::BeginFrame),
+                GraphicsBackendCallback::BEGIN_FRAME),
             backend.callbacks.end());
     }
 
@@ -899,13 +915,13 @@ namespace tbx::tests::graphics
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
-            GraphicsBackendCallback::BindPipeline,
-            GraphicsBackendCallback::BindVertexBuffer,
-            GraphicsBackendCallback::BindIndexBuffer,
-            GraphicsBackendCallback::BindUniformBuffer,
-            GraphicsBackendCallback::BindTexture,
-            GraphicsBackendCallback::BindSampler,
-            GraphicsBackendCallback::DrawIndexed,
+            GraphicsBackendCallback::BIND_PIPELINE,
+            GraphicsBackendCallback::BIND_VERTEX_BUFFER,
+            GraphicsBackendCallback::BIND_INDEX_BUFFER,
+            GraphicsBackendCallback::BIND_UNIFORM_BUFFER,
+            GraphicsBackendCallback::BIND_TEXTURE,
+            GraphicsBackendCallback::BIND_SAMPLER,
+            GraphicsBackendCallback::DRAW_INDEXED,
         };
 
         EXPECT_TRUE(result);
@@ -965,7 +981,7 @@ namespace tbx::tests::graphics
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
-                GraphicsBackendCallback::DrawIndexed),
+                GraphicsBackendCallback::DRAW_INDEXED),
             backend.callbacks.end());
     }
 
@@ -1147,7 +1163,7 @@ namespace tbx::tests::graphics
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
-                GraphicsBackendCallback::DrawIndexed),
+                GraphicsBackendCallback::DRAW_INDEXED),
             backend.callbacks.end());
     }
 
@@ -1389,8 +1405,8 @@ namespace tbx::tests::graphics
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
-        const uint dynamic_upload_count = count_dynamic_mesh_vertex_uploads(
-            backend.recorded_buffer_uploads);
+        const uint dynamic_upload_count =
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
         const uint updated_buffer_count = backend.updated_buffer_count;
 
         // Act
@@ -1399,7 +1415,9 @@ namespace tbx::tests::graphics
         wait_for_render_lane(thread_manager);
 
         // Assert
-        EXPECT_EQ(count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads), dynamic_upload_count);
+        EXPECT_EQ(
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads),
+            dynamic_upload_count);
         EXPECT_GE(backend.updated_buffer_count, updated_buffer_count + 2U);
         EXPECT_FALSE(mesh_data->is_dirty());
     }
@@ -1436,8 +1454,8 @@ namespace tbx::tests::graphics
             settings);
         rendering.render();
         wait_for_render_lane(thread_manager);
-        const uint dynamic_upload_count = count_dynamic_mesh_vertex_uploads(
-            backend.recorded_buffer_uploads);
+        const uint dynamic_upload_count =
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
 
         // Act
         mesh_data->edit_mesh().indices.push_back(0U);
@@ -1445,8 +1463,345 @@ namespace tbx::tests::graphics
         wait_for_render_lane(thread_manager);
 
         // Assert
-        EXPECT_GT(count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads), dynamic_upload_count);
+        EXPECT_GT(
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads),
+            dynamic_upload_count);
         EXPECT_FALSE(mesh_data->is_dirty());
+    }
+
+    // Validates static meshes with the same source and material submit as one instanced draw.
+    TEST(RenderingTests, Render_SharedStaticMeshAndMaterialBatchesAsInstancedDraw)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Model>(
+            [](const std::filesystem::path&, const ModelLoadParameters&)
+            {
+                return std::make_shared<Model>(triangle);
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        const auto model_handle = Handle("Models/BatchedTriangle.fbx");
+        auto first = Entity("FirstStatic", registry);
+        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = Entity("SecondStatic", registry);
+        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        ASSERT_FALSE(backend.recorded_draws.empty());
+        EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
+        EXPECT_EQ(backend.recorded_draws.front().index_count, 3U);
+    }
+
+    // Validates material overrides keep otherwise identical static meshes in separate batches.
+    TEST(RenderingTests, Render_StaticMeshMaterialOverridesSplitBatches)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Model>(
+            [](const std::filesystem::path&, const ModelLoadParameters&)
+            {
+                return std::make_shared<Model>(triangle);
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        const auto model_handle = Handle("Models/SplitTriangle.fbx");
+        auto first_material = MaterialInstance(PbrMaterial::HANDLE);
+        first_material.set_parameter("u_test_value", 1.0F);
+        auto second_material = MaterialInstance(PbrMaterial::HANDLE);
+        second_material.set_parameter("u_test_value", 2.0F);
+        auto first = Entity("FirstStatic", registry);
+        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        first.add_component<MaterialInstance>(first_material);
+        auto second = Entity("SecondStatic", registry);
+        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        second.add_component<MaterialInstance>(second_material);
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        ASSERT_GE(backend.recorded_draws.size(), 2U);
+        EXPECT_EQ(backend.recorded_draws[0U].instance_count, 1U);
+        EXPECT_EQ(backend.recorded_draws[1U].instance_count, 1U);
+    }
+
+    // Validates shadow caster batching excludes materials that opt out of shadows.
+    TEST(RenderingTests, Render_ShadowCasterBatchExcludesNonCastingMaterial)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Model>(
+            [](const std::filesystem::path&, const ModelLoadParameters&)
+            {
+                return std::make_shared<Model>(triangle);
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        const auto model_handle = Handle("Models/ShadowTriangle.fbx");
+        auto light = Entity("Sun", registry);
+        light.add_component<DirectionalLight>(DirectionalLight());
+        light.add_component<Transform>(Vec3(0.0F));
+        auto first = Entity("FirstCaster", registry);
+        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = Entity("SecondCaster", registry);
+        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto no_shadow_config = MaterialConfig {};
+        no_shadow_config.shadow_mode = ShadowMode::NONE;
+        auto no_shadow_material = MaterialInstance(PbrMaterial::HANDLE);
+        no_shadow_material.set_config(no_shadow_config);
+        auto hidden = Entity("NoShadow", registry);
+        hidden.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        hidden.add_component<Transform>(Vec3(2.0F, 0.0F, -2.0F));
+        hidden.add_component<MaterialInstance>(no_shadow_material);
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        ASSERT_FALSE(backend.recorded_passes.empty());
+        EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Directional Shadow Pass");
+        ASSERT_FALSE(backend.recorded_draws.empty());
+        EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
+    }
+
+    // Validates nearby shadowed local lights own the single shadow slot over directional lights.
+    TEST(RenderingTests, Render_LocalShadowedLightTakesPrecedenceOverDirectionalShadow)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh = Entity("Triangle", registry);
+        mesh.add_component<DynamicMesh>(triangle);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto local = Entity("LocalLight", registry);
+        auto& point_light = local.add_component<PointLight>();
+        point_light.cast_shadows = true;
+        point_light.range = 8.0F;
+        local.add_component<Transform>(Vec3(0.0F, 0.0F, -3.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(light_data.has_value());
+        ASSERT_GE(light_data->light_meta.x, 2);
+        const ShaderLightData* directional_data = nullptr;
+        const ShaderLightData* point_data = nullptr;
+        for (int index = 0; index < light_data->light_meta.x; ++index)
+        {
+            const auto& shader_light = light_data->lights[static_cast<size>(index)];
+            if (shader_light.position_type.w == SHADER_LIGHT_TYPE_DIRECTIONAL)
+                directional_data = &shader_light;
+            if (shader_light.position_type.w == SHADER_LIGHT_TYPE_POINT)
+                point_data = &shader_light;
+        }
+
+        ASSERT_NE(directional_data, nullptr);
+        ASSERT_NE(point_data, nullptr);
+        EXPECT_EQ(light_data->light_meta.y, 1);
+        EXPECT_LT(directional_data->params.z, 0.0F);
+        EXPECT_EQ(point_data->params.z, 0.0F);
+    }
+
+    // Validates shadow resources are not uploaded when no eligible light casts shadows.
+    TEST(RenderingTests, Render_NoShadowedLightSkipsShadowPassAndShadowMapUpload)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh = Entity("Triangle", registry);
+        mesh.add_component<DynamicMesh>(triangle);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun_light = DirectionalLight();
+        sun_light.cast_shadows = false;
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(sun_light);
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(
+            std::find_if(
+                backend.recorded_passes.begin(),
+                backend.recorded_passes.end(),
+                [](const GraphicsPassDesc& pass)
+                {
+                    return pass.debug_name == "Toybox Directional Shadow Pass";
+                }),
+            backend.recorded_passes.end());
+        EXPECT_EQ(
+            count_texture_uploads_named(
+                backend.recorded_texture_descs,
+                "Toybox Directional Shadow Map"),
+            0U);
+    }
+
+    // Validates renderer-owned shadow map resources are reused after cache warmup.
+    TEST(RenderingTests, Render_ShadowMapUploadReusesCachedRenderTarget)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh = Entity("Triangle", registry);
+        mesh.add_component<DynamicMesh>(triangle);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const uint shadow_upload_count = count_texture_uploads_named(
+            backend.recorded_texture_descs,
+            "Toybox Directional Shadow Map");
+
+        // Act
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(
+            count_texture_uploads_named(
+                backend.recorded_texture_descs,
+                "Toybox Directional Shadow Map"),
+            shadow_upload_count);
     }
 
     // Validates discarded dynamic mesh buffers are removed from the upload cache.

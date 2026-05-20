@@ -1,16 +1,10 @@
 #include "tbx/types/mesh_utils.h"
+#include "tbx/types/internal/mesh_utils_internal.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/trig.h"
 #include "tbx/types/vectors.h"
-
 namespace tbx
 {
-    struct CapsuleRing
-    {
-        float y = 0.0F;
-        float radius = 0.0F;
-    };
-
     VertexBuffer make_vertex_buffer(const std::vector<Vertex>& vertices)
     {
         return VertexBuffer(vertices, get_default_vertex_buffer_layout());
@@ -158,7 +152,7 @@ namespace tbx
         uint32 cylinder_stacks,
         uint32 sectors)
     {
-        auto rings = std::vector<CapsuleRing> {};
+        auto rings = std::vector<internal::CapsuleRing> {};
         rings.reserve(static_cast<size_t>(hemisphere_stacks * 2U + cylinder_stacks + 1U));
 
         for (uint32 stack_index = 0U; stack_index <= hemisphere_stacks; ++stack_index)
@@ -167,7 +161,7 @@ namespace tbx
                 static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
             const float angle = (tbx::PI * 0.5F) * ratio;
             rings.push_back(
-                CapsuleRing {
+                internal::CapsuleRing {
                     .y = cylinder_half_height + tbx::cos(angle) * radius,
                     .radius = tbx::sin(angle) * radius,
                 });
@@ -178,7 +172,7 @@ namespace tbx
             const float ratio =
                 static_cast<float>(stack_index) / static_cast<float>(cylinder_stacks);
             rings.push_back(
-                CapsuleRing {
+                internal::CapsuleRing {
                     .y = cylinder_half_height - (ratio * 2.0F * cylinder_half_height),
                     .radius = radius,
                 });
@@ -190,14 +184,14 @@ namespace tbx
                 static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
             const float angle = (tbx::PI * 0.5F) * ratio;
             rings.push_back(
-                CapsuleRing {
+                internal::CapsuleRing {
                     .y = -cylinder_half_height - tbx::cos(angle) * radius,
                     .radius = tbx::sin(angle) * radius,
                 });
         }
 
         rings.push_back(
-            CapsuleRing {
+            internal::CapsuleRing {
                 .y = -cylinder_half_height - radius,
                 .radius = 0.0F,
             });
@@ -215,7 +209,7 @@ namespace tbx
 
         for (uint32 ring_index = 0U; ring_index < ring_count; ++ring_index)
         {
-            const CapsuleRing ring = rings[ring_index];
+            const internal::CapsuleRing ring = rings[ring_index];
             const float v = (ring.y + total_half_height) / total_height;
 
             for (uint32 sector_index = 0U; sector_index <= sectors; ++sector_index)

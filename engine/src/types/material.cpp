@@ -1,66 +1,15 @@
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/types/material.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/types/components/material_instance.h"
+#include "tbx/types/internal/material_internal.h"
 #include <string>
+#include <type_traits>
 #include <variant>
-
 namespace tbx
 {
-    static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_name(
-        std::vector<MaterialParameter>& values,
-        const std::string_view name)
-    {
-        for (auto& value : values)
-        {
-            if (value.name == name)
-                return std::ref(value);
-        }
-
-        return std::nullopt;
-    }
-
-    static std::optional<std::reference_wrapper<const MaterialParameter>> try_get_uniform_by_name(
-        const std::vector<MaterialParameter>& values,
-        const std::string_view name)
-    {
-        for (const auto& value : values)
-        {
-            if (value.name == name)
-                return std::cref(value);
-        }
-
-        return std::nullopt;
-    }
-
-    static std::optional<std::reference_wrapper<MaterialTextureBinding>> try_get_texture_by_name(
-        std::vector<MaterialTextureBinding>& values,
-        const std::string_view name)
-    {
-        for (auto& texture : values)
-        {
-            if (texture.name == name)
-                return std::ref(texture);
-        }
-
-        return std::nullopt;
-    }
-
-    static std::optional<std::reference_wrapper<const MaterialTextureBinding>> try_get_texture_by_name(
-        const std::vector<MaterialTextureBinding>& values,
-        const std::string_view name)
-    {
-        for (const auto& texture : values)
-        {
-            if (texture.name == name)
-                return std::cref(texture);
-        }
-
-        return std::nullopt;
-    }
-
     void MaterialParameterBindings::set(std::string_view name, MaterialParameterData value)
     {
-        auto parameter = try_get_uniform_by_name(values, name);
+        auto parameter = internal::try_get_uniform_by_name(values, name);
         if (parameter.has_value())
         {
             parameter->get().data = std::move(value);
@@ -84,13 +33,13 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialParameter>> MaterialParameterBindings::get(
         std::string_view name)
     {
-        return try_get_uniform_by_name(values, name);
+        return internal::try_get_uniform_by_name(values, name);
     }
 
     std::optional<std::reference_wrapper<const MaterialParameter>> MaterialParameterBindings::get(
         std::string_view name) const
     {
-        return try_get_uniform_by_name(values, name);
+        return internal::try_get_uniform_by_name(values, name);
     }
 
     bool MaterialParameterBindings::has(std::string_view name) const
@@ -150,7 +99,7 @@ namespace tbx
 
     void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
-        auto entry = try_get_texture_by_name(values, name);
+        auto entry = internal::try_get_texture_by_name(values, name);
         if (entry.has_value())
         {
             entry->get().texture = std::move(texture);
@@ -179,13 +128,13 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialTextureBinding>> MaterialTextureBindings::get(
         std::string_view name)
     {
-        return try_get_texture_by_name(values, name);
+        return internal::try_get_texture_by_name(values, name);
     }
 
-    std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::get(
-        std::string_view name) const
+    std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::
+        get(std::string_view name) const
     {
-        return try_get_texture_by_name(values, name);
+        return internal::try_get_texture_by_name(values, name);
     }
 
     bool MaterialTextureBindings::has(std::string_view name) const
@@ -362,5 +311,59 @@ namespace tbx
         if (!texture.has_value())
             return fallback;
         return texture->get().texture;
+    }
+
+    uint64 hash(const MaterialParameterData& data, const uint64 value)
+    {
+        uint64 result = hash(static_cast<uint64>(data.index()), value);
+        std::visit(
+            [&result](const auto& parameter_value)
+            {
+                using TValue = std::decay_t<decltype(parameter_value)>;
+                if constexpr (std::is_same_v<TValue, bool>)
+                    result = hash(static_cast<uint64>(parameter_value ? 1U : 0U), result);
+                else
+                    result = hash(parameter_value, result);
+            },
+            data);
+        return result;
+    }
+
+    uint64 hash(const MaterialConfig& config, const uint64 value)
+    {
+        uint64 result = value;
+        result = hash(static_cast<uint64>(config.is_depth_test_enabled ? 1U : 0U), result);
+        result = hash(static_cast<uint64>(config.is_depth_write_enabled ? 1U : 0U), result);
+        result = hash(static_cast<uint64>(config.is_depth_prepass_enabled ? 1U : 0U), result);
+        result = hash(static_cast<uint64>(config.is_two_sided ? 1U : 0U), result);
+        result = hash(static_cast<uint64>(config.is_cullable ? 1U : 0U), result);
+        result = hash(static_cast<uint64>(config.depth_function), result);
+        result = hash(static_cast<uint64>(config.blend_mode), result);
+        return hash(static_cast<uint64>(config.shadow_mode), result);
+    }
+
+    uint64 hash(const MaterialInstance& material, const uint64 value)
+    {
+        uint64 result = hash(material.get_handle().get_id(), value);
+        result = hash(material.get_handle().get_name(), result);
+        result =
+            hash(static_cast<uint64>(material.has_config_override_enabled() ? 1U : 0U), result);
+        if (material.has_config_override_enabled())
+            result = hash(material.config, result);
+
+        for (const auto& parameter : material.param_overrides)
+        {
+            result = hash(parameter.name, result);
+            result = hash(parameter.data, result);
+        }
+
+        for (const auto& texture : material.texture_overrides)
+        {
+            result = hash(texture.name, result);
+            result = hash(texture.texture.get_id(), result);
+            result = hash(texture.texture.get_name(), result);
+        }
+
+        return result == 0U ? 1U : result;
     }
 }

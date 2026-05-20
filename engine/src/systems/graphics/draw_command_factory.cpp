@@ -1,48 +1,47 @@
 #include "tbx/systems/graphics/draw_command_factory.h"
+#include "tbx/systems/graphics/internal/draw_command_factory_internal.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include <string>
 #include <vector>
-
-namespace tbx::detail
-{
-    static std::string make_draw_instance_key(const RenderingDrawCommandInput& input)
-    {
-        if (!input.instance_key.empty())
-            return input.instance_key;
-
-        return std::string("Toybox/Draw/") + to_string(input.handle);
-    }
-}
 
 namespace tbx
 {
     Result RenderingDrawCommandFactory::create(
         const uint64 frame_index,
         const std::array<GraphicsResourceBinding, 3U>& frame_uniform_buffers,
-        const RenderingDrawCommandInput& input,
+        const RenderingDrawBatchInput& input,
         ResourceUploader& resource_uploader,
         RenderingResourceTracker& resource_tracker,
+        std::unordered_map<uint64, RenderingMaterialUploadData>& material_uploads,
+        std::unordered_map<uint64, GraphicsResourceBinding>& material_uniform_buffers,
         std::vector<GraphicsIndexedDrawCommand>& out_draw_commands) const
     {
         auto meshes = std::vector<RenderingMeshUploadData> {};
-        if (input.type == RenderingDrawCommandInputType::DYNAMIC)
+        if (input.mesh_source == RenderingMeshSourceType::DYNAMIC_RUNTIME_MESH)
         {
             if (input.dynamic_mesh)
             {
                 auto mesh = RenderingMeshUploadData();
-                const Result result =
-                    resource_uploader.upload_dynamic_mesh(input.dynamic_mesh, resource_tracker, mesh);
+                const Result result = resource_uploader.upload_dynamic_mesh(
+                    input.dynamic_mesh,
+                    resource_tracker,
+                    mesh);
                 if (result)
                     meshes.push_back(mesh);
             }
         }
-        else if (input.type == RenderingDrawCommandInputType::STATIC_RUNTIME)
+        else if (input.mesh_source == RenderingMeshSourceType::STATIC_RUNTIME_MESH)
         {
-            if (input.runtime_mesh)
+            auto mesh = RenderingMeshUploadData();
+            if (resource_uploader
+                    .try_get_static_runtime_mesh(input.mesh_handle, resource_tracker, mesh))
             {
-                auto mesh = RenderingMeshUploadData();
+                meshes.push_back(mesh);
+            }
+            else if (input.runtime_mesh)
+            {
                 const Result result = resource_uploader.upload_static_runtime_mesh(
-                    input.handle,
+                    input.mesh_handle,
                     *input.runtime_mesh,
                     resource_tracker,
                     mesh);
@@ -50,10 +49,10 @@ namespace tbx
                     meshes.push_back(mesh);
             }
         }
-        else if (input.handle.is_valid())
+        else if (input.mesh_handle.is_valid())
         {
             const Result result =
-                resource_uploader.upload_model_meshes(input.handle, resource_tracker, meshes);
+                resource_uploader.upload_model_meshes(input.mesh_handle, resource_tracker, meshes);
             if (!result)
                 return result;
         }
@@ -65,19 +64,31 @@ namespace tbx
                 return result;
         }
 
+        const uint64 material_key = input.material_key == 0U ? input.batch_key : input.material_key;
         auto material = RenderingMaterialUploadData();
-        auto result = resource_uploader.upload_material(input.material, resource_tracker, material);
-        if (!result)
-            return result;
+        if (const auto cached_material = material_uploads.find(material_key);
+            cached_material != material_uploads.end())
+        {
+            material = cached_material->second;
+        }
+        else
+        {
+            auto result =
+                resource_uploader.upload_material(input.material, resource_tracker, material);
+            if (!result)
+                return result;
 
-        const std::string instance_key = detail::make_draw_instance_key(input);
+            material_uploads[material_key] = material;
+        }
+
+        const std::string instance_key = internal::make_draw_instance_key(input);
         auto instances = input.instances;
         if (instances.empty())
         {
             instances.push_back(
                 RenderingDrawInstanceData {
-                    .model_matrix = input.model_matrix,
-                    .normal_matrix = input.normal_matrix,
+                    .model_matrix = Mat4(1.0F),
+                    .normal_matrix = Mat4(1.0F),
                 });
         }
 
@@ -94,16 +105,27 @@ namespace tbx
                 frame_index,
                 &object_shader_data,
                 static_cast<uint64>(sizeof(object_shader_data)));
-        const GraphicsResourceBinding material_uniform_buffer =
-            resource_uploader.upload_uniform_buffer(
+
+        auto material_uniform_buffer = GraphicsResourceBinding {};
+        if (const auto cached_uniform = material_uniform_buffers.find(material_key);
+            cached_uniform != material_uniform_buffers.end())
+        {
+            material_uniform_buffer = cached_uniform->second;
+        }
+        else
+        {
+            material_uniform_buffer = resource_uploader.upload_uniform_buffer(
                 resource_tracker,
                 BINDING_MATERIAL_DATA,
                 "Material Shader Data",
-                instance_key + "/Material",
+                std::string("Toybox/Material/") + std::to_string(material_key),
                 frame_index,
                 material.uniform_values.data(),
                 static_cast<uint64>(material.uniform_values.size())
                     * static_cast<uint64>(sizeof(Vec4)));
+            material_uniform_buffers[material_key] = material_uniform_buffer;
+        }
+
         if (!object_uniform_buffer.resource.is_valid()
             || !material_uniform_buffer.resource.is_valid())
         {
@@ -135,11 +157,12 @@ namespace tbx
                     .pipeline = material.pipeline,
                     .index_buffer = mesh.index_buffer,
                     .index_type = GraphicsIndexType::UINT32,
-                    .vertex_buffers = {GraphicsResourceBinding {
-                                           .slot = VERTEX_BUFFER_SLOT_MESH,
-                                           .resource = mesh.vertex_buffer,
-                                       },
-                                       instance_buffer},
+                    .vertex_buffers =
+                        {GraphicsResourceBinding {
+                             .slot = VERTEX_BUFFER_SLOT_MESH,
+                             .resource = mesh.vertex_buffer,
+                         },
+                         instance_buffer},
                     .uniform_buffers = uniform_bindings,
                     .textures = material.textures,
                     .draw =

@@ -5,6 +5,7 @@
 #include "tbx/types/handle.h"
 #include "tbx/types/shader.h"
 #include "tbx/types/vectors.h"
+#include "tbx/utils/hash.h"
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
@@ -27,9 +28,9 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads.
     enum class MaterialDepthFunction : uint8_t
     {
-        Less = 0,
-        LessEqual = 1,
-        Always = 2
+        LESS = 0,
+        LESS_EQUAL = 1,
+        ALWAYS = 2
     };
 
     /// @brief
@@ -39,8 +40,8 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads.
     enum class MaterialBlendMode : uint8_t
     {
-        Opaque = 0,
-        AlphaBlend = 1
+        OPAQUE = 0,
+        ALPHA_BLEND = 1
     };
 
     /// @brief
@@ -51,9 +52,9 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads.
     enum class ShadowMode : uint8_t
     {
-        None = 0,
-        Standard = 1,
-        Always = 2
+        NONE = 0,
+        STANDARD = 1,
+        ALWAYS = 2
     };
 
     /// @brief
@@ -168,9 +169,9 @@ namespace tbx
         bool is_two_sided = false;
         bool is_cullable = true;
 
-        MaterialDepthFunction depth_function = MaterialDepthFunction::Less;
-        MaterialBlendMode blend_mode = MaterialBlendMode::Opaque;
-        ShadowMode shadow_mode = ShadowMode::Standard;
+        MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
+        MaterialBlendMode blend_mode = MaterialBlendMode::OPAQUE;
+        ShadowMode shadow_mode = ShadowMode::STANDARD;
     };
 
     /// @brief
@@ -186,6 +187,11 @@ namespace tbx
         MaterialTextureBindings textures = {};
         MaterialConfig config = {};
     };
+
+    TBX_API uint64 hash(
+        const MaterialParameterData& data,
+        uint64 value = TBX_FNV1A_OFFSET_BASIS);
+    TBX_API uint64 hash(const MaterialConfig& config, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
 #include "tbx/types/components/material_instance.h"

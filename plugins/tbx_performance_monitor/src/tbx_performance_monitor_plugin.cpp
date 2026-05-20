@@ -1,4 +1,5 @@
 #include "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
+#include "internal/tbx_performance_monitor_plugin_internal.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"
@@ -7,23 +8,8 @@
 #include <algorithm>
 #include <cmath>
 
-namespace tbx_performance_monitor
+namespace tbx::performance_monitor
 {
-#if defined(TBX_DEBUG)
-    static std::string build_debug_window_title(
-        const std::string& base_title,
-        tbx::GraphicsApi graphics_api,
-        uint average_fps)
-    {
-        auto title = base_title;
-        title += " [";
-        title += tbx::to_string(graphics_api);
-        title += ", FPS: ";
-        title += std::to_string(average_fps);
-        title += "]";
-        return title;
-    }
-#endif
 
     void TbxPerformanceMonitorPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
@@ -187,7 +173,7 @@ namespace tbx_performance_monitor
         if (!settings)
             return;
 
-        const auto next_title = build_debug_window_title(
+        const auto next_title = internal::build_debug_window_title(
             _main_window_base_title,
             settings->graphics.graphics_api,
             average_fps);

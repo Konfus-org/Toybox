@@ -60,6 +60,10 @@ namespace tbx
     {
         MaterialInstance material = {};
     };
+
+    TBX_API uint64 hash(
+        const MaterialInstance& material,
+        uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
 #include "tbx/types/components/material_instance.inl"

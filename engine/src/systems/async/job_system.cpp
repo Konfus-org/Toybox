@@ -1,27 +1,11 @@
 #include "tbx/systems/async/job_system.h"
+#include "tbx/systems/async/internal/job_system_internal.h"
 #include <stdexcept>
-
 namespace tbx
 {
-    namespace
-    {
-        size resolve_worker_count(size configured_worker_count)
-        {
-            if (configured_worker_count > 0)
-                return configured_worker_count;
-
-            auto detected_worker_count = static_cast<size>(std::thread::hardware_concurrency());
-
-            if (detected_worker_count == 0)
-                return 1;
-
-            return detected_worker_count;
-        }
-    }
-
     JobSystem::JobSystem(const JobSystemConfiguration& configuration)
     {
-        auto worker_count = resolve_worker_count(configuration.worker_count);
+        auto worker_count = internal::resolve_worker_count(configuration.worker_count);
         _workers.reserve(worker_count);
 
         for (size index = 0; index < worker_count; ++index)

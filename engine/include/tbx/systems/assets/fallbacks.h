@@ -42,8 +42,8 @@ namespace tbx
             .is_depth_test_enabled = true,
             .is_depth_write_enabled = true,
             .is_depth_prepass_enabled = false,
-            .depth_function = MaterialDepthFunction::Less,
-            .blend_mode = MaterialBlendMode::Opaque,
+            .depth_function = MaterialDepthFunction::LESS,
+            .blend_mode = MaterialBlendMode::OPAQUE,
         };
         return std::make_shared<Material>(std::move(material));
     }

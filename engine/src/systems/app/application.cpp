@@ -2,6 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/physics_backend.h"
+#include "tbx/systems/app/internal/application_internal.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
@@ -10,59 +11,11 @@
 #include <chrono>
 #include <exception>
 #include <memory>
-
 namespace tbx
 {
-    static std::filesystem::path get_default_asset_directory()
-    {
-#if defined(TBX_RESOURCES)
-        return std::filesystem::path(TBX_RESOURCES).lexically_normal();
-#else
-        return {};
-#endif
-    }
-
-    static ServiceProvider create_service_provider(const AppDescription& desc)
-    {
-        auto service_provider = ServiceProvider {};
-
-        service_provider.register_service<IMessageCoordinator>(
-            std::make_unique<MessageCoordinator>());
-        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
-        service_provider.register_service<SerializationRegistry>(
-            std::make_unique<SerializationRegistry>());
-        auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
-        auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
-        TBX_ASSERT(
-            message_coordinator != nullptr && serialization_registry != nullptr,
-            "Core services must be available before registering dependent services.");
-        if (!message_coordinator || !serialization_registry)
-            return service_provider;
-
-        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
-            *message_coordinator,
-            *serialization_registry,
-            desc.working_root));
-        auto settings = std::make_unique<AppSettings>(
-            *message_coordinator,
-            false,
-            GraphicsApi::OPEN_GL,
-            Size {0, 0});
-#if defined(TBX_DEBUG)
-        // Smaller shadow maps keep interactive debug builds closer to real-time on modest GPUs.
-        settings->graphics.shadow_map_resolution = 1024U;
-#endif
-        settings->icon = desc.icon;
-        service_provider.register_service<AppSettings>(std::move(settings));
-        service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
-        service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
-
-        return service_provider;
-    }
-
     Application::Application(const AppDescription& desc)
         : _name(desc.name)
-        , _service_provider(create_service_provider(desc))
+        , _service_provider(internal::create_service_provider(desc))
         , _plugin_manager(_service_provider)
     {
         _msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
@@ -86,7 +39,7 @@ namespace tbx
         else
             settings->paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
-        const auto resource_directory = get_default_asset_directory();
+        const auto resource_directory = internal::get_default_asset_directory();
         if (!resource_directory.empty())
             asset_manager->add_directory(resource_directory);
 
@@ -168,10 +121,10 @@ namespace tbx
 
     const Window& Application::get_main_window() const
     {
-        static const auto invalid_window = Window {};
+        static const auto INVALID_WINDOW = Window();
         const auto window_manager = _window_manager.lock();
         if (!window_manager || !window_manager->has_main_window())
-            return invalid_window;
+            return INVALID_WINDOW;
 
         return window_manager->get_main_window();
     }

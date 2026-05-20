@@ -159,6 +159,17 @@ namespace tbx
             RenderingMeshUploadData& out_mesh) const;
 
         /// @brief
+        /// Purpose: Reuses one cached stable runtime mesh buffer pair.
+        bool try_get_static_runtime_mesh(
+            const Handle& mesh_handle,
+            RenderingResourceTracker& resource_tracker,
+            RenderingMeshUploadData& out_mesh) const;
+
+        /// @brief
+        /// Purpose: Returns true when a stable runtime mesh already has cached GPU buffers.
+        bool has_static_runtime_mesh(const Handle& mesh_handle) const;
+
+        /// @brief
         /// Purpose: Uploads or reuses one stable runtime mesh buffer pair.
         Result upload_static_runtime_mesh(
             const Handle& mesh_handle,

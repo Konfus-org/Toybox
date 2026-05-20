@@ -1,6 +1,7 @@
 #include "tbx/systems/graphics/rendering_pass_factory.h"
-#include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/graphics/internal/rendering_pass_factory_internal.h"
+#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
@@ -8,443 +9,15 @@
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/trig.h"
+#include "tbx/utils/hash.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <variant>
-
-namespace tbx::detail
-{
-    static void append_material_parameter_value(
-        std::ostringstream& stream,
-        const MaterialParameterData& data)
-    {
-        stream << data.index() << ":";
-        std::visit(
-            [&stream](const auto& value)
-            {
-                using TValue = std::decay_t<decltype(value)>;
-                if constexpr (std::is_same_v<TValue, bool>)
-                    stream << (value ? 1 : 0);
-                else if constexpr (std::is_same_v<TValue, int>)
-                    stream << value;
-                else if constexpr (std::is_same_v<TValue, float>)
-                    stream << value;
-                else if constexpr (std::is_same_v<TValue, double>)
-                    stream << value;
-                else if constexpr (std::is_same_v<TValue, Vec2>)
-                    stream << value.x << "," << value.y;
-                else if constexpr (std::is_same_v<TValue, Vec3>)
-                    stream << value.x << "," << value.y << "," << value.z;
-                else if constexpr (std::is_same_v<TValue, Vec4>)
-                    stream << value.x << "," << value.y << "," << value.z << "," << value.w;
-                else if constexpr (std::is_same_v<TValue, Color>)
-                    stream << value.r << "," << value.g << "," << value.b << "," << value.a;
-                else if constexpr (std::is_same_v<TValue, Mat3>)
-                    stream << value[0].x << "," << value[0].y << "," << value[0].z << ","
-                           << value[1].x << "," << value[1].y << "," << value[1].z << ","
-                           << value[2].x << "," << value[2].y << "," << value[2].z;
-                else if constexpr (std::is_same_v<TValue, Mat4>)
-                    stream << value[0].x << "," << value[0].y << "," << value[0].z << ","
-                           << value[0].w << "," << value[1].x << "," << value[1].y << ","
-                           << value[1].z << "," << value[1].w << "," << value[2].x << ","
-                           << value[2].y << "," << value[2].z << "," << value[2].w << ","
-                           << value[3].x << "," << value[3].y << "," << value[3].z << ","
-                           << value[3].w;
-            },
-            data);
-    }
-
-    static std::string make_material_batch_key(const MaterialInstance& material)
-    {
-        auto stream = std::ostringstream {};
-        stream << to_string(material.get_handle());
-        stream << "|config=" << (material.has_config_override_enabled() ? 1 : 0);
-        if (material.has_config_override_enabled())
-        {
-            stream << "," << (material.config.is_depth_test_enabled ? 1 : 0);
-            stream << "," << (material.config.is_depth_write_enabled ? 1 : 0);
-            stream << "," << (material.config.is_two_sided ? 1 : 0);
-            stream << "," << (material.config.is_cullable ? 1 : 0);
-            stream << "," << static_cast<int>(material.config.depth_function);
-            stream << "," << static_cast<int>(material.config.blend_mode);
-            stream << "," << static_cast<int>(material.config.shadow_mode);
-        }
-
-        for (const auto& parameter : material.param_overrides)
-        {
-            stream << "|p:" << parameter.name << "=";
-            append_material_parameter_value(stream, parameter.data);
-        }
-        for (const auto& texture : material.texture_overrides)
-            stream << "|t:" << texture.name << "=" << to_string(texture.texture);
-
-        return stream.str();
-    }
-
-    static std::string make_dynamic_batch_key(
-        const DynamicMeshData& mesh_data,
-        const MaterialInstance& material)
-    {
-        return std::to_string(reinterpret_cast<std::uintptr_t>(&mesh_data)) + "|"
-               + make_material_batch_key(material);
-    }
-
-    static Vec3 make_light_color(const Light& light)
-    {
-        return Vec3(light.color.r, light.color.g, light.color.b);
-    }
-
-    static bool is_within_distance_limit(
-        const Vec3& source,
-        const Vec3& target,
-        const float max_distance)
-    {
-        return max_distance <= 0.0F || distance(source, target) <= max_distance;
-    }
-
-    static Vec3 make_shadow_up_vector(const Vec3& direction)
-    {
-        return std::abs(dot(direction, Vec3(0.0F, 1.0F, 0.0F))) > 0.95F
-                   ? Vec3(0.0F, 0.0F, 1.0F)
-                   : Vec3(0.0F, 1.0F, 0.0F);
-    }
-
-    static void append_shader_light(
-        LightShaderData& light_data,
-        const ShaderLightData& shader_light)
-    {
-        const int32 light_count = light_data.light_meta.x;
-        if (light_count < 0 || static_cast<uint32>(light_count) >= MAX_LIGHTS)
-            return;
-
-        light_data.lights[static_cast<size>(light_count)] = shader_light;
-        light_data.light_meta.x = light_count + 1;
-    }
-
-    static LightShaderData build_light_shader_data(
-        EntityRegistry& entity_registry,
-        const Vec3& camera_position,
-        const float local_light_max_distance)
-    {
-        auto light_data = LightShaderData();
-        auto ambient_color = Vec3(0.0F);
-        auto has_directional_ambient = false;
-        auto has_shadowed_light = false;
-
-        for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
-        {
-            const auto& light = entity.get_component<DirectionalLight>();
-            const Transform transform = get_world_space_transform(entity);
-            const Vec3 direction =
-                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const Vec3 color = make_light_color(light);
-
-            ambient_color += color * light.ambient;
-            has_directional_ambient = true;
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(0.0F, 0.0F, 0.0F, SHADER_LIGHT_TYPE_DIRECTIONAL),
-                    .direction_range = Vec4(direction, 0.0F),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        0.0F,
-                        0.0F,
-                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
-                        0.0F),
-                });
-            if (light.cast_shadows && !has_shadowed_light)
-            {
-                has_shadowed_light = true;
-                light_data.light_meta.y = 1;
-            }
-        }
-
-        for (auto& entity : entity_registry.get_with<PointLight, Transform>())
-        {
-            const auto& light = entity.get_component<PointLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 color = make_light_color(light);
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
-                    .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        0.0F,
-                        0.0F,
-                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
-                        0.0F),
-                });
-            if (light.cast_shadows && !has_shadowed_light)
-            {
-                has_shadowed_light = true;
-                light_data.light_meta.y = 1;
-            }
-        }
-
-        for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
-        {
-            const auto& light = entity.get_component<SpotLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction =
-                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const Vec3 color = make_light_color(light);
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_SPOT),
-                    .direction_range = Vec4(direction, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        angle_to_cosine(light.inner_angle),
-                        angle_to_cosine(light.outer_angle),
-                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
-                        0.0F),
-                });
-            if (light.cast_shadows && !has_shadowed_light)
-            {
-                has_shadowed_light = true;
-                light_data.light_meta.y = 1;
-            }
-        }
-
-        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
-        {
-            const auto& light = entity.get_component<AreaLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 color = make_light_color(light);
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
-                    .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        0.0F,
-                        0.0F,
-                        light.cast_shadows && !has_shadowed_light ? 0.0F : -1.0F,
-                        0.0F),
-                });
-            if (light.cast_shadows && !has_shadowed_light)
-            {
-                has_shadowed_light = true;
-                light_data.light_meta.y = 1;
-            }
-        }
-
-        if (has_directional_ambient)
-            light_data.ambient_color = Vec4(ambient_color, 1.0F);
-
-        return light_data;
-    }
-
-    static ShadowPassShaderData build_shadow_shader_data(
-        EntityRegistry& entity_registry,
-        const Vec3& camera_position,
-        const float shadow_render_distance,
-        const float shadow_softness,
-        const float local_light_max_distance)
-    {
-        auto shadow_data = ShadowPassShaderData();
-        const float shadow_distance = std::max(shadow_render_distance, 1.0F);
-        for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
-        {
-            const auto& light = entity.get_component<DirectionalLight>();
-            if (!light.cast_shadows)
-                continue;
-
-            const Transform transform = get_world_space_transform(entity);
-            const Vec3 direction =
-                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const Vec3 light_position = camera_position - direction * (shadow_distance * 0.5F);
-            const Mat4 view =
-                look_at(light_position, camera_position, make_shadow_up_vector(direction));
-            const float half_extent = shadow_distance * 0.5F;
-            const Mat4 projection = ortho_projection(
-                -half_extent,
-                half_extent,
-                -half_extent,
-                half_extent,
-                0.1F,
-                shadow_distance);
-
-            shadow_data.light_view_projection = projection * view;
-            shadow_data.light_direction = Vec4(direction, 0.0F);
-            shadow_data.shadow_depth_bias = 0.0015F;
-            shadow_data.shadow_normal_bias = 0.02F;
-            shadow_data.shadow_strength = 0.75F;
-            (void)shadow_softness;
-            return shadow_data;
-        }
-
-        for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
-        {
-            const auto& light = entity.get_component<SpotLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction =
-                normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection = perspective_projection(
-                to_radians(std::max(light.outer_angle * 2.0F, 1.0F)),
-                1.0F,
-                0.1F,
-                range);
-
-            shadow_data.light_view_projection = projection * view;
-            shadow_data.light_direction = Vec4(direction, 0.0F);
-            shadow_data.shadow_depth_bias = 0.0015F;
-            shadow_data.shadow_normal_bias = 0.02F;
-            shadow_data.shadow_strength = 0.85F;
-            (void)shadow_softness;
-            return shadow_data;
-        }
-
-        for (auto& entity : entity_registry.get_with<PointLight, Transform>())
-        {
-            const auto& light = entity.get_component<PointLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            Vec3 direction = normalize_or_zero(camera_position - transform.position);
-            if (dot(direction, direction) <= 0.0001F)
-                direction = Vec3(0.0F, -1.0F, 0.0F);
-
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection = perspective_projection(to_radians(90.0F), 1.0F, 0.1F, range);
-
-            shadow_data.light_view_projection = projection * view;
-            shadow_data.light_direction = Vec4(direction, 0.0F);
-            shadow_data.shadow_depth_bias = 0.0015F;
-            shadow_data.shadow_normal_bias = 0.02F;
-            shadow_data.shadow_strength = 0.85F;
-            (void)shadow_softness;
-            return shadow_data;
-        }
-
-        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
-        {
-            const auto& light = entity.get_component<AreaLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction = Vec3(0.0F, -1.0F, 0.0F);
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection = ortho_projection(
-                -range,
-                range,
-                -range,
-                range,
-                0.1F,
-                range * 2.0F);
-
-            shadow_data.light_view_projection = projection * view;
-            shadow_data.light_direction = Vec4(direction, 0.0F);
-            shadow_data.shadow_depth_bias = 0.0015F;
-            shadow_data.shadow_normal_bias = 0.02F;
-            shadow_data.shadow_strength = 0.85F;
-            (void)shadow_softness;
-            return shadow_data;
-        }
-
-        return shadow_data;
-    }
-
-    static bool should_material_cast_shadows(
-        const MaterialInstance& material,
-        const Vec3& position,
-        const Vec3& camera_position,
-        const float shadow_caster_max_distance)
-    {
-        const ShadowMode shadow_mode = material.has_config_override_enabled()
-                                           ? material.config.shadow_mode
-                                           : ShadowMode::Standard;
-        if (shadow_mode == ShadowMode::None)
-            return false;
-        if (shadow_mode == ShadowMode::Always)
-            return true;
-
-        return is_within_distance_limit(position, camera_position, shadow_caster_max_distance);
-    }
-
-    struct DynamicMeshRenderBatch
-    {
-        std::shared_ptr<DynamicMeshData> mesh_data = {};
-        MaterialInstance material = {};
-        std::vector<RenderingDrawInstanceData> instances = {};
-    };
-}
 
 namespace tbx
 {
@@ -463,7 +36,6 @@ namespace tbx
         , _local_light_max_distance(settings.local_light_max_distance.value)
         , _shadow_caster_max_distance(settings.shadow_caster_max_distance.value)
         , _resource_uploader(std::move(backend), std::move(asset_manager))
-        , _sky_dome_mesh(std::make_shared<Mesh>(sky_dome))
     {
     }
 
@@ -523,31 +95,22 @@ namespace tbx
 
         const bool has_shadowed_light = _light_shader_data.light_meta.y > 0;
         const uint32 shadow_resolution = std::max(_shadow_map_resolution, 1U);
-        const GraphicsResourceBinding shadow_map = has_shadowed_light
-                                                       ? _resource_uploader.upload_texture(
-                                                             resource_tracker,
-                                                             BINDING_SHADOW_MAP,
-                                                             std::string("Toybox/ShadowMap/")
-                                                                 + std::to_string(
-                                                                     shadow_resolution),
-                                                             GraphicsTextureDesc {
-                                                                 .usage =
-                                                                     GraphicsTextureUsage::
-                                                                         SAMPLED_DEPTH_STENCIL,
-                                                                 .format =
-                                                                     GraphicsTextureFormat::
-                                                                         DEPTH32_FLOAT,
-                                                                 .size = Size {
-                                                                     shadow_resolution,
-                                                                     shadow_resolution},
-                                                                 .mip_count = 1U,
-                                                                 .array_layer_count = 1U,
-                                                                 .debug_name =
-                                                                     "Toybox Directional "
-                                                                     "Shadow Map",
-                                                             })
-                                                       : GraphicsResourceBinding {
-                                                             .slot = BINDING_SHADOW_MAP};
+        const GraphicsResourceBinding shadow_map =
+            has_shadowed_light
+                ? _resource_uploader.upload_texture(
+                      resource_tracker,
+                      BINDING_SHADOW_MAP,
+                      std::string("Toybox/ShadowMap/") + std::to_string(shadow_resolution),
+                      GraphicsTextureDesc {
+                          .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
+                          .format = GraphicsTextureFormat::DEPTH32_FLOAT,
+                          .size = Size {shadow_resolution, shadow_resolution},
+                          .mip_count = 1U,
+                          .array_layer_count = 1U,
+                          .debug_name = "Toybox Directional "
+                                        "Shadow Map",
+                      })
+                : GraphicsResourceBinding {.slot = BINDING_SHADOW_MAP};
         if (has_shadowed_light && !shadow_map.resource.is_valid())
             return Result(false, "Frame pipeline factory failed: shadow map upload failed.");
 
@@ -609,12 +172,16 @@ namespace tbx
 
         const auto fallback_material = MaterialInstance(PbrMaterial::HANDLE);
         const auto shadow_material = MaterialInstance(Handle("Materials/DirectionalShadowMap.mat"));
+        const uint64 shadow_material_key = hash(shadow_material);
         const Vec3 camera_position = Vec3(_camera_shader_data.world_position);
         auto has_static_geometry = false;
         auto has_sky_geometry = false;
         auto max_dynamic_index_count = uint32 {};
+        auto material_uploads = std::unordered_map<uint64, RenderingMaterialUploadData> {};
+        auto material_uniform_buffers = std::unordered_map<uint64, GraphicsResourceBinding> {};
+        auto opaque_batches = internal::RenderBatchCollection {};
+        auto shadow_batches = internal::RenderBatchCollection {};
 
-        auto dynamic_batches = std::unordered_map<std::string, detail::DynamicMeshRenderBatch> {};
         for (auto& entity : entity_registry->get_with<DynamicMesh, Transform>())
         {
             const auto& mesh_component = entity.get_component<DynamicMesh>();
@@ -633,66 +200,45 @@ namespace tbx
                                                 : nullptr;
             const auto model_matrix = build_transform_matrix(get_world_space_transform(entity));
             const auto material = material_instance ? *material_instance : fallback_material;
-            const std::string batch_key = detail::make_dynamic_batch_key(*mesh_data, material);
-            auto& batch = dynamic_batches[batch_key];
-            if (!batch.mesh_data)
-            {
-                batch.mesh_data = mesh_data;
-                batch.material = material;
-            }
-            batch.instances.push_back(
-                RenderingDrawInstanceData {
-                    .model_matrix = model_matrix,
-                    .normal_matrix = normal(model_matrix),
-                });
+            const uint64 material_key = hash(material);
+            const auto mesh_source = RenderingMeshSourceType::DYNAMIC_RUNTIME_MESH;
+            const Uuid mesh_id =
+                Uuid(static_cast<uint32>(reinterpret_cast<std::uintptr_t>(mesh_data.get())));
+            const auto instance = RenderingDrawInstanceData {
+                .model_matrix = model_matrix,
+                .normal_matrix = normal(model_matrix),
+            };
+            internal::append_render_batch_instance(
+                opaque_batches,
+                internal::hash_render_batch(mesh_source, mesh_id, mesh_data.get(), material_key),
+                mesh_source,
+                material_key,
+                Handle("Toybox/DynamicMesh"),
+                mesh_data,
+                material,
+                instance);
 
             if (has_shadowed_light
-                && detail::should_material_cast_shadows(
+                && internal::should_material_cast_shadows(
                     material,
                     get_world_space_transform(entity).position,
                     camera_position,
                     _shadow_caster_max_distance))
             {
-                const auto result = _draw_command_factory.create(
-                    frame_index,
-                    shadow_uniform_buffers,
-                    RenderingDrawCommandInput {
-                        .type = RenderingDrawCommandInputType::DYNAMIC,
-                        .handle = Handle(std::string("Toybox/DynamicMeshShadow/") + batch_key),
-                        .instance_key =
-                            std::string("Toybox/DynamicMeshShadow/")
-                            + to_string(entity.get_id()),
-                        .dynamic_mesh = mesh_data,
-                        .material = shadow_material,
-                        .model_matrix = model_matrix,
-                        .normal_matrix = normal(model_matrix),
-                    },
-                    _resource_uploader,
-                    resource_tracker,
-                    shadow_pass.indexed_draws);
-                if (!result)
-                    return result;
+                internal::append_render_batch_instance(
+                    shadow_batches,
+                    internal::hash_render_batch(
+                        mesh_source,
+                        mesh_id,
+                        mesh_data.get(),
+                        shadow_material_key),
+                    mesh_source,
+                    shadow_material_key,
+                    Handle("Toybox/DynamicMeshShadow"),
+                    mesh_data,
+                    shadow_material,
+                    instance);
             }
-        }
-
-        for (const auto& [batch_key, batch] : dynamic_batches)
-        {
-            const auto result = _draw_command_factory.create(
-                frame_index,
-                frame_uniform_buffers,
-                RenderingDrawCommandInput {
-                    .type = RenderingDrawCommandInputType::DYNAMIC,
-                    .handle = Handle(std::string("Toybox/DynamicMesh/") + batch_key),
-                    .instance_key = std::string("Toybox/DynamicMeshBatch/") + batch_key,
-                    .dynamic_mesh = batch.mesh_data,
-                    .material = batch.material,
-                    .instances = batch.instances,
-                },
-                _resource_uploader,
-                resource_tracker,
-                opaque_pass.indexed_draws);
-            if (!result)
-                return result;
         }
 
         for (auto& entity : entity_registry->get_with<StaticMesh, Transform>())
@@ -708,72 +254,134 @@ namespace tbx
             const Transform transform = get_world_space_transform(entity);
             const auto model_matrix = build_transform_matrix(transform);
             const auto material = material_instance ? *material_instance : fallback_material;
-            const auto result = _draw_command_factory.create(
-                frame_index,
-                frame_uniform_buffers,
-                RenderingDrawCommandInput {
-                    .type = RenderingDrawCommandInputType::STATIC,
-                    .handle = static_mesh.handle,
-                    .instance_key = std::string("Toybox/Entity/") + to_string(entity.get_id()),
-                    .material = material,
-                    .model_matrix = model_matrix,
-                    .normal_matrix = normal(model_matrix),
-                },
-                _resource_uploader,
-                resource_tracker,
-                opaque_pass.indexed_draws);
-            if (!result)
-                return result;
+            const uint64 material_key = hash(material);
+            const auto instance = RenderingDrawInstanceData {
+                .model_matrix = model_matrix,
+                .normal_matrix = normal(model_matrix),
+            };
+            internal::append_render_batch_instance(
+                opaque_batches,
+                internal::hash_render_batch(
+                    RenderingMeshSourceType::MODEL_ASSET,
+                    static_mesh.handle.get_id(),
+                    nullptr,
+                    material_key),
+                RenderingMeshSourceType::MODEL_ASSET,
+                material_key,
+                static_mesh.handle,
+                {},
+                material,
+                instance);
 
             if (has_shadowed_light
-                && detail::should_material_cast_shadows(
+                && internal::should_material_cast_shadows(
                     material,
                     transform.position,
                     camera_position,
                     _shadow_caster_max_distance))
             {
-                const auto shadow_result = _draw_command_factory.create(
-                    frame_index,
-                    shadow_uniform_buffers,
-                    RenderingDrawCommandInput {
-                        .type = RenderingDrawCommandInputType::STATIC,
-                        .handle = static_mesh.handle,
-                        .instance_key =
-                            std::string("Toybox/Shadow/Entity/") + to_string(entity.get_id()),
-                        .material = shadow_material,
-                        .model_matrix = model_matrix,
-                        .normal_matrix = normal(model_matrix),
-                    },
-                    _resource_uploader,
-                    resource_tracker,
-                    shadow_pass.indexed_draws);
-                if (!shadow_result)
-                    return shadow_result;
+                internal::append_render_batch_instance(
+                    shadow_batches,
+                    internal::hash_render_batch(
+                        RenderingMeshSourceType::MODEL_ASSET,
+                        static_mesh.handle.get_id(),
+                        nullptr,
+                        shadow_material_key),
+                    RenderingMeshSourceType::MODEL_ASSET,
+                    shadow_material_key,
+                    static_mesh.handle,
+                    {},
+                    shadow_material,
+                    instance);
             }
         }
 
-        for (auto& entity : entity_registry->get_with<Sky, Transform>())
+        for (const auto& [batch_key, batch] : shadow_batches)
         {
-            has_sky_geometry = true;
-            const auto& sky = entity.get_component<Sky>();
-            const auto model_matrix = build_transform_matrix(get_world_space_transform(entity));
             const auto result = _draw_command_factory.create(
                 frame_index,
-                frame_uniform_buffers,
-                RenderingDrawCommandInput {
-                    .type = RenderingDrawCommandInputType::STATIC_RUNTIME,
-                    .handle = Handle("Toybox/SkyDome"),
-                    .instance_key = std::string("Toybox/Entity/") + to_string(entity.get_id()),
-                    .runtime_mesh = _sky_dome_mesh,
-                    .material = sky.material,
-                    .model_matrix = model_matrix,
-                    .normal_matrix = normal(model_matrix),
+                shadow_uniform_buffers,
+                RenderingDrawBatchInput {
+                    .mesh_source = batch.mesh_source,
+                    .mesh_handle = batch.mesh_handle,
+                    .batch_key = batch_key,
+                    .debug_name = internal::make_batch_debug_name(batch_key, "Toybox/ShadowBatch/"),
+                    .dynamic_mesh = batch.dynamic_mesh,
+                    .material = batch.material,
+                    .material_key = batch.material_key,
+                    .instances = batch.instances,
                 },
                 _resource_uploader,
                 resource_tracker,
+                material_uploads,
+                material_uniform_buffers,
+                shadow_pass.indexed_draws);
+            if (!result)
+                return result;
+        }
+
+        for (const auto& [batch_key, batch] : opaque_batches)
+        {
+            const auto result = _draw_command_factory.create(
+                frame_index,
+                frame_uniform_buffers,
+                RenderingDrawBatchInput {
+                    .mesh_source = batch.mesh_source,
+                    .mesh_handle = batch.mesh_handle,
+                    .batch_key = batch_key,
+                    .debug_name = internal::make_batch_debug_name(batch_key, "Toybox/RenderBatch/"),
+                    .dynamic_mesh = batch.dynamic_mesh,
+                    .material = batch.material,
+                    .material_key = batch.material_key,
+                    .instances = batch.instances,
+                },
+                _resource_uploader,
+                resource_tracker,
+                material_uploads,
+                material_uniform_buffers,
+                opaque_pass.indexed_draws);
+            if (!result)
+                return result;
+        }
+
+        const auto sky_dome_handle = Handle("Toybox/SkyDome");
+        for (auto& entity : entity_registry->get_with<Sky, Transform>())
+        {
+            has_sky_geometry = true;
+            if (!_sky_dome_mesh && !_resource_uploader.has_static_runtime_mesh(sky_dome_handle))
+                _sky_dome_mesh = std::make_shared<Mesh>(make_sky_dome());
+
+            const auto& sky = entity.get_component<Sky>();
+            const auto model_matrix = build_transform_matrix(get_world_space_transform(entity));
+            const uint64 material_key = hash(sky.material);
+            const auto result = _draw_command_factory.create(
+                frame_index,
+                frame_uniform_buffers,
+                RenderingDrawBatchInput {
+                    .mesh_source = RenderingMeshSourceType::STATIC_RUNTIME_MESH,
+                    .mesh_handle = sky_dome_handle,
+                    .batch_key = hash(entity.get_id(), material_key),
+                    .debug_name = std::string("Toybox/Sky/Entity/") + to_string(entity.get_id()),
+                    .runtime_mesh = _sky_dome_mesh,
+                    .material = sky.material,
+                    .material_key = material_key,
+                    .instances =
+                        {
+                            RenderingDrawInstanceData {
+                                .model_matrix = model_matrix,
+                                .normal_matrix = normal(model_matrix),
+                            },
+                        },
+                },
+                _resource_uploader,
+                resource_tracker,
+                material_uploads,
+                material_uniform_buffers,
                 skybox_pass.indexed_draws);
             if (!result)
                 return result;
+
+            _sky_dome_mesh.reset();
         }
 
         const bool has_skybox_pass =
@@ -911,11 +519,11 @@ namespace tbx
             .inverse_projection = inverse(projection_matrix),
             .world_position = Vec4(active_camera_transform.position, 1.0F),
         };
-        _light_shader_data = detail::build_light_shader_data(
+        _light_shader_data = internal::build_light_shader_data(
             entity_registry,
             active_camera_transform.position,
             _local_light_max_distance);
-        _shadow_pass_shader_data = detail::build_shadow_shader_data(
+        _shadow_pass_shader_data = internal::build_shadow_shader_data(
             entity_registry,
             active_camera_transform.position,
             _shadow_render_distance,

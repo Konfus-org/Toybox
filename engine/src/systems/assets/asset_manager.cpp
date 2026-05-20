@@ -1,24 +1,13 @@
 #include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/systems/assets/internal/asset_manager_internal.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/messages.h"
 #include <filesystem>
-
 namespace tbx
 {
-    static constexpr double ASSET_UNLOAD_INTERVAL_SECONDS = 1.0;
-    static constexpr auto ASSET_UNLOAD_IDLE_GRACE = std::chrono::seconds(5);
-
-    namespace
-    {
-        Handle build_asset_handle(const AssetRegistryEntry& entry)
-        {
-            return Handle(entry.normalized_path, entry.asset_id);
-        }
-    }
-
     AssetManager::AssetManager(
         IMessageDispatcher& dispatcher,
         SerializationRegistry& serialization_registry,
@@ -47,10 +36,10 @@ namespace tbx
     {
         std::lock_guard lock(_mutex);
         _unload_elapsed_seconds += dt.seconds;
-        if (_unload_elapsed_seconds < ASSET_UNLOAD_INTERVAL_SECONDS)
+        if (_unload_elapsed_seconds < internal::ASSET_UNLOAD_INTERVAL_SECONDS)
             return;
 
-        unload_unreferenced(ASSET_UNLOAD_IDLE_GRACE);
+        unload_unreferenced(internal::ASSET_UNLOAD_IDLE_GRACE);
         _unload_elapsed_seconds = 0.0;
     }
 
@@ -215,7 +204,7 @@ namespace tbx
                     }
 
                     const auto& registry_entry = *register_result.entry;
-                    affected_asset = build_asset_handle(registry_entry);
+                    affected_asset = internal::build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::CREATED;
 
                     TBX_TRACE_INFO("File created: {}", changed_asset_path.string());
@@ -240,7 +229,7 @@ namespace tbx
                     }
 
                     const auto& registry_entry = *register_result.entry;
-                    affected_asset = build_asset_handle(registry_entry);
+                    affected_asset = internal::build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::MODIFIED;
 
                     auto reload_result = AssetStoreReloadResult {};
@@ -312,7 +301,7 @@ namespace tbx
                             store.second->erase(registry_entry.asset_id);
                     }
 
-                    affected_asset = build_asset_handle(registry_entry);
+                    affected_asset = internal::build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::REMOVED;
 
                     TBX_TRACE_INFO("File removed: {}", changed_asset_path.string());

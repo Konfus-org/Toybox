@@ -1,4 +1,5 @@
 #include "opengl_backend.h"
+#include "internal/opengl_backend_internal.h"
 #include "opengl_resources/opengl_utils.h"
 #include <algorithm>
 #include <cstdint>
@@ -6,47 +7,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 namespace opengl_rendering
 {
-    static const char* get_gl_string(const GLenum name)
-    {
-        const auto* value = glGetString(name);
-        return value ? reinterpret_cast<const char*>(value) : "unknown";
-    }
-
-    static tbx::Result require_opengl_4_5_direct_state_access()
-    {
-        if (GLAD_GL_VERSION_4_5 && glCreateBuffers && glNamedBufferData && glNamedBufferSubData
-            && glCreateVertexArrays && glVertexArrayVertexBuffer && glVertexArrayElementBuffer
-            && glCreateFramebuffers && glNamedFramebufferTexture && glNamedFramebufferDrawBuffers
-            && glCreateTextures)
-            return make_success();
-
-        auto message = std::string("OpenGL backend requires OpenGL 4.5 direct state access. ");
-        message += "Driver reported version '";
-        message += get_gl_string(GL_VERSION);
-        message += "', renderer '";
-        message += get_gl_string(GL_RENDERER);
-        message += "'.";
-        return make_failure(std::move(message));
-    }
-
-    static void apply_pipeline_state(const tbx::GraphicsPipelineDesc& desc)
-    {
-        desc.is_depth_test_enabled ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
-        glDepthMask(desc.is_depth_write_enabled ? GL_TRUE : GL_FALSE);
-        desc.is_blending_enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
-        desc.is_culling_enabled ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
-        if (desc.is_culling_enabled)
-        {
-            glCullFace(desc.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
-        }
-
-        if (desc.is_blending_enabled)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-
     OpenGlGraphicsBackend::OpenGlGraphicsBackend(tbx::IOpenGlContextManager& context_manager)
         : _context_manager(context_manager)
     {
@@ -277,13 +239,28 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::set_scissor(const tbx::Viewport& scissor)
     {
+        if (_is_scissor_enabled && _active_scissor.position.x == scissor.position.x
+            && _active_scissor.position.y == scissor.position.y
+            && _active_scissor.dimensions.width == scissor.dimensions.width
+            && _active_scissor.dimensions.height == scissor.dimensions.height)
+        {
+            return make_success();
+        }
+
         glEnable(GL_SCISSOR_TEST);
         glScissor(
             static_cast<GLint>(scissor.position.x),
             static_cast<GLint>(scissor.position.y),
             static_cast<GLsizei>(scissor.dimensions.width),
             static_cast<GLsizei>(scissor.dimensions.height));
-        return consume_gl_errors("set_scissor");
+        auto result = consume_gl_errors("set_scissor");
+        if (result)
+        {
+            _active_scissor = scissor;
+            _is_scissor_enabled = true;
+        }
+
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_pipeline(const tbx::Uuid& pipeline_resource_uuid)
@@ -302,7 +279,7 @@ namespace opengl_rendering
 
         program_it->second.bind();
         glBindVertexArray(vertex_array_it->second);
-        apply_pipeline_state(desc_it->second);
+        internal::apply_pipeline_state(desc_it->second);
 
         if (auto result = consume_gl_errors("bind_pipeline"); !result)
             return result;
@@ -435,6 +412,13 @@ namespace opengl_rendering
         const uint32 slot,
         const tbx::Uuid& buffer_resource_uuid)
     {
+        if (const auto binding_it = _uniform_buffer_bindings.find(slot);
+            binding_it != _uniform_buffer_bindings.end()
+            && binding_it->second == buffer_resource_uuid)
+        {
+            return make_success();
+        }
+
         const auto buffer_it = _buffers.find(buffer_resource_uuid);
         if (buffer_it == _buffers.end())
             return make_failure("OpenGL backend: uniform buffer was not found.");
@@ -449,13 +433,24 @@ namespace opengl_rendering
             return result;
 
         buffer_it->second.bind_slot(slot);
-        return consume_gl_errors("bind_uniform_buffer");
+        auto result = consume_gl_errors("bind_uniform_buffer");
+        if (result)
+            _uniform_buffer_bindings[slot] = buffer_resource_uuid;
+
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_storage_buffer(
         const uint32 slot,
         const tbx::Uuid& buffer_resource_uuid)
     {
+        if (const auto binding_it = _storage_buffer_bindings.find(slot);
+            binding_it != _storage_buffer_bindings.end()
+            && binding_it->second == buffer_resource_uuid)
+        {
+            return make_success();
+        }
+
         const auto buffer_it = _buffers.find(buffer_resource_uuid);
         if (buffer_it == _buffers.end())
             return make_failure("OpenGL backend: storage buffer was not found.");
@@ -470,31 +465,55 @@ namespace opengl_rendering
             return result;
 
         buffer_it->second.bind_slot(slot);
-        return consume_gl_errors("bind_storage_buffer");
+        auto result = consume_gl_errors("bind_storage_buffer");
+        if (result)
+            _storage_buffer_bindings[slot] = buffer_resource_uuid;
+
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_texture(
         const uint32 slot,
         const tbx::Uuid& texture_resource_uuid)
     {
+        if (const auto binding_it = _texture_bindings.find(slot);
+            binding_it != _texture_bindings.end() && binding_it->second == texture_resource_uuid)
+        {
+            return make_success();
+        }
+
         const auto texture_it = _textures.find(texture_resource_uuid);
         if (texture_it == _textures.end())
             return make_failure("OpenGL backend: texture was not found.");
 
         texture_it->second.bind_slot(slot);
-        return consume_gl_errors("bind_texture");
+        auto result = consume_gl_errors("bind_texture");
+        if (result)
+            _texture_bindings[slot] = texture_resource_uuid;
+
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_sampler(
         const uint32 slot,
         const tbx::Uuid& sampler_resource_uuid)
     {
+        if (const auto binding_it = _sampler_bindings.find(slot);
+            binding_it != _sampler_bindings.end() && binding_it->second == sampler_resource_uuid)
+        {
+            return make_success();
+        }
+
         const auto sampler_it = _samplers.find(sampler_resource_uuid);
         if (sampler_it == _samplers.end())
             return make_failure("OpenGL backend: sampler was not found.");
 
         sampler_it->second.bind_slot(slot);
-        return consume_gl_errors("bind_sampler");
+        auto result = consume_gl_errors("bind_sampler");
+        if (result)
+            _sampler_bindings[slot] = sampler_resource_uuid;
+
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::draw(const uint32 vertex_count, const uint32 vertex_offset)
@@ -553,6 +572,22 @@ namespace opengl_rendering
                 else
                     ++binding_it;
             }
+            for (auto binding_it = _uniform_buffer_bindings.begin();
+                 binding_it != _uniform_buffer_bindings.end();)
+            {
+                if (binding_it->second == resource_uuid)
+                    binding_it = _uniform_buffer_bindings.erase(binding_it);
+                else
+                    ++binding_it;
+            }
+            for (auto binding_it = _storage_buffer_bindings.begin();
+                 binding_it != _storage_buffer_bindings.end();)
+            {
+                if (binding_it->second == resource_uuid)
+                    binding_it = _storage_buffer_bindings.erase(binding_it);
+                else
+                    ++binding_it;
+            }
             return make_success();
         }
 
@@ -575,12 +610,28 @@ namespace opengl_rendering
 
         if (auto sampler_it = _samplers.find(resource_uuid); sampler_it != _samplers.end())
         {
+            for (auto binding_it = _sampler_bindings.begin();
+                 binding_it != _sampler_bindings.end();)
+            {
+                if (binding_it->second == resource_uuid)
+                    binding_it = _sampler_bindings.erase(binding_it);
+                else
+                    ++binding_it;
+            }
             _samplers.erase(sampler_it);
             return make_success();
         }
 
         if (auto texture_it = _textures.find(resource_uuid); texture_it != _textures.end())
         {
+            for (auto binding_it = _texture_bindings.begin();
+                 binding_it != _texture_bindings.end();)
+            {
+                if (binding_it->second == resource_uuid)
+                    binding_it = _texture_bindings.erase(binding_it);
+                else
+                    ++binding_it;
+            }
             _textures.erase(texture_it);
             _texture_descs.erase(resource_uuid);
             return make_success();
@@ -797,6 +848,11 @@ namespace opengl_rendering
     void OpenGlGraphicsBackend::clear_bound_state()
     {
         _current_pipeline = {};
+        _uniform_buffer_bindings.clear();
+        _storage_buffer_bindings.clear();
+        _texture_bindings.clear();
+        _sampler_bindings.clear();
+        _is_scissor_enabled = false;
         glUseProgram(0U);
         glBindVertexArray(0U);
         glBindBuffer(GL_ARRAY_BUFFER, 0U);
@@ -815,6 +871,10 @@ namespace opengl_rendering
         _pipeline_vertex_arrays.clear();
         _pipeline_index_buffer_bindings.clear();
         _pipeline_vertex_buffer_bindings.clear();
+        _uniform_buffer_bindings.clear();
+        _storage_buffer_bindings.clear();
+        _texture_bindings.clear();
+        _sampler_bindings.clear();
         _pipeline_descs.clear();
         _programs.clear();
         _buffers.clear();
@@ -856,7 +916,7 @@ namespace opengl_rendering
         if (!loader || gladLoadGLLoader(loader) == 0)
             return make_failure("OpenGL backend: failed to load OpenGL functions.");
 
-        if (auto result = require_opengl_4_5_direct_state_access(); !result)
+        if (auto result = internal::require_opengl_4_5_direct_state_access(); !result)
             return result;
 
         glEnable(GL_DEPTH_TEST);

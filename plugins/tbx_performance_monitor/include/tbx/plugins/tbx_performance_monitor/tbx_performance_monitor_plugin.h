@@ -13,7 +13,7 @@ namespace tbx
     class AppSettings;
 }
 
-namespace tbx_performance_monitor
+namespace tbx::performance_monitor
 {
     /// @brief
     /// Purpose: Collects frame profiling data and reports runtime debug/performance diagnostics.

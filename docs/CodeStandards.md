@@ -1,12 +1,13 @@
 # Toybox CodeStandard
 
-## Language
+## General
 - Target C++23.
 - Do not use C++ attributes (for example `[[nodiscard]]`).
 - Do not use `explicit` on constructors.
-- Prefer copy-style initialization.
+- Prefer () style init for structs and classes over {} ALWAYS. Only use {} when doing simple inits like auto my_var = {}; or when using .prop_name = prop_val style init to improve readability
 - Do not use blanket namespace imports.
 - Do not use the std::size_t or uints, instead prefer the simpler using signatures in common/typedefs.h such as `size` or `uint`
+- Update anything not meeting these standards if you run into it.
 
 ## Documentation
 - Use Doxygen `///` summaries only for:
@@ -18,6 +19,35 @@
 - Remove unnecessary comments and summaries.
 - Keep Doxygen summaries directly adjacent to their declaration (no blank line between summary and declaration).
 - Plugin and example lifecycle methods (`attach`, `detach`, `update`, including `on_attach`, `on_detach`, `on_update`, `on_fixed_update`) do not require Doxygen summaries.
+
+## File Layout:
+
+``` cpp
+#pragma once // do not use old style ifdefs
+#includes... // <> for external, "" for internal, should be sorted by name. If order matters then wrap in // clang-format off ... // clang-format on comments
+
+// Internal rules:
+// Never expose internal in your return types or public documentation.
+// Never allow external consumer code to depend on a internal namespace.
+// Do not put headers inside an internal namespace; always restrict those to the .cpp source files
+// Should be within its own /internal folder and _internal version of the source files.
+namespace tbx::internal
+{
+    Usings...
+    Methods (should always be static in internal namespace)
+    Structs...
+    Classes...
+}
+
+// the public API
+namespace tbx
+{
+    Usings...
+    Methods (sort by keyword: static/inline/etc, then by name)...
+    Structs...
+    Classes...
+}
+```
 
 ## Class / Struct Layout
 Use this ordering for every class:
@@ -84,4 +114,4 @@ struct Name
 - Prefer simple, flat control flow and remove unnecessary nesting.
 
 ## Graphics Pipeline
-Refer to Graphics Pipeline Docs [here](GraphicsPipeline.md)
+Refer to Shader Pipeline Docs [here](ShaderPipeline.md)

@@ -1349,3 +1349,33 @@ Split by stage and domain.
 Let Toybox provide the stable environment.
 Let users own main().
 ```
+
+---
+
+## CPU Render Pipeline Shape
+
+The renderer builds each frame in explicit stages:
+
+```txt
+Frame data
+    Update frame, camera, light, and shadow shader data.
+
+Extraction
+    Read ECS render components and convert them into render items.
+
+Batching
+    Group compatible items by mesh source, material state, and pass role.
+    Static and dynamic geometry both use instance data when compatible.
+
+Upload
+    Reuse stable mesh, texture, pipeline, render-target, material, uniform, and instance buffers.
+
+Pass assembly
+    Create shadow, skybox, opaque, transparent, and post passes only when they have work.
+
+Execution
+    Submit backend-neutral commands; backend implementations skip redundant state binds.
+```
+
+Shadow rendering currently uses one shadow owner per frame. Eligible local shadowed lights take
+priority; directional shadows are the fallback when no local shadowed light is in range.

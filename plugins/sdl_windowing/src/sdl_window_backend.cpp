@@ -1,36 +1,12 @@
 #include "sdl_window_backend.h"
+#include "internal/sdl_window_backend_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include <ranges>
 #include <string_view>
-
 namespace sdl_windowing
 {
-    namespace
-    {
-        bool is_wayland_video_driver()
-        {
-            const char* video_driver = SDL_GetCurrentVideoDriver();
-            return video_driver != nullptr && std::string_view(video_driver) == "wayland";
-        }
-
-        void try_apply_window_icon(SDL_Window* native, SDL_Surface* icon_surface)
-        {
-            if (!native || !icon_surface)
-                return;
-
-            if (is_wayland_video_driver())
-                return;
-
-            if (!SDL_SetWindowIcon(native, icon_surface))
-            {
-                TBX_TRACE_WARNING("Failed to set SDL window icon. Error: {}", SDL_GetError());
-                SDL_ClearError();
-            }
-        }
-    }
-
     bool SdlWindowBackend::create_window(
         const tbx::Window& window,
         const tbx::WindowCreateInfo& create_info,
@@ -220,7 +196,7 @@ namespace sdl_windowing
         for (const auto& [window_id, native_window] : _windows)
         {
             (void)window_id;
-            try_apply_window_icon(native_window, _icon_surface);
+            internal::try_apply_window_icon(native_window, _icon_surface);
         }
     }
 
@@ -268,12 +244,12 @@ namespace sdl_windowing
             return nullptr;
         }
 
-        try_apply_window_icon(native_window, _icon_surface);
+        internal::try_apply_window_icon(native_window, _icon_surface);
         return native_window;
     }
 
-    std::optional<tbx::Window> SdlWindowBackend::try_get_window_id(const SDL_Window* sdl_window)
-        const
+    std::optional<tbx::Window> SdlWindowBackend::try_get_window_id(
+        const SDL_Window* sdl_window) const
     {
         const auto window_it = std::ranges::find_if(
             _windows,
