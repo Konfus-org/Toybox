@@ -310,8 +310,8 @@ namespace tbx_material_loader
 
             if (handle.is_valid())
             {
-                out_material.program.vertex = handle;
-                out_material.program.fragment = handle;
+                out_material.shader.vertex = handle;
+                out_material.shader.fragment = handle;
             }
             return true;
         }
@@ -407,74 +407,74 @@ namespace tbx_material_loader
                 tbx::Uuid vertex_id = {};
                 if (shaders_data.try_get<tbx::Uuid>("vertex", vertex_id))
                 {
-                    material.program.vertex = tbx::Handle(vertex_id);
+                    material.shader.vertex = tbx::Handle(vertex_id);
                 }
                 else
                 {
                     std::string vertex_text;
                     if (shaders_data.try_get<std::string>("vertex", vertex_text))
-                        material.program.vertex = parse_asset_handle(vertex_text);
+                        material.shader.vertex = parse_asset_handle(vertex_text);
                 }
 
                 tbx::Uuid fragment_id = {};
                 if (shaders_data.try_get<tbx::Uuid>("fragment", fragment_id))
                 {
-                    material.program.fragment = tbx::Handle(fragment_id);
+                    material.shader.fragment = tbx::Handle(fragment_id);
                 }
                 else
                 {
                     std::string fragment_text;
                     if (shaders_data.try_get<std::string>("fragment", fragment_text))
-                        material.program.fragment = parse_asset_handle(fragment_text);
+                        material.shader.fragment = parse_asset_handle(fragment_text);
                 }
 
                 tbx::Uuid tesselation_id = {};
                 if (shaders_data.try_get<tbx::Uuid>("tesselation", tesselation_id))
                 {
-                    material.program.tesselation = tbx::Handle(tesselation_id);
+                    material.shader.tesselation = tbx::Handle(tesselation_id);
                 }
                 else
                 {
                     std::string tesselation_text;
                     if (shaders_data.try_get<std::string>("tesselation", tesselation_text))
-                        material.program.tesselation = parse_asset_handle(tesselation_text);
+                        material.shader.tesselation = parse_asset_handle(tesselation_text);
                     else
                     {
                         std::string tessellation_text;
                         if (shaders_data.try_get<std::string>("tessellation", tessellation_text))
-                            material.program.tesselation = parse_asset_handle(tessellation_text);
+                            material.shader.tesselation = parse_asset_handle(tessellation_text);
                     }
                 }
 
                 tbx::Uuid geometry_id = {};
                 if (shaders_data.try_get<tbx::Uuid>("geometry", geometry_id))
                 {
-                    material.program.geometry = tbx::Handle(geometry_id);
+                    material.shader.geometry = tbx::Handle(geometry_id);
                 }
                 else
                 {
                     std::string geometry_text;
                     if (shaders_data.try_get<std::string>("geometry", geometry_text))
-                        material.program.geometry = parse_asset_handle(geometry_text);
+                        material.shader.geometry = parse_asset_handle(geometry_text);
                 }
 
                 tbx::Uuid compute_id = {};
                 if (shaders_data.try_get<tbx::Uuid>("compute", compute_id))
                 {
-                    material.program.compute = tbx::Handle(compute_id);
+                    material.shader.compute = tbx::Handle(compute_id);
                 }
                 else
                 {
                     std::string compute_text;
                     if (shaders_data.try_get<std::string>("compute", compute_text))
-                        material.program.compute = parse_asset_handle(compute_text);
+                        material.shader.compute = parse_asset_handle(compute_text);
                 }
 
-                if (material.program.compute.is_valid())
+                if (material.shader.compute.is_valid())
                 {
-                    if (material.program.vertex.is_valid() || material.program.fragment.is_valid()
-                        || material.program.tesselation.is_valid()
-                        || material.program.geometry.is_valid())
+                    if (material.shader.vertex.is_valid() || material.shader.fragment.is_valid()
+                        || material.shader.tesselation.is_valid()
+                        || material.shader.geometry.is_valid())
                     {
                         error_message =
                             "tbx::Material loader: compute shaders cannot be combined with "
@@ -484,10 +484,10 @@ namespace tbx_material_loader
                 }
                 else
                 {
-                    if (material.program.vertex.is_valid() && !material.program.fragment.is_valid())
-                        material.program.fragment = material.program.vertex;
-                    if (!material.program.vertex.is_valid() && material.program.fragment.is_valid())
-                        material.program.vertex = material.program.fragment;
+                    if (material.shader.vertex.is_valid() && !material.shader.fragment.is_valid())
+                        material.shader.fragment = material.shader.vertex;
+                    if (!material.shader.vertex.is_valid() && material.shader.fragment.is_valid())
+                        material.shader.vertex = material.shader.fragment;
                 }
             }
             else
@@ -507,8 +507,8 @@ namespace tbx_material_loader
 
                 if (shader_handle.is_valid())
                 {
-                    material.program.vertex = shader_handle;
-                    material.program.fragment = shader_handle;
+                    material.shader.vertex = shader_handle;
+                    material.shader.fragment = shader_handle;
                 }
             }
 

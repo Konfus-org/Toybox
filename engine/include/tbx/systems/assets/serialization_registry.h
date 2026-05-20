@@ -110,7 +110,7 @@ namespace tbx
     };
 
     template <>
-    struct AssetSerializationTraits<Shader>
+    struct AssetSerializationTraits<ShaderProgram>
     {
         using Parameters = ShaderLoadParameters;
     };

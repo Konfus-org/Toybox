@@ -38,7 +38,7 @@ namespace opengl_rendering
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
-        TBX_TRACE_WARNING(
+        TBX_TRACE_ERROR(
             "OpenGL rendering: shader compilation failure (type {}). {}",
             static_cast<int>(type),
             error_log);
@@ -50,7 +50,7 @@ namespace opengl_rendering
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
-        TBX_TRACE_WARNING("OpenGL rendering: shader program link failure. {}", error_log);
+        TBX_TRACE_ERROR("OpenGL rendering: shader program link failure. {}", error_log);
     }
 
     OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)

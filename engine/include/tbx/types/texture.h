@@ -94,4 +94,8 @@ namespace tbx
         TextureCompression compression = TextureCompression::DISABLED;
         std::vector<Pixel> pixels = {255, 255, 255};
     };
+
+    struct TBX_API RenderTexture : Texture
+    {
+    };
 }

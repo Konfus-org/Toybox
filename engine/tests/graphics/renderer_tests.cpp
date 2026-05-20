@@ -1,6 +1,9 @@
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/types/components/lods.h"
+#include "tbx/types/components/mesh.h"
 #include "tbx/types/components/post_processing.h"
+#include "tbx/types/shader.h"
+#include <string>
 
 namespace tbx::tests::graphics
 {
@@ -79,6 +82,21 @@ namespace tbx::tests::graphics
         EXPECT_EQ(handle.get_id(), FlatMaterial::HANDLE.get_id());
     }
 
+    // Validates shader source text is owned after construction.
+    TEST(RendererTests, ShaderSource_CopiesSourceText)
+    {
+        // Arrange
+        auto source_text = std::string("#version 450\nvoid main() {}\n");
+
+        // Act
+        auto shader_source = ShaderSource(source_text, ShaderType::VERTEX);
+        source_text.clear();
+
+        // Assert
+        EXPECT_EQ(shader_source.source, "#version 450\nvoid main() {}\n");
+        EXPECT_EQ(shader_source.type, ShaderType::VERTEX);
+    }
+
     // Validates that material mutations toggle the dirty bit used by GPU upload paths.
     TEST(RendererTests, MaterialInstance_Mutations_MarkDirty)
     {
@@ -98,6 +116,20 @@ namespace tbx::tests::graphics
         // Assert
         EXPECT_TRUE(dirty_after_parameter_set);
         EXPECT_TRUE(dirty_after_texture_set);
+    }
+
+    // Validates DynamicMeshData mutation access marks shared runtime mesh data dirty.
+    TEST(RendererTests, DynamicMeshData_EditMesh_MarksDirty)
+    {
+        // Arrange
+        auto mesh_data = DynamicMeshData(triangle);
+        mesh_data.clear_dirty();
+
+        // Act
+        mesh_data.edit_mesh().indices.push_back(0U);
+
+        // Assert
+        EXPECT_TRUE(mesh_data.is_dirty());
     }
 
     // Validates MaterialParameterBindings supports exact-name lookup and iteration.

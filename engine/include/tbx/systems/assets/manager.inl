@@ -47,7 +47,9 @@ namespace tbx
                 typeid(TAsset).name());
             asset_record.stream_state = AssetStreamState::LOADING;
             asset_record.asset =
-                get_serialization_registry().read<TAsset>(entry.resolved_path, parameters);
+                get_serialization_registry().has_reader<TAsset>()
+                    ? get_serialization_registry().read<TAsset>(entry.resolved_path, parameters)
+                    : std::shared_ptr<TAsset>();
             if (!asset_record.asset)
             {
                 TBX_TRACE_WARNING(
@@ -143,8 +145,11 @@ namespace tbx
             asset_record.normalized_path,
             to_string(asset_record.asset_id),
             typeid(TAsset).name());
-        auto promise =
-            get_serialization_registry().read_async<TAsset>(entry.resolved_path, parameters);
+        auto promise = get_serialization_registry().has_reader<TAsset>()
+                           ? get_serialization_registry().read_async<TAsset>(
+                                 entry.resolved_path,
+                                 parameters)
+                           : AssetPromise<TAsset>();
         if (!promise.asset)
         {
             TBX_TRACE_WARNING(

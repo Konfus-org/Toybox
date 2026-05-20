@@ -37,13 +37,23 @@ namespace tbx
     struct TBX_API ShaderSource
     {
         ShaderSource() = default;
+        ShaderSource(const char* shader_source, ShaderType shader_type)
+            : source(shader_source ? shader_source : "")
+            , type(shader_type)
+        {
+        }
         ShaderSource(std::string_view shader_source, ShaderType shader_type)
+            : source(shader_source)
+            , type(shader_type)
+        {
+        }
+        ShaderSource(std::string&& shader_source, ShaderType shader_type)
             : source(std::move(shader_source))
             , type(shader_type)
         {
         }
 
-        std::string_view source = "";
+        std::string source = "";
         ShaderType type = ShaderType::NONE;
     };
 
@@ -52,22 +62,77 @@ namespace tbx
     /// @details
     /// Ownership: Owns copied shader stage sources.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    // TODO: rename to ShaderProgram and rename ShaderProgram to Shader. Also add is_valid to this
-    // so we can validate the combo of shader sources is valid.
-    struct TBX_API Shader
+    struct TBX_API ShaderProgram
     {
-        Shader() = default;
-        Shader(std::string_view shader_source, ShaderType shader_type)
+        ShaderProgram() = default;
+        ShaderProgram(const char* shader_source, ShaderType shader_type)
+            : sources({ShaderSource(shader_source, shader_type)})
+        {
+        }
+        ShaderProgram(std::string_view shader_source, ShaderType shader_type)
+            : sources({ShaderSource(shader_source, shader_type)})
+        {
+        }
+        ShaderProgram(std::string&& shader_source, ShaderType shader_type)
             : sources({ShaderSource(std::move(shader_source), shader_type)})
         {
         }
-        explicit Shader(ShaderSource shader_source)
+        explicit ShaderProgram(ShaderSource shader_source)
             : sources({std::move(shader_source)})
         {
         }
-        explicit Shader(std::vector<ShaderSource> shader_sources)
+        explicit ShaderProgram(std::vector<ShaderSource> shader_sources)
             : sources(std::move(shader_sources))
         {
+        }
+
+        bool is_valid() const
+        {
+            bool has_vertex = false;
+            bool has_fragment = false;
+            bool has_tesselation = false;
+            bool has_geometry = false;
+            bool has_compute = false;
+
+            for (const auto& source : sources)
+            {
+                switch (source.type)
+                {
+                    case ShaderType::VERTEX:
+                        if (has_vertex)
+                            return false;
+                        has_vertex = true;
+                        break;
+                    case ShaderType::FRAGMENT:
+                        if (has_fragment)
+                            return false;
+                        has_fragment = true;
+                        break;
+                    case ShaderType::TESSELATION:
+                        if (has_tesselation)
+                            return false;
+                        has_tesselation = true;
+                        break;
+                    case ShaderType::GEOMETRY:
+                        if (has_geometry)
+                            return false;
+                        has_geometry = true;
+                        break;
+                    case ShaderType::COMPUTE:
+                        if (has_compute)
+                            return false;
+                        has_compute = true;
+                        break;
+                    case ShaderType::NONE:
+                    default:
+                        return false;
+                }
+            }
+
+            if (has_compute)
+                return !has_vertex && !has_fragment && !has_tesselation && !has_geometry;
+
+            return has_vertex && has_fragment;
         }
 
         std::vector<ShaderSource> sources = {};
@@ -78,7 +143,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores stage handles by value; does not own loaded shader assets.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API ShaderProgram
+    struct TBX_API Shader
     {
         /// @brief
         /// Purpose: Identifies the vertex shader stage asset.

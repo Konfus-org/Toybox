@@ -17,3 +17,9 @@ void tbx_default_shadow_vertex(vec3 position)
     vec4 world_position = u_model * vec4(position, 1.0);
     gl_Position = u_light_view_projection * world_position;
 }
+
+void tbx_default_shadow_vertex(vec3 position, mat4 model)
+{
+    vec4 world_position = model * vec4(position, 1.0);
+    gl_Position = u_light_view_projection * world_position;
+}

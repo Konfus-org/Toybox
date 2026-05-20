@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <variant>
 
 namespace tbx
 {
@@ -18,11 +17,15 @@ namespace tbx
         if (out_stride_bytes < static_cast<uint32>(sizeof(float) * 3U))
             return false;
 
-        for (const auto& attribute : layout.elements)
+        const uint32 attribute_count = static_cast<uint32>(layout.elements.size());
+        for (uint32 attribute_index = 0U; attribute_index < attribute_count;
+             ++attribute_index)
         {
-            if (attribute.semantic != VertexAttributeSemantic::POSITION)
+            const auto& attribute = layout.elements[static_cast<size>(attribute_index)];
+            if (attribute.debug_name != vertex_attribute_position_debug_name)
                 continue;
-            if (!std::holds_alternative<Vec3>(attribute.type))
+            if (get_vertex_data_count(attribute.type) != 3
+                || get_vertex_data_size(attribute.type) != static_cast<int32>(sizeof(float) * 3U))
                 continue;
 
             out_offset_bytes = attribute.offset;

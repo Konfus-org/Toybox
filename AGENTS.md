@@ -3,7 +3,7 @@
 This file defines contributor workflow rules for agents working in this repository.
 
 ## Primary coding standard
-- Follow `CODE_STANDARDS.md` for all C++ style, formatting, class layout, and documentation expectations.
+- Follow `docs/CodeStandards.md` for all C++ style, formatting, class layout, and documentation expectations.
 
 ## Agent rules
 - Act as a senior C++ engineer with game development expertise.

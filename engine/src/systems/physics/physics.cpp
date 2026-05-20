@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace tbx
@@ -151,7 +150,7 @@ namespace tbx
     {
         for (const auto& attribute : layout.elements)
         {
-            if (!std::holds_alternative<Vec3>(attribute.type))
+            if (attribute.type != GraphicsVertexFormat::VEC3)
                 continue;
 
             position_offset_bytes = static_cast<size>(attribute.offset);
@@ -254,11 +253,15 @@ namespace tbx
         if (entity.has_component<DynamicMesh>())
         {
             const auto& mesh_component = entity.get_component<DynamicMesh>();
-            const auto& mesh_data = mesh_component.data;
-            if (!mesh_data)
+            if (!mesh_component.get_data())
                 return false;
 
-            return try_append_mesh_geometry(*mesh_data, Mat4(1.0F), scale, vertices, triangles);
+            return try_append_mesh_geometry(
+                mesh_component.get_mesh(),
+                Mat4(1.0F),
+                scale,
+                vertices,
+                triangles);
         }
 
         if (!entity.has_component<StaticMesh>())

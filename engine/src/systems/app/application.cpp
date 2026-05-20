@@ -32,8 +32,7 @@ namespace tbx
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
-        auto serialization_registry =
-            service_provider.get_service<SerializationRegistry>().lock();
+        auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
         TBX_ASSERT(
             message_coordinator != nullptr && serialization_registry != nullptr,
             "Core services must be available before registering dependent services.");
@@ -123,7 +122,9 @@ namespace tbx
             {
                 TBX_TRACE_ERROR("Application requires an IWindowManager service.");
                 _should_exit = true;
-                TBX_ASSERT(window_manager != nullptr, "Application requires an IWindowManager service.");
+                TBX_ASSERT(
+                    window_manager != nullptr,
+                    "Application requires an IWindowManager service.");
                 return -1;
             }
 
@@ -223,10 +224,11 @@ namespace tbx
                         return;
                     }
 
-                    if (handle_message<WindowClosedEvent>(msg))
+                    if (const auto closed_event = handle_message<WindowClosedEvent>(msg))
                     {
                         auto window_manager = _window_manager.lock();
-                        if (!window_manager || !window_manager->has_main_window())
+                        if (!window_manager || !window_manager->has_main_window()
+                            || closed_event->get().window == window_manager->get_main_window())
                             _should_exit = true;
                     }
 
@@ -365,10 +367,14 @@ namespace tbx
         auto asset_manager = _asset_manager.lock();
         if (!msg_coordinator || !asset_manager)
         {
-            TBX_TRACE_ERROR("Application update skipped because required services are unavailable.");
+            TBX_TRACE_ERROR(
+                "Application update skipped because required services are unavailable.");
             _should_exit = true;
             return;
         }
+
+        if (auto rendering = _rendering.lock())
+            rendering->wait_for_pending_frame();
 
         // Process messages posted in the previous frame.
         msg_coordinator->flush();

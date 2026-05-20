@@ -2,8 +2,8 @@
 #ifndef GLM_ENABLE_EXPERIMENTAL
     #define GLM_ENABLE_EXPERIMENTAL
 #endif
-#include "tbx/types/quaternions.h"
 #include "tbx/types/components/transform.h"
+#include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -13,24 +13,32 @@
 
 namespace tbx
 {
-    // Represents a 2x2 floating-point matrix compatible with GLM operations.
-    // Ownership: value type; callers own any copies created from this alias.
-    // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    /// @brief
+    /// Purpose: Represents a 2x2 floating-point matrix compatible with GLM operations.
+    /// @details
+    /// Ownership: value type; callers own any copies created from this alias.
+    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     using Mat2 = glm::mat2;
 
-    // Represents a 3x3 floating-point matrix compatible with GLM operations.
-    // Ownership: value type; callers own any copies created from this alias.
-    // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    /// @brief
+    /// Purpose: Represents a 3x3 floating-point matrix compatible with GLM operations.
+    /// @details
+    /// Ownership: value type; callers own any copies created from this alias.
+    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     using Mat3 = glm::mat3;
 
-    // Represents a 4x4 floating-point matrix compatible with GLM operations.
-    // Ownership: value type; callers own any copies created from this alias.
-    // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    /// @brief
+    /// Purpose: Represents a 4x4 floating-point matrix compatible with GLM operations.
+    /// @details
+    /// Ownership: value type; callers own any copies created from this alias.
+    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     using Mat4 = glm::mat4;
 
-    // Builds an orthographic projection matrix with the provided clip-space bounds.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds an orthographic projection matrix with the provided clip-space bounds.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 ortho_projection(
         float left,
         float right,
@@ -42,25 +50,31 @@ namespace tbx
         return glm::ortho(left, right, bottom, top, z_near, z_far);
     }
 
-    // Builds a perspective projection matrix using a field of view specified in radians.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds a perspective projection matrix using a field of view specified in radians.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 perspective_projection(float fov_radians, float aspect, float z_near, float z_far)
     {
         return glm::perspective(fov_radians, aspect, z_near, z_far);
     }
 
-    // Converts a quaternion into its equivalent rotation matrix.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Converts a quaternion into its equivalent rotation matrix.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 quaternion_to_mat4(const Quat& rotation)
     {
         return glm::toMat4(rotation);
     }
 
-    // Computes the inverse of a 4x4 matrix.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Computes the inverse of a 4x4 matrix.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 inverse(const Mat4& matrix)
     {
         return glm::inverse(matrix);
@@ -76,33 +90,56 @@ namespace tbx
         return glm::inverseTranspose(matrix);
     }
 
-    // Builds a view matrix from position, target, and up vectors.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds a normal matrix from the given model matrix.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
+    inline Mat4 normal(const Mat4& model_matrix)
+    {
+        const Mat3 normal_matrix3 = inverse_transpose(Mat3(model_matrix));
+        auto normal_matrix = Mat4(1.0F);
+        normal_matrix[0] = Vec4(normal_matrix3[0], 0.0F);
+        normal_matrix[1] = Vec4(normal_matrix3[1], 0.0F);
+        normal_matrix[2] = Vec4(normal_matrix3[2], 0.0F);
+        return normal_matrix;
+    }
+
+    /// @brief
+    /// Purpose: Builds a view matrix from position, target, and up vectors.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 look_at(const Vec3& position, const Vec3& target, const Vec3& up)
     {
         return glm::lookAt(position, target, up);
     }
 
-    // Builds a translation matrix from the given vector.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds a translation matrix from the given vector.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 translate(const Vec3& translation)
     {
         return glm::translate(Mat4(1.0f), translation);
     }
 
-    // Builds a rotation matrix from a quaternion around a specific axis.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds a rotation matrix from a quaternion around a specific axis.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 rotate(float angle_radians, const Vec3& axis)
     {
         return glm::rotate(Mat4(1.0f), angle_radians, axis);
     }
 
-    // Builds a scaling matrix from a vector of scale factors.
-    // Ownership: returns a matrix by value; the caller owns the copy.
-    // Thread Safety: stateless wrapper; safe to call concurrently.
+    /// @brief
+    /// Purpose: Builds a scaling matrix from a vector of scale factors.
+    /// @details
+    /// Ownership: returns a matrix by value; the caller owns the copy.
+    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 scale(const Vec3& factors)
     {
         return glm::scale(Mat4(1.0f), factors);

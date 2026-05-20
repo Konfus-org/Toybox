@@ -23,6 +23,83 @@ namespace tbx
         update_mesh_bounds(*this);
     }
 
+    DynamicMesh::DynamicMesh(Mesh mesh)
+        : _data(std::make_shared<DynamicMeshData>(std::move(mesh)))
+    {
+    }
+
+    DynamicMesh::DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data)
+        : _data(std::move(mesh_data))
+    {
+    }
+
+    const Mesh& DynamicMesh::get_mesh() const
+    {
+        static const Mesh empty_mesh = Mesh(VertexBuffer {}, IndexBuffer {});
+        return _data ? _data->get_mesh() : empty_mesh;
+    }
+
+    Mesh& DynamicMesh::edit_mesh()
+    {
+        if (!_data)
+            _data = std::make_shared<DynamicMeshData>();
+
+        return _data->edit_mesh();
+    }
+
+    bool DynamicMesh::is_dirty() const
+    {
+        return _data && _data->is_dirty();
+    }
+
+    void DynamicMesh::mark_dirty()
+    {
+        if (_data)
+            _data->mark_dirty();
+    }
+
+    void DynamicMesh::clear_dirty()
+    {
+        if (_data)
+            _data->clear_dirty();
+    }
+
+    std::shared_ptr<DynamicMeshData> DynamicMesh::get_data() const
+    {
+        return _data;
+    }
+
+    DynamicMeshData::DynamicMeshData(Mesh mesh)
+        : _mesh(std::move(mesh))
+    {
+    }
+
+    const Mesh& DynamicMeshData::get_mesh() const
+    {
+        return _mesh;
+    }
+
+    Mesh& DynamicMeshData::edit_mesh()
+    {
+        mark_dirty();
+        return _mesh;
+    }
+
+    bool DynamicMeshData::is_dirty() const
+    {
+        return _is_dirty;
+    }
+
+    void DynamicMeshData::mark_dirty()
+    {
+        _is_dirty = true;
+    }
+
+    void DynamicMeshData::clear_dirty()
+    {
+        _is_dirty = false;
+    }
+
     Mesh make_triangle()
     {
         const std::vector<Vertex> triangle_mesh_vertices = {
@@ -30,17 +107,17 @@ namespace tbx
                 Vec3(-0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(0.0F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2};
         auto vertices = triangle_mesh_vertices;
@@ -58,22 +135,22 @@ namespace tbx
                 Vec3(-0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, -0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(0.5F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 1.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(-0.5F, 0.5F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 1.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
         auto vertices = quad_mesh_vertices;
@@ -91,22 +168,22 @@ namespace tbx
                 Vec3(-1.0F, -1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(1.0F, -1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 0.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(1.0F, 1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(1.0F, 1.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)},
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
             Vertex {
                 Vec3(-1.0F, 1.0F, 0.0F),
                 Vec3(0.0F, 0.0F, 1.0F),
                 Vec2(0.0F, 1.0F),
-                Color(0.0F, 0.0F, 0.0F, 1.0F)}};
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
 
         const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
         auto vertices = fullscreen_quad_vertices;
@@ -170,7 +247,7 @@ namespace tbx
                         positions[faces[face_index][corner]],
                         normals[face_index],
                         uvs[corner],
-                        Color(0.0F, 0.0F, 0.0F, 1.0F),
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
                     });
             }
 
@@ -269,8 +346,7 @@ namespace tbx
                 {
                     const float u = static_cast<float>(x) / static_cast<float>(subdivision_count);
                     const float cube_x = (u * 2.0F) - 1.0F;
-                    const Vec3 cube_position =
-                        face_normal + (face_u * cube_x) + (face_v * cube_y);
+                    const Vec3 cube_position = face_normal + (face_u * cube_x) + (face_v * cube_y);
                     const Vec3 sphere_position = normalize_or_zero(cube_position);
 
                     vertices.push_back(

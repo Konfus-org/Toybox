@@ -5,7 +5,6 @@
 #include <array>
 #include <glad/glad.h>
 #include <utility>
-#include <variant>
 
 namespace opengl_rendering
 {
@@ -45,37 +44,6 @@ namespace opengl_rendering
                 offset);
 
         glVertexArrayAttribBinding(vertex_array_id, index, 0);
-    }
-
-    static GLenum vertex_type_to_gl_type(const tbx::VertexData& type)
-    {
-        if (std::holds_alternative<tbx::Vec2>(type))
-        {
-            return GL_FLOAT;
-        }
-        if (std::holds_alternative<tbx::Vec3>(type))
-        {
-            return GL_FLOAT;
-        }
-        if (std::holds_alternative<tbx::Vec4>(type))
-        {
-            return GL_FLOAT;
-        }
-        if (std::holds_alternative<tbx::Color>(type))
-        {
-            return GL_FLOAT;
-        }
-        if (std::holds_alternative<float>(type))
-        {
-            return GL_FLOAT;
-        }
-        if (std::holds_alternative<int>(type))
-        {
-            return GL_INT;
-        }
-
-        TBX_ASSERT(false, "OpenGL rendering: could not convert vertex data to OpenGL type.");
-        return GL_NONE;
     }
 
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(
@@ -204,12 +172,11 @@ namespace opengl_rendering
         uint32 index = 0;
         for (const auto& element : layout.elements)
         {
-            const auto type = vertex_type_to_gl_type(element.type);
             add_attribute(
                 vertex_array_id,
                 index,
-                element.count,
-                type,
+                static_cast<uint32>(get_vertex_component_count(element.type)),
+                get_vertex_component_type(element.type),
                 element.offset,
                 element.normalized);
             index += 1;

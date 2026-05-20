@@ -6,7 +6,9 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/rendering.h"
-#include "tbx/systems/graphics/resource_manager.h"
+#include "tbx/systems/graphics/shader_bindings.h"
+#include "tbx/types/components/camera.h"
+#include "tbx/types/components/light.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/components/transform.h"
@@ -15,10 +17,14 @@
 #include "tbx/types/texture.h"
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -47,13 +53,18 @@ namespace tbx::tests::graphics
         WaitForIdle,
     };
 
+    struct RecordedBufferUpload
+    {
+        GraphicsBufferDesc desc = {};
+        std::vector<uint8> data = {};
+    };
+
     class RecordingGraphicsBackend : public IGraphicsBackend
     {
       public:
-        Result begin_frame(const RenderFrameInfo& frame) override
+        Result begin_frame(const Window& output_target) override
         {
-            recorded_output_window = frame.output_window;
-            recorded_render_resolution = frame.render_resolution;
+            recorded_output_window = output_target;
             begin_frame_thread_id = std::this_thread::get_id();
             callbacks.push_back(GraphicsBackendCallback::BeginFrame);
             return {};
@@ -125,6 +136,8 @@ namespace tbx::tests::graphics
         {
             recorded_vertex_slot = slot;
             recorded_vertex_buffer = buffer_resource_uuid;
+            recorded_vertex_slots.push_back(slot);
+            recorded_vertex_buffers.push_back(buffer_resource_uuid);
             callbacks.push_back(GraphicsBackendCallback::BindVertexBuffer);
             return {};
         }
@@ -138,6 +151,7 @@ namespace tbx::tests::graphics
         Result draw_indexed(const GraphicsDrawIndexedDesc& draw) override
         {
             recorded_draw = draw;
+            recorded_draws.push_back(draw);
             callbacks.push_back(GraphicsBackendCallback::DrawIndexed);
             return {};
         }
@@ -198,8 +212,10 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result update_buffer(const Uuid&, const void*, uint64, uint64) override
+        Result update_buffer(const Uuid& resource_uuid, const void*, uint64, uint64) override
         {
+            updated_buffer_count += 1U;
+            updated_buffers.push_back(resource_uuid);
             return {};
         }
 
@@ -216,11 +232,18 @@ namespace tbx::tests::graphics
 
         Result upload_buffer(
             const GraphicsBufferDesc& desc,
-            const void*,
-            uint64,
+            const void* data,
+            uint64 data_size,
             Uuid& out_resource_uuid) override
         {
             recorded_buffer_descs.push_back(desc);
+            auto upload = RecordedBufferUpload {.desc = desc};
+            if (data != nullptr && data_size > 0U)
+            {
+                const auto* bytes = static_cast<const uint8*>(data);
+                upload.data.assign(bytes, bytes + static_cast<size>(data_size));
+            }
+            recorded_buffer_uploads.push_back(std::move(upload));
             uploaded_buffer_count += 1U;
             out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
@@ -241,11 +264,17 @@ namespace tbx::tests::graphics
 
         Result upload_texture(
             const GraphicsTextureDesc& desc,
-            const void*,
+            const void* data,
             uint64 data_size,
             Uuid& out_resource_uuid) override
         {
             recorded_texture_desc = desc;
+            recorded_texture_upload_data.clear();
+            if (data != nullptr && data_size > 0U)
+            {
+                const auto* bytes = static_cast<const uint8*>(data);
+                recorded_texture_upload_data.assign(bytes, bytes + static_cast<size>(data_size));
+            }
             recorded_texture_upload_size = data_size;
             uploaded_texture_count += 1U;
             out_resource_uuid = Uuid(next_uploaded_resource++);
@@ -263,7 +292,6 @@ namespace tbx::tests::graphics
         std::thread::id begin_frame_thread_id = {};
         std::thread::id initialize_thread_id = {};
         Window recorded_output_window = {};
-        Size recorded_render_resolution = {};
         Size recorded_viewport = {};
         Size recorded_scissor = {};
         GraphicsPassDesc recorded_pass = {};
@@ -271,25 +299,32 @@ namespace tbx::tests::graphics
         Uuid recorded_pipeline = {};
         std::vector<Uuid> recorded_pipelines = {};
         Uuid recorded_vertex_buffer = {};
+        std::vector<Uuid> recorded_vertex_buffers = {};
         Uuid recorded_index_buffer = {};
         Uuid recorded_uniform_buffer = {};
         Uuid recorded_texture = {};
         Uuid recorded_sampler = {};
         uint32 recorded_vertex_slot = 0U;
+        std::vector<uint32> recorded_vertex_slots = {};
         uint32 recorded_uniform_slot = 0U;
         uint32 recorded_texture_slot = 0U;
         uint32 recorded_sampler_slot = 0U;
         GraphicsIndexType recorded_index_type = GraphicsIndexType::UINT32;
         GraphicsDrawIndexedDesc recorded_draw = {};
+        std::vector<GraphicsDrawIndexedDesc> recorded_draws = {};
         GraphicsPipelineDesc recorded_pipeline_desc = {};
         std::vector<GraphicsBufferDesc> recorded_buffer_descs = {};
+        std::vector<RecordedBufferUpload> recorded_buffer_uploads = {};
         GraphicsTextureDesc recorded_texture_desc = {};
+        std::vector<uint8> recorded_texture_upload_data = {};
         std::vector<Uuid> unloaded_resources = {};
         uint64 recorded_texture_upload_size = 0U;
         uint uploaded_buffer_count = 0U;
         uint uploaded_pipeline_count = 0U;
         uint uploaded_texture_count = 0U;
+        uint updated_buffer_count = 0U;
         uint32 next_uploaded_resource = 1000U;
+        std::vector<Uuid> updated_buffers = {};
         std::thread::id wait_for_idle_thread_id = {};
     };
 
@@ -424,9 +459,9 @@ namespace tbx::tests::graphics
         {
         }
 
-        Result begin_frame(const RenderFrameInfo& frame) override
+        Result begin_frame(const Window& output_target) override
         {
-            auto result = RecordingGraphicsBackend::begin_frame(frame);
+            auto result = RecordingGraphicsBackend::begin_frame(output_target);
             _begin_frame_started.set_value();
             _allow_begin_frame.wait();
             return result;
@@ -488,6 +523,88 @@ namespace tbx::tests::graphics
             });
     }
 
+    static std::shared_ptr<Material> make_test_material_with_texture(const Handle& texture_handle)
+    {
+        auto material = Material {};
+        material.textures.set("u_albedo_map", texture_handle);
+        return std::make_shared<Material>(std::move(material));
+    }
+
+    static std::optional<CameraShaderData> find_camera_shader_data(
+        const std::vector<RecordedBufferUpload>& uploads)
+    {
+        for (const auto& upload : uploads)
+        {
+            if (upload.desc.debug_name != "Camera Shader Data"
+                || upload.data.size() < sizeof(CameraShaderData))
+                continue;
+
+            auto shader_data = CameraShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(CameraShaderData));
+            return shader_data;
+        }
+
+        return std::nullopt;
+    }
+
+    static std::optional<ObjectShaderData> find_object_shader_data(
+        const std::vector<RecordedBufferUpload>& uploads)
+    {
+        for (const auto& upload : uploads)
+        {
+            if (upload.desc.debug_name != "Object Shader Data"
+                || upload.data.size() < sizeof(ObjectShaderData))
+                continue;
+
+            auto shader_data = ObjectShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(ObjectShaderData));
+            return shader_data;
+        }
+
+        return std::nullopt;
+    }
+
+    static std::optional<LightShaderData> find_light_shader_data(
+        const std::vector<RecordedBufferUpload>& uploads)
+    {
+        for (const auto& upload : uploads)
+        {
+            if (upload.desc.debug_name != "Light Shader Data"
+                || upload.data.size() < sizeof(LightShaderData))
+                continue;
+
+            auto shader_data = LightShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(LightShaderData));
+            return shader_data;
+        }
+
+        return std::nullopt;
+    }
+
+    static uint count_dynamic_mesh_vertex_uploads(const std::vector<RecordedBufferUpload>& uploads)
+    {
+        auto count = uint {};
+        for (const auto& upload : uploads)
+        {
+            if (upload.desc.debug_name.find("DynamicMesh") != std::string::npos
+                && upload.desc.debug_name.find("Vertices") != std::string::npos)
+            {
+                count += 1U;
+            }
+        }
+
+        return count;
+    }
+
+    static bool contains_vertex_slot(const RecordingGraphicsBackend& backend, const uint32 slot)
+    {
+        return std::find(
+                   backend.recorded_vertex_slots.begin(),
+                   backend.recorded_vertex_slots.end(),
+                   slot)
+               != backend.recorded_vertex_slots.end();
+    }
+
     // Validates Rendering opens frame state and submits geometry through render().
     TEST(RenderingTests, Render_DelegatesFrameAndGeometryPassCommands)
     {
@@ -539,8 +656,6 @@ namespace tbx::tests::graphics
         };
 
         EXPECT_EQ(backend.recorded_output_window.get_id(), window_manager.window.get_id());
-        EXPECT_EQ(backend.recorded_render_resolution.width, window_manager.size.width);
-        EXPECT_EQ(backend.recorded_render_resolution.height, window_manager.size.height);
         EXPECT_EQ(backend.recorded_viewport.width, window_manager.size.width);
         EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
         ASSERT_FALSE(backend.recorded_passes.empty());
@@ -812,6 +927,108 @@ namespace tbx::tests::graphics
             backend.callbacks.end());
     }
 
+    // Validates render uniforms are built from ECS world transforms, not local transforms.
+    TEST(RenderingTests, Render_UploadsWorldSpaceTransformUniforms)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto root = Entity("Root", registry);
+        root.add_component<Transform>(Vec3(10.0F, 0.0F, 0.0F));
+        auto camera = Entity("Camera", root.get_id(), registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0F, 2.0F, 11.0F));
+        auto mesh = Entity("Mesh", root.get_id(), registry);
+        mesh.add_component<DynamicMesh>(triangle);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const auto camera_shader_data = find_camera_shader_data(backend.recorded_buffer_uploads);
+        const auto object_shader_data = find_object_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(camera_shader_data.has_value());
+        EXPECT_FLOAT_EQ(camera_shader_data->world_position.x, 10.0F);
+        EXPECT_FLOAT_EQ(camera_shader_data->world_position.y, 2.0F);
+        EXPECT_FLOAT_EQ(camera_shader_data->world_position.z, 11.0F);
+        ASSERT_TRUE(object_shader_data.has_value());
+        EXPECT_FLOAT_EQ(object_shader_data->model[3].x, 10.0F);
+        EXPECT_FLOAT_EQ(object_shader_data->model[3].y, 0.0F);
+        EXPECT_FLOAT_EQ(object_shader_data->model[3].z, -2.0F);
+    }
+
+    // Validates light UBO uploads match the std140 shader block size and contain visible lighting.
+    TEST(RenderingTests, Render_UploadsFullLightUniformBlock)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = Entity("Camera", registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(Color(1.0F, 0.5F, 0.25F, 1.0F), 2.0F, 0.15F);
+        sun.add_component<Transform>();
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const auto light_shader_data = find_light_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        EXPECT_EQ(sizeof(ShaderLightData), 64U);
+        EXPECT_EQ(offsetof(LightShaderData, lights), 48U);
+        ASSERT_TRUE(light_shader_data.has_value());
+        EXPECT_EQ(light_shader_data->light_meta.x, 1);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.x, 0.15F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.y, 0.075F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.0375F);
+        EXPECT_FLOAT_EQ(light_shader_data->lights[0U].position_type.w, 0.0F);
+        EXPECT_FLOAT_EQ(light_shader_data->lights[0U].color_intensity.w, 2.0F);
+    }
+
     // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
     TEST(RenderingTests, Render_SkyComponentSubmitsSkyboxPassBeforeGeometryPass)
     {
@@ -822,10 +1039,10 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Shader>(
+        serialization_registry.register_reader<ShaderProgram>(
             [](const std::filesystem::path&, const ShaderLoadParameters&)
             {
-                return std::make_shared<Shader>(std::vector<ShaderSource> {
+                return std::make_shared<ShaderProgram>(std::vector<ShaderSource> {
                     ShaderSource(
                         "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
                         ShaderType::VERTEX),
@@ -839,8 +1056,8 @@ namespace tbx::tests::graphics
             [](const std::filesystem::path&, const MaterialLoadParameters&)
             {
                 auto material = Material {};
-                material.program.vertex = Handle("Shaders/Sky.shader");
-                material.program.fragment = Handle("Shaders/Sky.shader");
+                material.shader.vertex = Handle("Shaders/Sky.shader");
+                material.shader.fragment = Handle("Shaders/Sky.shader");
                 material.textures.set("u_albedo_map", Handle {});
                 material.parameters.set("u_albedo_color", Color(0.25F, 0.5F, 1.0F, 1.0F));
                 return std::make_shared<Material>(std::move(material));
@@ -856,6 +1073,7 @@ namespace tbx::tests::graphics
         auto mesh_entity = Entity("Triangle", registry);
         mesh_entity.add_component<DynamicMesh>(triangle);
         mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        sky_entity.add_component<Transform>();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
@@ -889,8 +1107,63 @@ namespace tbx::tests::graphics
             backend.callbacks.end());
     }
 
-    // Validates static mesh rendering uses cached model buffers without reloading CPU assets.
-    TEST(RenderingTests, Render_StaticMeshUsesCachedModelResourceWithoutReloadingAsset)
+    // Validates renderer caches GPU material resources without retaining CPU material assets.
+    TEST(RenderingTests, Render_MaterialAssetCanUnloadAfterUpload)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto material_load_count = uint {};
+        serialization_registry.register_reader<Material>(
+            [&material_load_count](const std::filesystem::path&, const MaterialLoadParameters&)
+            {
+                material_load_count += 1U;
+                auto material = Material {};
+                material.parameters.set("u_albedo_color", Color(0.2F, 0.4F, 0.6F, 1.0F));
+                return std::make_shared<Material>(std::move(material));
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        const auto material_handle = Handle("Materials/Transient.mat");
+        auto entity = Entity("MaterialTriangle", registry);
+        entity.add_component<DynamicMesh>(triangle);
+        entity.add_component<MaterialInstance>(MaterialInstance(material_handle));
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+
+        // Act
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        asset_manager.unload_unreferenced();
+        const AssetUsage material_usage_after_asset_cleanup =
+            asset_manager.get_usage<Material>(material_handle);
+
+        // Assert
+        EXPECT_EQ(material_load_count, 1U);
+        EXPECT_EQ(material_usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
+        EXPECT_EQ(material_usage_after_asset_cleanup.ref_count, 0U);
+        EXPECT_GE(backend.uploaded_pipeline_count, 1U);
+    }
+
+    // Validates static mesh rendering reuses uploaded model buffers after CPU asset cleanup.
+    TEST(RenderingTests, Render_StaticMeshReusesUploadedModelBuffers)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -934,382 +1207,200 @@ namespace tbx::tests::graphics
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
         rendering.render();
         wait_for_render_lane(thread_manager);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const uint uploaded_buffer_count_after_ring_warmup = backend.uploaded_buffer_count;
+        const uint updated_buffer_count_after_ring_warmup = backend.updated_buffer_count;
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         EXPECT_EQ(model_load_count, 1U);
         EXPECT_EQ(usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_GE(backend.uploaded_buffer_count, 3U);
-        EXPECT_GE(backend.uploaded_pipeline_count, 2U);
+        EXPECT_EQ(backend.uploaded_buffer_count, uploaded_buffer_count_after_ring_warmup);
+        EXPECT_GT(backend.updated_buffer_count, updated_buffer_count_after_ring_warmup);
+        EXPECT_GE(backend.uploaded_pipeline_count, 1U);
         EXPECT_EQ(backend.recorded_draw.index_count, 3U);
     }
 
-    // Validates GraphicsResourceManager reuses an uploaded texture resource for repeated handles.
-    TEST(GraphicsResourceManagerTests, LoadTexture_CachesUploadedResource)
+    // Validates shared DynamicMeshData renders as one instanced draw.
+    TEST(RenderingTests, Render_SharedDynamicMeshDataBatchesAsInstancedDraw)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Texture>(
-            [](const std::filesystem::path&, const TextureLoadParameters&)
-            {
-                return std::make_shared<Texture>(
-                    Size {2U, 2U},
-                    TextureWrap::REPEAT,
-                    TextureFilter::LINEAR,
-                    TextureFormat::RGB,
-                    std::vector<Pixel> {
-                        255U,
-                        0U,
-                        0U,
-                        0U,
-                        255U,
-                        0U,
-                        0U,
-                        0U,
-                        255U,
-                        255U,
-                        255U,
-                        255U,
-                    });
-            });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            3U);
-        const auto texture_handle = Handle("Textures/Diffuse.png");
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh_data = std::make_shared<DynamicMeshData>(triangle);
+        auto first = Entity("First", registry);
+        first.add_component<DynamicMesh>(mesh_data);
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = Entity("Second", registry);
+        second.add_component<DynamicMesh>(mesh_data);
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
-        auto first_resource = Uuid {};
-        auto second_resource = Uuid {};
-        auto raw_gpu_handle = uint {};
-        const auto first_result =
-            resource_manager.upload(texture_handle, TextureLoadParameters {}, first_resource);
-        const auto second_result =
-            resource_manager.upload(texture_handle, TextureLoadParameters {}, second_resource);
-        const auto raw_result =
-            resource_manager.upload(texture_handle, TextureLoadParameters {}, raw_gpu_handle);
-        const auto usage = resource_manager.get_usage(texture_handle);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_TRUE(first_result);
-        ASSERT_TRUE(second_result);
-        ASSERT_TRUE(raw_result);
-        ASSERT_TRUE(usage.has_value());
-        EXPECT_EQ(first_resource, second_resource);
-        EXPECT_EQ(static_cast<uint>(first_resource), raw_gpu_handle);
-        EXPECT_EQ(backend.uploaded_texture_count, 1U);
-        EXPECT_EQ(backend.recorded_texture_desc.size.width, 2U);
-        EXPECT_EQ(backend.recorded_texture_desc.size.height, 2U);
-        EXPECT_EQ(backend.recorded_texture_upload_size, 16U);
-        EXPECT_EQ(usage->access_count, 3U);
+        ASSERT_FALSE(backend.recorded_draws.empty());
+        EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
+        EXPECT_TRUE(contains_vertex_slot(backend, VERTEX_BUFFER_SLOT_INSTANCE));
+        EXPECT_FALSE(mesh_data->is_dirty());
     }
 
-    // Validates GraphicsResourceManager uploads material pipelines and keeps dependencies hot.
-    TEST(GraphicsResourceManagerTests, LoadMaterial_CachesUploadedPipeline)
+    // Validates distinct dynamic mesh payloads do not batch just because contents match.
+    TEST(RenderingTests, Render_DistinctDynamicMeshDataDoesNotBatch)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Shader>(
-            [](const std::filesystem::path&, const ShaderLoadParameters&)
-            {
-                return std::make_shared<Shader>(std::vector<ShaderSource> {
-                    ShaderSource(
-                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
-                        ShaderType::VERTEX),
-                    ShaderSource(
-                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
-                        "vec4(1.0); }\n",
-                        ShaderType::FRAGMENT),
-                });
-            });
-        serialization_registry.register_reader<Texture>(
-            [](const std::filesystem::path&, const TextureLoadParameters&)
-            {
-                return std::make_shared<Texture>(
-                    Size {1U, 1U},
-                    TextureWrap::REPEAT,
-                    TextureFilter::LINEAR,
-                    TextureFormat::RGBA,
-                    std::vector<Pixel> {255U, 255U, 255U, 255U});
-            });
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path&, const MaterialLoadParameters&)
-            {
-                auto material = Material {};
-                material.program.vertex = Handle("Shaders/Test.shader");
-                material.program.fragment = Handle("Shaders/Test.shader");
-                material.textures.set("u_albedo_map", Handle("Textures/Diffuse.png"));
-                return std::make_shared<Material>(std::move(material));
-            });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            3U);
-        const auto material_handle = Handle("Materials/Test.mat");
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto first = Entity("First", registry);
+        first.add_component<DynamicMesh>(triangle);
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = Entity("Second", registry);
+        second.add_component<DynamicMesh>(triangle);
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
 
         // Act
-        auto first_resource = Uuid {};
-        auto second_resource = Uuid {};
-        const auto first_result =
-            resource_manager.upload(material_handle, MaterialLoadParameters {}, first_resource);
-        const auto second_result =
-            resource_manager.upload(material_handle, MaterialLoadParameters {}, second_resource);
-        const auto usage = resource_manager.get_usage(material_handle);
-        const bool is_texture_loaded = resource_manager.is_loaded(Handle("Textures/Diffuse.png"));
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_TRUE(first_result);
-        ASSERT_TRUE(second_result);
-        ASSERT_TRUE(usage.has_value());
-        EXPECT_EQ(first_resource, second_resource);
-        EXPECT_EQ(usage->access_count, 2U);
-        EXPECT_EQ(backend.uploaded_pipeline_count, 1U);
-        EXPECT_EQ(backend.uploaded_texture_count, 1U);
-        EXPECT_TRUE(is_texture_loaded);
-        EXPECT_EQ(backend.recorded_pipeline_desc.debug_name, "Material Materials/Test.mat");
+        ASSERT_GE(backend.recorded_draws.size(), 2U);
+        EXPECT_EQ(backend.recorded_draws[0U].instance_count, 1U);
+        EXPECT_EQ(backend.recorded_draws[1U].instance_count, 1U);
     }
 
-    // Validates active material/texture resources keep source assets pinned between cleanup ticks.
-    TEST(GraphicsResourceManagerTests, LoadMaterial_KeepsAssetsPinnedWhileResourceTracked)
+    // Validates dirty same-size dynamic mesh edits update cached buffers instead of reuploading.
+    TEST(RenderingTests, Render_DirtyDynamicMeshSameSizeEditUpdatesCachedBuffers)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Shader>(
-            [](const std::filesystem::path&, const ShaderLoadParameters&)
-            {
-                return std::make_shared<Shader>(std::vector<ShaderSource> {
-                    ShaderSource(
-                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
-                        ShaderType::VERTEX),
-                    ShaderSource(
-                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
-                        "vec4(1.0); }\n",
-                        ShaderType::FRAGMENT),
-                });
-            });
-        serialization_registry.register_reader<Texture>(
-            [](const std::filesystem::path&, const TextureLoadParameters&)
-            {
-                return std::make_shared<Texture>(
-                    Size {1U, 1U},
-                    TextureWrap::REPEAT,
-                    TextureFilter::LINEAR,
-                    TextureFormat::RGBA,
-                    std::vector<Pixel> {255U, 255U, 255U, 255U});
-            });
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path&, const MaterialLoadParameters&)
-            {
-                auto material = Material {};
-                material.program.vertex = Handle("Shaders/Test.shader");
-                material.program.fragment = Handle("Shaders/Test.shader");
-                material.textures.set("u_albedo_map", Handle("Textures/Diffuse.png"));
-                return std::make_shared<Material>(std::move(material));
-            });
-
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            2U);
-
-        const auto material_handle = Handle("Materials/Test.mat");
-        const auto texture_handle = Handle("Textures/Diffuse.png");
-        auto material_resource = Uuid {};
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh_data = std::make_shared<DynamicMeshData>(triangle);
+        auto entity = Entity("DynamicTriangle", registry);
+        entity.add_component<DynamicMesh>(mesh_data);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const uint dynamic_upload_count = count_dynamic_mesh_vertex_uploads(
+            backend.recorded_buffer_uploads);
+        const uint updated_buffer_count = backend.updated_buffer_count;
 
         // Act
-        const auto load_result =
-            resource_manager.upload(material_handle, MaterialLoadParameters {}, material_resource);
-        asset_manager.unload_unreferenced();
-        const AssetUsage material_usage_while_tracked =
-            asset_manager.get_usage<Material>(material_handle);
-        const AssetUsage texture_usage_while_tracked =
-            asset_manager.get_usage<Texture>(texture_handle);
-
-        resource_manager.unload_stale();
-        resource_manager.unload_stale();
-        asset_manager.unload_unreferenced();
-        const AssetUsage material_usage_after_eviction =
-            asset_manager.get_usage<Material>(material_handle);
-        const AssetUsage texture_usage_after_eviction =
-            asset_manager.get_usage<Texture>(texture_handle);
+        mesh_data->edit_mesh().vertices.vertices[0U] += 0.25F;
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_TRUE(load_result);
-        EXPECT_EQ(material_usage_while_tracked.stream_state, AssetStreamState::LOADED);
-        EXPECT_EQ(texture_usage_while_tracked.stream_state, AssetStreamState::LOADED);
-        EXPECT_TRUE(material_usage_while_tracked.is_pinned);
-        EXPECT_TRUE(texture_usage_while_tracked.is_pinned);
-
-        EXPECT_EQ(material_usage_after_eviction.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_EQ(texture_usage_after_eviction.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_FALSE(material_usage_after_eviction.is_pinned);
-        EXPECT_FALSE(texture_usage_after_eviction.is_pinned);
+        EXPECT_EQ(count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads), dynamic_upload_count);
+        EXPECT_GE(backend.updated_buffer_count, updated_buffer_count + 2U);
+        EXPECT_FALSE(mesh_data->is_dirty());
     }
 
-    // Validates GraphicsResourceManager uploads model mesh buffers as one cached resource group.
-    TEST(GraphicsResourceManagerTests, LoadModel_CachesUploadedMeshBuffers)
+    // Validates dirty size-changing dynamic mesh edits upload replacement buffers.
+    TEST(RenderingTests, Render_DirtyDynamicMeshSizeChangeReuploadsBuffers)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
         auto dispatcher = NullMessageDispatcher {};
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Model>(
-            [](const std::filesystem::path&, const ModelLoadParameters&)
-            {
-                return std::make_shared<Model>(triangle);
-            });
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            2U);
-        const auto model_handle = Handle("Models/Triangle.fbx");
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh_data = std::make_shared<DynamicMeshData>(triangle);
+        auto entity = Entity("DynamicTriangle", registry);
+        entity.add_component<DynamicMesh>(mesh_data);
+        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+        const uint dynamic_upload_count = count_dynamic_mesh_vertex_uploads(
+            backend.recorded_buffer_uploads);
 
         // Act
-        auto first_resource = Uuid {};
-        auto second_resource = Uuid {};
-        const auto first_result =
-            resource_manager.upload(model_handle, ModelLoadParameters {}, first_resource);
-        const auto second_result =
-            resource_manager.upload(model_handle, ModelLoadParameters {}, second_resource);
-        const auto usage = resource_manager.get_usage(model_handle);
-        const bool loaded_before_unload = resource_manager.is_loaded(model_handle);
-        resource_manager.unload_stale();
-        const uint unloaded_count = resource_manager.unload_stale();
-        const bool loaded_after_unload = resource_manager.is_loaded(model_handle);
+        mesh_data->edit_mesh().indices.push_back(0U);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_TRUE(first_result);
-        ASSERT_TRUE(second_result);
-        ASSERT_TRUE(usage.has_value());
-        EXPECT_EQ(first_resource, second_resource);
-        EXPECT_EQ(usage->access_count, 2U);
-        EXPECT_TRUE(loaded_before_unload);
-        EXPECT_EQ(backend.uploaded_buffer_count, 2U);
-        EXPECT_EQ(backend.recorded_buffer_descs[0U].usage, GraphicsBufferUsage::VERTEX);
-        EXPECT_EQ(backend.recorded_buffer_descs[1U].usage, GraphicsBufferUsage::INDEX);
-        EXPECT_EQ(unloaded_count, 1U);
-        EXPECT_FALSE(loaded_after_unload);
-        EXPECT_EQ(backend.unloaded_resources.size(), 2U);
+        EXPECT_GT(count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads), dynamic_upload_count);
+        EXPECT_FALSE(mesh_data->is_dirty());
     }
 
-    // Validates cached model resources do not keep CPU model assets resident after upload.
-    TEST(GraphicsResourceManagerTests, LoadModelResource_DoesNotRetainSourceAssetAfterUpload)
-    {
-        // Arrange
-        auto backend = RecordingGraphicsBackend {};
-        auto dispatcher = NullMessageDispatcher {};
-        auto serialization_registry = SerializationRegistry {};
-        auto model_load_count = uint {};
-        serialization_registry.register_reader<Model>(
-            [&model_load_count](const std::filesystem::path&, const ModelLoadParameters&)
-            {
-                model_load_count += 1U;
-                return std::make_shared<Model>(triangle);
-            });
-        auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            2U);
-        const auto model_handle = Handle("Models/Triangle.fbx");
-
-        // Act
-        auto first_model_resource = GraphicsModelResource {};
-        const auto first_result =
-            resource_manager.upload(model_handle, ModelLoadParameters {}, first_model_resource);
-        asset_manager.unload_unreferenced();
-
-        const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
-        auto second_model_resource = GraphicsModelResource {};
-        const auto second_result =
-            resource_manager.upload(model_handle, ModelLoadParameters {}, second_model_resource);
-        const auto resource_usage = resource_manager.get_usage(model_handle);
-
-        // Assert
-        ASSERT_TRUE(first_result);
-        ASSERT_TRUE(second_result);
-        ASSERT_TRUE(resource_usage.has_value());
-        EXPECT_EQ(model_load_count, 1U);
-        EXPECT_EQ(usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_EQ(usage_after_asset_cleanup.ref_count, 0U);
-        ASSERT_EQ(first_model_resource.meshes.size(), 1U);
-        ASSERT_EQ(second_model_resource.meshes.size(), 1U);
-        EXPECT_EQ(first_model_resource.resource, second_model_resource.resource);
-        EXPECT_EQ(
-            first_model_resource.meshes.front().vertex_buffer,
-            second_model_resource.meshes.front().vertex_buffer);
-        EXPECT_EQ(
-            first_model_resource.meshes.front().index_buffer,
-            second_model_resource.meshes.front().index_buffer);
-        EXPECT_EQ(resource_usage->access_count, 2U);
-        EXPECT_EQ(backend.uploaded_buffer_count, 2U);
-    }
-
-    // Validates GraphicsResourceManager evicts textures that are not used for the frame window.
-    TEST(GraphicsResourceManagerTests, Update_UnloadsStaleTextureResources)
-    {
-        // Arrange
-        auto backend = RecordingGraphicsBackend {};
-        auto dispatcher = NullMessageDispatcher {};
-        auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Texture>(
-            [](const std::filesystem::path&, const TextureLoadParameters&)
-            {
-                return std::make_shared<Texture>(
-                    Size {1U, 1U},
-                    TextureWrap::REPEAT,
-                    TextureFilter::LINEAR,
-                    TextureFormat::RGBA,
-                    std::vector<Pixel> {255U, 255U, 255U, 255U});
-            });
-        auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto resource_manager = GraphicsResourceManager(
-            make_non_owning_service<IGraphicsBackend>(backend),
-            make_non_owning_service(asset_manager),
-            3U);
-        const auto texture_handle = Handle("Textures/Stale.png");
-
-        auto first_resource = Uuid {};
-        const auto load_result =
-            resource_manager.upload(texture_handle, TextureLoadParameters {}, first_resource);
-
-        // Act
-        const uint first_unload_count = resource_manager.unload_stale();
-        const uint second_unload_count = resource_manager.unload_stale();
-        const bool loaded_before_limit = resource_manager.is_loaded(texture_handle);
-        const uint third_unload_count = resource_manager.unload_stale();
-        const bool loaded_after_limit = resource_manager.is_loaded(texture_handle);
-
-        auto second_resource = Uuid {};
-        const auto reload_result =
-            resource_manager.upload(texture_handle, TextureLoadParameters {}, second_resource);
-
-        // Assert
-        ASSERT_TRUE(load_result);
-        ASSERT_TRUE(reload_result);
-        EXPECT_EQ(first_unload_count, 0U);
-        EXPECT_EQ(second_unload_count, 0U);
-        EXPECT_TRUE(loaded_before_limit);
-        EXPECT_EQ(third_unload_count, 1U);
-        EXPECT_FALSE(loaded_after_limit);
-        ASSERT_EQ(backend.unloaded_resources.size(), 1U);
-        EXPECT_EQ(backend.unloaded_resources.front(), first_resource);
-        EXPECT_NE(first_resource, second_resource);
-        EXPECT_EQ(backend.uploaded_texture_count, 2U);
-    }
 }

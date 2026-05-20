@@ -13,6 +13,8 @@ namespace tbx
 {
     using IndexBuffer = std::vector<uint32>;
 
+    struct DynamicMeshData;
+
     struct TBX_API Mesh
     {
         // Defaults to a quad.
@@ -21,12 +23,6 @@ namespace tbx
 
         VertexBuffer vertices = {};
         IndexBuffer indices = {};
-        /// @brief
-        /// Purpose: Stores local-space mesh bounds used for visibility and lighting culling.
-        /// @details
-        /// Ownership: Value-owned by the mesh. Notes: Static meshes are populated during model
-        /// load. Dynamic mesh producers are responsible for refreshing bounds after mutating
-        /// vertices/indices.
         MeshBounds bounds = {};
     };
 
@@ -57,6 +53,8 @@ namespace tbx
     /// Thread Safety: Safe to call concurrently when the mesh is not being mutated.
     TBX_API uint32 get_vertex_stride_float_count(const Mesh& mesh);
 
+    // TODO: move these mesh utils and inlines into mesh. Convert inlines to consts so tbx::triangle
+    // would become tbx::Mesh::TRIANGLE and the makes will become details in the mesh source.
     /// @brief Purpose: Provides a triangle mesh.
     /// @details Ownership: Returns a reference to the default triangle mesh owned
     /// by the module.
@@ -123,20 +121,39 @@ namespace tbx
     struct TBX_API DynamicMesh
     {
         DynamicMesh() = default;
-        DynamicMesh(Mesh mesh)
-            : data(std::make_shared<Mesh>(std::move(mesh)))
-        {
-        }
-        DynamicMesh(std::shared_ptr<Mesh> mesh_data)
-            : data(std::move(mesh_data))
-        {
-        }
+        DynamicMesh(Mesh mesh);
+        DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data);
 
-        /// @brief
-        /// Purpose: Shared mesh data to render.
-        /// @details
-        /// Ownership: Shared ownership of the mesh data via std::shared_ptr.
-        /// Thread Safety: Safe to copy; synchronize mutation of the pointed-to Mesh externally.
-        std::shared_ptr<Mesh> data = {};
+        const Mesh& get_mesh() const;
+        Mesh& edit_mesh();
+        bool is_dirty() const;
+        void mark_dirty();
+        void clear_dirty();
+        std::shared_ptr<DynamicMeshData> get_data() const;
+
+      private:
+        std::shared_ptr<DynamicMeshData> _data = {};
+    };
+
+    /// @brief
+    /// Purpose: Owns runtime mesh geometry and dirty state shared by DynamicMesh components.
+    /// @details
+    /// Ownership: Owns mesh data by value and is shared by DynamicMesh components through
+    /// std::shared_ptr.
+    /// Thread Safety: Mesh content mutation must be synchronized externally.
+    struct TBX_API DynamicMeshData
+    {
+        DynamicMeshData() = default;
+        DynamicMeshData(Mesh mesh);
+
+        const Mesh& get_mesh() const;
+        Mesh& edit_mesh();
+        bool is_dirty() const;
+        void mark_dirty();
+        void clear_dirty();
+
+      private:
+        Mesh _mesh = {};
+        bool _is_dirty = true;
     };
 }

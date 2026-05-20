@@ -32,8 +32,7 @@ namespace tbx
         auto tangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
         auto bitangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
 
-        for (size_t triangle_index = 0U; triangle_index + 2U < indices.size();
-             triangle_index += 3U)
+        for (size_t triangle_index = 0U; triangle_index + 2U < indices.size(); triangle_index += 3U)
         {
             const auto index0 = static_cast<size_t>(indices[triangle_index + 0U]);
             const auto index1 = static_cast<size_t>(indices[triangle_index + 1U]);
@@ -78,8 +77,7 @@ namespace tbx
                 tangent = get_fallback_tangent(normal);
 
             const auto bitangent = bitangent_sums[vertex_index];
-            const float handedness =
-                dot(cross(normal, tangent), bitangent) < 0.0F ? -1.0F : 1.0F;
+            const float handedness = dot(cross(normal, tangent), bitangent) < 0.0F ? -1.0F : 1.0F;
             vertices[vertex_index].tangent = Vec4(tangent.x, tangent.y, tangent.z, handedness);
         }
     }
@@ -115,7 +113,7 @@ namespace tbx
                         unit_position * radius,
                         normalize_or_zero(unit_position),
                         Vec2(sector_ratio, 1.0F - stack_ratio),
-                        Color(0.0F, 0.0F, 0.0F, 1.0F),
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
                     });
             }
         }
@@ -248,7 +246,7 @@ namespace tbx
                         position,
                         normal,
                         Vec2(u, 1.0F - v),
-                        Color(0.0F, 0.0F, 0.0F, 1.0F),
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
                     });
             }
         }

@@ -6,7 +6,7 @@ layout(location = 0) out vec4 o_color;
 
 in vec2 v_tex_coord;
 
-layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxLutPostData
+layout(std140, binding = BINDING_MATERIAL_DATA) uniform TbxLutPostData
 {
     vec4 u_lut_tint;
     vec4 u_lut_emissive;
@@ -16,7 +16,7 @@ layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxLutPostData
     vec3 _tbx_pad_u_lut_blend;
 };
 
-layout(binding = TBX_BINDING_POST_SOURCE_COLOR) uniform sampler2D u_source_color;
+layout(binding = BINDING_POST_SOURCE_COLOR) uniform sampler2D u_source_color;
 layout(binding = 1) uniform sampler2D u_lut;
 
 void main()

@@ -36,7 +36,8 @@ namespace three_d_example
         tbx::EntityRegistry* _entity_registry = nullptr;
         std::function<tbx::Entity()> _camera_provider = {};
         tbx::MaterialInstance _projectile_material = {};
-        std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(tbx::sphere);
+        std::shared_ptr<tbx::DynamicMeshData> _projectile_mesh =
+            std::make_shared<tbx::DynamicMeshData>(tbx::sphere);
         float _projectile_spawn_distance = 1.35F;
         float _projectile_speed = 26.0F;
         double _projectile_lifetime_seconds = 8.0;

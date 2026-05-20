@@ -70,7 +70,7 @@ namespace opengl_rendering
         if (_is_gl_loaded)
             destroy_resources();
 
-        auto windows = std::vector<tbx::Window> {};
+        auto windows = std::vector<tbx::Window>();
         windows.reserve(_contexts.size());
         for (const auto& [window, context] : _contexts)
         {
@@ -92,27 +92,19 @@ namespace opengl_rendering
         return tbx::GraphicsApi::OPEN_GL;
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::RenderFrameInfo& frame)
+    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::Window& output_target)
     {
         if (!_is_initialized)
             return make_failure("OpenGL backend: initialize must be called before begin_frame.");
 
-        if (!frame.output_window.is_valid())
+        if (!output_target.is_valid())
             return make_failure("OpenGL backend: frame output window is invalid.");
 
-        if (auto result = ensure_frame_context(frame.output_window); !result)
+        if (auto result = ensure_frame_context(output_target); !result)
             return result;
 
         clear_bound_state();
-
-        if (frame.output_resolution.width > 0U && frame.output_resolution.height > 0U)
-            glViewport(
-                0,
-                0,
-                static_cast<GLsizei>(frame.output_resolution.width),
-                static_cast<GLsizei>(frame.output_resolution.height));
-
-        return make_success();
+        return consume_gl_errors("begin_frame");
     }
 
     tbx::Result OpenGlGraphicsBackend::begin_view(const tbx::RenderView& view)
@@ -123,8 +115,9 @@ namespace opengl_rendering
     tbx::Result OpenGlGraphicsBackend::end_frame()
     {
         clear_bound_state();
+        auto result = consume_gl_errors("end_frame");
         _active_window = {};
-        return make_success();
+        return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::end_view()
@@ -229,7 +222,7 @@ namespace opengl_rendering
             glClear(clear_mask);
 
         _is_pass_active = true;
-        return make_success();
+        return consume_gl_errors("begin_pass");
     }
 
     tbx::Result OpenGlGraphicsBackend::end_pass()
@@ -240,7 +233,7 @@ namespace opengl_rendering
         _is_pass_active = false;
         glBindFramebuffer(GL_FRAMEBUFFER, 0U);
         _pass_framebuffer.reset();
-        return make_success();
+        return consume_gl_errors("end_pass");
     }
 
     tbx::Result OpenGlGraphicsBackend::set_viewport(const tbx::Viewport& viewport)
@@ -250,7 +243,7 @@ namespace opengl_rendering
             static_cast<GLint>(viewport.position.y),
             static_cast<GLsizei>(viewport.dimensions.width),
             static_cast<GLsizei>(viewport.dimensions.height));
-        return make_success();
+        return consume_gl_errors("set_viewport");
     }
 
     tbx::Result OpenGlGraphicsBackend::set_scissor(const tbx::Viewport& scissor)
@@ -261,7 +254,7 @@ namespace opengl_rendering
             static_cast<GLint>(scissor.position.y),
             static_cast<GLsizei>(scissor.dimensions.width),
             static_cast<GLsizei>(scissor.dimensions.height));
-        return make_success();
+        return consume_gl_errors("set_scissor");
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_pipeline(const tbx::Uuid& pipeline_resource_uuid)
@@ -281,6 +274,9 @@ namespace opengl_rendering
         program_it->second.bind();
         glBindVertexArray(vertex_array_it->second);
         apply_pipeline_state(desc_it->second);
+
+        if (auto result = consume_gl_errors("bind_pipeline"); !result)
+            return result;
 
         _current_pipeline = pipeline_resource_uuid;
         return make_success();
@@ -361,6 +357,9 @@ namespace opengl_rendering
             glVertexArrayBindingDivisor(vertex_array, slot, layout->is_per_instance ? 1U : 0U);
         }
 
+        if (auto result = consume_gl_errors("bind_vertex_buffer"); !result)
+            return result;
+
         _pipeline_vertex_buffer_bindings[_current_pipeline][slot] = buffer_resource_uuid;
         return make_success();
     }
@@ -396,6 +395,9 @@ namespace opengl_rendering
             _pipeline_vertex_arrays.at(_current_pipeline),
             buffer_it->second.get_buffer_id());
         buffer_it->second.bind();
+        if (auto result = consume_gl_errors("bind_index_buffer"); !result)
+            return result;
+
         _pipeline_index_buffer_bindings[_current_pipeline] = buffer_resource_uuid;
         return make_success();
     }
@@ -418,7 +420,7 @@ namespace opengl_rendering
             return result;
 
         buffer_it->second.bind_slot(slot);
-        return make_success();
+        return consume_gl_errors("bind_uniform_buffer");
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_storage_buffer(
@@ -439,7 +441,7 @@ namespace opengl_rendering
             return result;
 
         buffer_it->second.bind_slot(slot);
-        return make_success();
+        return consume_gl_errors("bind_storage_buffer");
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_texture(
@@ -451,7 +453,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: texture was not found.");
 
         texture_it->second.bind_slot(slot);
-        return make_success();
+        return consume_gl_errors("bind_texture");
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_sampler(
@@ -463,7 +465,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: sampler was not found.");
 
         sampler_it->second.bind_slot(slot);
-        return make_success();
+        return consume_gl_errors("bind_sampler");
     }
 
     tbx::Result OpenGlGraphicsBackend::draw(const uint32 vertex_count, const uint32 vertex_offset)
@@ -476,7 +478,7 @@ namespace opengl_rendering
             to_gl_primitive_type(pipeline_desc.primitive_type),
             static_cast<GLint>(vertex_offset),
             static_cast<GLsizei>(vertex_count));
-        return make_success();
+        return consume_gl_errors("draw");
     }
 
     tbx::Result OpenGlGraphicsBackend::draw_indexed(const tbx::GraphicsDrawIndexedDesc& draw)
@@ -494,7 +496,7 @@ namespace opengl_rendering
             static_cast<GLsizei>(draw.instance_count),
             draw.vertex_offset,
             draw.first_instance);
-        return make_success();
+        return consume_gl_errors("draw_indexed");
     }
 
     tbx::Result OpenGlGraphicsBackend::unload(const tbx::Uuid& resource_uuid)
@@ -579,6 +581,14 @@ namespace opengl_rendering
         out_resource_uuid = tbx::Uuid::generate();
         _buffers.try_emplace(out_resource_uuid, desc, data, data_size);
         _buffer_descs.emplace(out_resource_uuid, desc);
+        if (auto result = consume_gl_errors("upload_buffer"); !result)
+        {
+            _buffers.erase(out_resource_uuid);
+            _buffer_descs.erase(out_resource_uuid);
+            out_resource_uuid = {};
+            return result;
+        }
+
         return make_success();
     }
 
@@ -591,16 +601,29 @@ namespace opengl_rendering
 
         auto shaders = std::vector<std::shared_ptr<OpenGlShader>> {};
         if (auto result = create_shaders(desc.shader, shaders); !result)
-            return result;
+        {
+            auto message = std::string("OpenGL backend: shader upload failed");
+            if (!desc.debug_name.empty())
+                message += " for pipeline '" + desc.debug_name + "'";
+            message += ". ";
+            message += result.get_report();
+            return make_failure(std::move(message));
+        }
 
         auto program = OpenGlShaderProgram(shaders);
         if (program.get_program_id() == 0U)
         {
-            return make_failure("OpenGL backend: shader program link failed.");
+            auto message = std::string("OpenGL backend: shader program link failed");
+            if (!desc.debug_name.empty())
+                message += " for pipeline '" + desc.debug_name + "'";
+            message += ".";
+            return make_failure(std::move(message));
         }
 
         auto vertex_array = GLuint {0U};
         glCreateVertexArrays(1, &vertex_array);
+        if (auto result = consume_gl_errors("upload_pipeline"); !result)
+            return result;
 
         out_resource_uuid = tbx::Uuid::generate();
         _programs.emplace(out_resource_uuid, std::move(program));
@@ -615,6 +638,13 @@ namespace opengl_rendering
     {
         out_resource_uuid = tbx::Uuid::generate();
         _samplers.emplace(out_resource_uuid, desc);
+        if (auto result = consume_gl_errors("upload_sampler"); !result)
+        {
+            _samplers.erase(out_resource_uuid);
+            out_resource_uuid = {};
+            return result;
+        }
+
         return make_success();
     }
 
@@ -640,6 +670,14 @@ namespace opengl_rendering
         out_resource_uuid = tbx::Uuid::generate();
         _textures.try_emplace(out_resource_uuid, desc, data);
         _texture_descs.emplace(out_resource_uuid, desc);
+        if (auto result = consume_gl_errors("upload_texture"); !result)
+        {
+            _textures.erase(out_resource_uuid);
+            _texture_descs.erase(out_resource_uuid);
+            out_resource_uuid = {};
+            return result;
+        }
+
         return make_success();
     }
 
@@ -672,7 +710,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: buffer update exceeds buffer size.");
 
         buffer_it->second.update(data, data_size, offset);
-        return make_success();
+        return consume_gl_errors("update_buffer");
     }
 
     tbx::Result OpenGlGraphicsBackend::update_texture(
@@ -708,7 +746,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: texture update data is smaller than region size.");
 
         texture_it->second.update(desc, texture_desc.format, data);
-        return make_success();
+        return consume_gl_errors("update_texture");
     }
 
     void OpenGlGraphicsBackend::destroy_context(const tbx::Window& window)

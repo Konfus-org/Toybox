@@ -181,12 +181,11 @@ namespace tbx
     /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API Material
     {
-        ShaderProgram program = {};
+        Shader shader = {};
         MaterialParameterBindings parameters = {};
         MaterialTextureBindings textures = {};
         MaterialConfig config = {};
     };
-
 }
 
 #include "tbx/types/components/material_instance.h"

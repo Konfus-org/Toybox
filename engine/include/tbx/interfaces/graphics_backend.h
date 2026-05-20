@@ -122,18 +122,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Describes frame-level render state shared by all views in a frame.
-    /// @details
-    /// Ownership: Owns submission state by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API RenderFrameInfo
-    {
-        Window output_window = {};
-        Size render_resolution = {};
-        Size output_resolution = {};
-    };
-
-    /// @brief
     /// Purpose: Describes one camera viewport rendered within a graphics frame.
     /// @details
     /// Ownership: Owns camera and viewport data by value.
@@ -243,7 +231,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API GraphicsPipelineDesc
     {
-        Shader shader = {};
+        ShaderProgram shader = {};
         std::vector<GraphicsVertexBufferLayoutDesc> vertex_buffers = {};
         std::vector<GraphicsVertexAttributeDesc> vertex_attributes = {};
         GraphicsPrimitiveType primitive_type = GraphicsPrimitiveType::TRIANGLES;
@@ -307,7 +295,7 @@ namespace tbx
 
         virtual GraphicsApi get_api() const = 0;
 
-        virtual Result begin_frame(const RenderFrameInfo& frame) = 0;
+        virtual Result begin_frame(const Window& output_target) = 0;
         virtual Result end_frame() = 0;
 
         virtual Result begin_view(const RenderView& view) = 0;

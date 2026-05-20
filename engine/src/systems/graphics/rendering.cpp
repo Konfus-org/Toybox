@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -17,11 +18,12 @@ namespace tbx
         const GraphicsSettings& settings)
         : _thread_manager(std::move(thread_manager))
         , _backend(std::move(backend))
-        , _window_manager(std::move(window_manager))
-        , _configured_resolution(settings.resolution.value)
-        , _resource_manager(
-              std::make_unique<GraphicsResourceManager>(_backend, std::move(asset_manager), 3U))
-        , _frame_data_factory(std::move(entity_registry))
+        , _pass_factory(
+              _backend,
+              std::move(entity_registry),
+              std::move(asset_manager),
+              std::move(window_manager),
+              settings.resolution.value)
     {
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
@@ -73,6 +75,19 @@ namespace tbx
             "Toybox renderer shutdown failed.");
     }
 
+    void Rendering::initialize(const GraphicsSettings& settings)
+    {
+        auto backend = _backend.lock();
+        if (!backend)
+        {
+            _initialization_result.flag_failure(
+                "Rendering initialization failed because required services are unavailable.");
+            return;
+        }
+
+        _initialization_result = backend->initialize(settings);
+    }
+
     void Rendering::render()
     {
         auto thread_manager = _thread_manager.lock();
@@ -84,8 +99,8 @@ namespace tbx
 
         TBX_TRY_CATCH_ASSERT(
             {
+                // Ensure we are initialized
                 wait_for_initialization();
-                wait_for_render_frame();
 
                 _render_future = thread_manager->post_with_future(
                     std::string(RENDER_LANE_NAME),
@@ -97,113 +112,9 @@ namespace tbx
             "Toybox renderer dispatch failed");
     }
 
-    Result Rendering::execute_draw_command(
-        IGraphicsBackend& backend,
-        const GraphicsDrawCommand& command) const
+    void Rendering::wait_for_pending_frame() noexcept
     {
-        auto result = backend.bind_pipeline(command.pipeline);
-        if (!result)
-            return result;
-
-        for (const auto& binding : command.vertex_buffers)
-        {
-            result = backend.bind_vertex_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.uniform_buffers)
-        {
-            result = backend.bind_uniform_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.storage_buffers)
-        {
-            result = backend.bind_storage_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.textures)
-        {
-            result = backend.bind_texture(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.samplers)
-        {
-            result = backend.bind_sampler(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        return backend.draw(command.vertex_count, command.vertex_offset);
-    }
-
-    Result Rendering::execute_draw_command(
-        IGraphicsBackend& backend,
-        const GraphicsIndexedDrawCommand& command) const
-    {
-        auto result = backend.bind_pipeline(command.pipeline);
-        if (!result)
-            return result;
-
-        for (const auto& binding : command.vertex_buffers)
-        {
-            result = backend.bind_vertex_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        result = backend.bind_index_buffer(command.index_buffer, command.index_type);
-        if (!result)
-            return result;
-
-        for (const auto& binding : command.uniform_buffers)
-        {
-            result = backend.bind_uniform_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.storage_buffers)
-        {
-            result = backend.bind_storage_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.textures)
-        {
-            result = backend.bind_texture(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.samplers)
-        {
-            result = backend.bind_sampler(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        return backend.draw_indexed(command.draw);
-    }
-
-    void Rendering::initialize(const GraphicsSettings& settings)
-    {
-        auto backend = _backend.lock();
-        if (!backend || !_resource_manager)
-        {
-            _initialization_result.flag_failure(
-                "Rendering initialization failed because required services are unavailable.");
-            return;
-        }
-
-        _initialization_result = backend->initialize(settings);
+        wait_for_render_frame();
     }
 
     void Rendering::render_frame()
@@ -216,12 +127,6 @@ namespace tbx
             return;
         }
 
-        if (!_resource_manager)
-        {
-            TBX_TRACE_ERROR_ONCE("Toybox renderer resource manager is unavailable.");
-            return;
-        }
-
         const auto backend = _backend.lock();
         if (!backend)
         {
@@ -229,65 +134,34 @@ namespace tbx
             return;
         }
 
-        auto frame_info = RenderFrameInfo();
+        const DeltaTime frame_delta = _frame_timer.tick();
+
+        auto render_target = RenderTarget();
         auto view = RenderView();
-
-        // Build frame-global submission data inline before beginning GPU work.
-        const auto window_manager = _window_manager.lock();
-        if (!window_manager)
+        auto result = _pass_factory.build_frame_data(frame_delta, render_target, view);
+        if (!result)
         {
-            TBX_TRACE_ERROR_ONCE("Toybox renderer window manager is unavailable.");
+            TBX_TRACE_ERROR_ONCE("Toybox render frame data creation failed. {}", result.get_report());
             return;
         }
 
-        if (!window_manager->has_main_window())
-        {
-            TBX_TRACE_ERROR_ONCE("Toybox renderer has no main output window.");
-            return;
-        }
-
-        const auto& output_window = window_manager->get_main_window();
-        auto output_resolution = window_manager->get_size(output_window);
-        if (output_resolution.width == 0U || output_resolution.height == 0U)
-            output_resolution = Size {1U, 1U};
-
-        auto render_resolution = _configured_resolution;
-        if (render_resolution.width == 0U || render_resolution.height == 0U)
-            render_resolution = output_resolution;
-
-        frame_info.output_window = output_window;
-        frame_info.render_resolution = render_resolution;
-        frame_info.output_resolution = output_resolution;
-
-        view = RenderView {
-            .camera = Camera(),
-            .viewport = Viewport {.position = Vec2(0.0F), .dimensions = render_resolution},
-        };
-
-        auto result = backend->begin_frame(frame_info);
+        result = backend->begin_frame(render_target);
         if (!result)
         {
             TBX_TRACE_ERROR_ONCE("Toybox begin_frame failed. {}", result.get_report());
             return;
         }
 
-        // Build view-scoped render commands after frame setup succeeds.
-        auto frame_data = FrameData {
-            .output_window = frame_info.output_window,
-            .render_resolution = frame_info.render_resolution,
-            .output_resolution = frame_info.output_resolution,
-            .view = view,
-            .frame_index = _frame_index,
-        };
-        result = _frame_data_factory.create(*_resource_manager, frame_data);
+        auto passes = std::vector<RenderPass>();
+        result = _pass_factory.create(_frame_index, _resource_tracker, passes);
         if (!result)
         {
             (void)backend->end_frame();
-            TBX_TRACE_ERROR_ONCE("Toybox frame data creation failed. {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE("Toybox render pass creation failed. {}", result.get_report());
             return;
         }
 
-        result = backend->begin_view(frame_data.view);
+        result = backend->begin_view(view);
         if (!result)
         {
             (void)backend->end_frame();
@@ -295,7 +169,7 @@ namespace tbx
             return;
         }
 
-        result = backend->set_viewport(frame_data.view.viewport);
+        result = backend->set_viewport(view.viewport);
         if (!result)
         {
             (void)backend->end_view();
@@ -304,57 +178,13 @@ namespace tbx
             return;
         }
 
-        for (const auto& render_pass : frame_data.passes)
+        result = _draw_command_executor.execute(*backend, passes);
+        if (!result)
         {
-            result = backend->begin_pass(render_pass.pass);
-            if (!result)
-            {
-                (void)backend->end_view();
-                (void)backend->end_frame();
-                TBX_TRACE_ERROR_ONCE("Toybox begin_pass failed. {}", result.get_report());
-                return;
-            }
-
-            // TODO: remove responsability of the rendering to execute the pass, the backend already
-            // begins the pass. it should execute the pass too.
-            for (const auto& draw_command : render_pass.draws)
-            {
-                result = execute_draw_command(*backend, draw_command);
-                if (!result)
-                {
-                    (void)backend->end_pass();
-                    (void)backend->end_view();
-                    (void)backend->end_frame();
-                    TBX_TRACE_ERROR_ONCE(
-                        "Toybox draw command execution failed. {}",
-                        result.get_report());
-                    return;
-                }
-            }
-
-            for (const auto& indexed_draw_command : render_pass.indexed_draws)
-            {
-                result = execute_draw_command(*backend, indexed_draw_command);
-                if (!result)
-                {
-                    (void)backend->end_pass();
-                    (void)backend->end_view();
-                    (void)backend->end_frame();
-                    TBX_TRACE_ERROR_ONCE(
-                        "Toybox indexed draw command execution failed. {}",
-                        result.get_report());
-                    return;
-                }
-            }
-
-            result = backend->end_pass();
-            if (!result)
-            {
-                (void)backend->end_view();
-                (void)backend->end_frame();
-                TBX_TRACE_ERROR_ONCE("Toybox end_pass failed. {}", result.get_report());
-                return;
-            }
+            (void)backend->end_view();
+            (void)backend->end_frame();
+            TBX_TRACE_ERROR_ONCE("Toybox draw command execution failed. {}", result.get_report());
+            return;
         }
 
         result = backend->end_view();
@@ -373,15 +203,49 @@ namespace tbx
             return;
         }
 
-        result = backend->end_frame();
+        end_frame(*backend, frame_delta);
+    }
+
+    void Rendering::end_frame(IGraphicsBackend& backend, const DeltaTime delta_time)
+    {
+        auto result = backend.end_frame();
         if (!result)
         {
             TBX_TRACE_ERROR_ONCE("Toybox end_frame failed. {}", result.get_report());
             return;
         }
 
-        _resource_manager->unload_stale();
+        _resource_tracker.update(delta_time);
+        unload_expired_resources(backend, 3.0F);
         _frame_index += 1U;
+    }
+
+    uint Rendering::unload_expired_resources(
+        IGraphicsBackend& backend,
+        const float max_time_alive_seconds)
+    {
+        auto resources = _resource_tracker.get_tracked_resources();
+        auto unloaded_count = uint(0U);
+        for (const uint resource : resources)
+        {
+            if (_resource_tracker.get_time_alive(resource) < max_time_alive_seconds)
+                continue;
+
+            const Result result = backend.unload(Uuid(resource));
+            if (!result)
+            {
+                TBX_TRACE_ERROR_ONCE(
+                    "Toybox resource unload failed for resource {}. {}",
+                    resource,
+                    result.get_report());
+                continue;
+            }
+
+            _resource_tracker.untrack(resource);
+            unloaded_count += 1U;
+        }
+
+        return unloaded_count;
     }
 
     void Rendering::wait_for_initialization() noexcept

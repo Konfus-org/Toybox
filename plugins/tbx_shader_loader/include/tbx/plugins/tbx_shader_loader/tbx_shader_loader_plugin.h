@@ -18,7 +18,7 @@ namespace tbx_shader_loader
         void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        std::shared_ptr<tbx::Shader> read_shader(
+        std::shared_ptr<tbx::ShaderProgram> read_shader(
             const std::filesystem::path& asset_path,
             const tbx::ShaderLoadParameters& parameters);
 

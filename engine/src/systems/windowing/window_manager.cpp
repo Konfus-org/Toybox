@@ -88,13 +88,15 @@ namespace tbx
             return false;
 
         const bool was_main_window = (_main_window == window);
-        send_window_closed(record->id);
+        const Window closed_window = record->id;
+        if (was_main_window)
+            _main_window = {};
+
         _windows.erase(window);
         auto pending_it = std::ranges::find(_pending_close_window_ids, window);
         if (pending_it != _pending_close_window_ids.end())
             _pending_close_window_ids.erase(pending_it);
-        if (was_main_window)
-            _main_window = {};
+        send_window_closed(closed_window);
         return true;
     }
 

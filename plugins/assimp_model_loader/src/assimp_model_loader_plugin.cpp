@@ -112,13 +112,7 @@ namespace assimp_model_loader
 
     static tbx::VertexBufferLayout get_default_mesh_layout()
     {
-        return {{
-            tbx::Vec3(0.0f),
-            tbx::Color(),
-            tbx::Vec3(0.0f),
-            tbx::Vec2(0.0f),
-            tbx::Vec4(0.0f),
-        }};
+        return tbx::get_default_vertex_buffer_layout();
     }
 
     static void append_parts_from_node(

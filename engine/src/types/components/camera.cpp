@@ -3,6 +3,7 @@
 #include "tbx/types/matrices.h"
 #include "tbx/types/trig.h"
 #include <numbers>
+#include <utility>
 
 namespace tbx
 {
@@ -56,6 +57,26 @@ namespace tbx
     bool Camera::is_orthographic() const
     {
         return !_is_perspective;
+    }
+
+    void Camera::set_target(RenderTarget target)
+    {
+        _render_target = std::move(target);
+    }
+
+    void Camera::set_viewport(Viewport viewport)
+    {
+        _viewport = viewport;
+    }
+
+    RenderTarget Camera::get_render_target() const
+    {
+        return _render_target;
+    }
+
+    Viewport Camera::get_viewport() const
+    {
+        return _viewport;
     }
 
     float Camera::get_aspect() const

@@ -57,6 +57,24 @@ namespace tbx::tests::graphics
         return true;
     }
 
+    static bool has_white_vertex_colors(const Mesh& mesh)
+    {
+        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const auto& vertices = mesh.vertices.vertices;
+        if (vertex_stride < 7U || (vertices.size() % vertex_stride) != 0U)
+            return false;
+
+        for (size_t vertex_offset = 0U; vertex_offset < vertices.size();
+             vertex_offset += vertex_stride)
+        {
+            if (vertices[vertex_offset + 3U] != 1.0F || vertices[vertex_offset + 4U] != 1.0F
+                || vertices[vertex_offset + 5U] != 1.0F || vertices[vertex_offset + 6U] != 1.0F)
+                return false;
+        }
+
+        return true;
+    }
+
     // Validates built-in cube mesh topology and buffer population.
     TEST(MeshTests, MakeCube_ReturnsExpectedTopology)
     {
@@ -195,5 +213,24 @@ namespace tbx::tests::graphics
             EXPECT_TRUE(mesh.bounds.is_valid);
             EXPECT_GE(mesh.bounds.sphere.radius, 0.0F);
         }
+    }
+
+    // Validates built-in mesh vertex color defaults do not tint material albedo black.
+    TEST(MeshTests, BuiltInMeshFactories_DefaultVertexColorIsWhite)
+    {
+        // Arrange
+        const auto meshes = std::array<Mesh, 7> {
+            make_triangle(),
+            make_quad(),
+            make_fullscreen_quad(),
+            make_cube(),
+            make_sphere(),
+            make_capsule(),
+            make_sky_dome(),
+        };
+
+        // Act / Assert
+        for (const auto& mesh : meshes)
+            EXPECT_TRUE(has_white_vertex_colors(mesh));
     }
 }

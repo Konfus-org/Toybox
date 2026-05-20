@@ -24,8 +24,8 @@ namespace tbx
     inline std::shared_ptr<Material> make_fallback_material()
     {
         auto material = Material();
-        material.program.vertex = DefaultPbrVertexShader::HANDLE;
-        material.program.fragment = DefaultPbrFragmentShader::HANDLE;
+        material.shader.vertex = DefaultPbrVertexShader::HANDLE;
+        material.shader.fragment = DefaultPbrFragmentShader::HANDLE;
 
         material.parameters.set("u_albedo_color", Color(1.0f, 0.0f, 1.0f, 1.0f));
         material.parameters.set("u_emissive_color", Color(1.0f, 0.0f, 1.0f, 1.0f));
@@ -68,18 +68,29 @@ namespace tbx
             pixels);
     }
 
-    inline std::shared_ptr<Shader> make_fallback_shader()
+    inline std::shared_ptr<ShaderProgram> make_fallback_shader()
     {
         auto vertex_shader = ShaderSource(
             "#version 450 core\n"
             "layout(location = 0) in vec3 a_position;\n"
-            "layout(location = 8) in mat4 a_model;\n"
-            "layout(location = 12) in uint a_instance_id;\n"
-            "uniform mat4 u_view_proj = mat4(1.0);\n"
+            "layout(location = 5) in mat4 a_instance_model;\n"
+            "layout(std140, binding = 1) uniform TbxCameraData\n"
+            "{\n"
+            "    mat4 u_view;\n"
+            "    mat4 u_projection;\n"
+            "    mat4 u_view_projection;\n"
+            "    mat4 u_inverse_view;\n"
+            "    mat4 u_inverse_projection;\n"
+            "    vec4 u_camera_world_position;\n"
+            "};\n"
+            "layout(std140, binding = 2) uniform TbxObjectData\n"
+            "{\n"
+            "    mat4 u_model;\n"
+            "    mat4 u_normal_matrix;\n"
+            "};\n"
             "void main()\n"
             "{\n"
-            "    gl_Position = u_view_proj * (a_model * vec4(a_position, 1.0 + "
-            "float(a_instance_id & 0u)));\n"
+            "    gl_Position = u_view_projection * a_instance_model * vec4(a_position, 1.0);\n"
             "}\n",
             ShaderType::VERTEX);
 
@@ -95,7 +106,7 @@ namespace tbx
         auto sources = std::vector<ShaderSource>();
         sources.push_back(std::move(vertex_shader));
         sources.push_back(std::move(fragment_shader));
-        return std::make_shared<Shader>(std::move(sources));
+        return std::make_shared<ShaderProgram>(std::move(sources));
     }
 
     inline Mesh make_two_sided_fallback_mesh()
@@ -145,7 +156,8 @@ namespace tbx
     }
 
     template <>
-    inline std::shared_ptr<Shader> make_fallback_asset<Shader>(const ShaderLoadParameters&)
+    inline std::shared_ptr<ShaderProgram> make_fallback_asset<ShaderProgram>(
+        const ShaderLoadParameters&)
     {
         return make_fallback_shader();
     }

@@ -4,7 +4,7 @@
 Read the code of conduct [here](CodeOfConduct.md)
 
 ### Coding Guidelines
-Follow `CODE_STANDARDS.md`
+Follow `CodeStandards.md`
 
 ### Build & Test Prerequisites
 - Install CMake 3.28.3 or newer.

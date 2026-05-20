@@ -105,9 +105,51 @@ namespace tbx_shader_loader
         return trimmed_line.rfind("#include", 0U) == 0U;
     }
 
+    static bool try_read_include_candidate(
+        const tbx::IFileOps& file_operator,
+        const std::filesystem::path& candidate,
+        ShaderLoadResult& out_result)
+    {
+        const std::filesystem::path resolved_candidate = candidate.lexically_normal();
+        if (std::string data; file_operator.read_file(
+                resolved_candidate,
+                tbx::FileDataFormat::UTF8_TEXT,
+                data))
+        {
+            out_result = make_shader_load_success(std::move(data), resolved_candidate);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_load_include_from_shader_roots(
+        const tbx::IFileOps& file_operator,
+        const tbx::AssetManager& asset_manager,
+        const std::filesystem::path& include_path,
+        ShaderLoadResult& out_result)
+    {
+        if (include_path.is_absolute())
+            return false;
+
+        for (const auto& asset_directory : asset_manager.get_directories())
+        {
+            if (asset_directory.empty())
+                continue;
+
+            const std::filesystem::path shader_candidate =
+                asset_directory / "Shaders" / include_path;
+            if (try_read_include_candidate(file_operator, shader_candidate, out_result))
+                return true;
+        }
+
+        return false;
+    }
+
     // Resolves and reads an include file by checking:
     // 1) Relative to the including file (if any).
     // 2) Via the asset manager's search roots.
+    // 3) Relative to each asset root's Shaders directory.
     static ShaderLoadResult try_load_include_file(
         const tbx::IFileOps& file_operator,
         const tbx::AssetManager& asset_manager,
@@ -121,18 +163,24 @@ namespace tbx_shader_loader
         {
             const std::filesystem::path local_candidate =
                 (including_file.parent_path() / include_path).lexically_normal();
-            if (std::string local_data; file_operator.read_file(
-                    local_candidate,
-                    tbx::FileDataFormat::UTF8_TEXT,
-                    local_data))
-                return make_shader_load_success(std::move(local_data), local_candidate);
+            if (ShaderLoadResult result = {};
+                try_read_include_candidate(file_operator, local_candidate, result))
+                return result;
         }
 
         const std::filesystem::path asset_candidate =
             asset_manager.resolve(include_path).lexically_normal();
-        if (std::string asset_data;
-            file_operator.read_file(asset_candidate, tbx::FileDataFormat::UTF8_TEXT, asset_data))
-            return make_shader_load_success(std::move(asset_data), asset_candidate);
+        if (ShaderLoadResult result = {};
+            try_read_include_candidate(file_operator, asset_candidate, result))
+            return result;
+
+        if (ShaderLoadResult result = {};
+            try_load_include_from_shader_roots(
+                file_operator,
+                asset_manager,
+                include_path,
+                result))
+            return result;
 
         return make_shader_load_failure(
             "tbx::Shader loader: failed to resolve include path '" + include_path.string() + "'.");
@@ -319,7 +367,7 @@ namespace tbx_shader_loader
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
 
-        serialization_registry->register_reader<tbx::Shader>(
+        serialization_registry->register_reader<tbx::ShaderProgram>(
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::ShaderLoadParameters& parameters)
@@ -331,14 +379,14 @@ namespace tbx_shader_loader
     void TbxShaderLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->deregister_reader<tbx::Shader>();
+            serialization_registry->deregister_reader<tbx::ShaderProgram>();
 
         _asset_manager = {};
         _serialization_registry = {};
         _working_directory = std::filesystem::path();
     }
 
-    std::shared_ptr<tbx::Shader> TbxShaderLoaderPlugin::read_shader(
+    std::shared_ptr<tbx::ShaderProgram> TbxShaderLoaderPlugin::read_shader(
         const std::filesystem::path& asset_path,
         const tbx::ShaderLoadParameters&)
     {
@@ -398,6 +446,6 @@ namespace tbx_shader_loader
         }
 
         shader.source = std::move(expanded.data);
-        return std::make_shared<tbx::Shader>(std::move(shader));
+        return std::make_shared<tbx::ShaderProgram>(std::move(shader));
     }
 }

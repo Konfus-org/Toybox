@@ -1,12 +1,39 @@
 #include "opengl_utils.h"
 #include "opengl_shader.h"
+#include "tbx/systems/debugging/macros.h"
 #include <algorithm>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace opengl_rendering
 {
+    static std::string gl_error_to_string(const GLenum error)
+    {
+        switch (error)
+        {
+            case GL_INVALID_ENUM:
+                return "GL_INVALID_ENUM";
+            case GL_INVALID_VALUE:
+                return "GL_INVALID_VALUE";
+            case GL_INVALID_OPERATION:
+                return "GL_INVALID_OPERATION";
+            case GL_INVALID_FRAMEBUFFER_OPERATION:
+                return "GL_INVALID_FRAMEBUFFER_OPERATION";
+            case GL_OUT_OF_MEMORY:
+                return "GL_OUT_OF_MEMORY";
+            case GL_STACK_UNDERFLOW:
+                return "GL_STACK_UNDERFLOW";
+            case GL_STACK_OVERFLOW:
+                return "GL_STACK_OVERFLOW";
+            default:
+                return "0x" + std::to_string(static_cast<uint32>(error));
+        }
+    }
+
     tbx::Result make_failure(std::string message)
     {
+        TBX_TRACE_ERROR("{}", message);
         auto result = tbx::Result {};
         result.flag_failure(std::move(message));
         return result;
@@ -17,6 +44,31 @@ namespace opengl_rendering
         auto result = tbx::Result {};
         result.flag_success();
         return result;
+    }
+
+    tbx::Result consume_gl_errors(const std::string_view operation)
+    {
+        auto message = std::string {};
+        for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError())
+        {
+            if (message.empty())
+            {
+                message = "OpenGL backend: ";
+                message.append(operation);
+                message.append(" failed with OpenGL error(s): ");
+            }
+            else
+            {
+                message.append(", ");
+            }
+
+            message.append(gl_error_to_string(error));
+        }
+
+        if (!message.empty())
+            return make_failure(std::move(message));
+
+        return make_success();
     }
 
     bool has_clear_flag(const tbx::GraphicsClearFlags value, const tbx::GraphicsClearFlags flag)
@@ -45,9 +97,8 @@ namespace opengl_rendering
 
     GLenum get_depth_attachment(const tbx::GraphicsTextureFormat format)
     {
-        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8
-                   ? GL_DEPTH_STENCIL_ATTACHMENT
-                   : GL_DEPTH_ATTACHMENT;
+        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
+                                                                      : GL_DEPTH_ATTACHMENT;
     }
 
     GLenum get_texture_internal_format(const tbx::GraphicsTextureFormat format)
@@ -194,7 +245,7 @@ namespace opengl_rendering
     }
 
     tbx::Result create_shaders(
-        const tbx::Shader& shader_desc,
+        const tbx::ShaderProgram& shader_desc,
         std::vector<std::shared_ptr<OpenGlShader>>& out_shaders)
     {
         if (shader_desc.sources.empty())
