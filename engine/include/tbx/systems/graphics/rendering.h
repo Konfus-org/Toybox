@@ -62,6 +62,7 @@ namespace tbx
 
         std::weak_ptr<ThreadManager> _thread_manager;
         std::weak_ptr<IGraphicsBackend> _backend;
+        std::weak_ptr<IWindowManager> _window_manager;
         RenderingResourceTracker _resource_tracker = {};
         RenderingPassFactory _pass_factory;
         DrawCommandExecutor _draw_command_executor = {};

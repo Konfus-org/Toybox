@@ -18,6 +18,7 @@ namespace tbx
         const GraphicsSettings& settings)
         : _thread_manager(std::move(thread_manager))
         , _backend(std::move(backend))
+        , _window_manager(window_manager)
         , _pass_factory(
               _backend,
               std::move(entity_registry),
@@ -97,6 +98,12 @@ namespace tbx
             return;
         }
 
+        // Need at least the main window to render...
+        // if no main window is open then nothing to render to
+        const auto window_manager = _window_manager.lock();
+        if (!window_manager || !window_manager->has_main_window())
+            return;
+
         TBX_TRY_CATCH_ASSERT(
             {
                 // Ensure we are initialized
@@ -141,7 +148,9 @@ namespace tbx
         auto result = _pass_factory.build_frame_data(frame_delta, render_target, view);
         if (!result)
         {
-            TBX_TRACE_ERROR_ONCE("Toybox render frame data creation failed. {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE(
+                "Toybox render frame data creation failed. {}",
+                result.get_report());
             return;
         }
 

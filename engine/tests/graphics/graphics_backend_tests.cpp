@@ -819,6 +819,48 @@ namespace tbx::tests::graphics
         EXPECT_FALSE(thread_manager.has_lane("render"));
     }
 
+    // Validates renderer does not enqueue a frame after the output window has closed.
+    TEST(RenderingTests, Render_SkipsFrameWhenMainWindowIsClosed)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+
+        // Act
+        const bool closed = window_manager.close(window_manager.window);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_TRUE(closed);
+        EXPECT_EQ(
+            std::find(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::BeginFrame),
+            backend.callbacks.end());
+    }
+
     // Validates Toybox pass code can own draw behavior with explicit backend commands.
     TEST(GraphicsBackendTests, ExplicitCommands_CanDescribeIndexedGeometryDraw)
     {
