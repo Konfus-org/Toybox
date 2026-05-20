@@ -105,7 +105,9 @@ namespace tbx
             const AssetRegistryEntry& entry,
             std::chrono::steady_clock::time_point timestamp,
             const SerializationRegistry& serialization_registry) = 0;
-        virtual uint unload_unreferenced() = 0;
+        virtual uint unload_unreferenced(
+            std::chrono::steady_clock::time_point timestamp,
+            std::chrono::steady_clock::duration idle_grace) = 0;
         virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
     };
 
@@ -196,18 +198,24 @@ namespace tbx
             return result;
         }
 
-        uint unload_unreferenced() override
+        uint unload_unreferenced(
+            const std::chrono::steady_clock::time_point timestamp,
+            const std::chrono::steady_clock::duration idle_grace) override
         {
             uint unloaded_count = 0U;
             for (auto& entry : records)
             {
                 auto& record = entry.second;
-                if (!record.is_pinned && record.asset && record.asset.use_count() <= 1)
-                {
-                    record.asset.reset();
-                    record.stream_state = AssetStreamState::UNLOADED;
-                    unloaded_count += 1U;
-                }
+                if (record.is_pinned || !record.asset || record.asset.use_count() > 1)
+                    continue;
+
+                if (idle_grace > std::chrono::steady_clock::duration::zero()
+                    && timestamp - record.last_access < idle_grace)
+                    continue;
+
+                record.asset.reset();
+                record.stream_state = AssetStreamState::UNLOADED;
+                unloaded_count += 1U;
             }
             return unloaded_count;
         }

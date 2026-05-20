@@ -8,6 +8,9 @@
 
 namespace tbx
 {
+    static constexpr double ASSET_UNLOAD_INTERVAL_SECONDS = 1.0;
+    static constexpr auto ASSET_UNLOAD_IDLE_GRACE = std::chrono::seconds(5);
+
     namespace
     {
         Handle build_asset_handle(const AssetRegistryEntry& entry)
@@ -40,6 +43,17 @@ namespace tbx
 
     AssetManager::~AssetManager() = default;
 
+    void AssetManager::update(const DeltaTime& dt)
+    {
+        std::lock_guard lock(_mutex);
+        _unload_elapsed_seconds += dt.seconds;
+        if (_unload_elapsed_seconds < ASSET_UNLOAD_INTERVAL_SECONDS)
+            return;
+
+        unload_unreferenced(ASSET_UNLOAD_IDLE_GRACE);
+        _unload_elapsed_seconds = 0.0;
+    }
+
     void AssetManager::unload_all()
     {
         TBX_TRACE_INFO("Unloading all assets.");
@@ -47,12 +61,13 @@ namespace tbx
         _stores.clear();
     }
 
-    void AssetManager::unload_unreferenced()
+    void AssetManager::unload_unreferenced(const std::chrono::steady_clock::duration idle_grace)
     {
         std::lock_guard lock(_mutex);
+        const auto now = std::chrono::steady_clock::now();
         for (const auto& store : _stores)
         {
-            const auto unloaded_count = store.second->unload_unreferenced();
+            const auto unloaded_count = store.second->unload_unreferenced(now, idle_grace);
             if (unloaded_count > 0U)
             {
                 TBX_TRACE_INFO(

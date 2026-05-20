@@ -1151,8 +1151,8 @@ namespace tbx::tests::graphics
             backend.callbacks.end());
     }
 
-    // Validates renderer caches GPU material resources without retaining CPU material assets.
-    TEST(RenderingTests, Render_MaterialAssetCanUnloadAfterUpload)
+    // Validates scheduled asset cleanup keeps active materials resident between frames.
+    TEST(RenderingTests, Render_ActiveMaterialSurvivesScheduledAssetCleanup)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -1195,14 +1195,16 @@ namespace tbx::tests::graphics
         // Act
         rendering.render();
         wait_for_render_lane(thread_manager);
-        asset_manager.unload_unreferenced();
-        const AssetUsage material_usage_after_asset_cleanup =
+        asset_manager.update(DeltaTime {.seconds = 1.0, .milliseconds = 1000.0});
+        const AssetUsage material_usage_after_scheduled_cleanup =
             asset_manager.get_usage<Material>(material_handle);
+        rendering.render();
+        wait_for_render_lane(thread_manager);
 
         // Assert
         EXPECT_EQ(material_load_count, 1U);
-        EXPECT_EQ(material_usage_after_asset_cleanup.stream_state, AssetStreamState::UNLOADED);
-        EXPECT_EQ(material_usage_after_asset_cleanup.ref_count, 0U);
+        EXPECT_EQ(material_usage_after_scheduled_cleanup.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(material_usage_after_scheduled_cleanup.ref_count, 0U);
         EXPECT_GE(backend.uploaded_pipeline_count, 1U);
     }
 

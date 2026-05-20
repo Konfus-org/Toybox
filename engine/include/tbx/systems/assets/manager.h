@@ -2,6 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/watcher.h"
+#include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
@@ -87,6 +88,13 @@ namespace tbx
         std::shared_ptr<TAsset> load(
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
+
+        /// @brief
+        /// Purpose: Advances asset lifecycle timers and unloads stale unreferenced assets.
+        /// @details
+        /// Ownership: Does not transfer ownership. Thread Safety: Safe to call concurrently;
+        /// internal state is synchronized.
+        void update(const DeltaTime& dt);
 
         /// @brief
         /// Purpose: Returns usage metadata for a tracked asset handle.
@@ -183,7 +191,9 @@ namespace tbx
         /// @details
         /// Ownership: Releases manager-owned asset instances that are safe to evict.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        void unload_unreferenced();
+        void unload_unreferenced(
+            std::chrono::steady_clock::duration idle_grace =
+                std::chrono::steady_clock::duration::zero());
 
         /// @brief
         /// Purpose: Reloads a streamed asset and swaps the managed asset instance.
@@ -240,6 +250,7 @@ namespace tbx
         std::unique_ptr<AssetRegistry> _registry;
         std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores = {};
         std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
+        double _unload_elapsed_seconds = 0.0;
     };
 }
 

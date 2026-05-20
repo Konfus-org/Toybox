@@ -76,8 +76,6 @@ namespace tbx
         uint _update_count = 0;
         double _time_running = 0;
 
-        // TODO: asset manager should own this unload logic inside an 'update' method
-        double _asset_unload_elapsed_seconds = 0.0;
         double _fixed_update_accumulator_seconds = 0.0;
     };
 }

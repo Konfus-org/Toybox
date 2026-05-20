@@ -382,7 +382,6 @@ namespace tbx
         // Update delta time
         DeltaTime dt = timer.tick();
         _time_running += dt.seconds;
-        _asset_unload_elapsed_seconds += dt.seconds;
 
         // Begin update
         msg_coordinator->send<ApplicationUpdateBeginEvent>(*this, dt);
@@ -404,13 +403,8 @@ namespace tbx
         // End update
         msg_coordinator->send<ApplicationUpdateEndEvent>(*this, dt);
 
-        // Purge stale assets
+        asset_manager->update(dt);
         ++_update_count;
-        if (_asset_unload_elapsed_seconds >= 1.0)
-        {
-            asset_manager->unload_unreferenced();
-            _asset_unload_elapsed_seconds = 0.0;
-        }
     }
 
     void Application::fixed_update(const DeltaTime& dt)

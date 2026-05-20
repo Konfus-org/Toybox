@@ -10,6 +10,7 @@
 #include <future>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 namespace tbx
@@ -590,6 +591,72 @@ namespace tbx::tests::assets
         AssetUsage keep_usage_after = manager.get_usage<TestAsset>(keep_handle);
         EXPECT_EQ(keep_usage_after.stream_state, AssetStreamState::UNLOADED);
         EXPECT_EQ(keep_usage_after.ref_count, 0U);
+    }
+
+    TEST(asset_manager, unload_unreferenced_keeps_recent_assets_within_idle_grace)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("recent.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(handle);
+        ASSERT_NE(asset, nullptr);
+        asset.reset();
+        manager.unload_unreferenced(std::chrono::seconds(5));
+
+        // Assert
+        AssetUsage usage = manager.get_usage<TestAsset>(handle);
+        EXPECT_EQ(usage.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(usage.ref_count, 0U);
+    }
+
+    TEST(asset_manager, unload_unreferenced_unloads_stale_assets_after_idle_grace)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("stale.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(handle);
+        ASSERT_NE(asset, nullptr);
+        asset.reset();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        manager.unload_unreferenced(std::chrono::microseconds(1));
+
+        // Assert
+        AssetUsage usage = manager.get_usage<TestAsset>(handle);
+        EXPECT_EQ(usage.stream_state, AssetStreamState::UNLOADED);
+        EXPECT_EQ(usage.ref_count, 0U);
+    }
+
+    TEST(asset_manager, update_keeps_recent_unreferenced_assets_during_scheduled_cleanup)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("scheduled.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(handle);
+        ASSERT_NE(asset, nullptr);
+        asset.reset();
+
+        manager.update(DeltaTime {.seconds = 0.5, .milliseconds = 500.0});
+        AssetUsage usage_before_interval = manager.get_usage<TestAsset>(handle);
+
+        manager.update(DeltaTime {.seconds = 0.5, .milliseconds = 500.0});
+        AssetUsage usage_after_interval = manager.get_usage<TestAsset>(handle);
+
+        // Assert
+        EXPECT_EQ(usage_before_interval.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(usage_after_interval.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(usage_after_interval.ref_count, 0U);
     }
 
     TEST(asset_manager, resolves_asset_id_from_handle_source)
