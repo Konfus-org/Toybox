@@ -10,7 +10,6 @@ layout(binding = TBX_BINDING_GBUFFER_NORMAL) uniform sampler2D u_gbuffer_normal;
 layout(binding = TBX_BINDING_GBUFFER_MATERIAL) uniform sampler2D u_gbuffer_material;
 layout(binding = TBX_BINDING_GBUFFER_EMISSIVE) uniform sampler2D u_gbuffer_emissive;
 layout(binding = TBX_BINDING_GBUFFER_DEPTH) uniform sampler2D u_gbuffer_depth;
-layout(binding = TBX_BINDING_SHADOW_MASK) uniform sampler2D u_shadow_mask;
 
 PbrSurface tbx_reconstruct_pbr_surface_from_gbuffer(vec2 uv)
 {
@@ -35,24 +34,12 @@ PbrSurface tbx_reconstruct_pbr_surface_from_gbuffer(vec2 uv)
 
 void main()
 {
-    PbrSurface surface = tbx_reconstruct_pbr_surface_from_gbuffer(v_tex_coord);
-    vec3 view_dir = normalize(u_camera_world_position.xyz - surface.world_position);
-    float shadow_mask = texture(u_shadow_mask, v_tex_coord).r;
-
-    vec3 color = u_ambient_color.rgb * surface.albedo * surface.ao;
-
-    for (int i = 0; i < u_light_count; ++i)
+    float depth = texture(u_gbuffer_depth, v_tex_coord).r;
+    if (depth >= 1.0)
     {
-        vec3 contribution = tbx_evaluate_light_pbr(u_lights[i], surface, view_dir);
-
-        if (u_lights[i].position_type.w == TBX_LIGHT_TYPE_DIRECTIONAL)
-        {
-            contribution *= shadow_mask;
-        }
-
-        color += contribution;
+        discard;
     }
 
-    color += surface.emissive;
-    o_color = vec4(color, surface.alpha);
+    PbrSurface surface = tbx_reconstruct_pbr_surface_from_gbuffer(v_tex_coord);
+    o_color = vec4(max(tbx_shade_pbr(surface), vec3(0.0)), surface.alpha);
 }

@@ -1,5 +1,5 @@
 {
-  "shaders": { "vertex": "00000133", "fragment": "00000132" },
+  "shaders": { "vertex": "00000133", "fragment": "00000139" },
   "config": {
     "depth": {
       "test": false,
@@ -15,11 +15,7 @@
     "shadow_mode": "none"
   },
   "textures": [
-    { "name": "gbuffer_albedo", "value": "" },
-    { "name": "gbuffer_normal", "value": "" },
-    { "name": "gbuffer_material", "value": "" },
-    { "name": "gbuffer_emissive", "value": "" },
-    { "name": "gbuffer_depth", "value": "" }
+    { "name": "source_color", "value": "" }
   ],
   "parameters": []
 }

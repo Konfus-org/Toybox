@@ -77,7 +77,7 @@ struct TbxLight
     // x = inner cone cos
     // y = outer cone cos
     // z = shadow index, or -1 if unshadowed
-    // w = unused
+    // w = shadow layer count
     vec4 params;
 };
 

@@ -34,9 +34,7 @@ namespace opengl_rendering
         tbx::GraphicsApi get_api() const override;
 
         tbx::Result begin_frame(const tbx::Window& output_target) override;
-        tbx::Result begin_view(const tbx::RenderView& view) override;
         tbx::Result end_frame() override;
-        tbx::Result end_view() override;
 
         tbx::Result present() override;
         void wait_for_idle() override;

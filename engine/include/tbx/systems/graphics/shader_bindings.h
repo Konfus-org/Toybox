@@ -65,6 +65,7 @@ namespace tbx
     constexpr uint32 VERTEX_ATTRIBUTE_INSTANCE_NORMAL = 9U;
 
     constexpr uint32 MAX_LIGHTS = 128U;
+    constexpr uint32 DIRECTIONAL_SHADOW_CASCADE_COUNT = 4U;
     constexpr float SHADER_LIGHT_TYPE_DIRECTIONAL = 0.0F;
     constexpr float SHADER_LIGHT_TYPE_POINT = 1.0F;
     constexpr float SHADER_LIGHT_TYPE_SPOT = 2.0F;
@@ -109,16 +110,13 @@ namespace tbx
         std::array<ShaderLightData, MAX_LIGHTS> lights = {};
     };
 
-    struct alignas(16) ShadowPassShaderData
+    struct alignas(16) ShadowShaderData
     {
-        Mat4 light_view_projection = Mat4(1.0F);
-        Vec4 light_direction = Vec4(0.0F, -1.0F, 0.0F, 0.0F);
-        float shadow_depth_bias = 0.0015F;
-        Vec3 shadow_depth_bias_padding = Vec3(0.0F);
-        float shadow_normal_bias = 0.02F;
-        Vec3 shadow_normal_bias_padding = Vec3(0.0F);
-        float shadow_strength = 0.75F;
-        Vec3 shadow_strength_padding = Vec3(0.0F);
+        std::array<Mat4, MAX_LIGHTS> light_view_projections = {};
+        std::array<Vec4, MAX_LIGHTS> light_directions = {};
+        std::array<Vec4, MAX_LIGHTS> shadow_params = {};
+        std::array<Vec4, MAX_LIGHTS> shadow_extra_params = {};
+        IVec4 shadow_meta = IVec4(0, 0, 0, 0);
     };
 
     inline std::optional<uint32> resolve_shader_texture_slot(uint32 binding_id);

@@ -24,7 +24,7 @@ namespace three_d_example
             return;
         }
 
-        constexpr float rotation_speed_radians_per_second = 0.5F;
+        constexpr float rotation_speed_radians_per_second = 0.01F;
         auto& transform = _sky_entity.get_component<tbx::Transform>();
         const auto step = tbx::Quat(
             tbx::Vec3(

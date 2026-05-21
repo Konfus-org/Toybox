@@ -253,6 +253,7 @@ namespace tbx::tests::graphics
         Result upload_pipeline(const GraphicsPipelineDesc& desc, Uuid& out_resource_uuid) override
         {
             recorded_pipeline_desc = desc;
+            recorded_pipeline_descs.push_back(desc);
             uploaded_pipeline_count += 1U;
             out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
@@ -315,6 +316,7 @@ namespace tbx::tests::graphics
         GraphicsDrawIndexedDesc recorded_draw = {};
         std::vector<GraphicsDrawIndexedDesc> recorded_draws = {};
         GraphicsPipelineDesc recorded_pipeline_desc = {};
+        std::vector<GraphicsPipelineDesc> recorded_pipeline_descs = {};
         std::vector<GraphicsBufferDesc> recorded_buffer_descs = {};
         std::vector<RecordedBufferUpload> recorded_buffer_uploads = {};
         GraphicsTextureDesc recorded_texture_desc = {};
@@ -693,7 +695,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -717,7 +719,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
         ASSERT_FALSE(backend.recorded_passes.empty());
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
         for (const auto expected_callback : expected_callbacks)
         {
             EXPECT_NE(
@@ -769,7 +771,7 @@ namespace tbx::tests::graphics
             std::launch::async,
             [&rendering]()
             {
-                rendering.render();
+                rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
             });
 
         // Assert
@@ -816,7 +818,7 @@ namespace tbx::tests::graphics
             settings);
 
         // Act
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         ASSERT_EQ(begin_frame_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
         auto lane_drain = thread_manager.post_with_future(
             "render",
@@ -862,7 +864,7 @@ namespace tbx::tests::graphics
                 thread_manager_service,
                 window_manager_service,
                 settings);
-            rendering.render();
+            rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
             wait_for_render_lane(thread_manager);
         }
 
@@ -905,7 +907,7 @@ namespace tbx::tests::graphics
 
         // Act
         const bool closed = window_manager.close(window_manager.window);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1009,15 +1011,17 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_EQ(backend.recorded_passes.size(), 2U);
-        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
+        ASSERT_EQ(backend.recorded_passes.size(), 3U);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::NONE);
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Deferred Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR);
+        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Post Process Pass");
+        EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::COLOR);
         EXPECT_NE(
             std::find(
                 backend.callbacks.begin(),
@@ -1062,7 +1066,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const auto camera_shader_data = find_camera_shader_data(backend.recorded_buffer_uploads);
         const auto object_shader_data = find_object_shader_data(backend.recorded_buffer_uploads);
@@ -1112,7 +1116,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const auto light_shader_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1126,8 +1130,11 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.0375F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].position_type.w, 0.0F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].color_intensity.w, 2.0F);
-        EXPECT_EQ(light_shader_data->light_meta.y, 1);
+        EXPECT_EQ(light_shader_data->light_meta.y, DIRECTIONAL_SHADOW_CASCADE_COUNT);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].params.z, 0.0F);
+        EXPECT_FLOAT_EQ(
+            light_shader_data->lights[0U].params.w,
+            static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT));
     }
 
     // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
@@ -1197,7 +1204,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const auto object_shader_data_uploads =
             find_object_shader_data_uploads(backend.recorded_buffer_uploads);
@@ -1205,13 +1212,14 @@ namespace tbx::tests::graphics
             find_material_shader_data_uploads(backend.recorded_buffer_uploads);
 
         // Assert
-        ASSERT_EQ(backend.recorded_passes.size(), 3U);
-        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Skybox Pass");
+        ASSERT_EQ(backend.recorded_passes.size(), 4U);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Opaque Scene Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::DEPTH);
-        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Skybox Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR);
+        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Deferred Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::NONE);
+        EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
         EXPECT_NE(
             std::find(
                 backend.callbacks.begin(),
@@ -1246,9 +1254,11 @@ namespace tbx::tests::graphics
         auto serialization_registry = SerializationRegistry {};
         auto material_load_count = uint {};
         serialization_registry.register_reader<Material>(
-            [&material_load_count](const std::filesystem::path&, const MaterialLoadParameters&)
+            [&material_load_count](const std::filesystem::path& path, const MaterialLoadParameters&)
             {
-                material_load_count += 1U;
+                if (path.filename() == "Transient.mat")
+                    material_load_count += 1U;
+
                 auto material = Material {};
                 material.parameters.set("albedo_color", Color(0.2F, 0.4F, 0.6F, 1.0F));
                 return std::make_shared<Material>(std::move(material));
@@ -1276,12 +1286,12 @@ namespace tbx::tests::graphics
             settings);
 
         // Act
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         asset_manager.update(DeltaTime {.seconds = 1.0, .milliseconds = 1000.0});
         const AssetUsage material_usage_after_scheduled_cleanup =
             asset_manager.get_usage<Material>(material_handle);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1330,17 +1340,17 @@ namespace tbx::tests::graphics
             settings);
 
         // Act
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         asset_manager.unload_unreferenced();
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const uint uploaded_buffer_count_after_ring_warmup = backend.uploaded_buffer_count;
         const uint updated_buffer_count_after_ring_warmup = backend.updated_buffer_count;
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1387,7 +1397,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1431,7 +1441,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1470,7 +1480,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
             count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
@@ -1478,7 +1488,7 @@ namespace tbx::tests::graphics
 
         // Act
         mesh_data->edit_mesh().vertices.vertices[0U] += 0.25F;
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1519,14 +1529,14 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
             count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
 
         // Act
         mesh_data->edit_mesh().indices.push_back(0U);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1576,7 +1586,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1634,17 +1644,25 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
-        ASSERT_EQ(backend.recorded_passes.size(), 3U);
-        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox Opaque Scene Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
+        ASSERT_EQ(backend.recorded_passes.size(), 4U);
+        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Deferred Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Transparent Forward Pass");
+        EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
         ASSERT_EQ(backend.recorded_draws.size(), 2U);
-        EXPECT_TRUE(backend.recorded_pipeline_desc.is_blending_enabled);
-        EXPECT_FALSE(backend.recorded_pipeline_desc.is_depth_write_enabled);
+        EXPECT_NE(
+            std::find_if(
+                backend.recorded_pipeline_descs.begin(),
+                backend.recorded_pipeline_descs.end(),
+                [](const GraphicsPipelineDesc& desc)
+                {
+                    return desc.is_blending_enabled && !desc.is_depth_write_enabled;
+                }),
+            backend.recorded_pipeline_descs.end());
     }
 
     // Validates material overrides keep otherwise identical static meshes in separate batches.
@@ -1693,7 +1711,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1753,18 +1771,18 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
         ASSERT_FALSE(backend.recorded_passes.empty());
-        EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Directional Shadow Pass");
+        EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Shadow Pass");
         ASSERT_FALSE(backend.recorded_draws.empty());
         EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
     }
 
-    // Validates nearby shadowed local lights own the single shadow slot over directional lights.
-    TEST(RenderingTests, Render_LocalShadowedLightTakesPrecedenceOverDirectionalShadow)
+    // Validates directional shadows get the first shadow slot before local lights.
+    TEST(RenderingTests, Render_DirectionalShadowTakesPrecedenceOverLocalShadow)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -1802,7 +1820,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1822,9 +1840,24 @@ namespace tbx::tests::graphics
 
         ASSERT_NE(directional_data, nullptr);
         ASSERT_NE(point_data, nullptr);
-        EXPECT_EQ(light_data->light_meta.y, 1);
-        EXPECT_LT(directional_data->params.z, 0.0F);
-        EXPECT_EQ(point_data->params.z, 0.0F);
+        EXPECT_EQ(light_data->light_meta.y, DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
+        EXPECT_EQ(directional_data->params.z, 0.0F);
+        EXPECT_EQ(directional_data->params.w, static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT));
+        EXPECT_EQ(point_data->params.z, static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT));
+        EXPECT_EQ(point_data->params.w, 1.0F);
+        EXPECT_EQ(
+            std::count_if(
+                backend.recorded_passes.begin(),
+                backend.recorded_passes.end(),
+                [](const GraphicsPassDesc& pass)
+                {
+                    return pass.debug_name == "Toybox Shadow Pass";
+                }),
+            DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
+        ASSERT_FALSE(backend.recorded_texture_descs.empty());
+        EXPECT_GE(
+            backend.recorded_texture_descs.front().array_layer_count,
+            DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
     }
 
     // Validates shadow resources are not uploaded when no eligible light casts shadows.
@@ -1863,7 +1896,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1873,13 +1906,11 @@ namespace tbx::tests::graphics
                 backend.recorded_passes.end(),
                 [](const GraphicsPassDesc& pass)
                 {
-                    return pass.debug_name == "Toybox Directional Shadow Pass";
+                    return pass.debug_name == "Toybox Shadow Pass";
                 }),
             backend.recorded_passes.end());
         EXPECT_EQ(
-            count_texture_uploads_named(
-                backend.recorded_texture_descs,
-                "Toybox Directional Shadow Map"),
+            count_texture_uploads_named(backend.recorded_texture_descs, "Toybox Shadow Map"),
             0U);
     }
 
@@ -1915,21 +1946,18 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings);
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
-        const uint shadow_upload_count = count_texture_uploads_named(
-            backend.recorded_texture_descs,
-            "Toybox Directional Shadow Map");
+        const uint shadow_upload_count =
+            count_texture_uploads_named(backend.recorded_texture_descs, "Toybox Shadow Map");
 
         // Act
-        rendering.render();
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
 
         // Assert
         EXPECT_EQ(
-            count_texture_uploads_named(
-                backend.recorded_texture_descs,
-                "Toybox Directional Shadow Map"),
+            count_texture_uploads_named(backend.recorded_texture_descs, "Toybox Shadow Map"),
             shadow_upload_count);
     }
 

@@ -1,16 +1,5 @@
 #include "Toybox/ShaderBase.glsl"
-
-struct PbrSurface
-{
-    vec3 world_position;
-    vec3 normal;
-    vec3 albedo;
-    vec3 emissive;
-    float alpha;
-    float metallic;
-    float roughness;
-    float ao;
-};
+#include "Toybox/Lighting/PbrSurface.glsl"
 
 layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxPbrMaterialData
 {

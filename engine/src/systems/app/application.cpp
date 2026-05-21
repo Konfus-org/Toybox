@@ -351,7 +351,7 @@ namespace tbx
                 input_manager->update(dt);
             _plugin_manager.update(dt);
             if (auto rendering = _rendering.lock())
-                rendering->render();
+                rendering->render(dt);
         }
 
         // End update

@@ -904,7 +904,8 @@ Lighting pass reads GBuffer.
 Fullscreen lighting shader outputs final color.
 ```
 
-For now, Toybox should probably start with forward PBR.
+Toybox uses the deferred shape for opaque PBR geometry. Transparent PBR geometry still uses a
+forward shader after deferred lighting, sharing the same final color target and GBuffer depth.
 
 ---
 
@@ -937,7 +938,7 @@ layout(std140, binding = TBX_BINDING_LIGHT_DATA) uniform TbxLightData
 
 ```glsl
 #include "../Base/ShaderCommon.glsl"
-#include "../Materials/PbrMaterial.glsl"
+#include "PbrSurface.glsl"
 #include "LightTypes.glsl"
 #include "ShadowSampling.glsl"
 
@@ -963,25 +964,24 @@ vec3 tbx_shade_pbr(PbrSurface surface)
 
 ### Deferred Lighting Shader Shape
 
-If Toybox eventually supports deferred rendering:
+Toybox's deferred lighting pass reconstructs the PBR surface from GBuffer targets and shades it
+with the same PBR lighting include used by forward transparent rendering:
 
 ```glsl
 #version 450
 
-#include "Toybox/Post/PostProcessBase.glsl"
 #include "Toybox/Lighting/PbrLighting.glsl"
-#include "Toybox/Lighting/LightTypes.glsl"
 
 layout(binding = 50) uniform sampler2D u_gbuffer_albedo;
 layout(binding = 51) uniform sampler2D u_gbuffer_normal;
 layout(binding = 52) uniform sampler2D u_gbuffer_material;
-layout(binding = 53) uniform sampler2D u_gbuffer_depth;
+layout(binding = 53) uniform sampler2D u_gbuffer_emissive;
+layout(binding = 54) uniform sampler2D u_gbuffer_depth;
 
 void main()
 {
-    // Reconstruct surface from GBuffer.
-    // Shade using lights.
-    // Output final lighting.
+    PbrSurface surface = reconstruct_surface_from_gbuffer();
+    o_color = vec4(tbx_shade_pbr(surface), surface.alpha);
 }
 ```
 
@@ -1021,9 +1021,15 @@ Metallic
 
 #define TBX_BINDING_SHADOW_PASS_DATA 31
 
-layout(std140, binding = TBX_BINDING_SHADOW_PASS_DATA) uniform TbxShadowPassData
+layout(std140, binding = TBX_BINDING_SHADOW_PASS_DATA) uniform TbxShadowData
 {
-    mat4 u_light_view_projection;
+    mat4 u_light_view_projections[TBX_MAX_LIGHTS];
+    vec4 u_light_directions[TBX_MAX_LIGHTS];
+    // x = depth bias, y = normal bias, z = shadow strength, w = slope bias
+    vec4 u_shadow_params[TBX_MAX_LIGHTS];
+    // x = split near, y = split far, z = blend start, w = layer count
+    vec4 u_shadow_extra_params[TBX_MAX_LIGHTS];
+    ivec4 u_shadow_meta;
 };
 
 layout(location = 0) in vec3 a_position;
@@ -1036,7 +1042,7 @@ void tbx_default_shadow_vertex()
     v_tex_coord = a_tex_coord;
 
     vec4 world_position = u_model * vec4(a_position, 1.0);
-    gl_Position = u_light_view_projection * world_position;
+    gl_Position = u_light_view_projections[u_shadow_meta.y] * world_position;
 }
 ```
 
@@ -1301,7 +1307,7 @@ Does not require:
 Shape:
 
 ```glsl
-gl_Position = u_light_view_projection * u_model * vec4(a_position, 1.0);
+gl_Position = u_light_view_projections[u_shadow_meta.y] * u_model * vec4(a_position, 1.0);
 ```
 
 Fragment:
@@ -1371,11 +1377,14 @@ Upload
     Reuse stable mesh, texture, pipeline, render-target, material, uniform, and instance buffers.
 
 Pass assembly
-    Create shadow, skybox, opaque, transparent, and post passes only when they have work.
+    Create shadow, GBuffer, skybox, deferred lighting, transparent, and post passes only when they
+    have work.
 
 Execution
     Submit backend-neutral commands; backend implementations skip redundant state binds.
 ```
 
-Shadow rendering currently uses one shadow owner per frame. Eligible local shadowed lights take
-priority; directional shadows are the fallback when no local shadowed light is in range.
+Shadow rendering uses a depth texture array. Every eligible shadow-casting light receives shadow
+layers up to `TBX_MAX_LIGHTS`; directional lights are assigned layers first so they keep priority
+over local lights. Directional lights reserve contiguous cascaded layers and blend between split
+ranges in screen shading, while local lights reserve a single layer.

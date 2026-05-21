@@ -1,4 +1,5 @@
 #pragma once
+#include "systems/graphics/internal/render_metrics_internal.h"
 #include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/resource_uploader.h"
@@ -742,6 +743,10 @@ namespace tbx::internal
                 backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
+#if defined(TBX_ENABLE_VERBOSE)
+                if (active_render_metrics)
+                    ++active_render_metrics->uniform_buffer_update_count;
+#endif
                 resource_tracker.track(cached_buffer.resource);
                 return GraphicsResourceBinding {.slot = slot, .resource = cached_buffer.resource};
             }
@@ -758,6 +763,10 @@ namespace tbx::internal
             make_uniform_buffer_desc(debug_name, byte_size),
             data,
             byte_size);
+#if defined(TBX_ENABLE_VERBOSE)
+        if (active_render_metrics && resource.is_valid())
+            ++active_render_metrics->uniform_buffer_upload_count;
+#endif
         cached_buffer = UniformBufferCacheEntry {.resource = resource, .byte_size = byte_size};
         return GraphicsResourceBinding {.slot = slot, .resource = resource};
     }
@@ -787,6 +796,10 @@ namespace tbx::internal
                 backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
+#if defined(TBX_ENABLE_VERBOSE)
+                if (active_render_metrics)
+                    ++active_render_metrics->instance_buffer_update_count;
+#endif
                 resource_tracker.track(cached_buffer.resource);
                 return GraphicsResourceBinding {.slot = slot, .resource = cached_buffer.resource};
             }
@@ -798,6 +811,10 @@ namespace tbx::internal
             make_instance_buffer_desc(debug_name, byte_size),
             data,
             byte_size);
+#if defined(TBX_ENABLE_VERBOSE)
+        if (active_render_metrics && resource.is_valid())
+            ++active_render_metrics->instance_buffer_upload_count;
+#endif
         cached_buffer = UniformBufferCacheEntry {.resource = resource, .byte_size = byte_size};
         return GraphicsResourceBinding {.slot = slot, .resource = resource};
     }

@@ -222,6 +222,11 @@ function(tbx_codegen_generate_material_instance_header)
     if(NOT include_scope)
         set(include_scope PRIVATE)
     endif()
+    set(include_directory_scope "${include_scope}")
+    get_target_property(target_type ${TBX_CODEGEN_TARGET} TYPE)
+    if(target_type STREQUAL "INTERFACE_LIBRARY" AND include_scope STREQUAL "PRIVATE")
+        set(include_directory_scope INTERFACE)
+    endif()
 
     set(generator_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/generate_asset_codegen.cmake")
 
@@ -276,7 +281,7 @@ function(tbx_codegen_generate_material_instance_header)
     set_source_files_properties("${TBX_CODEGEN_OUTPUT_FILE}" PROPERTIES HEADER_FILE_ONLY TRUE)
     target_sources(${TBX_CODEGEN_TARGET} ${include_scope} "${TBX_CODEGEN_OUTPUT_FILE}")
     target_include_directories(${TBX_CODEGEN_TARGET}
-        ${include_scope}
+        ${include_directory_scope}
             $<BUILD_INTERFACE:${output_directory}>
     )
 

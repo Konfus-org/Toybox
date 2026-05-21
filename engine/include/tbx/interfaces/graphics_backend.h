@@ -122,17 +122,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Describes one camera viewport rendered within a graphics frame.
-    /// @details
-    /// Ownership: Owns camera and viewport data by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API RenderView
-    {
-        Camera camera = {};
-        Viewport viewport = {};
-    };
-
-    /// @brief
     /// Purpose: Describes one buffer resource created by a graphics backend.
     /// @details
     /// Ownership: Owns descriptive values by copy; upload data is supplied separately.
@@ -297,9 +286,6 @@ namespace tbx
 
         virtual Result begin_frame(const Window& output_target) = 0;
         virtual Result end_frame() = 0;
-
-        virtual Result begin_view(const RenderView& view) = 0;
-        virtual Result end_view() = 0;
 
         virtual Result begin_pass(const GraphicsPassDesc& pass) = 0;
         virtual Result end_pass() = 0;

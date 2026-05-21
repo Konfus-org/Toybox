@@ -13,8 +13,13 @@ void main()
     vec3 normal = tbx_unpack_normal(texture(u_gbuffer_normal, v_tex_coord).xyz);
     float depth = texture(u_gbuffer_depth, v_tex_coord).r;
     vec3 world_position = tbx_reconstruct_world_position(v_tex_coord, depth);
-    vec3 light_direction = normalize(u_light_direction.xyz);
+    vec3 light_direction = normalize(u_light_directions[0].xyz);
 
-    float visibility = tbx_sample_shadow(world_position, normal, light_direction);
+    float visibility = tbx_sample_shadow(
+        world_position,
+        normal,
+        light_direction,
+        0,
+        int(max(u_shadow_extra_params[0].w, 1.0)));
     o_color = vec4(vec3(visibility), 1.0);
 }

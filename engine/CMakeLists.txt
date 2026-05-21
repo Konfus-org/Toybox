@@ -1,5 +1,5 @@
 option(TBX_BUILD_SHARED "Build Toybox core engine as a shared library" ON)
-option(TBX_VERB_LOGGING "Enable verbose logging" OFF)
+option(TBX_ENABLE_VERBOSE "Enable verbose Toybox diagnostics" OFF)
 
 set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
 
@@ -12,7 +12,7 @@ endif()
 
 message(STATUS "Tbx Options:")
 message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
-message(STATUS "   TBX_VERB_LOGGING: ${TBX_VERB_LOGGING}")
+message(STATUS "   TBX_ENABLE_VERBOSE: ${TBX_ENABLE_VERBOSE}")
 
 if(TBX_BUILD_SHARED)
     add_library(Engine SHARED)
@@ -27,6 +27,7 @@ else()
 endif()
 
 add_library(Tbx::Engine ALIAS Engine)
+set_target_properties(Engine PROPERTIES FOLDER "engine")
 
 file(GLOB_RECURSE TBX_Engine_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE TBX_Engine_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
@@ -49,6 +50,13 @@ target_compile_definitions(Engine
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
 )
+
+if(TBX_ENABLE_VERBOSE)
+    target_compile_definitions(Engine
+        PUBLIC
+            TBX_ENABLE_VERBOSE
+    )
+endif()
 
 target_precompile_headers(Engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/tbx/pch.h")
 

@@ -1,7 +1,7 @@
 #include "tbx/systems/graphics/resource_uploader.h"
+#include "systems/graphics/internal/resource_uploader_internal.h"
 #include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/debugging/macros.h"
-#include "systems/graphics/internal/resource_uploader_internal.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/material.h"
@@ -190,6 +190,10 @@ namespace tbx
                     cached_mesh->second.mesh,
                     mesh))
             {
+#if defined(TBX_ENABLE_VERBOSE)
+                if (internal::active_render_metrics)
+                    ++internal::active_render_metrics->dynamic_mesh_update_count;
+#endif
                 mesh_data->clear_dirty();
                 out_mesh = cached_mesh->second.mesh;
                 return {};
@@ -209,6 +213,10 @@ namespace tbx
             .data = mesh_data,
             .mesh = *uploaded_mesh,
         };
+#if defined(TBX_ENABLE_VERBOSE)
+        if (internal::active_render_metrics)
+            ++internal::active_render_metrics->dynamic_mesh_upload_count;
+#endif
         mesh_data->clear_dirty();
         out_mesh = *uploaded_mesh;
         return {};
@@ -222,6 +230,11 @@ namespace tbx
         if (const auto cached_meshes = _caches.meshes.model_meshes.find(model_handle);
             cached_meshes != _caches.meshes.model_meshes.end())
         {
+#if defined(TBX_ENABLE_VERBOSE)
+            if (internal::active_render_metrics)
+                internal::active_render_metrics->model_mesh_cache_hit_count +=
+                    static_cast<uint64>(cached_meshes->second.size());
+#endif
             for (const auto& mesh : cached_meshes->second)
             {
                 resource_tracker.track(mesh.vertex_buffer);
@@ -255,7 +268,13 @@ namespace tbx
                 model->meshes[static_cast<size>(mesh_index)],
                 mesh_index);
             if (mesh.has_value())
+            {
+#if defined(TBX_ENABLE_VERBOSE)
+                if (internal::active_render_metrics)
+                    ++internal::active_render_metrics->model_mesh_upload_count;
+#endif
                 out_meshes.push_back(*mesh);
+            }
         }
 
         if (!out_meshes.empty())
@@ -292,6 +311,10 @@ namespace tbx
         if (cached_mesh == _caches.meshes.runtime_meshes.end())
             return false;
 
+#if defined(TBX_ENABLE_VERBOSE)
+        if (internal::active_render_metrics)
+            ++internal::active_render_metrics->static_mesh_cache_hit_count;
+#endif
         resource_tracker.track(cached_mesh->second.vertex_buffer);
         resource_tracker.track(cached_mesh->second.index_buffer);
         out_mesh = cached_mesh->second;
@@ -316,6 +339,10 @@ namespace tbx
         if (!result)
             return result;
 
+#if defined(TBX_ENABLE_VERBOSE)
+        if (internal::active_render_metrics)
+            ++internal::active_render_metrics->static_mesh_upload_count;
+#endif
         _caches.meshes.runtime_meshes[mesh_handle] = out_mesh;
         return {};
     }
@@ -396,6 +423,10 @@ namespace tbx
 
         resource_tracker.track(resource);
         _caches.textures.render_targets[cache_key] = resource;
+#if defined(TBX_ENABLE_VERBOSE)
+        if (internal::active_render_metrics)
+            ++internal::active_render_metrics->texture_target_upload_count;
+#endif
         return GraphicsResourceBinding {.slot = slot, .resource = resource};
     }
 

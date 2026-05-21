@@ -33,7 +33,7 @@ namespace tbx
 
     struct TBX_API RenderPass
     {
-        GraphicsPassDesc pass = {};
+        GraphicsPassDesc desc = {};
         std::vector<GraphicsDrawCommand> draws = {};
         std::vector<GraphicsIndexedDrawCommand> indexed_draws = {};
     };

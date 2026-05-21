@@ -1,6 +1,7 @@
 #include "opengl_backend.h"
 #include "internal/opengl_backend_internal.h"
 #include "opengl_resources/opengl_utils.h"
+#include "tbx/types/viewport.h"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -69,23 +70,12 @@ namespace opengl_rendering
         return consume_gl_errors("begin_frame");
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_view(const tbx::RenderView& view)
-    {
-        _active_viewport = view.viewport;
-        return set_viewport(view.viewport);
-    }
-
     tbx::Result OpenGlGraphicsBackend::end_frame()
     {
         clear_bound_state();
         auto result = consume_gl_errors("end_frame");
         _active_window = {};
         return result;
-    }
-
-    tbx::Result OpenGlGraphicsBackend::end_view()
-    {
-        return make_success();
     }
 
     tbx::Result OpenGlGraphicsBackend::present()
@@ -229,6 +219,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::set_viewport(const tbx::Viewport& viewport)
     {
+        _active_viewport = viewport;
         glViewport(
             static_cast<GLint>(viewport.position.x),
             static_cast<GLint>(viewport.position.y),

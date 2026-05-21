@@ -1,6 +1,7 @@
 #version 450
 
 #include "Toybox/Materials/PbrMaterial.glsl"
+#include "Toybox/Lighting/PbrLighting.glsl"
 
 layout(location = 0) in vec3 v_world_position;
 layout(location = 1) in vec3 v_world_normal;
@@ -8,10 +9,7 @@ layout(location = 2) in vec4 v_world_tangent;
 layout(location = 3) in vec2 v_tex_coord;
 layout(location = 4) in vec4 v_color;
 
-layout(location = 0) out vec4 o_gbuffer_albedo;
-layout(location = 1) out vec4 o_gbuffer_normal;
-layout(location = 2) out vec4 o_gbuffer_material;
-layout(location = 3) out vec4 o_gbuffer_emissive;
+layout(location = 0) out vec4 o_color;
 
 void main()
 {
@@ -24,8 +22,6 @@ void main()
     surface.albedo *= v_color.rgb;
     surface.alpha *= v_color.a;
 
-    o_gbuffer_albedo = vec4(surface.albedo, surface.alpha);
-    o_gbuffer_normal = vec4(normalize(surface.normal) * 0.5 + 0.5, 1.0);
-    o_gbuffer_material = vec4(surface.metallic, surface.roughness, surface.ao, 1.0);
-    o_gbuffer_emissive = vec4(surface.emissive, 1.0);
+    vec3 color = max(tbx_shade_pbr(surface), vec3(0.0));
+    o_color = vec4(color, surface.alpha);
 }

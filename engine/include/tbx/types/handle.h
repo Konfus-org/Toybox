@@ -21,7 +21,8 @@ namespace tbx
         Handle() = default;
 
         Handle(std::string handle_name)
-            : Handle(std::move(handle_name), hash_string_to_id(handle_name))
+            : _name(std::move(handle_name))
+            , _id(hash_string_to_id(_name))
         {
         }
 

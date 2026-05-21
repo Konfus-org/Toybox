@@ -23,6 +23,23 @@
             msg __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 
+#if defined(TBX_ENABLE_VERBOSE)
+    #define TBX_TRACE_VERBOSE(msg, ...)                                                            \
+        do                                                                                         \
+        {                                                                                          \
+            ::tbx::Log::write(                                                                     \
+                ::tbx::LogLevel::INFO,                                                             \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                msg __VA_OPT__(, ) __VA_ARGS__);                                                   \
+        } while (0)
+#else
+    #define TBX_TRACE_VERBOSE(msg, ...)                                                            \
+        do                                                                                         \
+        {                                                                                          \
+        } while (0)
+#endif
+
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \

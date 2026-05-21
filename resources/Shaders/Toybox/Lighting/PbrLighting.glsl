@@ -1,4 +1,5 @@
-#include "Toybox/Materials/PbrMaterial.glsl"
+#include "Toybox/ShaderBase.glsl"
+#include "Toybox/Lighting/PbrSurface.glsl"
 #include "Toybox/Lighting/ShadowSampling.glsl"
 
 float tbx_distribution_ggx(vec3 normal, vec3 half_vector, float roughness)
@@ -153,7 +154,9 @@ vec3 tbx_shade_pbr(PbrSurface surface)
             contribution *= tbx_sample_shadow(
                 surface.world_position,
                 surface.normal,
-                tbx_get_shadow_light_direction(u_lights[i], surface));
+                tbx_get_shadow_light_direction(u_lights[i], surface),
+                int(u_lights[i].params.z),
+                int(max(u_lights[i].params.w, 1.0)));
         }
 
         color += contribution;
