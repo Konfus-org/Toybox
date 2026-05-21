@@ -1,6 +1,6 @@
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/internal/mesh_bounds_internal.h"
+#include "types/internal/mesh_bounds_internal.h"
 #include "tbx/types/matrices.h"
 #include <algorithm>
 #include <cmath>

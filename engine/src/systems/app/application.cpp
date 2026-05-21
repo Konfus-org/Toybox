@@ -1,8 +1,8 @@
 #include "tbx/systems/app/application.h"
+#include "systems/app/internal/application_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/physics_backend.h"
-#include "tbx/systems/app/internal/application_internal.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
@@ -11,6 +11,7 @@
 #include <chrono>
 #include <exception>
 #include <memory>
+
 namespace tbx
 {
     Application::Application(const AppDescription& desc)

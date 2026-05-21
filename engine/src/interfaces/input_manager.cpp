@@ -1,5 +1,5 @@
 #include "tbx/interfaces/input_manager.h"
-#include "tbx/interfaces/internal/input_manager_internal.h"
+#include "interfaces/internal/input_manager_internal.h"
 #include <algorithm>
 #include <cmath>
 #include <ranges>

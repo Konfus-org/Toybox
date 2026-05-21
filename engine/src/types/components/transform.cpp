@@ -1,5 +1,5 @@
 #include "tbx/types/components/transform.h"
-#include "tbx/types/components/internal/transform_internal.h"
+#include "types/components/internal/transform_internal.h"
 #include <cmath>
 namespace tbx
 {

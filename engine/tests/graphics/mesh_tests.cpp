@@ -5,7 +5,7 @@ namespace tbx::tests::graphics
 {
     static bool are_all_triangles_outward_facing(const Mesh& mesh)
     {
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
         const auto& vertices = mesh.vertices.vertices;
         const auto& indices = mesh.indices;
         if ((indices.size() % 3U) != 0U || vertex_stride < 3U)
@@ -13,7 +13,7 @@ namespace tbx::tests::graphics
 
         auto read_position = [&vertices, vertex_stride](uint32 vertex_index)
         {
-            const size_t base = static_cast<size_t>(vertex_index) * vertex_stride;
+            const size base = static_cast<size>(vertex_index) * vertex_stride;
             return std::array<float, 3> {
                 vertices[base + 0U],
                 vertices[base + 1U],
@@ -21,7 +21,7 @@ namespace tbx::tests::graphics
             };
         };
 
-        for (size_t triangle_index = 0U; triangle_index < indices.size(); triangle_index += 3U)
+        for (size triangle_index = 0U; triangle_index < indices.size(); triangle_index += 3U)
         {
             const auto a = read_position(indices[triangle_index + 0U]);
             const auto b = read_position(indices[triangle_index + 1U]);
@@ -59,12 +59,12 @@ namespace tbx::tests::graphics
 
     static bool has_white_vertex_colors(const Mesh& mesh)
     {
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
         const auto& vertices = mesh.vertices.vertices;
         if (vertex_stride < 7U || (vertices.size() % vertex_stride) != 0U)
             return false;
 
-        for (size_t vertex_offset = 0U; vertex_offset < vertices.size();
+        for (size vertex_offset = 0U; vertex_offset < vertices.size();
              vertex_offset += vertex_stride)
         {
             if (vertices[vertex_offset + 3U] != 1.0F || vertices[vertex_offset + 4U] != 1.0F
@@ -76,15 +76,15 @@ namespace tbx::tests::graphics
     }
 
     // Validates built-in cube mesh topology and buffer population.
-    TEST(MeshTests, MakeCube_ReturnsExpectedTopology)
+    TEST(MeshTests, BuiltInCube_ReturnsExpectedTopology)
     {
         // Arrange
-        Mesh mesh = make_cube();
+        Mesh mesh = Mesh::CUBE;
 
         // Act
-        const size_t vertex_float_count = mesh.vertices.vertices.size();
-        const size_t index_count = mesh.indices.size();
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_float_count = mesh.vertices.vertices.size();
+        const size index_count = mesh.indices.size();
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
 
         // Assert
         EXPECT_EQ(vertex_float_count, 24U * vertex_stride);
@@ -92,15 +92,15 @@ namespace tbx::tests::graphics
     }
 
     // Validates built-in sphere mesh topology and buffer population.
-    TEST(MeshTests, MakeSphere_ReturnsExpectedTopology)
+    TEST(MeshTests, BuiltInSphere_ReturnsExpectedTopology)
     {
         // Arrange
-        Mesh mesh = make_sphere();
+        Mesh mesh = Mesh::SPHERE;
 
         // Act
-        const size_t vertex_float_count = mesh.vertices.vertices.size();
-        const size_t index_count = mesh.indices.size();
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_float_count = mesh.vertices.vertices.size();
+        const size index_count = mesh.indices.size();
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
 
         // Assert
         EXPECT_EQ(vertex_float_count, 425U * vertex_stride);
@@ -108,10 +108,10 @@ namespace tbx::tests::graphics
     }
 
     // Validates sphere triangles are wound outward for correct backface culling.
-    TEST(MeshTests, MakeSphere_TrianglesAreOutwardFacing)
+    TEST(MeshTests, BuiltInSphere_TrianglesAreOutwardFacing)
     {
         // Arrange
-        Mesh mesh = make_sphere();
+        Mesh mesh = Mesh::SPHERE;
 
         // Act
         const bool is_outward_wound = are_all_triangles_outward_facing(mesh);
@@ -121,15 +121,15 @@ namespace tbx::tests::graphics
     }
 
     // Validates built-in capsule mesh topology and buffer population.
-    TEST(MeshTests, MakeCapsule_ReturnsExpectedTopology)
+    TEST(MeshTests, BuiltInCapsule_ReturnsExpectedTopology)
     {
         // Arrange
-        Mesh mesh = make_capsule();
+        Mesh mesh = Mesh::CAPSULE;
 
         // Act
-        const size_t vertex_float_count = mesh.vertices.vertices.size();
-        const size_t index_count = mesh.indices.size();
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_float_count = mesh.vertices.vertices.size();
+        const size index_count = mesh.indices.size();
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
 
         // Assert
         EXPECT_EQ(vertex_float_count, 625U * vertex_stride);
@@ -137,15 +137,15 @@ namespace tbx::tests::graphics
     }
 
     // Validates fullscreen quad mesh topology and clip-space coverage.
-    TEST(MeshTests, MakeFullscreenQuad_ReturnsExpectedTopology)
+    TEST(MeshTests, BuiltInFullscreenQuad_ReturnsExpectedTopology)
     {
         // Arrange
-        Mesh mesh = make_fullscreen_quad();
+        Mesh mesh = Mesh::FULLSCREEN_QUAD;
 
         // Act
-        const size_t vertex_float_count = mesh.vertices.vertices.size();
-        const size_t index_count = mesh.indices.size();
-        const size_t vertex_stride = get_vertex_stride_float_count(mesh);
+        const size vertex_float_count = mesh.vertices.vertices.size();
+        const size index_count = mesh.indices.size();
+        const size vertex_stride = mesh.get_vertex_stride_float_count();
         const float first_x = mesh.vertices.vertices[0];
         const float first_y = mesh.vertices.vertices[1];
         const float third_x = mesh.vertices.vertices[vertex_stride * 2U];
@@ -164,12 +164,12 @@ namespace tbx::tests::graphics
     TEST(MeshTests, BuiltInMeshes_AreInitialized)
     {
         // Arrange
-        const Mesh& triangle_mesh = triangle;
-        const Mesh& quad_mesh = quad;
-        const Mesh& fullscreen_quad_mesh = fullscreen_quad;
-        const Mesh& cube_mesh_ref = cube;
-        const Mesh& sphere_mesh_ref = sphere;
-        const Mesh& capsule_mesh_ref = capsule;
+        const Mesh& triangle_mesh = Mesh::TRIANGLE;
+        const Mesh& quad_mesh = Mesh::QUAD;
+        const Mesh& fullscreen_quad_mesh = Mesh::FULLSCREEN_QUAD;
+        const Mesh& cube_mesh_ref = Mesh::CUBE;
+        const Mesh& sphere_mesh_ref = Mesh::SPHERE;
+        const Mesh& capsule_mesh_ref = Mesh::CAPSULE;
 
         // Act
         const bool triangle_has_data =
@@ -193,18 +193,18 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(capsule_has_data);
     }
 
-    // Validates built-in mesh factory outputs include computed local bounds.
-    TEST(MeshTests, BuiltInMeshFactories_PopulateBounds)
+    // Validates built-in meshes include computed local bounds.
+    TEST(MeshTests, BuiltInMeshes_PopulateBounds)
     {
         // Arrange
         const auto meshes = std::array<Mesh, 7> {
-            make_triangle(),
-            make_quad(),
-            make_fullscreen_quad(),
-            make_cube(),
-            make_sphere(),
-            make_capsule(),
-            make_sky_dome(),
+            Mesh::TRIANGLE,
+            Mesh::QUAD,
+            Mesh::FULLSCREEN_QUAD,
+            Mesh::CUBE,
+            Mesh::SPHERE,
+            Mesh::CAPSULE,
+            Mesh::HALF_SPHERE,
         };
 
         // Act / Assert
@@ -216,17 +216,17 @@ namespace tbx::tests::graphics
     }
 
     // Validates built-in mesh vertex color defaults do not tint material albedo black.
-    TEST(MeshTests, BuiltInMeshFactories_DefaultVertexColorIsWhite)
+    TEST(MeshTests, BuiltInMeshes_DefaultVertexColorIsWhite)
     {
         // Arrange
         const auto meshes = std::array<Mesh, 7> {
-            make_triangle(),
-            make_quad(),
-            make_fullscreen_quad(),
-            make_cube(),
-            make_sphere(),
-            make_capsule(),
-            make_sky_dome(),
+            Mesh::TRIANGLE,
+            Mesh::QUAD,
+            Mesh::FULLSCREEN_QUAD,
+            Mesh::CUBE,
+            Mesh::SPHERE,
+            Mesh::CAPSULE,
+            Mesh::HALF_SPHERE,
         };
 
         // Act / Assert

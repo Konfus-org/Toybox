@@ -1,5 +1,5 @@
 #include "tbx/systems/plugin_api/shared_library.h"
-#include "tbx/systems/plugin_api/internal/shared_library_internal.h"
+#include "systems/plugin_api/internal/shared_library_internal.h"
 #include <filesystem>
 #include <string>
 #include <utility>

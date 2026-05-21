@@ -1,5 +1,5 @@
 #include "tbx/types/uuid.h"
-#include "tbx/types/internal/uuid_internal.h"
+#include "types/internal/uuid_internal.h"
 #include <functional>
 #include <limits>
 #include <random>

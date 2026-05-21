@@ -5,6 +5,7 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/time/delta_time.h"
+#include <memory>
 #include <string>
 
 namespace three_d_example
@@ -22,10 +23,10 @@ namespace three_d_example
     {
       public:
         CameraController(
-            tbx::EntityRegistry& entity_registry,
-            tbx::IInputManager& input_manager,
-            tbx::Physics& physics,
-            ProjectileSystem& projectile_system,
+            std::weak_ptr<tbx::EntityRegistry> entity_registry,
+            std::weak_ptr<tbx::IInputManager> input_manager,
+            std::weak_ptr<tbx::Physics> physics,
+            std::weak_ptr<ProjectileSystem> projectile_system,
             const CameraControllerSettings& settings);
         ~CameraController();
 
@@ -53,10 +54,10 @@ namespace three_d_example
         static tbx::Vec3 normalize_or_zero(const tbx::Vec3& value);
 
       private:
-        tbx::EntityRegistry* _entity_registry = nullptr;
-        tbx::IInputManager* _input_manager = nullptr;
-        tbx::Physics* _physics = nullptr;
-        ProjectileSystem* _projectile_system = nullptr;
+        std::weak_ptr<tbx::EntityRegistry> _entity_registry = {};
+        std::weak_ptr<tbx::IInputManager> _input_manager = {};
+        std::weak_ptr<tbx::Physics> _physics = {};
+        std::weak_ptr<ProjectileSystem> _projectile_system = {};
         std::string _scheme_name = {};
         tbx::Entity _character_entity = {};
         tbx::Entity _camera_entity = {};

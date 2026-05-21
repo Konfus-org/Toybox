@@ -13,8 +13,8 @@ This file defines contributor workflow rules for agents working in this reposito
 - Do not remake the wheel; reuse existing engine utilities/components before introducing new implementations.
 - When it makes sense, design features and helpers for reusability.
 - Avoid throwaway helper methods. If a function will not be reused, implement it inline and use comments to break up complex logic when that improves readability.
-- DO NOT use anonymous namespaces, prefer private or static in a detail namespace over anonymous.
-- structs and classes should not be nested, it hurts readability. If its 'private' just put them in a source file and wrap into a detail namespace.
+- DO NOT use anonymous namespaces, prefer private or static in a internal namespace and file over anonymous.
+- Structs and classes should not be nested, it hurts readability. If its 'private' just put them in a source file and wrap into a detail namespace.
 - Comment on and document assumptions.
 - Keep changes focused and minimal to the requested scope.
 - Prefer direct includes over forward declarations.
@@ -26,3 +26,4 @@ This file defines contributor workflow rules for agents working in this reposito
 - Use `cmake --preset clang` followed by `cmake --build --preset clang-debug` on macOS/Linux or when using Clang.
 - Use `cmake --preset msvc` followed by `cmake --build --preset msvc-debug` on Windows when using the MSVC toolchain.
 - Run the matching `ctest` preset (`test-clang-debug` or `test-msvc-debug`) when tests are affected or available.
+- Run clang format and tidy to ensure rules are followed.

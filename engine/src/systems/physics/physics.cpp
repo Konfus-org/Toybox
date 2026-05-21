@@ -3,7 +3,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/physics/internal/physics_internal.h"
+#include "systems/physics/internal/physics_internal.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/model.h"

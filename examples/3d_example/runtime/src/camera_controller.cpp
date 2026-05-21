@@ -14,37 +14,42 @@
 namespace three_d_example
 {
     CameraController::CameraController(
-        tbx::EntityRegistry& entity_registry,
-        tbx::IInputManager& input_manager,
-        tbx::Physics& physics,
-        ProjectileSystem& projectile_system,
+        std::weak_ptr<tbx::EntityRegistry> entity_registry,
+        std::weak_ptr<tbx::IInputManager> input_manager,
+        std::weak_ptr<tbx::Physics> physics,
+        std::weak_ptr<ProjectileSystem> projectile_system,
         const CameraControllerSettings& settings)
     {
-        _entity_registry = &entity_registry;
-        _input_manager = &input_manager;
-        _physics = &physics;
-        _projectile_system = &projectile_system;
+        _entity_registry = entity_registry;
+        _input_manager = input_manager;
+        _physics = physics;
+        _projectile_system = projectile_system;
         _scheme_name = "ThreeDExample.CameraController";
         _yaw = settings.initial_yaw;
         _pitch = settings.initial_pitch;
         _move_speed = settings.move_speed;
         _look_sensitivity = settings.look_sensitivity;
 
-        create_entities(entity_registry, settings);
+        auto entity_registry_lock = _entity_registry.lock();
+        if (!entity_registry_lock)
+            return;
+
+        create_entities(*entity_registry_lock, settings);
         register_input_scheme();
     }
 
     CameraController::~CameraController()
     {
-        _entity_registry = nullptr;
-        if (_input_manager != nullptr && !_scheme_name.empty())
-            _input_manager->remove_scheme(_scheme_name);
-        if (_input_manager != nullptr)
-            _input_manager->set_mouse_lock_mode(tbx::MouseLockMode::UNLOCKED);
+        auto input_manager = _input_manager.lock();
+        if (input_manager && !_scheme_name.empty())
+            input_manager->remove_scheme(_scheme_name);
+        if (input_manager)
+            input_manager->set_mouse_lock_mode(tbx::MouseLockMode::UNLOCKED);
 
-        _input_manager = nullptr;
-        _physics = nullptr;
-        _projectile_system = nullptr;
+        _entity_registry.reset();
+        _input_manager.reset();
+        _physics.reset();
+        _projectile_system.reset();
         _scheme_name.clear();
         _reticle_entity.destroy();
         _reticle_entity = {};
@@ -122,9 +127,9 @@ namespace three_d_example
 
         _reticle_entity = tbx::Entity("Reticle", _camera_entity.get_id(), entity_registry);
         auto reticle_material = tbx::MaterialInstance(tbx::FlatMaterial::HANDLE);
-        reticle_material.set_parameter(tbx::FlatMaterial::U_ALBEDO_COLOR, tbx::Color::WHITE);
+        reticle_material.set_parameter(tbx::FlatMaterial::ALBEDO_COLOR, tbx::Color::WHITE);
         _reticle_entity.add_component<tbx::MaterialInstance>(reticle_material);
-        _reticle_entity.add_component<tbx::DynamicMesh>(tbx::quad);
+        _reticle_entity.add_component<tbx::DynamicMesh>(tbx::Mesh::QUAD);
         _reticle_entity.add_component<tbx::Transform>(
             tbx::Vec3(0.0F, 0.0F, -0.3F),
             tbx::Quat(tbx::Vec3(0.0F, 0.0F, 0.0F)),
@@ -135,8 +140,12 @@ namespace three_d_example
 
     void CameraController::register_input_scheme()
     {
-        if (_input_manager->get_scheme(_scheme_name).has_value())
-            _input_manager->remove_scheme(_scheme_name);
+        auto input_manager = _input_manager.lock();
+        if (!input_manager)
+            return;
+
+        if (input_manager->get_scheme(_scheme_name).has_value())
+            input_manager->remove_scheme(_scheme_name);
 
         auto actions = std::vector<tbx::InputAction> {
             create_move_action(),
@@ -147,9 +156,9 @@ namespace three_d_example
             create_shoot_action(),
         };
 
-        _input_manager->add_scheme(tbx::InputScheme(_scheme_name, actions));
-        _input_manager->activate_scheme(_scheme_name);
-        _input_manager->set_mouse_lock_mode(tbx::MouseLockMode::RELATIVE);
+        input_manager->add_scheme(tbx::InputScheme(_scheme_name, actions));
+        input_manager->activate_scheme(_scheme_name);
+        input_manager->set_mouse_lock_mode(tbx::MouseLockMode::RELATIVE);
     }
 
     tbx::InputAction CameraController::create_move_action()
@@ -330,8 +339,9 @@ namespace three_d_example
                     {
                         [this](const tbx::InputAction&)
                         {
-                            if (_projectile_system != nullptr)
-                                _projectile_system->request_spawn();
+                            auto projectile_system = _projectile_system.lock();
+                            if (projectile_system)
+                                projectile_system->request_spawn();
                         },
                     },
             });
@@ -339,8 +349,9 @@ namespace three_d_example
 
     void CameraController::cast_raycast() const
     {
-        if (_entity_registry == nullptr || _physics == nullptr
-            || !_camera_entity.get_id().is_valid())
+        auto entity_registry = _entity_registry.lock();
+        auto physics = _physics.lock();
+        if (!entity_registry || !physics || !_camera_entity.get_id().is_valid())
             return;
 
         const auto camera_world_transform = tbx::get_world_space_transform(_camera_entity);
@@ -355,7 +366,7 @@ namespace three_d_example
             .ignored_entity_id = _camera_entity.get_id(),
         };
 
-        const auto raycast_result = _physics->raycast(raycast);
+        const auto raycast_result = physics->raycast(raycast);
         if (!raycast_result)
         {
             TBX_TRACE_INFO("Raycast missed.");
@@ -364,7 +375,7 @@ namespace three_d_example
 
         TBX_TRACE_INFO(
             "Raycast hit entity {} at ({:.2f}, {:.2f}, {:.2f}).",
-            _entity_registry->get(raycast_result.hit_entity_id).get_name(),
+            entity_registry->get(raycast_result.hit_entity_id).get_name(),
             raycast_result.hit_position.x,
             raycast_result.hit_position.y,
             raycast_result.hit_position.z);

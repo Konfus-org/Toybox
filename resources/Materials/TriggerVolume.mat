@@ -1,0 +1,23 @@
+{
+  "shaders": { "vertex": "0000013B", "fragment": "0000013C" },
+  "config": {
+    "depth": {
+      "test": true,
+      "write": false,
+      "prepass": false,
+      "function": "less_equal"
+    },
+    "transparency": {
+      "blend_mode": "alpha_blend"
+    },
+    "cullable": true,
+    "two_sided": true,
+    "shadow_mode": "none"
+  },
+  "textures": [
+    { "name": "albedo_map", "value": "" }
+  ],
+  "parameters": [
+    { "name": "albedo_color", "type": "color", "value": [1.0, 0.0, 0.0, 0.35] }
+  ]
+}

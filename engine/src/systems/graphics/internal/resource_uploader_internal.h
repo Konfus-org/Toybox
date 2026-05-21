@@ -274,6 +274,26 @@ namespace tbx::internal
         return Handle("Materials/Pbr.mat", PbrMaterial::HANDLE.get_id());
     }
 
+    static Handle resolve_material_handle(const MaterialInstance& instance)
+    {
+        auto material_handle = instance.get_handle();
+        if (!material_handle.is_valid()
+            || (material_handle.get_name().empty()
+                && material_handle.get_id() == PbrMaterial::HANDLE.get_id()))
+        {
+            material_handle = make_default_material_handle();
+        }
+
+        return material_handle;
+    }
+
+    static MaterialConfig resolve_material_config(
+        const Material& material,
+        const MaterialInstance& instance)
+    {
+        return instance.has_config_override_enabled() ? instance.overrides.config : material.config;
+    }
+
     static std::string make_material_pipeline_cache_key(
         const Handle& handle,
         const MaterialConfig& config)
@@ -300,9 +320,9 @@ namespace tbx::internal
             std::vector<Pixel> {r, g, b, a});
     }
 
-    static Texture make_default_texture_for_binding(const std::string_view binding_name)
+    static Texture make_default_texture_for_binding(const uint32 binding_id)
     {
-        if (binding_name == "u_normal_map")
+        if (binding_id == PARAM_NORMAL_MAP)
         {
             return make_solid_texture(
                 static_cast<Pixel>(128U),
@@ -311,8 +331,8 @@ namespace tbx::internal
                 static_cast<Pixel>(255U));
         }
 
-        if (binding_name == "u_emissive_map" || binding_name == "u_shadow_mask"
-            || binding_name == "u_source_depth")
+        if (binding_id == PARAM_EMISSIVE_MAP || binding_id == PARAM_SHADOW_MASK
+            || binding_id == PARAM_SOURCE_DEPTH)
         {
             return make_solid_texture(
                 static_cast<Pixel>(0U),
@@ -321,7 +341,7 @@ namespace tbx::internal
                 static_cast<Pixel>(255U));
         }
 
-        if (binding_name == "u_metallic_roughness_map")
+        if (binding_id == PARAM_METALLIC_ROUGHNESS_MAP)
         {
             return make_solid_texture(
                 static_cast<Pixel>(0U),
@@ -548,7 +568,7 @@ namespace tbx::internal
         const MaterialTextureBinding& binding,
         TextureResourceCache& cache)
     {
-        const auto slot = resolve_shader_texture_slot(binding.name);
+        const auto slot = resolve_shader_texture_slot(binding.id);
         auto handle = binding.texture;
         auto source_texture = std::shared_ptr<Texture> {};
         if (binding.texture.is_valid())
@@ -569,8 +589,8 @@ namespace tbx::internal
         }
         else
         {
-            handle = Handle(std::string("Toybox/DefaultTexture/") + binding.name);
-            if (const auto cached = cache.default_textures.find(binding.name);
+            handle = Handle(std::string("Toybox/DefaultTexture/") + std::to_string(binding.id));
+            if (const auto cached = cache.default_textures.find(binding.id);
                 cached != cache.default_textures.end())
             {
                 resource_tracker.track(cached->second);
@@ -581,7 +601,7 @@ namespace tbx::internal
             }
 
             source_texture =
-                std::make_shared<Texture>(make_default_texture_for_binding(binding.name));
+                std::make_shared<Texture>(make_default_texture_for_binding(binding.id));
         }
 
         if (!source_texture)
@@ -612,7 +632,7 @@ namespace tbx::internal
         if (binding.texture.is_valid())
             cache.textures[binding.texture] = resource;
         else
-            cache.default_textures[binding.name] = resource;
+            cache.default_textures[binding.id] = resource;
 
         if (!slot.has_value())
             return std::nullopt;

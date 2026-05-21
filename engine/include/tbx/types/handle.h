@@ -21,7 +21,7 @@ namespace tbx
         Handle() = default;
 
         Handle(std::string handle_name)
-            : Handle(std::move(handle_name), hash_name_to_id(handle_name))
+            : Handle(std::move(handle_name), hash_string_to_id(handle_name))
         {
         }
 
@@ -67,9 +67,8 @@ namespace tbx
             return _name;
         }
 
-      public:
-        // TODO: Move this to our hash.h and call it tbx::hash_name_to_uuid
-        static Uuid hash_name_to_id(std::string_view handle_name)
+      private:
+        static Uuid hash_string_to_id(std::string_view handle_name)
         {
             const auto hasher = std::hash<std::string_view>();
             const auto hashed = static_cast<uint32>(hasher(handle_name));
@@ -81,7 +80,7 @@ namespace tbx
         Uuid _id = {};
     };
 
-    // TODO: remove all tbx to_string and utilize implicit conversions
+    // TODO: make logging take into account to_string implementations
     inline std::string to_string(const Handle& value)
     {
         if (!value.get_name().empty())

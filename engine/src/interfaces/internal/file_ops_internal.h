@@ -1,12 +1,9 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
-#include <array>
-#include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <string>
 #include <system_error>
-#include <vector>
+
 #if defined(TBX_PLATFORM_WINDOWS)
     #ifndef NOMINMAX
         #define NOMINMAX

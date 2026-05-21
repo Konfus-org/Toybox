@@ -4,6 +4,7 @@
 #include "tbx/types/color.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/shader.h"
+#include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
 #include "tbx/utils/hash.h"
 #include <cstdint>
@@ -18,6 +19,19 @@
 
 namespace tbx
 {
+    inline constexpr uint32 INVALID_MATERIAL_PARAM_ID = 0U;
+
+    constexpr uint32 make_param_id(const std::string_view name)
+    {
+        auto result = TBX_FNV1A_OFFSET_BASIS;
+        for (const char value : name)
+        {
+            result ^= static_cast<unsigned char>(value);
+            result *= TBX_FNV1A_PRIME;
+        }
+        return static_cast<uint32>(result);
+    }
+
     using MaterialParameterData =
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
@@ -58,23 +72,26 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores one named material parameter value.
+    /// Purpose: Stores one material parameter value keyed by a stable hashed id.
     /// @details
-    /// Ownership: Owns the parameter name by value and stores the parameter payload inline.
+    /// Ownership: Stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
+        MaterialParameter(uint32 parameter_id, MaterialParameterData parameter_data);
 
         template <typename TValue>
         MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
+        template <typename TValue>
+        MaterialParameter(const std::string& parameter_name, TValue&& parameter_data);
 
-        std::string name = "";
+        uint32 id = INVALID_MATERIAL_PARAM_ID;
         MaterialParameterData data = 0.0f;
     };
 
     /// @brief
-    /// Purpose: Stores named parameter bindings for a material or material instance.
+    /// Purpose: Stores parameter bindings for a material or material instance.
     /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
@@ -90,13 +107,18 @@ namespace tbx
         }
 
         void set(std::string_view name, MaterialParameterData value);
+        void set(uint32 id, MaterialParameterData value);
         void set(MaterialParameter parameter);
         void set(std::initializer_list<MaterialParameter> parameters);
         std::optional<std::reference_wrapper<MaterialParameter>> get(std::string_view name);
         std::optional<std::reference_wrapper<const MaterialParameter>> get(
             std::string_view name) const;
+        std::optional<std::reference_wrapper<MaterialParameter>> get(uint32 id);
+        std::optional<std::reference_wrapper<const MaterialParameter>> get(uint32 id) const;
         bool has(std::string_view name) const;
+        bool has(uint32 id) const;
         void remove(std::string_view name);
+        void remove(uint32 id);
         void clear();
 
         iterator begin();
@@ -110,18 +132,23 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores one named texture binding.
+    /// Purpose: Stores one texture binding keyed by a stable hashed id.
     /// @details
-    /// Ownership: Owns the binding name by value and texture instance by value.
+    /// Ownership: Owns the texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API MaterialTextureBinding
     {
-        std::string name = {};
+        MaterialTextureBinding() = default;
+        MaterialTextureBinding(uint32 binding_id, Handle texture_handle);
+        MaterialTextureBinding(const std::string& binding_name, Handle texture_handle);
+        MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
+
+        uint32 id = INVALID_MATERIAL_PARAM_ID;
         Handle texture = {};
     };
 
     /// @brief
-    /// Purpose: Stores named texture bindings for a material or material instance.
+    /// Purpose: Stores texture bindings for a material or material instance.
     /// @details
     /// Ownership: Owns all texture entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
@@ -137,13 +164,18 @@ namespace tbx
         }
 
         void set(std::string_view name, Handle texture);
+        void set(uint32 id, Handle texture);
         void set(MaterialTextureBinding texture_binding);
         void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
         std::optional<std::reference_wrapper<MaterialTextureBinding>> get(std::string_view name);
         std::optional<std::reference_wrapper<const MaterialTextureBinding>> get(
             std::string_view name) const;
+        std::optional<std::reference_wrapper<MaterialTextureBinding>> get(uint32 id);
+        std::optional<std::reference_wrapper<const MaterialTextureBinding>> get(uint32 id) const;
         bool has(std::string_view name) const;
+        bool has(uint32 id) const;
         void remove(std::string_view name);
+        void remove(uint32 id);
         void clear();
 
         iterator begin();

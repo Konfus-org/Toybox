@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/rendering_pass_factory.h"
 #include "tbx/systems/graphics/shader_bindings.h"
@@ -6,6 +7,7 @@
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/trig.h"
@@ -48,6 +50,27 @@ namespace tbx::internal
     static std::string make_batch_debug_name(const uint64 batch_key, const std::string& prefix)
     {
         return prefix + std::to_string(batch_key);
+    }
+
+    static MaterialInstance make_sky_material_instance(const Sky& sky)
+    {
+        auto material = sky.material;
+        if (!material.get_handle().is_valid())
+            material.material = TexturedSkyMaterial::HANDLE;
+
+        return material;
+    }
+
+    static const Handle& get_sky_mesh_handle(const SkyType type)
+    {
+        static const auto box_handle = Handle("Toybox/SkyBox");
+        static const auto sphere_handle = Handle("Toybox/SkySphere");
+        return type == SkyType::BOX ? box_handle : sphere_handle;
+    }
+
+    static const Mesh& get_sky_mesh(const SkyType type)
+    {
+        return type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
     }
 
     static Vec3 make_light_color(const Light& light)
@@ -428,19 +451,26 @@ namespace tbx::internal
 
     static bool should_material_cast_shadows(
         const MaterialInstance& material,
+        const ResourceUploader& resource_uploader,
         const Vec3& position,
         const Vec3& camera_position,
         const float shadow_caster_max_distance)
     {
-        const ShadowMode shadow_mode = material.has_config_override_enabled()
-                                           ? material.config.shadow_mode
-                                           : ShadowMode::STANDARD;
+        const ShadowMode shadow_mode = resource_uploader.get_material_config(material).shadow_mode;
         if (shadow_mode == ShadowMode::NONE)
             return false;
         if (shadow_mode == ShadowMode::ALWAYS)
             return true;
 
         return is_within_distance_limit(position, camera_position, shadow_caster_max_distance);
+    }
+
+    static bool should_material_use_transparent_pass(
+        const MaterialInstance& material,
+        const ResourceUploader& resource_uploader)
+    {
+        return resource_uploader.get_material_config(material).blend_mode
+               == MaterialBlendMode::ALPHA_BLEND;
     }
 
     using RenderBatchCollection = std::unordered_map<uint64, RenderBatch>;

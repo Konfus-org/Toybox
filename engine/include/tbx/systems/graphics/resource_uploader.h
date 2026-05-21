@@ -80,7 +80,7 @@ namespace tbx
     struct TBX_API TextureResourceCache
     {
         std::unordered_map<Handle, Uuid> textures = {};
-        std::unordered_map<std::string, Uuid> default_textures = {};
+        std::unordered_map<uint32, Uuid> default_textures = {};
         std::unordered_map<std::string, Uuid> render_targets = {};
     };
 
@@ -135,6 +135,10 @@ namespace tbx
             const MaterialInstance& instance,
             RenderingResourceTracker& resource_tracker,
             RenderingMaterialUploadData& out_material) const;
+
+        /// @brief
+        /// Purpose: Resolves the render-state config for a material instance.
+        MaterialConfig get_material_config(const MaterialInstance& instance) const;
 
         /// @brief
         /// Purpose: Uploads, updates, or reuses one shared dynamic runtime mesh buffer pair.

@@ -18,18 +18,18 @@
   },
   "textures": [
     {
-      "name": "u_source_color",
+      "name": "source_color",
       "value": ""
     },
     {
-      "name": "u_lut",
+      "name": "lut",
       "value": "25256564"
     }
   ],
   "parameters": [
-    { "name": "u_lut_tint", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "u_lut_emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "u_lut_strength", "type": "float", "value": 1.0 },
-    { "name": "u_lut_blend", "type": "float", "value": 1.0 }
+    { "name": "lut_tint", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "lut_emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "lut_strength", "type": "float", "value": 1.0 },
+    { "name": "lut_blend", "type": "float", "value": 1.0 }
   ]
 }

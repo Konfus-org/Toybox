@@ -76,9 +76,10 @@ namespace tbx
         float _shadow_softness = 1.0F;
         float _local_light_max_distance = 64.0F;
         float _shadow_caster_max_distance = 96.0F;
+        float _elapsed_time = 0.0F;
         ResourceUploader _resource_uploader;
         RenderingDrawCommandFactory _draw_command_factory = {};
-        std::shared_ptr<Mesh> _sky_dome_mesh = {};
+        std::shared_ptr<Mesh> _sky_mesh = {};
         FrameShaderData _frame_shader_data = {};
         CameraShaderData _camera_shader_data = {};
         LightShaderData _light_shader_data = {};

@@ -1,5 +1,5 @@
 #include "tbx/interfaces/message_dispatcher.h"
-#include "tbx/systems/assets/internal/asset_manager_internal.h"
+#include "systems/assets/internal/asset_manager_internal.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/registry.h"

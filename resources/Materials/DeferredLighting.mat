@@ -1,12 +1,12 @@
 {
   "shaders": { "vertex": "00000133", "fragment": "00000132" },
   "textures": [
-    { "name": "u_gbuffer_albedo", "value": "" },
-    { "name": "u_gbuffer_normal", "value": "" },
-    { "name": "u_gbuffer_material", "value": "" },
-    { "name": "u_gbuffer_emissive", "value": "" },
-    { "name": "u_gbuffer_depth", "value": "" },
-    { "name": "u_shadow_mask", "value": "" }
+    { "name": "gbuffer_albedo", "value": "" },
+    { "name": "gbuffer_normal", "value": "" },
+    { "name": "gbuffer_material", "value": "" },
+    { "name": "gbuffer_emissive", "value": "" },
+    { "name": "gbuffer_depth", "value": "" },
+    { "name": "shadow_mask", "value": "" }
   ],
   "parameters": []
 }

@@ -5,7 +5,7 @@ namespace tbx
 {
     Model::Model()
     {
-        meshes = {quad};
+        meshes = {Mesh::QUAD};
         materials = {Material()};
         parts = {ModelPart()};
     }

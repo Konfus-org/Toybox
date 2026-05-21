@@ -2,7 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/systems/plugin_api/internal/plugin_meta_internal.h"
+#include "systems/plugin_api/internal/plugin_meta_internal.h"
 #include "tbx/utils/string_utils.h"
 #include <filesystem>
 #include <fstream>

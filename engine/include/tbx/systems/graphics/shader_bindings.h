@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/material.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/typedefs.h"
 #include <array>
@@ -19,6 +20,8 @@ namespace tbx
     constexpr uint32 BINDING_METALLIC_ROUGHNESS_MAP = 12U;
     constexpr uint32 BINDING_AO_MAP = 13U;
     constexpr uint32 BINDING_EMISSIVE_MAP = 14U;
+    constexpr uint32 BINDING_SKYBOX_TEXTURE = 15U;
+    constexpr uint32 BINDING_SECONDARY_SKYBOX_TEXTURE = 16U;
 
     constexpr uint32 BINDING_LIGHT_DATA = 20U;
     constexpr uint32 BINDING_SHADOW_MAP = 30U;
@@ -33,6 +36,22 @@ namespace tbx
 
     constexpr uint32 BINDING_POST_SOURCE_COLOR = 60U;
     constexpr uint32 BINDING_POST_SOURCE_DEPTH = 61U;
+
+    constexpr uint32 PARAM_ALBEDO_MAP = make_param_id("albedo_map");
+    constexpr uint32 PARAM_NORMAL_MAP = make_param_id("normal_map");
+    constexpr uint32 PARAM_METALLIC_ROUGHNESS_MAP = make_param_id("metallic_roughness_map");
+    constexpr uint32 PARAM_AO_MAP = make_param_id("ao_map");
+    constexpr uint32 PARAM_EMISSIVE_MAP = make_param_id("emissive_map");
+    constexpr uint32 PARAM_SKYBOX_TEXTURE = make_param_id("skybox_texture");
+    constexpr uint32 PARAM_SECONDARY_SKYBOX_TEXTURE = make_param_id("secondary_skybox_texture");
+    constexpr uint32 PARAM_GBUFFER_ALBEDO = make_param_id("gbuffer_albedo");
+    constexpr uint32 PARAM_GBUFFER_NORMAL = make_param_id("gbuffer_normal");
+    constexpr uint32 PARAM_GBUFFER_MATERIAL = make_param_id("gbuffer_material");
+    constexpr uint32 PARAM_GBUFFER_EMISSIVE = make_param_id("gbuffer_emissive");
+    constexpr uint32 PARAM_GBUFFER_DEPTH = make_param_id("gbuffer_depth");
+    constexpr uint32 PARAM_SHADOW_MASK = make_param_id("shadow_mask");
+    constexpr uint32 PARAM_SOURCE_COLOR = make_param_id("source_color");
+    constexpr uint32 PARAM_SOURCE_DEPTH = make_param_id("source_depth");
 
     constexpr uint32 VERTEX_BUFFER_SLOT_MESH = 0U;
     constexpr uint32 VERTEX_BUFFER_SLOT_INSTANCE = 1U;
@@ -102,45 +121,58 @@ namespace tbx
         Vec3 shadow_strength_padding = Vec3(0.0F);
     };
 
+    inline std::optional<uint32> resolve_shader_texture_slot(uint32 binding_id);
+
     inline std::optional<uint32> resolve_shader_texture_slot(const std::string_view binding_name)
     {
-        if (binding_name == "u_albedo_map")
+        return resolve_shader_texture_slot(make_param_id(binding_name));
+    }
+
+    inline std::optional<uint32> resolve_shader_texture_slot(const uint32 binding_id)
+    {
+        if (binding_id == PARAM_ALBEDO_MAP)
             return BINDING_ALBEDO_MAP;
 
-        if (binding_name == "u_normal_map")
+        if (binding_id == PARAM_NORMAL_MAP)
             return BINDING_NORMAL_MAP;
 
-        if (binding_name == "u_metallic_roughness_map")
+        if (binding_id == PARAM_METALLIC_ROUGHNESS_MAP)
             return BINDING_METALLIC_ROUGHNESS_MAP;
 
-        if (binding_name == "u_ao_map")
+        if (binding_id == PARAM_AO_MAP)
             return BINDING_AO_MAP;
 
-        if (binding_name == "u_emissive_map")
+        if (binding_id == PARAM_EMISSIVE_MAP)
             return BINDING_EMISSIVE_MAP;
 
-        if (binding_name == "u_gbuffer_albedo")
+        if (binding_id == PARAM_SKYBOX_TEXTURE)
+            return BINDING_SKYBOX_TEXTURE;
+
+        if (binding_id == PARAM_SECONDARY_SKYBOX_TEXTURE)
+            return BINDING_SECONDARY_SKYBOX_TEXTURE;
+
+        if (binding_id == PARAM_GBUFFER_ALBEDO)
             return BINDING_GBUFFER_ALBEDO;
 
-        if (binding_name == "u_gbuffer_normal")
+        if (binding_id == PARAM_GBUFFER_NORMAL)
             return BINDING_GBUFFER_NORMAL;
 
-        if (binding_name == "u_gbuffer_material")
+        if (binding_id == PARAM_GBUFFER_MATERIAL)
             return BINDING_GBUFFER_MATERIAL;
 
-        if (binding_name == "u_gbuffer_emissive")
+        if (binding_id == PARAM_GBUFFER_EMISSIVE)
             return BINDING_GBUFFER_EMISSIVE;
 
-        if (binding_name == "u_gbuffer_depth")
+        if (binding_id == PARAM_GBUFFER_DEPTH)
             return BINDING_GBUFFER_DEPTH;
 
-        if (binding_name == "u_shadow_mask")
+        if (binding_id == PARAM_SHADOW_MASK)
             return BINDING_SHADOW_MASK;
 
-        if (binding_name == "u_source_color")
+        if (binding_id == PARAM_SOURCE_COLOR)
             return BINDING_POST_SOURCE_COLOR;
 
-        if (binding_name == "u_source_depth")
+        if (binding_id == PARAM_SOURCE_DEPTH)
             return BINDING_POST_SOURCE_DEPTH;
 
         return std::nullopt;

@@ -1,5 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/interfaces/internal/file_ops_internal.h"
+#include "interfaces/internal/file_ops_internal.h"
 #include <array>
 #include <cstdint>
 #include <filesystem>

@@ -1,7 +1,7 @@
 #include "tbx/systems/graphics/resource_uploader.h"
 #include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/internal/resource_uploader_internal.h"
+#include "systems/graphics/internal/resource_uploader_internal.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/material.h"
@@ -42,7 +42,7 @@ namespace tbx
 
         auto mesh = RenderingMeshUploadData();
         const Result result =
-            upload_static_runtime_mesh(fallback_mesh_handle, make_cube(), resource_tracker, mesh);
+            upload_static_runtime_mesh(fallback_mesh_handle, Mesh::CUBE, resource_tracker, mesh);
         if (!result)
             return Result(false, "Resource uploader failed: fallback mesh upload failed.");
 
@@ -63,13 +63,7 @@ namespace tbx
         if (!asset_manager)
             return Result(false, "Resource uploader failed: asset manager unavailable.");
 
-        auto material_handle = instance.get_handle();
-        if (!material_handle.is_valid()
-            || (material_handle.get_name().empty()
-                && material_handle.get_id() == PbrMaterial::HANDLE.get_id()))
-        {
-            material_handle = internal::make_default_material_handle();
-        }
+        auto material_handle = internal::resolve_material_handle(instance);
 
         auto loaded_material =
             asset_manager->load<Material>(material_handle, MaterialLoadParameters());
@@ -83,14 +77,14 @@ namespace tbx
 
         auto parameters = material.parameters;
         auto textures = material.textures;
-        auto config = material.config;
+        const auto config = internal::resolve_material_config(material, instance);
 
-        if (instance.has_config_override_enabled())
-            config = instance.config;
-        for (const auto& parameter : instance.param_overrides)
-            parameters.set(parameter);
-        for (const auto& texture : instance.texture_overrides)
-            textures.set(texture);
+        if (instance.overrides.has_parameter_override)
+            for (const auto& parameter : instance.overrides.parameters)
+                parameters.set(parameter);
+        if (instance.overrides.has_texture_override)
+            for (const auto& texture : instance.overrides.textures)
+                textures.set(texture);
 
         auto pipeline = Uuid {};
         const std::string pipeline_cache_key =
@@ -138,6 +132,25 @@ namespace tbx
         }
 
         return {};
+    }
+
+    MaterialConfig ResourceUploader::get_material_config(const MaterialInstance& instance) const
+    {
+        const auto asset_manager = _asset_manager.lock();
+        if (!asset_manager)
+            return instance.has_config_override_enabled() ? instance.overrides.config
+                                                          : MaterialConfig {};
+
+        const auto material_handle = internal::resolve_material_handle(instance);
+        auto loaded_material =
+            asset_manager->load<Material>(material_handle, MaterialLoadParameters());
+        if (!loaded_material)
+            loaded_material = make_fallback_material();
+        if (!loaded_material)
+            return instance.has_config_override_enabled() ? instance.overrides.config
+                                                          : MaterialConfig {};
+
+        return internal::resolve_material_config(*loaded_material, instance);
     }
 
     Result ResourceUploader::upload_dynamic_mesh(

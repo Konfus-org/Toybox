@@ -2,6 +2,7 @@
 #include "tbx/types/components/lods.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/post_processing.h"
+#include "tbx/types/components/sky.h"
 #include "tbx/types/shader.h"
 #include <string>
 
@@ -60,8 +61,8 @@ namespace tbx::tests::graphics
 
         // Act
         const bool is_material_valid = material_instance.get_handle().is_valid();
-        const bool has_parameters = !material_instance.param_overrides.values.empty();
-        const bool has_textures = !material_instance.texture_overrides.values.empty();
+        const bool has_parameters = material_instance.overrides.has_parameter_override;
+        const bool has_textures = material_instance.overrides.has_texture_override;
 
         // Assert
         EXPECT_FALSE(is_material_valid);
@@ -106,11 +107,11 @@ namespace tbx::tests::graphics
 
         // Act
         material_instance.set_parameter(
-            tbx::FlatMaterial::U_ALBEDO_COLOR,
+            tbx::FlatMaterial::ALBEDO_COLOR,
             Color(1.0f, 0.5f, 0.25f, 1.0f));
         const auto dirty_after_parameter_set = material_instance.is_dirty();
         material_instance.clear_dirty();
-        material_instance.set_texture(tbx::FlatMaterial::U_ALBEDO_MAP, Handle("Diffuse"));
+        material_instance.set_texture(tbx::FlatMaterial::ALBEDO_MAP, Handle("Diffuse"));
         const auto dirty_after_texture_set = material_instance.is_dirty();
 
         // Assert
@@ -122,7 +123,7 @@ namespace tbx::tests::graphics
     TEST(RendererTests, DynamicMeshData_EditMesh_MarksDirty)
     {
         // Arrange
-        auto mesh_data = DynamicMeshData(triangle);
+        auto mesh_data = DynamicMeshData(Mesh::TRIANGLE);
         mesh_data.clear_dirty();
 
         // Act
@@ -137,11 +138,11 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto parameters = MaterialParameterBindings {};
-        parameters.set("u_color", Color(1.0f, 0.5f, 0.25f, 1.0f));
-        parameters.set("u_shininess_strength", 32.0f);
+        parameters.set("color", Color(1.0f, 0.5f, 0.25f, 1.0f));
+        parameters.set("shininess_strength", 32.0f);
 
         // Act
-        const auto color = parameters.get("u_color");
+        const auto color = parameters.get("color");
         int parameter_count = 0;
         for (const auto& parameter : parameters)
         {
@@ -151,24 +152,24 @@ namespace tbx::tests::graphics
 
         // Assert
         ASSERT_TRUE(color.has_value());
-        EXPECT_EQ(color->get().name, "u_color");
+        EXPECT_TRUE(parameters.has("color"));
         EXPECT_EQ(parameter_count, 2);
         EXPECT_NE(parameters.begin(), parameters.end());
     }
 
-    // Validates MaterialTextureBindings supports exact-name lookup and iteration.
+    // Validates MaterialTextureBindings supports exact-id lookup and iteration.
     TEST(RendererTests, MaterialTextureBindings_GetAndIterate_WorkAsExpected)
     {
         // Arrange
         auto textures = MaterialTextureBindings {};
-        textures.set("u_albedo_map", Handle("Diffuse"));
-        textures.set("u_normal_map", Handle("Normal"));
-        textures.set("u_metallic_roughness_map", Handle("Specular"));
-        textures.set("u_ao_map", Handle("Shininess"));
-        textures.set("u_emissive_map", Handle("Emissive"));
+        textures.set("albedo_map", Handle("Diffuse"));
+        textures.set("normal_map", Handle("Normal"));
+        textures.set("metallic_roughness_map", Handle("Specular"));
+        textures.set("ao_map", Handle("Shininess"));
+        textures.set("emissive_map", Handle("Emissive"));
 
         // Act
-        const auto diffuse_map = textures.get("u_albedo_map");
+        const auto diffuse_map = textures.get("albedo_map");
         int texture_count = 0;
         for (const auto& texture_binding : textures)
         {
@@ -178,22 +179,22 @@ namespace tbx::tests::graphics
 
         // Assert
         ASSERT_TRUE(diffuse_map.has_value());
-        EXPECT_EQ(diffuse_map->get().name, "u_albedo_map");
+        EXPECT_TRUE(textures.has("albedo_map"));
         EXPECT_EQ(texture_count, 5);
         EXPECT_NE(textures.begin(), textures.end());
     }
 
-    // Validates generated material keys expose stable handles and binding names.
+    // Validates generated material keys expose stable handles and binding ids.
     TEST(RendererTests, MaterialKeys_ExposeTypedHandlesAndNames)
     {
         // Arrange
         auto material = MaterialInstance(PbrMaterial::HANDLE);
-        material.set_parameter(PbrMaterial::U_ALBEDO_COLOR, Color::RED);
-        material.set_texture(PbrMaterial::U_ALBEDO_MAP, CheckerboardTexture::HANDLE);
+        material.set_parameter(PbrMaterial::ALBEDO_COLOR, Color::RED);
+        material.set_texture(PbrMaterial::ALBEDO_MAP, CheckerboardTexture::HANDLE);
 
         // Act
-        const auto color = material.get_parameter_or(PbrMaterial::U_ALBEDO_COLOR, Color::BLACK);
-        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::U_ALBEDO_MAP);
+        const auto color = material.get_parameter_or(PbrMaterial::ALBEDO_COLOR, Color::BLACK);
+        const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::ALBEDO_MAP);
 
         // Assert
         EXPECT_TRUE(PbrMaterial::HANDLE.is_valid());

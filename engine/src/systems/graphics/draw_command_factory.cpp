@@ -1,7 +1,9 @@
 #include "tbx/systems/graphics/draw_command_factory.h"
-#include "tbx/systems/graphics/internal/draw_command_factory_internal.h"
+#include "systems/graphics/internal/draw_command_factory_internal.h"
 #include "tbx/systems/graphics/shader_bindings.h"
+#include <array>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tbx
@@ -66,20 +68,15 @@ namespace tbx
 
         const uint64 material_key = input.material_key == 0U ? input.batch_key : input.material_key;
         auto material = RenderingMaterialUploadData();
-        if (const auto cached_material = material_uploads.find(material_key);
-            cached_material != material_uploads.end())
-        {
-            material = cached_material->second;
-        }
-        else
-        {
-            auto result =
-                resource_uploader.upload_material(input.material, resource_tracker, material);
-            if (!result)
-                return result;
-
-            material_uploads[material_key] = material;
-        }
+        auto result = internal::resolve_material_upload(
+            material_key,
+            input.material,
+            resource_uploader,
+            resource_tracker,
+            material_uploads,
+            material);
+        if (!result)
+            return result;
 
         const std::string instance_key = internal::make_draw_instance_key(input);
         auto instances = input.instances;
@@ -97,34 +94,21 @@ namespace tbx
             .normal_matrix = instances.front().normal_matrix,
         };
         const GraphicsResourceBinding object_uniform_buffer =
-            resource_uploader.upload_uniform_buffer(
-                resource_tracker,
-                BINDING_OBJECT_DATA,
-                "Object Shader Data",
-                instance_key + "/Object",
+            internal::upload_object_uniform_buffer(
                 frame_index,
-                &object_shader_data,
-                static_cast<uint64>(sizeof(object_shader_data)));
+                instance_key,
+                object_shader_data,
+                resource_uploader,
+                resource_tracker);
 
-        auto material_uniform_buffer = GraphicsResourceBinding {};
-        if (const auto cached_uniform = material_uniform_buffers.find(material_key);
-            cached_uniform != material_uniform_buffers.end())
-        {
-            material_uniform_buffer = cached_uniform->second;
-        }
-        else
-        {
-            material_uniform_buffer = resource_uploader.upload_uniform_buffer(
-                resource_tracker,
-                BINDING_MATERIAL_DATA,
-                "Material Shader Data",
-                std::string("Toybox/Material/") + std::to_string(material_key),
+        const GraphicsResourceBinding material_uniform_buffer =
+            internal::upload_material_uniform_buffer(
                 frame_index,
-                material.uniform_values.data(),
-                static_cast<uint64>(material.uniform_values.size())
-                    * static_cast<uint64>(sizeof(Vec4)));
-            material_uniform_buffers[material_key] = material_uniform_buffer;
-        }
+                material_key,
+                material,
+                resource_uploader,
+                resource_tracker,
+                material_uniform_buffers);
 
         if (!object_uniform_buffer.resource.is_valid()
             || !material_uniform_buffer.resource.is_valid())
@@ -142,13 +126,10 @@ namespace tbx
         if (!instance_buffer.resource.is_valid())
             return Result(false, "Draw command factory failed: instance upload failed.");
 
-        const auto uniform_bindings = std::vector<GraphicsResourceBinding> {
-            frame_uniform_buffers[0],
-            frame_uniform_buffers[1],
+        const auto uniform_bindings = internal::make_draw_uniform_bindings(
+            frame_uniform_buffers,
             object_uniform_buffer,
-            material_uniform_buffer,
-            frame_uniform_buffers[2],
-        };
+            material_uniform_buffer);
 
         for (const auto& mesh : meshes)
         {

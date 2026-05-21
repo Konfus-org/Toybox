@@ -1,5 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/assets/internal/asset_registry_internal.h"
+#include "systems/assets/internal/asset_registry_internal.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"

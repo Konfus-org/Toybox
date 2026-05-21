@@ -1,6 +1,6 @@
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/debugging/internal/logging_internal.h"
+#include "systems/debugging/internal/logging_internal.h"
 #include <functional>
 #include <memory>
 #include <mutex>

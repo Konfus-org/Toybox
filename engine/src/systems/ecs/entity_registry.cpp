@@ -1,7 +1,7 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/internal/entity_registry_internal.h"
+#include "systems/ecs/internal/entity_registry_internal.h"
 #include <mutex>
 namespace tbx
 {

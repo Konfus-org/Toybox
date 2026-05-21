@@ -1,11 +1,12 @@
 #include "tbx/systems/graphics/rendering_pass_factory.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/graphics/internal/rendering_pass_factory_internal.h"
+#include "systems/graphics/internal/rendering_pass_factory_internal.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/trig.h"
@@ -180,6 +181,7 @@ namespace tbx
         auto material_uploads = std::unordered_map<uint64, RenderingMaterialUploadData> {};
         auto material_uniform_buffers = std::unordered_map<uint64, GraphicsResourceBinding> {};
         auto opaque_batches = internal::RenderBatchCollection {};
+        auto transparent_batches = internal::RenderBatchCollection {};
         auto shadow_batches = internal::RenderBatchCollection {};
 
         for (auto& entity : entity_registry->get_with<DynamicMesh, Transform>())
@@ -208,8 +210,12 @@ namespace tbx
                 .model_matrix = model_matrix,
                 .normal_matrix = normal(model_matrix),
             };
+            auto& scene_batches =
+                internal::should_material_use_transparent_pass(material, _resource_uploader)
+                    ? transparent_batches
+                    : opaque_batches;
             internal::append_render_batch_instance(
-                opaque_batches,
+                scene_batches,
                 internal::hash_render_batch(mesh_source, mesh_id, mesh_data.get(), material_key),
                 mesh_source,
                 material_key,
@@ -221,6 +227,7 @@ namespace tbx
             if (has_shadowed_light
                 && internal::should_material_cast_shadows(
                     material,
+                    _resource_uploader,
                     get_world_space_transform(entity).position,
                     camera_position,
                     _shadow_caster_max_distance))
@@ -259,8 +266,12 @@ namespace tbx
                 .model_matrix = model_matrix,
                 .normal_matrix = normal(model_matrix),
             };
+            auto& scene_batches =
+                internal::should_material_use_transparent_pass(material, _resource_uploader)
+                    ? transparent_batches
+                    : opaque_batches;
             internal::append_render_batch_instance(
-                opaque_batches,
+                scene_batches,
                 internal::hash_render_batch(
                     RenderingMeshSourceType::MODEL_ASSET,
                     static_mesh.handle.get_id(),
@@ -276,6 +287,7 @@ namespace tbx
             if (has_shadowed_light
                 && internal::should_material_cast_shadows(
                     material,
+                    _resource_uploader,
                     transform.position,
                     camera_position,
                     _shadow_caster_max_distance))
@@ -344,26 +356,57 @@ namespace tbx
                 return result;
         }
 
-        const auto sky_dome_handle = Handle("Toybox/SkyDome");
-        for (auto& entity : entity_registry->get_with<Sky, Transform>())
+        for (const auto& [batch_key, batch] : transparent_batches)
+        {
+            const auto result = _draw_command_factory.create(
+                frame_index,
+                frame_uniform_buffers,
+                RenderingDrawBatchInput {
+                    .mesh_source = batch.mesh_source,
+                    .mesh_handle = batch.mesh_handle,
+                    .batch_key = batch_key,
+                    .debug_name =
+                        internal::make_batch_debug_name(batch_key, "Toybox/TransparentBatch/"),
+                    .dynamic_mesh = batch.dynamic_mesh,
+                    .material = batch.material,
+                    .material_key = batch.material_key,
+                    .instances = batch.instances,
+                },
+                _resource_uploader,
+                resource_tracker,
+                material_uploads,
+                material_uniform_buffers,
+                transparent_pass.indexed_draws);
+            if (!result)
+                return result;
+        }
+
+        for (auto& entity : entity_registry->get_with<Sky>())
         {
             has_sky_geometry = true;
-            if (!_sky_dome_mesh && !_resource_uploader.has_static_runtime_mesh(sky_dome_handle))
-                _sky_dome_mesh = std::make_shared<Mesh>(make_sky_dome());
-
             const auto& sky = entity.get_component<Sky>();
-            const auto model_matrix = build_transform_matrix(get_world_space_transform(entity));
-            const uint64 material_key = hash(sky.material);
+            const auto& sky_mesh_handle = internal::get_sky_mesh_handle(sky.type);
+            if (!_sky_mesh && !_resource_uploader.has_static_runtime_mesh(sky_mesh_handle))
+                _sky_mesh = std::make_shared<Mesh>(internal::get_sky_mesh(sky.type));
+
+            auto sky_transform =
+                entity.has_component<Transform>() ? get_world_space_transform(entity)
+                                                  : Transform();
+            sky_transform.position = Vec3(0.0F);
+            sky_transform.scale = Vec3(1.0F);
+            const auto model_matrix = build_transform_matrix(sky_transform);
+            const auto material = internal::make_sky_material_instance(sky);
+            const uint64 material_key = hash(material);
             const auto result = _draw_command_factory.create(
                 frame_index,
                 frame_uniform_buffers,
                 RenderingDrawBatchInput {
                     .mesh_source = RenderingMeshSourceType::STATIC_RUNTIME_MESH,
-                    .mesh_handle = sky_dome_handle,
+                    .mesh_handle = sky_mesh_handle,
                     .batch_key = hash(entity.get_id(), material_key),
                     .debug_name = std::string("Toybox/Sky/Entity/") + to_string(entity.get_id()),
-                    .runtime_mesh = _sky_dome_mesh,
-                    .material = sky.material,
+                    .runtime_mesh = _sky_mesh,
+                    .material = material,
                     .material_key = material_key,
                     .instances =
                         {
@@ -381,11 +424,28 @@ namespace tbx
             if (!result)
                 return result;
 
-            _sky_dome_mesh.reset();
+            _sky_mesh.reset();
         }
 
         const bool has_skybox_pass =
             !skybox_pass.draws.empty() || !skybox_pass.indexed_draws.empty();
+        const auto append_shadow_resources = [&shadow_pass_uniform_buffer, &shadow_map](
+                                                 RenderPass& render_pass)
+        {
+            for (auto& draw : render_pass.draws)
+            {
+                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
+                if (shadow_map.resource.is_valid())
+                    draw.textures.push_back(shadow_map);
+            }
+            for (auto& draw : render_pass.indexed_draws)
+            {
+                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
+                if (shadow_map.resource.is_valid())
+                    draw.textures.push_back(shadow_map);
+            }
+        };
+
         if (!shadow_pass.draws.empty() || !shadow_pass.indexed_draws.empty())
             out_render_passes.push_back(std::move(shadow_pass));
 
@@ -396,18 +456,7 @@ namespace tbx
         {
             if (has_skybox_pass)
                 opaque_pass.pass.clear_flags = GraphicsClearFlags::DEPTH;
-            for (auto& draw : opaque_pass.draws)
-            {
-                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
-                if (shadow_map.resource.is_valid())
-                    draw.textures.push_back(shadow_map);
-            }
-            for (auto& draw : opaque_pass.indexed_draws)
-            {
-                draw.uniform_buffers.push_back(shadow_pass_uniform_buffer);
-                if (shadow_map.resource.is_valid())
-                    draw.textures.push_back(shadow_map);
-            }
+            append_shadow_resources(opaque_pass);
             out_render_passes.push_back(std::move(opaque_pass));
         }
 
@@ -431,7 +480,10 @@ namespace tbx
         }
 
         if (!transparent_pass.draws.empty() || !transparent_pass.indexed_draws.empty())
+        {
+            append_shadow_resources(transparent_pass);
             out_render_passes.push_back(std::move(transparent_pass));
+        }
 
         if (!post_process_pass.draws.empty() || !post_process_pass.indexed_draws.empty())
             out_render_passes.push_back(std::move(post_process_pass));
@@ -504,8 +556,9 @@ namespace tbx
         const Mat4 projection_matrix = active_camera.get_projection_matrix();
         const Mat4 view_projection_matrix = projection_matrix * view_matrix;
 
+        _elapsed_time += static_cast<float>(delta_time.seconds);
         _frame_shader_data = FrameShaderData {
-            .time = 0.0F,
+            .time = _elapsed_time,
             .delta_time = static_cast<float>(delta_time.seconds),
             .viewport_size = Vec2(
                 static_cast<float>(render_resolution.width),

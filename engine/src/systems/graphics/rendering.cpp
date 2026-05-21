@@ -1,6 +1,6 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/internal/rendering_internal.h"
+#include "systems/graphics/internal/rendering_internal.h"
 #include <string>
 #include <string_view>
 #include <utility>

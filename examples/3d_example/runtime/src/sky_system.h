@@ -8,7 +8,7 @@ namespace three_d_example
     {
       public:
         SkySystem() = default;
-        explicit SkySystem(tbx::Entity sky_entity);
+        SkySystem(tbx::Entity sky_entity);
 
       public:
         SkySystem(const SkySystem&) = delete;

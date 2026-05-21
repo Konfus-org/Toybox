@@ -1,5 +1,5 @@
 {
-  "shaders": { "vertex": "00000130", "fragment": "00000131" },
+  "shaders": { "vertex": "0000013B", "fragment": "0000013C" },
   "config": {
     "depth": {
       "test": true,
@@ -15,18 +15,9 @@
     "shadow_mode": "none"
   },
   "textures": [
-    { "name": "u_albedo_map", "value": "" },
-    { "name": "u_normal_map", "value": "" },
-    { "name": "u_metallic_roughness_map", "value": "" },
-    { "name": "u_ao_map", "value": "" },
-    { "name": "u_emissive_map", "value": "" }
+    { "name": "albedo_map", "value": "" }
   ],
   "parameters": [
-    { "name": "u_albedo_color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "u_emissive_color", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "u_metallic", "type": "float", "value": 0.0 },
-    { "name": "u_roughness", "type": "float", "value": 1.0 },
-    { "name": "u_normal_strength", "type": "float", "value": 1.0 },
-    { "name": "u_ao", "type": "float", "value": 1.0 }
+    { "name": "albedo_color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] }
   ]
 }
