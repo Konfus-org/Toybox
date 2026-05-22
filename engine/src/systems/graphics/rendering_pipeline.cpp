@@ -61,25 +61,24 @@ namespace tbx
             return result;
         }
 
-        // TODO: Update to follow result based architecture
-        // 3.) Extract CPU-side render data from the scene.
-        auto draw_data = internal::create_draw_data(
+        // 3.) Extract render data from the scene.
+        auto draw_data = internal::RenderDrawData();
+        result = internal::create_draw_data(
+            _resource_manager,
+            settings,
             *entity_registry,
-            frame.camera.position,
+            frame.camera,
             *asset_manager,
             settings.local_light_max_distance,
-            settings.shadow_caster_max_distance);
-
-        // 4.) Create shadow targets before scene targets so depth resources are ready for both
-        // shadow rendering and lighting.
-        result = internal::create_shadow_map(_resource_manager, settings, draw_data);
+            settings.shadow_caster_max_distance,
+            draw_data);
         if (!result)
         {
             backend.end_frame();
             return result;
         }
 
-        // 5.) Create gbuffer.
+        // 4.) Create gbuffer.
         auto gbuffer = internal::GBuffer();
         result = internal::create_gbuffer(_resource_manager, frame, gbuffer);
         if (!result)
@@ -90,12 +89,9 @@ namespace tbx
 
         // TODO: Optimize shader pipeline we shouldn't have so many individual uploads, we should
         // utilize UBOs and upload everything at once where possible.
-        // utilize other modern features to maximize perf such as making one shadow pass using
-        // layered rendering via gl_Layer from a geometry shader or similar backend feature
-        // extending GraphicsPassDesc/draw commands to support rendering to multiple depth array
-        // layers in one pass changing shadow shaders/pipelines to emit the target layer
+        // utilize other modern features to maximize perf.
 
-        // 6.) Upload frame data and append draw commands.
+        // 5.) Upload frame data and append draw commands.
         auto passes = internal::create_passes(
             frame_index,
             frame,
@@ -105,7 +101,7 @@ namespace tbx
             _resource_manager,
             backend);
 
-        // 7.) Draw.
+        // 6.) Draw.
         result = internal::execute_passes(backend, passes);
         if (!result)
         {
@@ -113,7 +109,7 @@ namespace tbx
             return result;
         }
 
-        // 8.) Present.
+        // 7.) Present.
         result = backend.present();
         if (!result)
         {
@@ -121,12 +117,12 @@ namespace tbx
             return result;
         }
 
-        // 9.) End frame.
+        // 8.) End frame.
         result = backend.end_frame();
         if (!result)
             return result;
 
-        // 10.) Let the resource manager retire stale GPU resources.
+        // 9.) Let the resource manager retire stale GPU resources.
         _resource_manager.update(delta_time);
 
         return true;

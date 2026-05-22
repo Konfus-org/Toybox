@@ -31,6 +31,8 @@
 // Never allow external consumer code to depend on a internal namespace.
 // Do not put headers inside an internal namespace; always restrict those to the .cpp source files
 // Should be within its own /internal folder and _internal version of the source files.
+// Internal declarations and definitions must live in matching *_internal.h/.cpp files under the
+// owning system's /internal folder, not in the system's public .cpp implementation files.
 namespace tbx::internal
 {
     Usings...
