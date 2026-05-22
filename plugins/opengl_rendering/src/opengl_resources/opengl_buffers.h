@@ -96,7 +96,7 @@ namespace opengl_rendering
     };
 
     /// @brief
-    /// Purpose: Owns deferred-rendering attachments used by future multi-pass rendering and debug
+    /// Purpose: Owns GBuffer attachments used by future multi-pass rendering and debug
     /// presentation.
     /// @details
     /// Ownership: Owns OpenGL framebuffer and texture handles for the lifetime of this object.
@@ -117,7 +117,7 @@ namespace opengl_rendering
         void resize(const tbx::Size& size);
 
         /// @brief
-        /// Purpose: Prepares the deferred framebuffer for geometry rendering.
+        /// Purpose: Prepares the GBuffer framebuffer for geometry rendering.
         /// @details
         /// Ownership: Does not transfer framebuffer ownership.
         /// Thread Safety: Not thread-safe; render-thread only.
@@ -131,7 +131,7 @@ namespace opengl_rendering
         void present(const tbx::Size& viewport_size) const;
 
         /// @brief
-        /// Purpose: Prepares the deferred framebuffer for passes that only write final color.
+        /// Purpose: Prepares the GBuffer framebuffer for passes that only write final color.
         /// @details
         /// Ownership: Does not transfer ownership of any OpenGL object.
         /// Thread Safety: Not thread-safe; render-thread only.
@@ -145,28 +145,28 @@ namespace opengl_rendering
         void unbind() override;
 
         /// @brief
-        /// Purpose: Returns the albedo texture used by deferred lighting.
+        /// Purpose: Returns the albedo texture used by lighting.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
         GLuint get_albedo_texture() const;
 
         /// @brief
-        /// Purpose: Returns the normal texture used by deferred lighting.
+        /// Purpose: Returns the normal texture used by lighting.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
         GLuint get_normal_texture() const;
 
         /// @brief
-        /// Purpose: Returns the emissive texture used by deferred lighting.
+        /// Purpose: Returns the emissive texture used by lighting.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.
         GLuint get_emissive_texture() const;
 
         /// @brief
-        /// Purpose: Returns the packed material-properties texture used by deferred lighting.
+        /// Purpose: Returns the packed material-properties texture used by lighting.
         /// @details
         /// Ownership: Returns a non-owning OpenGL texture handle.
         /// Thread Safety: Not thread-safe; render-thread only.

@@ -33,9 +33,9 @@ namespace tbx
     constexpr uint32 BINDING_GBUFFER_MATERIAL = 52U;
     constexpr uint32 BINDING_GBUFFER_EMISSIVE = 53U;
     constexpr uint32 BINDING_GBUFFER_DEPTH = 54U;
+    constexpr uint32 BINDING_GBUFFER_FINAL_COLOR = 55U;
 
-    constexpr uint32 BINDING_POST_SOURCE_COLOR = 60U;
-    constexpr uint32 BINDING_POST_SOURCE_DEPTH = 61U;
+    constexpr uint32 BINDING_POST_EFFECT_TEXTURE0 = 60U;
 
     constexpr uint32 PARAM_ALBEDO_MAP = make_param_id("albedo_map");
     constexpr uint32 PARAM_NORMAL_MAP = make_param_id("normal_map");
@@ -49,9 +49,10 @@ namespace tbx
     constexpr uint32 PARAM_GBUFFER_MATERIAL = make_param_id("gbuffer_material");
     constexpr uint32 PARAM_GBUFFER_EMISSIVE = make_param_id("gbuffer_emissive");
     constexpr uint32 PARAM_GBUFFER_DEPTH = make_param_id("gbuffer_depth");
+    constexpr uint32 PARAM_GBUFFER_FINAL_COLOR = make_param_id("gbuffer_final_color");
     constexpr uint32 PARAM_SHADOW_MASK = make_param_id("shadow_mask");
-    constexpr uint32 PARAM_SOURCE_COLOR = make_param_id("source_color");
-    constexpr uint32 PARAM_SOURCE_DEPTH = make_param_id("source_depth");
+    constexpr uint32 PARAM_LUT = make_param_id("lut");
+    constexpr uint32 PARAM_BLEND = make_param_id("blend");
 
     constexpr uint32 VERTEX_BUFFER_SLOT_MESH = 0U;
     constexpr uint32 VERTEX_BUFFER_SLOT_INSTANCE = 1U;
@@ -164,14 +165,14 @@ namespace tbx
         if (binding_id == PARAM_GBUFFER_DEPTH)
             return BINDING_GBUFFER_DEPTH;
 
+        if (binding_id == PARAM_GBUFFER_FINAL_COLOR)
+            return BINDING_GBUFFER_FINAL_COLOR;
+
         if (binding_id == PARAM_SHADOW_MASK)
             return BINDING_SHADOW_MASK;
 
-        if (binding_id == PARAM_SOURCE_COLOR)
-            return BINDING_POST_SOURCE_COLOR;
-
-        if (binding_id == PARAM_SOURCE_DEPTH)
-            return BINDING_POST_SOURCE_DEPTH;
+        if (binding_id == PARAM_LUT)
+            return BINDING_POST_EFFECT_TEXTURE0;
 
         return std::nullopt;
     }

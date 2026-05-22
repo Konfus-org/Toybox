@@ -7,8 +7,9 @@ layout(location = 0) out vec4 o_color;
 
 void main()
 {
-    vec3 hdr = texture(u_source_color, v_tex_coord).rgb;
-    vec3 color = tbx_apply_exposure_tonemap_gamma(hdr, 1.0, 2.2);
+    vec3 hdr = texture(u_gbuffer_final_color, v_tex_coord).rgb;
+    vec3 color = hdr * 1.0;
+    color = tbx_tonemap_aces(color);
 
-    o_color = vec4(color, 1.0);
+    o_color = tbx_write_to_final_color(color, 1.0);
 }

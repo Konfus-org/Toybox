@@ -76,6 +76,9 @@ namespace tbx
             *asset_manager,
             settings.local_light_max_distance);
 
+        // TODO: Optimize shader pipeline we shouldn't have so many individual uploads, we should
+        // utilize UBOs and upload everything at once where possible.
+
         // 6.) Upload frame data and append draw commands.
         auto passes = internal::create_passes(
             frame_index,

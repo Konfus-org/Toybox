@@ -162,7 +162,7 @@ namespace tbx::performance_monitor
         next_title += " [";
         next_title += tbx::to_string(settings->graphics->graphics_api);
         next_title += ", FPS: ";
-        next_title += std::to_string(average_fps);
+        next_title += std::to_string(static_cast<int>(average_fps));
         next_title += "]";
 
         if (_debug_main_window_title != next_title)

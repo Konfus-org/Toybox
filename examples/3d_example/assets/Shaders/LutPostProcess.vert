@@ -1,12 +1,15 @@
-#version 450 core
+#version 450
 
-layout(location = 0) in vec3 a_position;
-layout(location = 3) in vec2 a_texcoord;
+#include "Toybox/ShaderBase.glsl"
 
-out vec2 v_tex_coord;
+layout(location = 0) out vec2 v_tex_coord;
 
 void main()
 {
-    v_tex_coord = a_texcoord;
-    gl_Position = vec4(a_position.xy, 0.0, 1.0);
+    vec2 position = vec2(
+        float((gl_VertexID << 1) & 2),
+        float(gl_VertexID & 2));
+
+    v_tex_coord = position;
+    gl_Position = vec4(position * 2.0 - 1.0, 0.0, 1.0);
 }

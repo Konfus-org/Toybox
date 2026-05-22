@@ -13,6 +13,7 @@
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
@@ -121,6 +122,7 @@ namespace tbx::internal
 
         RenderLighting lighting = {};
         ShadowCascades shadows = {};
+        PostProcessing post_processing = {};
 
         BatchMap opaque_batches = {};
         BatchMap transparent_batches = {};
@@ -441,6 +443,65 @@ namespace tbx::internal
         return {};
     }
 
+    static void append_gbuffer_textures(
+        const GBuffer& gbuffer,
+        std::vector<GraphicsResourceBinding>& out_textures)
+    {
+        // GBuffer inputs are injected by the pipeline so material fallbacks cannot override the
+        // actual frame targets.
+        out_textures.push_back(gbuffer.albedo);
+        out_textures.push_back(gbuffer.normal);
+        out_textures.push_back(gbuffer.material);
+        out_textures.push_back(gbuffer.emissive);
+        out_textures.push_back(gbuffer.depth);
+        out_textures.push_back(gbuffer.final_color);
+    }
+
+    static bool should_render_post_effect(const PostProcessingEffect& effect)
+    {
+        return effect.is_enabled && effect.blend > 0.0F && effect.material.get_handle().is_valid();
+    }
+
+    static Result append_post_process_draw(
+        RenderingResourceManager& resource_manager,
+        const uint64 frame_index,
+        const GraphicsResourceBinding& frame_uniform,
+        const GraphicsResourceBinding& camera_uniform,
+        const GraphicsResourceBinding& light_uniform,
+        const GBuffer& gbuffer,
+        const MaterialInstance& material,
+        const std::string& uniform_cache_key,
+        RenderPass& render_pass)
+    {
+        auto material_upload = RenderingMaterialUploadData();
+        auto result = resource_manager.upload_material(material, material_upload);
+        if (!result)
+            return result;
+
+        const auto material_uniform = resource_manager.upload_uniform_buffer(
+            BINDING_MATERIAL_DATA,
+            "Post Process Material Shader Data",
+            uniform_cache_key,
+            frame_index,
+            material_upload.uniform_values.data(),
+            static_cast<uint64>(material_upload.uniform_values.size() * sizeof(Vec4)));
+        if (!material_upload.pipeline.is_valid() || !material_uniform.resource.is_valid())
+        {
+            return Result(false, "Rendering pipeline failed: post process upload failed.");
+        }
+
+        append_gbuffer_textures(gbuffer, material_upload.textures);
+        render_pass.draws.push_back(
+            GraphicsDrawCommand {
+                .pipeline = material_upload.pipeline,
+                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform, material_uniform},
+                .textures = std::move(material_upload.textures),
+                .vertex_count = 3U,
+            });
+
+        return {};
+    }
+
     static std::vector<RenderPass> create_passes(
         const uint frame_index,
         const FrameData& frame,
@@ -517,7 +578,7 @@ namespace tbx::internal
             .desc =
                 GraphicsPassDesc {
                     .color_targets = {gbuffer.final_color.resource},
-                    .clear_color = Color::BLACK,
+                    .clear_color = draw_data.clear_color,
                     .clear_flags = GraphicsClearFlags::COLOR,
                     .debug_name = "Toybox Skybox Pass",
                 },
@@ -598,7 +659,7 @@ namespace tbx::internal
                 });
         }
 
-        // Opaque Pass: Draws opaque scene geometry into deferred shading targets and depth.
+        // Opaque Pass: Draws opaque scene geometry into GBuffer targets and depth.
         auto opaque_pass = RenderPass {
             .desc =
                 GraphicsPassDesc {
@@ -612,7 +673,7 @@ namespace tbx::internal
                     .depth_stencil_target = gbuffer.depth.resource,
                     .clear_color = Color::BLACK,
                     .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
-                    .debug_name = "Toybox Opaque Pass",
+                    .debug_name = "Toybox GBuffer Pass",
                 },
         };
         auto result = internal::append_batch_draws(
@@ -626,7 +687,7 @@ namespace tbx::internal
         if (!result)
             return fail_result("opaque batch draw upload", result);
 
-        // Alpha Cutout Pass: Reserved for alpha-tested geometry that should write deferred targets
+        // Alpha Cutout Pass: Reserved for alpha-tested geometry that should write GBuffer targets
         // with depth.
         auto alpha_cutout_pass = RenderPass {
             .desc =
@@ -635,6 +696,39 @@ namespace tbx::internal
                     .debug_name = "Toybox Alpha Cutout Scene Pass",
                 },
         };
+
+        // Lighting Pass: Computes lighting from the GBuffer into the final color target.
+        const bool has_sky_draws = !sky_pass.draws.empty() || !sky_pass.indexed_draws.empty();
+        auto lighting_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .color_targets = {gbuffer.final_color.resource},
+                    .clear_color = draw_data.clear_color,
+                    .clear_flags =
+                        has_sky_draws ? GraphicsClearFlags::NONE : GraphicsClearFlags::COLOR,
+                    .debug_name = "Toybox Lighting Pass",
+                },
+        };
+        auto lighting_material = RenderingMaterialUploadData();
+        result = resource_manager.upload_material(
+            MaterialInstance(tbx::LightingMaterial::HANDLE),
+            lighting_material);
+        if (!result)
+            return fail_result("lighting material upload", result);
+        lighting_pass.draws.push_back(
+            GraphicsDrawCommand {
+                .pipeline = lighting_material.pipeline,
+                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
+                .textures =
+                    {
+                        gbuffer.albedo,
+                        gbuffer.normal,
+                        gbuffer.material,
+                        gbuffer.emissive,
+                        gbuffer.depth,
+                    },
+                .vertex_count = 3U,
+            });
 
         // Transparent Pass: Draws alpha-blended geometry forward over the lit scene color.
         auto transparent_pass = RenderPass {
@@ -657,38 +751,7 @@ namespace tbx::internal
         if (!result)
             return fail_result("transparent batch draw upload", result);
 
-        // Lighting Pass: Computes deferred lighting from the GBuffer into the final color target.
-        auto lighting_pass = RenderPass {
-            .desc =
-                GraphicsPassDesc {
-                    .color_targets = {gbuffer.final_color.resource},
-                    .clear_color = Color::BLACK,
-                    .clear_flags = GraphicsClearFlags::NONE,
-                    .debug_name = "Toybox Deferred Lighting Pass",
-                },
-        };
-        auto lighting_material = RenderingMaterialUploadData();
-        result = resource_manager.upload_material(
-            MaterialInstance(tbx::DeferredLightingMaterial::HANDLE),
-            lighting_material);
-        if (!result)
-            return fail_result("deferred lighting material upload", result);
-        lighting_pass.draws.push_back(
-            GraphicsDrawCommand {
-                .pipeline = lighting_material.pipeline,
-                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
-                .textures =
-                    {
-                        gbuffer.albedo,
-                        gbuffer.normal,
-                        gbuffer.material,
-                        gbuffer.emissive,
-                        gbuffer.depth,
-                    },
-                .vertex_count = 3U,
-            });
-
-        // Post Process Pass: Applies fullscreen post processing from final color to the current
+        // Post Process Pass: Applies fullscreen post processing from the GBuffer to the current
         // frame target.
         auto post_process_pass = RenderPass {
             .desc =
@@ -698,28 +761,44 @@ namespace tbx::internal
                     .debug_name = "Toybox Post Process Pass",
                 },
         };
-        auto post_material = RenderingMaterialUploadData();
-        result = resource_manager.upload_material(
-            MaterialInstance(tbx::TonemapPostMaterial::HANDLE),
-            post_material);
-        if (!result)
-            return fail_result("post process material upload", result);
-        post_process_pass.draws.push_back(
-            GraphicsDrawCommand {
-                .pipeline = post_material.pipeline,
-                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
-                .textures = {gbuffer.final_color},
-                .vertex_count = 3U,
-            });
+        if (draw_data.post_processing.is_enabled)
+        {
+            for (const auto& effect : draw_data.post_processing.effects)
+            {
+                if (!should_render_post_effect(effect))
+                    continue;
+
+                auto effect_material = effect.material;
+                effect_material.set_float(PARAM_BLEND, effect.blend);
+                result = append_post_process_draw(
+                    resource_manager,
+                    frame_index,
+                    frame_uniform,
+                    camera_uniform,
+                    light_uniform,
+                    gbuffer,
+                    effect_material,
+                    std::string("Toybox/Uniforms/Material/PostEffect/")
+                        + std::to_string(hash(effect_material)),
+                    post_process_pass);
+                if (!result)
+                    return fail_result("post process effect upload", result);
+            }
+        }
 
         // Create pass list and return
-        auto passes = std::vector<RenderPass>(6);
-        passes.push_back(std::move(sky_pass));
+        auto passes = std::vector<RenderPass>();
+        passes.reserve(6U);
+        if (has_sky_draws)
+            passes.push_back(std::move(sky_pass));
         passes.push_back(std::move(opaque_pass));
-        passes.push_back(std::move(alpha_cutout_pass));
-        passes.push_back(std::move(transparent_pass));
+        if (!alpha_cutout_pass.draws.empty() || !alpha_cutout_pass.indexed_draws.empty())
+            passes.push_back(std::move(alpha_cutout_pass));
         passes.push_back(std::move(lighting_pass));
-        passes.push_back(std::move(post_process_pass));
+        if (!transparent_pass.draws.empty() || !transparent_pass.indexed_draws.empty())
+            passes.push_back(std::move(transparent_pass));
+        if (!post_process_pass.draws.empty() || !post_process_pass.indexed_draws.empty())
+            passes.push_back(std::move(post_process_pass));
         return passes;
     }
 
@@ -743,6 +822,12 @@ namespace tbx::internal
 
             // TODO: Warn if there is more than one sky, and say picking first found as only one is
             // supported.
+            break;
+        }
+
+        for (auto& entity : entity_registry.get_with<PostProcessing>())
+        {
+            draw_data.post_processing = entity.get_component<PostProcessing>();
             break;
         }
 
@@ -1113,7 +1198,7 @@ namespace tbx::internal
         };
     }
 
-    static GraphicsTextureDesc make_deferred_color_target_desc(
+    static GraphicsTextureDesc make_gbuffer_color_target_desc(
         const Size& render_resolution,
         const GraphicsTextureFormat format,
         const std::string& debug_name)
@@ -1128,7 +1213,7 @@ namespace tbx::internal
         };
     }
 
-    static GraphicsTextureDesc make_deferred_depth_target_desc(
+    static GraphicsTextureDesc make_gbuffer_depth_target_desc(
         const Size& render_resolution,
         const std::string& debug_name)
     {
@@ -1154,39 +1239,39 @@ namespace tbx::internal
         out_buff.albedo = resource_manager.upload_texture(
             BINDING_GBUFFER_ALBEDO,
             "Toybox/GBuffer/Albedo/" + render_target_key,
-            make_deferred_color_target_desc(
+            make_gbuffer_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA8,
                 "Toybox GBuffer Albedo"));
         out_buff.normal = resource_manager.upload_texture(
             BINDING_GBUFFER_NORMAL,
             "Toybox/GBuffer/Normal/" + render_target_key,
-            make_deferred_color_target_desc(
+            make_gbuffer_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA16_FLOAT,
                 "Toybox GBuffer Normal"));
         out_buff.material = resource_manager.upload_texture(
             BINDING_GBUFFER_MATERIAL,
             "Toybox/GBuffer/Material/" + render_target_key,
-            make_deferred_color_target_desc(
+            make_gbuffer_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA8,
                 "Toybox GBuffer Material"));
         out_buff.emissive = resource_manager.upload_texture(
             BINDING_GBUFFER_EMISSIVE,
             "Toybox/GBuffer/Emissive/" + render_target_key,
-            make_deferred_color_target_desc(
+            make_gbuffer_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA16_FLOAT,
                 "Toybox GBuffer Emissive"));
         out_buff.depth = resource_manager.upload_texture(
             BINDING_GBUFFER_DEPTH,
             "Toybox/GBuffer/Depth/" + render_target_key,
-            make_deferred_depth_target_desc(viewport_size, "Toybox GBuffer Depth"));
+            make_gbuffer_depth_target_desc(viewport_size, "Toybox GBuffer Depth"));
         out_buff.final_color = resource_manager.upload_texture(
-            BINDING_POST_SOURCE_COLOR,
+            BINDING_GBUFFER_FINAL_COLOR,
             "Toybox/FinalColor/" + render_target_key,
-            make_deferred_color_target_desc(
+            make_gbuffer_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA16_FLOAT,
                 "Toybox Final Color"));
@@ -1195,7 +1280,7 @@ namespace tbx::internal
             || !out_buff.material.resource.is_valid() || !out_buff.emissive.resource.is_valid()
             || !out_buff.depth.resource.is_valid() || !out_buff.final_color.resource.is_valid())
         {
-            return Result(false, "Frame pipeline failed: deferred target upload failed.");
+            return Result(false, "Frame pipeline failed: GBuffer target upload failed.");
         }
 
         return {};

@@ -27,9 +27,9 @@
 #define TBX_BINDING_GBUFFER_MATERIAL  52
 #define TBX_BINDING_GBUFFER_EMISSIVE  53
 #define TBX_BINDING_GBUFFER_DEPTH     54
+#define TBX_BINDING_GBUFFER_FINAL_COLOR 55
 
-#define TBX_BINDING_POST_SOURCE_COLOR 60
-#define TBX_BINDING_POST_SOURCE_DEPTH 61
+#define TBX_BINDING_POST_EFFECT_TEXTURE0 60
 
 #define TBX_MAX_LIGHTS 128
 
@@ -131,24 +131,21 @@ vec3 tbx_reconstruct_world_position(vec2 uv, float depth)
     return world_position.xyz;
 }
 
-vec3 tbx_tonemap_aces(vec3 color)
+vec3 tbx_linear_to_display(vec3 linear_color, float gamma)
 {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-
-    return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+    return pow(max(linear_color, vec3(0.0)), vec3(1.0 / max(gamma, TBX_EPSILON)));
 }
 
-vec3 tbx_apply_exposure_tonemap_gamma(vec3 color, float exposure, float gamma)
+// Final frame output/backbuffer writes require linear-to-display conversion because Toybox scene
+// color is linear. Tone mapping should happen before calling this helper when needed.
+vec4 tbx_write_to_final_color(vec3 linear_color, float alpha)
 {
-    color *= exposure;
-    color = tbx_tonemap_aces(color);
-    color = pow(color, vec3(1.0 / max(gamma, TBX_EPSILON)));
+    return vec4(tbx_linear_to_display(linear_color, 2.2), alpha);
+}
 
-    return color;
+vec4 tbx_write_to_final_color(vec4 linear_color)
+{
+    return tbx_write_to_final_color(linear_color.rgb, linear_color.a);
 }
 
 #endif

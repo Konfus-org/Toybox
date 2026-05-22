@@ -333,7 +333,7 @@ namespace tbx::internal
         }
 
         if (binding_id == PARAM_EMISSIVE_MAP || binding_id == PARAM_SHADOW_MASK
-            || binding_id == PARAM_SOURCE_DEPTH)
+            || binding_id == PARAM_GBUFFER_DEPTH)
         {
             return make_solid_texture(
                 static_cast<Pixel>(0U),

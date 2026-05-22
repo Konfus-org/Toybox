@@ -16,6 +16,14 @@ Lighting files provide algorithms.
 User shaders provide main().
 ```
 
+Color ownership:
+
+```txt
+Material, lighting, geometry, and other non-post-process shaders output linear scene color.
+They must not apply exposure, tone mapping, gamma correction, or display conversion.
+Tone mapping is owned by explicit post-processing passes, normally the final post pass.
+```
+
 ---
 
 ## Core Idea
@@ -788,8 +796,7 @@ They need:
 
 ```txt
 Fullscreen triangle
-Source color texture
-Depth texture maybe
+GBuffer textures
 Camera inverse matrices maybe
 Post material settings
 ```
@@ -804,6 +811,10 @@ fullscreen output
 
 No mesh surface, no object transform.
 
+Post-processing is the only shader stage that should perform exposure, tone mapping, gamma
+correction, or other display-space conversion. Earlier shaders should keep their output in linear
+scene space so post-processing can compose effects in a predictable order.
+
 ---
 
 ### `PostProcessBase.glsl`
@@ -812,14 +823,23 @@ No mesh surface, no object transform.
 #include "../Base/ShaderCommon.glsl"
 #include "../Base/SceneBindings.glsl"
 
-#define TBX_BINDING_POST_SOURCE_COLOR 40
-#define TBX_BINDING_POST_SOURCE_DEPTH 41
+layout(binding = TBX_BINDING_GBUFFER_ALBEDO)
+uniform sampler2D u_gbuffer_albedo;
 
-layout(binding = TBX_BINDING_POST_SOURCE_COLOR)
-uniform sampler2D u_source_color;
+layout(binding = TBX_BINDING_GBUFFER_NORMAL)
+uniform sampler2D u_gbuffer_normal;
 
-layout(binding = TBX_BINDING_POST_SOURCE_DEPTH)
-uniform sampler2D u_source_depth;
+layout(binding = TBX_BINDING_GBUFFER_MATERIAL)
+uniform sampler2D u_gbuffer_material;
+
+layout(binding = TBX_BINDING_GBUFFER_EMISSIVE)
+uniform sampler2D u_gbuffer_emissive;
+
+layout(binding = TBX_BINDING_GBUFFER_DEPTH)
+uniform sampler2D u_gbuffer_depth;
+
+layout(binding = TBX_BINDING_GBUFFER_FINAL_COLOR)
+uniform sampler2D u_gbuffer_final_color;
 
 layout(location = 0) in vec2 v_tex_coord;
 layout(location = 0) out vec4 o_color;
@@ -872,7 +892,7 @@ vec3 tonemap_reinhard(vec3 color)
 
 void main()
 {
-    vec3 hdr = texture(u_source_color, v_tex_coord).rgb;
+    vec3 hdr = texture(u_gbuffer_final_color, v_tex_coord).rgb;
 
     vec3 color = hdr * u_exposure;
     color = tonemap_reinhard(color);
@@ -886,7 +906,7 @@ void main()
 
 ## Lighting Shader Shape
 
-Lighting code should mostly be include files, not standalone shaders, unless using deferred rendering.
+Lighting code should mostly be include files, not standalone shaders, unless using GBuffer rendering.
 
 For forward rendering:
 
@@ -896,7 +916,7 @@ Lighting include shades the surface.
 Fragment shader outputs the final color.
 ```
 
-For deferred rendering:
+For GBuffer rendering:
 
 ```txt
 Geometry pass writes GBuffer.
@@ -904,8 +924,8 @@ Lighting pass reads GBuffer.
 Fullscreen lighting shader outputs final color.
 ```
 
-Toybox uses the deferred shape for opaque PBR geometry. Transparent PBR geometry still uses a
-forward shader after deferred lighting, sharing the same final color target and GBuffer depth.
+Toybox uses the GBuffer shape for opaque PBR geometry. Transparent PBR geometry still uses a
+forward shader after lighting, sharing the same final color target and GBuffer depth.
 
 ---
 
@@ -962,9 +982,9 @@ vec3 tbx_shade_pbr(PbrSurface surface)
 
 ---
 
-### Deferred Lighting Shader Shape
+### lighting Shader Shape
 
-Toybox's deferred lighting pass reconstructs the PBR surface from GBuffer targets and shades it
+Toybox's lighting pass reconstructs the PBR surface from GBuffer targets and shades it
 with the same PBR lighting include used by forward transparent rendering:
 
 ```glsl
@@ -1245,8 +1265,7 @@ Includes:
     PostProcessBase
 
 Requires:
-    Source color texture
-    Optional depth texture
+    GBuffer textures
     Optional material params
 
 Does not require:
@@ -1258,7 +1277,7 @@ Does not require:
 Shape:
 
 ```glsl
-vec3 color = texture(u_source_color, v_tex_coord).rgb;
+vec3 color = texture(u_gbuffer_final_color, v_tex_coord).rgb;
 o_color = vec4(process(color), 1.0);
 ```
 
@@ -1270,7 +1289,7 @@ Use as shared lighting code for surface shaders.
 
 ```txt
 Usually include-only for forward rendering.
-Standalone fullscreen pass for deferred rendering.
+Standalone fullscreen pass for GBuffer rendering.
 ```
 
 Forward shape:
@@ -1279,7 +1298,7 @@ Forward shape:
 vec3 color = tbx_shade_pbr(surface);
 ```
 
-Deferred shape:
+GBuffer shape:
 
 ```glsl
 Surface surface = reconstruct_surface_from_gbuffer();
@@ -1377,7 +1396,7 @@ Upload
     Reuse stable mesh, texture, pipeline, render-target, material, uniform, and instance buffers.
 
 Pass assembly
-    Create shadow, GBuffer, skybox, deferred lighting, transparent, and post passes only when they
+    Create shadow, GBuffer, skybox, lighting, transparent, and post passes only when they
     have work.
 
 Execution

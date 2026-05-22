@@ -10,7 +10,7 @@
     "transparency": {
       "blend_mode": "alpha_blend"
     },
-    "cullable": true,
+    "cullable": false,
     "two_sided": true,
     "shadow_mode": "none"
   },

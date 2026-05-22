@@ -14,8 +14,6 @@
     "two_sided": true,
     "shadow_mode": "none"
   },
-  "textures": [
-    { "name": "source_color", "value": "" }
-  ],
+  "textures": [],
   "parameters": []
 }

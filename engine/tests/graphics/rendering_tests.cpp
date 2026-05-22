@@ -2,6 +2,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/app/settings.h"
+#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
@@ -1065,7 +1066,7 @@ namespace tbx::tests::graphics
         ASSERT_EQ(backend.recorded_passes.size(), 3U);
         EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Deferred Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR);
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Post Process Pass");
         EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::COLOR);
@@ -1313,7 +1314,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
         EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Skybox Pass");
         EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR);
-        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Deferred Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::NONE);
         EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
         EXPECT_NE(
@@ -1746,7 +1747,7 @@ namespace tbx::tests::graphics
         // Assert
         ASSERT_EQ(backend.recorded_passes.size(), 4U);
         EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Deferred Lighting Pass");
+        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Transparent Forward Pass");
         EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
         ASSERT_EQ(backend.recorded_draws.size(), 2U);
