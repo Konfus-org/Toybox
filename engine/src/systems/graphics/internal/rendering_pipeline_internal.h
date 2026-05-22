@@ -23,8 +23,10 @@
 #include "tbx/utils/hash.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -32,6 +34,13 @@
 
 namespace tbx::internal
 {
+    constexpr float SHADOW_DEPTH_BIAS = 0.0015F;
+    constexpr float SHADOW_NORMAL_BIAS = 0.035F;
+    constexpr float SHADOW_STRENGTH = 0.75F;
+    constexpr float SHADOW_SLOPE_BIAS = 0.0025F;
+    constexpr float SHADOW_NEAR_PLANE = 0.1F;
+    constexpr float SHADOW_DEPTH_PADDING = 16.0F;
+
     struct GBuffer
     {
         GraphicsResourceBinding albedo = {};
@@ -67,11 +76,10 @@ namespace tbx::internal
         float range = 0.0F;
     };
 
-    struct ShadowCascades
+    struct RenderShadows
     {
-        uint32 count = 0U;
+        uint32 layer_count = 0U;
         GraphicsResourceBinding map = {};
-        std::vector<GraphicsResourceBinding> buffers = {};
     };
 
     struct RenderMesh
@@ -121,7 +129,7 @@ namespace tbx::internal
         Sky sky = {};
 
         RenderLighting lighting = {};
-        ShadowCascades shadows = {};
+        RenderShadows shadows = {};
         PostProcessing post_processing = {};
 
         BatchMap opaque_batches = {};
@@ -137,13 +145,200 @@ namespace tbx::internal
         const uint32 layer_count)
     {
         if (!casts_shadows || layer_count == 0U || shadow_layer_count + layer_count > MAX_LIGHTS)
-        {
             return -1;
-        }
 
         const int32 result = static_cast<int32>(shadow_layer_count);
         shadow_layer_count += layer_count;
         return result;
+    }
+
+    static bool has_length(const Vec3& value)
+    {
+        return dot(value, value) > 0.000001F;
+    }
+
+    static Vec3 get_shadow_up_vector(const Vec3& direction)
+    {
+        // TODO: Lets make a new Struct that inherits from the glm vec types and introduce a
+        // Vec3::UP, DOWN, LEFT, RIGHT
+        const Vec3 world_up = Vec3(0.0F, 1.0F, 0.0F);
+        if (std::abs(dot(normalize_or_zero(direction), world_up)) < 0.95F)
+            return world_up;
+
+        return Vec3(1.0F, 0.0F, 0.0F);
+    }
+
+    static Vec3 project_camera_frustum_corner(
+        const RenderCamera& camera,
+        const float clip_x,
+        const float clip_y,
+        const float view_depth)
+    {
+        Vec4 view_corner = camera.inverse_projection * Vec4(clip_x, clip_y, 1.0F, 1.0F);
+        view_corner /= std::abs(view_corner.w) > 0.000001F ? view_corner.w : 1.0F;
+
+        const float scale = view_depth / std::max(-view_corner.z, 0.000001F);
+        view_corner = Vec4(Vec3(view_corner) * scale, 1.0F);
+
+        const Vec4 world_corner = camera.inverse_view * view_corner;
+        return Vec3(world_corner);
+    }
+
+    // TODO: Implement this as a part of the camera class, actually implement a dediecated "Frustum"
+    // struct and move this into a 'Frustum.get_corners' do the same with the simgular version
+    static std::array<Vec3, 8U> make_camera_frustum_corners(
+        const RenderCamera& camera,
+        const float split_near,
+        const float split_far)
+    {
+        return std::array<Vec3, 8U> {
+            project_camera_frustum_corner(camera, -1.0F, -1.0F, split_near),
+            project_camera_frustum_corner(camera, 1.0F, -1.0F, split_near),
+            project_camera_frustum_corner(camera, 1.0F, 1.0F, split_near),
+            project_camera_frustum_corner(camera, -1.0F, 1.0F, split_near),
+            project_camera_frustum_corner(camera, -1.0F, -1.0F, split_far),
+            project_camera_frustum_corner(camera, 1.0F, -1.0F, split_far),
+            project_camera_frustum_corner(camera, 1.0F, 1.0F, split_far),
+            project_camera_frustum_corner(camera, -1.0F, 1.0F, split_far),
+        };
+    }
+
+    static Mat4 make_directional_shadow_matrix(
+        const RenderCamera& camera,
+        const Vec3& light_direction,
+        const float split_near,
+        const float split_far)
+    {
+        const auto corners = make_camera_frustum_corners(camera, split_near, split_far);
+        auto center = Vec3(0.0F);
+        for (const Vec3& corner : corners)
+            center += corner;
+        center *= 1.0F / static_cast<float>(corners.size());
+
+        auto radius = 0.0F;
+        for (const Vec3& corner : corners)
+            radius = std::max(radius, distance(center, corner));
+        radius = std::max(radius, 1.0F);
+
+        const Vec3 direction =
+            has_length(light_direction) ? normalize(light_direction) : Vec3(0.0F, -1.0F, 0.0F);
+        const Mat4 light_view = look_at(
+            center - direction * (radius + SHADOW_DEPTH_PADDING),
+            center,
+            get_shadow_up_vector(direction));
+
+        auto min_bounds = Vec3(std::numeric_limits<float>::max());
+        auto max_bounds = Vec3(std::numeric_limits<float>::lowest());
+        for (const Vec3& corner : corners)
+        {
+            const Vec3 light_space_corner = Vec3(light_view * Vec4(corner, 1.0F));
+            min_bounds = glm::min(min_bounds, light_space_corner);
+            max_bounds = glm::max(max_bounds, light_space_corner);
+        }
+
+        const Mat4 light_projection = ortho_projection(
+            min_bounds.x,
+            max_bounds.x,
+            min_bounds.y,
+            max_bounds.y,
+            std::max(0.01F, -max_bounds.z - SHADOW_DEPTH_PADDING),
+            std::max(0.02F, -min_bounds.z + SHADOW_DEPTH_PADDING));
+        return light_projection * light_view;
+    }
+
+    static Mat4 make_local_shadow_matrix(const RenderCamera& camera, const RenderLight& light)
+    {
+        Vec3 direction = light.direction;
+        if (!has_length(direction))
+            direction = camera.position - light.position;
+        if (!has_length(direction))
+            direction = Vec3(0.0F, 0.0F, -1.0F);
+
+        direction = normalize(direction);
+        const Mat4 light_view =
+            look_at(light.position, light.position + direction, get_shadow_up_vector(direction));
+        const Mat4 light_projection = perspective_projection(
+            to_radians(90.0F),
+            1.0F,
+            SHADOW_NEAR_PLANE,
+            std::max(light.range, 1.0F));
+        return light_projection * light_view;
+    }
+
+    static ShadowShaderData make_shadow_shader_data(
+        const RenderDrawData& draw_data,
+        const FrameData& frame,
+        const float shadow_render_distance,
+        const float shadow_softness)
+    {
+        auto shadow_data = ShadowShaderData();
+        shadow_data.shadow_meta = IVec4(static_cast<int32>(draw_data.shadows.layer_count), 0, 0, 0);
+
+        const float directional_shadow_distance = std::max(shadow_render_distance, 1.0F);
+        const float cascade_length =
+            directional_shadow_distance / static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT);
+
+        for (const RenderLight& light : draw_data.lighting.lights)
+        {
+            if (light.shadow_index < 0 || light.shadow_layer_count == 0U)
+                continue;
+
+            if (light.type == static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL))
+            {
+                float split_near = SHADOW_NEAR_PLANE;
+                for (uint32 cascade = 0U; cascade < light.shadow_layer_count; ++cascade)
+                {
+                    const uint32 layer = static_cast<uint32>(light.shadow_index) + cascade;
+                    const float split_far = std::min(
+                        directional_shadow_distance,
+                        cascade_length * static_cast<float>(cascade + 1U));
+                    const float blend_size =
+                        std::min(cascade_length * 0.2F, shadow_softness * 4.0F);
+
+                    shadow_data.light_view_projections[layer] = make_directional_shadow_matrix(
+                        frame.camera,
+                        light.direction,
+                        split_near,
+                        split_far);
+                    shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
+                    shadow_data.shadow_params[layer] = Vec4(
+                        SHADOW_DEPTH_BIAS,
+                        SHADOW_NORMAL_BIAS,
+                        SHADOW_STRENGTH,
+                        SHADOW_SLOPE_BIAS);
+                    shadow_data.shadow_extra_params[layer] = Vec4(
+                        split_near,
+                        split_far,
+                        std::max(split_near, split_far - blend_size),
+                        static_cast<float>(light.shadow_layer_count));
+                    split_near = split_far;
+                }
+                continue;
+            }
+
+            const uint32 layer = static_cast<uint32>(light.shadow_index);
+            shadow_data.light_view_projections[layer] =
+                make_local_shadow_matrix(frame.camera, light);
+            shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
+            shadow_data.shadow_params[layer] =
+                Vec4(SHADOW_DEPTH_BIAS, SHADOW_NORMAL_BIAS, SHADOW_STRENGTH, SHADOW_SLOPE_BIAS);
+            shadow_data.shadow_extra_params[layer] = Vec4(
+                SHADOW_NEAR_PLANE,
+                std::max(light.range, 1.0F),
+                std::max(light.range - shadow_softness, SHADOW_NEAR_PLANE),
+                static_cast<float>(light.shadow_layer_count));
+        }
+
+        return shadow_data;
+    }
+
+    static ShadowShaderData make_shadow_shader_data_for_layer(
+        const ShadowShaderData& frame_shadow_data,
+        const uint32 active_shadow_layer)
+    {
+        auto layer_shadow_data = frame_shadow_data;
+        layer_shadow_data.shadow_meta.y = static_cast<int32>(active_shadow_layer);
+        return layer_shadow_data;
     }
 
     static MaterialConfig resolve_draw_material_config(
@@ -214,11 +409,24 @@ namespace tbx::internal
         return max_distance <= 0.0F || distance(position, camera_position) <= max_distance;
     }
 
+    static bool should_cast_shadow(
+        const MaterialConfig& config,
+        const Vec3& position,
+        const Vec3& camera_position,
+        const float max_distance)
+    {
+        if (config.shadow_mode == ShadowMode::NONE)
+            return false;
+
+        return config.shadow_mode == ShadowMode::ALWAYS || max_distance <= 0.0F
+               || distance(position, camera_position) <= max_distance;
+    }
+
     static LightingShaderData make_light_shader_data(const RenderDrawData& draw_data)
     {
         auto light_data = LightingShaderData();
         light_data.light_meta.x = static_cast<int32>(draw_data.lighting.lights.size());
-        light_data.light_meta.y = static_cast<int32>(draw_data.shadows.count);
+        light_data.light_meta.y = static_cast<int32>(draw_data.shadows.layer_count);
 
         auto ambient_color_sum = Vec3(0.0F);
         float ambient_intensity_sum = 0.0F;
@@ -357,6 +565,8 @@ namespace tbx::internal
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
         const GraphicsResourceBinding& light_uniform,
+        const GraphicsResourceBinding* shadow_uniform,
+        const GraphicsResourceBinding* shadow_map,
         const RenderDrawData::BatchMap& batches,
         RenderPass& render_pass)
     {
@@ -437,7 +647,219 @@ namespace tbx::internal
                                 .instance_count = static_cast<uint32>(batch.instances.size()),
                             },
                     });
+                if (shadow_uniform != nullptr && shadow_uniform->resource.is_valid())
+                    render_pass.indexed_draws.back().uniform_buffers.push_back(*shadow_uniform);
+                if (shadow_map != nullptr && shadow_map->resource.is_valid())
+                    render_pass.indexed_draws.back().textures.push_back(*shadow_map);
             }
+        }
+
+        return {};
+    }
+
+    static Result append_shadow_draws(
+        RenderingResourceManager& resource_manager,
+        const uint64 frame_index,
+        const GraphicsResourceBinding& frame_uniform,
+        const GraphicsResourceBinding& camera_uniform,
+        const GraphicsResourceBinding& light_uniform,
+        const GraphicsResourceBinding& shadow_uniform,
+        const RenderingMaterialUploadData& shadow_material_upload,
+        const GraphicsResourceBinding& shadow_material_uniform,
+        const RenderDrawData::BatchMap& batches,
+        RenderPass& render_pass)
+    {
+        for (const auto& [batch_key, batch] : batches)
+        {
+            if (batch.instances.empty())
+                continue;
+
+            const auto object_data = ObjectShaderData {
+                .model = batch.instances.front().model_matrix,
+                .normal_matrix = batch.instances.front().normal_matrix,
+            };
+            const auto object_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_OBJECT_DATA,
+                "Object Shader Data",
+                std::string("Toybox/Uniforms/ShadowObject/") + std::to_string(batch_key),
+                frame_index,
+                &object_data,
+                static_cast<uint64>(sizeof(object_data)));
+            const auto instance_buffer = resource_manager.upload_instance_buffer(
+                std::string("Toybox/ShadowInstances/") + std::to_string(batch_key),
+                frame_index,
+                batch.instances.data(),
+                static_cast<uint64>(batch.instances.size() * sizeof(RenderMeshInstance)));
+            if (!object_uniform.resource.is_valid() || !instance_buffer.resource.is_valid())
+                return Result(false, "Rendering pipeline failed: shadow draw upload failed.");
+
+            auto uploaded_meshes = std::vector<RenderingMeshUploadData>();
+            auto result = upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
+            if (!result)
+                return result;
+
+            for (const auto& uploaded_mesh : uploaded_meshes)
+            {
+                render_pass.indexed_draws.push_back(
+                    GraphicsIndexedDrawCommand {
+                        .pipeline = shadow_material_upload.pipeline,
+                        .index_buffer = uploaded_mesh.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = VERTEX_BUFFER_SLOT_MESH,
+                                    .resource = uploaded_mesh.vertex_buffer,
+                                },
+                                instance_buffer,
+                            },
+                        .uniform_buffers =
+                            {
+                                frame_uniform,
+                                camera_uniform,
+                                light_uniform,
+                                object_uniform,
+                                shadow_material_uniform,
+                                shadow_uniform,
+                            },
+                        .textures = shadow_material_upload.textures,
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = uploaded_mesh.index_count,
+                                .instance_count = static_cast<uint32>(batch.instances.size()),
+                            },
+                    });
+            }
+        }
+
+        return {};
+    }
+
+    static GraphicsTextureDesc make_shadow_map_desc(
+        const uint32 resolution,
+        const uint32 layer_count)
+    {
+        return GraphicsTextureDesc {
+            .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
+            .format = GraphicsTextureFormat::DEPTH32_FLOAT,
+            .size =
+                Size {
+                    .width = std::max(resolution, 1U),
+                    .height = std::max(resolution, 1U),
+                },
+            .mip_count = 1U,
+            .array_layer_count = std::max(layer_count, 1U),
+            .debug_name = "Toybox Shadow Map",
+        };
+    }
+
+    static Result create_shadow_map(
+        RenderingResourceManager& resource_manager,
+        const GraphicsSettings& settings,
+        RenderDrawData& draw_data)
+    {
+        if (draw_data.shadows.layer_count == 0U)
+            return {};
+
+        draw_data.shadows.map = resource_manager.upload_texture(
+            BINDING_SHADOW_MAP,
+            "Toybox/ShadowMap/" + std::to_string(settings.shadow_map_resolution.value) + "/"
+                + std::to_string(draw_data.shadows.layer_count),
+            make_shadow_map_desc(
+                settings.shadow_map_resolution.value,
+                draw_data.shadows.layer_count));
+        if (!draw_data.shadows.map.resource.is_valid())
+            return Result(false, "Frame pipeline failed: shadow map target upload failed.");
+
+        return {};
+    }
+
+    static Result append_shadow_passes(
+        RenderingResourceManager& resource_manager,
+        const uint64 frame_index,
+        const GraphicsSettings& settings,
+        const FrameData& frame,
+        const GraphicsResourceBinding& frame_uniform,
+        const GraphicsResourceBinding& camera_uniform,
+        const GraphicsResourceBinding& light_uniform,
+        const RenderDrawData& draw_data,
+        std::vector<RenderPass>& out_shadow_passes,
+        GraphicsResourceBinding& out_lighting_shadow_uniform)
+    {
+        if (draw_data.shadows.layer_count == 0U)
+            return {};
+
+        if (!draw_data.shadows.map.resource.is_valid())
+            return Result(false, "Rendering pipeline failed: shadow map resource is invalid.");
+
+        auto shadow_material_upload = RenderingMaterialUploadData();
+        auto result = resource_manager.upload_material(
+            MaterialInstance(ShadowMapMaterial::HANDLE),
+            shadow_material_upload);
+        if (!result)
+            return result;
+
+        const auto shadow_material_uniform = resource_manager.upload_uniform_buffer(
+            BINDING_MATERIAL_DATA,
+            "Shadow Material Shader Data",
+            "Toybox/Uniforms/Material/ShadowMap",
+            frame_index,
+            shadow_material_upload.uniform_values.data(),
+            static_cast<uint64>(shadow_material_upload.uniform_values.size() * sizeof(Vec4)));
+        if (!shadow_material_upload.pipeline.is_valid()
+            || !shadow_material_uniform.resource.is_valid())
+        {
+            return Result(false, "Rendering pipeline failed: shadow material upload failed.");
+        }
+
+        const auto frame_shadow_data = make_shadow_shader_data(
+            draw_data,
+            frame,
+            settings.shadow_render_distance.value,
+            settings.shadow_softness.value);
+
+        out_shadow_passes.reserve(draw_data.shadows.layer_count);
+        for (uint32 layer = 0U; layer < draw_data.shadows.layer_count; ++layer)
+        {
+            const auto layer_shadow_data =
+                make_shadow_shader_data_for_layer(frame_shadow_data, layer);
+            const auto shadow_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_SHADOW_PASS_DATA,
+                "Shadow Shader Data",
+                "Toybox/Uniforms/Shadow/" + std::to_string(layer),
+                frame_index,
+                &layer_shadow_data,
+                static_cast<uint64>(sizeof(layer_shadow_data)));
+            if (!shadow_uniform.resource.is_valid())
+                return Result(false, "Rendering pipeline failed: shadow uniform upload failed.");
+            if (layer == 0U)
+                out_lighting_shadow_uniform = shadow_uniform;
+
+            auto shadow_pass = RenderPass {
+                .desc =
+                    GraphicsPassDesc {
+                        .depth_stencil_target = draw_data.shadows.map.resource,
+                        .depth_stencil_layer = static_cast<int32>(layer),
+                        .clear_flags = GraphicsClearFlags::DEPTH,
+                        .debug_name = "Toybox Shadow Pass",
+                    },
+            };
+            result = append_shadow_draws(
+                resource_manager,
+                frame_index,
+                frame_uniform,
+                camera_uniform,
+                light_uniform,
+                shadow_uniform,
+                shadow_material_upload,
+                shadow_material_uniform,
+                draw_data.shadow_batches,
+                shadow_pass);
+            if (!result)
+                return result;
+
+            out_shadow_passes.push_back(std::move(shadow_pass));
         }
 
         return {};
@@ -507,6 +929,7 @@ namespace tbx::internal
         const FrameData& frame,
         const GBuffer& gbuffer,
         const RenderDrawData& draw_data,
+        const GraphicsSettings& settings,
         RenderingResourceManager& resource_manager,
         IGraphicsBackend& backend)
     {
@@ -573,6 +996,23 @@ namespace tbx::internal
             return fail("frame, camera, or light uniform upload returned an invalid resource.");
         }
 
+        auto shadow_map = draw_data.shadows.map;
+        auto shadow_passes = std::vector<RenderPass>();
+        auto lighting_shadow_uniform = GraphicsResourceBinding {.slot = BINDING_SHADOW_PASS_DATA};
+        auto result = append_shadow_passes(
+            resource_manager,
+            frame_index,
+            settings,
+            frame,
+            frame_uniform,
+            camera_uniform,
+            light_uniform,
+            draw_data,
+            shadow_passes,
+            lighting_shadow_uniform);
+        if (!result)
+            return fail_result("shadow pass upload", result);
+
         // Sky Pass: Draws sky geometry into the final color target before scene lighting.
         auto sky_pass = RenderPass {
             .desc =
@@ -616,6 +1056,17 @@ namespace tbx::internal
                 frame_index,
                 &sky_instance,
                 static_cast<uint64>(sizeof(sky_instance)));
+            const auto sky_object_data = ObjectShaderData {
+                .model = Mat4(1.0F),
+                .normal_matrix = Mat4(1.0F),
+            };
+            const auto sky_object_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_OBJECT_DATA,
+                "Object Shader Data",
+                "Toybox/Uniforms/Object/Sky",
+                frame_index,
+                &sky_object_data,
+                static_cast<uint64>(sizeof(sky_object_data)));
             const auto sky_material_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_MATERIAL_DATA,
                 "Material Shader Data",
@@ -623,11 +1074,12 @@ namespace tbx::internal
                 frame_index,
                 sky_material_upload.uniform_values.data(),
                 static_cast<uint64>(sky_material_upload.uniform_values.size() * sizeof(Vec4)));
-            if (!sky_instance_buffer.resource.is_valid()
+            if (!sky_instance_buffer.resource.is_valid() || !sky_object_uniform.resource.is_valid()
                 || !sky_material_uniform.resource.is_valid())
             {
                 return fail(
-                    "sky instance or material uniform upload returned an invalid resource.");
+                    "sky instance, object uniform, or material uniform upload returned an invalid "
+                    "resource.");
             }
 
             sky_pass.indexed_draws.push_back(
@@ -648,6 +1100,7 @@ namespace tbx::internal
                             frame_uniform,
                             camera_uniform,
                             light_uniform,
+                            sky_object_uniform,
                             sky_material_uniform,
                         },
                     .textures = sky_material_upload.textures,
@@ -676,12 +1129,14 @@ namespace tbx::internal
                     .debug_name = "Toybox GBuffer Pass",
                 },
         };
-        auto result = internal::append_batch_draws(
+        result = internal::append_batch_draws(
             resource_manager,
             frame_index,
             frame_uniform,
             camera_uniform,
             light_uniform,
+            nullptr,
+            nullptr,
             draw_data.opaque_batches,
             opaque_pass);
         if (!result)
@@ -729,6 +1184,10 @@ namespace tbx::internal
                     },
                 .vertex_count = 3U,
             });
+        if (lighting_shadow_uniform.resource.is_valid())
+            lighting_pass.draws.back().uniform_buffers.push_back(lighting_shadow_uniform);
+        if (shadow_map.resource.is_valid())
+            lighting_pass.draws.back().textures.push_back(shadow_map);
 
         // Transparent Pass: Draws alpha-blended geometry forward over the lit scene color.
         auto transparent_pass = RenderPass {
@@ -746,6 +1205,8 @@ namespace tbx::internal
             frame_uniform,
             camera_uniform,
             light_uniform,
+            lighting_shadow_uniform.resource.is_valid() ? &lighting_shadow_uniform : nullptr,
+            shadow_map.resource.is_valid() ? &shadow_map : nullptr,
             draw_data.transparent_batches,
             transparent_pass);
         if (!result)
@@ -788,7 +1249,9 @@ namespace tbx::internal
 
         // Create pass list and return
         auto passes = std::vector<RenderPass>();
-        passes.reserve(6U);
+        passes.reserve(6U + shadow_passes.size());
+        for (auto& shadow_pass : shadow_passes)
+            passes.push_back(std::move(shadow_pass));
         if (has_sky_draws)
             passes.push_back(std::move(sky_pass));
         passes.push_back(std::move(opaque_pass));
@@ -806,7 +1269,8 @@ namespace tbx::internal
         const EntityRegistry& entity_registry,
         const Vec3& camera_position,
         AssetManager& asset_manager,
-        const float local_light_max_distance)
+        const float local_light_max_distance,
+        const float shadow_caster_max_distance)
     {
         auto draw_data = RenderDrawData();
 
@@ -934,7 +1398,7 @@ namespace tbx::internal
                 });
         }
 
-        draw_data.shadows.count = draw_data.lighting.shadow_layer_count;
+        draw_data.shadows.layer_count = draw_data.lighting.shadow_layer_count;
 
         for (auto& entity : entity_registry.get_with<StaticMesh>())
         {
@@ -962,6 +1426,23 @@ namespace tbx::internal
                     .model_matrix = model_matrix,
                     .normal_matrix = normal(model_matrix),
                 });
+            if (draw_data.shadows.layer_count > 0U
+                && should_cast_shadow(
+                    config,
+                    transform.position,
+                    camera_position,
+                    shadow_caster_max_distance))
+            {
+                append_batch(
+                    draw_data.shadow_batches,
+                    make_batch_hash(static_mesh.handle.get_id(), nullptr, 0U),
+                    mesh,
+                    MaterialInstance(),
+                    RenderMeshInstance {
+                        .model_matrix = model_matrix,
+                        .normal_matrix = normal(model_matrix),
+                    });
+            }
         }
 
         for (auto& entity : entity_registry.get_with<DynamicMesh>())
@@ -996,6 +1477,27 @@ namespace tbx::internal
                     .model_matrix = model_matrix,
                     .normal_matrix = normal(model_matrix),
                 });
+            if (draw_data.shadows.layer_count > 0U
+                && should_cast_shadow(
+                    config,
+                    transform.position,
+                    camera_position,
+                    shadow_caster_max_distance))
+            {
+                append_batch(
+                    draw_data.shadow_batches,
+                    make_batch_hash(
+                        Uuid(
+                            static_cast<uint32>(reinterpret_cast<std::uintptr_t>(mesh_data.get()))),
+                        mesh_data.get(),
+                        0U),
+                    mesh,
+                    MaterialInstance(),
+                    RenderMeshInstance {
+                        .model_matrix = model_matrix,
+                        .normal_matrix = normal(model_matrix),
+                    });
+            }
         }
 
         return draw_data;

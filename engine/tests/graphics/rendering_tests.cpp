@@ -118,6 +118,7 @@ namespace tbx::tests::graphics
         {
             recorded_texture_slot = slot;
             recorded_texture = texture_resource_uuid;
+            recorded_texture_slots.push_back(slot);
             callbacks.push_back(GraphicsBackendCallback::BIND_TEXTURE);
             return {};
         }
@@ -126,6 +127,7 @@ namespace tbx::tests::graphics
         {
             recorded_uniform_slot = slot;
             recorded_uniform_buffer = buffer_resource_uuid;
+            recorded_uniform_slots.push_back(slot);
             callbacks.push_back(GraphicsBackendCallback::BIND_UNIFORM_BUFFER);
             return {};
         }
@@ -303,7 +305,9 @@ namespace tbx::tests::graphics
         uint32 recorded_vertex_slot = 0U;
         std::vector<uint32> recorded_vertex_slots = {};
         uint32 recorded_uniform_slot = 0U;
+        std::vector<uint32> recorded_uniform_slots = {};
         uint32 recorded_texture_slot = 0U;
+        std::vector<uint32> recorded_texture_slots = {};
         uint32 recorded_sampler_slot = 0U;
         GraphicsIndexType recorded_index_type = GraphicsIndexType::UINT32;
         GraphicsDrawIndexedDesc recorded_draw = {};
@@ -657,6 +661,24 @@ namespace tbx::tests::graphics
                    backend.recorded_vertex_slots.end(),
                    slot)
                != backend.recorded_vertex_slots.end();
+    }
+
+    static bool contains_uniform_slot(const RecordingGraphicsBackend& backend, const uint32 slot)
+    {
+        return std::find(
+                   backend.recorded_uniform_slots.begin(),
+                   backend.recorded_uniform_slots.end(),
+                   slot)
+               != backend.recorded_uniform_slots.end();
+    }
+
+    static bool contains_texture_slot(const RecordingGraphicsBackend& backend, const uint32 slot)
+    {
+        return std::find(
+                   backend.recorded_texture_slots.begin(),
+                   backend.recorded_texture_slots.end(),
+                   slot)
+               != backend.recorded_texture_slots.end();
     }
 
     // Validates Rendering opens frame state and submits geometry through render().
@@ -1309,25 +1331,57 @@ namespace tbx::tests::graphics
             find_material_shader_data_uploads(backend.recorded_buffer_uploads);
 
         // Assert
-        ASSERT_EQ(backend.recorded_passes.size(), 4U);
-        EXPECT_EQ(backend.recorded_passes[0U].debug_name, "Toybox GBuffer Pass");
-        EXPECT_EQ(backend.recorded_passes[0U].clear_flags, GraphicsClearFlags::COLOR_DEPTH);
-        EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Skybox Pass");
-        EXPECT_EQ(backend.recorded_passes[1U].clear_flags, GraphicsClearFlags::COLOR);
-        EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Lighting Pass");
-        EXPECT_EQ(backend.recorded_passes[2U].clear_flags, GraphicsClearFlags::NONE);
-        EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
+        const auto sky_pass = std::find_if(
+            backend.recorded_passes.begin(),
+            backend.recorded_passes.end(),
+            [](const GraphicsPassDesc& desc)
+            {
+                return desc.debug_name == "Toybox Skybox Pass";
+            });
+        const auto gbuffer_pass = std::find_if(
+            backend.recorded_passes.begin(),
+            backend.recorded_passes.end(),
+            [](const GraphicsPassDesc& desc)
+            {
+                return desc.debug_name == "Toybox GBuffer Pass";
+            });
+        const auto lighting_pass = std::find_if(
+            backend.recorded_passes.begin(),
+            backend.recorded_passes.end(),
+            [](const GraphicsPassDesc& desc)
+            {
+                return desc.debug_name == "Toybox Lighting Pass";
+            });
+        ASSERT_NE(sky_pass, backend.recorded_passes.end());
+        ASSERT_NE(gbuffer_pass, backend.recorded_passes.end());
+        ASSERT_NE(lighting_pass, backend.recorded_passes.end());
+        EXPECT_EQ(sky_pass->clear_flags, GraphicsClearFlags::COLOR);
+        EXPECT_EQ(gbuffer_pass->clear_flags, GraphicsClearFlags::COLOR_DEPTH);
+        EXPECT_EQ(lighting_pass->clear_flags, GraphicsClearFlags::NONE);
+        EXPECT_LT(
+            std::distance(backend.recorded_passes.begin(), sky_pass),
+            std::distance(backend.recorded_passes.begin(), gbuffer_pass));
+        EXPECT_LT(
+            std::distance(backend.recorded_passes.begin(), gbuffer_pass),
+            std::distance(backend.recorded_passes.begin(), lighting_pass));
         EXPECT_NE(
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
                 GraphicsBackendCallback::DRAW_INDEXED),
             backend.callbacks.end());
-        ASSERT_GE(object_shader_data_uploads.size(), 2U);
-        const auto& sky_object_data = object_shader_data_uploads.back();
-        EXPECT_FLOAT_EQ(sky_object_data.model[3].x, 0.0F);
-        EXPECT_FLOAT_EQ(sky_object_data.model[3].y, 0.0F);
-        EXPECT_FLOAT_EQ(sky_object_data.model[3].z, 0.0F);
+        const auto sky_object_data = std::find_if(
+            object_shader_data_uploads.begin(),
+            object_shader_data_uploads.end(),
+            [](const ObjectShaderData& shader_data)
+            {
+                return shader_data.model[3].x == 0.0F && shader_data.model[3].y == 0.0F
+                       && shader_data.model[3].z == 0.0F;
+            });
+        ASSERT_NE(sky_object_data, object_shader_data_uploads.end());
+        EXPECT_FLOAT_EQ(sky_object_data->model[3].x, 0.0F);
+        EXPECT_FLOAT_EQ(sky_object_data->model[3].y, 0.0F);
+        EXPECT_FLOAT_EQ(sky_object_data->model[3].z, 0.0F);
         const auto sky_material_upload = std::find_if(
             material_shader_data_uploads.begin(),
             material_shader_data_uploads.end(),
@@ -1876,6 +1930,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Shadow Pass");
         ASSERT_FALSE(backend.recorded_draws.empty());
         EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
+        EXPECT_TRUE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
     }
 
     // Validates directional shadows get the first shadow slot before local lights.
@@ -1952,9 +2007,12 @@ namespace tbx::tests::graphics
                 }),
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
         ASSERT_FALSE(backend.recorded_texture_descs.empty());
+        EXPECT_EQ(backend.recorded_texture_descs.front().debug_name, "Toybox Shadow Map");
         EXPECT_GE(
             backend.recorded_texture_descs.front().array_layer_count,
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
+        EXPECT_TRUE(contains_texture_slot(backend, BINDING_SHADOW_MAP));
+        EXPECT_TRUE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
     }
 
     // Validates shadow resources are not uploaded when no eligible light casts shadows.
@@ -2009,6 +2067,8 @@ namespace tbx::tests::graphics
         EXPECT_EQ(
             count_texture_uploads_named(backend.recorded_texture_descs, "Toybox Shadow Map"),
             0U);
+        EXPECT_FALSE(contains_texture_slot(backend, BINDING_SHADOW_MAP));
+        EXPECT_FALSE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
     }
 
     // Validates renderer-owned shadow map resources are reused after cache warmup.
