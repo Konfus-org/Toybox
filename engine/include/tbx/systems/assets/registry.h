@@ -1,9 +1,8 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include "tbx/utils/result.h"
@@ -160,18 +159,6 @@ namespace tbx
                                                          : AssetLoadParameters<TAsset> {};
             auto promise =
                 serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
-            if (!promise.asset)
-            {
-                promise.asset = make_fallback_asset<TAsset>(parameters);
-                if (promise.asset && !promise.promise.valid())
-                {
-                    auto result = Result {};
-                    result.flag_failure("Primary asset read failed. Using fallback asset.");
-                    std::promise<Result> completion = {};
-                    completion.set_value(std::move(result));
-                    promise.promise = completion.get_future().share();
-                }
-            }
             populate_loaded_asset_data<TAsset>(promise.asset);
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;

@@ -1,7 +1,14 @@
 #pragma once
-#include "systems/graphics/internal/render_metrics_internal.h"
+#include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/graphics/render_pass.h"
+#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
+#include "tbx/systems/time/delta_time.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
@@ -9,22 +16,21 @@
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
+#include "tbx/types/render_target.h"
 #include "tbx/types/trig.h"
+#include "tbx/types/viewport.h"
 #include "tbx/utils/hash.h"
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstdint>
-#include <memory>
+#include <functional>
 #include <string>
 #include <unordered_map>
-#include <utility>
+#include <variant>
+#include <vector>
 
 namespace tbx::internal
 {
-    using CascadeSplitCollection = std::array<Vec2, DIRECTIONAL_SHADOW_CASCADE_COUNT>;
-    using FrustumCornerCollection = std::array<Vec3, 8U>;
-
     struct GBuffer
     {
         GraphicsResourceBinding albedo = {};
@@ -38,24 +44,25 @@ namespace tbx::internal
     struct RenderCamera
     {
         Mat4 view = Mat4(1.0F);
-        Vec3 position = Vec4(0.0F, 0.0F, 0.0F, 1.0F);
+        Vec3 position = Vec3(0.0F);
         Mat4 projection = Mat4(1.0F);
         Mat4 view_projection = Mat4(1.0F);
         Mat4 inverse_view = Mat4(1.0F);
         Mat4 inverse_projection = Mat4(1.0F);
     };
 
-    struct RenderLights
+    struct RenderLight
     {
-        unit4 type = 0;
-        Color color;
-        uint intensity;
-        uint inner_cone;
-        uint outter_cone;
-        uint shadow_index;
-        uint shodow_layer_count;
-        Vec3 position = {};
-        Vec3 direction = {};
+        uint type = 0U;
+        Color color = Color::WHITE;
+        float intensity = 0.0F;
+        float inner_cone = 0.0F;
+        float outer_cone = 0.0F;
+        int32 shadow_index = -1;
+        uint32 shadow_layer_count = 0U;
+        Vec3 position = Vec3(0.0F);
+        Vec3 direction = Vec3(0.0F);
+        float range = 0.0F;
     };
 
     struct ShadowCascades
@@ -69,12 +76,10 @@ namespace tbx::internal
     {
         using Data = std::variant<StaticMesh, DynamicMesh>;
 
-        Handle handle;
-        Data data;
+        Handle handle = {};
+        Data data = StaticMesh();
     };
 
-    /// @brief
-    /// Purpose: Stores one render instance transform for an indexed draw command.
     struct RenderMeshInstance
     {
         Mat4 model_matrix = Mat4(1.0F);
@@ -83,17 +88,17 @@ namespace tbx::internal
 
     struct RenderBatch
     {
-        uint64 hash; // <- obtained via hash_render_batch used to cache batch
-        Uuid pipeline;
-        RenderMesh mesh;
+        Uuid pipeline = {};
+        RenderMesh mesh = {};
+        MaterialInstance material = {};
         std::vector<RenderMeshInstance> instances = {};
     };
 
     struct FrameData
     {
-        uint index = 0;
-        float time = 0;
-        float delta_time = 0;
+        uint index = 0U;
+        float time = 0.0F;
+        float delta_time = 0.0F;
         Size resolution = {};
         Viewport viewport = {};
         RenderTarget target = {};
@@ -101,27 +106,815 @@ namespace tbx::internal
         GBuffer g_buffer = {};
     };
 
-    struct RenderDrawData
+    struct RenderLighting
     {
-        Sky sky;
-        ShadowCascades shadows;
-        RenderBatch opaque_batches = {};
-        RenderBatch transparent_batches = {};
-        RenderBatch shadow_batches = {};
-        std::array<RenderLight, MAX_LIGHTS> lights;
+        std::vector<RenderLight> lights = {};
+        Vec3 ambient_color_sum = Vec3(0.0F);
+        float ambient_intensity_sum = 0.0F;
+        uint32 directional_light_count = 0U;
+        uint32 shadow_layer_count = 0U;
     };
 
-    static uint64 hash_render_batch(
-        const RenderingMeshSourceType mesh_source,
+    struct RenderDrawData
+    {
+        using BatchMap = std::unordered_map<uint64, RenderBatch>;
+
+        Sky sky = {};
+
+        RenderLighting lighting = {};
+        ShadowCascades shadows = {};
+
+        BatchMap opaque_batches = {};
+        BatchMap transparent_batches = {};
+        BatchMap shadow_batches = {};
+
+        Color clear_color = Color::BLACK;
+    };
+
+    static int32 reserve_shadow_index(
+        uint32& shadow_layer_count,
+        const bool casts_shadows,
+        const uint32 layer_count)
+    {
+        if (!casts_shadows || layer_count == 0U || shadow_layer_count + layer_count > MAX_LIGHTS)
+        {
+            return -1;
+        }
+
+        const int32 result = static_cast<int32>(shadow_layer_count);
+        shadow_layer_count += layer_count;
+        return result;
+    }
+
+    static MaterialConfig resolve_draw_material_config(
+        AssetManager& asset_manager,
+        const MaterialInstance& material)
+    {
+        if (!material.get_handle().is_valid())
+            return MaterialConfig();
+
+        if (material.has_config_override_enabled())
+            return material.overrides.config;
+
+        const auto loaded_material =
+            asset_manager.load<Material>(material.get_handle(), MaterialLoadParameters());
+
+        return loaded_material ? loaded_material->config : MaterialConfig();
+    }
+
+    static void append_light(RenderDrawData& draw_data, const RenderLight& render_light)
+    {
+        if (draw_data.lighting.lights.size() < MAX_LIGHTS)
+            draw_data.lighting.lights.push_back(render_light);
+    }
+
+    static void append_batch(
+        RenderDrawData::BatchMap& batches,
+        const uint64 key,
+        const RenderMesh& mesh,
+        const MaterialInstance& material,
+        const RenderMeshInstance& instance)
+    {
+        auto& batch = batches
+                          .try_emplace(
+                              key,
+                              RenderBatch {
+                                  .mesh = mesh,
+                                  .material = material,
+                              })
+                          .first->second;
+        batch.instances.push_back(instance);
+    }
+
+    static uint64 make_batch_hash(
         const Uuid& mesh_id,
         const DynamicMeshData* dynamic_mesh,
         const uint64 material_key)
     {
-        uint64 result = hash(static_cast<uint64>(mesh_source), TBX_FNV1A_OFFSET_BASIS);
-        result = hash(mesh_id, result);
+        uint64 result = hash(mesh_id, TBX_FNV1A_OFFSET_BASIS);
         result = hash(static_cast<uint64>(reinterpret_cast<std::uintptr_t>(dynamic_mesh)), result);
         result = hash(material_key, result);
         return result == 0U ? 1U : result;
+    }
+
+    static Transform get_optional_transform(Entity& entity)
+    {
+        // Components may omit Transform; identity keeps those renderables deterministic.
+        if (entity.has_component<Transform>())
+            return get_world_space_transform(entity);
+
+        return Transform();
+    }
+
+    static bool is_within_local_light_range(
+        const Vec3& position,
+        const Vec3& camera_position,
+        const float max_distance)
+    {
+        return max_distance <= 0.0F || distance(position, camera_position) <= max_distance;
+    }
+
+    static LightingShaderData make_light_shader_data(
+        const RenderDrawData& draw_data,
+        const Vec3& ambient_color_sum,
+        const float ambient_intensity_sum,
+        const uint directional_light_count)
+    {
+        auto light_data = LightingShaderData();
+        light_data.light_meta.x = static_cast<int32>(draw_data.lighting.lights.size());
+        light_data.light_meta.y = static_cast<int32>(draw_data.shadows.count);
+
+        if (directional_light_count > 0U)
+        {
+            const Vec3 ambient_color =
+                ambient_color_sum * (1.0F / static_cast<float>(directional_light_count));
+            light_data.ambient_color = Vec4(ambient_color * ambient_intensity_sum, 1.0F);
+        }
+
+        for (uint light_index = 0U;
+             light_index < static_cast<uint>(draw_data.lighting.lights.size());
+             ++light_index)
+        {
+            const auto& light = draw_data.lighting.lights[static_cast<size>(light_index)];
+            light_data.lights[light_index] = ShaderLightData {
+                .position_type = Vec4(light.position, static_cast<float>(light.type)),
+                .direction_range = Vec4(light.direction, light.range),
+                .color_intensity =
+                    Vec4(light.color.r, light.color.g, light.color.b, light.intensity),
+                .params = Vec4(
+                    light.inner_cone,
+                    light.outer_cone,
+                    static_cast<float>(light.shadow_index),
+                    static_cast<float>(light.shadow_layer_count)),
+            };
+        }
+
+        return light_data;
+    }
+
+    static bool has_texture_slot(
+        const std::vector<GraphicsResourceBinding>& textures,
+        const uint32 slot)
+    {
+        return std::any_of(
+            textures.begin(),
+            textures.end(),
+            [slot](const GraphicsResourceBinding& texture)
+            {
+                return texture.slot == slot && texture.resource.is_valid();
+            });
+    }
+
+    static void append_fallback_texture(
+        RenderingResourceManager& resource_manager,
+        const uint32 binding_id,
+        std::vector<GraphicsResourceBinding>& textures)
+    {
+        const auto slot = resolve_shader_texture_slot(binding_id);
+        if (!slot.has_value() || has_texture_slot(textures, *slot))
+            return;
+
+        const auto texture = resource_manager.upload_fallback_texture(binding_id);
+        if (texture.resource.is_valid())
+            textures.push_back(texture);
+    }
+
+    static void append_pbr_fallback_textures(
+        RenderingResourceManager& resource_manager,
+        RenderingMaterialUploadData& material_upload)
+    {
+        append_fallback_texture(resource_manager, PARAM_ALBEDO_MAP, material_upload.textures);
+        append_fallback_texture(resource_manager, PARAM_NORMAL_MAP, material_upload.textures);
+        append_fallback_texture(
+            resource_manager,
+            PARAM_METALLIC_ROUGHNESS_MAP,
+            material_upload.textures);
+        append_fallback_texture(resource_manager, PARAM_AO_MAP, material_upload.textures);
+        append_fallback_texture(resource_manager, PARAM_EMISSIVE_MAP, material_upload.textures);
+    }
+
+    static Result upload_batch_material(
+        RenderingResourceManager& resource_manager,
+        const MaterialInstance& material,
+        RenderingMaterialUploadData& out_material)
+    {
+        const Result result = material.get_handle().is_valid()
+                                  ? resource_manager.upload_material(material, out_material)
+                                  : resource_manager.upload_fallback_material(out_material);
+        if (result)
+            append_pbr_fallback_textures(resource_manager, out_material);
+
+        return result;
+    }
+
+    static Result upload_batch_meshes(
+        RenderingResourceManager& resource_manager,
+        const RenderMesh& mesh,
+        std::vector<RenderingMeshUploadData>& out_meshes)
+    {
+        auto result = Result();
+        if (std::holds_alternative<StaticMesh>(mesh.data))
+        {
+            result = mesh.handle.is_valid() ? resource_manager.upload_model(mesh.handle, out_meshes)
+                                            : resource_manager.upload_fallback_mesh(out_meshes);
+        }
+        else
+        {
+            const auto& dynamic_mesh = std::get<DynamicMesh>(mesh.data);
+            const auto mesh_data = dynamic_mesh.get_data();
+            if (mesh_data && !dynamic_mesh.get_mesh().vertices.empty()
+                && !dynamic_mesh.get_mesh().indices.empty())
+            {
+                auto uploaded_mesh = RenderingMeshUploadData();
+                result = resource_manager.upload_dynamic_mesh(mesh_data, uploaded_mesh);
+                if (result)
+                    out_meshes.push_back(uploaded_mesh);
+            }
+            else
+            {
+                result = resource_manager.upload_fallback_mesh(out_meshes);
+            }
+        }
+
+        if (result && out_meshes.empty())
+            result = resource_manager.upload_fallback_mesh(out_meshes);
+
+        return result;
+    }
+
+    static Result append_batch_draws(
+        RenderingResourceManager& resource_manager,
+        const uint64 frame_index,
+        const GraphicsResourceBinding& frame_uniform,
+        const GraphicsResourceBinding& camera_uniform,
+        const GraphicsResourceBinding& light_uniform,
+        const RenderDrawData::BatchMap& batches,
+        RenderPass& render_pass)
+    {
+        for (const auto& [batch_key, batch] : batches)
+        {
+            if (batch.instances.empty())
+                continue;
+
+            auto material_upload = RenderingMaterialUploadData();
+            auto result = upload_batch_material(resource_manager, batch.material, material_upload);
+            if (!result)
+                return result;
+
+            // Object and instance data are uploaded together here so the batch stays CPU-friendly
+            // until it is converted into the backend draw contract.
+            const auto object_data = ObjectShaderData {
+                .model = batch.instances.front().model_matrix,
+                .normal_matrix = batch.instances.front().normal_matrix,
+            };
+            const auto object_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_OBJECT_DATA,
+                "Object Shader Data",
+                std::string("Toybox/Uniforms/Object/") + std::to_string(batch_key),
+                frame_index,
+                &object_data,
+                static_cast<uint64>(sizeof(object_data)));
+            const auto material_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_MATERIAL_DATA,
+                "Material Shader Data",
+                std::string("Toybox/Uniforms/Material/") + std::to_string(hash(batch.material)),
+                frame_index,
+                material_upload.uniform_values.data(),
+                static_cast<uint64>(material_upload.uniform_values.size() * sizeof(Vec4)));
+            const auto instance_buffer = resource_manager.upload_instance_buffer(
+                std::string("Toybox/Instances/") + std::to_string(batch_key),
+                frame_index,
+                batch.instances.data(),
+                static_cast<uint64>(batch.instances.size() * sizeof(RenderMeshInstance)));
+            if (!material_upload.pipeline.is_valid() || !object_uniform.resource.is_valid()
+                || !material_uniform.resource.is_valid() || !instance_buffer.resource.is_valid())
+            {
+                return Result(false, "Rendering pipeline failed: draw upload failed.");
+            }
+
+            auto uploaded_meshes = std::vector<RenderingMeshUploadData>();
+            result = upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
+            if (!result)
+                return result;
+
+            for (const auto& uploaded_mesh : uploaded_meshes)
+            {
+                render_pass.indexed_draws.push_back(
+                    GraphicsIndexedDrawCommand {
+                        .pipeline = material_upload.pipeline,
+                        .index_buffer = uploaded_mesh.index_buffer,
+                        .index_type = GraphicsIndexType::UINT32,
+                        .vertex_buffers =
+                            {
+                                GraphicsResourceBinding {
+                                    .slot = VERTEX_BUFFER_SLOT_MESH,
+                                    .resource = uploaded_mesh.vertex_buffer,
+                                },
+                                instance_buffer,
+                            },
+                        .uniform_buffers =
+                            {
+                                frame_uniform,
+                                camera_uniform,
+                                light_uniform,
+                                object_uniform,
+                                material_uniform,
+                            },
+                        .textures = material_upload.textures,
+                        .draw =
+                            GraphicsDrawIndexedDesc {
+                                .index_type = GraphicsIndexType::UINT32,
+                                .index_count = uploaded_mesh.index_count,
+                                .instance_count = static_cast<uint32>(batch.instances.size()),
+                            },
+                    });
+            }
+        }
+
+        return {};
+    }
+
+    static std::vector<RenderPass> create_passes(
+        const uint frame_index,
+        const FrameData& frame,
+        const GBuffer& gbuffer,
+        const RenderDrawData& draw_data,
+        RenderingResourceManager& resource_manager,
+        IGraphicsBackend& backend)
+    {
+        const auto fail = [&backend](const char* message) -> std::vector<RenderPass>
+        {
+            TBX_TRACE_ERROR_ONCE("Rendering pipeline pass creation failed: {}", message);
+            backend.end_frame();
+            return {};
+        };
+        const auto fail_result =
+            [&backend](const char* operation, const Result& result) -> std::vector<RenderPass>
+        {
+            TBX_TRACE_ERROR_ONCE(
+                "Rendering pipeline pass creation failed during {}: {}",
+                operation,
+                result.get_report());
+            backend.end_frame();
+            return {};
+        };
+
+        // Upload data
+        const auto light_shader_data = internal::make_light_shader_data(
+            draw_data,
+            draw_data.lighting.ambient_color_sum,
+            draw_data.lighting.ambient_intensity_sum,
+            draw_data.lighting.directional_light_count);
+
+        const auto frame_shader_data = FrameShaderData {
+            .time = frame.time,
+            .delta_time = frame.delta_time,
+            .viewport_size = Vec2(
+                static_cast<float>(frame.viewport.dimensions.width),
+                static_cast<float>(frame.viewport.dimensions.height)),
+        };
+        const auto camera_shader_data = CameraShaderData {
+            .view = frame.camera.view,
+            .projection = frame.camera.projection,
+            .view_projection = frame.camera.view_projection,
+            .inverse_view = frame.camera.inverse_view,
+            .inverse_projection = frame.camera.inverse_projection,
+            .world_position = Vec4(frame.camera.position, 1.0F),
+        };
+
+        const auto frame_uniform = resource_manager.upload_uniform_buffer(
+            BINDING_FRAME_DATA,
+            "Frame Shader Data",
+            "Toybox/Uniforms/Frame",
+            frame_index,
+            &frame_shader_data,
+            static_cast<uint64>(sizeof(frame_shader_data)));
+        const auto camera_uniform = resource_manager.upload_uniform_buffer(
+            BINDING_CAMERA_DATA,
+            "Camera Shader Data",
+            "Toybox/Uniforms/Camera",
+            frame_index,
+            &camera_shader_data,
+            static_cast<uint64>(sizeof(camera_shader_data)));
+        const auto light_uniform = resource_manager.upload_uniform_buffer(
+            BINDING_LIGHT_DATA,
+            "Light Shader Data",
+            "Toybox/Uniforms/Light",
+            frame_index,
+            &light_shader_data,
+            static_cast<uint64>(sizeof(light_shader_data)));
+        if (!frame_uniform.resource.is_valid() || !camera_uniform.resource.is_valid()
+            || !light_uniform.resource.is_valid())
+        {
+            return fail("frame, camera, or light uniform upload returned an invalid resource.");
+        }
+
+        // Sky Pass: Draws sky geometry into the final color target before scene lighting.
+        auto sky_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .color_targets = {gbuffer.final_color.resource},
+                    .clear_color = Color::BLACK,
+                    .clear_flags = GraphicsClearFlags::COLOR,
+                    .debug_name = "Toybox Skybox Pass",
+                },
+        };
+        if (draw_data.sky.material.get_handle().is_valid())
+        {
+            const auto sky_mesh_handle = draw_data.sky.type == SkyType::BOX
+                                             ? Handle("Toybox/SkyBox")
+                                             : Handle("Toybox/SkySphere");
+            const Mesh& sky_mesh = draw_data.sky.type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
+            auto uploaded_sky_mesh = RenderingMeshUploadData();
+            auto result = resource_manager.upload_static_runtime_mesh(
+                sky_mesh_handle,
+                sky_mesh,
+                uploaded_sky_mesh);
+            if (!result)
+                return fail_result("sky mesh upload", result);
+
+            auto sky_material_upload = RenderingMaterialUploadData();
+            result = resource_manager.upload_material(draw_data.sky.material, sky_material_upload);
+            if (!result)
+                return fail_result("sky material upload", result);
+            append_fallback_texture(
+                resource_manager,
+                PARAM_SKYBOX_TEXTURE,
+                sky_material_upload.textures);
+            append_fallback_texture(
+                resource_manager,
+                PARAM_SECONDARY_SKYBOX_TEXTURE,
+                sky_material_upload.textures);
+
+            const auto sky_instance = internal::RenderMeshInstance {};
+            const auto sky_instance_buffer = resource_manager.upload_instance_buffer(
+                "Toybox/Instances/Sky",
+                frame_index,
+                &sky_instance,
+                static_cast<uint64>(sizeof(sky_instance)));
+            const auto sky_material_uniform = resource_manager.upload_uniform_buffer(
+                BINDING_MATERIAL_DATA,
+                "Material Shader Data",
+                "Toybox/Uniforms/Material/Sky",
+                frame_index,
+                sky_material_upload.uniform_values.data(),
+                static_cast<uint64>(sky_material_upload.uniform_values.size() * sizeof(Vec4)));
+            if (!sky_instance_buffer.resource.is_valid()
+                || !sky_material_uniform.resource.is_valid())
+            {
+                return fail(
+                    "sky instance or material uniform upload returned an invalid resource.");
+            }
+
+            sky_pass.indexed_draws.push_back(
+                GraphicsIndexedDrawCommand {
+                    .pipeline = sky_material_upload.pipeline,
+                    .index_buffer = uploaded_sky_mesh.index_buffer,
+                    .index_type = GraphicsIndexType::UINT32,
+                    .vertex_buffers =
+                        {
+                            GraphicsResourceBinding {
+                                .slot = VERTEX_BUFFER_SLOT_MESH,
+                                .resource = uploaded_sky_mesh.vertex_buffer,
+                            },
+                            sky_instance_buffer,
+                        },
+                    .uniform_buffers =
+                        {
+                            frame_uniform,
+                            camera_uniform,
+                            light_uniform,
+                            sky_material_uniform,
+                        },
+                    .textures = sky_material_upload.textures,
+                    .draw =
+                        GraphicsDrawIndexedDesc {
+                            .index_type = GraphicsIndexType::UINT32,
+                            .index_count = uploaded_sky_mesh.index_count,
+                        },
+                });
+        }
+
+        // Opaque Pass: Draws opaque scene geometry into deferred shading targets and depth.
+        auto opaque_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .color_targets =
+                        {
+                            gbuffer.albedo.resource,
+                            gbuffer.normal.resource,
+                            gbuffer.material.resource,
+                            gbuffer.emissive.resource,
+                        },
+                    .depth_stencil_target = gbuffer.depth.resource,
+                    .clear_color = Color::BLACK,
+                    .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
+                    .debug_name = "Toybox Opaque Pass",
+                },
+        };
+        auto result = internal::append_batch_draws(
+            resource_manager,
+            frame_index,
+            frame_uniform,
+            camera_uniform,
+            light_uniform,
+            draw_data.opaque_batches,
+            opaque_pass);
+        if (!result)
+            return fail_result("opaque batch draw upload", result);
+
+        // Alpha Cutout Pass: Reserved for alpha-tested geometry that should write deferred targets
+        // with depth.
+        auto alpha_cutout_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .clear_flags = GraphicsClearFlags::NONE,
+                    .debug_name = "Toybox Alpha Cutout Scene Pass",
+                },
+        };
+
+        // Transparent Pass: Draws alpha-blended geometry forward over the lit scene color.
+        auto transparent_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .color_targets = {gbuffer.final_color.resource},
+                    .depth_stencil_target = gbuffer.depth.resource,
+                    .clear_flags = GraphicsClearFlags::NONE,
+                    .debug_name = "Toybox Transparent Forward Pass",
+                },
+        };
+        result = internal::append_batch_draws(
+            resource_manager,
+            frame_index,
+            frame_uniform,
+            camera_uniform,
+            light_uniform,
+            draw_data.transparent_batches,
+            transparent_pass);
+        if (!result)
+            return fail_result("transparent batch draw upload", result);
+
+        // Lighting Pass: Computes deferred lighting from the GBuffer into the final color target.
+        auto lighting_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .color_targets = {gbuffer.final_color.resource},
+                    .clear_color = Color::BLACK,
+                    .clear_flags = GraphicsClearFlags::NONE,
+                    .debug_name = "Toybox Deferred Lighting Pass",
+                },
+        };
+        auto lighting_material = RenderingMaterialUploadData();
+        result = resource_manager.upload_material(
+            MaterialInstance(tbx::DeferredLightingMaterial::HANDLE),
+            lighting_material);
+        if (!result)
+            return fail_result("deferred lighting material upload", result);
+        lighting_pass.draws.push_back(
+            GraphicsDrawCommand {
+                .pipeline = lighting_material.pipeline,
+                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
+                .textures =
+                    {
+                        gbuffer.albedo,
+                        gbuffer.normal,
+                        gbuffer.material,
+                        gbuffer.emissive,
+                        gbuffer.depth,
+                    },
+                .vertex_count = 3U,
+            });
+
+        // Post Process Pass: Applies fullscreen post processing from final color to the current
+        // frame target.
+        auto post_process_pass = RenderPass {
+            .desc =
+                GraphicsPassDesc {
+                    .clear_color = Color::BLACK,
+                    .clear_flags = GraphicsClearFlags::COLOR,
+                    .debug_name = "Toybox Post Process Pass",
+                },
+        };
+        auto post_material = RenderingMaterialUploadData();
+        result = resource_manager.upload_material(
+            MaterialInstance(tbx::TonemapPostMaterial::HANDLE),
+            post_material);
+        if (!result)
+            return fail_result("post process material upload", result);
+        post_process_pass.draws.push_back(
+            GraphicsDrawCommand {
+                .pipeline = post_material.pipeline,
+                .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
+                .textures = {gbuffer.final_color},
+                .vertex_count = 3U,
+            });
+
+        // Create pass list and return
+        auto passes = std::vector<RenderPass>(6);
+        passes.push_back(std::move(sky_pass));
+        passes.push_back(std::move(opaque_pass));
+        passes.push_back(std::move(alpha_cutout_pass));
+        passes.push_back(std::move(transparent_pass));
+        passes.push_back(std::move(lighting_pass));
+        passes.push_back(std::move(post_process_pass));
+        return passes;
+    }
+
+    static RenderDrawData create_draw_data(
+        const EntityRegistry& entity_registry,
+        const Vec3& camera_position,
+        AssetManager& asset_manager,
+        const float local_light_max_distance)
+    {
+        auto draw_data = RenderDrawData();
+
+        for (auto& entity : entity_registry.get_with<Sky>())
+        {
+            draw_data.sky = entity.get_component<Sky>();
+            if (!draw_data.sky.material.get_handle().is_valid())
+                draw_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
+
+            const Color clear_color =
+                draw_data.sky.material.get_parameter_or(TexturedSkyMaterial::COLOR, Color::BLACK);
+            draw_data.clear_color = clear_color;
+
+            // TODO: Warn if there is more than one sky, and say picking first found as only one is
+            // supported.
+            break;
+        }
+
+        for (auto& entity : entity_registry.get_with<DirectionalLight>())
+        {
+            const auto& light = entity.get_component<DirectionalLight>();
+            const Transform transform = get_optional_transform(entity);
+            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+            const int32 shadow_index = reserve_shadow_index(
+                draw_data.lighting.shadow_layer_count,
+                light.cast_shadows,
+                DIRECTIONAL_SHADOW_CASCADE_COUNT);
+
+            draw_data.lighting.ambient_color_sum +=
+                Vec3(light.color.r, light.color.g, light.color.b);
+            draw_data.lighting.ambient_intensity_sum += light.ambient;
+            ++draw_data.lighting.directional_light_count;
+
+            append_light(
+                draw_data,
+                RenderLight {
+                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL),
+                    .color = light.color,
+                    .intensity = light.intensity,
+                    .shadow_index = shadow_index,
+                    .shadow_layer_count = shadow_index >= 0 ? DIRECTIONAL_SHADOW_CASCADE_COUNT : 0U,
+                    .direction = direction,
+                });
+        }
+
+        for (auto& entity : entity_registry.get_with<PointLight>())
+        {
+            const auto& light = entity.get_component<PointLight>();
+            const Transform transform = get_optional_transform(entity);
+            if (!is_within_local_light_range(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+                continue;
+
+            const int32 shadow_index =
+                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            append_light(
+                draw_data,
+                RenderLight {
+                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
+                    .color = light.color,
+                    .intensity = light.intensity,
+                    .shadow_index = shadow_index,
+                    .shadow_layer_count = shadow_index >= 0 ? 1U : 0U,
+                    .position = transform.position,
+                    .range = light.range,
+                });
+        }
+
+        for (auto& entity : entity_registry.get_with<SpotLight>())
+        {
+            const auto& light = entity.get_component<SpotLight>();
+            const Transform transform = get_optional_transform(entity);
+            if (!is_within_local_light_range(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+                continue;
+
+            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
+            const int32 shadow_index =
+                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            append_light(
+                draw_data,
+                RenderLight {
+                    .type =
+                        static_cast<uint>(SHADER_LIGHT_TYPE_SPOT), // TODO: Convert types to ints
+                    .color = light.color,
+                    .intensity = light.intensity,
+                    .inner_cone = angle_to_cosine(light.inner_angle),
+                    .outer_cone = angle_to_cosine(light.outer_angle),
+                    .shadow_index = shadow_index,
+                    .shadow_layer_count = shadow_index >= 0 ? 1U : 0U,
+                    .position = transform.position,
+                    .direction = direction,
+                    .range = light.range,
+                });
+        }
+
+        for (auto& entity : entity_registry.get_with<AreaLight>())
+        {
+            const auto& light = entity.get_component<AreaLight>();
+            const Transform transform = get_optional_transform(entity);
+            if (!is_within_local_light_range(
+                    transform.position,
+                    camera_position,
+                    local_light_max_distance))
+                continue;
+
+            const int32 shadow_index =
+                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            append_light(
+                draw_data,
+                RenderLight {
+                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
+                    .color = light.color,
+                    .intensity = light.intensity,
+                    .shadow_index = shadow_index,
+                    .shadow_layer_count = shadow_index >= 0 ? 1U : 0U,
+                    .position = transform.position,
+                    .range = light.range,
+                });
+        }
+
+        draw_data.shadows.count = draw_data.lighting.shadow_layer_count;
+
+        for (auto& entity : entity_registry.get_with<StaticMesh>())
+        {
+            const auto& static_mesh = entity.get_component<StaticMesh>();
+            const MaterialInstance material = entity.has_component<MaterialInstance>()
+                                                  ? entity.get_component<MaterialInstance>()
+                                                  : MaterialInstance();
+            const MaterialConfig config = resolve_draw_material_config(asset_manager, material);
+            const uint64 material_key = hash(material);
+            const Transform transform = get_optional_transform(entity);
+            const Mat4 model_matrix = build_transform_matrix(transform);
+            const auto mesh = RenderMesh {
+                .handle = static_mesh.handle,
+                .data = static_mesh,
+            };
+            auto& batches = config.blend_mode == MaterialBlendMode::ALPHA_BLEND
+                                ? draw_data.transparent_batches
+                                : draw_data.opaque_batches;
+            append_batch(
+                batches,
+                make_batch_hash(static_mesh.handle.get_id(), nullptr, material_key),
+                mesh,
+                material,
+                RenderMeshInstance {
+                    .model_matrix = model_matrix,
+                    .normal_matrix = normal(model_matrix),
+                });
+        }
+
+        for (auto& entity : entity_registry.get_with<DynamicMesh>())
+        {
+            const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
+            const auto mesh_data = dynamic_mesh.get_data();
+            const MaterialInstance material = entity.has_component<MaterialInstance>()
+                                                  ? entity.get_component<MaterialInstance>()
+                                                  : MaterialInstance();
+            const MaterialConfig config = resolve_draw_material_config(asset_manager, material);
+            const uint64 material_key = hash(material);
+            const Transform transform = get_optional_transform(entity);
+            const Mat4 model_matrix = build_transform_matrix(transform);
+            const auto mesh = RenderMesh {
+                .handle = Handle(
+                    "Toybox/DynamicMesh_"
+                    + std::to_string(std::hash<DynamicMeshData*> {}(mesh_data.get()))),
+                .data = dynamic_mesh,
+            };
+            auto& batches = config.blend_mode == MaterialBlendMode::ALPHA_BLEND
+                                ? draw_data.transparent_batches
+                                : draw_data.opaque_batches;
+            append_batch(
+                batches,
+                make_batch_hash(
+                    Uuid(static_cast<uint32>(reinterpret_cast<std::uintptr_t>(mesh_data.get()))),
+                    mesh_data.get(),
+                    material_key),
+                mesh,
+                material,
+                RenderMeshInstance {
+                    .model_matrix = model_matrix,
+                    .normal_matrix = normal(model_matrix),
+                });
+        }
+
+        return draw_data;
     }
 
     static Result execute_draw_command(
@@ -220,7 +1013,9 @@ namespace tbx::internal
         return backend.draw_indexed(command.draw);
     }
 
-    static Result execute(IGraphicsBackend& backend, const std::vector<RenderPass>& render_passes)
+    static Result execute_passes(
+        IGraphicsBackend& backend,
+        const std::vector<RenderPass>& render_passes)
     {
         for (const auto& render_pass : render_passes)
         {
@@ -256,7 +1051,7 @@ namespace tbx::internal
         return {};
     }
 
-    FrameData create_frame_data(
+    static FrameData create_frame_data(
         const uint frame,
         const DeltaTime delta_time,
         const float elapsed_time,
@@ -264,14 +1059,15 @@ namespace tbx::internal
         const EntityRegistry& entity_registry,
         const IWindowManager& window_manager)
     {
-        static float s_elapsed_time = 0;
-
         auto render_camera = Camera();
         auto cam_transform = Transform();
-        for (auto& entity : entity_registry.get_with<Camera, Transform>())
+        for (auto& entity : entity_registry.get_with<Camera>())
         {
             render_camera = entity.get_component<Camera>();
-            cam_transform = get_world_space_transform(entity);
+            // Cameras without a Transform render from identity so authoring transform-less test
+            // scenes still produces deterministic frame data.
+            if (entity.has_component<Transform>())
+                cam_transform = get_world_space_transform(entity);
             break;
         }
 
@@ -288,9 +1084,9 @@ namespace tbx::internal
         if (render_resolution.width == 0U || render_resolution.height == 0U)
             render_resolution = target_resolution;
 
-        Viewport render_viewport = {{0, 0}, render_resolution};
+        auto render_viewport = Viewport {Vec2(0.0F), render_resolution};
         auto cam_viewport = render_camera.get_viewport();
-        if (cam_viewport.is_zero())
+        if (!cam_viewport.is_zero())
             render_viewport = cam_viewport;
 
         render_camera.set_aspect(render_resolution.get_aspect_ratio());
@@ -303,6 +1099,7 @@ namespace tbx::internal
             .index = frame,
             .time = elapsed_time,
             .delta_time = static_cast<float>(delta_time.seconds),
+            .resolution = render_resolution,
             .viewport = render_viewport,
             .target = render_target,
             .camera =
@@ -314,624 +1111,7 @@ namespace tbx::internal
                     .inverse_view = inverse(cam_view_matrix),
                     .inverse_projection = inverse(cam_projection_matrix),
                 },
-
         };
-    }
-
-    static std::string make_batch_debug_name(const uint64 batch_key, const std::string& prefix)
-    {
-        return prefix + std::to_string(batch_key);
-    }
-
-    static MaterialInstance make_sky_material_instance(const Sky& sky)
-    {
-        auto material = sky.material;
-        if (!material.get_handle().is_valid())
-            material.material = TexturedSkyMaterial::HANDLE;
-
-        return material;
-    }
-
-    static const Handle& get_sky_mesh_handle(const SkyType type)
-    {
-        static const auto box_handle = Handle("Toybox/SkyBox");
-        static const auto sphere_handle = Handle("Toybox/SkySphere");
-        return type == SkyType::BOX ? box_handle : sphere_handle;
-    }
-
-    static const Mesh& get_sky_mesh(const SkyType type)
-    {
-        return type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
-    }
-
-    static Vec3 make_light_color(const Light& light)
-    {
-        return Vec3(light.color.r, light.color.g, light.color.b);
-    }
-
-    static bool is_within_distance_limit(
-        const Vec3& source,
-        const Vec3& target,
-        const float max_distance)
-    {
-        return max_distance <= 0.0F || distance(source, target) <= max_distance;
-    }
-
-    static Vec3 make_shadow_up_vector(const Vec3& direction)
-    {
-        return std::abs(dot(direction, Vec3(0.0F, 1.0F, 0.0F))) > 0.95F ? Vec3(0.0F, 0.0F, 1.0F)
-                                                                        : Vec3(0.0F, 1.0F, 0.0F);
-    }
-
-    static float reserve_shadow_index(
-        int32& shadow_count,
-        const bool casts_shadows,
-        const uint32 shadow_layer_count)
-    {
-        if (!casts_shadows || shadow_layer_count == 0U
-            || static_cast<uint32>(shadow_count) + shadow_layer_count > MAX_LIGHTS)
-        {
-            return -1.0F;
-        }
-
-        const float shadow_index = static_cast<float>(shadow_count);
-        shadow_count += static_cast<int32>(shadow_layer_count);
-        return shadow_index;
-    }
-
-    static float make_shadow_layer_count(const float shadow_index, const uint32 layer_count)
-    {
-        return shadow_index >= 0.0F ? static_cast<float>(layer_count) : 0.0F;
-    }
-
-    static void append_shadow_caster(
-        ShadowPassShaderData& shadow_data,
-        const Mat4& light_view_projection,
-        const Vec4& light_direction,
-        const float shadow_depth_bias,
-        const float shadow_normal_bias,
-        const float shadow_strength,
-        const float shadow_slope_bias,
-        const Vec4& shadow_extra_params)
-    {
-        const int32 shadow_index = shadow_data.shadow_meta.x;
-        if (shadow_index < 0 || static_cast<uint32>(shadow_index) >= MAX_LIGHTS)
-            return;
-
-        shadow_data.light_view_projections[static_cast<size>(shadow_index)] = light_view_projection;
-        shadow_data.light_directions[static_cast<size>(shadow_index)] = light_direction;
-        shadow_data.shadow_params[static_cast<size>(shadow_index)] =
-            Vec4(shadow_depth_bias, shadow_normal_bias, shadow_strength, shadow_slope_bias);
-        shadow_data.shadow_extra_params[static_cast<size>(shadow_index)] = shadow_extra_params;
-        shadow_data.shadow_meta.x = shadow_index + 1;
-    }
-
-    static void append_shader_light(
-        LightShaderData& light_data,
-        const ShaderLightData& shader_light)
-    {
-        const int32 light_count = light_data.light_meta.x;
-        if (light_count < 0 || static_cast<uint32>(light_count) >= MAX_LIGHTS)
-            return;
-
-        light_data.lights[static_cast<size>(light_count)] = shader_light;
-        light_data.light_meta.x = light_count + 1;
-    }
-
-    static LightShaderData build_light_shader_data(
-        EntityRegistry& entity_registry,
-        const Vec3& camera_position,
-        const float local_light_max_distance)
-    {
-        auto light_data = LightShaderData();
-        auto ambient_color_sum = Vec3(0.0F);
-        auto ambient_intensity_sum = 0.0F;
-        auto directional_light_count = 0U;
-        auto shadow_count = int32 {};
-
-        for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
-        {
-            const auto& light = entity.get_component<DirectionalLight>();
-            const Transform transform = get_world_space_transform(entity);
-            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const Vec3 color = make_light_color(light);
-            const float shadow_index = reserve_shadow_index(
-                shadow_count,
-                light.cast_shadows,
-                DIRECTIONAL_SHADOW_CASCADE_COUNT);
-
-            ambient_color_sum += color;
-            ambient_intensity_sum += light.ambient;
-            ++directional_light_count;
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(0.0F, 0.0F, 0.0F, SHADER_LIGHT_TYPE_DIRECTIONAL),
-                    .direction_range = Vec4(direction, 0.0F),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        0.0F,
-                        0.0F,
-                        shadow_index,
-                        make_shadow_layer_count(shadow_index, DIRECTIONAL_SHADOW_CASCADE_COUNT)),
-                });
-        }
-
-        for (auto& entity : entity_registry.get_with<PointLight, Transform>())
-        {
-            const auto& light = entity.get_component<PointLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 color = make_light_color(light);
-            const float shadow_index = reserve_shadow_index(shadow_count, light.cast_shadows, 1U);
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
-                    .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params =
-                        Vec4(0.0F, 0.0F, shadow_index, make_shadow_layer_count(shadow_index, 1U)),
-                });
-        }
-
-        for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
-        {
-            const auto& light = entity.get_component<SpotLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const Vec3 color = make_light_color(light);
-            const float shadow_index = reserve_shadow_index(shadow_count, light.cast_shadows, 1U);
-
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_SPOT),
-                    .direction_range = Vec4(direction, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params = Vec4(
-                        angle_to_cosine(light.inner_angle),
-                        angle_to_cosine(light.outer_angle),
-                        shadow_index,
-                        make_shadow_layer_count(shadow_index, 1U)),
-                });
-        }
-
-        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
-        {
-            const auto& light = entity.get_component<AreaLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 color = make_light_color(light);
-            const float shadow_index = reserve_shadow_index(shadow_count, light.cast_shadows, 1U);
-            append_shader_light(
-                light_data,
-                ShaderLightData {
-                    .position_type = Vec4(transform.position, SHADER_LIGHT_TYPE_POINT),
-                    .direction_range = Vec4(0.0F, 0.0F, 0.0F, light.range),
-                    .color_intensity = Vec4(color, light.intensity),
-                    .params =
-                        Vec4(0.0F, 0.0F, shadow_index, make_shadow_layer_count(shadow_index, 1U)),
-                });
-        }
-
-        light_data.light_meta.y = shadow_count;
-        if (directional_light_count > 0U)
-        {
-            const Vec3 ambient_color =
-                ambient_color_sum * (1.0F / static_cast<float>(directional_light_count));
-            light_data.ambient_color = Vec4(ambient_color * ambient_intensity_sum, 1.0F);
-        }
-
-        return light_data;
-    }
-
-    static CascadeSplitCollection build_directional_shadow_cascade_splits(
-        const Camera& camera,
-        const float shadow_distance)
-    {
-        auto splits = CascadeSplitCollection {};
-        const float near_plane = std::max(camera.get_z_near(), 0.1F);
-        const float far_plane =
-            std::max(near_plane + 1.0F, std::min(camera.get_z_far(), shadow_distance));
-        const float split_lambda = 0.6F;
-        auto previous_split = near_plane;
-
-        for (uint32 index = 0U; index < DIRECTIONAL_SHADOW_CASCADE_COUNT; ++index)
-        {
-            const float split_progress = static_cast<float>(index + 1U)
-                                         / static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT);
-            const float uniform_split = near_plane + (far_plane - near_plane) * split_progress;
-            const float logarithmic_split =
-                near_plane * std::pow(far_plane / near_plane, split_progress);
-            const float split_distance =
-                uniform_split * (1.0F - split_lambda) + logarithmic_split * split_lambda;
-
-            splits[index] = Vec2(previous_split, split_distance);
-            previous_split = split_distance;
-        }
-
-        splits[DIRECTIONAL_SHADOW_CASCADE_COUNT - 1U].y = far_plane;
-        return splits;
-    }
-
-    static FrustumCornerCollection build_frustum_corners(
-        const Camera& camera,
-        const Transform& camera_transform,
-        const float split_near,
-        const float split_far)
-    {
-        const Vec3 camera_position = camera_transform.position;
-        const Vec3 forward = normalize_or_zero(camera_transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-        const Vec3 right = normalize_or_zero(camera_transform.rotation * Vec3(1.0F, 0.0F, 0.0F));
-        const Vec3 up = normalize_or_zero(camera_transform.rotation * Vec3(0.0F, 1.0F, 0.0F));
-
-        auto corners = FrustumCornerCollection {};
-        const auto append_plane_corners =
-            [&camera, &camera_position, &forward, &right, &up, &corners](
-                const float distance_from_camera,
-                const uint32 corner_offset)
-        {
-            float half_height = camera.get_fov() * 0.5F;
-            if (camera.is_perspective())
-            {
-                half_height = std::tan(to_radians(camera.get_fov()) * 0.5F) * distance_from_camera;
-            }
-
-            const float half_width = half_height * camera.get_aspect();
-            const Vec3 center = camera_position + forward * distance_from_camera;
-            corners[corner_offset] = center - right * half_width - up * half_height;
-            corners[corner_offset + 1U] = center + right * half_width - up * half_height;
-            corners[corner_offset + 2U] = center + right * half_width + up * half_height;
-            corners[corner_offset + 3U] = center - right * half_width + up * half_height;
-        };
-
-        append_plane_corners(split_near, 0U);
-        append_plane_corners(split_far, 4U);
-        return corners;
-    }
-
-    static Mat4 build_directional_shadow_view_projection(
-        const FrustumCornerCollection& corners,
-        const Vec3& direction,
-        const uint32 shadow_map_resolution)
-    {
-        auto center = Vec3(0.0F);
-        for (const Vec3& corner : corners)
-            center += corner;
-
-        center *= 1.0F / static_cast<float>(corners.size());
-
-        auto radius = 0.0F;
-        for (const Vec3& corner : corners)
-        {
-            const Vec3 offset = corner - center;
-            radius = std::max(radius, std::sqrt(dot(offset, offset)));
-        }
-
-        const float half_extent = std::max(radius * 1.05F, 1.0F);
-        const float light_distance = half_extent * 2.0F;
-        const Vec3 light_position = center - direction * light_distance;
-        const Mat4 view = look_at(light_position, center, make_shadow_up_vector(direction));
-        Vec3 min_bounds = Vec3(view * Vec4(corners[0U], 1.0F));
-        Vec3 max_bounds = min_bounds;
-
-        for (const Vec3& corner : corners)
-        {
-            const Vec3 light_space_corner = Vec3(view * Vec4(corner, 1.0F));
-            min_bounds.x = std::min(min_bounds.x, light_space_corner.x);
-            min_bounds.y = std::min(min_bounds.y, light_space_corner.y);
-            min_bounds.z = std::min(min_bounds.z, light_space_corner.z);
-            max_bounds.x = std::max(max_bounds.x, light_space_corner.x);
-            max_bounds.y = std::max(max_bounds.y, light_space_corner.y);
-            max_bounds.z = std::max(max_bounds.z, light_space_corner.z);
-        }
-
-        const float bounds_width = max_bounds.x - min_bounds.x;
-        const float bounds_height = max_bounds.y - min_bounds.y;
-        const float snapped_half_extent =
-            std::max(std::max(bounds_width, bounds_height) * 0.525F, half_extent);
-        const float texel_size =
-            (snapped_half_extent * 2.0F) / static_cast<float>(std::max(shadow_map_resolution, 1U));
-        const Vec2 bounds_center =
-            Vec2((min_bounds.x + max_bounds.x) * 0.5F, (min_bounds.y + max_bounds.y) * 0.5F);
-        const Vec2 snapped_center = Vec2(
-            std::floor(bounds_center.x / texel_size) * texel_size,
-            std::floor(bounds_center.y / texel_size) * texel_size);
-        const float z_margin = std::max(snapped_half_extent * 0.5F, 2.0F);
-        const float z_near = std::max(0.1F, -max_bounds.z - z_margin);
-        const float z_far = std::max(z_near + 1.0F, -min_bounds.z + z_margin);
-        const Mat4 projection = ortho_projection(
-            snapped_center.x - snapped_half_extent,
-            snapped_center.x + snapped_half_extent,
-            snapped_center.y - snapped_half_extent,
-            snapped_center.y + snapped_half_extent,
-            z_near,
-            z_far);
-
-        return projection * view;
-    }
-
-    static ShadowCascades build_shadow_shader_data(
-        EntityRegistry& entity_registry,
-        const Camera& camera,
-        const Transform& camera_transform,
-        const float shadow_render_distance,
-        const float shadow_softness,
-        const float local_light_max_distance,
-        const uint32 shadow_map_resolution)
-    {
-        auto shadow_data = ShadowCascades();
-        const float shadow_distance = std::max(shadow_render_distance, 1.0F);
-        const Vec3 camera_position = camera_transform.position;
-        const auto cascade_splits =
-            build_directional_shadow_cascade_splits(camera, shadow_distance);
-
-        for (auto& entity : entity_registry.get_with<DirectionalLight, Transform>())
-        {
-            const auto& light = entity.get_component<DirectionalLight>();
-            if (!light.cast_shadows
-                || static_cast<uint32>(shadow_data.shadow_meta.x) + DIRECTIONAL_SHADOW_CASCADE_COUNT
-                       > MAX_LIGHTS)
-            {
-                continue;
-            }
-
-            const Transform transform = get_world_space_transform(entity);
-            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            for (uint32 cascade_index = 0U; cascade_index < DIRECTIONAL_SHADOW_CASCADE_COUNT;
-                 ++cascade_index)
-            {
-                const Vec2 split = cascade_splits[cascade_index];
-                const float blend_width = std::min((split.y - split.x) * 0.15F, 8.0F);
-                const float blend_start = cascade_index + 1U < DIRECTIONAL_SHADOW_CASCADE_COUNT
-                                              ? std::max(split.x, split.y - blend_width)
-                                              : split.y;
-                const auto corners =
-                    build_frustum_corners(camera, camera_transform, split.x, split.y);
-
-                append_shadow_caster(
-                    shadow_data,
-                    build_directional_shadow_view_projection(
-                        corners,
-                        direction,
-                        shadow_map_resolution),
-                    Vec4(direction, 0.0F),
-                    0.002F,
-                    0.04F,
-                    0.75F,
-                    0.003F,
-                    Vec4(
-                        split.x,
-                        split.y,
-                        blend_start,
-                        static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT)));
-            }
-        }
-
-        for (auto& entity : entity_registry.get_with<PointLight, Transform>())
-        {
-            const auto& light = entity.get_component<PointLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            Vec3 direction = normalize_or_zero(camera_position - transform.position);
-            if (dot(direction, direction) <= 0.0001F)
-                direction = Vec3(0.0F, -1.0F, 0.0F);
-
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection = perspective_projection(to_radians(90.0F), 1.0F, 0.1F, range);
-
-            append_shadow_caster(
-                shadow_data,
-                projection * view,
-                Vec4(direction, 0.0F),
-                0.003F,
-                0.04F,
-                0.85F,
-                0.005F,
-                Vec4(0.0F, range, range, 1.0F));
-            (void)shadow_softness;
-        }
-
-        for (auto& entity : entity_registry.get_with<SpotLight, Transform>())
-        {
-            const auto& light = entity.get_component<SpotLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection = perspective_projection(
-                to_radians(std::max(light.outer_angle * 2.0F, 1.0F)),
-                1.0F,
-                0.1F,
-                range);
-
-            append_shadow_caster(
-                shadow_data,
-                projection * view,
-                Vec4(direction, 0.0F),
-                0.003F,
-                0.04F,
-                0.85F,
-                0.005F,
-                Vec4(0.0F, range, range, 1.0F));
-            (void)shadow_softness;
-        }
-
-        for (auto& entity : entity_registry.get_with<AreaLight, Transform>())
-        {
-            const auto& light = entity.get_component<AreaLight>();
-            const Transform transform = get_world_space_transform(entity);
-            if (!light.cast_shadows
-                || !is_within_distance_limit(
-                    transform.position,
-                    camera_position,
-                    local_light_max_distance))
-            {
-                continue;
-            }
-
-            const Vec3 direction = Vec3(0.0F, -1.0F, 0.0F);
-            const float range = std::max(light.range, 1.0F);
-            const Mat4 view = look_at(
-                transform.position,
-                transform.position + direction,
-                make_shadow_up_vector(direction));
-            const Mat4 projection =
-                ortho_projection(-range, range, -range, range, 0.1F, range * 2.0F);
-
-            append_shadow_caster(
-                shadow_data,
-                projection * view,
-                Vec4(direction, 0.0F),
-                0.003F,
-                0.04F,
-                0.85F,
-                0.005F,
-                Vec4(0.0F, range * 2.0F, range * 2.0F, 1.0F));
-            (void)shadow_softness;
-        }
-
-        return shadow_data;
-    }
-
-    static const MaterialRenderClassification& resolve_material_render_classification(
-        const MaterialInstance& material,
-        const uint64 material_key,
-        const ResourceUploader& resource_uploader,
-        MaterialRenderClassificationCache& cache)
-    {
-        const auto cached_classification = cache.classifications.find(material_key);
-        if (cached_classification != cache.classifications.end())
-        {
-#if defined(TBX_ENABLE_VERBOSE)
-            if (active_render_metrics)
-                ++active_render_metrics->material_config_cache_hit_count;
-#endif
-            return cached_classification->second;
-        }
-
-        const MaterialConfig config = resource_uploader.get_material_config(material);
-#if defined(TBX_ENABLE_VERBOSE)
-        if (active_render_metrics)
-            ++active_render_metrics->material_config_cache_miss_count;
-#endif
-        const auto [classification, _] = cache.classifications.emplace(
-            material_key,
-            MaterialRenderClassification {
-                .config = config,
-                .is_transparent = config.blend_mode == MaterialBlendMode::ALPHA_BLEND,
-            });
-        return classification->second;
-    }
-
-    static bool should_material_cast_shadows(
-        const MaterialRenderClassification& classification,
-        const Vec3& position,
-        const Vec3& camera_position,
-        const float shadow_caster_max_distance)
-    {
-        if (classification.config.shadow_mode == ShadowMode::NONE)
-            return false;
-        if (classification.config.shadow_mode == ShadowMode::ALWAYS)
-            return true;
-
-        return is_within_distance_limit(position, camera_position, shadow_caster_max_distance);
-    }
-
-    static bool should_material_use_transparent_pass(
-        const MaterialRenderClassification& classification)
-    {
-        return classification.is_transparent;
-    }
-
-    static void append_render_batch_instance(
-        RenderBatchCollection& batches,
-        const uint64 batch_key,
-        const RenderingMeshSourceType mesh_source,
-        const uint64 material_key,
-        const Handle& mesh_handle,
-        const std::shared_ptr<DynamicMeshData>& dynamic_mesh,
-        const MaterialInstance& material,
-        const RenderingDrawInstanceData& instance)
-    {
-        auto& batch = batches[batch_key];
-        if (batch.instances.empty())
-        {
-            batch.batch_key = batch_key;
-            batch.mesh_source = mesh_source;
-            batch.material_key = material_key;
-            batch.mesh_handle = mesh_handle;
-            batch.dynamic_mesh = dynamic_mesh;
-            batch.material = material;
-        }
-
-        batch.instances.push_back(instance);
-    }
-
-    static bool has_draw_commands(const RenderPass& render_pass)
-    {
-        return !render_pass.draws.empty() || !render_pass.indexed_draws.empty();
-    }
-
-    static MaterialInstance make_forward_material(MaterialInstance material)
-    {
-        const Handle& handle = material.get_handle();
-        if (!handle.is_valid() || handle.get_id() == PbrMaterial::HANDLE.get_id()
-            || handle.get_name() == "Materials/Pbr.mat")
-        {
-            material.material = Handle("Materials/ForwardPbr.mat");
-        }
-
-        return material;
     }
 
     static GraphicsTextureDesc make_deferred_color_target_desc(
@@ -963,106 +1143,8 @@ namespace tbx::internal
         };
     }
 
-    static Result upload_frame_uniform_buffers(
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        const uint64 frame_index,
-        const FrameShaderData& frame_shader_data,
-        const CameraShaderData& camera_shader_data,
-        const LightShaderData& light_shader_data,
-        FrameUniformBindings& out_uniforms)
-    {
-        // Every pass reads the same frame, camera, and light constants. Upload them once and
-        // pass the bindings through each later pipeline stage.
-        out_uniforms.buffers =
-
-            if (!out_uniforms.buffers[0U].resource.is_valid()
-                || !out_uniforms.buffers[1U].resource.is_valid()
-                || !out_uniforms.buffers[2U].resource.is_valid())
-        {
-            return Result(false, "Frame pipeline factory failed: frame uniform upload failed.");
-        }
-
-        return {};
-    }
-
-    static Result create_shadow_maps(
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        const uint64 frame_index,
-        const uint32 shadow_resolution,
-        const uint32 shadow_cascades,
-        std::array<Vec4, MAX_LIGHTS>& shadow_params,
-        std::array<Vec4, MAX_LIGHTS>& shadow_extra_param,
-        std::array<Mat4, MAX_LIGHTS>& light_view_projections,
-        std::array<Vec4, MAX_LIGHTS>& light_directions,
-        ShadowCascades& out_maps)
-    {
-        // Shadow passes render first so the lighting and transparent passes can sample the shadow
-        // map. A single dummy shadow uniform is still uploaded when no light casts shadows because
-        // downstream materials expect the binding slot to exist.
-        const bool has_shadowed_light = out_maps.count > 0U;
-        const uint32 shadow_layer_count = has_shadowed_light ? shadow_cascades : 0U;
-        const uint32 shadow_uniform_upload_count = std::max(shadow_cascades, 1U);
-
-        out_maps.count = shadow_layer_count;
-        out_maps.buffers.clear();
-        out_maps.buffers.reserve(shadow_uniform_upload_count);
-
-        for (uint32 shadow_index = 0U; shadow_index < shadow_uniform_upload_count; ++shadow_index)
-        {
-            auto shadow_pass_data = ShadowShaderData {
-
-            };
-
-            shadow_pass_data.shadow_meta.y = static_cast<int32>(shadow_index);
-            const GraphicsResourceBinding shadow_pass_uniform_buffer =
-                resource_uploader.upload_uniform_buffer(
-                    resource_tracker,
-                    BINDING_SHADOW_PASS_DATA,
-                    "Shadow Pass Shader Data",
-                    std::string("Toybox/Uniforms/ShadowPass/") + std::to_string(shadow_index),
-                    frame_index,
-                    &shadow_pass_data,
-                    static_cast<uint64>(sizeof(shadow_pass_data)));
-            if (!shadow_pass_uniform_buffer.resource.is_valid())
-            {
-                return Result(
-                    false,
-                    "Frame pipeline factory failed: shadow uniform upload failed.");
-            }
-
-            out_maps.buffers.push_back(shadow_pass_uniform_buffer);
-        }
-
-        const uint32 shadow_resolution = std::max(shadow_resolution, 1U);
-        out_maps.map =
-            has_shadowed_light
-                ? resource_uploader.upload_texture(
-                      resource_tracker,
-                      BINDING_SHADOW_MAP,
-                      std::string("Toybox/ShadowMap/") + std::to_string(shadow_resolution) + "/"
-                          + std::to_string(shadow_layer_count),
-                      GraphicsTextureDesc {
-                          .usage = GraphicsTextureUsage::SAMPLED_DEPTH_STENCIL,
-                          .format = GraphicsTextureFormat::DEPTH32_FLOAT,
-                          .size = Size {shadow_resolution, shadow_resolution},
-                          .mip_count = 1U,
-                          .array_layer_count = shadow_layer_count,
-                          .debug_name = "Toybox Shadow Map",
-                      })
-                : GraphicsResourceBinding {.slot = BINDING_SHADOW_MAP};
-        if (has_shadowed_light && !out_maps.map.resource.is_valid())
-            return Result(false, "Frame pipeline factory failed: shadow map upload failed.");
-
-        return {};
-    }
-
     static Result create_gbuffer(
-        // TODO: Introduce 'ResourceManager' that wraps uploader and tracker. It exposes wrapper
-        // methods for ease of use and the tracker and uploader remain the implementations.
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
+        RenderingResourceManager& resource_manager,
         const FrameData& frame,
         GBuffer& out_buff)
     {
@@ -1070,45 +1152,39 @@ namespace tbx::internal
         const std::string render_target_key =
             std::to_string(viewport_size.width) + "x" + std::to_string(viewport_size.height);
 
-        out_buff.albedo = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.albedo = resource_manager.upload_texture(
             BINDING_GBUFFER_ALBEDO,
             "Toybox/GBuffer/Albedo/" + render_target_key,
             make_deferred_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA8,
                 "Toybox GBuffer Albedo"));
-        out_buff.normal = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.normal = resource_manager.upload_texture(
             BINDING_GBUFFER_NORMAL,
             "Toybox/GBuffer/Normal/" + render_target_key,
             make_deferred_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA16_FLOAT,
                 "Toybox GBuffer Normal"));
-        out_buff.material = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.material = resource_manager.upload_texture(
             BINDING_GBUFFER_MATERIAL,
             "Toybox/GBuffer/Material/" + render_target_key,
             make_deferred_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA8,
                 "Toybox GBuffer Material"));
-        out_buff.emissive = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.emissive = resource_manager.upload_texture(
             BINDING_GBUFFER_EMISSIVE,
             "Toybox/GBuffer/Emissive/" + render_target_key,
             make_deferred_color_target_desc(
                 viewport_size,
                 GraphicsTextureFormat::RGBA16_FLOAT,
                 "Toybox GBuffer Emissive"));
-        out_buff.depth = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.depth = resource_manager.upload_texture(
             BINDING_GBUFFER_DEPTH,
             "Toybox/GBuffer/Depth/" + render_target_key,
             make_deferred_depth_target_desc(viewport_size, "Toybox GBuffer Depth"));
-        out_buff.final_color = resource_uploader.upload_texture(
-            resource_tracker,
+        out_buff.final_color = resource_manager.upload_texture(
             BINDING_POST_SOURCE_COLOR,
             "Toybox/FinalColor/" + render_target_key,
             make_deferred_color_target_desc(
@@ -1120,596 +1196,7 @@ namespace tbx::internal
             || !out_buff.material.resource.is_valid() || !out_buff.emissive.resource.is_valid()
             || !out_buff.depth.resource.is_valid() || !out_buff.final_color.resource.is_valid())
         {
-            return Result(false, "Frame pipeline factory failed: deferred target upload failed.");
-        }
-
-        return {};
-    }
-
-    static void collect_dynamic_mesh_batches(
-        EntityRegistry& entity_registry,
-        ResourceUploader& resource_uploader,
-        const bool has_shadowed_light,
-        const Vec3& camera_position,
-        const float shadow_caster_max_distance,
-        const MaterialInstance& fallback_material,
-        const MaterialInstance& shadow_material,
-        const uint64 shadow_material_key,
-        MaterialRenderClassificationCache& material_classification_cache,
-        RenderBatchCollections& out_batches)
-    {
-        // Runtime meshes are grouped by mesh pointer and material so matching instances share one
-        // GPU draw command with an instance buffer.
-#if defined(TBX_ENABLE_VERBOSE)
-        auto* metrics = active_render_metrics;
-        const auto timer =
-            ScopedRenderMetricTimer(metrics ? &metrics->collect_dynamic_mesh_batches_ms : nullptr);
-#endif
-        for (auto& entity : entity_registry.get_with<DynamicMesh, Transform>())
-        {
-            const auto& mesh_component = entity.get_component<DynamicMesh>();
-            const auto mesh_data = mesh_component.get_data();
-            if (!mesh_data)
-                continue;
-
-            const auto& mesh = mesh_component.get_mesh();
-            if (mesh.vertices.empty() || mesh.indices.empty())
-                continue;
-
-            const auto* material_instance = entity.has_component<MaterialInstance>()
-                                                ? &entity.get_component<MaterialInstance>()
-                                                : nullptr;
-            const Transform transform = get_world_space_transform(entity);
-            const auto model_matrix = build_transform_matrix(transform);
-            const MaterialInstance& material =
-                material_instance ? *material_instance : fallback_material;
-            const uint64 source_material_key = hash(material);
-            const MaterialRenderClassification& classification =
-                resolve_material_render_classification(
-                    material,
-                    source_material_key,
-                    resource_uploader,
-                    material_classification_cache);
-            const bool is_transparent_material =
-                should_material_use_transparent_pass(classification);
-            auto forward_material = MaterialInstance();
-            const MaterialInstance* render_material = &material;
-            if (is_transparent_material)
-            {
-                forward_material = make_forward_material(material);
-                render_material = &forward_material;
-            }
-
-            const uint64 material_key =
-                is_transparent_material ? hash(*render_material) : source_material_key;
-            const auto mesh_source = RenderingMeshSourceType::DYNAMIC_RUNTIME_MESH;
-            const Uuid mesh_id =
-                Uuid(static_cast<uint32>(reinterpret_cast<std::uintptr_t>(mesh_data.get())));
-            const auto instance = RenderingDrawInstanceData {
-                .model_matrix = model_matrix,
-                .normal_matrix = normal(model_matrix),
-            };
-            auto& scene_batches = is_transparent_material ? out_batches.transparent_batches
-                                                          : out_batches.opaque_batches;
-            append_render_batch_instance(
-                scene_batches,
-                hash_render_batch(mesh_source, mesh_id, mesh_data.get(), material_key),
-                mesh_source,
-                material_key,
-                Handle("Toybox/DynamicMesh"),
-                mesh_data,
-                *render_material,
-                instance);
-
-            if (has_shadowed_light
-                && should_material_cast_shadows(
-                    classification,
-                    transform.position,
-                    camera_position,
-                    shadow_caster_max_distance))
-            {
-                append_render_batch_instance(
-                    out_batches.shadow_batches,
-                    hash_render_batch(mesh_source, mesh_id, mesh_data.get(), shadow_material_key),
-                    mesh_source,
-                    shadow_material_key,
-                    Handle("Toybox/DynamicMeshShadow"),
-                    mesh_data,
-                    shadow_material,
-                    instance);
-            }
-        }
-    }
-
-    static void collect_static_mesh_batches(
-        EntityRegistry& entity_registry,
-        ResourceUploader& resource_uploader,
-        const bool has_shadowed_light,
-        const Vec3& camera_position,
-        const float shadow_caster_max_distance,
-        const MaterialInstance& fallback_material,
-        const MaterialInstance& shadow_material,
-        const uint64 shadow_material_key,
-        MaterialRenderClassificationCache& material_classification_cache,
-        RenderBatchCollections& out_batches)
-    {
-        for (auto& entity : entity_registry.get_with<StaticMesh, Transform>())
-        {
-            const auto& static_mesh = entity.get_component<StaticMesh>();
-            if (!static_mesh.handle.is_valid())
-                continue;
-
-            const auto* material_instance = entity.has_component<MaterialInstance>()
-                                                ? &entity.get_component<MaterialInstance>()
-                                                : nullptr;
-            const Transform transform = get_world_space_transform(entity);
-            const auto model_matrix = build_transform_matrix(transform);
-            const MaterialInstance& material =
-                material_instance ? *material_instance : fallback_material;
-            const uint64 source_material_key = hash(material);
-            const MaterialRenderClassification& classification =
-                resolve_material_render_classification(
-                    material,
-                    source_material_key,
-                    resource_uploader,
-                    material_classification_cache);
-            const bool is_transparent_material =
-                should_material_use_transparent_pass(classification);
-            auto forward_material = MaterialInstance();
-            const MaterialInstance* render_material = &material;
-            if (is_transparent_material)
-            {
-                forward_material = make_forward_material(material);
-                render_material = &forward_material;
-            }
-
-            const uint64 material_key =
-                is_transparent_material ? hash(*render_material) : source_material_key;
-            const auto instance = RenderingDrawInstanceData {
-                .model_matrix = model_matrix,
-                .normal_matrix = normal(model_matrix),
-            };
-            auto& scene_batches = is_transparent_material ? out_batches.transparent_batches
-                                                          : out_batches.opaque_batches;
-            append_render_batch_instance(
-                scene_batches,
-                hash_render_batch(
-                    RenderingMeshSourceType::MODEL_ASSET,
-                    static_mesh.handle.get_id(),
-                    nullptr,
-                    material_key),
-                RenderingMeshSourceType::MODEL_ASSET,
-                material_key,
-                static_mesh.handle,
-                {},
-                *render_material,
-                instance);
-
-            if (has_shadowed_light
-                && should_material_cast_shadows(
-                    classification,
-                    transform.position,
-                    camera_position,
-                    shadow_caster_max_distance))
-            {
-                append_render_batch_instance(
-                    out_batches.shadow_batches,
-                    hash_render_batch(
-                        RenderingMeshSourceType::MODEL_ASSET,
-                        static_mesh.handle.get_id(),
-                        nullptr,
-                        shadow_material_key),
-                    RenderingMeshSourceType::MODEL_ASSET,
-                    shadow_material_key,
-                    static_mesh.handle,
-                    {},
-                    shadow_material,
-                    instance);
-            }
-        }
-    }
-
-    // Iterate over EVERYTHING at once, just do it in one go
-    static RenderBatchCollections collect_scene_batches(
-        EntityRegistry& entity_registry,
-        ResourceUploader& resource_uploader,
-        const ShadowCascades& shadow_resources,
-        const Vec3& camera_position,
-        const float shadow_caster_max_distance)
-    {
-        auto batches = RenderBatchCollections();
-        const auto fallback_material = MaterialInstance(PbrMaterial::HANDLE);
-        // TODO: rename to ShadowMapMaterial
-        const auto shadow_material = MaterialInstance(tbx::DirectionalShadowMapMaterial::HANDLE);
-        const uint64 shadow_material_key = hash(shadow_material);
-        const bool has_shadowed_light = shadow_resources.count > 0U;
-        auto material_classification_cache = MaterialRenderClassificationCache();
-
-        collect_dynamic_mesh_batches(
-            entity_registry,
-            resource_uploader,
-            has_shadowed_light,
-            camera_position,
-            shadow_caster_max_distance,
-            fallback_material,
-            shadow_material,
-            shadow_material_key,
-            material_classification_cache,
-            batches);
-        collect_static_mesh_batches(
-            entity_registry,
-            resource_uploader,
-            has_shadowed_light,
-            camera_position,
-            shadow_caster_max_distance,
-            fallback_material,
-            shadow_material,
-            shadow_material_key,
-            material_classification_cache,
-            batches);
-
-        return batches;
-    }
-
-    static Result append_render_batch_draws(
-        const uint64 frame_index,
-        const FrameUniformBindings& frame_uniforms,
-        const RenderBatchCollection& batches,
-        const std::string& debug_prefix,
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        RenderingDrawCommandFactory& draw_command_factory,
-        DrawBuildState& draw_state,
-        RenderPass& render_pass)
-    {
-        render_pass.indexed_draws.reserve(render_pass.indexed_draws.size() + batches.size());
-        for (const auto& [batch_key, batch] : batches)
-        {
-            const auto result = draw_command_factory.create(
-                frame_index,
-                frame_uniforms.buffers,
-                RenderingDrawBatchInput {
-                    .mesh_source = batch.mesh_source,
-                    .mesh_handle = batch.mesh_handle,
-                    .batch_key = batch_key,
-                    .debug_name = make_batch_debug_name(batch_key, debug_prefix),
-                    .dynamic_mesh = batch.dynamic_mesh,
-                    .material = batch.material,
-                    .material_key = batch.material_key,
-                    .instances = batch.instances,
-                },
-                resource_uploader,
-                resource_tracker,
-                draw_state.material_uploads,
-                draw_state.material_uniform_buffers,
-                render_pass.indexed_draws);
-            if (!result)
-                return result;
-        }
-
-        return {};
-    }
-
-    static Result build_shadow_pass_draws(
-        const uint64 frame_index,
-        const FrameUniformBindings& frame_uniforms,
-        const ShadowCascades& shadow_resources,
-        const RenderBatchCollection& shadow_batches,
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        RenderingDrawCommandFactory& draw_command_factory,
-        DrawBuildState& draw_state,
-        PipelinePasses& passes)
-    {
-        // Each shadow layer is rendered as its own depth-only pass. The shader uniform identifies
-        // which light/cascade layer the pass writes into.
-        passes.shadow_passes.clear();
-        passes.shadow_passes.reserve(shadow_resources.count);
-        for (uint32 shadow_index = 0U; shadow_index < shadow_resources.count; ++shadow_index)
-        {
-            auto shadow_pass = RenderPass {
-                .pass =
-                    GraphicsPassDesc {
-                        .depth_stencil_target = shadow_resources.map.resource,
-                        .depth_stencil_layer = static_cast<int32>(shadow_index),
-                        .clear_depth = 1.0F,
-                        .clear_flags = GraphicsClearFlags::DEPTH,
-                        .debug_name = "Toybox Shadow Pass",
-                    },
-            };
-            const auto shadow_uniform_buffers = std::array<GraphicsResourceBinding, 3U> {
-                frame_uniforms.buffers[0U],
-                frame_uniforms.buffers[1U],
-                shadow_resources.buffers[shadow_index],
-            };
-
-            shadow_pass.indexed_draws.reserve(shadow_batches.size());
-            for (const auto& [batch_key, batch] : shadow_batches)
-            {
-                const auto result = draw_command_factory.create(
-                    frame_index,
-                    shadow_uniform_buffers,
-                    RenderingDrawBatchInput {
-                        .mesh_source = batch.mesh_source,
-                        .mesh_handle = batch.mesh_handle,
-                        .batch_key = batch_key,
-                        .debug_name = make_batch_debug_name(batch_key, "Toybox/ShadowBatch/"),
-                        .dynamic_mesh = batch.dynamic_mesh,
-                        .material = batch.material,
-                        .material_key = batch.material_key,
-                        .instances = batch.instances,
-                    },
-                    resource_uploader,
-                    resource_tracker,
-                    draw_state.material_uploads,
-                    draw_state.material_uniform_buffers,
-                    shadow_pass.indexed_draws);
-                if (!result)
-                    return result;
-            }
-
-            passes.shadow_passes.push_back(std::move(shadow_pass));
-        }
-
-        return {};
-    }
-
-    static Result build_scene_pass_draws(
-        const uint64 frame_index,
-        const FrameUniformBindings& frame_uniforms,
-        const RenderBatchCollections& batches,
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        RenderingDrawCommandFactory& draw_command_factory,
-        DrawBuildState& draw_state,
-        PipelinePasses& passes)
-    {
-        // Opaque geometry feeds the deferred GBuffer. Transparent geometry is drawn after lighting
-        // because blended materials need the already-lit final color underneath them.
-        auto result = append_render_batch_draws(
-            frame_index,
-            frame_uniforms,
-            batches.opaque_batches,
-            "Toybox/RenderBatch/",
-            resource_uploader,
-            resource_tracker,
-            draw_command_factory,
-            draw_state,
-            passes.opaque_pass);
-        if (!result)
-            return result;
-
-        result = append_render_batch_draws(
-            frame_index,
-            frame_uniforms,
-            batches.transparent_batches,
-            "Toybox/TransparentBatch/",
-            resource_uploader,
-            resource_tracker,
-            draw_command_factory,
-            draw_state,
-            passes.transparent_pass);
-        if (!result)
-            return result;
-
-        return {};
-    }
-
-    static Result build_skybox_pass_draws(
-        const uint64 frame_index,
-        EntityRegistry& entity_registry,
-        const FrameUniformBindings& frame_uniforms,
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        RenderingDrawCommandFactory& draw_command_factory,
-        DrawBuildState& draw_state,
-        std::shared_ptr<Mesh>& sky_mesh,
-        RenderPass& skybox_pass)
-    {
-        // Sky is a forward draw into final_color. It runs before deferred lighting when opaque
-        // geometry exists so lighting can preserve sky pixels where the GBuffer has no scene depth.
-        for (auto& entity : entity_registry.get_with<Sky>())
-        {
-            const auto& sky = entity.get_component<Sky>();
-            const auto& sky_mesh_handle = get_sky_mesh_handle(sky.type);
-            if (!sky_mesh && !resource_uploader.has_static_runtime_mesh(sky_mesh_handle))
-                sky_mesh = std::make_shared<Mesh>(get_sky_mesh(sky.type));
-
-            auto sky_transform =
-                entity.has_component<Transform>() ? get_world_space_transform(entity) : Transform();
-            sky_transform.position = Vec3(0.0F);
-            sky_transform.scale = Vec3(1.0F);
-            const auto model_matrix = build_transform_matrix(sky_transform);
-            const auto material = make_sky_material_instance(sky);
-            const uint64 material_key = hash(material);
-            const auto result = draw_command_factory.create(
-                frame_index,
-                frame_uniforms.buffers,
-                RenderingDrawBatchInput {
-                    .mesh_source = RenderingMeshSourceType::STATIC_RUNTIME_MESH,
-                    .mesh_handle = sky_mesh_handle,
-                    .batch_key = hash(entity.get_id(), material_key),
-                    .debug_name = std::string("Toybox/Sky/Entity/") + to_string(entity.get_id()),
-                    .runtime_mesh = sky_mesh,
-                    .material = material,
-                    .material_key = material_key,
-                    .instances =
-                        {
-                            RenderingDrawInstanceData {
-                                .model_matrix = model_matrix,
-                                .normal_matrix = normal(model_matrix),
-                            },
-                        },
-                },
-                resource_uploader,
-                resource_tracker,
-                draw_state.material_uploads,
-                draw_state.material_uniform_buffers,
-                skybox_pass.indexed_draws);
-            if (!result)
-                return result;
-
-            sky_mesh.reset();
-        }
-
-        return {};
-    }
-
-    static void append_shadow_sampling_resources(
-        const GraphicsResourceBinding& shadow_sampling_uniform_buffer,
-        const GraphicsResourceBinding& shadow_map,
-        RenderPass& render_pass)
-    {
-        // Forward transparent materials need the same shadow data that deferred lighting samples.
-        for (auto& draw : render_pass.draws)
-        {
-            draw.uniform_buffers.push_back(shadow_sampling_uniform_buffer);
-            if (shadow_map.resource.is_valid())
-                draw.textures.push_back(shadow_map);
-        }
-
-        for (auto& draw : render_pass.indexed_draws)
-        {
-            draw.uniform_buffers.push_back(shadow_sampling_uniform_buffer);
-            if (shadow_map.resource.is_valid())
-                draw.textures.push_back(shadow_map);
-        }
-    }
-
-    static Result append_fullscreen_draw(
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        const FrameUniformBindings& frame_uniforms,
-        const MaterialInstance& material,
-        const std::vector<GraphicsResourceBinding>& uniform_buffers,
-        const std::vector<GraphicsResourceBinding>& textures,
-        RenderPass& render_pass)
-    {
-        auto material_upload = RenderingMaterialUploadData();
-        const Result result =
-            resource_uploader.upload_material(material, resource_tracker, material_upload);
-        if (!result)
-            return result;
-        if (!material_upload.pipeline.is_valid())
-            return Result(
-                false,
-                "Frame pipeline factory failed: fullscreen pipeline upload failed.");
-
-        // Fullscreen passes use a generated triangle. Lighting samples the GBuffer; post process
-        // samples final_color and writes to the swapchain render target.
-        auto draw = GraphicsDrawCommand {
-            .pipeline = material_upload.pipeline,
-            .uniform_buffers = uniform_buffers.empty()
-                                   ? std::vector<GraphicsResourceBinding> {
-                                         frame_uniforms.buffers[0U],
-                                         frame_uniforms.buffers[1U],
-                                         frame_uniforms.buffers[2U],
-                                     }
-                                   : uniform_buffers,
-            .textures = material_upload.textures,
-            .vertex_count = 3U,
-        };
-        draw.textures.insert(draw.textures.end(), textures.begin(), textures.end());
-        render_pass.draws.push_back(std::move(draw));
-        return {};
-    }
-
-    static Result append_pipeline_passes(
-        ResourceUploader& resource_uploader,
-        RenderingResourceTracker& resource_tracker,
-        const FrameUniformBindings& frame_uniforms,
-        const ShadowCascades& shadow_resources,
-        const GBuffer& gbuffer,
-        PipelinePasses& passes,
-        std::vector<RenderPass>& out_render_passes)
-    {
-        // The final pass list is ordered exactly as the GPU needs it: shadow maps, GBuffer,
-        // optional sky, deferred lighting, transparent forward, then post process.
-        for (auto& shadow_pass : passes.shadow_passes)
-            out_render_passes.push_back(std::move(shadow_pass));
-
-        const bool has_gbuffer_pass = has_draw_commands(passes.opaque_pass);
-        const bool has_skybox_pass = has_draw_commands(passes.skybox_pass);
-        const bool has_transparent_pass = has_draw_commands(passes.transparent_pass);
-
-        if (has_gbuffer_pass)
-            out_render_passes.push_back(std::move(passes.opaque_pass));
-
-        if (has_draw_commands(passes.alpha_cutout_pass))
-            out_render_passes.push_back(std::move(passes.alpha_cutout_pass));
-
-        const bool should_add_lighting_pass = has_gbuffer_pass;
-        if (should_add_lighting_pass)
-        {
-            if (has_skybox_pass)
-            {
-                out_render_passes.push_back(std::move(passes.skybox_pass));
-            }
-            else
-            {
-                passes.lighting_pass.pass.clear_flags = GraphicsClearFlags::COLOR;
-            }
-
-            auto lighting_textures = std::vector<GraphicsResourceBinding> {
-                gbuffer.gbuffer_albedo,
-                gbuffer.gbuffer_normal,
-                gbuffer.gbuffer_material,
-                gbuffer.gbuffer_emissive,
-                gbuffer.gbuffer_depth,
-            };
-            if (shadow_resources.map.resource.is_valid())
-                lighting_textures.push_back(shadow_resources.map);
-
-            auto lighting_uniforms = std::vector<GraphicsResourceBinding> {
-                frame_uniforms.buffers[0U],
-                frame_uniforms.buffers[1U],
-                frame_uniforms.buffers[2U],
-                shadow_resources.uniform_buffers.front(),
-            };
-            const auto lighting_result = append_fullscreen_draw(
-                resource_uploader,
-                resource_tracker,
-                frame_uniforms,
-                MaterialInstance(Handle("Materials/DeferredLighting.mat")),
-                lighting_uniforms,
-                lighting_textures,
-                passes.lighting_pass);
-            if (!lighting_result)
-                return lighting_result;
-
-            out_render_passes.push_back(std::move(passes.lighting_pass));
-        }
-        else if (has_skybox_pass)
-        {
-            out_render_passes.push_back(std::move(passes.skybox_pass));
-        }
-
-        if (has_transparent_pass)
-        {
-            if (!should_add_lighting_pass && !has_skybox_pass)
-                passes.transparent_pass.pass.clear_flags = GraphicsClearFlags::COLOR;
-
-            append_shadow_sampling_resources(
-                shadow_resources.buffers.front(),
-                shadow_resources.map,
-                passes.transparent_pass);
-            out_render_passes.push_back(std::move(passes.transparent_pass));
-        }
-
-        if (should_add_lighting_pass || has_skybox_pass || has_transparent_pass)
-        {
-            const auto post_result = append_fullscreen_draw(
-                resource_uploader,
-                resource_tracker,
-                frame_uniforms,
-                MaterialInstance(Handle("Materials/TonemapPost.mat")),
-                {},
-                {gbuffer.final_color},
-                passes.post_process_pass);
-            if (!post_result)
-                return post_result;
-
-            out_render_passes.push_back(std::move(passes.post_process_pass));
+            return Result(false, "Frame pipeline failed: deferred target upload failed.");
         }
 
         return {};

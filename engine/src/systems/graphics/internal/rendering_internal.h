@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/rendering.h"
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>

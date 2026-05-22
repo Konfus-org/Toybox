@@ -26,7 +26,7 @@ namespace sdl_windowing
         if (!settings)
             return;
 
-        _use_opengl = settings->graphics.graphics_api == tbx::GraphicsApi::OPEN_GL;
+        _use_opengl = settings->graphics->graphics_api == tbx::GraphicsApi::OPEN_GL;
 
         service_provider.register_service<tbx::IWindowBackend>(
             std::make_unique<SdlWindowBackend>());

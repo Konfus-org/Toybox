@@ -51,7 +51,7 @@ namespace tbx::internal
             Size {0, 0});
 #if defined(TBX_DEBUG)
         // Smaller shadow maps keep interactive debug builds closer to real-time on modest GPUs.
-        settings->graphics.shadow_map_resolution = 1024U;
+        settings->graphics->shadow_map_resolution = 1024U;
 #endif
         settings->icon = desc.icon;
         service_provider.register_service<AppSettings>(std::move(settings));

@@ -1,12 +1,9 @@
 #include "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
-#include "internal/tbx_performance_monitor_plugin_internal.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/api.h"
 #include <algorithm>
-#include <cmath>
 
 namespace tbx::performance_monitor
 {
@@ -26,6 +23,8 @@ namespace tbx::performance_monitor
         _settings = {};
         _main_window = {};
         _main_window_base_title.clear();
+
+        trace_perf_info();
         reset_performance_sample();
 
 #if defined(TBX_DEBUG)
@@ -104,32 +103,8 @@ namespace tbx::performance_monitor
         if (_performance_sample_elapsed_seconds < performance_log_interval_seconds)
             return;
 
-        double average_fps = 0.0;
-        double average_frame_time_ms = 0.0;
-
-        if (_performance_sample_elapsed_seconds > 0.0 && _performance_sample_frame_count > 0U)
-        {
-            average_fps = static_cast<double>(_performance_sample_frame_count)
-                          / _performance_sample_elapsed_seconds;
-            average_frame_time_ms = (_performance_sample_elapsed_seconds * 1000.0)
-                                    / static_cast<double>(_performance_sample_frame_count);
-        }
-
-        TBX_TRACE_INFO(
-            "FPS(avg): {:.2f}, Frame Time(avg): {:.2f}ms, Frame Time(min/max): {:.2f}/{:.2f}ms",
-            average_fps,
-            average_frame_time_ms,
-            _performance_sample_min_frame_time_ms,
-            _performance_sample_max_frame_time_ms);
-
+        trace_perf_info();
         reset_performance_sample();
-
-        if (average_fps < 30.0)
-        {
-            TBX_TRACE_WARNING(
-                "Average FPS is below 30! Consider optimizing your application or "
-                "investigating potential performance issues.");
-        }
     }
 
     void TbxPerformanceMonitorPlugin::reset_performance_sample()
@@ -139,6 +114,23 @@ namespace tbx::performance_monitor
         _performance_sample_min_frame_time_ms = 0.0;
         _performance_sample_max_frame_time_ms = 0.0;
         _performance_sample_has_data = false;
+    }
+
+    void TbxPerformanceMonitorPlugin::trace_perf_info()
+    {
+        auto fps_info = calculate_fps_averages();
+        TBX_TRACE_INFO(
+            "FPS(avg): {:.2f}, Frame Time(avg): {:.2f}ms, Frame Time(min/max): {:.2f}/{:.2f}ms",
+            fps_info.average_fps,
+            fps_info.average_frame_time_ms,
+            _performance_sample_min_frame_time_ms,
+            _performance_sample_max_frame_time_ms);
+        if (fps_info.average_fps < 30.0)
+        {
+            TBX_TRACE_WARNING(
+                "Average FPS is below 30! Consider optimizing your application or "
+                "investigating potential performance issues.");
+        }
     }
 
 #if defined(TBX_DEBUG)
@@ -161,22 +153,17 @@ namespace tbx::performance_monitor
         if (_debug_window_title_elapsed_seconds < debug_window_title_interval_seconds)
             return;
 
-        auto average_fps = uint {0U};
-        if (_debug_window_title_elapsed_seconds > 0.0 && _debug_window_title_frame_count > 0U)
-        {
-            const auto average_fps_value = static_cast<double>(_debug_window_title_frame_count)
-                                           / _debug_window_title_elapsed_seconds;
-            average_fps = static_cast<uint>(std::lround(average_fps_value));
-        }
-
+        auto average_fps = calculate_fps_averages().average_fps;
         auto settings = _settings.lock();
         if (!settings)
             return;
 
-        const auto next_title = internal::build_debug_window_title(
-            _main_window_base_title,
-            settings->graphics.graphics_api,
-            average_fps);
+        auto next_title = _main_window_base_title;
+        next_title += " [";
+        next_title += tbx::to_string(settings->graphics->graphics_api);
+        next_title += ", FPS: ";
+        next_title += std::to_string(average_fps);
+        next_title += "]";
 
         if (_debug_main_window_title != next_title)
         {
@@ -188,4 +175,20 @@ namespace tbx::performance_monitor
         _debug_window_title_frame_count = 0U;
     }
 #endif
+
+    FpsInfo TbxPerformanceMonitorPlugin::calculate_fps_averages()
+    {
+        double average_fps = 0.0;
+        double average_frame_time_ms = 0.0;
+
+        if (_performance_sample_elapsed_seconds > 0.0 && _performance_sample_frame_count > 0U)
+        {
+            average_fps = static_cast<double>(_performance_sample_frame_count)
+                          / _performance_sample_elapsed_seconds;
+            average_frame_time_ms = (_performance_sample_elapsed_seconds * 1000.0)
+                                    / static_cast<double>(_performance_sample_frame_count);
+        }
+
+        return {average_fps, average_frame_time_ms};
+    }
 }

@@ -1,8 +1,8 @@
 #pragma once
-#include "systems/graphics/internal/render_metrics_internal.h"
-#include "tbx/systems/assets/fallbacks.h"
+#include "systems/assets/internal/fallbacks_internal.h"
+#include "systems/graphics/internal/resource_manager_internal.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/resource_uploader.h"
+#include "tbx/systems/graphics/resource_upload_caches.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/material.h"
@@ -438,7 +438,8 @@ namespace tbx::internal
     static ShaderProgram build_material_shader(
         AssetManager& asset_manager,
         const Handle& handle,
-        const Material& material)
+        const Material& material,
+        const ShaderProgram* fallback_shader)
     {
         auto shader_sources = std::vector<ShaderSource> {};
         auto loaded_shader_ids = std::vector<Uuid> {};
@@ -487,8 +488,7 @@ namespace tbx::internal
             "Material '{}' failed to load one or more shader stages. Falling back to non-shaded "
             "magenta shader.",
             to_string(handle));
-        const auto fallback_shader = make_fallback_shader();
-        return fallback_shader ? *fallback_shader : ShaderProgram();
+        return fallback_shader == nullptr ? ShaderProgram() : *fallback_shader;
     }
 
     static GraphicsBufferDesc make_uniform_buffer_desc(
@@ -562,48 +562,50 @@ namespace tbx::internal
         return resource;
     }
 
+    static std::optional<GraphicsResourceBinding> upload_fallback_texture(
+        IGraphicsBackend& backend,
+        RenderingResourceTracker& resource_tracker,
+        uint32 binding_id,
+        std::unordered_map<uint32, Texture>& fallback_textures,
+        TextureResourceCache& cache);
+
     static std::optional<GraphicsResourceBinding> upload_material_texture(
         IGraphicsBackend& backend,
         AssetManager& asset_manager,
         RenderingResourceTracker& resource_tracker,
         const MaterialTextureBinding& binding,
+        std::unordered_map<uint32, Texture>& fallback_textures,
         TextureResourceCache& cache)
     {
         const auto slot = resolve_shader_texture_slot(binding.id);
         auto handle = binding.texture;
         auto source_texture = std::shared_ptr<Texture> {};
-        if (binding.texture.is_valid())
+        if (!binding.texture.is_valid())
+            return upload_fallback_texture(
+                backend,
+                resource_tracker,
+                binding.id,
+                fallback_textures,
+                cache);
+
+        if (const auto cached = cache.textures.find(binding.texture);
+            cached != cache.textures.end())
         {
-            if (const auto cached = cache.textures.find(binding.texture);
-                cached != cache.textures.end())
-            {
-                resource_tracker.track(cached->second);
-                if (!slot.has_value())
-                    return std::nullopt;
+            resource_tracker.track(cached->second);
+            if (!slot.has_value())
+                return std::nullopt;
 
-                return GraphicsResourceBinding {.slot = *slot, .resource = cached->second};
-            }
-
-            source_texture = asset_manager.load<Texture>(binding.texture, TextureLoadParameters());
-            if (!source_texture)
-                source_texture = make_fallback_texture(TextureLoadParameters());
+            return GraphicsResourceBinding {.slot = *slot, .resource = cached->second};
         }
-        else
-        {
-            handle = Handle(std::string("Toybox/DefaultTexture/") + std::to_string(binding.id));
-            if (const auto cached = cache.default_textures.find(binding.id);
-                cached != cache.default_textures.end())
-            {
-                resource_tracker.track(cached->second);
-                if (!slot.has_value())
-                    return std::nullopt;
 
-                return GraphicsResourceBinding {.slot = *slot, .resource = cached->second};
-            }
-
-            source_texture =
-                std::make_shared<Texture>(make_default_texture_for_binding(binding.id));
-        }
+        source_texture = asset_manager.load<Texture>(binding.texture, TextureLoadParameters());
+        if (!source_texture)
+            return upload_fallback_texture(
+                backend,
+                resource_tracker,
+                binding.id,
+                fallback_textures,
+                cache);
 
         if (!source_texture)
             return std::nullopt;
@@ -613,7 +615,12 @@ namespace tbx::internal
             || (source_byte_size > 0U
                 && static_cast<uint64>(source_texture->pixels.size()) < source_byte_size))
         {
-            source_texture = make_fallback_texture(TextureLoadParameters());
+            return upload_fallback_texture(
+                backend,
+                resource_tracker,
+                binding.id,
+                fallback_textures,
+                cache);
         }
 
         const auto upload_data = make_texture_upload_data(*source_texture);
@@ -630,15 +637,152 @@ namespace tbx::internal
         }
 
         resource_tracker.track(resource);
-        if (binding.texture.is_valid())
-            cache.textures[binding.texture] = resource;
-        else
-            cache.default_textures[binding.id] = resource;
+        cache.textures[binding.texture] = resource;
 
         if (!slot.has_value())
             return std::nullopt;
 
         return GraphicsResourceBinding {.slot = *slot, .resource = resource};
+    }
+
+    static std::optional<GraphicsResourceBinding> upload_fallback_texture(
+        IGraphicsBackend& backend,
+        RenderingResourceTracker& resource_tracker,
+        const uint32 binding_id,
+        std::unordered_map<uint32, Texture>& fallback_textures,
+        TextureResourceCache& cache)
+    {
+        const auto slot = resolve_shader_texture_slot(binding_id);
+        if (const auto cached = cache.default_textures.find(binding_id);
+            cached != cache.default_textures.end())
+        {
+            resource_tracker.track(cached->second);
+            if (!slot.has_value())
+                return std::nullopt;
+
+            return GraphicsResourceBinding {.slot = *slot, .resource = cached->second};
+        }
+
+        const auto handle =
+            Handle(std::string("Toybox/DefaultTexture/") + std::to_string(binding_id));
+        const auto& source_texture =
+            fallback_textures.try_emplace(binding_id, make_default_texture_for_binding(binding_id))
+                .first->second;
+        const auto upload_data = make_texture_upload_data(source_texture);
+        auto resource = Uuid {};
+        const Result result = backend.upload_texture(
+            make_texture_desc(source_texture, handle),
+            upload_data.empty() ? nullptr : upload_data.data(),
+            static_cast<uint64>(upload_data.size()),
+            resource);
+        if (!result)
+        {
+            TBX_TRACE_ERROR_ONCE("Rendering texture upload failed: {}", result.get_report());
+            return std::nullopt;
+        }
+
+        resource_tracker.track(resource);
+        cache.default_textures[binding_id] = resource;
+
+        if (!slot.has_value())
+            return std::nullopt;
+
+        return GraphicsResourceBinding {.slot = *slot, .resource = resource};
+    }
+
+    static Result upload_material_resources(
+        IGraphicsBackend& backend,
+        AssetManager* asset_manager,
+        const Handle& material_handle,
+        const Material& material,
+        const MaterialInstance* instance,
+        RenderingResourceTracker& resource_tracker,
+        const ShaderProgram* fallback_shader,
+        std::unordered_map<uint32, Texture>& fallback_textures,
+        ResourceUploadCaches& caches,
+        RenderingMaterialUploadData& out_material)
+    {
+        auto parameters = material.parameters;
+        auto textures = material.textures;
+        const auto config =
+            instance == nullptr ? material.config : resolve_material_config(material, *instance);
+
+        if (instance != nullptr && instance->overrides.has_parameter_override)
+            for (const auto& parameter : instance->overrides.parameters)
+                parameters.set(parameter);
+        if (instance != nullptr && instance->overrides.has_texture_override)
+            for (const auto& texture : instance->overrides.textures)
+                textures.set(texture);
+
+        auto pipeline = Uuid {};
+        const std::string pipeline_cache_key =
+            make_material_pipeline_cache_key(material_handle, config);
+        if (const auto cached_pipeline = caches.pipelines.pipelines.find(pipeline_cache_key);
+            cached_pipeline != caches.pipelines.pipelines.end())
+        {
+            pipeline = cached_pipeline->second;
+            resource_tracker.track(pipeline);
+        }
+        else
+        {
+            auto shader = ShaderProgram();
+            if (asset_manager != nullptr)
+                shader = build_material_shader(
+                    *asset_manager,
+                    material_handle,
+                    material,
+                    fallback_shader);
+            else if (fallback_shader != nullptr)
+                shader = *fallback_shader;
+
+            const GraphicsPipelineDesc pipeline_desc =
+                make_material_pipeline_desc(material_handle, shader, config);
+
+            const Result pipeline_result = backend.upload_pipeline(pipeline_desc, pipeline);
+            if (!pipeline_result)
+            {
+                TBX_TRACE_ERROR_ONCE(
+                    "Rendering pipeline upload failed: {}",
+                    pipeline_result.get_report());
+                return Result(false, "Resource uploader failed: material pipeline upload failed.");
+            }
+            resource_tracker.track(pipeline);
+            caches.pipelines.pipelines[pipeline_cache_key] = pipeline;
+        }
+
+        out_material = RenderingMaterialUploadData {
+            .pipeline = pipeline,
+            .uniform_values = make_material_uniform_values(parameters),
+        };
+        out_material.textures.reserve(textures.values.size());
+        for (const auto& texture : textures)
+        {
+            auto texture_binding = std::optional<GraphicsResourceBinding>();
+            if (asset_manager != nullptr && texture.texture.is_valid())
+            {
+                texture_binding = upload_material_texture(
+                    backend,
+                    *asset_manager,
+                    resource_tracker,
+                    texture,
+                    fallback_textures,
+                    caches.textures);
+            }
+            else
+            {
+                texture_binding = upload_fallback_texture(
+                    backend,
+                    resource_tracker,
+                    texture.id,
+                    fallback_textures,
+                    caches.textures);
+            }
+
+            if (texture_binding.has_value())
+                out_material.textures.push_back(*texture_binding);
+        }
+
+        return {};
     }
 
     static std::optional<RenderingMeshUploadData> upload_mesh(
@@ -743,10 +887,6 @@ namespace tbx::internal
                 backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
-#if defined(TBX_ENABLE_VERBOSE)
-                if (active_render_metrics)
-                    ++active_render_metrics->uniform_buffer_update_count;
-#endif
                 resource_tracker.track(cached_buffer.resource);
                 return GraphicsResourceBinding {.slot = slot, .resource = cached_buffer.resource};
             }
@@ -763,10 +903,6 @@ namespace tbx::internal
             make_uniform_buffer_desc(debug_name, byte_size),
             data,
             byte_size);
-#if defined(TBX_ENABLE_VERBOSE)
-        if (active_render_metrics && resource.is_valid())
-            ++active_render_metrics->uniform_buffer_upload_count;
-#endif
         cached_buffer = UniformBufferCacheEntry {.resource = resource, .byte_size = byte_size};
         return GraphicsResourceBinding {.slot = slot, .resource = resource};
     }
@@ -796,10 +932,6 @@ namespace tbx::internal
                 backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
-#if defined(TBX_ENABLE_VERBOSE)
-                if (active_render_metrics)
-                    ++active_render_metrics->instance_buffer_update_count;
-#endif
                 resource_tracker.track(cached_buffer.resource);
                 return GraphicsResourceBinding {.slot = slot, .resource = cached_buffer.resource};
             }
@@ -811,10 +943,6 @@ namespace tbx::internal
             make_instance_buffer_desc(debug_name, byte_size),
             data,
             byte_size);
-#if defined(TBX_ENABLE_VERBOSE)
-        if (active_render_metrics && resource.is_valid())
-            ++active_render_metrics->instance_buffer_upload_count;
-#endif
         cached_buffer = UniformBufferCacheEntry {.resource = resource, .byte_size = byte_size};
         return GraphicsResourceBinding {.slot = slot, .resource = resource};
     }

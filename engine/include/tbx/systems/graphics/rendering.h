@@ -6,11 +6,13 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
+#include "tbx/systems/messaging/message.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <future>
 #include <memory>
+#include <mutex>
 
 namespace tbx
 {
@@ -42,6 +44,12 @@ namespace tbx
         void render(const DeltaTime& delta_time);
 
         /// @brief
+        /// Purpose: Applies graphics settings change messages to the renderer's cached settings.
+        /// @details
+        /// Thread Safety: Call from the message dispatch thread while no frame is pending.
+        void receive_message(Message& msg);
+
+        /// @brief
         /// Purpose: Blocks until any previously dispatched render frame has finished.
         /// @details
         /// Thread Safety: Call from the main thread before mutating scene data shared with the
@@ -60,6 +68,9 @@ namespace tbx
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;
         RenderingPipeline _pipeline;
+
+        std::mutex _settings_mutex = {};
+        GraphicsSettings _settings;
 
         Result _initialization_result = {};
         std::future<void> _initialization_future = {};

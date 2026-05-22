@@ -1,10 +1,10 @@
-#include "tbx/systems/graphics/resource_tracker.h"
+#include "systems/graphics/internal/resource_manager_internal.h"
 #include <algorithm>
 
-namespace tbx
+namespace tbx::internal
 {
-    const RenderingResourceTracker::ResourceCollection&
-        RenderingResourceTracker::get_tracked_resources() const
+    const RenderingResourceTracker::ResourceCollection& RenderingResourceTracker::
+        get_tracked_resources() const
     {
         return _tracked_resources;
     }

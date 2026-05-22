@@ -102,7 +102,7 @@ namespace tbx
         Vec4 params = Vec4(0.0F);
     };
 
-    struct alignas(16) LightShaderData
+    struct alignas(16) LightingShaderData
     {
         Vec4 ambient_color = Vec4(0.2F, 0.2F, 0.2F, 1.0F);
         IVec4 light_meta = IVec4(0, 0, 0, 0);

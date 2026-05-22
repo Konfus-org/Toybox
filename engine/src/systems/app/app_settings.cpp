@@ -2,7 +2,6 @@
 #include "tbx/systems/app/settings.h"
 #include <utility>
 
-
 namespace tbx
 {
     AppSettings::AppSettings(
@@ -11,7 +10,7 @@ namespace tbx
         GraphicsApi api,
         Size resolution,
         AsyncSettings async_settings)
-        : graphics(dispatcher, vsync, api, resolution)
+        : graphics(dispatcher, *this, &AppSettings::graphics, std::in_place, vsync, api, resolution)
         , physics(dispatcher)
         , async(std::move(async_settings))
     {

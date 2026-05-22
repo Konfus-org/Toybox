@@ -27,15 +27,70 @@ namespace tbx
     class Observable
     {
       public:
+        template <typename, typename>
+        friend class Observable;
+
+        Observable(TOwner& owner_ref, Observable<TOwner, TProp> TOwner::* member_ptr, TProp val)
+            : Observable(nullptr, owner_ref, member_ptr, std::move(val))
+        {
+        }
+
         Observable(
             IMessageDispatcher& dispatch,
             TOwner& owner_ref,
             Observable<TOwner, TProp> TOwner::* member_ptr,
             TProp val)
+            : Observable(&dispatch, owner_ref, member_ptr, std::move(val))
+        {
+        }
+
+        Observable(
+            IMessageDispatcher* dispatch,
+            TOwner& owner_ref,
+            Observable<TOwner, TProp> TOwner::* member_ptr,
+            TProp val)
             : _dispatcher(dispatch)
+            , _notify_parent_property()
             , _member(member_ptr)
             , owner(owner_ref)
-            , value(val)
+            , value(std::move(val))
+        {
+            notify(value, value);
+        }
+
+        template <typename TParentOwner>
+        Observable(
+            IMessageDispatcher& dispatch,
+            Observable<TParentOwner, TOwner>& parent_property,
+            TOwner& owner_ref,
+            Observable<TOwner, TProp> TOwner::* member_ptr,
+            TProp val)
+            : _dispatcher(&dispatch)
+            , _notify_parent_property(
+                  [member_ptr, &parent_property](const TProp& previous_value)
+                  {
+                      auto previous_parent_value = parent_property.value;
+                      previous_parent_value.*member_ptr = previous_value;
+                      parent_property.notify(previous_parent_value, parent_property.value);
+                  })
+            , _member(member_ptr)
+            , owner(owner_ref)
+            , value(std::move(val))
+        {
+        }
+
+        template <typename... TArgs>
+        Observable(
+            IMessageDispatcher& dispatch,
+            TOwner& owner_ref,
+            Observable<TOwner, TProp> TOwner::* member_ptr,
+            std::in_place_t,
+            TArgs&&... args)
+            : _dispatcher(&dispatch)
+            , _notify_parent_property()
+            , _member(member_ptr)
+            , owner(owner_ref)
+            , value(dispatch, *this, std::forward<TArgs>(args)...)
         {
             notify(value, value);
         }
@@ -50,6 +105,16 @@ namespace tbx
             return value;
         }
 
+        TProp* operator->()
+        {
+            return &value;
+        }
+
+        const TProp* operator->() const
+        {
+            return &value;
+        }
+
         Observable& operator=(const TProp& v)
         {
             set_impl(v);
@@ -62,9 +127,24 @@ namespace tbx
             return *this;
         }
 
+        TOwner& get_parent()
+        {
+            return owner.get();
+        }
+
+        const TOwner& get_parent() const
+        {
+            return owner.get();
+        }
+
+      private:
+        IMessageDispatcher* _dispatcher = nullptr;
+        std::function<void(const TProp&)> _notify_parent_property = {};
+        Observable<TOwner, TProp> TOwner::* _member = nullptr;
+        std::reference_wrapper<TOwner> owner;
+
       public:
         TProp value;
-        std::reference_wrapper<TOwner> owner;
 
       private:
         template <typename TValue>
@@ -86,13 +166,17 @@ namespace tbx
 
         void notify(const TProp& previous, const TProp& current) const
         {
-            _dispatcher.get()
-                .send<PropertyChangedEvent<TOwner, TProp>>(_member, owner.get(), previous, current);
-        }
+            if (!_dispatcher)
+                return;
 
-      private:
-        std::reference_wrapper<IMessageDispatcher> _dispatcher;
-        Observable<TOwner, TProp> TOwner::* _member = nullptr;
+            _dispatcher->send<PropertyChangedEvent<TOwner, TProp>>(
+                _member,
+                owner.get(),
+                previous,
+                current);
+            if (_notify_parent_property)
+                _notify_parent_property(previous);
+        }
     };
 
     template <typename TOwner, typename TProp, Observable<TOwner, TProp> TOwner::* TMember>
@@ -134,4 +218,5 @@ namespace tbx
 
         return typed;
     }
+
 }

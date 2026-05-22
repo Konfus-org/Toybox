@@ -1,6 +1,9 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "systems/graphics/internal/rendering_internal.h"
+#include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/messaging/observable.h"
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,12 +19,12 @@ namespace tbx
         : _thread_manager(std::move(thread_manager))
         , _backend(std::move(backend))
         , _window_manager(window_manager)
+        , _settings(settings)
         , _pipeline(
               _backend,
               std::move(entity_registry),
               std::move(asset_manager),
-              std::move(window_manager),
-              settings)
+              std::move(window_manager))
     {
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
@@ -31,8 +34,8 @@ namespace tbx
             return;
         }
 
-        if (!thread_manager_service->has_lane(std::string(internal::RENDER_LANE_NAME))
-            && !thread_manager_service->try_create_lane(std::string(internal::RENDER_LANE_NAME)))
+        if (!thread_manager_service->has_lane(internal::RENDER_LANE_NAME)
+            && !thread_manager_service->try_create_lane(internal::RENDER_LANE_NAME))
         {
             _initialization_result.flag_failure(
                 "Rendering initialization failed because render lane creation failed.");
@@ -89,7 +92,7 @@ namespace tbx
     void Rendering::render(const DeltaTime& delta_time)
     {
         auto thread_manager = _thread_manager.lock();
-        if (!thread_manager || !thread_manager->has_lane(std::string(internal::RENDER_LANE_NAME)))
+        if (!thread_manager || !thread_manager->has_lane(internal::RENDER_LANE_NAME))
         {
             TBX_TRACE_ERROR("Toybox renderer render lane is unavailable.");
             return;
@@ -107,7 +110,7 @@ namespace tbx
                 wait_for_initialization();
 
                 _render_future = thread_manager->post_with_future(
-                    std::string(internal::RENDER_LANE_NAME),
+                    internal::RENDER_LANE_NAME,
                     [this, delta_time]()
                     {
                         render_frame(delta_time);
@@ -119,6 +122,37 @@ namespace tbx
     void Rendering::wait_for_pending_frame() noexcept
     {
         wait_for_render_frame();
+    }
+
+    void Rendering::receive_message(Message& msg)
+    {
+        const auto graphics_settings_event = handle_property_changed<&AppSettings::graphics>(msg);
+        if (!graphics_settings_event)
+            return;
+
+        auto updated_settings = graphics_settings_event->get().current;
+        {
+            std::lock_guard lock(_settings_mutex);
+            _settings = updated_settings;
+        }
+
+        auto thread_manager = _thread_manager.lock();
+        auto backend = _backend.lock();
+        if (!thread_manager || !backend || !thread_manager->has_lane(internal::RENDER_LANE_NAME))
+            return;
+
+        thread_manager->post(
+            internal::RENDER_LANE_NAME,
+            [backend, updated_settings]()
+            {
+                const auto result = backend->update_settings(updated_settings);
+                if (!result)
+                {
+                    TBX_TRACE_ERROR_ONCE(
+                        "Toybox renderer graphics settings update failed. {}",
+                        result.get_report());
+                }
+            });
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time)
@@ -138,7 +172,13 @@ namespace tbx
             return;
         }
 
-        const auto result = _pipeline.execute(*backend, delta_time);
+        auto settings = [this]()
+        {
+            std::lock_guard lock(_settings_mutex);
+            return _settings;
+        }();
+
+        const auto result = _pipeline.execute(*backend, settings, delta_time);
         if (!result)
         {
             TBX_TRACE_ERROR_ONCE(

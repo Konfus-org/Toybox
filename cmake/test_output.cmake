@@ -16,10 +16,10 @@ function(tbx_set_test_output target_name)
 
     if(WIN32)
         add_custom_command(TARGET ${target_name} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_RUNTIME_DLLS:${target_name}>
-                $<TARGET_FILE_DIR:${target_name}>
-            COMMAND_EXPAND_LISTS
+            COMMAND ${CMAKE_COMMAND}
+                "-DDESTINATION=$<TARGET_FILE_DIR:${target_name}>"
+                "-DSOURCES=$<JOIN:$<TARGET_RUNTIME_DLLS:${target_name}>,|>"
+                -P "${CMAKE_CURRENT_LIST_DIR}/copy_existing_runtime_dlls.cmake"
         )
     endif()
 endfunction()

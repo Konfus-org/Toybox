@@ -1,12 +1,15 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/rendering.h"
+#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
+#include "tbx/systems/messages/message_coordinator.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/mesh.h"
@@ -76,13 +79,6 @@ namespace tbx::tests::graphics
             recorded_pass = pass;
             recorded_passes.push_back(pass);
             callbacks.push_back(GraphicsBackendCallback::BEGIN_PASS);
-            return {};
-        }
-
-        Result begin_view(const RenderView& view) override
-        {
-            recorded_viewport = view.viewport.dimensions;
-            callbacks.push_back(GraphicsBackendCallback::BEGIN_VIEW);
             return {};
         }
 
@@ -169,12 +165,6 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result end_view() override
-        {
-            callbacks.push_back(GraphicsBackendCallback::END_VIEW);
-            return {};
-        }
-
         GraphicsApi get_api() const override
         {
             return GraphicsApi::OPEN_GL;
@@ -220,8 +210,10 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result update_settings(const GraphicsSettings&) override
+        Result update_settings(const GraphicsSettings& settings) override
         {
+            updated_settings_count += 1U;
+            recorded_vsync_enabled = settings.vsync_enabled;
             return {};
         }
 
@@ -328,6 +320,8 @@ namespace tbx::tests::graphics
         uint uploaded_pipeline_count = 0U;
         uint uploaded_texture_count = 0U;
         uint updated_buffer_count = 0U;
+        uint updated_settings_count = 0U;
+        bool recorded_vsync_enabled = false;
         uint32 next_uploaded_resource = 1000U;
         std::vector<Uuid> updated_buffers = {};
         std::thread::id wait_for_idle_thread_id = {};
@@ -609,17 +603,17 @@ namespace tbx::tests::graphics
         return shader_data_uploads;
     }
 
-    static std::optional<LightShaderData> find_light_shader_data(
+    static std::optional<LightingShaderData> find_light_shader_data(
         const std::vector<RecordedBufferUpload>& uploads)
     {
         for (const auto& upload : uploads)
         {
             if (upload.desc.debug_name != "Light Shader Data"
-                || upload.data.size() < sizeof(LightShaderData))
+                || upload.data.size() < sizeof(LightingShaderData))
                 continue;
 
-            auto shader_data = LightShaderData {};
-            std::memcpy(&shader_data, upload.data.data(), sizeof(LightShaderData));
+            auto shader_data = LightingShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(LightingShaderData));
             return shader_data;
         }
 
@@ -920,6 +914,59 @@ namespace tbx::tests::graphics
             backend.callbacks.end());
     }
 
+    // Validates graphics setting changes are cached by rendering before pipeline execution.
+    TEST(RenderingTests, ReceiveMessage_UpdatesCachedGraphicsSettingsForNextFrame)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = MessageCoordinator {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings = AppSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        settings.graphics->local_light_max_distance = 1.0F;
+        auto camera = Entity("Camera", registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0F));
+        auto light = Entity("LocalLight", registry);
+        light.add_component<PointLight>();
+        light.add_component<Transform>(Vec3(0.0F, 0.0F, -10.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings.graphics);
+        dispatcher.register_handler(
+            [&rendering](Message& msg)
+            {
+                rendering.receive_message(msg);
+            });
+
+        // Act
+        settings.graphics->vsync_enabled = true;
+        settings.graphics->local_light_max_distance = 64.0F;
+        wait_for_render_lane(thread_manager);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+        const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        EXPECT_GE(backend.updated_settings_count, 1U);
+        EXPECT_TRUE(backend.recorded_vsync_enabled);
+        ASSERT_TRUE(light_data.has_value());
+        EXPECT_EQ(light_data->light_meta.x, 1);
+    }
+
     // Validates Toybox pass code can own draw behavior with explicit backend commands.
     TEST(GraphicsBackendTests, ExplicitCommands_CanDescribeIndexedGeometryDraw)
     {
@@ -1122,7 +1169,7 @@ namespace tbx::tests::graphics
 
         // Assert
         EXPECT_EQ(sizeof(ShaderLightData), 64U);
-        EXPECT_EQ(offsetof(LightShaderData, lights), 48U);
+        EXPECT_EQ(offsetof(LightingShaderData, lights), 48U);
         ASSERT_TRUE(light_shader_data.has_value());
         EXPECT_EQ(light_shader_data->light_meta.x, 1);
         EXPECT_FLOAT_EQ(light_shader_data->ambient_color.x, 0.15F);
@@ -1961,8 +2008,8 @@ namespace tbx::tests::graphics
             shadow_upload_count);
     }
 
-    // Validates discarded dynamic mesh buffers are removed from the upload cache.
-    TEST(RenderingTests, ResourceUploader_DiscardCachedDynamicMeshResourceForcesReupload)
+    // Validates auto-unloaded dynamic mesh buffers are removed from the upload cache.
+    TEST(RenderingTests, RenderingResourceManager_AutoUnloadedDynamicMeshResourceForcesReupload)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -1972,32 +2019,32 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
-        auto resource_uploader = ResourceUploader(backend_service, asset_manager_service);
-        auto resource_tracker = RenderingResourceTracker {};
+        auto resource_manager =
+            RenderingResourceManager(backend_service, asset_manager_service, 0.0F);
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
         auto first_mesh = RenderingMeshUploadData {};
-        const Result first_result =
-            resource_uploader.upload_dynamic_mesh(mesh_data, resource_tracker, first_mesh);
+        const Result first_result = resource_manager.upload_dynamic_mesh(mesh_data, first_mesh);
         const uint uploaded_buffer_count = backend.uploaded_buffer_count;
 
         // Act
-        resource_uploader.discard_cached_resource(first_mesh.vertex_buffer);
+        resource_manager.update(DeltaTime {});
         auto second_mesh = RenderingMeshUploadData {};
-        const Result second_result =
-            resource_uploader.upload_dynamic_mesh(mesh_data, resource_tracker, second_mesh);
+        const Result second_result = resource_manager.upload_dynamic_mesh(mesh_data, second_mesh);
 
         // Assert
         EXPECT_TRUE(first_result);
         EXPECT_TRUE(second_result);
         EXPECT_TRUE(first_mesh.vertex_buffer.is_valid());
         EXPECT_TRUE(second_mesh.vertex_buffer.is_valid());
+        EXPECT_FALSE(resource_manager.is_managed(first_mesh.vertex_buffer));
+        EXPECT_TRUE(resource_manager.is_managed(second_mesh.vertex_buffer));
         EXPECT_NE(first_mesh.vertex_buffer, second_mesh.vertex_buffer);
         EXPECT_GT(backend.uploaded_buffer_count, uploaded_buffer_count);
         EXPECT_FALSE(mesh_data->is_dirty());
     }
 
-    // Validates discarded instance vertex buffers are removed from the upload cache.
-    TEST(RenderingTests, ResourceUploader_DiscardCachedInstanceResourceForcesReupload)
+    // Validates auto-unloaded instance vertex buffers are removed from the upload cache.
+    TEST(RenderingTests, RenderingResourceManager_AutoUnloadedInstanceResourceForcesReupload)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -2007,11 +2054,10 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
-        auto resource_uploader = ResourceUploader(backend_service, asset_manager_service);
-        auto resource_tracker = RenderingResourceTracker {};
-        auto instance = RenderingDrawInstanceData {};
-        const GraphicsResourceBinding first_binding = resource_uploader.upload_instance_buffer(
-            resource_tracker,
+        auto resource_manager =
+            RenderingResourceManager(backend_service, asset_manager_service, 0.0F);
+        auto instance = ObjectShaderData {};
+        const GraphicsResourceBinding first_binding = resource_manager.upload_instance_buffer(
             "Toybox/Test/Instances",
             0U,
             &instance,
@@ -2019,9 +2065,8 @@ namespace tbx::tests::graphics
         const uint uploaded_buffer_count = backend.uploaded_buffer_count;
 
         // Act
-        resource_uploader.discard_cached_resource(first_binding.resource);
-        const GraphicsResourceBinding second_binding = resource_uploader.upload_instance_buffer(
-            resource_tracker,
+        resource_manager.update(DeltaTime {});
+        const GraphicsResourceBinding second_binding = resource_manager.upload_instance_buffer(
             "Toybox/Test/Instances",
             0U,
             &instance,
@@ -2030,6 +2075,8 @@ namespace tbx::tests::graphics
         // Assert
         EXPECT_TRUE(first_binding.resource.is_valid());
         EXPECT_TRUE(second_binding.resource.is_valid());
+        EXPECT_FALSE(resource_manager.is_managed(first_binding.resource));
+        EXPECT_TRUE(resource_manager.is_managed(second_binding.resource));
         EXPECT_NE(first_binding.resource, second_binding.resource);
         EXPECT_GT(backend.uploaded_buffer_count, uploaded_buffer_count);
     }

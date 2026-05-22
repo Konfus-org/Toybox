@@ -3,20 +3,14 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
-#include "tbx/systems/graphics/draw_command_executor.h"
-#include "tbx/systems/graphics/draw_command_factory.h"
 #include "tbx/systems/graphics/render_pass.h"
-#include "tbx/systems/graphics/resource_tracker.h"
-#include "tbx/systems/graphics/resource_uploader.h"
+#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
-#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/components/mesh.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/result.h"
 #include <memory>
-#include <vector>
 
 namespace tbx
 {
@@ -33,8 +27,7 @@ namespace tbx
             std::weak_ptr<IGraphicsBackend> backend,
             std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
-            std::weak_ptr<IWindowManager> window_manager,
-            const GraphicsSettings& settings);
+            std::weak_ptr<IWindowManager> window_manager);
         ~RenderingPipeline() = default;
 
       public:
@@ -49,16 +42,14 @@ namespace tbx
         Result execute(
             IGraphicsBackend& backend,
             const GraphicsSettings& settings,
-            const DeltaTime& delta_time,
-            const uint frame_index);
+            const DeltaTime& delta_time);
 
       private:
         std::weak_ptr<EntityRegistry> _entity_registry = {};
+        std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
-        RenderingResourceTracker _resource_tracker = {};
-        RenderingDrawCommandFactory _draw_command_factory = {};
-        DrawCommandExecutor _draw_command_executor = {};
-        ResourceUploader _resource_uploader;
+        RenderingResourceManager _resource_manager;
         float _elapsed_time = 0;
+        uint _frame_index = 0U;
     };
 }

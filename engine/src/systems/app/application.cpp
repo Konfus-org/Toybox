@@ -187,6 +187,8 @@ namespace tbx
                     }
 
                     _plugin_manager.receive_message(msg);
+                    if (auto rendering = _rendering.lock())
+                        rendering->receive_message(msg);
                 });
 
             // Load requested plugins

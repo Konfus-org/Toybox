@@ -58,6 +58,7 @@ namespace tbx
     template <auto TMember>
     std::optional<std::reference_wrapper<const PropertyChangedEvent<typename ObservableMemberTraits<TMember>::Owner, typename ObservableMemberTraits<TMember>::Property>>> handle_property_changed(
         const Message& msg);
+
 }
 
 #include "tbx/systems/messaging/observable.inl"

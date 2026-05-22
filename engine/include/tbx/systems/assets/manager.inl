@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/fallbacks.h"
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 
@@ -53,11 +52,10 @@ namespace tbx
             if (!asset_record.asset)
             {
                 TBX_TRACE_WARNING(
-                    "Primary asset load failed for '{}' (id={}, type={}). Using fallback asset.",
+                    "Primary asset load failed for '{}' (id={}, type={}).",
                     asset_record.normalized_path,
                     to_string(asset_record.asset_id),
                     typeid(TAsset).name());
-                asset_record.asset = make_fallback_asset<TAsset>(parameters);
             }
             populate_loaded_asset_data<TAsset>(asset_record.asset);
             store_asset_load_parameters(asset_record, parameters);
@@ -145,27 +143,17 @@ namespace tbx
             asset_record.normalized_path,
             to_string(asset_record.asset_id),
             typeid(TAsset).name());
-        auto promise = get_serialization_registry().has_reader<TAsset>()
-                           ? get_serialization_registry().read_async<TAsset>(
-                                 entry.resolved_path,
-                                 parameters)
-                           : AssetPromise<TAsset>();
+        auto promise =
+            get_serialization_registry().has_reader<TAsset>()
+                ? get_serialization_registry().read_async<TAsset>(entry.resolved_path, parameters)
+                : AssetPromise<TAsset>();
         if (!promise.asset)
         {
             TBX_TRACE_WARNING(
-                "Primary async asset load failed for '{}' (id={}, type={}). Using fallback asset.",
+                "Primary async asset load failed for '{}' (id={}, type={}).",
                 asset_record.normalized_path,
                 to_string(asset_record.asset_id),
                 typeid(TAsset).name());
-            promise.asset = make_fallback_asset<TAsset>(parameters);
-            if (promise.asset && !promise.promise.valid())
-            {
-                auto fallback_result = Result {};
-                fallback_result.flag_failure("Primary asset read failed. Using fallback asset.");
-                std::promise<Result> completion = {};
-                completion.set_value(std::move(fallback_result));
-                promise.promise = completion.get_future().share();
-            }
         }
         populate_loaded_asset_data<TAsset>(promise.asset);
         asset_record.asset = std::move(promise.asset);

@@ -15,6 +15,12 @@ namespace tbx
 
 namespace tbx::performance_monitor
 {
+    struct FpsInfo
+    {
+        double average_fps = 0.0;
+        double average_frame_time_ms = 0.0;
+    };
+
     /// @brief
     /// Purpose: Collects frame profiling data and reports runtime debug/performance diagnostics.
     /// @details
@@ -41,7 +47,9 @@ namespace tbx::performance_monitor
       private:
         void initialize_main_window(tbx::Application& application);
         void record_frame(const tbx::DeltaTime& dt);
+        void trace_perf_info();
         void reset_performance_sample();
+        FpsInfo calculate_fps_averages();
 
 #if defined(TBX_DEBUG)
         void update_debug_main_window_title(const tbx::DeltaTime& dt);
