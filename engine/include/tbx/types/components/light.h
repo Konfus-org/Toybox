@@ -139,8 +139,8 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally. Notes: The
-        /// renderer averages directional light colors and scales that color by the sum of all
-        /// directional light ambient values.
+        /// renderer averages directional light colors and scales that color by the sum of
+        /// (ambient * intensity) across directional lights.
         float ambient = 0.03f;
     };
 }

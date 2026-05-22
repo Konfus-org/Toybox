@@ -84,8 +84,8 @@ struct TbxLight
 layout(std140, binding = TBX_BINDING_LIGHT_DATA) uniform TbxLightData
 {
     vec4 u_ambient_color;
-    int u_light_count;
-    vec3 u_light_padding;
+    ivec4 u_light_meta;
+    vec4 u_light_padding;
 
     TbxLight u_lights[TBX_MAX_LIGHTS];
 };

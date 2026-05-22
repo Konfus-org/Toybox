@@ -2,20 +2,18 @@
 #include "systems/assets/internal/fallbacks_internal.h"
 #include "systems/graphics/internal/resource_manager_internal.h"
 #include "systems/graphics/internal/resource_uploader_internal.h"
+#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/components/model.h"
 #include "tbx/types/material.h"
-#include "tbx/types/texture.h"
-#include "tbx/types/vertex.h"
 #include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <variant>
+
 
 namespace tbx
 {

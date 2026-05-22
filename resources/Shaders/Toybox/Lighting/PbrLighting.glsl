@@ -144,9 +144,9 @@ vec3 tbx_get_shadow_light_direction(TbxLight light, PbrSurface surface)
 vec3 tbx_shade_pbr(PbrSurface surface)
 {
     vec3 view_dir = normalize(u_camera_world_position.xyz - surface.world_position);
-    vec3 color = u_ambient_color.rgb * surface.albedo * surface.ao;
+    vec3 color = u_ambient_color.rgb * surface.albedo;
 
-    for (int i = 0; i < u_light_count; ++i)
+    for (int i = 0; i < u_light_meta.x; ++i)
     {
         vec3 contribution = tbx_evaluate_light_pbr(u_lights[i], surface, view_dir);
         if (u_lights[i].params.z >= 0.0)

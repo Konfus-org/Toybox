@@ -1,7 +1,6 @@
 #include "opengl_utils.h"
 #include "internal/opengl_utils_internal.h"
 #include "opengl_shader.h"
-#include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <string>
 #include <string_view>
@@ -10,7 +9,6 @@ namespace opengl_rendering
 {
     tbx::Result make_failure(std::string message)
     {
-        TBX_TRACE_ERROR("{}", message);
         auto result = tbx::Result {};
         result.flag_failure(std::move(message));
         return result;
@@ -233,7 +231,16 @@ namespace opengl_rendering
         {
             auto shader = std::make_shared<OpenGlShader>(source);
             if (!shader->compile())
-                return make_failure("OpenGL backend: shader compilation failed.");
+            {
+                auto message = std::string("OpenGL backend: shader compilation failed.");
+                if (!shader->get_last_error().empty())
+                {
+                    message += " ";
+                    message += shader->get_last_error();
+                }
+
+                return make_failure(std::move(message));
+            }
 
             out_shaders.push_back(std::move(shader));
         }

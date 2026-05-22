@@ -2,7 +2,6 @@
 #include "systems/graphics/internal/rendering_internal.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/messaging/observable.h"
 #include <mutex>
 #include <string>
 #include <string_view>

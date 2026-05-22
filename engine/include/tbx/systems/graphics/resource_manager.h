@@ -6,7 +6,6 @@
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/material.h"
 #include "tbx/utils/result.h"
 #include <memory>
 #include <string>

@@ -1184,6 +1184,55 @@ namespace tbx::tests::graphics
             static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT));
     }
 
+    // Validates directional ambient uses average directional color scaled by summed ambient.
+    TEST(RenderingTests, Render_DirectionalAmbientUsesAverageColorAndSummedAmbientIntensity)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = Entity("Camera", registry);
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
+        auto key = Entity("Key", registry);
+        key.add_component<DirectionalLight>(Color(1.0F, 0.2F, 0.0F, 1.0F), 1.0F, 0.20F);
+        key.add_component<Transform>();
+        auto fill = Entity("Fill", registry);
+        fill.add_component<DirectionalLight>(Color(0.0F, 0.8F, 1.0F, 1.0F), 1.0F, 0.10F);
+        fill.add_component<Transform>();
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+        const auto light_shader_data = find_light_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(light_shader_data.has_value());
+        EXPECT_EQ(light_shader_data->light_meta.x, 2);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.x, 0.15F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.y, 0.15F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.15F);
+    }
+
     // Validates Sky entities submit a dedicated skybox pass before the geometry pass.
     TEST(RenderingTests, Render_SkyComponentSubmitsSkyboxPassBeforeGeometryPass)
     {

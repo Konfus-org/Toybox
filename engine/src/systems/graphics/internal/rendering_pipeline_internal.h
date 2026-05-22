@@ -56,6 +56,7 @@ namespace tbx::internal
         uint type = 0U;
         Color color = Color::WHITE;
         float intensity = 0.0F;
+        float ambient = 0.0F;
         float inner_cone = 0.0F;
         float outer_cone = 0.0F;
         int32 shadow_index = -1;
@@ -109,9 +110,6 @@ namespace tbx::internal
     struct RenderLighting
     {
         std::vector<RenderLight> lights = {};
-        Vec3 ambient_color_sum = Vec3(0.0F);
-        float ambient_intensity_sum = 0.0F;
-        uint32 directional_light_count = 0U;
         uint32 shadow_layer_count = 0U;
     };
 
@@ -214,15 +212,24 @@ namespace tbx::internal
         return max_distance <= 0.0F || distance(position, camera_position) <= max_distance;
     }
 
-    static LightingShaderData make_light_shader_data(
-        const RenderDrawData& draw_data,
-        const Vec3& ambient_color_sum,
-        const float ambient_intensity_sum,
-        const uint directional_light_count)
+    static LightingShaderData make_light_shader_data(const RenderDrawData& draw_data)
     {
         auto light_data = LightingShaderData();
         light_data.light_meta.x = static_cast<int32>(draw_data.lighting.lights.size());
         light_data.light_meta.y = static_cast<int32>(draw_data.shadows.count);
+
+        auto ambient_color_sum = Vec3(0.0F);
+        float ambient_intensity_sum = 0.0F;
+        uint32 directional_light_count = 0U;
+        for (const auto& light : draw_data.lighting.lights)
+        {
+            if (light.type != static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL))
+                continue;
+
+            ambient_color_sum += Vec3(light.color.r, light.color.g, light.color.b);
+            ambient_intensity_sum += light.ambient;
+            ++directional_light_count;
+        }
 
         if (directional_light_count > 0U)
         {
@@ -460,11 +467,7 @@ namespace tbx::internal
         };
 
         // Upload data
-        const auto light_shader_data = internal::make_light_shader_data(
-            draw_data,
-            draw_data.lighting.ambient_color_sum,
-            draw_data.lighting.ambient_intensity_sum,
-            draw_data.lighting.directional_light_count);
+        const auto light_shader_data = internal::make_light_shader_data(draw_data);
 
         const auto frame_shader_data = FrameShaderData {
             .time = frame.time,
@@ -753,17 +756,13 @@ namespace tbx::internal
                 light.cast_shadows,
                 DIRECTIONAL_SHADOW_CASCADE_COUNT);
 
-            draw_data.lighting.ambient_color_sum +=
-                Vec3(light.color.r, light.color.g, light.color.b);
-            draw_data.lighting.ambient_intensity_sum += light.ambient;
-            ++draw_data.lighting.directional_light_count;
-
             append_light(
                 draw_data,
                 RenderLight {
                     .type = static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL),
                     .color = light.color,
                     .intensity = light.intensity,
+                    .ambient = light.ambient,
                     .shadow_index = shadow_index,
                     .shadow_layer_count = shadow_index >= 0 ? DIRECTIONAL_SHADOW_CASCADE_COUNT : 0U,
                     .direction = direction,

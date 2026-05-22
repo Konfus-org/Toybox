@@ -423,8 +423,24 @@ namespace opengl_rendering
             !result)
             return result;
 
+        GLint max_uniform_buffer_bindings = 0;
+        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &max_uniform_buffer_bindings);
+        if (slot >= static_cast<uint32>(std::max(max_uniform_buffer_bindings, 0)))
+        {
+            return make_failure(
+                "OpenGL backend: uniform buffer bind failed, slot " + std::to_string(slot)
+                + " exceeds GL_MAX_UNIFORM_BUFFER_BINDINGS="
+                + std::to_string(std::max(max_uniform_buffer_bindings, 0)) + ".");
+        }
+
         buffer_it->second.bind_slot(slot);
-        auto result = consume_gl_errors("bind_uniform_buffer");
+        auto operation = std::string("bind_uniform_buffer(slot=");
+        operation += std::to_string(slot);
+        operation += ", buffer='";
+        operation += buffer_desc_it->second.debug_name.empty() ? "unnamed"
+                                                               : buffer_desc_it->second.debug_name;
+        operation += "')";
+        auto result = consume_gl_errors(operation);
         if (result)
             _uniform_buffer_bindings[slot] = buffer_resource_uuid;
 
@@ -687,7 +703,9 @@ namespace opengl_rendering
             auto message = std::string("OpenGL backend: shader program link failed");
             if (!desc.debug_name.empty())
                 message += " for pipeline '" + desc.debug_name + "'";
-            message += ".";
+            message += ". ";
+            message += program.get_last_error().empty() ? "No driver error log was provided."
+                                                        : program.get_last_error();
             return make_failure(std::move(message));
         }
 
@@ -781,6 +799,20 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: buffer update exceeds buffer size.");
 
         buffer_it->second.update(data, data_size, offset);
+        if (buffer_desc_it->second.usage == tbx::GraphicsBufferUsage::UNIFORM)
+        {
+            auto operation = std::string("update_buffer(uniform='");
+            operation += buffer_desc_it->second.debug_name.empty()
+                             ? "unnamed"
+                             : buffer_desc_it->second.debug_name;
+            operation += "', bytes=";
+            operation += std::to_string(data_size);
+            operation += ", offset=";
+            operation += std::to_string(offset);
+            operation += ")";
+            return consume_gl_errors(operation);
+        }
+
         return consume_gl_errors("update_buffer");
     }
 

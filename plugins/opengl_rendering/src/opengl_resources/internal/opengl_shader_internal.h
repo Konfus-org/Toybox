@@ -33,25 +33,30 @@ namespace opengl_rendering::internal
         }
     }
 
-    static void handle_shader_compile_error(uint32 shader_id, tbx::ShaderType type)
+    static std::string build_shader_compile_error_message(uint32 shader_id, tbx::ShaderType type)
     {
         GLint length = 0;
         glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<uint64>(length), '\0');
         glGetShaderInfoLog(shader_id, length, &length, error_log.data());
-        TBX_TRACE_ERROR(
-            "OpenGL rendering: shader compilation failure (type {}). {}",
-            static_cast<int>(type),
-            error_log);
+
+        auto message = std::string("OpenGL rendering: shader compilation failure (type ");
+        message += std::to_string(static_cast<int>(type));
+        message += "). ";
+        message += error_log;
+        return message;
     }
 
-    static void handle_program_link_error(uint32 program_id)
+    static std::string build_program_link_error_message(uint32 program_id)
     {
         GLint length = 0;
         glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
         std::string error_log(static_cast<uint64>(length), '\0');
         glGetProgramInfoLog(program_id, length, &length, error_log.data());
-        TBX_TRACE_ERROR("OpenGL rendering: shader program link failure. {}", error_log);
+
+        auto message = std::string("OpenGL rendering: shader program link failure. ");
+        message += error_log;
+        return message;
     }
 
 }

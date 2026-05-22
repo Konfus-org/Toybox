@@ -21,6 +21,7 @@ namespace opengl_rendering
         tbx::ShaderType get_type() const;
         bool compile();
         bool is_compiled() const;
+        const std::string& get_last_error() const;
 
         void bind() override;
         void unbind() override;
@@ -29,6 +30,7 @@ namespace opengl_rendering
 
       private:
         std::string _source = {};
+        std::string _last_error = {};
         uint32 _shader_id = 0;
         tbx::ShaderType _type = tbx::ShaderType::NONE;
     };
@@ -47,8 +49,10 @@ namespace opengl_rendering
         void unbind() override;
 
         uint32 get_program_id() const;
+        const std::string& get_last_error() const;
 
       private:
+        std::string _last_error = {};
         uint32 _program_id = 0;
     };
 }

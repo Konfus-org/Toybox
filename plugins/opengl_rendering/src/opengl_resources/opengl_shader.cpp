@@ -19,6 +19,7 @@ namespace opengl_rendering
 
     OpenGlShader::OpenGlShader(OpenGlShader&& other) noexcept
         : _source(std::move(other._source))
+        , _last_error(std::move(other._last_error))
         , _shader_id(internal::take_gl_handle(other._shader_id))
         , _type(other._type)
     {
@@ -34,6 +35,7 @@ namespace opengl_rendering
             glDeleteShader(_shader_id);
 
         _source = std::move(other._source);
+        _last_error = std::move(other._last_error);
         _shader_id = internal::take_gl_handle(other._shader_id);
         _type = other._type;
         other._type = tbx::ShaderType::NONE;
@@ -55,16 +57,23 @@ namespace opengl_rendering
 
     bool OpenGlShader::compile()
     {
+        _last_error.clear();
         if (_shader_id != 0)
             return true;
 
         if (_type == tbx::ShaderType::NONE || _source.empty())
+        {
+            _last_error = "OpenGL rendering: shader source is missing or has invalid stage type.";
             return false;
+        }
 
         const auto gl_type = internal::to_gl_shader_type(_type);
         _shader_id = glCreateShader(gl_type);
         if (_shader_id == 0)
+        {
+            _last_error = "OpenGL rendering: glCreateShader returned 0.";
             return false;
+        }
 
         const auto* source = _source.c_str();
         glShaderSource(_shader_id, 1, &source, nullptr);
@@ -74,7 +83,7 @@ namespace opengl_rendering
         glGetShaderiv(_shader_id, GL_COMPILE_STATUS, &compiled);
         if (compiled == GL_FALSE)
         {
-            internal::handle_shader_compile_error(_shader_id, _type);
+            _last_error = internal::build_shader_compile_error_message(_shader_id, _type);
             glDeleteShader(_shader_id);
             _shader_id = 0;
             return false;
@@ -86,6 +95,11 @@ namespace opengl_rendering
     bool OpenGlShader::is_compiled() const
     {
         return _shader_id != 0;
+    }
+
+    const std::string& OpenGlShader::get_last_error() const
+    {
+        return _last_error;
     }
 
     void OpenGlShader::bind() {}
@@ -100,8 +114,14 @@ namespace opengl_rendering
     OpenGlShaderProgram::OpenGlShaderProgram(
         const std::vector<std::shared_ptr<OpenGlShader>>& shaders)
     {
+        _last_error.clear();
         _program_id = glCreateProgram();
         TBX_ASSERT(_program_id != 0, "OpenGL rendering: failed to create shader program object.");
+        if (_program_id == 0)
+        {
+            _last_error = "OpenGL rendering: glCreateProgram returned 0.";
+            return;
+        }
 
         for (const auto& shader : shaders)
         {
@@ -121,7 +141,7 @@ namespace opengl_rendering
         glGetProgramiv(_program_id, GL_LINK_STATUS, &linked);
         if (linked == GL_FALSE)
         {
-            internal::handle_program_link_error(_program_id);
+            _last_error = internal::build_program_link_error_message(_program_id);
             glDeleteProgram(_program_id);
             _program_id = 0;
             return;
@@ -137,7 +157,8 @@ namespace opengl_rendering
     }
 
     OpenGlShaderProgram::OpenGlShaderProgram(OpenGlShaderProgram&& other) noexcept
-        : _program_id(internal::take_gl_handle(other._program_id))
+        : _last_error(std::move(other._last_error))
+        , _program_id(internal::take_gl_handle(other._program_id))
     {
     }
 
@@ -149,6 +170,7 @@ namespace opengl_rendering
         if (_program_id != 0)
             glDeleteProgram(_program_id);
 
+        _last_error = std::move(other._last_error);
         _program_id = internal::take_gl_handle(other._program_id);
         return *this;
     }
@@ -175,5 +197,10 @@ namespace opengl_rendering
     uint32 OpenGlShaderProgram::get_program_id() const
     {
         return _program_id;
+    }
+
+    const std::string& OpenGlShaderProgram::get_last_error() const
+    {
+        return _last_error;
     }
 }

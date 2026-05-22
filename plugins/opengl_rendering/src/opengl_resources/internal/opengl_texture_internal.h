@@ -144,10 +144,6 @@ namespace opengl_rendering::internal
         if (is_internal_format_supported(compressed))
             return compressed;
 
-        TBX_TRACE_WARNING(
-            "OpenGL rendering: requested texture compression is unavailable for format {}. "
-            "Falling back to uncompressed upload.",
-            static_cast<int>(texture.format));
         return fallback_internal_format;
     }
 

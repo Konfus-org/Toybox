@@ -14,7 +14,6 @@ layout(location = 0) out vec3 v_world_position;
 layout(location = 1) out vec3 v_world_normal;
 layout(location = 2) out vec4 v_world_tangent;
 layout(location = 3) out vec2 v_tex_coord;
-layout(location = 4) out vec4 v_color;
 
 void main()
 {
@@ -24,7 +23,6 @@ void main()
     v_world_normal = normalize((a_instance_normal * vec4(a_normal, 0.0)).xyz);
     v_world_tangent = vec4(normalize((a_instance_model * vec4(a_tangent.xyz, 0.0)).xyz), a_tangent.w);
     v_tex_coord = a_tex_coord;
-    v_color = a_color;
 
     gl_Position = u_view_projection * world_position;
 }
