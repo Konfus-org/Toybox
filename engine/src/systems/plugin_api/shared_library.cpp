@@ -56,7 +56,7 @@ namespace tbx
             return;
 
         auto error = std::error_code {};
-        std::filesystem::remove(_cleanup_path, error);
+        std::filesystem::remove_all(_cleanup_path, error);
         _cleanup_path.clear();
     }
 

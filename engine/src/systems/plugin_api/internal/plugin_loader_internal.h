@@ -57,20 +57,81 @@ namespace tbx::internal
     {
         static uint64 next_shadow_copy_index = 0U;
 
-        const auto copy_directory = library_path.parent_path();
         const auto copy_stem = library_path.stem().string();
-        const auto copy_extension = library_path.extension().string();
+        const auto copy_root = library_path.parent_path() / ".plugin_load_copies";
 
         for (auto attempt = 0U; attempt < 128U; ++attempt)
         {
-            const auto copy_name = copy_stem + ".load_copy_"
-                                   + std::to_string(++next_shadow_copy_index) + copy_extension;
-            const auto copy_path = copy_directory / copy_name;
+            const auto copy_directory =
+                copy_root / (copy_stem + ".load_copy_" + std::to_string(++next_shadow_copy_index));
+            const auto copy_path = copy_directory / library_path.filename();
             if (!file_ops.exists(copy_path))
                 return copy_path;
         }
 
         return {};
+    }
+
+    static bool filesystem_path_exists(const std::filesystem::path& path)
+    {
+        auto error = std::error_code {};
+        const bool exists = std::filesystem::exists(path, error);
+        return exists && !error;
+    }
+
+    static std::filesystem::path find_plugin_pdb_path(const std::filesystem::path& library_path)
+    {
+        const auto pdb_filename = library_path.stem().string() + ".pdb";
+        const auto library_directory = library_path.parent_path();
+
+        const auto pdb_next_to_library = library_directory / pdb_filename;
+        if (filesystem_path_exists(pdb_next_to_library))
+            return pdb_next_to_library;
+
+        if (library_directory.has_parent_path())
+        {
+            const auto config_directory = library_directory.filename();
+            const auto output_directory = library_directory.parent_path();
+            if (output_directory.has_parent_path())
+            {
+                const auto pdb_output_path =
+                    output_directory.parent_path() / "pdb" / config_directory / pdb_filename;
+                if (filesystem_path_exists(pdb_output_path))
+                    return pdb_output_path;
+            }
+
+            const auto single_config_pdb_path =
+                output_directory.parent_path() / "pdb" / pdb_filename;
+            if (filesystem_path_exists(single_config_pdb_path))
+                return single_config_pdb_path;
+        }
+
+        return {};
+    }
+
+    static void try_copy_plugin_pdb_for_shadow_copy(
+        const std::filesystem::path& library_path,
+        const std::filesystem::path& shadow_copy_path)
+    {
+        const auto pdb_path = find_plugin_pdb_path(library_path);
+        if (pdb_path.empty())
+            return;
+
+        const auto shadow_pdb_path = shadow_copy_path.parent_path() / pdb_path.filename();
+        auto copy_error = std::error_code {};
+        std::filesystem::copy_file(
+            pdb_path,
+            shadow_pdb_path,
+            std::filesystem::copy_options::overwrite_existing,
+            copy_error);
+        if (copy_error)
+        {
+            TBX_TRACE_WARNING(
+                "Failed to copy plugin PDB '{}' for shadow copy '{}': {}.",
+                pdb_path.string(),
+                shadow_copy_path.string(),
+                copy_error.message());
+        }
     }
 
     static std::filesystem::path try_create_plugin_shadow_copy(
@@ -92,13 +153,24 @@ namespace tbx::internal
         for (uint attempt = 0U; attempt < max_copy_attempts; ++attempt)
         {
             copy_error.clear();
+            std::filesystem::create_directories(
+                resolved_shadow_copy_path.parent_path(),
+                copy_error);
+            if (copy_error)
+                break;
+
             std::filesystem::copy_file(
                 resolved_library_path,
                 resolved_shadow_copy_path,
                 std::filesystem::copy_options::overwrite_existing,
                 copy_error);
             if (!copy_error)
+            {
+                try_copy_plugin_pdb_for_shadow_copy(
+                    resolved_library_path,
+                    resolved_shadow_copy_path);
                 return shadow_copy_path;
+            }
 
             std::this_thread::sleep_for(copy_retry_delay);
         }
@@ -128,11 +200,14 @@ namespace tbx::internal
         auto load_path = library_path;
         auto cleanup_path = std::filesystem::path {};
 
+        // TODO: Don't pay for this in release! Add a TBX_FULL_RELEASE flag we can use to optimize
+        // out stuff that shouldn't be in final versions, then replace the existing debug only
+        // things like the perf title in the perf monitor plugin with the full release ifdef
         if (const auto shadow_copy_path = try_create_plugin_shadow_copy(library_path, file_ops);
             !shadow_copy_path.empty())
         {
             load_path = shadow_copy_path;
-            cleanup_path = shadow_copy_path;
+            cleanup_path = shadow_copy_path.parent_path();
         }
 
         auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);

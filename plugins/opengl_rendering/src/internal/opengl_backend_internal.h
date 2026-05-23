@@ -1,12 +1,9 @@
 #pragma once
-#include "opengl_backend.h"
 #include "opengl_resources/opengl_utils.h"
-#include <algorithm>
-#include <cstdint>
-#include <memory>
+#include "tbx/interfaces/graphics_backend.h"
+#include <glad/glad.h>
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace opengl_rendering::internal
 {
@@ -33,7 +30,7 @@ namespace opengl_rendering::internal
         return make_failure(std::move(message));
     }
 
-    static void apply_pipeline_state(const tbx::GraphicsPipelineDesc& desc)
+    static void apply_pipeline_state(const tbx::RasterPipelineDesc& desc)
     {
         desc.is_depth_test_enabled ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
         glDepthMask(desc.is_depth_write_enabled ? GL_TRUE : GL_FALSE);

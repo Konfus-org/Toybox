@@ -2,6 +2,7 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include <memory>
@@ -38,6 +39,7 @@ namespace tbx
     /// Purpose: Caches uploaded mesh resources by source mesh handle.
     struct TBX_API MeshResourceCache
     {
+        std::unordered_map<Handle, MeshBounds> model_bounds = {};
         std::unordered_map<Handle, std::vector<RenderingMeshUploadData>> model_meshes = {};
         std::unordered_map<Handle, RenderingMeshUploadData> runtime_meshes = {};
         std::unordered_map<const DynamicMeshData*, DynamicMeshResourceCacheEntry> dynamic_meshes =

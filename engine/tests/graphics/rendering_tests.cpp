@@ -31,6 +31,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -39,20 +40,14 @@ namespace tbx::tests::graphics
     enum class GraphicsBackendCallback
     {
         BEGIN_FRAME,
-        BEGIN_VIEW,
-        SET_VIEWPORT,
         BEGIN_PASS,
         END_PASS,
         BIND_PIPELINE,
-        BIND_VERTEX_BUFFER,
-        BIND_INDEX_BUFFER,
-        BIND_UNIFORM_BUFFER,
-        BIND_STORAGE_BUFFER,
-        BIND_TEXTURE,
-        BIND_SAMPLER,
+        BIND_GROUP,
         DRAW,
-        DRAW_INDEXED,
-        END_VIEW,
+        DRAW_INDIRECT,
+        DISPATCH_COMPUTE,
+        PIPELINE_BARRIER,
         PRESENT,
         END_FRAME,
         WAIT_FOR_IDLE,
@@ -75,24 +70,35 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result begin_pass(const GraphicsPassDesc& pass) override
+        Result begin_render_pass(const GraphicsRenderPassDesc& pass) override
         {
             recorded_pass = pass;
+            recorded_viewport = pass.viewport.dimensions;
             recorded_passes.push_back(pass);
             callbacks.push_back(GraphicsBackendCallback::BEGIN_PASS);
             return {};
         }
 
-        Result bind_index_buffer(const Uuid& buffer_resource_uuid, GraphicsIndexType index_type)
-            override
+        Result bind_group(uint32, const Uuid& group_resource_uuid) override
         {
-            recorded_index_buffer = buffer_resource_uuid;
-            recorded_index_type = index_type;
-            callbacks.push_back(GraphicsBackendCallback::BIND_INDEX_BUFFER);
+            recorded_bind_group = group_resource_uuid;
+            recorded_bind_groups.push_back(group_resource_uuid);
+            if (const auto group = recorded_bind_group_descs.find(group_resource_uuid);
+                group != recorded_bind_group_descs.end())
+            {
+                for (const auto& binding : group->second.bindings)
+                {
+                    recorded_bind_group_slots.push_back(binding.binding_slot);
+                    recorded_vertex_slots.push_back(binding.binding_slot);
+                    recorded_uniform_slots.push_back(binding.binding_slot);
+                    recorded_texture_slots.push_back(binding.binding_slot);
+                }
+            }
+            callbacks.push_back(GraphicsBackendCallback::BIND_GROUP);
             return {};
         }
 
-        Result bind_pipeline(const Uuid& pipeline_resource_uuid) override
+        Result bind_compute_pipeline(const Uuid& pipeline_resource_uuid) override
         {
             recorded_pipeline = pipeline_resource_uuid;
             recorded_pipelines.push_back(pipeline_resource_uuid);
@@ -100,59 +106,53 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result bind_sampler(uint32 slot, const Uuid& sampler_resource_uuid) override
+        Result bind_raster_pipeline(const Uuid& pipeline_resource_uuid) override
         {
-            recorded_sampler_slot = slot;
-            recorded_sampler = sampler_resource_uuid;
-            callbacks.push_back(GraphicsBackendCallback::BIND_SAMPLER);
+            recorded_pipeline = pipeline_resource_uuid;
+            recorded_pipelines.push_back(pipeline_resource_uuid);
+            callbacks.push_back(GraphicsBackendCallback::BIND_PIPELINE);
             return {};
         }
 
-        Result bind_storage_buffer(uint32, const Uuid&) override
+        Result draw(
+            uint32 index_count,
+            uint32 instance_count,
+            uint32 first_index,
+            int32 vertex_offset,
+            uint32 first_instance) override
         {
-            callbacks.push_back(GraphicsBackendCallback::BIND_STORAGE_BUFFER);
-            return {};
-        }
-
-        Result bind_texture(uint32 slot, const Uuid& texture_resource_uuid) override
-        {
-            recorded_texture_slot = slot;
-            recorded_texture = texture_resource_uuid;
-            recorded_texture_slots.push_back(slot);
-            callbacks.push_back(GraphicsBackendCallback::BIND_TEXTURE);
-            return {};
-        }
-
-        Result bind_uniform_buffer(uint32 slot, const Uuid& buffer_resource_uuid) override
-        {
-            recorded_uniform_slot = slot;
-            recorded_uniform_buffer = buffer_resource_uuid;
-            recorded_uniform_slots.push_back(slot);
-            callbacks.push_back(GraphicsBackendCallback::BIND_UNIFORM_BUFFER);
-            return {};
-        }
-
-        Result bind_vertex_buffer(uint32 slot, const Uuid& buffer_resource_uuid) override
-        {
-            recorded_vertex_slot = slot;
-            recorded_vertex_buffer = buffer_resource_uuid;
-            recorded_vertex_slots.push_back(slot);
-            recorded_vertex_buffers.push_back(buffer_resource_uuid);
-            callbacks.push_back(GraphicsBackendCallback::BIND_VERTEX_BUFFER);
-            return {};
-        }
-
-        Result draw(uint32, uint32) override
-        {
+            recorded_draw = GraphicsDrawIndexedDesc {
+                .index_count = index_count,
+                .index_offset = first_index,
+                .vertex_offset = vertex_offset,
+                .instance_count = instance_count,
+                .first_instance = first_instance,
+            };
+            recorded_draws.push_back(recorded_draw);
             callbacks.push_back(GraphicsBackendCallback::DRAW);
             return {};
         }
 
-        Result draw_indexed(const GraphicsDrawIndexedDesc& draw) override
+        Result draw_indirect(const Uuid& argument_buffer, uint64, uint32 draw_count, uint32)
+            override
         {
-            recorded_draw = draw;
-            recorded_draws.push_back(draw);
-            callbacks.push_back(GraphicsBackendCallback::DRAW_INDEXED);
+            recorded_indirect_argument_buffer = argument_buffer;
+            recorded_indirect_draw_count = draw_count;
+            callbacks.push_back(GraphicsBackendCallback::DRAW_INDIRECT);
+            return {};
+        }
+
+        Result dispatch_compute(uint32 group_count_x, uint32 group_count_y, uint32 group_count_z)
+            override
+        {
+            recorded_dispatch_groups = UVec3(group_count_x, group_count_y, group_count_z);
+            callbacks.push_back(GraphicsBackendCallback::DISPATCH_COMPUTE);
+            return {};
+        }
+
+        Result begin_compute_pass(const GraphicsComputePassDesc& pass) override
+        {
+            recorded_compute_pass_name = pass.debug_name;
             return {};
         }
 
@@ -162,7 +162,12 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result end_pass() override
+        Result end_compute_pass() override
+        {
+            return {};
+        }
+
+        Result end_render_pass() override
         {
             callbacks.push_back(GraphicsBackendCallback::END_PASS);
             return {};
@@ -173,9 +178,15 @@ namespace tbx::tests::graphics
             return GraphicsApi::OPEN_GL;
         }
 
-        Result initialize(const GraphicsSettings&) override
+        VsyncMode get_vsync() const override
         {
-            initialize_thread_id = std::this_thread::get_id();
+            return recorded_vsync_mode;
+        }
+
+        Result set_vsync(const VsyncMode mode) override
+        {
+            recorded_vsync_mode = mode;
+            updated_vsync_count += 1U;
             return {};
         }
 
@@ -185,67 +196,54 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result set_scissor(const Viewport& scissor) override
-        {
-            recorded_scissor = scissor.dimensions;
-            return {};
-        }
-
-        Result set_viewport(const Viewport& viewport) override
-        {
-            recorded_viewport = viewport.dimensions;
-            callbacks.push_back(GraphicsBackendCallback::SET_VIEWPORT);
-            return {};
-        }
-
-        void shutdown() override {}
-
-        Result unload(const Uuid& resource_uuid) override
+        Result destroy_resource(const Uuid& resource_uuid) override
         {
             unloaded_resources.push_back(resource_uuid);
             return {};
         }
 
-        Result update_buffer(const Uuid& resource_uuid, const void*, uint64, uint64) override
+        Result pipeline_barrier(const std::vector<PipelineBarrierDesc>& barriers) override
         {
-            updated_buffer_count += 1U;
-            updated_buffers.push_back(resource_uuid);
+            recorded_barriers.insert(recorded_barriers.end(), barriers.begin(), barriers.end());
+            callbacks.push_back(GraphicsBackendCallback::PIPELINE_BARRIER);
             return {};
         }
 
-        Result update_settings(const GraphicsSettings& settings) override
-        {
-            updated_settings_count += 1U;
-            recorded_vsync_enabled = settings.vsync_enabled;
-            return {};
-        }
-
-        Result update_texture(const Uuid&, const GraphicsTextureUpdateDesc&, const void*, uint64)
-            override
-        {
-            return {};
-        }
-
-        Result upload_buffer(
-            const GraphicsBufferDesc& desc,
-            const void* data,
-            uint64 data_size,
-            Uuid& out_resource_uuid) override
+        Result create_buffer(const GraphicsBufferDesc& desc, Uuid& out_resource_uuid) override
         {
             recorded_buffer_descs.push_back(desc);
-            auto upload = RecordedBufferUpload {.desc = desc};
-            if (data != nullptr && data_size > 0U)
-            {
-                const auto* bytes = static_cast<const uint8*>(data);
-                upload.data.assign(bytes, bytes + static_cast<size>(data_size));
-            }
-            recorded_buffer_uploads.push_back(std::move(upload));
             uploaded_buffer_count += 1U;
+            out_resource_uuid = Uuid(next_uploaded_resource++);
+            recorded_buffer_descs_by_resource[out_resource_uuid] = desc;
+            return {};
+        }
+
+        Result create_bind_group(const BindGroupDesc& desc, Uuid& out_resource_uuid) override
+        {
+            out_resource_uuid = Uuid(next_uploaded_resource++);
+            recorded_bind_group_descs[out_resource_uuid] = desc;
+            uploaded_bind_group_count += 1U;
+            return {};
+        }
+
+        Result create_bind_group_layout(const BindGroupLayoutDesc& desc, Uuid& out_resource_uuid)
+            override
+        {
+            out_resource_uuid = Uuid(next_uploaded_resource++);
+            recorded_bind_group_layout_descs[out_resource_uuid] = desc;
+            return {};
+        }
+
+        Result create_compute_pipeline(const ComputePipelineDesc& desc, Uuid& out_resource_uuid)
+            override
+        {
+            recorded_compute_pipeline_desc = desc;
             out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
         }
 
-        Result upload_pipeline(const GraphicsPipelineDesc& desc, Uuid& out_resource_uuid) override
+        Result create_raster_pipeline(const RasterPipelineDesc& desc, Uuid& out_resource_uuid)
+            override
         {
             recorded_pipeline_desc = desc;
             recorded_pipeline_descs.push_back(desc);
@@ -254,19 +252,48 @@ namespace tbx::tests::graphics
             return {};
         }
 
-        Result upload_sampler(const GraphicsSamplerDesc&, Uuid&) override
+        Result create_sampler(const GraphicsSamplerDesc&, Uuid& out_resource_uuid) override
         {
+            out_resource_uuid = Uuid(next_uploaded_resource++);
             return {};
         }
 
-        Result upload_texture(
-            const GraphicsTextureDesc& desc,
-            const void* data,
-            uint64 data_size,
-            Uuid& out_resource_uuid) override
+        Result create_texture(const GraphicsTextureDesc& desc, Uuid& out_resource_uuid) override
         {
             recorded_texture_desc = desc;
             recorded_texture_descs.push_back(desc);
+            uploaded_texture_count += 1U;
+            out_resource_uuid = Uuid(next_uploaded_resource++);
+            recorded_texture_descs_by_resource[out_resource_uuid] = desc;
+            return {};
+        }
+
+        Result write_buffer(const Uuid& resource_uuid, const void* data, uint64 data_size, uint64)
+            override
+        {
+            auto upload = RecordedBufferUpload();
+            if (const auto desc_it = recorded_buffer_descs_by_resource.find(resource_uuid);
+                desc_it != recorded_buffer_descs_by_resource.end())
+            {
+                upload.desc = desc_it->second;
+            }
+            if (data != nullptr && data_size > 0U)
+            {
+                const auto* bytes = static_cast<const uint8*>(data);
+                upload.data.assign(bytes, bytes + static_cast<size>(data_size));
+            }
+            recorded_buffer_uploads.push_back(std::move(upload));
+            updated_buffer_count += 1U;
+            updated_buffers.push_back(resource_uuid);
+            return {};
+        }
+
+        Result write_texture(
+            const Uuid& resource_uuid,
+            const GraphicsTextureUpdateDesc&,
+            const void* data,
+            uint64 data_size) override
+        {
             recorded_texture_upload_data.clear();
             if (data != nullptr && data_size > 0U)
             {
@@ -274,8 +301,11 @@ namespace tbx::tests::graphics
                 recorded_texture_upload_data.assign(bytes, bytes + static_cast<size>(data_size));
             }
             recorded_texture_upload_size = data_size;
-            uploaded_texture_count += 1U;
-            out_resource_uuid = Uuid(next_uploaded_resource++);
+            if (const auto desc_it = recorded_texture_descs_by_resource.find(resource_uuid);
+                desc_it != recorded_texture_descs_by_resource.end())
+            {
+                recorded_texture_desc = desc_it->second;
+            }
             return {};
         }
 
@@ -288,7 +318,6 @@ namespace tbx::tests::graphics
       public:
         std::vector<GraphicsBackendCallback> callbacks = {};
         std::thread::id begin_frame_thread_id = {};
-        std::thread::id initialize_thread_id = {};
         Window recorded_output_window = {};
         Size recorded_viewport = {};
         Size recorded_scissor = {};
@@ -296,6 +325,8 @@ namespace tbx::tests::graphics
         std::vector<GraphicsPassDesc> recorded_passes = {};
         Uuid recorded_pipeline = {};
         std::vector<Uuid> recorded_pipelines = {};
+        Uuid recorded_bind_group = {};
+        std::vector<Uuid> recorded_bind_groups = {};
         Uuid recorded_vertex_buffer = {};
         std::vector<Uuid> recorded_vertex_buffers = {};
         Uuid recorded_index_buffer = {};
@@ -309,27 +340,39 @@ namespace tbx::tests::graphics
         uint32 recorded_texture_slot = 0U;
         std::vector<uint32> recorded_texture_slots = {};
         uint32 recorded_sampler_slot = 0U;
+        std::vector<uint32> recorded_bind_group_slots = {};
         GraphicsIndexType recorded_index_type = GraphicsIndexType::UINT32;
         GraphicsDrawIndexedDesc recorded_draw = {};
         std::vector<GraphicsDrawIndexedDesc> recorded_draws = {};
-        GraphicsPipelineDesc recorded_pipeline_desc = {};
-        std::vector<GraphicsPipelineDesc> recorded_pipeline_descs = {};
+        RasterPipelineDesc recorded_pipeline_desc = {};
+        ComputePipelineDesc recorded_compute_pipeline_desc = {};
+        std::vector<RasterPipelineDesc> recorded_pipeline_descs = {};
         std::vector<GraphicsBufferDesc> recorded_buffer_descs = {};
         std::vector<RecordedBufferUpload> recorded_buffer_uploads = {};
         GraphicsTextureDesc recorded_texture_desc = {};
         std::vector<GraphicsTextureDesc> recorded_texture_descs = {};
         std::vector<uint8> recorded_texture_upload_data = {};
         std::vector<Uuid> unloaded_resources = {};
+        std::vector<PipelineBarrierDesc> recorded_barriers = {};
+        std::unordered_map<Uuid, BindGroupDesc> recorded_bind_group_descs = {};
+        std::unordered_map<Uuid, BindGroupLayoutDesc> recorded_bind_group_layout_descs = {};
+        std::unordered_map<Uuid, GraphicsBufferDesc> recorded_buffer_descs_by_resource = {};
+        std::unordered_map<Uuid, GraphicsTextureDesc> recorded_texture_descs_by_resource = {};
+        Uuid recorded_indirect_argument_buffer = {};
+        UVec3 recorded_dispatch_groups = UVec3(0U);
+        std::string recorded_compute_pass_name = {};
         uint64 recorded_texture_upload_size = 0U;
+        uint32 recorded_indirect_draw_count = 0U;
         uint uploaded_buffer_count = 0U;
+        uint uploaded_bind_group_count = 0U;
         uint uploaded_pipeline_count = 0U;
         uint uploaded_texture_count = 0U;
         uint updated_buffer_count = 0U;
-        uint updated_settings_count = 0U;
-        bool recorded_vsync_enabled = false;
+        uint updated_vsync_count = 0U;
         uint32 next_uploaded_resource = 1000U;
         std::vector<Uuid> updated_buffers = {};
         std::thread::id wait_for_idle_thread_id = {};
+        VsyncMode recorded_vsync_mode = VsyncMode::OFF;
     };
 
     class NullMessageDispatcher final : public IMessageDispatcher
@@ -481,32 +524,6 @@ namespace tbx::tests::graphics
         std::promise<void> _begin_frame_started = {};
     };
 
-    class InitBlockingGraphicsBackend final : public RecordingGraphicsBackend
-    {
-      public:
-        InitBlockingGraphicsBackend(std::shared_future<void> allow_initialize)
-            : _allow_initialize(std::move(allow_initialize))
-        {
-        }
-
-        Result initialize(const GraphicsSettings& settings) override
-        {
-            auto result = RecordingGraphicsBackend::initialize(settings);
-            _initialize_started.set_value();
-            _allow_initialize.wait();
-            return result;
-        }
-
-        std::future<void> take_initialize_started_future()
-        {
-            return _initialize_started.get_future();
-        }
-
-      private:
-        std::shared_future<void> _allow_initialize = {};
-        std::promise<void> _initialize_started = {};
-    };
-
     static void wait_for_render_lane(ThreadManager& thread_manager)
     {
         auto completion = thread_manager.post_with_future(
@@ -625,13 +642,30 @@ namespace tbx::tests::graphics
         return std::nullopt;
     }
 
-    static uint count_dynamic_mesh_vertex_uploads(const std::vector<RecordedBufferUpload>& uploads)
+    static std::optional<ShadowShaderData> find_shadow_shader_data(
+        const std::vector<RecordedBufferUpload>& uploads)
     {
-        auto count = uint {};
         for (const auto& upload : uploads)
         {
-            if (upload.desc.debug_name.find("DynamicMesh") != std::string::npos
-                && upload.desc.debug_name.find("Vertices") != std::string::npos)
+            if (upload.desc.debug_name != "Shadow Shader Data"
+                || upload.data.size() < sizeof(ShadowShaderData))
+                continue;
+
+            auto shader_data = ShadowShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(ShadowShaderData));
+            return shader_data;
+        }
+
+        return std::nullopt;
+    }
+
+    static uint count_dynamic_mesh_vertex_uploads(const std::vector<GraphicsBufferDesc>& buffers)
+    {
+        auto count = uint {};
+        for (const auto& buffer : buffers)
+        {
+            if (buffer.debug_name.find("DynamicMesh") != std::string::npos
+                && buffer.debug_name.find("Vertices") != std::string::npos)
             {
                 count += 1U;
             }
@@ -718,15 +752,11 @@ namespace tbx::tests::graphics
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
             GraphicsBackendCallback::BEGIN_FRAME,
-            GraphicsBackendCallback::BEGIN_VIEW,
-            GraphicsBackendCallback::SET_VIEWPORT,
             GraphicsBackendCallback::BEGIN_PASS,
             GraphicsBackendCallback::BIND_PIPELINE,
-            GraphicsBackendCallback::BIND_VERTEX_BUFFER,
-            GraphicsBackendCallback::BIND_INDEX_BUFFER,
-            GraphicsBackendCallback::DRAW_INDEXED,
+            GraphicsBackendCallback::BIND_GROUP,
+            GraphicsBackendCallback::DRAW,
             GraphicsBackendCallback::END_PASS,
-            GraphicsBackendCallback::END_VIEW,
             GraphicsBackendCallback::PRESENT,
             GraphicsBackendCallback::END_FRAME,
         };
@@ -743,63 +773,6 @@ namespace tbx::tests::graphics
                 std::find(backend.callbacks.begin(), backend.callbacks.end(), expected_callback),
                 backend.callbacks.end());
         }
-    }
-
-    // Validates initialization runs asynchronously and the first render waits for it.
-    TEST(RenderingTests, ConstructorDoesNotWaitForInitializationAndFirstRenderDoes)
-    {
-        // Arrange
-        auto allow_initialize = std::promise<void> {};
-        auto backend = InitBlockingGraphicsBackend(allow_initialize.get_future().share());
-        auto initialize_started = backend.take_initialize_started_future();
-        auto registry = EntityRegistry {};
-        auto thread_manager = ThreadManager {};
-        auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
-        auto serialization_registry = SerializationRegistry {};
-        auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
-        auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto entity = Entity("Triangle", registry);
-        entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
-        entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
-        auto asset_manager_service = make_non_owning_service(asset_manager);
-        auto thread_manager_service = make_non_owning_service(thread_manager);
-        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
-
-        // Act
-        auto rendering = Rendering(
-            backend_service,
-            registry_service,
-            asset_manager_service,
-            thread_manager_service,
-            window_manager_service,
-            settings);
-        ASSERT_EQ(initialize_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
-        auto lane_drain = thread_manager.post_with_future(
-            "render",
-            []()
-            {
-            });
-        auto render_call = std::async(
-            std::launch::async,
-            [&rendering]()
-            {
-                rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
-            });
-
-        // Assert
-        EXPECT_EQ(lane_drain.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
-        EXPECT_EQ(render_call.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
-
-        // Cleanup
-        allow_initialize.set_value();
-        lane_drain.get();
-        render_call.get();
-        wait_for_render_lane(thread_manager);
     }
 
     // Validates render() returns before the submitted frame finishes on the render lane.
@@ -886,11 +859,9 @@ namespace tbx::tests::graphics
         }
 
         // Assert
-        EXPECT_NE(backend.initialize_thread_id, std::thread::id {});
         EXPECT_NE(backend.begin_frame_thread_id, std::thread::id {});
         EXPECT_NE(backend.wait_for_idle_thread_id, std::thread::id {});
-        EXPECT_NE(backend.initialize_thread_id, caller_thread_id);
-        EXPECT_EQ(backend.initialize_thread_id, backend.begin_frame_thread_id);
+        EXPECT_NE(backend.begin_frame_thread_id, caller_thread_id);
         EXPECT_EQ(backend.begin_frame_thread_id, backend.wait_for_idle_thread_id);
         EXPECT_FALSE(thread_manager.has_lane("render"));
     }
@@ -984,8 +955,8 @@ namespace tbx::tests::graphics
         const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
         // Assert
-        EXPECT_GE(backend.updated_settings_count, 1U);
-        EXPECT_TRUE(backend.recorded_vsync_enabled);
+        EXPECT_EQ(backend.recorded_vsync_mode, VsyncMode::ON);
+        EXPECT_EQ(backend.updated_vsync_count, 1U);
         ASSERT_TRUE(light_data.has_value());
         EXPECT_EQ(light_data->light_meta.x, 1);
     }
@@ -1001,51 +972,37 @@ namespace tbx::tests::graphics
         const auto uniform_buffer = Uuid(40U);
         const auto texture = Uuid(50U);
         const auto sampler = Uuid(60U);
-        const auto draw = GraphicsDrawIndexedDesc {
-            .primitive_type = GraphicsPrimitiveType::TRIANGLES,
-            .index_type = GraphicsIndexType::UINT32,
-            .index_count = 36U,
-            .index_offset = 0U,
-            .vertex_offset = 0,
-            .instance_count = 1U,
-            .first_instance = 0U,
+        auto bind_group = Uuid();
+        const auto bind_group_desc = BindGroupDesc {
+            .bindings =
+                {
+                    ResourceBinding {.binding_slot = 0U, .resource_handle = vertex_buffer},
+                    ResourceBinding {.binding_slot = 0U, .resource_handle = index_buffer},
+                    ResourceBinding {.binding_slot = 0U, .resource_handle = uniform_buffer},
+                    ResourceBinding {.binding_slot = 1U, .resource_handle = texture},
+                    ResourceBinding {.binding_slot = 1U, .resource_handle = sampler},
+                },
         };
 
         // Act
-        auto result = backend.bind_pipeline(pipeline);
+        auto result = backend.create_bind_group(bind_group_desc, bind_group);
         if (result)
-            result = backend.bind_vertex_buffer(0U, vertex_buffer);
+            result = backend.bind_raster_pipeline(pipeline);
         if (result)
-            result = backend.bind_index_buffer(index_buffer, GraphicsIndexType::UINT32);
+            result = backend.bind_group(0U, bind_group);
         if (result)
-            result = backend.bind_uniform_buffer(0U, uniform_buffer);
-        if (result)
-            result = backend.bind_texture(1U, texture);
-        if (result)
-            result = backend.bind_sampler(1U, sampler);
-        if (result)
-            result = backend.draw_indexed(draw);
+            result = backend.draw(36U, 1U, 0U, 0, 0U);
 
         // Assert
         const auto expected_callbacks = std::vector<GraphicsBackendCallback> {
             GraphicsBackendCallback::BIND_PIPELINE,
-            GraphicsBackendCallback::BIND_VERTEX_BUFFER,
-            GraphicsBackendCallback::BIND_INDEX_BUFFER,
-            GraphicsBackendCallback::BIND_UNIFORM_BUFFER,
-            GraphicsBackendCallback::BIND_TEXTURE,
-            GraphicsBackendCallback::BIND_SAMPLER,
-            GraphicsBackendCallback::DRAW_INDEXED,
+            GraphicsBackendCallback::BIND_GROUP,
+            GraphicsBackendCallback::DRAW,
         };
 
         EXPECT_TRUE(result);
         EXPECT_EQ(backend.recorded_pipeline, pipeline);
-        EXPECT_EQ(backend.recorded_vertex_buffer, vertex_buffer);
-        EXPECT_EQ(backend.recorded_index_buffer, index_buffer);
-        EXPECT_EQ(backend.recorded_uniform_buffer, uniform_buffer);
-        EXPECT_EQ(backend.recorded_texture, texture);
-        EXPECT_EQ(backend.recorded_sampler, sampler);
-        EXPECT_EQ(backend.recorded_texture_slot, 1U);
-        EXPECT_EQ(backend.recorded_sampler_slot, 1U);
+        EXPECT_EQ(backend.recorded_bind_group, bind_group);
         EXPECT_EQ(backend.recorded_draw.index_count, 36U);
         EXPECT_EQ(backend.callbacks, expected_callbacks);
     }
@@ -1096,7 +1053,7 @@ namespace tbx::tests::graphics
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
-                GraphicsBackendCallback::DRAW_INDEXED),
+                GraphicsBackendCallback::DRAW),
             backend.callbacks.end());
     }
 
@@ -1368,7 +1325,7 @@ namespace tbx::tests::graphics
             std::find(
                 backend.callbacks.begin(),
                 backend.callbacks.end(),
-                GraphicsBackendCallback::DRAW_INDEXED),
+                GraphicsBackendCallback::DRAW),
             backend.callbacks.end());
         const auto sky_object_data = std::find_if(
             object_shader_data_uploads.begin(),
@@ -1634,7 +1591,7 @@ namespace tbx::tests::graphics
         rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
-            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs);
         const uint updated_buffer_count = backend.updated_buffer_count;
 
         // Act
@@ -1644,7 +1601,7 @@ namespace tbx::tests::graphics
 
         // Assert
         EXPECT_EQ(
-            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads),
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs),
             dynamic_upload_count);
         EXPECT_GE(backend.updated_buffer_count, updated_buffer_count + 2U);
         EXPECT_FALSE(mesh_data->is_dirty());
@@ -1683,7 +1640,7 @@ namespace tbx::tests::graphics
         rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
-            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads);
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs);
 
         // Act
         mesh_data->edit_mesh().indices.push_back(0U);
@@ -1692,7 +1649,7 @@ namespace tbx::tests::graphics
 
         // Assert
         EXPECT_GT(
-            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_uploads),
+            count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs),
             dynamic_upload_count);
         EXPECT_FALSE(mesh_data->is_dirty());
     }
@@ -1804,12 +1761,12 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes[1U].debug_name, "Toybox Lighting Pass");
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Transparent Forward Pass");
         EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
-        ASSERT_EQ(backend.recorded_draws.size(), 2U);
+        ASSERT_EQ(backend.recorded_draws.size(), 3U);
         EXPECT_NE(
             std::find_if(
                 backend.recorded_pipeline_descs.begin(),
                 backend.recorded_pipeline_descs.end(),
-                [](const GraphicsPipelineDesc& desc)
+                [](const RasterPipelineDesc& desc)
                 {
                     return desc.is_blending_enabled && !desc.is_depth_write_enabled;
                 }),
@@ -2015,6 +1972,60 @@ namespace tbx::tests::graphics
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
         EXPECT_TRUE(contains_texture_slot(backend, BINDING_SHADOW_MAP));
         EXPECT_TRUE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
+    }
+
+    // Validates shadow settings are passed to internal pipeline helpers in the expected order.
+    TEST(RenderingTests, Render_ShadowShaderDataUsesConfiguredDirectionalDistance)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = NullMessageDispatcher {};
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings = GraphicsSettings(
+            dispatcher,
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {1280U, 720U},
+            4096U,
+            120.0F,
+            3.0F);
+        auto mesh = Entity("Triangle", registry);
+        mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+        const auto shadow_data = find_shadow_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(shadow_data.has_value());
+        const float expected_first_cascade_far =
+            120.0F / static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT);
+        EXPECT_FLOAT_EQ(shadow_data->shadow_extra_params[0].y, expected_first_cascade_far);
+        ASSERT_FALSE(backend.recorded_texture_descs.empty());
+        EXPECT_EQ(backend.recorded_texture_descs.front().size.width, 4096U);
+        EXPECT_EQ(backend.recorded_texture_descs.front().size.height, 4096U);
     }
 
     // Validates shadow resources are not uploaded when no eligible light casts shadows.

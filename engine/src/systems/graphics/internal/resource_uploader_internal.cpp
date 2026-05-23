@@ -63,6 +63,14 @@ namespace tbx::internal
             out_material);
     }
 
+    void RenderingResourceUploader::cache_model_bounds(
+        const Handle& model_handle,
+        const MeshBounds& bounds) const
+    {
+        if (model_handle.is_valid() && bounds.is_valid)
+            _caches.meshes.model_bounds[model_handle] = bounds;
+    }
+
     GraphicsResourceBinding RenderingResourceUploader::upload_fallback_texture(
         RenderingResourceTracker& resource_tracker,
         const uint32 binding_id) const
@@ -257,6 +265,18 @@ namespace tbx::internal
         return true;
     }
 
+    bool RenderingResourceUploader::try_get_model_bounds(
+        const Handle& model_handle,
+        MeshBounds& out_bounds) const
+    {
+        const auto bounds = _caches.meshes.model_bounds.find(model_handle);
+        if (bounds == _caches.meshes.model_bounds.end())
+            return false;
+
+        out_bounds = bounds->second;
+        return true;
+    }
+
     Result RenderingResourceUploader::upload_static_runtime_mesh(
         const Handle& mesh_handle,
         const Mesh& mesh,
@@ -340,7 +360,7 @@ namespace tbx::internal
         }
 
         auto resource = Uuid {};
-        const Result result = backend->upload_texture(desc, nullptr, 0U, resource);
+        const Result result = backend->create_texture(desc, resource);
         if (!result)
         {
             TBX_TRACE_ERROR_ONCE("Rendering texture target upload failed: {}", result.get_report());

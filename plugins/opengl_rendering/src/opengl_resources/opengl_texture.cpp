@@ -1,52 +1,11 @@
 #include "opengl_texture.h"
 #include "internal/opengl_texture_internal.h"
-#include "opengl_bindless.h"
 #include "opengl_utils.h"
-#include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <utility>
 namespace opengl_rendering
 {
-    OpenGlTexture::OpenGlTexture(const tbx::Texture& texture)
-        : _array_layer_count(1U)
-    {
-        glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
-
-        const auto format = internal::to_gl_texture_format(texture.format);
-        const auto min_filter = internal::to_gl_texture_min_filter(texture);
-        const auto mag_filter = internal::to_gl_texture_mag_filter(texture.filter);
-        const auto wrapping = internal::to_gl_texture_wrap(texture.wrap);
-        const auto levels = internal::calculate_mipmap_levels(texture);
-        const auto internal_format =
-            internal::resolve_internal_format(texture, format.internal_format);
-
-        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, min_filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, mag_filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, wrapping);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, wrapping);
-
-        glTextureStorage2D(
-            _texture_id,
-            levels,
-            internal_format,
-            static_cast<GLsizei>(texture.resolution.width),
-            static_cast<GLsizei>(texture.resolution.height));
-
-        glTextureSubImage2D(
-            _texture_id,
-            0,
-            0,
-            0,
-            static_cast<GLsizei>(texture.resolution.width),
-            static_cast<GLsizei>(texture.resolution.height),
-            format.data_format,
-            GL_UNSIGNED_BYTE,
-            texture.pixels.data());
-        if (texture.mipmaps == tbx::TextureMipmaps::ENABLED)
-            glGenerateTextureMipmap(_texture_id);
-    }
-
     OpenGlTexture::OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data)
         : _array_layer_count(std::max(desc.array_layer_count, 1U))
     {
@@ -141,10 +100,8 @@ namespace opengl_rendering
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
         : _texture_id(internal::take_texture_gl_handle(other._texture_id))
         , _array_layer_count(other._array_layer_count)
-        , _bindless_handle(other._bindless_handle)
     {
         other._array_layer_count = 1U;
-        other._bindless_handle = 0;
     }
 
     OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
@@ -155,25 +112,14 @@ namespace opengl_rendering
         if (_texture_id != 0)
             glDeleteTextures(1, &_texture_id);
 
-        if (_bindless_handle != 0)
-            release_bindless_handle(_bindless_handle);
-
         _texture_id = internal::take_texture_gl_handle(other._texture_id);
         _array_layer_count = other._array_layer_count;
-        _bindless_handle = other._bindless_handle;
         other._array_layer_count = 1U;
-        other._bindless_handle = 0;
         return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept
     {
-        if (_bindless_handle != 0)
-        {
-            release_bindless_handle(_bindless_handle);
-            _bindless_handle = 0;
-        }
-
         if (_texture_id != 0)
         {
             glDeleteTextures(1, &_texture_id);
@@ -203,19 +149,6 @@ namespace opengl_rendering
     uint32 OpenGlTexture::get_array_layer_count() const
     {
         return _array_layer_count;
-    }
-
-    uint64 OpenGlTexture::get_bindless_handle() const
-    {
-        if (_bindless_handle != 0)
-            return _bindless_handle;
-
-        auto handle = uint64 {};
-        if (!try_make_bindless_handle_resident(_texture_id, handle))
-            return 0;
-
-        _bindless_handle = handle;
-        return _bindless_handle;
     }
 
     void OpenGlTexture::update(

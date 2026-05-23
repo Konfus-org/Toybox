@@ -36,7 +36,7 @@ namespace tbx
                 continue;
 
             const auto resource_id = Uuid(resource);
-            if (backend->unload(resource_id))
+            if (backend->destroy_resource(resource_id))
             {
                 _uploader->discard_cached_resource(resource_id);
                 _tracker->untrack(resource);
@@ -47,6 +47,20 @@ namespace tbx
     bool RenderingResourceManager::is_managed(const Uuid& resource) const
     {
         return resource.is_valid() && _tracker->is_tracked(resource);
+    }
+
+    void RenderingResourceManager::cache_model_bounds(
+        const Handle& model_handle,
+        const MeshBounds& bounds) const
+    {
+        _uploader->cache_model_bounds(model_handle, bounds);
+    }
+
+    bool RenderingResourceManager::try_get_model_bounds(
+        const Handle& model_handle,
+        MeshBounds& out_bounds) const
+    {
+        return _uploader->try_get_model_bounds(model_handle, out_bounds);
     }
 
     Result RenderingResourceManager::upload_dynamic_mesh(

@@ -2,8 +2,8 @@
 #include "opengl_backend.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/opengl_context_manager.h"
-#include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/messages.h"
 #include <memory>
 
 namespace opengl_rendering
@@ -15,8 +15,9 @@ namespace opengl_rendering
         if (!context_manager)
             return;
 
-        auto backend = std::make_unique<OpenGlGraphicsBackend>(
-            *context_manager);
+        context_manager->initialize(4, 5, 24, 8, true, false);
+
+        auto backend = std::make_unique<OpenGlGraphicsBackend>(*context_manager);
         service_provider.register_service<tbx::IGraphicsBackend>(std::move(backend));
 
         auto backend_service = service_provider.get_service<tbx::IGraphicsBackend>().lock();
@@ -29,9 +30,6 @@ namespace opengl_rendering
 
     void OpenGlRenderingPlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
-        if (auto backend = _backend.lock())
-            backend->shutdown();
-
         if (service_provider.has_service<tbx::IGraphicsBackend>())
             service_provider.deregister_service<tbx::IGraphicsBackend>();
 
@@ -42,11 +40,11 @@ namespace opengl_rendering
 
     void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {
-        const auto closed_event = tbx::handle_message<tbx::WindowClosedEvent>(msg);
         auto backend = _backend.lock();
-        if (!closed_event.has_value() || !backend)
-            return;
-
-        backend->destroy_context(closed_event->get().window);
+        if (const auto closed_event = tbx::handle_message<tbx::WindowClosedEvent>(msg);
+            closed_event.has_value() && backend)
+        {
+            backend->destroy_context(closed_event->get().window);
+        }
     }
 }

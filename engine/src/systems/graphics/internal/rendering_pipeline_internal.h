@@ -536,6 +536,7 @@ namespace tbx::internal
     }
 
     static bool should_cull(
+        RenderingResourceManager& resource_manager,
         AssetManager& asset_manager,
         std::unordered_map<Handle, MeshBounds>& static_mesh_bounds,
         const StaticMesh& mesh,
@@ -554,6 +555,13 @@ namespace tbx::internal
             return should_cull(bounds->second, transform, frustum);
         }
 
+        auto cached_bounds = MeshBounds();
+        if (resource_manager.try_get_model_bounds(mesh.handle, cached_bounds))
+        {
+            static_mesh_bounds.emplace(mesh.handle, cached_bounds);
+            return should_cull(cached_bounds, transform, frustum);
+        }
+
         const auto model = asset_manager.load<Model>(mesh.handle);
         if (!model)
             return false;
@@ -562,6 +570,7 @@ namespace tbx::internal
         if (!try_make_model_bounds(*model, bounds))
             return false;
 
+        resource_manager.cache_model_bounds(mesh.handle, bounds);
         static_mesh_bounds.emplace(mesh.handle, bounds);
         return should_cull(bounds, transform, frustum);
     }
@@ -932,7 +941,7 @@ namespace tbx::internal
 
     static Result create_shadow_map(
         RenderingResourceManager& resource_manager,
-        const GraphicsSettings& settings,
+        uint32 shadow_map_resolution,
         RenderDrawData& draw_data)
     {
         if (draw_data.shadows.layer_count == 0U)
@@ -942,11 +951,9 @@ namespace tbx::internal
         // GPU resource across frames.
         draw_data.shadows.map = resource_manager.upload_texture(
             BINDING_SHADOW_MAP,
-            "Toybox/ShadowMap/" + std::to_string(settings.shadow_map_resolution.value) + "/"
+            "Toybox/ShadowMap/" + std::to_string(shadow_map_resolution) + "/"
                 + std::to_string(draw_data.shadows.layer_count),
-            make_shadow_map_desc(
-                settings.shadow_map_resolution.value,
-                draw_data.shadows.layer_count));
+            make_shadow_map_desc(shadow_map_resolution, draw_data.shadows.layer_count));
         if (!draw_data.shadows.map.resource.is_valid())
             return Result(false, "Frame pipeline failed: shadow map target upload failed.");
 
@@ -956,7 +963,9 @@ namespace tbx::internal
     static Result append_shadow_passes(
         RenderingResourceManager& resource_manager,
         const uint64 frame_index,
-        const GraphicsSettings& settings,
+        uint32 shadow_map_resolution,
+        float shadow_render_distance,
+        float shadow_softness,
         const FrameData& frame,
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
@@ -996,9 +1005,9 @@ namespace tbx::internal
         const auto frame_shadow_data = make_shadow_shader_data(
             draw_data,
             frame,
-            settings.shadow_render_distance.value,
-            settings.shadow_softness.value,
-            settings.shadow_map_resolution.value);
+            shadow_render_distance,
+            shadow_softness,
+            shadow_map_resolution);
 
         out_shadow_passes.reserve(draw_data.shadows.layer_count);
         for (uint32 layer = 0U; layer < draw_data.shadows.layer_count; ++layer)
@@ -1110,6 +1119,109 @@ namespace tbx::internal
         return {};
     }
 
+    static ResourceBinding make_resource_binding(const GraphicsResourceBinding& binding)
+    {
+        return ResourceBinding {
+            .binding_slot = binding.slot,
+            .resource_handle = binding.resource,
+        };
+    }
+
+    static void append_bind_group_resources(
+        const std::vector<GraphicsResourceBinding>& bindings,
+        std::vector<ResourceBinding>& out_bindings)
+    {
+        for (const auto& binding : bindings)
+        {
+            if (binding.resource.is_valid())
+                out_bindings.push_back(make_resource_binding(binding));
+        }
+    }
+
+    static Uuid create_command_bind_group(
+        IGraphicsBackend& backend,
+        const std::vector<GraphicsResourceBinding>& vertex_buffers,
+        const Uuid& index_buffer,
+        const std::vector<GraphicsResourceBinding>& uniform_buffers,
+        const std::vector<GraphicsResourceBinding>& storage_buffers,
+        const std::vector<GraphicsResourceBinding>& textures,
+        const std::vector<GraphicsResourceBinding>& samplers,
+        const std::string& debug_name)
+    {
+        auto bindings = std::vector<ResourceBinding>();
+        bindings.reserve(
+            vertex_buffers.size() + (index_buffer.is_valid() ? 1U : 0U) + uniform_buffers.size()
+            + storage_buffers.size() + textures.size() + samplers.size());
+        append_bind_group_resources(vertex_buffers, bindings);
+        if (index_buffer.is_valid())
+        {
+            bindings.push_back(
+                ResourceBinding {
+                    .resource_handle = index_buffer,
+                });
+        }
+        append_bind_group_resources(uniform_buffers, bindings);
+        append_bind_group_resources(storage_buffers, bindings);
+        append_bind_group_resources(textures, bindings);
+        append_bind_group_resources(samplers, bindings);
+
+        if (bindings.empty())
+            return {};
+
+        auto bind_group = Uuid();
+        const Result result = backend.create_bind_group(
+            BindGroupDesc {
+                .bindings = std::move(bindings),
+                .debug_name = debug_name,
+            },
+            bind_group);
+        if (!result)
+        {
+            TBX_TRACE_ERROR_ONCE("Rendering bind group creation failed: {}", result.get_report());
+            return {};
+        }
+
+        return bind_group;
+    }
+
+    static void create_render_pass_bind_groups(IGraphicsBackend& backend, RenderPass& render_pass)
+    {
+        auto draw_index = uint32();
+        for (auto& draw : render_pass.draws)
+        {
+            const Uuid bind_group = create_command_bind_group(
+                backend,
+                draw.vertex_buffers,
+                {},
+                draw.uniform_buffers,
+                draw.storage_buffers,
+                draw.textures,
+                draw.samplers,
+                render_pass.desc.debug_name + " Draw " + std::to_string(draw_index));
+            if (bind_group.is_valid())
+                draw.bind_groups = {bind_group};
+            ++draw_index;
+        }
+
+        auto indexed_draw_index = uint32();
+        for (auto& draw : render_pass.indexed_draws)
+        {
+            const Uuid bind_group = create_command_bind_group(
+                backend,
+                draw.vertex_buffers,
+                draw.index_buffer,
+                draw.uniform_buffers,
+                draw.storage_buffers,
+                draw.textures,
+                draw.samplers,
+                render_pass.desc.debug_name + " Indexed Draw "
+                    + std::to_string(indexed_draw_index));
+            if (bind_group.is_valid())
+                draw.bind_groups = {bind_group};
+            ++indexed_draw_index;
+        }
+    }
+
     //// PASS GRAPH ASSEMBLY ////
 
     // Converts extracted draw data and GPU resources into an ordered list of backend passes. The
@@ -1119,7 +1231,9 @@ namespace tbx::internal
         const FrameData& frame,
         const GBuffer& gbuffer,
         const RenderDrawData& draw_data,
-        const GraphicsSettings& settings,
+        uint32 shadow_map_resolution,
+        float shadow_render_distance,
+        float shadow_softness,
         RenderingResourceManager& resource_manager,
         IGraphicsBackend& backend)
     {
@@ -1192,7 +1306,9 @@ namespace tbx::internal
         auto result = append_shadow_passes(
             resource_manager,
             frame_index,
-            settings,
+            shadow_map_resolution,
+            shadow_render_distance,
+            shadow_softness,
             frame,
             frame_uniform,
             camera_uniform,
@@ -1355,6 +1471,34 @@ namespace tbx::internal
                         has_sky_draws ? GraphicsClearFlags::NONE : GraphicsClearFlags::COLOR,
                     .debug_name = "Toybox Lighting Pass",
                 },
+            .barriers_before =
+                {
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.albedo.resource,
+                        .state_before = ResourceState::RENDER_TARGET,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.normal.resource,
+                        .state_before = ResourceState::RENDER_TARGET,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.material.resource,
+                        .state_before = ResourceState::RENDER_TARGET,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.emissive.resource,
+                        .state_before = ResourceState::RENDER_TARGET,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.depth.resource,
+                        .state_before = ResourceState::DEPTH_WRITE,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                },
         };
         auto lighting_material = RenderingMaterialUploadData();
         result = resource_manager.upload_material(
@@ -1413,6 +1557,14 @@ namespace tbx::internal
                     .clear_flags = GraphicsClearFlags::COLOR,
                     .debug_name = "Toybox Post Process Pass",
                 },
+            .barriers_before =
+                {
+                    PipelineBarrierDesc {
+                        .resource_handle = gbuffer.final_color.resource,
+                        .state_before = ResourceState::RENDER_TARGET,
+                        .state_after = ResourceState::SHADER_READ_ONLY,
+                    },
+                },
         };
         if (draw_data.post_processing.is_enabled)
         {
@@ -1454,8 +1606,12 @@ namespace tbx::internal
         passes.push_back(std::move(lighting_pass));
         if (!transparent_pass.draws.empty() || !transparent_pass.indexed_draws.empty())
             passes.push_back(std::move(transparent_pass));
-        if (!post_process_pass.draws.empty() || !post_process_pass.indexed_draws.empty())
-            passes.push_back(std::move(post_process_pass));
+        passes.push_back(std::move(post_process_pass));
+        for (auto& pass : passes)
+        {
+            pass.desc.viewport = frame.viewport;
+            create_render_pass_bind_groups(backend, pass);
+        }
         return passes;
     }
 
@@ -1465,10 +1621,10 @@ namespace tbx::internal
     // material fallback, batching, shadow allocation, and render feature selection are decided.
     static Result create_draw_data(
         RenderingResourceManager& resource_manager,
-        const GraphicsSettings& settings,
         const EntityRegistry& entity_registry,
         const RenderCamera& camera,
         AssetManager& asset_manager,
+        uint32 shadow_map_resolution,
         const float local_light_max_distance,
         const float shadow_caster_max_distance,
         RenderDrawData& out_draw_data)
@@ -1598,7 +1754,7 @@ namespace tbx::internal
         }
 
         draw_data.shadows.layer_count = draw_data.lighting.shadow_layer_count;
-        auto result = create_shadow_map(resource_manager, settings, draw_data);
+        auto result = create_shadow_map(resource_manager, shadow_map_resolution, draw_data);
         if (!result)
             return result;
 
@@ -1612,6 +1768,7 @@ namespace tbx::internal
             // Mesh visibility and shadow casting are separate decisions. An offscreen mesh may
             // still cast visible shadows when it is inside the shadow caster distance.
             const bool is_mesh_culled = should_cull(
+                resource_manager,
                 asset_manager,
                 static_mesh_bounds,
                 static_mesh,
@@ -1746,96 +1903,47 @@ namespace tbx::internal
         IGraphicsBackend& backend,
         const GraphicsDrawCommand& command)
     {
-        auto result = backend.bind_pipeline(command.pipeline);
+        auto result = backend.bind_raster_pipeline(command.pipeline);
         if (!result)
             return result;
 
-        for (const auto& binding : command.vertex_buffers)
+        for (uint32 group_index = 0U; group_index < static_cast<uint32>(command.bind_groups.size());
+             ++group_index)
         {
-            result = backend.bind_vertex_buffer(binding.slot, binding.resource);
+            result = backend.bind_group(
+                group_index,
+                command.bind_groups[static_cast<size>(group_index)]);
             if (!result)
                 return result;
         }
 
-        for (const auto& binding : command.uniform_buffers)
-        {
-            result = backend.bind_uniform_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.storage_buffers)
-        {
-            result = backend.bind_storage_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.textures)
-        {
-            result = backend.bind_texture(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.samplers)
-        {
-            result = backend.bind_sampler(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        return backend.draw(command.vertex_count, command.vertex_offset);
+        return backend.draw(command.vertex_count, 1U, command.vertex_offset, 0, 0U);
     }
 
     static Result execute_draw_command(
         IGraphicsBackend& backend,
         const GraphicsIndexedDrawCommand& command)
     {
-        auto result = backend.bind_pipeline(command.pipeline);
+        auto result = backend.bind_raster_pipeline(command.pipeline);
         if (!result)
             return result;
 
-        for (const auto& binding : command.vertex_buffers)
+        for (uint32 group_index = 0U; group_index < static_cast<uint32>(command.bind_groups.size());
+             ++group_index)
         {
-            result = backend.bind_vertex_buffer(binding.slot, binding.resource);
+            result = backend.bind_group(
+                group_index,
+                command.bind_groups[static_cast<size>(group_index)]);
             if (!result)
                 return result;
         }
 
-        result = backend.bind_index_buffer(command.index_buffer, command.index_type);
-        if (!result)
-            return result;
-
-        for (const auto& binding : command.uniform_buffers)
-        {
-            result = backend.bind_uniform_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.storage_buffers)
-        {
-            result = backend.bind_storage_buffer(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.textures)
-        {
-            result = backend.bind_texture(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        for (const auto& binding : command.samplers)
-        {
-            result = backend.bind_sampler(binding.slot, binding.resource);
-            if (!result)
-                return result;
-        }
-
-        return backend.draw_indexed(command.draw);
+        return backend.draw(
+            command.draw.index_count,
+            command.draw.instance_count,
+            command.draw.index_offset,
+            command.draw.vertex_offset,
+            command.draw.first_instance);
     }
 
     static Result execute_passes(
@@ -1846,7 +1954,14 @@ namespace tbx::internal
         // the active pass before returning so the frame can be ended cleanly by the caller.
         for (const auto& render_pass : render_passes)
         {
-            auto result = backend.begin_pass(render_pass.desc);
+            if (!render_pass.barriers_before.empty())
+            {
+                auto result = backend.pipeline_barrier(render_pass.barriers_before);
+                if (!result)
+                    return result;
+            }
+
+            auto result = backend.begin_render_pass(render_pass.desc);
             if (!result)
                 return result;
 
@@ -1855,7 +1970,7 @@ namespace tbx::internal
                 result = execute_draw_command(backend, draw_command);
                 if (!result)
                 {
-                    (void)backend.end_pass();
+                    (void)backend.end_render_pass();
                     return result;
                 }
             }
@@ -1865,17 +1980,46 @@ namespace tbx::internal
                 result = execute_draw_command(backend, indexed_draw_command);
                 if (!result)
                 {
-                    (void)backend.end_pass();
+                    (void)backend.end_render_pass();
                     return result;
                 }
             }
 
-            result = backend.end_pass();
+            result = backend.end_render_pass();
             if (!result)
                 return result;
+
+            if (!render_pass.barriers_after.empty())
+            {
+                result = backend.pipeline_barrier(render_pass.barriers_after);
+                if (!result)
+                    return result;
+            }
         }
 
         return {};
+    }
+
+    static void release_render_pass_bind_groups(
+        IGraphicsBackend& backend,
+        std::vector<RenderPass>& render_passes)
+    {
+        for (auto& render_pass : render_passes)
+        {
+            for (auto& draw : render_pass.draws)
+            {
+                for (const auto& bind_group : draw.bind_groups)
+                    (void)backend.destroy_resource(bind_group);
+                draw.bind_groups.clear();
+            }
+
+            for (auto& draw : render_pass.indexed_draws)
+            {
+                for (const auto& bind_group : draw.bind_groups)
+                    (void)backend.destroy_resource(bind_group);
+                draw.bind_groups.clear();
+            }
+        }
     }
 
     //// FRAME SETUP ////

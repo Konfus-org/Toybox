@@ -51,6 +51,20 @@ namespace opengl_rendering
         return (static_cast<uint8>(value) & static_cast<uint8>(flag)) != 0U;
     }
 
+    bool has_buffer_usage(
+        const tbx::GraphicsBufferUsage value,
+        const tbx::GraphicsBufferUsage usage)
+    {
+        return (static_cast<uint32>(value) & static_cast<uint32>(usage)) != 0U;
+    }
+
+    bool has_texture_usage(
+        const tbx::GraphicsTextureUsage value,
+        const tbx::GraphicsTextureUsage usage)
+    {
+        return (static_cast<uint8>(value) & static_cast<uint8>(usage)) != 0U;
+    }
+
     bool is_integer_vertex_format(const tbx::GraphicsVertexFormat format)
     {
         return format == tbx::GraphicsVertexFormat::UINT32
@@ -58,7 +72,7 @@ namespace opengl_rendering
     }
 
     const tbx::GraphicsVertexBufferLayoutDesc* find_vertex_buffer_layout(
-        const tbx::GraphicsPipelineDesc& desc,
+        const tbx::RasterPipelineDesc& desc,
         const uint32 slot)
     {
         const auto it = std::ranges::find_if(
@@ -128,18 +142,16 @@ namespace opengl_rendering
 
     GLenum to_gl_buffer_target(const tbx::GraphicsBufferUsage usage)
     {
-        switch (usage)
-        {
-            case tbx::GraphicsBufferUsage::INDEX:
-                return GL_ELEMENT_ARRAY_BUFFER;
-            case tbx::GraphicsBufferUsage::UNIFORM:
-                return GL_UNIFORM_BUFFER;
-            case tbx::GraphicsBufferUsage::STORAGE:
-                return GL_SHADER_STORAGE_BUFFER;
-            case tbx::GraphicsBufferUsage::VERTEX:
-            default:
-                return GL_ARRAY_BUFFER;
-        }
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDEX))
+            return GL_ELEMENT_ARRAY_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::UNIFORM))
+            return GL_UNIFORM_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::STORAGE))
+            return GL_SHADER_STORAGE_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDIRECT_ARGS))
+            return GL_DRAW_INDIRECT_BUFFER;
+
+        return GL_ARRAY_BUFFER;
     }
 
     GLenum to_gl_buffer_usage(const tbx::GraphicsBufferDesc& desc)
@@ -213,7 +225,7 @@ namespace opengl_rendering
         const tbx::GraphicsBufferUsage usage,
         std::string failure_message)
     {
-        if (desc.usage == usage)
+        if (has_buffer_usage(desc.usage, usage))
             return make_success();
 
         return make_failure(std::move(failure_message));

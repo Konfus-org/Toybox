@@ -6,6 +6,7 @@
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/mesh_bounds.h"
 #include "tbx/utils/result.h"
 #include <memory>
 #include <string>
@@ -75,8 +76,16 @@ namespace tbx
         bool is_managed(const Uuid& resource) const;
 
         /// @brief
+        /// Purpose: Caches static model bounds used by frame extraction culling.
+        void cache_model_bounds(const Handle& model_handle, const MeshBounds& bounds) const;
+
+        /// @brief
         /// Purpose: Sets the age threshold used to unload unused managed resources.
         void set_resource_unload_time_seconds(float seconds);
+
+        /// @brief
+        /// Purpose: Looks up cached static model bounds used by frame extraction culling.
+        bool try_get_model_bounds(const Handle& model_handle, MeshBounds& out_bounds) const;
 
         /// @brief
         /// Purpose: Returns the age threshold used to unload unused managed resources.

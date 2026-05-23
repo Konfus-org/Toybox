@@ -63,6 +63,8 @@ namespace tbx::internal
       public:
         void discard_cached_resource(const Uuid& resource);
 
+        void cache_model_bounds(const Handle& model_handle, const MeshBounds& bounds) const;
+
         Result upload_dynamic_mesh(
             const std::shared_ptr<DynamicMeshData>& mesh_data,
             RenderingResourceTracker& resource_tracker,
@@ -128,6 +130,8 @@ namespace tbx::internal
             const Handle& mesh_handle,
             RenderingResourceTracker& resource_tracker,
             RenderingMeshUploadData& out_mesh) const;
+
+        bool try_get_model_bounds(const Handle& model_handle, MeshBounds& out_bounds) const;
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};

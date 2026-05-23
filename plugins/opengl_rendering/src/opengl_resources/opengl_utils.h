@@ -1,4 +1,5 @@
 #pragma once
+#include "opengl_shader.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/utils/result.h"
 #include <glad/glad.h>
@@ -9,15 +10,13 @@
 
 namespace opengl_rendering
 {
-    class OpenGlShader;
-
     tbx::Result make_failure(std::string message);
     tbx::Result make_success();
     tbx::Result consume_gl_errors(std::string_view operation);
     bool has_clear_flag(tbx::GraphicsClearFlags value, tbx::GraphicsClearFlags flag);
     bool is_integer_vertex_format(tbx::GraphicsVertexFormat format);
     const tbx::GraphicsVertexBufferLayoutDesc* find_vertex_buffer_layout(
-        const tbx::GraphicsPipelineDesc& desc,
+        const tbx::RasterPipelineDesc& desc,
         uint32 slot);
     GLenum get_depth_attachment(tbx::GraphicsTextureFormat format);
     GLenum get_texture_internal_format(tbx::GraphicsTextureFormat format);
@@ -33,6 +32,8 @@ namespace opengl_rendering
         const tbx::GraphicsBufferDesc& desc,
         tbx::GraphicsBufferUsage usage,
         std::string failure_message);
+    bool has_buffer_usage(tbx::GraphicsBufferUsage value, tbx::GraphicsBufferUsage usage);
+    bool has_texture_usage(tbx::GraphicsTextureUsage value, tbx::GraphicsTextureUsage usage);
     tbx::Result create_shaders(
         const tbx::ShaderProgram& shader_desc,
         std::vector<std::shared_ptr<OpenGlShader>>& out_shaders);

@@ -20,7 +20,6 @@ namespace tbx
     {
     }
 
-    // TODO: Ensure render pipeline respecs ALL graphics settings
     Result RenderingPipeline::execute(
         IGraphicsBackend& backend,
         const GraphicsSettings& settings,
@@ -46,31 +45,23 @@ namespace tbx
             frame_index,
             delta_time,
             _elapsed_time,
-            settings.resolution,
+            settings.resolution.value,
             *entity_registry,
             *window_manager);
         auto result = backend.begin_frame(frame.target);
         if (!result)
             return result;
 
-        // 2.) Setup viewport to render into.
-        result = backend.set_viewport(frame.viewport);
-        if (!result)
-        {
-            backend.end_frame();
-            return result;
-        }
-
-        // 3.) Extract render data from the scene.
+        // 2.) Extract render data from the scene.
         auto draw_data = internal::RenderDrawData();
         result = internal::create_draw_data(
             _resource_manager,
-            settings,
             *entity_registry,
             frame.camera,
             *asset_manager,
-            settings.local_light_max_distance,
-            settings.shadow_caster_max_distance,
+            settings.shadow_map_resolution.value,
+            settings.local_light_max_distance.value,
+            settings.shadow_caster_max_distance.value,
             draw_data);
         if (!result)
         {
@@ -78,7 +69,7 @@ namespace tbx
             return result;
         }
 
-        // 4.) Create gbuffer.
+        // 3.) Create gbuffer.
         auto gbuffer = internal::GBuffer();
         result = internal::create_gbuffer(_resource_manager, frame, gbuffer);
         if (!result)
@@ -87,29 +78,28 @@ namespace tbx
             return result;
         }
 
-        // TODO: Optimize shader pipeline we shouldn't have so many individual uploads, we should
-        // utilize UBOs and upload everything at once where possible.
-        // utilize other modern features to maximize perf.
-
-        // 5.) Upload frame data and append draw commands.
+        // 4.) Upload frame data and append draw commands.
         auto passes = internal::create_passes(
             frame_index,
             frame,
             gbuffer,
             draw_data,
-            settings,
+            settings.shadow_map_resolution.value,
+            settings.shadow_render_distance.value,
+            settings.shadow_softness.value,
             _resource_manager,
             backend);
 
-        // 6.) Draw.
+        // 5.) Draw.
         result = internal::execute_passes(backend, passes);
+        internal::release_render_pass_bind_groups(backend, passes);
         if (!result)
         {
             backend.end_frame();
             return result;
         }
 
-        // 7.) Present.
+        // 6.) Present.
         result = backend.present();
         if (!result)
         {
@@ -117,12 +107,12 @@ namespace tbx
             return result;
         }
 
-        // 8.) End frame.
+        // 7.) End frame.
         result = backend.end_frame();
         if (!result)
             return result;
 
-        // 9.) Let the resource manager retire stale GPU resources.
+        // 8.) Let the resource manager retire stale GPU resources.
         _resource_manager.update(delta_time);
 
         return true;

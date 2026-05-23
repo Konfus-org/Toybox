@@ -41,6 +41,10 @@ namespace tbx
         Rendering& operator=(Rendering&&) noexcept = delete;
 
       public:
+        /// @brief
+        /// Purpose: Renders the world for the current frame.
+        /// @details
+        /// Thread Safety: Call from the message dispatch thread while no frame is pending.
         void render(const DeltaTime& delta_time);
 
         /// @brief
@@ -57,11 +61,8 @@ namespace tbx
         void wait_for_pending_frame() noexcept;
 
       private:
-        void initialize(const GraphicsSettings& settings);
-
         void render_frame(const DeltaTime& delta_time);
 
-        void wait_for_initialization() noexcept;
         void wait_for_render_frame() noexcept;
 
         std::weak_ptr<ThreadManager> _thread_manager;
@@ -72,8 +73,6 @@ namespace tbx
         std::mutex _settings_mutex = {};
         GraphicsSettings _settings;
 
-        Result _initialization_result = {};
-        std::future<void> _initialization_future = {};
         std::future<void> _render_future = {};
     };
 }

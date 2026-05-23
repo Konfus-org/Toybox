@@ -181,7 +181,116 @@ namespace tbx::internal
         }
     }
 
-    static GraphicsPipelineDesc make_material_pipeline_desc(
+    static std::vector<BindGroupLayoutDesc> make_material_bind_group_layouts()
+    {
+        constexpr uint32 graphics_stages = SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT;
+        return std::vector<BindGroupLayoutDesc> {
+            BindGroupLayoutDesc {
+                .entries =
+                    {
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_FRAME_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = graphics_stages,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_CAMERA_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = graphics_stages,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_LIGHT_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_SHADOW_PASS_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = graphics_stages,
+                        },
+                    },
+                .debug_name = "Toybox Frame Bind Group Layout",
+            },
+            BindGroupLayoutDesc {
+                .entries =
+                    {
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_OBJECT_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = graphics_stages,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_MATERIAL_DATA,
+                            .type = BindingType::UNIFORM_BUFFER,
+                            .shader_stages = graphics_stages,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_ALBEDO_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_NORMAL_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_METALLIC_ROUGHNESS_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_AO_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_EMISSIVE_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_ALBEDO,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_NORMAL,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_MATERIAL,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_EMISSIVE,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_DEPTH,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_GBUFFER_FINAL_COLOR,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                        BindGroupLayoutEntry {
+                            .binding_slot = BINDING_SHADOW_MAP,
+                            .type = BindingType::SAMPLED_TEXTURE,
+                            .shader_stages = SHADER_STAGE_FRAGMENT,
+                        },
+                    },
+                .debug_name = "Toybox Material Bind Group Layout",
+            },
+        };
+    }
+
+    static RasterPipelineDesc make_material_pipeline_desc(
         const Handle& handle,
         ShaderProgram shader,
         const MaterialConfig& config)
@@ -191,8 +300,9 @@ namespace tbx::internal
         append_vertex_layout_attributes(vertex_layout, vertex_attributes);
         append_instance_layout_attributes(vertex_attributes);
 
-        return GraphicsPipelineDesc {
+        return RasterPipelineDesc {
             .shader = std::move(shader),
+            .bind_group_layouts = make_material_bind_group_layouts(),
             .vertex_buffers =
                 {
                     GraphicsVertexBufferLayoutDesc {
@@ -551,11 +661,22 @@ namespace tbx::internal
         const uint64 data_size)
     {
         auto resource = Uuid {};
-        const Result result = backend.upload_buffer(desc, data, data_size, resource);
+        auto result = backend.create_buffer(desc, resource);
         if (!result)
         {
-            TBX_TRACE_ERROR_ONCE("Rendering buffer upload failed: {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE("Rendering buffer allocation failed: {}", result.get_report());
             return {};
+        }
+
+        if (data_size > 0U)
+        {
+            result = backend.write_buffer(resource, data, data_size, 0U);
+            if (!result)
+            {
+                TBX_TRACE_ERROR_ONCE("Rendering buffer write failed: {}", result.get_report());
+                (void)backend.destroy_resource(resource);
+                return {};
+            }
         }
 
         resource_tracker.track(resource);
@@ -625,15 +746,28 @@ namespace tbx::internal
 
         const auto upload_data = make_texture_upload_data(*source_texture);
         auto resource = Uuid {};
-        const Result result = backend.upload_texture(
-            make_texture_desc(*source_texture, handle),
-            upload_data.empty() ? nullptr : upload_data.data(),
-            static_cast<uint64>(upload_data.size()),
-            resource);
+        auto result = backend.create_texture(make_texture_desc(*source_texture, handle), resource);
         if (!result)
         {
-            TBX_TRACE_ERROR_ONCE("Rendering texture upload failed: {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE("Rendering texture allocation failed: {}", result.get_report());
             return std::nullopt;
+        }
+        if (!upload_data.empty())
+        {
+            result = backend.write_texture(
+                resource,
+                GraphicsTextureUpdateDesc {
+                    .width = source_texture->resolution.width,
+                    .height = source_texture->resolution.height,
+                },
+                upload_data.data(),
+                static_cast<uint64>(upload_data.size()));
+            if (!result)
+            {
+                TBX_TRACE_ERROR_ONCE("Rendering texture write failed: {}", result.get_report());
+                (void)backend.destroy_resource(resource);
+                return std::nullopt;
+            }
         }
 
         resource_tracker.track(resource);
@@ -670,15 +804,28 @@ namespace tbx::internal
                 .first->second;
         const auto upload_data = make_texture_upload_data(source_texture);
         auto resource = Uuid {};
-        const Result result = backend.upload_texture(
-            make_texture_desc(source_texture, handle),
-            upload_data.empty() ? nullptr : upload_data.data(),
-            static_cast<uint64>(upload_data.size()),
-            resource);
+        auto result = backend.create_texture(make_texture_desc(source_texture, handle), resource);
         if (!result)
         {
-            TBX_TRACE_ERROR_ONCE("Rendering texture upload failed: {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE("Rendering texture allocation failed: {}", result.get_report());
             return std::nullopt;
+        }
+        if (!upload_data.empty())
+        {
+            result = backend.write_texture(
+                resource,
+                GraphicsTextureUpdateDesc {
+                    .width = source_texture.resolution.width,
+                    .height = source_texture.resolution.height,
+                },
+                upload_data.data(),
+                static_cast<uint64>(upload_data.size()));
+            if (!result)
+            {
+                TBX_TRACE_ERROR_ONCE("Rendering texture write failed: {}", result.get_report());
+                (void)backend.destroy_resource(resource);
+                return std::nullopt;
+            }
         }
 
         resource_tracker.track(resource);
@@ -735,10 +882,10 @@ namespace tbx::internal
             else if (fallback_shader != nullptr)
                 shader = *fallback_shader;
 
-            const GraphicsPipelineDesc pipeline_desc =
+            const RasterPipelineDesc pipeline_desc =
                 make_material_pipeline_desc(material_handle, shader, config);
 
-            const Result pipeline_result = backend.upload_pipeline(pipeline_desc, pipeline);
+            const Result pipeline_result = backend.create_raster_pipeline(pipeline_desc, pipeline);
             if (!pipeline_result)
             {
                 TBX_TRACE_ERROR_ONCE(
@@ -841,7 +988,7 @@ namespace tbx::internal
             return false;
         }
 
-        const Result vertex_result = backend.update_buffer(
+        const Result vertex_result = backend.write_buffer(
             cached_mesh.vertex_buffer,
             mesh.vertices.data(),
             vertex_data_size,
@@ -849,7 +996,7 @@ namespace tbx::internal
         if (!vertex_result)
             return false;
 
-        const Result index_result = backend.update_buffer(
+        const Result index_result = backend.write_buffer(
             cached_mesh.index_buffer,
             mesh.indices.data(),
             index_data_size,
@@ -884,7 +1031,7 @@ namespace tbx::internal
         if (cached_buffer.resource.is_valid() && cached_buffer.byte_size == byte_size)
         {
             const Result update_result =
-                backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
+                backend.write_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
                 resource_tracker.track(cached_buffer.resource);
@@ -929,7 +1076,7 @@ namespace tbx::internal
         if (cached_buffer.resource.is_valid() && cached_buffer.byte_size == byte_size)
         {
             const Result update_result =
-                backend.update_buffer(cached_buffer.resource, data, byte_size, 0U);
+                backend.write_buffer(cached_buffer.resource, data, byte_size, 0U);
             if (update_result)
             {
                 resource_tracker.track(cached_buffer.resource);

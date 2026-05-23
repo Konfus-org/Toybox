@@ -6,6 +6,15 @@
 #include <string>
 #include <string_view>
 #include <utility>
+
+namespace tbx::internal
+{
+    static VsyncMode to_vsync_mode(const bool is_enabled)
+    {
+        return is_enabled ? VsyncMode::ON : VsyncMode::OFF;
+    }
+}
+
 namespace tbx
 {
     Rendering::Rendering(
@@ -28,7 +37,7 @@ namespace tbx
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
         {
-            _initialization_result.flag_failure(
+            TBX_TRACE_ERROR(
                 "Rendering initialization failed because thread manager is unavailable.");
             return;
         }
@@ -36,24 +45,15 @@ namespace tbx
         if (!thread_manager_service->has_lane(internal::RENDER_LANE_NAME)
             && !thread_manager_service->try_create_lane(internal::RENDER_LANE_NAME))
         {
-            _initialization_result.flag_failure(
-                "Rendering initialization failed because render lane creation failed.");
+            TBX_TRACE_ERROR("Rendering initialization failed because render lane creation failed.");
             return;
         }
-
-        _initialization_future = thread_manager_service->post_with_future(
-            std::string(internal::RENDER_LANE_NAME),
-            [this, settings]()
-            {
-                initialize(settings);
-            });
     }
 
     Rendering::~Rendering() noexcept
     {
         TBX_TRY_CATCH_ASSERT(
             {
-                wait_for_initialization();
                 wait_for_render_frame();
 
                 if (auto thread_manager = _thread_manager.lock())
@@ -75,19 +75,6 @@ namespace tbx
             "Toybox renderer shutdown failed.");
     }
 
-    void Rendering::initialize(const GraphicsSettings& settings)
-    {
-        auto backend = _backend.lock();
-        if (!backend)
-        {
-            _initialization_result.flag_failure(
-                "Rendering initialization failed because required services are unavailable.");
-            return;
-        }
-
-        _initialization_result = backend->initialize(settings);
-    }
-
     void Rendering::render(const DeltaTime& delta_time)
     {
         auto thread_manager = _thread_manager.lock();
@@ -105,9 +92,6 @@ namespace tbx
 
         TBX_TRY_CATCH_ASSERT(
             {
-                // Ensure we are initialized
-                wait_for_initialization();
-
                 _render_future = thread_manager->post_with_future(
                     internal::RENDER_LANE_NAME,
                     [this, delta_time]()
@@ -134,36 +118,10 @@ namespace tbx
             std::lock_guard lock(_settings_mutex);
             _settings = updated_settings;
         }
-
-        auto thread_manager = _thread_manager.lock();
-        auto backend = _backend.lock();
-        if (!thread_manager || !backend || !thread_manager->has_lane(internal::RENDER_LANE_NAME))
-            return;
-
-        thread_manager->post(
-            internal::RENDER_LANE_NAME,
-            [backend, updated_settings]()
-            {
-                const auto result = backend->update_settings(updated_settings);
-                if (!result)
-                {
-                    TBX_TRACE_ERROR_ONCE(
-                        "Toybox renderer graphics settings update failed. {}",
-                        result.get_report());
-                }
-            });
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time)
     {
-        if (!_initialization_result)
-        {
-            TBX_TRACE_ERROR_ONCE(
-                "Toybox renderer initialization failed. {}",
-                _initialization_result.get_report());
-            return;
-        }
-
         const auto backend = _backend.lock();
         if (!backend)
         {
@@ -171,11 +129,23 @@ namespace tbx
             return;
         }
 
-        auto settings = [this]()
+        const auto settings = [this]()
         {
             std::lock_guard lock(_settings_mutex);
             return _settings;
         }();
+
+        const auto vsync_mode = internal::to_vsync_mode(settings.vsync_enabled.value);
+        if (backend->get_vsync() != vsync_mode)
+        {
+            const auto vsync_result = backend->set_vsync(vsync_mode);
+            if (!vsync_result)
+            {
+                TBX_TRACE_ERROR_ONCE(
+                    "Toybox renderer failed to apply vsync setting. {}",
+                    vsync_result.get_report());
+            }
+        }
 
         const auto result = _pipeline.execute(*backend, settings, delta_time);
         if (!result)
@@ -184,15 +154,6 @@ namespace tbx
                 "Toybox rendering pipeline execution failed. {}",
                 result.get_report());
         }
-    }
-
-    void Rendering::wait_for_initialization() noexcept
-    {
-        if (!_initialization_future.valid())
-            return;
-
-        TBX_TRY_CATCH_ASSERT(_initialization_future.get();
-                             , "Toybox renderer initialization completion failed.");
     }
 
     void Rendering::wait_for_render_frame() noexcept

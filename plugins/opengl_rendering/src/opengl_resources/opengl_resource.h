@@ -1,7 +1,4 @@
 #pragma once
-#include <functional>
-#include <optional>
-
 namespace opengl_rendering
 {
     /// @brief
@@ -27,25 +24,5 @@ namespace opengl_rendering
         /// Ownership: Does not transfer ownership of any handles.
         /// Thread Safety: Call only on the render thread.
         virtual void unbind() = 0;
-    };
-
-    /// @brief
-    /// Purpose: Ensures OpenGL resources are unbound when leaving scope.
-    /// @details
-    /// Ownership: Does not take ownership of the resource; stores a non-owning reference.
-    /// Thread Safety: Use only on the render thread.
-    class OpenGlResourceScope final
-    {
-      public:
-        OpenGlResourceScope(IOpenGlResource& resource);
-        OpenGlResourceScope(const OpenGlResourceScope&) = delete;
-        OpenGlResourceScope(OpenGlResourceScope&& other) noexcept;
-        ~OpenGlResourceScope() noexcept;
-
-        OpenGlResourceScope& operator=(const OpenGlResourceScope&) = delete;
-        OpenGlResourceScope& operator=(OpenGlResourceScope&& other) noexcept;
-
-      private:
-        std::optional<std::reference_wrapper<IOpenGlResource>> _resource = std::nullopt;
     };
 }

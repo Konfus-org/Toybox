@@ -1,7 +1,6 @@
 #pragma once
 #include "opengl_resource.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/types/texture.h"
 #include "tbx/types/typedefs.h"
 
 namespace opengl_rendering
@@ -14,7 +13,6 @@ namespace opengl_rendering
     class OpenGlTexture final : public IOpenGlResource
     {
       public:
-        OpenGlTexture(const tbx::Texture& texture);
         OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data);
         OpenGlTexture(const OpenGlTexture&) = delete;
         OpenGlTexture& operator=(const OpenGlTexture&) = delete;
@@ -29,7 +27,6 @@ namespace opengl_rendering
 
         uint32 get_texture_id() const;
         uint32 get_array_layer_count() const;
-        uint64 get_bindless_handle() const;
         void update(
             const tbx::GraphicsTextureUpdateDesc& desc,
             tbx::GraphicsTextureFormat format,
@@ -38,6 +35,5 @@ namespace opengl_rendering
       private:
         uint32 _texture_id = 0;
         uint32 _array_layer_count = 1U;
-        mutable uint64 _bindless_handle = 0;
     };
 }

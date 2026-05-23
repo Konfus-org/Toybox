@@ -2,6 +2,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/uuid.h"
+#include <string>
 #include <vector>
 
 namespace tbx
@@ -14,6 +15,7 @@ namespace tbx
         std::vector<GraphicsResourceBinding> storage_buffers = {};
         std::vector<GraphicsResourceBinding> textures = {};
         std::vector<GraphicsResourceBinding> samplers = {};
+        std::vector<Uuid> bind_groups = {};
         uint32 vertex_count = 0U;
         uint32 vertex_offset = 0U;
     };
@@ -28,7 +30,18 @@ namespace tbx
         std::vector<GraphicsResourceBinding> storage_buffers = {};
         std::vector<GraphicsResourceBinding> textures = {};
         std::vector<GraphicsResourceBinding> samplers = {};
+        std::vector<Uuid> bind_groups = {};
         GraphicsDrawIndexedDesc draw = {};
+    };
+
+    struct TBX_API GraphicsComputeCommand
+    {
+        Uuid pipeline = {};
+        std::vector<Uuid> bind_groups = {};
+        uint32 group_count_x = 1U;
+        uint32 group_count_y = 1U;
+        uint32 group_count_z = 1U;
+        std::string debug_name = {};
     };
 
     struct TBX_API RenderPass
@@ -36,5 +49,15 @@ namespace tbx
         GraphicsPassDesc desc = {};
         std::vector<GraphicsDrawCommand> draws = {};
         std::vector<GraphicsIndexedDrawCommand> indexed_draws = {};
+        std::vector<PipelineBarrierDesc> barriers_before = {};
+        std::vector<PipelineBarrierDesc> barriers_after = {};
+    };
+
+    struct TBX_API ComputePass
+    {
+        std::string debug_name = {};
+        std::vector<PipelineBarrierDesc> barriers_before = {};
+        std::vector<GraphicsComputeCommand> dispatches = {};
+        std::vector<PipelineBarrierDesc> barriers_after = {};
     };
 }
