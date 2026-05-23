@@ -1,6 +1,6 @@
 #include "Toybox/ShaderBase.glsl"
 
-layout(binding = TBX_BINDING_SHADOW_MAP) uniform sampler2DArray u_shadow_map;
+layout(binding = TBX_BINDING_SHADOW_MAP) uniform sampler2DArrayShadow u_shadow_map;
 
 layout(std140, binding = TBX_BINDING_SHADOW_PASS_DATA) uniform TbxShadowData
 {
@@ -18,9 +18,9 @@ vec3 tbx_project_shadow_coord(vec3 world_position, int shadow_index)
     return projected * 0.5 + 0.5;
 }
 
-float tbx_sample_shadow_pcf(vec3 shadow_coord, float bias, int shadow_index)
+float tbx_sample_shadow_hardware(vec3 shadow_coord, float bias, int shadow_index)
 {
-    if (shadow_coord.z > 1.0)
+    if (shadow_coord.z < 0.0 || shadow_coord.z > 1.0)
     {
         return 1.0;
     }
@@ -31,21 +31,31 @@ float tbx_sample_shadow_pcf(vec3 shadow_coord, float bias, int shadow_index)
         return 1.0;
     }
 
+    return texture(u_shadow_map, vec4(shadow_coord.xy, shadow_index, shadow_coord.z - bias));
+}
+
+float tbx_sample_shadow_pcf(vec3 shadow_coord, float bias, int shadow_index)
+{
     vec2 texel_size = 1.0 / vec2(textureSize(u_shadow_map, 0).xy);
-    float visibility = 0.0;
+    float visibility = tbx_sample_shadow_hardware(shadow_coord, bias, shadow_index);
+    visibility += tbx_sample_shadow_hardware(
+        vec3(shadow_coord.xy + vec2(-0.94201624, -0.39906216) * texel_size, shadow_coord.z),
+        bias,
+        shadow_index);
+    visibility += tbx_sample_shadow_hardware(
+        vec3(shadow_coord.xy + vec2(0.94558609, -0.76890725) * texel_size, shadow_coord.z),
+        bias,
+        shadow_index);
+    visibility += tbx_sample_shadow_hardware(
+        vec3(shadow_coord.xy + vec2(-0.09418410, -0.92938870) * texel_size, shadow_coord.z),
+        bias,
+        shadow_index);
+    visibility += tbx_sample_shadow_hardware(
+        vec3(shadow_coord.xy + vec2(0.34495938, 0.29387760) * texel_size, shadow_coord.z),
+        bias,
+        shadow_index);
 
-    for (int x = -1; x <= 1; ++x)
-    {
-        for (int y = -1; y <= 1; ++y)
-        {
-            vec2 offset = vec2(x, y) * texel_size;
-            vec3 sample_coord = vec3(shadow_coord.xy + offset, shadow_index);
-            float shadow_depth = texture(u_shadow_map, sample_coord).r;
-            visibility += shadow_coord.z - bias <= shadow_depth ? 1.0 : 0.0;
-        }
-    }
-
-    return visibility / 9.0;
+    return visibility * 0.2;
 }
 
 float tbx_sample_shadow_layer(

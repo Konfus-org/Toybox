@@ -101,6 +101,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: a render pass is already active.");
 
         _pass_framebuffer.reset();
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
         if (!pass.color_targets.empty() || pass.depth_stencil_target.is_valid())
         {
@@ -202,6 +203,12 @@ namespace opengl_rendering
         if (clear_mask != 0U)
             glClear(clear_mask);
 
+        glColorMask(
+            pass.is_color_write_enabled ? GL_TRUE : GL_FALSE,
+            pass.is_color_write_enabled ? GL_TRUE : GL_FALSE,
+            pass.is_color_write_enabled ? GL_TRUE : GL_FALSE,
+            pass.is_color_write_enabled ? GL_TRUE : GL_FALSE);
+
         _is_pass_active = true;
         return consume_gl_errors("begin_pass");
     }
@@ -212,6 +219,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: no render pass is active.");
 
         _is_pass_active = false;
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0U);
         _pass_framebuffer.reset();
         return consume_gl_errors("end_pass");
@@ -880,6 +888,7 @@ namespace opengl_rendering
         glBindVertexArray(0U);
         glBindBuffer(GL_ARRAY_BUFFER, 0U);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0U);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     }
 
     void OpenGlGraphicsBackend::destroy_resources()

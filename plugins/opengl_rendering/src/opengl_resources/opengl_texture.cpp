@@ -114,17 +114,25 @@ namespace opengl_rendering
         glTextureParameteri(
             _texture_id,
             GL_TEXTURE_MIN_FILTER,
-            is_depth_format ? GL_NEAREST : GL_LINEAR);
+            desc.is_depth_comparison_enabled ? GL_LINEAR
+                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
         glTextureParameteri(
             _texture_id,
             GL_TEXTURE_MAG_FILTER,
-            is_depth_format ? GL_NEAREST : GL_LINEAR);
+            desc.is_depth_comparison_enabled ? GL_LINEAR
+                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         if (is_array_texture)
             glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
         if (is_depth_format)
-            glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+        {
+            glTextureParameteri(
+                _texture_id,
+                GL_TEXTURE_COMPARE_MODE,
+                desc.is_depth_comparison_enabled ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
+            glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        }
 
         if (desc.mip_count > 1U)
             glGenerateTextureMipmap(_texture_id);

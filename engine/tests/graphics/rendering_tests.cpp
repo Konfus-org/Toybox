@@ -1928,6 +1928,7 @@ namespace tbx::tests::graphics
         // Assert
         ASSERT_FALSE(backend.recorded_passes.empty());
         EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Shadow Pass");
+        EXPECT_FALSE(backend.recorded_passes.front().is_color_write_enabled);
         ASSERT_FALSE(backend.recorded_draws.empty());
         EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
         EXPECT_TRUE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
@@ -2008,6 +2009,7 @@ namespace tbx::tests::graphics
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
         ASSERT_FALSE(backend.recorded_texture_descs.empty());
         EXPECT_EQ(backend.recorded_texture_descs.front().debug_name, "Toybox Shadow Map");
+        EXPECT_TRUE(backend.recorded_texture_descs.front().is_depth_comparison_enabled);
         EXPECT_GE(
             backend.recorded_texture_descs.front().array_layer_count,
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);

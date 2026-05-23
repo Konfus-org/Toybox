@@ -183,6 +183,14 @@ namespace tbx::internal
         return Vec3(1.0F, 0.0F, 0.0F);
     }
 
+    static float snap_to_shadow_texel(const float value, const float texel_size)
+    {
+        if (texel_size <= 0.0F)
+            return value;
+
+        return std::floor(value / texel_size) * texel_size;
+    }
+
     static Vec3 project_camera_frustum_corner(
         const RenderCamera& camera,
         const float clip_x,
@@ -224,7 +232,8 @@ namespace tbx::internal
         const RenderCamera& camera,
         const Vec3& light_direction,
         const float split_near,
-        const float split_far)
+        const float split_far,
+        const uint32 shadow_map_resolution)
     {
         // Fit the directional light projection around one camera cascade. Padding gives casters a
         // little depth headroom so geometry just outside the camera slice can still contribute.
@@ -254,6 +263,16 @@ namespace tbx::internal
             min_bounds = glm::min(min_bounds, light_space_corner);
             max_bounds = glm::max(max_bounds, light_space_corner);
         }
+
+        // Snap cascade bounds to shadow texels. Keeping the light projection aligned to the map
+        // grid removes sub-texel swimming as the camera moves through the world.
+        const float resolution = static_cast<float>(std::max(shadow_map_resolution, 1U));
+        const float texel_size_x = std::max((max_bounds.x - min_bounds.x) / resolution, 0.000001F);
+        const float texel_size_y = std::max((max_bounds.y - min_bounds.y) / resolution, 0.000001F);
+        min_bounds.x = snap_to_shadow_texel(min_bounds.x, texel_size_x);
+        min_bounds.y = snap_to_shadow_texel(min_bounds.y, texel_size_y);
+        max_bounds.x = snap_to_shadow_texel(max_bounds.x, texel_size_x) + texel_size_x;
+        max_bounds.y = snap_to_shadow_texel(max_bounds.y, texel_size_y) + texel_size_y;
 
         const Mat4 light_projection = ortho_projection(
             min_bounds.x,
@@ -290,7 +309,8 @@ namespace tbx::internal
         const RenderDrawData& draw_data,
         const FrameData& frame,
         const float shadow_render_distance,
-        const float shadow_softness)
+        const float shadow_softness,
+        const uint32 shadow_map_resolution)
     {
         // One uniform block describes every shadow layer for the frame. Per-pass variants below
         // select the active layer so the same shader data can drive shadow rendering and lighting.
@@ -324,7 +344,8 @@ namespace tbx::internal
                         frame.camera,
                         light.direction,
                         split_near,
-                        split_far);
+                        split_far,
+                        shadow_map_resolution);
                     shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
                     shadow_data.shadow_params[layer] = Vec4(
                         SHADOW_DEPTH_BIAS,
@@ -904,6 +925,7 @@ namespace tbx::internal
                 },
             .mip_count = 1U,
             .array_layer_count = std::max(layer_count, 1U),
+            .is_depth_comparison_enabled = true,
             .debug_name = "Toybox Shadow Map",
         };
     }
@@ -975,7 +997,8 @@ namespace tbx::internal
             draw_data,
             frame,
             settings.shadow_render_distance.value,
-            settings.shadow_softness.value);
+            settings.shadow_softness.value,
+            settings.shadow_map_resolution.value);
 
         out_shadow_passes.reserve(draw_data.shadows.layer_count);
         for (uint32 layer = 0U; layer < draw_data.shadows.layer_count; ++layer)
@@ -1000,6 +1023,7 @@ namespace tbx::internal
                         .depth_stencil_target = draw_data.shadows.map.resource,
                         .depth_stencil_layer = static_cast<int32>(layer),
                         .clear_flags = GraphicsClearFlags::DEPTH,
+                        .is_color_write_enabled = false,
                         .debug_name = "Toybox Shadow Pass",
                     },
             };

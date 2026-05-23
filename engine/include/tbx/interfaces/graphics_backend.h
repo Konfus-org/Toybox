@@ -146,6 +146,7 @@ namespace tbx
         Size size = {1U, 1U};
         uint32 mip_count = 1U;
         uint32 array_layer_count = 1U;
+        bool is_depth_comparison_enabled = false;
         std::string debug_name = {};
     };
 
@@ -247,6 +248,7 @@ namespace tbx
         float clear_depth = 1.0F;
         uint32 clear_stencil = 0U;
         GraphicsClearFlags clear_flags = GraphicsClearFlags::NONE;
+        bool is_color_write_enabled = true;
         std::string debug_name = {};
     };
 
