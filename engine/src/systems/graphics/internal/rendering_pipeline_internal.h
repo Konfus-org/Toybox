@@ -7,6 +7,7 @@
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/graphics/resource_manager.h"
+#include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/components/camera.h"
@@ -48,7 +49,7 @@ namespace tbx::internal
     constexpr float SHADOW_NEAR_PLANE = 0.1F;
     constexpr float SHADOW_DEPTH_PADDING = 16.0F;
 
-    //// FRAME AND DRAW DATA ////
+    //// RENDER DATA ////
 
     // CPU-side render contracts used between scene extraction and backend command creation. These
     // are deliberately lightweight value types so a frame can be rebuilt from ECS state each tick.
@@ -115,8 +116,16 @@ namespace tbx::internal
         std::vector<RenderMeshInstance> instances = {};
     };
 
-    struct FrameData
+    struct RenderLighting
     {
+        std::vector<RenderLight> lights = {};
+        uint32 shadow_layer_count = 0U;
+    };
+
+    struct RenderData
+    {
+        using BatchMap = std::unordered_map<uint64, RenderBatch>;
+
         uint index = 0U;
         float time = 0.0F;
         float delta_time = 0.0F;
@@ -125,17 +134,6 @@ namespace tbx::internal
         RenderTarget target = {};
         RenderCamera camera = {};
         GBuffer g_buffer = {};
-    };
-
-    struct RenderLighting
-    {
-        std::vector<RenderLight> lights = {};
-        uint32 shadow_layer_count = 0U;
-    };
-
-    struct RenderDrawData
-    {
-        using BatchMap = std::unordered_map<uint64, RenderBatch>;
 
         Sky sky = {};
 
@@ -148,6 +146,17 @@ namespace tbx::internal
         BatchMap shadow_batches = {};
 
         Color clear_color = Color::BLACK;
+    };
+
+    struct PreparedIndexedDrawResource
+    {
+        GraphicsIndexedDrawCommand command = {};
+    };
+
+    struct RenderExecutionState
+    {
+        Uuid pipeline = {};
+        std::vector<Uuid> bind_groups = {};
     };
 
     //// SHADOW PROJECTION HELPERS ////
@@ -304,8 +313,7 @@ namespace tbx::internal
     }
 
     static ShadowShaderData make_shadow_shader_data(
-        const RenderDrawData& draw_data,
-        const FrameData& frame,
+        const RenderData& render_data,
         const float shadow_render_distance,
         const float shadow_softness,
         const uint32 shadow_map_resolution)
@@ -313,13 +321,14 @@ namespace tbx::internal
         // One uniform block describes every shadow layer for the frame. Per-pass variants below
         // select the active layer so the same shader data can drive shadow rendering and lighting.
         auto shadow_data = ShadowShaderData();
-        shadow_data.shadow_meta = IVec4(static_cast<int32>(draw_data.shadows.layer_count), 0, 0, 0);
+        shadow_data.shadow_meta =
+            IVec4(static_cast<int32>(render_data.shadows.layer_count), 0, 0, 0);
 
         const float directional_shadow_distance = std::max(shadow_render_distance, 1.0F);
         const float cascade_length =
             directional_shadow_distance / static_cast<float>(DIRECTIONAL_SHADOW_CASCADE_COUNT);
 
-        for (const RenderLight& light : draw_data.lighting.lights)
+        for (const RenderLight& light : render_data.lighting.lights)
         {
             if (light.shadow_index < 0 || light.shadow_layer_count == 0U)
                 continue;
@@ -339,7 +348,7 @@ namespace tbx::internal
                         std::min(cascade_length * 0.2F, shadow_softness * 4.0F);
 
                     shadow_data.light_view_projections[layer] = make_directional_shadow_matrix(
-                        frame.camera,
+                        render_data.camera,
                         light.direction,
                         split_near,
                         split_far,
@@ -364,7 +373,7 @@ namespace tbx::internal
             // fade band used by shadow filtering.
             const uint32 layer = static_cast<uint32>(light.shadow_index);
             shadow_data.light_view_projections[layer] =
-                make_local_shadow_matrix(frame.camera, light);
+                make_local_shadow_matrix(render_data.camera, light);
             shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
             shadow_data.shadow_params[layer] =
                 Vec4(SHADOW_DEPTH_BIAS, SHADOW_NORMAL_BIAS, SHADOW_STRENGTH, SHADOW_SLOPE_BIAS);
@@ -389,7 +398,7 @@ namespace tbx::internal
 
     //// SCENE EXTRACTION HELPERS ////
 
-    // Helpers in this group normalize ECS data into RenderDrawData: material fallback policy,
+    // Helpers in this group normalize ECS data into RenderData: material fallback policy,
     // batching keys, transform defaults, and culling rules live here.
     static MaterialConfig resolve_draw_material_config(
         AssetManager& asset_manager,
@@ -424,16 +433,16 @@ namespace tbx::internal
         return config;
     }
 
-    static void append_light(RenderDrawData& draw_data, const RenderLight& render_light)
+    static void append_light(RenderData& render_data, const RenderLight& render_light)
     {
         // Keep the shader array bounded. Extra lights are ignored rather than growing CPU data
         // that the fixed GPU binding cannot consume.
-        if (draw_data.lighting.lights.size() < MAX_LIGHTS)
-            draw_data.lighting.lights.push_back(render_light);
+        if (render_data.lighting.lights.size() < MAX_LIGHTS)
+            render_data.lighting.lights.push_back(render_light);
     }
 
     static void append_batch(
-        RenderDrawData::BatchMap& batches,
+        RenderData::BatchMap& batches,
         const uint64 key,
         const RenderMesh& mesh,
         const MaterialInstance& material,
@@ -600,20 +609,20 @@ namespace tbx::internal
 
     //// SHADER DATA BUILDERS ////
 
-    // Shader structs are packed from frame draw data immediately before upload. Keeping this step
+    // Shader structs are packed from render data immediately before upload. Keeping this step
     // separate from ECS extraction prevents backend-facing layout decisions from leaking into ECS.
-    static LightingShaderData make_light_shader_data(const RenderDrawData& draw_data)
+    static LightingShaderData make_light_shader_data(const RenderData& render_data)
     {
         auto light_data = LightingShaderData();
-        light_data.light_meta.x = static_cast<int32>(draw_data.lighting.lights.size());
-        light_data.light_meta.y = static_cast<int32>(draw_data.shadows.layer_count);
+        light_data.light_meta.x = static_cast<int32>(render_data.lighting.lights.size());
+        light_data.light_meta.y = static_cast<int32>(render_data.shadows.layer_count);
 
         // Directional lights are the only ambient contributors. Average their colors, then scale by
         // the total ambient intensity so multiple suns do not multiply hue unexpectedly.
         auto ambient_color_sum = Vec3(0.0F);
         float ambient_intensity_sum = 0.0F;
         uint32 directional_light_count = 0U;
-        for (const auto& light : draw_data.lighting.lights)
+        for (const auto& light : render_data.lighting.lights)
         {
             if (light.type != static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL))
                 continue;
@@ -631,10 +640,10 @@ namespace tbx::internal
         }
 
         for (uint light_index = 0U;
-             light_index < static_cast<uint>(draw_data.lighting.lights.size());
+             light_index < static_cast<uint>(render_data.lighting.lights.size());
              ++light_index)
         {
-            const auto& light = draw_data.lighting.lights[static_cast<size>(light_index)];
+            const auto& light = render_data.lighting.lights[static_cast<size>(light_index)];
             light_data.lights[light_index] = ShaderLightData {
                 .position_type = Vec4(light.position, static_cast<float>(light.type)),
                 .direction_range = Vec4(light.direction, light.range),
@@ -654,7 +663,7 @@ namespace tbx::internal
     //// RESOURCE UPLOAD HELPERS ////
 
     // Upload helpers resolve fallbacks and convert extracted batches into backend resource
-    // bindings. They do not decide what should render; that work happens in create_draw_data.
+    // bindings. They do not decide what should render; that work happens in extract_render_data.
     static bool has_texture_slot(
         const std::vector<GraphicsResourceBinding>& textures,
         const uint32 slot)
@@ -750,19 +759,19 @@ namespace tbx::internal
         return result;
     }
 
-    static Result append_batch_draws(
+    static Result upload_batch_draw_resources(
         RenderingResourceManager& resource_manager,
         const uint64 frame_index,
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
         const GraphicsResourceBinding& light_uniform,
-        const GraphicsResourceBinding* shadow_uniform,
-        const GraphicsResourceBinding* shadow_map,
-        const RenderDrawData::BatchMap& batches,
-        RenderPass& render_pass)
+        const RenderData::BatchMap& batches,
+        std::vector<PreparedIndexedDrawResource>& out_draws)
     {
-        // Scene draws share the same path for opaque and transparent batches. The optional shadow
-        // bindings are supplied only when a pass needs shadowed forward shading.
+        // Scene draw resources are prepared once per batch set so pass assembly can append cheap
+        // copies with only pass-specific bindings added later.
+        out_draws.clear();
+        out_draws.reserve(batches.size());
         for (const auto& [batch_key, batch] : batches)
         {
             if (batch.instances.empty())
@@ -811,59 +820,78 @@ namespace tbx::internal
 
             for (const auto& uploaded_mesh : uploaded_meshes)
             {
-                render_pass.indexed_draws.push_back(
-                    GraphicsIndexedDrawCommand {
-                        .pipeline = material_upload.pipeline,
-                        .index_buffer = uploaded_mesh.index_buffer,
-                        .index_type = GraphicsIndexType::UINT32,
-                        .vertex_buffers =
-                            {
-                                GraphicsResourceBinding {
-                                    .slot = VERTEX_BUFFER_SLOT_MESH,
-                                    .resource = uploaded_mesh.vertex_buffer,
-                                },
-                                instance_buffer,
-                            },
-                        .uniform_buffers =
-                            {
-                                frame_uniform,
-                                camera_uniform,
-                                light_uniform,
-                                object_uniform,
-                                material_uniform,
-                            },
-                        .textures = material_upload.textures,
-                        .draw =
-                            GraphicsDrawIndexedDesc {
+                out_draws.push_back(
+                    PreparedIndexedDrawResource {
+                        .command =
+                            GraphicsIndexedDrawCommand {
+                                .pipeline = material_upload.pipeline,
+                                .index_buffer = uploaded_mesh.index_buffer,
                                 .index_type = GraphicsIndexType::UINT32,
-                                .index_count = uploaded_mesh.index_count,
-                                .instance_count = static_cast<uint32>(batch.instances.size()),
+                                .vertex_buffers =
+                                    {
+                                        GraphicsResourceBinding {
+                                            .slot = VERTEX_BUFFER_SLOT_MESH,
+                                            .resource = uploaded_mesh.vertex_buffer,
+                                        },
+                                        instance_buffer,
+                                    },
+                                .uniform_buffers =
+                                    {
+                                        frame_uniform,
+                                        camera_uniform,
+                                        light_uniform,
+                                        object_uniform,
+                                        material_uniform,
+                                    },
+                                .textures = material_upload.textures,
+                                .draw =
+                                    GraphicsDrawIndexedDesc {
+                                        .index_type = GraphicsIndexType::UINT32,
+                                        .index_count = uploaded_mesh.index_count,
+                                        .instance_count =
+                                            static_cast<uint32>(batch.instances.size()),
+                                    },
                             },
                     });
-                if (shadow_uniform != nullptr && shadow_uniform->resource.is_valid())
-                    render_pass.indexed_draws.back().uniform_buffers.push_back(*shadow_uniform);
-                if (shadow_map != nullptr && shadow_map->resource.is_valid())
-                    render_pass.indexed_draws.back().textures.push_back(*shadow_map);
             }
         }
 
         return {};
     }
 
-    static Result append_shadow_draws(
+    static void append_prepared_batch_draws(
+        const std::vector<PreparedIndexedDrawResource>& uploaded_draws,
+        const GraphicsResourceBinding* extra_uniform,
+        const GraphicsResourceBinding* extra_texture,
+        RenderPass& render_pass)
+    {
+        render_pass.indexed_draws.reserve(render_pass.indexed_draws.size() + uploaded_draws.size());
+        for (const auto& uploaded_draw : uploaded_draws)
+        {
+            auto command = uploaded_draw.command;
+            if (extra_uniform != nullptr && extra_uniform->resource.is_valid())
+                command.uniform_buffers.push_back(*extra_uniform);
+            if (extra_texture != nullptr && extra_texture->resource.is_valid())
+                command.textures.push_back(*extra_texture);
+            render_pass.indexed_draws.push_back(std::move(command));
+        }
+    }
+
+    static Result upload_shadow_draw_resources(
         RenderingResourceManager& resource_manager,
         const uint64 frame_index,
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
         const GraphicsResourceBinding& light_uniform,
-        const GraphicsResourceBinding& shadow_uniform,
         const RenderingMaterialUploadData& shadow_material_upload,
         const GraphicsResourceBinding& shadow_material_uniform,
-        const RenderDrawData::BatchMap& batches,
-        RenderPass& render_pass)
+        const RenderData::BatchMap& batches,
+        std::vector<PreparedIndexedDrawResource>& out_draws)
     {
         // Shadow rendering uses the scene mesh and instance data, but forces a lightweight shadow
         // material so only depth data is produced.
+        out_draws.clear();
+        out_draws.reserve(batches.size());
         for (const auto& [batch_key, batch] : batches)
         {
             if (batch.instances.empty())
@@ -895,40 +923,51 @@ namespace tbx::internal
 
             for (const auto& uploaded_mesh : uploaded_meshes)
             {
-                render_pass.indexed_draws.push_back(
-                    GraphicsIndexedDrawCommand {
-                        .pipeline = shadow_material_upload.pipeline,
-                        .index_buffer = uploaded_mesh.index_buffer,
-                        .index_type = GraphicsIndexType::UINT32,
-                        .vertex_buffers =
-                            {
-                                GraphicsResourceBinding {
-                                    .slot = VERTEX_BUFFER_SLOT_MESH,
-                                    .resource = uploaded_mesh.vertex_buffer,
-                                },
-                                instance_buffer,
-                            },
-                        .uniform_buffers =
-                            {
-                                frame_uniform,
-                                camera_uniform,
-                                light_uniform,
-                                object_uniform,
-                                shadow_material_uniform,
-                                shadow_uniform,
-                            },
-                        .textures = shadow_material_upload.textures,
-                        .draw =
-                            GraphicsDrawIndexedDesc {
+                out_draws.push_back(
+                    PreparedIndexedDrawResource {
+                        .command =
+                            GraphicsIndexedDrawCommand {
+                                .pipeline = shadow_material_upload.pipeline,
+                                .index_buffer = uploaded_mesh.index_buffer,
                                 .index_type = GraphicsIndexType::UINT32,
-                                .index_count = uploaded_mesh.index_count,
-                                .instance_count = static_cast<uint32>(batch.instances.size()),
+                                .vertex_buffers =
+                                    {
+                                        GraphicsResourceBinding {
+                                            .slot = VERTEX_BUFFER_SLOT_MESH,
+                                            .resource = uploaded_mesh.vertex_buffer,
+                                        },
+                                        instance_buffer,
+                                    },
+                                .uniform_buffers =
+                                    {
+                                        frame_uniform,
+                                        camera_uniform,
+                                        light_uniform,
+                                        object_uniform,
+                                        shadow_material_uniform,
+                                    },
+                                .textures = shadow_material_upload.textures,
+                                .draw =
+                                    GraphicsDrawIndexedDesc {
+                                        .index_type = GraphicsIndexType::UINT32,
+                                        .index_count = uploaded_mesh.index_count,
+                                        .instance_count =
+                                            static_cast<uint32>(batch.instances.size()),
+                                    },
                             },
                     });
             }
         }
 
         return {};
+    }
+
+    static void append_shadow_draws(
+        const GraphicsResourceBinding& shadow_uniform,
+        const std::vector<PreparedIndexedDrawResource>& uploaded_draws,
+        RenderPass& render_pass)
+    {
+        append_prepared_batch_draws(uploaded_draws, &shadow_uniform, nullptr, render_pass);
     }
 
     //// SHADOW PASS SETUP ////
@@ -957,19 +996,19 @@ namespace tbx::internal
     static Result create_shadow_map(
         RenderingResourceManager& resource_manager,
         uint32 shadow_map_resolution,
-        RenderDrawData& draw_data)
+        RenderData& render_data)
     {
-        if (draw_data.shadows.layer_count == 0U)
+        if (render_data.shadows.layer_count == 0U)
             return {};
 
         // Shadow maps are cached by resolution and layer count so stable settings reuse the same
         // GPU resource across frames.
-        draw_data.shadows.map = resource_manager.upload_texture(
+        render_data.shadows.map = resource_manager.upload_texture(
             BINDING_SHADOW_MAP,
             "Toybox/ShadowMap/" + std::to_string(shadow_map_resolution) + "/"
-                + std::to_string(draw_data.shadows.layer_count),
-            make_shadow_map_desc(shadow_map_resolution, draw_data.shadows.layer_count));
-        if (!draw_data.shadows.map.resource.is_valid())
+                + std::to_string(render_data.shadows.layer_count),
+            make_shadow_map_desc(shadow_map_resolution, render_data.shadows.layer_count));
+        if (!render_data.shadows.map.resource.is_valid())
             return Result(false, "Frame pipeline failed: shadow map target upload failed.");
 
         return {};
@@ -981,18 +1020,17 @@ namespace tbx::internal
         uint32 shadow_map_resolution,
         float shadow_render_distance,
         float shadow_softness,
-        const FrameData& frame,
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
         const GraphicsResourceBinding& light_uniform,
-        const RenderDrawData& draw_data,
+        const RenderData& render_data,
         std::vector<RenderPass>& out_shadow_passes,
         GraphicsResourceBinding& out_lighting_shadow_uniform)
     {
-        if (draw_data.shadows.layer_count == 0U)
+        if (render_data.shadows.layer_count == 0U)
             return {};
 
-        if (!draw_data.shadows.map.resource.is_valid())
+        if (!render_data.shadows.map.resource.is_valid())
             return Result(false, "Rendering pipeline failed: shadow map resource is invalid.");
 
         // The same material/pipeline handles every shadow layer. Per-layer uniforms select which
@@ -1018,14 +1056,26 @@ namespace tbx::internal
         }
 
         const auto frame_shadow_data = make_shadow_shader_data(
-            draw_data,
-            frame,
+            render_data,
             shadow_render_distance,
             shadow_softness,
             shadow_map_resolution);
+        auto uploaded_shadow_draws = std::vector<PreparedIndexedDrawResource>();
+        result = upload_shadow_draw_resources(
+            resource_manager,
+            frame_index,
+            frame_uniform,
+            camera_uniform,
+            light_uniform,
+            shadow_material_upload,
+            shadow_material_uniform,
+            render_data.shadow_batches,
+            uploaded_shadow_draws);
+        if (!result)
+            return result;
 
-        out_shadow_passes.reserve(draw_data.shadows.layer_count);
-        for (uint32 layer = 0U; layer < draw_data.shadows.layer_count; ++layer)
+        out_shadow_passes.reserve(out_shadow_passes.size() + render_data.shadows.layer_count);
+        for (uint32 layer = 0U; layer < render_data.shadows.layer_count; ++layer)
         {
             const auto layer_shadow_data =
                 make_shadow_shader_data_for_layer(frame_shadow_data, layer);
@@ -1044,26 +1094,14 @@ namespace tbx::internal
             auto shadow_pass = RenderPass {
                 .desc =
                     GraphicsPassDesc {
-                        .depth_stencil_target = draw_data.shadows.map.resource,
+                        .depth_stencil_target = render_data.shadows.map.resource,
                         .depth_stencil_layer = static_cast<int32>(layer),
                         .clear_flags = GraphicsClearFlags::DEPTH,
                         .is_color_write_enabled = false,
                         .debug_name = "Toybox Shadow Pass",
                     },
             };
-            result = append_shadow_draws(
-                resource_manager,
-                frame_index,
-                frame_uniform,
-                camera_uniform,
-                light_uniform,
-                shadow_uniform,
-                shadow_material_upload,
-                shadow_material_uniform,
-                draw_data.shadow_batches,
-                shadow_pass);
-            if (!result)
-                return result;
+            append_shadow_draws(shadow_uniform, uploaded_shadow_draws, shadow_pass);
 
             out_shadow_passes.push_back(std::move(shadow_pass));
         }
@@ -1241,53 +1279,49 @@ namespace tbx::internal
 
     //// PASS GRAPH ASSEMBLY ////
 
-    // Converts extracted draw data and GPU resources into an ordered list of backend passes. The
+    // Converts extracted render data and GPU resources into an ordered list of backend passes. The
     // order is shadow, sky, GBuffer, lighting, transparent, then post processing.
-    static std::vector<RenderPass> create_passes(
+    static Result create_passes(
         const uint frame_index,
-        const FrameData& frame,
-        const GBuffer& gbuffer,
-        const RenderDrawData& draw_data,
+        const RenderData& render_data,
         uint32 shadow_map_resolution,
         float shadow_render_distance,
         float shadow_softness,
         RenderingResourceManager& resource_manager,
-        IGraphicsBackend& backend)
+        std::vector<RenderPass>& out_passes)
     {
-        const auto fail = [&backend](const char* message) -> std::vector<RenderPass>
+        out_passes.clear();
+        const auto fail = [](const char* message) -> Result
         {
             TBX_TRACE_ERROR_ONCE("Rendering pipeline pass creation failed: {}", message);
-            backend.end_frame();
-            return {};
+            return Result(false, message);
         };
-        const auto fail_result =
-            [&backend](const char* operation, const Result& result) -> std::vector<RenderPass>
+        const auto fail_result = [](const char* operation, const Result& result) -> Result
         {
             TBX_TRACE_ERROR_ONCE(
                 "Rendering pipeline pass creation failed during {}: {}",
                 operation,
                 result.get_report());
-            backend.end_frame();
-            return {};
+            return result;
         };
 
         // Upload per-frame uniform data once so each pass can reference the same bindings.
-        const auto light_shader_data = internal::make_light_shader_data(draw_data);
+        const auto light_shader_data = internal::make_light_shader_data(render_data);
 
         const auto frame_shader_data = FrameShaderData {
-            .time = frame.time,
-            .delta_time = frame.delta_time,
+            .time = render_data.time,
+            .delta_time = render_data.delta_time,
             .viewport_size = Vec2(
-                static_cast<float>(frame.viewport.dimensions.width),
-                static_cast<float>(frame.viewport.dimensions.height)),
+                static_cast<float>(render_data.viewport.dimensions.width),
+                static_cast<float>(render_data.viewport.dimensions.height)),
         };
         const auto camera_shader_data = CameraShaderData {
-            .view = frame.camera.view,
-            .projection = frame.camera.projection,
-            .view_projection = frame.camera.view_projection,
-            .inverse_view = frame.camera.inverse_view,
-            .inverse_projection = frame.camera.inverse_projection,
-            .world_position = Vec4(frame.camera.position, 1.0F),
+            .view = render_data.camera.view,
+            .projection = render_data.camera.projection,
+            .view_projection = render_data.camera.view_projection,
+            .inverse_view = render_data.camera.inverse_view,
+            .inverse_projection = render_data.camera.inverse_projection,
+            .world_position = Vec4(render_data.camera.position, 1.0F),
         };
 
         const auto frame_uniform = resource_manager.upload_uniform_buffer(
@@ -1317,21 +1351,20 @@ namespace tbx::internal
             return fail("frame, camera, or light uniform upload returned an invalid resource.");
         }
 
-        auto shadow_map = draw_data.shadows.map;
-        auto shadow_passes = std::vector<RenderPass>();
+        auto shadow_map = render_data.shadows.map;
         auto lighting_shadow_uniform = GraphicsResourceBinding {.slot = BINDING_SHADOW_PASS_DATA};
+        out_passes.reserve(6U + render_data.shadows.layer_count);
         auto result = append_shadow_passes(
             resource_manager,
             frame_index,
             shadow_map_resolution,
             shadow_render_distance,
             shadow_softness,
-            frame,
             frame_uniform,
             camera_uniform,
             light_uniform,
-            draw_data,
-            shadow_passes,
+            render_data,
+            out_passes,
             lighting_shadow_uniform);
         if (!result)
             return fail_result("shadow pass upload", result);
@@ -1340,20 +1373,20 @@ namespace tbx::internal
         auto sky_pass = RenderPass {
             .desc =
                 GraphicsPassDesc {
-                    .color_targets = {gbuffer.final_color.resource},
-                    .clear_color = draw_data.clear_color,
+                    .color_targets = {render_data.g_buffer.final_color.resource},
+                    .clear_color = render_data.clear_color,
                     .clear_flags = GraphicsClearFlags::COLOR,
                     .debug_name = "Toybox Skybox Pass",
                 },
         };
-        if (draw_data.sky.material.get_handle().is_valid())
+        if (render_data.sky.material.get_handle().is_valid())
         {
             // Sky geometry is a cube or sphere drawn with identity transform. The shader handles
             // camera-relative behavior through camera uniforms.
-            const auto sky_mesh_handle = draw_data.sky.type == SkyType::BOX
+            const auto sky_mesh_handle = render_data.sky.type == SkyType::BOX
                                              ? Handle("Toybox/SkyBox")
                                              : Handle("Toybox/SkySphere");
-            const Mesh& sky_mesh = draw_data.sky.type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
+            const Mesh& sky_mesh = render_data.sky.type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
             auto uploaded_sky_mesh = RenderingMeshUploadData();
             auto result = resource_manager.upload_static_runtime_mesh(
                 sky_mesh_handle,
@@ -1363,7 +1396,8 @@ namespace tbx::internal
                 return fail_result("sky mesh upload", result);
 
             auto sky_material_upload = RenderingMaterialUploadData();
-            result = resource_manager.upload_material(draw_data.sky.material, sky_material_upload);
+            result =
+                resource_manager.upload_material(render_data.sky.material, sky_material_upload);
             if (!result)
                 return fail_result("sky material upload", result);
             append_fallback_texture(
@@ -1443,29 +1477,29 @@ namespace tbx::internal
                 GraphicsPassDesc {
                     .color_targets =
                         {
-                            gbuffer.albedo.resource,
-                            gbuffer.normal.resource,
-                            gbuffer.material.resource,
-                            gbuffer.emissive.resource,
+                            render_data.g_buffer.albedo.resource,
+                            render_data.g_buffer.normal.resource,
+                            render_data.g_buffer.material.resource,
+                            render_data.g_buffer.emissive.resource,
                         },
-                    .depth_stencil_target = gbuffer.depth.resource,
+                    .depth_stencil_target = render_data.g_buffer.depth.resource,
                     .clear_color = Color::BLACK,
                     .clear_flags = GraphicsClearFlags::COLOR_DEPTH,
                     .debug_name = "Toybox GBuffer Pass",
                 },
         };
-        result = internal::append_batch_draws(
+        auto opaque_draws = std::vector<PreparedIndexedDrawResource>();
+        result = internal::upload_batch_draw_resources(
             resource_manager,
             frame_index,
             frame_uniform,
             camera_uniform,
             light_uniform,
-            nullptr,
-            nullptr,
-            draw_data.opaque_batches,
-            opaque_pass);
+            render_data.opaque_batches,
+            opaque_draws);
         if (!result)
             return fail_result("opaque batch draw upload", result);
+        internal::append_prepared_batch_draws(opaque_draws, nullptr, nullptr, opaque_pass);
 
         // Alpha Cutout Pass: Reserved for alpha-tested geometry that should write GBuffer targets
         // with depth.
@@ -1482,8 +1516,8 @@ namespace tbx::internal
         auto lighting_pass = RenderPass {
             .desc =
                 GraphicsPassDesc {
-                    .color_targets = {gbuffer.final_color.resource},
-                    .clear_color = draw_data.clear_color,
+                    .color_targets = {render_data.g_buffer.final_color.resource},
+                    .clear_color = render_data.clear_color,
                     .clear_flags =
                         has_sky_draws ? GraphicsClearFlags::NONE : GraphicsClearFlags::COLOR,
                     .debug_name = "Toybox Lighting Pass",
@@ -1491,27 +1525,27 @@ namespace tbx::internal
             .barriers_before =
                 {
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.albedo.resource,
+                        .resource_handle = render_data.g_buffer.albedo.resource,
                         .state_before = ResourceState::RENDER_TARGET,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.normal.resource,
+                        .resource_handle = render_data.g_buffer.normal.resource,
                         .state_before = ResourceState::RENDER_TARGET,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.material.resource,
+                        .resource_handle = render_data.g_buffer.material.resource,
                         .state_before = ResourceState::RENDER_TARGET,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.emissive.resource,
+                        .resource_handle = render_data.g_buffer.emissive.resource,
                         .state_before = ResourceState::RENDER_TARGET,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.depth.resource,
+                        .resource_handle = render_data.g_buffer.depth.resource,
                         .state_before = ResourceState::DEPTH_WRITE,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
@@ -1529,11 +1563,11 @@ namespace tbx::internal
                 .uniform_buffers = {frame_uniform, camera_uniform, light_uniform},
                 .textures =
                     {
-                        gbuffer.albedo,
-                        gbuffer.normal,
-                        gbuffer.material,
-                        gbuffer.emissive,
-                        gbuffer.depth,
+                        render_data.g_buffer.albedo,
+                        render_data.g_buffer.normal,
+                        render_data.g_buffer.material,
+                        render_data.g_buffer.emissive,
+                        render_data.g_buffer.depth,
                     },
                 .vertex_count = 3U,
             });
@@ -1546,24 +1580,28 @@ namespace tbx::internal
         auto transparent_pass = RenderPass {
             .desc =
                 GraphicsPassDesc {
-                    .color_targets = {gbuffer.final_color.resource},
-                    .depth_stencil_target = gbuffer.depth.resource,
+                    .color_targets = {render_data.g_buffer.final_color.resource},
+                    .depth_stencil_target = render_data.g_buffer.depth.resource,
                     .clear_flags = GraphicsClearFlags::NONE,
                     .debug_name = "Toybox Transparent Forward Pass",
                 },
         };
-        result = internal::append_batch_draws(
+        auto transparent_draws = std::vector<PreparedIndexedDrawResource>();
+        result = internal::upload_batch_draw_resources(
             resource_manager,
             frame_index,
             frame_uniform,
             camera_uniform,
             light_uniform,
-            lighting_shadow_uniform.resource.is_valid() ? &lighting_shadow_uniform : nullptr,
-            shadow_map.resource.is_valid() ? &shadow_map : nullptr,
-            draw_data.transparent_batches,
-            transparent_pass);
+            render_data.transparent_batches,
+            transparent_draws);
         if (!result)
             return fail_result("transparent batch draw upload", result);
+        internal::append_prepared_batch_draws(
+            transparent_draws,
+            lighting_shadow_uniform.resource.is_valid() ? &lighting_shadow_uniform : nullptr,
+            shadow_map.resource.is_valid() ? &shadow_map : nullptr,
+            transparent_pass);
 
         // Post Process Pass: Applies fullscreen post processing from the GBuffer to the current
         // frame target.
@@ -1577,16 +1615,16 @@ namespace tbx::internal
             .barriers_before =
                 {
                     PipelineBarrierDesc {
-                        .resource_handle = gbuffer.final_color.resource,
+                        .resource_handle = render_data.g_buffer.final_color.resource,
                         .state_before = ResourceState::RENDER_TARGET,
                         .state_after = ResourceState::SHADER_READ_ONLY,
                     },
                 },
         };
-        if (draw_data.post_processing.is_enabled)
+        if (render_data.post_processing.is_enabled)
         {
             // Effects are appended in component order so authored post stacks remain predictable.
-            for (const auto& effect : draw_data.post_processing.effects)
+            for (const auto& effect : render_data.post_processing.effects)
             {
                 if (!should_render_post_effect(effect))
                     continue;
@@ -1599,7 +1637,7 @@ namespace tbx::internal
                     frame_uniform,
                     camera_uniform,
                     light_uniform,
-                    gbuffer,
+                    render_data.g_buffer,
                     effect_material,
                     std::string("Toybox/Uniforms/Material/PostEffect/")
                         + std::to_string(hash(effect_material)),
@@ -1611,56 +1649,124 @@ namespace tbx::internal
 
         // Empty optional passes are skipped, but the fixed pass order is preserved whenever they
         // have work.
-        auto passes = std::vector<RenderPass>();
-        passes.reserve(6U + shadow_passes.size());
-        for (auto& shadow_pass : shadow_passes)
-            passes.push_back(std::move(shadow_pass));
         if (has_sky_draws)
-            passes.push_back(std::move(sky_pass));
-        passes.push_back(std::move(opaque_pass));
+            out_passes.push_back(std::move(sky_pass));
+        out_passes.push_back(std::move(opaque_pass));
         if (!alpha_cutout_pass.draws.empty() || !alpha_cutout_pass.indexed_draws.empty())
-            passes.push_back(std::move(alpha_cutout_pass));
-        passes.push_back(std::move(lighting_pass));
+            out_passes.push_back(std::move(alpha_cutout_pass));
+        out_passes.push_back(std::move(lighting_pass));
         if (!transparent_pass.draws.empty() || !transparent_pass.indexed_draws.empty())
-            passes.push_back(std::move(transparent_pass));
-        passes.push_back(std::move(post_process_pass));
-        for (auto& pass : passes)
+            out_passes.push_back(std::move(transparent_pass));
+        out_passes.push_back(std::move(post_process_pass));
+        for (auto& pass : out_passes)
         {
-            pass.desc.viewport = frame.viewport;
+            pass.desc.viewport = render_data.viewport;
             create_render_pass_bind_groups(resource_manager, pass);
         }
-        return passes;
+        return {};
     }
 
     //// SCENE DATA EXTRACTION ////
 
-    // Walks the ECS scene and builds RenderDrawData for one frame. This is where visibility,
+    static RenderTarget extract_render_target(
+        const EntityRegistry& entity_registry,
+        const IWindowManager& window_manager)
+    {
+        for (auto& entity : entity_registry.get_with<Camera>())
+        {
+            const auto render_target = entity.get_component<Camera>().get_render_target();
+            if (render_target.is_valid())
+                return render_target;
+
+            break;
+        }
+
+        return window_manager.get_main_window();
+    }
+
+    // Walks the ECS scene and builds RenderData for one frame. This is where visibility,
     // material fallback, batching, shadow allocation, and render feature selection are decided.
-    static Result create_draw_data(
+    static Result extract_render_data(
         RenderingResourceManager& resource_manager,
         const EntityRegistry& entity_registry,
-        const RenderCamera& camera,
+        const IWindowManager& window_manager,
         AssetManager& asset_manager,
-        uint32 shadow_map_resolution,
-        const float local_light_max_distance,
-        const float shadow_caster_max_distance,
-        RenderDrawData& out_draw_data)
+        const GraphicsSettings& settings,
+        const uint frame,
+        const DeltaTime& delta_time,
+        const float elapsed_time,
+        const RenderTarget render_target,
+        RenderData& out_render_data)
     {
-        out_draw_data = RenderDrawData();
-        auto& draw_data = out_draw_data;
-        const Vec3& camera_position = camera.position;
-        const Frustum camera_frustum(camera.view_projection);
+        out_render_data = RenderData();
+        auto& render_data = out_render_data;
+
+        // The renderer currently uses the first Camera component found. If no camera exists, the
+        // default Camera plus identity Transform produce deterministic fallback matrices.
+        auto render_camera = Camera();
+        auto cam_transform = Transform();
+        for (auto& entity : entity_registry.get_with<Camera>())
+        {
+            render_camera = entity.get_component<Camera>();
+            // Cameras without a Transform render from identity so authoring transform-less test
+            // scenes still produces deterministic render data.
+            if (entity.has_component<Transform>())
+                cam_transform = get_world_space_transform(entity);
+            break;
+        }
+
+        // A zero window or setting resolution is interpreted as "use the best available fallback"
+        // rather than letting zero-sized render targets enter the backend.
+        auto target_resolution = window_manager.get_size(render_target);
+        if (target_resolution.width == 0U || target_resolution.height == 0U)
+            target_resolution = Size {1U, 1U};
+
+        auto render_resolution = settings.resolution.value;
+        if (render_resolution.width == 0U || render_resolution.height == 0U)
+            render_resolution = target_resolution;
+
+        auto render_viewport = Viewport {Vec2(0.0F), render_resolution};
+        auto cam_viewport = render_camera.get_viewport();
+        if (!cam_viewport.is_zero())
+            render_viewport = cam_viewport;
+
+        render_camera.set_aspect(render_resolution.get_aspect_ratio());
+        const Mat4 cam_view_matrix =
+            render_camera.get_view_matrix(cam_transform.position, cam_transform.rotation);
+        const Mat4 cam_projection_matrix = render_camera.get_projection_matrix();
+        const Mat4 cam_view_projection_matrix = cam_projection_matrix * cam_view_matrix;
+
+        render_data.index = frame;
+        render_data.time = elapsed_time;
+        render_data.delta_time = static_cast<float>(delta_time.seconds);
+        render_data.resolution = render_resolution;
+        render_data.viewport = render_viewport;
+        render_data.target = render_target;
+        render_data.camera = RenderCamera {
+            .view = cam_view_matrix,
+            .position = cam_transform.position,
+            .projection = cam_projection_matrix,
+            .view_projection = cam_view_projection_matrix,
+            .inverse_view = inverse(cam_view_matrix),
+            .inverse_projection = inverse(cam_projection_matrix),
+        };
+
+        const Vec3& camera_position = render_data.camera.position;
+        const Frustum camera_frustum(render_data.camera.view_projection);
+        const uint32 shadow_map_resolution = settings.shadow_map_resolution.value;
+        const float local_light_max_distance = settings.local_light_max_distance.value;
+        const float shadow_caster_max_distance = settings.shadow_caster_max_distance.value;
 
         // Scene-wide state: the first supported component wins for singleton-style render features.
         for (auto& entity : entity_registry.get_with<Sky>())
         {
-            draw_data.sky = entity.get_component<Sky>();
-            if (!draw_data.sky.material.get_handle().is_valid())
-                draw_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
+            render_data.sky = entity.get_component<Sky>();
+            if (!render_data.sky.material.get_handle().is_valid())
+                render_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
 
             const Color clear_color =
-                draw_data.sky.material.get_parameter_or(TexturedSkyMaterial::COLOR, Color::BLACK);
-            draw_data.clear_color = clear_color;
+                render_data.sky.material.get_parameter_or(TexturedSkyMaterial::COLOR, Color::BLACK);
+            render_data.clear_color = clear_color;
 
             // TODO: Warn if there is more than one sky, and say picking first found as only one is
             // supported.
@@ -1669,7 +1775,7 @@ namespace tbx::internal
 
         for (auto& entity : entity_registry.get_with<PostProcessing>())
         {
-            draw_data.post_processing = entity.get_component<PostProcessing>();
+            render_data.post_processing = entity.get_component<PostProcessing>();
             break;
         }
 
@@ -1680,12 +1786,12 @@ namespace tbx::internal
             const Transform transform = get_optional_transform(entity);
             const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
             const int32 shadow_index = reserve_shadow_index(
-                draw_data.lighting.shadow_layer_count,
+                render_data.lighting.shadow_layer_count,
                 light.cast_shadows,
                 DIRECTIONAL_SHADOW_CASCADE_COUNT);
 
             append_light(
-                draw_data,
+                render_data,
                 RenderLight {
                     .type = static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL),
                     .color = light.color,
@@ -1706,10 +1812,12 @@ namespace tbx::internal
             if (should_cull(transform.position, camera_position, local_light_max_distance))
                 continue;
 
-            const int32 shadow_index =
-                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            const int32 shadow_index = reserve_shadow_index(
+                render_data.lighting.shadow_layer_count,
+                light.cast_shadows,
+                1U);
             append_light(
-                draw_data,
+                render_data,
                 RenderLight {
                     .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
                     .color = light.color,
@@ -1729,10 +1837,12 @@ namespace tbx::internal
                 continue;
 
             const Vec3 direction = normalize_or_zero(transform.rotation * Vec3(0.0F, 0.0F, -1.0F));
-            const int32 shadow_index =
-                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            const int32 shadow_index = reserve_shadow_index(
+                render_data.lighting.shadow_layer_count,
+                light.cast_shadows,
+                1U);
             append_light(
-                draw_data,
+                render_data,
                 RenderLight {
                     .type =
                         static_cast<uint>(SHADER_LIGHT_TYPE_SPOT), // TODO: Convert types to ints
@@ -1755,10 +1865,12 @@ namespace tbx::internal
             if (should_cull(transform.position, camera_position, local_light_max_distance))
                 continue;
 
-            const int32 shadow_index =
-                reserve_shadow_index(draw_data.lighting.shadow_layer_count, light.cast_shadows, 1U);
+            const int32 shadow_index = reserve_shadow_index(
+                render_data.lighting.shadow_layer_count,
+                light.cast_shadows,
+                1U);
             append_light(
-                draw_data,
+                render_data,
                 RenderLight {
                     .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
                     .color = light.color,
@@ -1770,12 +1882,12 @@ namespace tbx::internal
                 });
         }
 
-        draw_data.shadows.layer_count = draw_data.lighting.shadow_layer_count;
-        auto result = create_shadow_map(resource_manager, shadow_map_resolution, draw_data);
+        render_data.shadows.layer_count = render_data.lighting.shadow_layer_count;
+        auto result = create_shadow_map(resource_manager, shadow_map_resolution, render_data);
         if (!result)
             return result;
 
-        const bool has_shadow_targets = draw_data.shadows.layer_count > 0U;
+        const bool has_shadow_targets = render_data.shadows.layer_count > 0U;
         auto material_configs = std::unordered_map<uint64, MaterialConfig>();
         auto static_mesh_bounds = std::unordered_map<Handle, MeshBounds>();
         for (auto& entity : entity_registry.get_with<StaticMesh>())
@@ -1823,8 +1935,8 @@ namespace tbx::internal
             if (!is_mesh_culled)
             {
                 auto& batches = config.blend_mode == MaterialBlendMode::ALPHA_BLEND
-                                    ? draw_data.transparent_batches
-                                    : draw_data.opaque_batches;
+                                    ? render_data.transparent_batches
+                                    : render_data.opaque_batches;
                 append_batch(
                     batches,
                     make_batch_hash(static_mesh.handle.get_id(), nullptr, material_key),
@@ -1835,7 +1947,7 @@ namespace tbx::internal
             if (!is_shadow_culled)
             {
                 append_batch(
-                    draw_data.shadow_batches,
+                    render_data.shadow_batches,
                     make_batch_hash(static_mesh.handle.get_id(), nullptr, 0U),
                     mesh,
                     MaterialInstance(),
@@ -1884,8 +1996,8 @@ namespace tbx::internal
             if (!is_mesh_culled)
             {
                 auto& batches = config.blend_mode == MaterialBlendMode::ALPHA_BLEND
-                                    ? draw_data.transparent_batches
-                                    : draw_data.opaque_batches;
+                                    ? render_data.transparent_batches
+                                    : render_data.opaque_batches;
                 append_batch(
                     batches,
                     make_batch_hash(
@@ -1900,7 +2012,7 @@ namespace tbx::internal
             if (!is_shadow_culled)
             {
                 append_batch(
-                    draw_data.shadow_batches,
+                    render_data.shadow_batches,
                     make_batch_hash(
                         Uuid(
                             static_cast<uint32>(reinterpret_cast<std::uintptr_t>(mesh_data.get()))),
@@ -1917,46 +2029,84 @@ namespace tbx::internal
 
     //// PASS EXECUTION ////
 
+    static void reset_execution_state(RenderExecutionState& state)
+    {
+        state.pipeline = {};
+        state.bind_groups.clear();
+    }
+
+    static Result bind_raster_pipeline(
+        IGraphicsBackend& backend,
+        const Uuid& pipeline,
+        RenderExecutionState& state)
+    {
+        if (pipeline.is_valid() && state.pipeline == pipeline)
+            return {};
+
+        const auto result = backend.bind_raster_pipeline(pipeline);
+        if (!result)
+            return result;
+
+        state.pipeline = pipeline;
+        state.bind_groups.clear();
+        return {};
+    }
+
+    static Result bind_draw_groups(
+        IGraphicsBackend& backend,
+        const std::vector<Uuid>& bind_groups,
+        RenderExecutionState& state)
+    {
+        if (state.bind_groups.size() < bind_groups.size())
+            state.bind_groups.resize(bind_groups.size());
+
+        for (uint32 group_index = 0U; group_index < static_cast<uint32>(bind_groups.size());
+             ++group_index)
+        {
+            const auto index = static_cast<size>(group_index);
+            if (bind_groups[index].is_valid() && state.bind_groups[index] == bind_groups[index])
+                continue;
+
+            const auto result = backend.bind_group(group_index, bind_groups[index]);
+            if (!result)
+                return result;
+
+            state.bind_groups[index] = bind_groups[index];
+        }
+
+        return {};
+    }
+
     // Execution is intentionally small: bind all declared resources for a draw, issue the command,
     // and let the backend own API-specific state tracking.
     static Result execute_draw_command(
         IGraphicsBackend& backend,
-        const GraphicsDrawCommand& command)
+        const GraphicsDrawCommand& command,
+        RenderExecutionState& state)
     {
-        auto result = backend.bind_raster_pipeline(command.pipeline);
+        auto result = bind_raster_pipeline(backend, command.pipeline, state);
         if (!result)
             return result;
 
-        for (uint32 group_index = 0U; group_index < static_cast<uint32>(command.bind_groups.size());
-             ++group_index)
-        {
-            result = backend.bind_group(
-                group_index,
-                command.bind_groups[static_cast<size>(group_index)]);
-            if (!result)
-                return result;
-        }
+        result = bind_draw_groups(backend, command.bind_groups, state);
+        if (!result)
+            return result;
 
         return backend.draw(command.vertex_count, 1U, command.vertex_offset, 0, 0U);
     }
 
     static Result execute_draw_command(
         IGraphicsBackend& backend,
-        const GraphicsIndexedDrawCommand& command)
+        const GraphicsIndexedDrawCommand& command,
+        RenderExecutionState& state)
     {
-        auto result = backend.bind_raster_pipeline(command.pipeline);
+        auto result = bind_raster_pipeline(backend, command.pipeline, state);
         if (!result)
             return result;
 
-        for (uint32 group_index = 0U; group_index < static_cast<uint32>(command.bind_groups.size());
-             ++group_index)
-        {
-            result = backend.bind_group(
-                group_index,
-                command.bind_groups[static_cast<size>(group_index)]);
-            if (!result)
-                return result;
-        }
+        result = bind_draw_groups(backend, command.bind_groups, state);
+        if (!result)
+            return result;
 
         return backend.draw(
             command.draw.index_count,
@@ -1972,6 +2122,7 @@ namespace tbx::internal
     {
         // RenderPass is the backend-independent command buffer for this pipeline. Failure closes
         // the active pass before returning so the frame can be ended cleanly by the caller.
+        auto execution_state = RenderExecutionState();
         for (const auto& render_pass : render_passes)
         {
             if (!render_pass.barriers_before.empty())
@@ -1984,23 +2135,24 @@ namespace tbx::internal
             auto result = backend.begin_render_pass(render_pass.desc);
             if (!result)
                 return result;
+            reset_execution_state(execution_state);
 
             for (const auto& draw_command : render_pass.draws)
             {
-                result = execute_draw_command(backend, draw_command);
+                result = execute_draw_command(backend, draw_command, execution_state);
                 if (!result)
                 {
-                    (void)backend.end_render_pass();
+                    backend.end_render_pass();
                     return result;
                 }
             }
 
             for (const auto& indexed_draw_command : render_pass.indexed_draws)
             {
-                result = execute_draw_command(backend, indexed_draw_command);
+                result = execute_draw_command(backend, indexed_draw_command, execution_state);
                 if (!result)
                 {
-                    (void)backend.end_render_pass();
+                    backend.end_render_pass();
                     return result;
                 }
             }
@@ -2018,77 +2170,6 @@ namespace tbx::internal
         }
 
         return {};
-    }
-
-    //// FRAME SETUP ////
-
-    // Frame setup resolves the active camera, render target, viewport, timing, and camera matrices
-    // before scene extraction and pass creation.
-    static FrameData create_frame_data(
-        const uint frame,
-        const DeltaTime delta_time,
-        const float elapsed_time,
-        const Size resolution,
-        const EntityRegistry& entity_registry,
-        const IWindowManager& window_manager)
-    {
-        // The renderer currently uses the first Camera component found. If no camera exists, the
-        // default Camera plus identity Transform produce deterministic fallback matrices.
-        auto render_camera = Camera();
-        auto cam_transform = Transform();
-        for (auto& entity : entity_registry.get_with<Camera>())
-        {
-            render_camera = entity.get_component<Camera>();
-            // Cameras without a Transform render from identity so authoring transform-less test
-            // scenes still produces deterministic frame data.
-            if (entity.has_component<Transform>())
-                cam_transform = get_world_space_transform(entity);
-            break;
-        }
-
-        auto render_target = window_manager.get_main_window();
-        auto cam_target = render_camera.get_render_target();
-        if (cam_target.is_valid())
-            render_target = cam_target;
-
-        // A zero window or setting resolution is interpreted as "use the best available fallback"
-        // rather than letting zero-sized render targets enter the backend.
-        auto target_resolution = window_manager.get_size(render_target);
-        if (target_resolution.width == 0U || target_resolution.height == 0U)
-            target_resolution = Size {1U, 1U};
-
-        auto render_resolution = resolution;
-        if (render_resolution.width == 0U || render_resolution.height == 0U)
-            render_resolution = target_resolution;
-
-        auto render_viewport = Viewport {Vec2(0.0F), render_resolution};
-        auto cam_viewport = render_camera.get_viewport();
-        if (!cam_viewport.is_zero())
-            render_viewport = cam_viewport;
-
-        render_camera.set_aspect(render_resolution.get_aspect_ratio());
-        const Mat4 cam_view_matrix =
-            render_camera.get_view_matrix(cam_transform.position, cam_transform.rotation);
-        const Mat4 cam_projection_matrix = render_camera.get_projection_matrix();
-        const Mat4 cam_view_projection_matrix = cam_projection_matrix * cam_view_matrix;
-
-        return FrameData {
-            .index = frame,
-            .time = elapsed_time,
-            .delta_time = static_cast<float>(delta_time.seconds),
-            .resolution = render_resolution,
-            .viewport = render_viewport,
-            .target = render_target,
-            .camera =
-                RenderCamera {
-                    .view = cam_view_matrix,
-                    .position = cam_transform.position,
-                    .projection = cam_projection_matrix,
-                    .view_projection = cam_view_projection_matrix,
-                    .inverse_view = inverse(cam_view_matrix),
-                    .inverse_projection = inverse(cam_projection_matrix),
-                },
-        };
     }
 
     //// GBUFFER SETUP ////
@@ -2126,12 +2207,12 @@ namespace tbx::internal
 
     static Result create_gbuffer(
         RenderingResourceManager& resource_manager,
-        const FrameData& frame,
-        GBuffer& out_buff)
+        RenderData& render_data)
     {
-        const Size viewport_size = frame.viewport.dimensions;
+        const Size viewport_size = render_data.viewport.dimensions;
         const std::string render_target_key =
             std::to_string(viewport_size.width) + "x" + std::to_string(viewport_size.height);
+        auto& out_buff = render_data.g_buffer;
 
         // Cache keys include dimensions and attachment role so resized frames get fresh targets
         // while stable frame sizes reuse existing GPU resources.

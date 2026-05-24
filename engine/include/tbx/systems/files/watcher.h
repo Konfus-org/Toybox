@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/files/messages.h"
+#include "tbx/types/typedefs.h"
 #include <chrono>
 #include <condition_variable>
 #include <filesystem>
@@ -17,6 +18,20 @@ namespace tbx
         std::unordered_map<std::filesystem::path, std::filesystem::file_time_type>;
     using FileWatchAction =
         std::function<void(const std::filesystem::path&, const FileWatchChange&)>;
+    using FileWatchFilter = std::function<bool(const std::filesystem::path&)>;
+
+    /// @brief
+    /// Purpose: Configures polling cadence and path filtering for a file watcher.
+    /// @details
+    /// Ownership: Owns the filter callback by value. Thread Safety: Safe to copy before the watcher
+    /// starts; synchronize callback-owned state externally.
+    struct TBX_API FileWatchOptions
+    {
+        std::chrono::milliseconds active_poll_interval = std::chrono::milliseconds(250);
+        std::chrono::milliseconds idle_poll_interval = std::chrono::milliseconds(1000);
+        uint unchanged_scan_threshold = 4U;
+        FileWatchFilter filter = {};
+    };
 
     /// @brief
     /// Purpose: Computes file changes between two filesystem snapshots.
@@ -46,6 +61,13 @@ namespace tbx
             FileWatchAction on_changed,
             std::chrono::milliseconds poll_interval = std::chrono::milliseconds(250),
             std::shared_ptr<IFileOps> file_ops = {});
+        /// @brief
+        /// Purpose: Starts watching a file or directory path with adaptive polling options.
+        FileWatcher(
+            std::filesystem::path path_to_watch,
+            FileWatchAction on_changed,
+            FileWatchOptions options,
+            std::shared_ptr<IFileOps> file_ops = {});
         ~FileWatcher() noexcept;
 
       public:
@@ -56,7 +78,8 @@ namespace tbx
 
       private:
         void notify_changes(const std::vector<FileWatchChange>& changes) const;
-        void poll_watched_path();
+        std::chrono::milliseconds get_next_poll_interval() const;
+        bool poll_watched_path();
         void run(std::stop_token stop_token);
 
       private:
@@ -67,7 +90,8 @@ namespace tbx
         FileWatchAction _on_changed = {};
         std::shared_ptr<IFileOps> _file_ops = {};
         FileWatchSnapshot _snapshot = {};
+        FileWatchOptions _options = {};
         std::filesystem::path _watched_path = {};
-        std::chrono::milliseconds _poll_interval = std::chrono::milliseconds(250);
+        uint _unchanged_scan_count = 0U;
     };
 }

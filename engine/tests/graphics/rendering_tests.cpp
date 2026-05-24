@@ -75,6 +75,7 @@ namespace tbx::tests::graphics
             recorded_pass = pass;
             recorded_viewport = pass.viewport.dimensions;
             recorded_passes.push_back(pass);
+            active_render_pass_name = pass.debug_name;
             callbacks.push_back(GraphicsBackendCallback::BEGIN_PASS);
             return {};
         }
@@ -83,6 +84,7 @@ namespace tbx::tests::graphics
         {
             recorded_bind_group = group_resource_uuid;
             recorded_bind_groups.push_back(group_resource_uuid);
+            recorded_bind_group_passes.push_back(active_render_pass_name);
             if (const auto group = recorded_bind_group_descs.find(group_resource_uuid);
                 group != recorded_bind_group_descs.end())
             {
@@ -92,6 +94,8 @@ namespace tbx::tests::graphics
                     recorded_vertex_slots.push_back(binding.binding_slot);
                     recorded_uniform_slots.push_back(binding.binding_slot);
                     recorded_texture_slots.push_back(binding.binding_slot);
+                    recorded_bound_slots_by_pass.push_back(
+                        {active_render_pass_name, binding.binding_slot});
                 }
             }
             callbacks.push_back(GraphicsBackendCallback::BIND_GROUP);
@@ -110,6 +114,7 @@ namespace tbx::tests::graphics
         {
             recorded_pipeline = pipeline_resource_uuid;
             recorded_pipelines.push_back(pipeline_resource_uuid);
+            recorded_pipeline_passes.push_back(active_render_pass_name);
             callbacks.push_back(GraphicsBackendCallback::BIND_PIPELINE);
             return {};
         }
@@ -169,6 +174,7 @@ namespace tbx::tests::graphics
 
         Result end_render_pass() override
         {
+            active_render_pass_name.clear();
             callbacks.push_back(GraphicsBackendCallback::END_PASS);
             return {};
         }
@@ -327,6 +333,7 @@ namespace tbx::tests::graphics
         std::vector<Uuid> recorded_pipelines = {};
         Uuid recorded_bind_group = {};
         std::vector<Uuid> recorded_bind_groups = {};
+        std::vector<std::string> recorded_bind_group_passes = {};
         Uuid recorded_vertex_buffer = {};
         std::vector<Uuid> recorded_vertex_buffers = {};
         Uuid recorded_index_buffer = {};
@@ -341,12 +348,14 @@ namespace tbx::tests::graphics
         std::vector<uint32> recorded_texture_slots = {};
         uint32 recorded_sampler_slot = 0U;
         std::vector<uint32> recorded_bind_group_slots = {};
+        std::vector<std::pair<std::string, uint32>> recorded_bound_slots_by_pass = {};
         GraphicsIndexType recorded_index_type = GraphicsIndexType::UINT32;
         GraphicsDrawIndexedDesc recorded_draw = {};
         std::vector<GraphicsDrawIndexedDesc> recorded_draws = {};
         RasterPipelineDesc recorded_pipeline_desc = {};
         ComputePipelineDesc recorded_compute_pipeline_desc = {};
         std::vector<RasterPipelineDesc> recorded_pipeline_descs = {};
+        std::vector<std::string> recorded_pipeline_passes = {};
         std::vector<GraphicsBufferDesc> recorded_buffer_descs = {};
         std::vector<RecordedBufferUpload> recorded_buffer_uploads = {};
         GraphicsTextureDesc recorded_texture_desc = {};
@@ -372,6 +381,7 @@ namespace tbx::tests::graphics
         uint32 next_uploaded_resource = 1000U;
         std::vector<Uuid> updated_buffers = {};
         std::thread::id wait_for_idle_thread_id = {};
+        std::string active_render_pass_name = {};
         VsyncMode recorded_vsync_mode = VsyncMode::OFF;
     };
 
@@ -674,6 +684,42 @@ namespace tbx::tests::graphics
         return count;
     }
 
+    static uint count_buffer_uploads_containing(
+        const std::vector<RecordedBufferUpload>& uploads,
+        const std::string& debug_name)
+    {
+        auto count = uint {};
+        for (const auto& upload : uploads)
+        {
+            if (upload.desc.debug_name.find(debug_name) != std::string::npos)
+                count += 1U;
+        }
+
+        return count;
+    }
+
+    static uint count_pass_pipeline_binds(
+        const RecordingGraphicsBackend& backend,
+        const std::string& pass_name)
+    {
+        return static_cast<uint>(std::count(
+            backend.recorded_pipeline_passes.begin(),
+            backend.recorded_pipeline_passes.end(),
+            pass_name));
+    }
+
+    static bool contains_bound_slot_in_pass(
+        const RecordingGraphicsBackend& backend,
+        const std::string& pass_name,
+        const uint32 slot)
+    {
+        return std::find(
+                   backend.recorded_bound_slots_by_pass.begin(),
+                   backend.recorded_bound_slots_by_pass.end(),
+                   std::pair<std::string, uint32> {pass_name, slot})
+               != backend.recorded_bound_slots_by_pass.end();
+    }
+
     static uint count_texture_uploads_named(
         const std::vector<GraphicsTextureDesc>& textures,
         const std::string& debug_name)
@@ -773,6 +819,52 @@ namespace tbx::tests::graphics
                 std::find(backend.callbacks.begin(), backend.callbacks.end(), expected_callback),
                 backend.callbacks.end());
         }
+    }
+
+    TEST(RenderingTests, Render_SkipsRedundantPipelineBindWithinPass)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto first = Entity("FirstTriangle", registry);
+        first.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = Entity("SecondTriangle", registry);
+        second.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(count_pass_pipeline_binds(backend, "Toybox GBuffer Pass"), 1U);
+        EXPECT_EQ(
+            static_cast<uint>(std::count(
+                backend.recorded_bind_group_passes.begin(),
+                backend.recorded_bind_group_passes.end(),
+                "Toybox GBuffer Pass")),
+            2U);
     }
 
     // Validates render() returns before the submitted frame finishes on the render lane.
@@ -947,7 +1039,7 @@ namespace tbx::tests::graphics
             });
 
         // Act
-        settings.graphics->vsync_enabled = true;
+        settings.graphics->vsync_enabled = VsyncMode::ON;
         settings.graphics->local_light_max_distance = 64.0F;
         wait_for_render_lane(thread_manager);
         rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
@@ -1763,6 +1855,11 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_passes[2U].debug_name, "Toybox Transparent Forward Pass");
         EXPECT_EQ(backend.recorded_passes[3U].debug_name, "Toybox Post Process Pass");
         ASSERT_EQ(backend.recorded_draws.size(), 3U);
+        EXPECT_EQ(
+            count_buffer_uploads_containing(
+                backend.recorded_buffer_uploads,
+                "Instance Shader Data Toybox/Instances"),
+            2U);
         EXPECT_NE(
             std::find_if(
                 backend.recorded_pipeline_descs.begin(),
@@ -1772,6 +1869,69 @@ namespace tbx::tests::graphics
                     return desc.is_blending_enabled && !desc.is_depth_write_enabled;
                 }),
             backend.recorded_pipeline_descs.end());
+    }
+
+    TEST(RenderingTests, Render_TransparentForwardPassUsesPreparedDrawShadowBindings)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        serialization_registry.register_reader<Material>(
+            [](const std::filesystem::path&, const MaterialLoadParameters&)
+            {
+                auto material = Material {};
+                material.parameters.set("albedo_color", Color::WHITE);
+                material.config.is_depth_write_enabled = false;
+                material.config.blend_mode = MaterialBlendMode::ALPHA_BLEND;
+                return std::make_shared<Material>(std::move(material));
+            });
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto transparent = Entity("TransparentCube", registry);
+        transparent.add_component<DynamicMesh>(Mesh::CUBE);
+        transparent.add_component<Transform>(Vec3(0.0F, 0.0F, -5.0F));
+        transparent.add_component<MaterialInstance>(
+            MaterialInstance(Handle("Materials/Transparent.mat")));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_TRUE(contains_bound_slot_in_pass(
+            backend,
+            "Toybox Transparent Forward Pass",
+            BINDING_SHADOW_PASS_DATA));
+        EXPECT_TRUE(contains_bound_slot_in_pass(
+            backend,
+            "Toybox Transparent Forward Pass",
+            BINDING_SHADOW_MAP));
+        EXPECT_EQ(
+            count_buffer_uploads_containing(
+                backend.recorded_buffer_uploads,
+                "Instance Shader Data Toybox/Instances"),
+            1U);
     }
 
     // Validates material overrides keep otherwise identical static meshes in separate batches.
@@ -1973,6 +2133,62 @@ namespace tbx::tests::graphics
             DIRECTIONAL_SHADOW_CASCADE_COUNT + 1U);
         EXPECT_TRUE(contains_texture_slot(backend, BINDING_SHADOW_MAP));
         EXPECT_TRUE(contains_uniform_slot(backend, BINDING_SHADOW_PASS_DATA));
+    }
+
+    TEST(RenderingTests, Render_ShadowBatchUploadsAreSharedAcrossShadowLayers)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto registry = EntityRegistry {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh = Entity("Triangle", registry);
+        mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun = Entity("Sun", registry);
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto registry_service = make_non_owning_service(registry);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(
+            count_buffer_uploads_containing(
+                backend.recorded_buffer_uploads,
+                "Instance Shader Data Toybox/ShadowInstances"),
+            1U);
+        EXPECT_EQ(
+            count_buffer_uploads_containing(backend.recorded_buffer_uploads, "Shadow Shader Data"),
+            DIRECTIONAL_SHADOW_CASCADE_COUNT);
+        EXPECT_EQ(
+            std::count_if(
+                backend.recorded_passes.begin(),
+                backend.recorded_passes.end(),
+                [](const GraphicsPassDesc& pass)
+                {
+                    return pass.debug_name == "Toybox Shadow Pass";
+                }),
+            DIRECTIONAL_SHADOW_CASCADE_COUNT);
     }
 
     // Validates shadow settings are passed to internal pipeline helpers in the expected order.

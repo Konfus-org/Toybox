@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/systems/files/watcher.h"
 #include <algorithm>
-#include <memory>
 #include <system_error>
-#include <utility>
 
 namespace tbx::internal
 {
@@ -26,9 +24,31 @@ namespace tbx::internal
         return relative_path.lexically_normal();
     }
 
+    static FileWatchOptions make_fixed_file_watch_options(std::chrono::milliseconds poll_interval)
+    {
+        const auto normalized_interval = poll_interval > std::chrono::milliseconds::zero()
+                                             ? poll_interval
+                                             : std::chrono::milliseconds(250);
+        return FileWatchOptions {
+            .active_poll_interval = normalized_interval,
+            .idle_poll_interval = normalized_interval,
+            .unchanged_scan_threshold = 0U,
+        };
+    }
+
+    static FileWatchOptions normalize_file_watch_options(FileWatchOptions options)
+    {
+        if (options.active_poll_interval <= std::chrono::milliseconds::zero())
+            options.active_poll_interval = std::chrono::milliseconds(250);
+        if (options.idle_poll_interval <= std::chrono::milliseconds::zero())
+            options.idle_poll_interval = options.active_poll_interval;
+        return options;
+    }
+
     static FileWatchSnapshot read_snapshot(
         const IFileOps& file_ops,
-        const std::filesystem::path& root)
+        const std::filesystem::path& root,
+        const FileWatchFilter& filter)
     {
         FileWatchSnapshot snapshot = {};
         if (root.empty())
@@ -37,6 +57,9 @@ namespace tbx::internal
         const FileType type = file_ops.get_type(root);
         if (type == FileType::FILE)
         {
+            if (filter && !filter(root))
+                return snapshot;
+
             const auto path = root.is_absolute() ? file_ops.resolve(root) : root.lexically_normal();
             snapshot.emplace(path, file_ops.get_last_write_time(root));
             return snapshot;
@@ -47,6 +70,9 @@ namespace tbx::internal
 
         for (const auto& entry : file_ops.read_directory(root))
         {
+            if (filter && !filter(entry))
+                continue;
+
             if (file_ops.get_type(entry) != FileType::FILE)
                 continue;
 
@@ -76,5 +102,4 @@ namespace tbx::internal
                 return lhs_path < rhs_path;
             });
     }
-
 }

@@ -1,11 +1,11 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
+#include "systems/plugin_api/internal/plugin_manager_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/physics/physics.h"
-#include "systems/plugin_api/internal/plugin_manager_internal.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
@@ -61,7 +61,25 @@ namespace tbx
                     std::lock_guard<std::mutex>(_pending_file_changes_mutex);
                 _pending_file_changes.push_back(change);
             },
-            std::chrono::milliseconds(250),
+            FileWatchOptions {
+                .filter =
+                    [](const std::filesystem::path& path)
+                {
+                    if (internal::plugin_manager_path_contains_directory_token(path, "resources"))
+                        return false;
+                    if (is_plugin_manifest_path(path))
+                        return true;
+
+                    const auto extension = to_lower(path.extension().string());
+#if defined(TBX_PLATFORM_WINDOWS)
+                    return extension == ".dll";
+#elif defined(TBX_PLATFORM_MACOS)
+                    return extension == ".dylib";
+#else
+                    return extension == ".so";
+#endif
+                },
+            },
             _file_ops);
     }
 

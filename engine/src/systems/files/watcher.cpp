@@ -1,9 +1,8 @@
 #include "tbx/systems/files/watcher.h"
 #include "systems/files/internal/watcher_internal.h"
-#include <algorithm>
 #include <memory>
-#include <system_error>
 #include <utility>
+
 namespace tbx
 {
     std::vector<FileWatchChange> diff_file_watch_snapshots(
@@ -57,20 +56,31 @@ namespace tbx
         FileWatchAction on_changed,
         std::chrono::milliseconds poll_interval,
         std::shared_ptr<IFileOps> file_ops)
+        : FileWatcher(
+              std::move(path_to_watch),
+              std::move(on_changed),
+              internal::make_fixed_file_watch_options(poll_interval),
+              std::move(file_ops))
+    {
+    }
+
+    FileWatcher::FileWatcher(
+        std::filesystem::path path_to_watch,
+        FileWatchAction on_changed,
+        FileWatchOptions options,
+        std::shared_ptr<IFileOps> file_ops)
         : _on_changed(std::move(on_changed))
         , _file_ops(std::move(file_ops))
         , _snapshot({})
+        , _options(internal::normalize_file_watch_options(std::move(options)))
         , _watched_path(path_to_watch.lexically_normal())
-        , _poll_interval(
-              poll_interval > std::chrono::milliseconds::zero() ? poll_interval
-                                                                : std::chrono::milliseconds(250))
     {
         if (!_file_ops)
             _file_ops = std::make_shared<FileOperator>();
         if (_watched_path.empty() || !_on_changed)
             return;
 
-        _snapshot = internal::read_snapshot(*_file_ops, _watched_path);
+        _snapshot = internal::read_snapshot(*_file_ops, _watched_path, _options.filter);
 
         _worker = std::jthread(
             [this](std::stop_token stop_token)
@@ -97,12 +107,23 @@ namespace tbx
         }
     }
 
-    void FileWatcher::poll_watched_path()
+    std::chrono::milliseconds FileWatcher::get_next_poll_interval() const
+    {
+        if (_options.idle_poll_interval <= _options.active_poll_interval)
+            return _options.active_poll_interval;
+        if (_unchanged_scan_count < _options.unchanged_scan_threshold)
+            return _options.active_poll_interval;
+
+        return _options.idle_poll_interval;
+    }
+
+    bool FileWatcher::poll_watched_path()
     {
         if (_watched_path.empty() || !_on_changed)
-            return;
+            return false;
 
-        FileWatchSnapshot current_snapshot = internal::read_snapshot(*_file_ops, _watched_path);
+        FileWatchSnapshot current_snapshot =
+            internal::read_snapshot(*_file_ops, _watched_path, _options.filter);
         const std::vector<FileWatchChange> changes =
             diff_file_watch_snapshots(_snapshot, current_snapshot);
 
@@ -110,6 +131,14 @@ namespace tbx
             notify_changes(changes);
 
         _snapshot = std::move(current_snapshot);
+        if (changes.empty())
+        {
+            _unchanged_scan_count += 1U;
+            return false;
+        }
+
+        _unchanged_scan_count = 0U;
+        return true;
     }
 
     void FileWatcher::run(std::stop_token stop_token)
@@ -124,7 +153,7 @@ namespace tbx
             if (stop_token.stop_requested())
                 break;
 
-            _wake_signal.wait_for(wait_lock, _poll_interval);
+            _wake_signal.wait_for(wait_lock, get_next_poll_interval());
         }
     }
 }

@@ -40,29 +40,26 @@ namespace tbx
         if (!asset_manager)
             return Result(false, "Rendering pipeline setup failed: asset manager unavailable.");
 
-        // 1.) Construct frame and begin.
-        auto frame = internal::create_frame_data(
-            frame_index,
-            delta_time,
-            _elapsed_time,
-            settings.resolution.value,
-            *entity_registry,
-            *window_manager);
-        auto result = backend.begin_frame(frame.target);
+        // 1.) Resolve the render target and begin.
+        const auto render_target =
+            internal::extract_render_target(*entity_registry, *window_manager);
+        auto result = backend.begin_frame(render_target);
         if (!result)
             return result;
 
         // 2.) Extract render data from the scene.
-        auto draw_data = internal::RenderDrawData();
-        result = internal::create_draw_data(
+        auto render_data = internal::RenderData();
+        result = internal::extract_render_data(
             _resource_manager,
             *entity_registry,
-            frame.camera,
+            *window_manager,
             *asset_manager,
-            settings.shadow_map_resolution.value,
-            settings.local_light_max_distance.value,
-            settings.shadow_caster_max_distance.value,
-            draw_data);
+            settings,
+            frame_index,
+            delta_time,
+            _elapsed_time,
+            render_target,
+            render_data);
         if (!result)
         {
             backend.end_frame();
@@ -70,8 +67,7 @@ namespace tbx
         }
 
         // 3.) Create gbuffer.
-        auto gbuffer = internal::GBuffer();
-        result = internal::create_gbuffer(_resource_manager, frame, gbuffer);
+        result = internal::create_gbuffer(_resource_manager, render_data);
         if (!result)
         {
             backend.end_frame();
@@ -79,19 +75,23 @@ namespace tbx
         }
 
         // 4.) Upload frame data and append draw commands.
-        auto passes = internal::create_passes(
+        _passes.clear();
+        result = internal::create_passes(
             frame_index,
-            frame,
-            gbuffer,
-            draw_data,
+            render_data,
             settings.shadow_map_resolution.value,
             settings.shadow_render_distance.value,
             settings.shadow_softness.value,
             _resource_manager,
-            backend);
+            _passes);
+        if (!result)
+        {
+            backend.end_frame();
+            return result;
+        }
 
         // 5.) Draw.
-        result = internal::execute_passes(backend, passes);
+        result = internal::execute_passes(backend, _passes);
         if (!result)
         {
             backend.end_frame();

@@ -1,5 +1,5 @@
-#include "tbx/interfaces/message_dispatcher.h"
 #include "systems/assets/internal/asset_manager_internal.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/registry.h"
@@ -368,7 +368,13 @@ namespace tbx
                 {
                     on_asset_changed(watched_path, change);
                 },
-                std::chrono::milliseconds(250),
+                FileWatchOptions {
+                    .filter =
+                        [](const std::filesystem::path& path)
+                    {
+                        return AssetRegistry::should_track_asset_path(path);
+                    },
+                },
                 _file_ops));
     }
 

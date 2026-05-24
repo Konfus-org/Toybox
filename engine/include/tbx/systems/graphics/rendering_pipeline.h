@@ -11,6 +11,7 @@
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/result.h"
 #include <memory>
+#include <vector>
 
 namespace tbx
 {
@@ -49,6 +50,7 @@ namespace tbx
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         RenderingResourceManager _resource_manager;
+        std::vector<RenderPass> _passes = {};
         float _elapsed_time = 0;
         uint _frame_index = 0U;
     };
