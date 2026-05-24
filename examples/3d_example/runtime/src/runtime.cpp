@@ -1,23 +1,20 @@
 #include "runtime.h"
-#include <filesystem>
 #include <memory>
 
 namespace three_d_example
 {
-    static std::filesystem::path get_three_d_example_asset_directory()
+    void ThreeDExampleRuntimePlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        return (std::filesystem::path(__FILE__).parent_path().parent_path().parent_path()
-                / "assets")
-            .lexically_normal();
+        auto entity_registry = service_provider.get_service<tbx::EntityRegistry>();
+        auto input_manager = service_provider.get_service<tbx::IInputManager>();
+        auto physics = service_provider.get_service<tbx::Physics>();
+        if (entity_registry.expired() || input_manager.expired() || physics.expired())
+            return;
+
+        _scene = std::make_unique<DemoScene>(entity_registry, input_manager, physics);
     }
 
-    void ThreeDExampleRuntimePlugin::on_attach(tbx::IPluginHost& host)
-    {
-        host.get_asset_manager().add_directory(get_three_d_example_asset_directory());
-        _scene = std::make_unique<DemoScene>(host.get_entity_registry(), host.get_input_manager());
-    }
-
-    void ThreeDExampleRuntimePlugin::on_detach()
+    void ThreeDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
         _scene.reset();
     }

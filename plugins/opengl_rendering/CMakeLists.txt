@@ -8,16 +8,7 @@ target_sources(${plugin_name} PRIVATE ${SRCS})
 target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-        Tbx::App
-        Tbx::PluginApi
-        Tbx::Time
-        Tbx::Debugging
-        Tbx::Assets
-        Tbx::Async
-        Tbx::Input
-        Tbx::Common
-        Tbx::ECS
-        Tbx::Graphics
+        Tbx::Engine
         glad::glad
 )
 
@@ -29,4 +20,5 @@ tbx_register_plugin(
         VERSION "1.0.0"
         CATEGORY "rendering"
         PRIORITY 100
+        DEPENDENCIES SdlOpenGlContextManagerPlugin
 )

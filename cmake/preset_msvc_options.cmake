@@ -6,3 +6,8 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
 )
+
+add_link_options(
+  $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/DEBUG:FULL>
+  $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/INCREMENTAL>
+)

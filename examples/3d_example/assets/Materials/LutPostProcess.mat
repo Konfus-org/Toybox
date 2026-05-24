@@ -3,6 +3,19 @@
     "vertex": "20243570",
     "fragment": "20243571"
   },
+  "config": {
+    "depth": {
+      "test": false,
+      "write": false,
+      "prepass": false,
+      "function": "always"
+    },
+    "transparency": {
+      "blend_mode": "opaque"
+    },
+    "two_sided": true,
+    "cullable": false
+  },
   "textures": [
     {
       "name": "lut",
@@ -10,8 +23,9 @@
     }
   ],
   "parameters": [
-    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "strength", "type": "float", "value": 1.0 }
+    { "name": "lut_tint", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "name": "lut_emissive", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
+    { "name": "lut_strength", "type": "float", "value": 1.0 },
+    { "name": "blend", "type": "float", "value": 1.0 }
   ]
 }

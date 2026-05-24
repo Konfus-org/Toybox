@@ -1,51 +1,15 @@
 #include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
-#include "tbx/debugging/macros.h"
+#include "internal/sdl_base_systems_plugin_internal.h"
+#include "tbx/systems/debugging/macros.h"
 #include <SDL3/SDL.h>
-
 namespace sdl_base_systems
 {
-    static void sdl_log_callback(
-        void* userdata,
-        int category,
-        SDL_LogPriority priority,
-        const char* message)
-    {
-        if (priority >= SDL_LOG_PRIORITY_ERROR)
-        {
-            const char* text =
-                (message && *message) ? message : "SDL reported an error without details.";
-            if (priority == SDL_LOG_PRIORITY_CRITICAL)
-                TBX_TRACE_ERROR("SDL critical (category {}): {}", category, text);
-            else
-                TBX_TRACE_ERROR("SDL error (category {}): {}", category, text);
-        }
-        else if (priority == SDL_LOG_PRIORITY_WARN)
-        {
-            const char* text =
-                (message && *message) ? message : "SDL reported a warning without details.";
-            TBX_TRACE_WARNING("SDL warning (category {}): {}", category, text);
-        }
-        // We don't really care about infos and debug messages from SDL
-        /*else if (priority == SDL_LOG_PRIORITY_INFO)
-        {
-            const char* text =
-                (message && *message) ? message : "SDL reported an info message without details.";
-            TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
-        }
-        else
-        {
-            const char* text =
-                (message && *message) ? message : "SDL reported a debug message without details.";
-            TBX_TRACE_INFO("SDL debug (category {}): {}", category, text);
-        }*/
-    }
-
-    void SdlBaseSystemsPlugin::on_attach(tbx::IPluginHost&)
+    void SdlBaseSystemsPlugin::on_attach(tbx::ServiceProvider&)
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
             {
-                sdl_log_callback(userdata, category, priority, message);
+                internal::sdl_log_callback(userdata, category, priority, message);
             },
             this);
 
@@ -64,14 +28,15 @@ namespace sdl_base_systems
             TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
-                "SDL base systems failed to initialize events subsystem. See SDL logs for details.");
+                "SDL base systems failed to initialize events subsystem. See SDL logs for "
+                "details.");
             return;
         }
 
         TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
-    void SdlBaseSystemsPlugin::on_detach()
+    void SdlBaseSystemsPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (_owns_sdl)
             SDL_QuitSubSystem(SDL_INIT_EVENTS);

@@ -1,9 +1,8 @@
 #include "projectile_system.h"
-#include "tbx/assets/builtin_assets.h"
-#include "tbx/graphics/light.h"
-#include "tbx/math/transform.h"
-#include "tbx/physics/collider.h"
-#include "tbx/physics/physics.h"
+#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/components/rigidbody.h"
+#include "tbx/types/components/transform.h"
 #include <cmath>
 #include <string>
 #include <utility>
@@ -11,11 +10,12 @@
 namespace three_d_example
 {
     ProjectileSystem::ProjectileSystem(
-        tbx::EntityRegistry& entity_registry,
+        std::weak_ptr<tbx::EntityRegistry> entity_registry,
         std::function<tbx::Entity()> camera_provider)
     {
-        _entity_registry = &entity_registry;
+        _entity_registry = entity_registry;
         _camera_provider = std::move(camera_provider);
+        _projectile_material = create_projectile_material();
     }
 
     ProjectileSystem::~ProjectileSystem()
@@ -26,7 +26,7 @@ namespace three_d_example
                 projectile.destroy();
         }
 
-        _entity_registry = nullptr;
+        _entity_registry.reset();
         _camera_provider = {};
         _active_projectiles.clear();
         _active_projectile_lifetimes.clear();
@@ -52,7 +52,8 @@ namespace three_d_example
 
     void ProjectileSystem::spawn_projectile()
     {
-        if (_entity_registry == nullptr || !_camera_provider)
+        auto entity_registry = _entity_registry.lock();
+        if (!entity_registry || !_camera_provider)
             return;
 
         const auto camera = _camera_provider();
@@ -86,18 +87,15 @@ namespace three_d_example
         }
 
         constexpr auto projectile_visual_scale = 0.35F;
-        auto projectile = tbx::Entity(projectile_name, *_entity_registry);
-        projectile.add_component<tbx::MaterialInstance>(create_projectile_material());
+        auto projectile = tbx::Entity(projectile_name, *entity_registry);
+        projectile.add_component<tbx::MaterialInstance>(_projectile_material);
         projectile.add_component<tbx::DynamicMesh>(_projectile_mesh);
-        auto projectile_light = tbx::PointLight(tbx::Color(1.0F, 0.95F, 0.6F, 1.0F), 2.75F, 4.5F);
-        projectile_light.shadows_enabled = false;
-        projectile.add_component<tbx::PointLight>(projectile_light);
         projectile.add_component<tbx::Transform>(
             spawn_position,
             camera_world_transform.rotation,
             tbx::Vec3(projectile_visual_scale, projectile_visual_scale, projectile_visual_scale));
         projectile.add_component<tbx::SphereCollider>(projectile_visual_scale / 2.0F);
-        projectile.add_component<tbx::Physics>(tbx::Physics {
+        projectile.add_component<tbx::Rigidbody>(tbx::Rigidbody {
             .mass = 0.2F,
             .linear_velocity = shot_direction * _projectile_speed,
             .friction = 0.2F,
@@ -150,9 +148,12 @@ namespace three_d_example
     tbx::MaterialInstance ProjectileSystem::create_projectile_material() const
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
-        material.set_parameter(tbx::PbrMaterial::COLOR, tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
-        material.set_parameter(tbx::PbrMaterial::EMISSIVE, tbx::Color(1.0F, 0.82F, 0.12F, 1.0F));
-        material.set_parameter(tbx::PbrMaterial::EMISSIVE_STRENGTH, 1.75F);
+        material.set_parameter(
+            tbx::PbrMaterial::ALBEDO_COLOR,
+            tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
+        material.set_parameter(
+            tbx::PbrMaterial::EMISSIVE_COLOR,
+            tbx::Color(1.75F, 1.435F, 0.21F, 1.0F));
         return material;
     }
 }

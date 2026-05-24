@@ -2,6 +2,7 @@ add_compile_definitions(
   $<$<CONFIG:Debug>:TBX_DEBUG>
   $<$<CONFIG:Release>:TBX_RELEASE>
   $<$<CONFIG:Debug>:TBX_RESOURCES="${TBX_RESOURCES_PATH}">
+  $<$<CONFIG:Release>:TBX_RESOURCES="resources">
   $<$<CONFIG:Debug>:TBX_ASSERTS_ENABLED>
   $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS>
   $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS>

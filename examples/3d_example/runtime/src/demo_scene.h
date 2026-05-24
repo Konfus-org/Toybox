@@ -2,21 +2,26 @@
 #include "camera_controller.h"
 #include "demo_room.h"
 #include "projectile_system.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/color.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/post_processing.h"
-#include "tbx/input/input_manager.h"
-#include "tbx/physics/collider.h"
-#include "tbx/time/delta_time.h"
+#include "sky_system.h"
+#include "tbx/interfaces/input_manager.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/physics/physics.h"
+#include "tbx/systems/time/delta_time.h"
+#include "tbx/types/color.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/material.h"
+#include "tbx/types/typedefs.h"
+#include <memory>
 
 namespace three_d_example
 {
     class DemoScene final
     {
       public:
-        DemoScene(tbx::EntityRegistry& entity_registry, tbx::InputManager& input_manager);
+        DemoScene(
+            std::weak_ptr<tbx::EntityRegistry> entity_registry,
+            std::weak_ptr<tbx::IInputManager> input_manager,
+            std::weak_ptr<tbx::Physics> physics);
         ~DemoScene();
 
         DemoScene(const DemoScene&) = delete;
@@ -37,10 +42,13 @@ namespace three_d_example
         void set_trigger_zone_color(const tbx::Color& color);
 
       private:
-        tbx::EntityRegistry* _entity_registry = nullptr;
-        DemoRoom _demo_room;
-        ProjectileSystem _projectile_system;
-        CameraController _camera_controller;
+        std::weak_ptr<tbx::EntityRegistry> _entity_registry = {};
+
+        std::unique_ptr<DemoRoom> _demo_room = {};
+        std::shared_ptr<ProjectileSystem> _projectile_system = {};
+        std::unique_ptr<CameraController> _camera_controller = {};
+        SkySystem _sky_system = {};
+
         tbx::Entity _sun = {};
         tbx::Entity _area_light = {};
         tbx::Entity _sky = {};
@@ -48,6 +56,7 @@ namespace three_d_example
         tbx::Entity _trigger_zone = {};
         tbx::Entity _falling_sphere = {};
         tbx::Entity _falling_box = {};
+
         size _trigger_overlap_count = 0U;
     };
 }

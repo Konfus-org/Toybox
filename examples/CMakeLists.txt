@@ -3,8 +3,8 @@ option(TBX_BUILD_EXAMPLES "Build Toybox examples" ON)
 if (TBX_BUILD_EXAMPLES)
     set(CMAKE_FOLDER "examples")
 
-    include(default_includes)
-    tbx_define_default_includes()
+    include(default_plugins)
+    tbx_define_default_plugins()
 
     add_subdirectory(2d_example)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/input_example/CMakeLists.txt")

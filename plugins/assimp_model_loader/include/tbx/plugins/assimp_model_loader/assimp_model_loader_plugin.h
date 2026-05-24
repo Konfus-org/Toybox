@@ -1,18 +1,23 @@
 #pragma once
-#include "tbx/assets/asset_requests.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
+#include "tbx/interfaces/plugin.h"
+#include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/systems/plugin_api/plugin_export.h"
+#include <functional>
+#include <optional>
 
 namespace assimp_model_loader
 {
     class TBX_PLUGIN_API AssimpModelLoaderPlugin final : public tbx::Plugin
     {
       public:
-        void on_attach(tbx::IPluginHost& host) override;
-        void on_detach() override;
-        void on_recieve_message(tbx::Message& msg) override;
+        void on_attach(tbx::ServiceProvider& service_provider) override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        static void on_load_model_request(tbx::LoadModelRequest& request);
+        static std::shared_ptr<tbx::Model> read_model(
+            const std::filesystem::path& asset_path,
+            const tbx::ModelLoadParameters& parameters);
+
+        std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };
 }

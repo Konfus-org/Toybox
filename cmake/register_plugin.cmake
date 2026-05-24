@@ -129,15 +129,6 @@ function(tbx_register_plugin)
         message(FATAL_ERROR "tbx_register_plugin: target '${TBX_PLUGIN_TARGET}' does not exist")
     endif()
 
-    if(WIN32)
-        # Export plugin class symbols automatically so test binaries can link against
-        # plugin methods without requiring per-class __declspec annotations.
-        set_target_properties(
-            ${TBX_PLUGIN_TARGET}
-            PROPERTIES
-                WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    endif()
-
     # Ensure plugin declarations that use TBX_PLUGIN_API resolve to dllexport while
     # building the plugin target itself.
     target_compile_definitions(${TBX_PLUGIN_TARGET} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
