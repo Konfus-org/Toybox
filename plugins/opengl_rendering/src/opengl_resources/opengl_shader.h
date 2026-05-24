@@ -1,40 +1,15 @@
 #pragma once
 #include "opengl_resource.h"
-#include "tbx/common/typedefs.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/shader.h"
+#include "opengl_state.h"
+#include "tbx/types/shader.h"
+#include "tbx/types/typedefs.h"
+#include <glad/glad.h>
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace opengl_rendering
 {
-    struct OpenGlMaterialTexture
-    {
-        std::string name = "";
-        tbx::Uuid texture_id = {};
-        uint32 gl_texture_id = 0;
-        uint64 bindless_handle = 0;
-    };
-
-    struct OpenGlMaterialParams
-    {
-        tbx::Handle material_handle = {};
-        tbx::MaterialRenderConfig render_config = {};
-        std::vector<tbx::MaterialParameter> parameters = {};
-        std::vector<OpenGlMaterialTexture> textures = {};
-    };
-
-    struct OpenGlMaterialBlockUniform
-    {
-        std::string name = {};
-        uint32 type = 0;
-        int offset = 0;
-        int size = 0;
-    };
-
     class OpenGlShader final : public IOpenGlResource
     {
       public:
@@ -48,6 +23,7 @@ namespace opengl_rendering
         tbx::ShaderType get_type() const;
         bool compile();
         bool is_compiled() const;
+        const std::string& get_last_error() const;
 
         void bind() override;
         void unbind() override;
@@ -56,6 +32,7 @@ namespace opengl_rendering
 
       private:
         std::string _source = {};
+        std::string _last_error = {};
         uint32 _shader_id = 0;
         tbx::ShaderType _type = tbx::ShaderType::NONE;
     };
@@ -73,26 +50,37 @@ namespace opengl_rendering
         void bind() override;
         void unbind() override;
 
-        bool try_upload(const tbx::MaterialParameter& uniform);
-        bool try_upload(const OpenGlMaterialParams& params);
-
         uint32 get_program_id() const;
-        int get_instance_model_attribute_location() const;
-        int get_instance_id_attribute_location() const;
+        const std::string& get_last_error() const;
 
       private:
-        int get_cached_uniform_location(const std::string& name);
-
+        std::string _last_error = {};
         uint32 _program_id = 0;
-        std::unordered_map<std::string, int> _uniform_locations = {};
-        std::unordered_map<std::string, uint64> _bindless_sampler_layout = {};
-        std::vector<std::string> _sampler_uniform_layout = {};
-        std::unordered_set<std::string> _logged_missing_uniforms = {};
-        uint32 _material_uniform_buffer = 0;
-        int _material_uniform_block_size = 0;
-        std::vector<OpenGlMaterialBlockUniform> _material_uniforms = {};
-        bool _has_material_uniform_block = false;
-        int _instance_model_attribute_location = 8;
-        int _instance_id_attribute_location = 12;
+    };
+
+    /// @brief
+    /// Purpose: Stores one backend-ready vertex buffer binding from a raster pipeline.
+    struct OpenGlVertexBufferBinding
+    {
+        uint32 slot = 0U;
+        GLsizei stride = 0;
+    };
+
+    /// @brief
+    /// Purpose: Stores one compute pipeline's OpenGL resources.
+    struct OpenGlComputePipelineResource
+    {
+        OpenGlShaderProgram program;
+    };
+
+    /// @brief
+    /// Purpose: Stores one raster pipeline's OpenGL resources and state.
+    struct OpenGlRasterPipelineResource
+    {
+        OpenGlShaderProgram program;
+        GLuint vertex_array = 0U;
+        OpenGlPipelineState state = {};
+        GLenum primitive_type = GL_TRIANGLES;
+        std::vector<OpenGlVertexBufferBinding> vertex_buffers = {};
     };
 }

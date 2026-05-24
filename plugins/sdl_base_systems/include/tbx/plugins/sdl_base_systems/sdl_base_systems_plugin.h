@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
+#include "tbx/interfaces/plugin.h"
+#include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL_log.h>
 
 namespace sdl_base_systems
@@ -14,7 +14,7 @@ namespace sdl_base_systems
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:

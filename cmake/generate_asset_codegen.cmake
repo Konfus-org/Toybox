@@ -238,18 +238,12 @@ function(tbx_codegen_make_material_render_config_literal material_file material_
     endif()
 
     set(render_config_literal
-        "tbx::MaterialRenderConfig {\n"
-        "                .depth =\n"
-        "                    tbx::MaterialDepthConfig {\n"
-            "                        .is_test_enabled = ${depth_test_literal},\n"
-        "                        .is_write_enabled = ${depth_write_literal},\n"
-        "                        .is_prepass_enabled = ${depth_prepass_literal},\n"
-        "                        .function = ${depth_function_literal},\n"
-        "                    },\n"
-        "                .transparency =\n"
-        "                    tbx::MaterialTransparencyConfig {\n"
-        "                        .blend_mode = ${blend_mode_literal},\n"
-        "                    },\n"
+        "tbx::MaterialConfig {\n"
+        "                .is_depth_test_enabled = ${depth_test_literal},\n"
+        "                .is_depth_write_enabled = ${depth_write_literal},\n"
+        "                .is_depth_prepass_enabled = ${depth_prepass_literal},\n"
+        "                .depth_function = ${depth_function_literal},\n"
+        "                .blend_mode = ${blend_mode_literal},\n"
         "            }")
     set(${out_literal} "${render_config_literal}" PARENT_SCOPE)
 endfunction()
@@ -344,6 +338,20 @@ function(tbx_codegen_read_meta_id relative_meta_path out_id_hex)
 
     string(TOUPPER "${id_hex}" id_hex_upper)
     set(${out_id_hex} "${id_hex_upper}" PARENT_SCOPE)
+endfunction()
+
+function(tbx_codegen_make_material_binding_identifier binding_name out_identifier)
+    string(REPLACE "\"" "" identifier_source "${binding_name}")
+    string(SUBSTRING "${identifier_source}" 1 1 second_character)
+    if(second_character STREQUAL "_")
+        string(LENGTH "${identifier_source}" identifier_length)
+        math(EXPR identifier_tail_length "${identifier_length} - 2")
+        string(SUBSTRING "${identifier_source}" 2 ${identifier_tail_length} identifier_source)
+    endif()
+
+    string(MAKE_C_IDENTIFIER "${identifier_source}" identifier)
+    string(TOUPPER "${identifier}" identifier)
+    set(${out_identifier} "${identifier}" PARENT_SCOPE)
 endfunction()
 
 function(tbx_codegen_append_texture_binding
@@ -519,7 +527,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
     foreach(group_identifier IN LISTS used_group_identifiers)
         set(group_content "")
         string(APPEND group_content "#pragma once\n")
-        string(APPEND group_content "#include \"tbx/common/handle.h\"\n\n")
+        string(APPEND group_content "#include \"tbx/types/handle.h\"\n\n")
         string(APPEND group_content "namespace tbx\n")
         string(APPEND group_content "{\n")
 
@@ -590,8 +598,8 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
 
     set(content "")
     string(APPEND content "#pragma once\n")
-    string(APPEND content "#include \"tbx/common/handle.h\"\n")
-    string(APPEND content "#include <string_view>\n\n")
+    string(APPEND content "#include \"tbx/types/handle.h\"\n")
+    string(APPEND content "#include <string>\n\n")
 
     if(NAMESPACE)
         string(APPEND content "namespace ${NAMESPACE}\n")
@@ -632,8 +640,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                 math(EXPR last_texture_index "${texture_count} - 1")
                 foreach(texture_index RANGE ${last_texture_index})
                     string(JSON texture_name GET "${material_text}" textures ${texture_index} name)
-                    string(MAKE_C_IDENTIFIER "${texture_name}" binding_name)
-                    string(TOUPPER "${binding_name}" binding_name)
+                    tbx_codegen_make_material_binding_identifier("${texture_name}" binding_name)
                     list(FIND used_binding_names "${binding_name}" duplicate_binding_index)
                     if(NOT duplicate_binding_index EQUAL -1)
                         message(FATAL_ERROR
@@ -641,7 +648,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                     endif()
                     list(APPEND used_binding_names "${binding_name}")
                     string(APPEND binding_content
-                        "        static constexpr std::string_view ${binding_name} = \"${texture_name}\";\n")
+                        "        static inline const std::string ${binding_name} = \"${texture_name}\";\n")
                 endforeach()
             endif()
         endif()
@@ -659,8 +666,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                         continue()
                     endif()
 
-                    string(MAKE_C_IDENTIFIER "${parameter_name}" binding_name)
-                    string(TOUPPER "${binding_name}" binding_name)
+                    tbx_codegen_make_material_binding_identifier("${parameter_name}" binding_name)
                     list(FIND used_binding_names "${binding_name}" duplicate_binding_index)
                     if(NOT duplicate_binding_index EQUAL -1)
                         message(FATAL_ERROR
@@ -668,20 +674,18 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                     endif()
                     list(APPEND used_binding_names "${binding_name}")
                     string(APPEND binding_content
-                        "        static constexpr std::string_view ${binding_name} = \"${parameter_name}\";\n")
+                        "        static inline const std::string ${binding_name} = \"${parameter_name}\";\n")
                 endforeach()
             endif()
         endif()
 
         string(APPEND content
             "\n"
-            "    /// \n"
+            "    /// @brief\n"
             "    /// Purpose: Typed material keys generated from '${relative_material_path}'.\n"
-            "    \n"
-            "    /// \n"
-            "    /// Ownership: Stores the material handle by value and exposes parameter and texture names as string views.\n"
+            "    /// @details\n"
+            "    /// Ownership: Stores the material handle by value and exposes parameter and texture names as strings.\n"
             "    /// Thread Safety: Safe to read concurrently.\n"
-            "    \n"
             "    struct ${struct_name} final\n"
             "    {\n"
             "        static inline const tbx::Handle HANDLE = ${material_handle_literal};\n"

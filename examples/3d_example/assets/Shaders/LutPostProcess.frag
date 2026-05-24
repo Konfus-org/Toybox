@@ -1,52 +1,63 @@
-#version 450 core
+#version 450
 
+#include "Toybox/Post/PostProcessBase.glsl"
+
+layout(location = 0) in vec2 v_tex_coord;
 layout(location = 0) out vec4 o_color;
 
-in vec2 v_tex_coord;
+layout(std140, binding = TBX_BINDING_MATERIAL_DATA) uniform TbxLutPostData
+{
+    vec4 u_lut_tint;
+    vec4 u_lut_emissive;
+    vec4 u_lut_strength;
+    vec4 u_blend;
+};
 
-uniform vec4 u_color;
-uniform vec4 u_emissive;
+layout(binding = TBX_BINDING_POST_EFFECT_TEXTURE0) uniform sampler2D u_lut;
 
-uniform sampler2D u_scene_color;
-uniform sampler2D u_lut;
-uniform float u_strength = 1.0;
-uniform float u_blend = 1.0;
+vec2 get_lut_uv(vec2 texture_size, float color_size, float slice, vec3 color)
+{
+    float color_range = max(color_size - 1.0, 1.0);
+    vec2 texel = vec2(slice * color_size, 0.0) + vec2(0.5) + color.rg * color_range;
+    texel.y = texture_size.y - texel.y;
+    return texel / texture_size;
+}
+
+vec3 sample_lut(vec3 color)
+{
+    vec2 texture_size = vec2(textureSize(u_lut, 0));
+    float color_size = texture_size.y;
+    float slice_count = floor((texture_size.x / max(color_size, 1.0)) + 0.5);
+
+    if (color_size < 2.0 || slice_count < 2.0
+        || abs(texture_size.x - (slice_count * color_size)) > 0.5)
+    {
+        return color;
+    }
+
+    float color_range = max(color_size - 1.0, 1.0);
+    float blue = color.b * color_range;
+    float slice0 = floor(blue);
+    float slice1 = min(slice0 + 1.0, color_range);
+
+    vec3 graded0 =
+        textureLod(u_lut, get_lut_uv(texture_size, color_size, slice0, color), 0.0).rgb;
+    vec3 graded1 =
+        textureLod(u_lut, get_lut_uv(texture_size, color_size, slice1, color), 0.0).rgb;
+    return mix(graded0, graded1, fract(blue));
+}
 
 void main()
 {
-    vec4 source = texture(u_scene_color, v_tex_coord);
+    vec4 tint = u_lut_tint;
+    vec4 emissive = u_lut_emissive;
+    float strength = max(u_lut_strength.x, 0.0);
+    float blend = clamp(u_blend.x, 0.0, 1.0);
+    vec4 source = texture(u_gbuffer_final_color, v_tex_coord);
+
     vec3 color = clamp(source.rgb, 0.0, 1.0);
-
-    // Dimensions for 1024x32
-    float size = 32.0;
-    float width = 1024.0;
-    float height = 32.0;
-
-    // 1. Blue channel selects the slice
-    float blue = color.b * (size - 1.0);
-    float b0 = floor(blue);
-    float b1 = ceil(blue);
-
-    // 2. Constants for half-texel offsets and scaling
-    float x_offset = 0.5 / width;
-    float y_offset = 0.5 / height;
-    float x_scale = (size - 1.0) / width;
-    float y_scale = (size - 1.0) / height;
-
-    // 3. Compute Vertical Coordinate (INVERTED)
-    // 1.0 - (offset + scaled_green) flips the Y-axis
-    float lut_y = 1.0 - (y_offset + (color.g * y_scale));
-
-    // 4. Compute Horizontal UVs
-    vec2 uv0 = vec2((b0 / size) + x_offset + (color.r * x_scale), lut_y);
-    vec2 uv1 = vec2((b1 / size) + x_offset + (color.r * x_scale), lut_y);
-
-    // 5. Sample and Lerp
-    vec3 graded0 = textureLod(u_lut, uv0, 0.0).rgb;
-    vec3 graded1 = textureLod(u_lut, uv1, 0.0).rgb;
-
-    vec3 final_color = mix(graded0, graded1, fract(blue));
-    vec3 graded = mix(source.rgb, final_color, u_strength * u_blend);
-    graded *= u_color.rgb;
-    o_color = vec4(graded + u_emissive.rgb, source.a * u_color.a);
+    vec3 final_color = sample_lut(color);
+    vec3 graded = mix(source.rgb, final_color, strength * blend);
+    graded *= tint.rgb;
+    o_color = tbx_write_to_final_color(graded + emissive.rgb, source.a * tint.a);
 }

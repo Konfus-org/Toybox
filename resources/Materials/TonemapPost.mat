@@ -1,0 +1,19 @@
+{
+  "shaders": { "vertex": "00000133", "fragment": "00000139" },
+  "config": {
+    "depth": {
+      "test": false,
+      "write": false,
+      "prepass": false,
+      "function": "always"
+    },
+    "transparency": {
+      "blend_mode": "opaque"
+    },
+    "cullable": false,
+    "two_sided": true,
+    "shadow_mode": "none"
+  },
+  "textures": [],
+  "parameters": []
+}

@@ -1,15 +1,15 @@
 #include "runtime.h"
-#include "tbx/assets/builtin_assets.h"
-#include "tbx/common/string_utils.h"
-#include "tbx/debugging/macros.h"
-#include "tbx/ecs/entity.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/camera.h"
-#include "tbx/graphics/color.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/math/transform.h"
-#include "tbx/math/trig.h"
+#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/types/color.h"
+#include "tbx/types/components/camera.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/material.h"
+#include "tbx/types/trig.h"
+#include "tbx/utils/string_utils.h"
 
 namespace two_d_example
 {
@@ -25,8 +25,7 @@ namespace two_d_example
         if (entity.try_get_parent_entity(parent))
         {
             const auto parent_world_transform = tbx::get_world_space_transform(parent);
-            local_transform =
-                tbx::world_to_local_tranform(parent_world_transform, world_transform);
+            local_transform = tbx::world_to_local_tranform(parent_world_transform, world_transform);
         }
 
         entity.get_component<tbx::Transform>() = local_transform;
@@ -34,11 +33,12 @@ namespace two_d_example
 
     void TwoDExampleRuntimePlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _entity_registry = &service_provider.get_service<tbx::EntityRegistry>();
-        if (!_entity_registry)
+        _entity_registry = service_provider.get_service<tbx::EntityRegistry>();
+        auto entity_registry = _entity_registry.lock();
+        if (!entity_registry)
             return;
 
-        auto& ent_registry = *_entity_registry;
+        auto& ent_registry = *entity_registry;
         const std::string greeting =
             "Welcome to the 2d example! This plugin just loads a few basic plugins and "
             "makes some entities.";
@@ -67,21 +67,22 @@ namespace two_d_example
                 0,
                 0));
             auto material = tbx::MaterialInstance(tbx::FlatMaterial::HANDLE);
-            material.set_parameter(tbx::FlatMaterial::COLOR, tbx::Color::WHITE);
+            material.set_parameter(tbx::FlatMaterial::ALBEDO_COLOR, tbx::Color::WHITE);
             ent.add_component<tbx::MaterialInstance>(material);
-            ent.add_component<tbx::DynamicMesh>(tbx::quad);
+            ent.add_component<tbx::DynamicMesh>(tbx::Mesh::QUAD);
         }
     }
 
-    void TwoDExampleRuntimePlugin::on_detach()
+    void TwoDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
-        _entity_registry = nullptr;
+        _entity_registry = {};
         _elapsed_seconds = 0.0f;
     }
 
     void TwoDExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
-        if (!_entity_registry)
+        auto entity_registry = _entity_registry.lock();
+        if (!entity_registry)
             return;
 
         _elapsed_seconds += dt.seconds;
@@ -89,7 +90,7 @@ namespace two_d_example
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : _entity_registry->get_with<tbx::Transform, tbx::MaterialInstance>())
+        for (auto& entity : entity_registry->get_with<tbx::Transform, tbx::MaterialInstance>())
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             auto updated_world_transform = world_transform;
@@ -105,7 +106,7 @@ namespace two_d_example
             const float b = 0.5f + 0.5f * sin(t + 4.0f * tbx::PI / 3.0f);
 
             auto color = tbx::Color(r, g, b, 1.0f);
-            material.set_parameter(tbx::FlatMaterial::COLOR, color);
+            material.set_parameter(tbx::FlatMaterial::ALBEDO_COLOR, color);
 
             offset += 0.1f;
         }
