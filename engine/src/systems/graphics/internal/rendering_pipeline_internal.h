@@ -209,8 +209,6 @@ namespace tbx::internal
         return Vec3(world_corner);
     }
 
-    // TODO: Implement this as a part of the camera class, actually implement a dediecated "Frustum"
-    // struct and move this into a 'Frustum.get_corners' do the same with the simgular version
     static std::array<Vec3, 8U> make_camera_frustum_corners(
         const RenderCamera& camera,
         const float split_near,
@@ -409,6 +407,23 @@ namespace tbx::internal
         return loaded_material ? loaded_material->config : MaterialConfig();
     }
 
+    static MaterialConfig resolve_draw_material_config(
+        AssetManager& asset_manager,
+        std::unordered_map<uint64, MaterialConfig>& material_configs,
+        const MaterialInstance& material)
+    {
+        const uint64 cache_key = hash(material);
+        if (const auto cached_config = material_configs.find(cache_key);
+            cached_config != material_configs.end())
+        {
+            return cached_config->second;
+        }
+
+        const MaterialConfig config = resolve_draw_material_config(asset_manager, material);
+        material_configs[cache_key] = config;
+        return config;
+    }
+
     static void append_light(RenderDrawData& draw_data, const RenderLight& render_light)
     {
         // Keep the shader array bounded. Extra lights are ignored rather than growing CPU data
@@ -457,6 +472,42 @@ namespace tbx::internal
         return Transform();
     }
 
+    static bool try_make_model_bounds(const Model& model, MeshBounds& out_bounds)
+    {
+        // StaticMesh points at a Model. Merge mesh-local bounds into one conservative model-space
+        // bound so culling does not need to visit every mesh part for each entity.
+        auto minimum = Vec3(std::numeric_limits<float>::max());
+        auto maximum = Vec3(std::numeric_limits<float>::lowest());
+        bool has_bounds = false;
+
+        for (const auto& mesh : model.meshes)
+        {
+            if (!mesh.bounds.is_valid)
+                continue;
+
+            minimum = glm::min(minimum, mesh.bounds.minimum);
+            maximum = glm::max(maximum, mesh.bounds.maximum);
+            has_bounds = true;
+        }
+
+        if (!has_bounds)
+            return false;
+
+        const Vec3 center = (minimum + maximum) * 0.5F;
+        const Vec3 radius_offset = maximum - center;
+        out_bounds = MeshBounds {
+            .minimum = minimum,
+            .maximum = maximum,
+            .sphere =
+                Sphere {
+                    .center = center,
+                    .radius = std::sqrt(dot(radius_offset, radius_offset)),
+                },
+            .is_valid = true,
+        };
+        return true;
+    }
+
     static bool should_cull(
         const Vec3& position,
         const Vec3& camera_position,
@@ -497,42 +548,6 @@ namespace tbx::internal
             return false;
 
         return !frustum.intersects(transform_sphere(bounds.sphere, transform));
-    }
-
-    static bool try_make_model_bounds(const Model& model, MeshBounds& out_bounds)
-    {
-        // StaticMesh points at a Model. Merge mesh-local bounds into one conservative model-space
-        // bound so culling does not need to visit every mesh part for each entity.
-        auto minimum = Vec3(std::numeric_limits<float>::max());
-        auto maximum = Vec3(std::numeric_limits<float>::lowest());
-        bool has_bounds = false;
-
-        for (const auto& mesh : model.meshes)
-        {
-            if (!mesh.bounds.is_valid)
-                continue;
-
-            minimum = glm::min(minimum, mesh.bounds.minimum);
-            maximum = glm::max(maximum, mesh.bounds.maximum);
-            has_bounds = true;
-        }
-
-        if (!has_bounds)
-            return false;
-
-        const Vec3 center = (minimum + maximum) * 0.5F;
-        const Vec3 radius_offset = maximum - center;
-        out_bounds = MeshBounds {
-            .minimum = minimum,
-            .maximum = maximum,
-            .sphere =
-                Sphere {
-                    .center = center,
-                    .radius = std::sqrt(dot(radius_offset, radius_offset)),
-                },
-            .is_valid = true,
-        };
-        return true;
     }
 
     static bool should_cull(
@@ -1139,7 +1154,7 @@ namespace tbx::internal
     }
 
     static Uuid create_command_bind_group(
-        IGraphicsBackend& backend,
+        RenderingResourceManager& resource_manager,
         const std::vector<GraphicsResourceBinding>& vertex_buffers,
         const Uuid& index_buffer,
         const std::vector<GraphicsResourceBinding>& uniform_buffers,
@@ -1169,7 +1184,7 @@ namespace tbx::internal
             return {};
 
         auto bind_group = Uuid();
-        const Result result = backend.create_bind_group(
+        const Result result = resource_manager.upload_bind_group(
             BindGroupDesc {
                 .bindings = std::move(bindings),
                 .debug_name = debug_name,
@@ -1184,13 +1199,15 @@ namespace tbx::internal
         return bind_group;
     }
 
-    static void create_render_pass_bind_groups(IGraphicsBackend& backend, RenderPass& render_pass)
+    static void create_render_pass_bind_groups(
+        RenderingResourceManager& resource_manager,
+        RenderPass& render_pass)
     {
         auto draw_index = uint32();
         for (auto& draw : render_pass.draws)
         {
             const Uuid bind_group = create_command_bind_group(
-                backend,
+                resource_manager,
                 draw.vertex_buffers,
                 {},
                 draw.uniform_buffers,
@@ -1207,7 +1224,7 @@ namespace tbx::internal
         for (auto& draw : render_pass.indexed_draws)
         {
             const Uuid bind_group = create_command_bind_group(
-                backend,
+                resource_manager,
                 draw.vertex_buffers,
                 draw.index_buffer,
                 draw.uniform_buffers,
@@ -1610,7 +1627,7 @@ namespace tbx::internal
         for (auto& pass : passes)
         {
             pass.desc.viewport = frame.viewport;
-            create_render_pass_bind_groups(backend, pass);
+            create_render_pass_bind_groups(resource_manager, pass);
         }
         return passes;
     }
@@ -1759,6 +1776,7 @@ namespace tbx::internal
             return result;
 
         const bool has_shadow_targets = draw_data.shadows.layer_count > 0U;
+        auto material_configs = std::unordered_map<uint64, MaterialConfig>();
         auto static_mesh_bounds = std::unordered_map<Handle, MeshBounds>();
         for (auto& entity : entity_registry.get_with<StaticMesh>())
         {
@@ -1780,7 +1798,8 @@ namespace tbx::internal
             const MaterialInstance material = entity.has_component<MaterialInstance>()
                                                   ? entity.get_component<MaterialInstance>()
                                                   : MaterialInstance();
-            const MaterialConfig config = resolve_draw_material_config(asset_manager, material);
+            const MaterialConfig config =
+                resolve_draw_material_config(asset_manager, material_configs, material);
             const uint64 material_key = hash(material);
             const bool is_shadow_culled = !has_shadow_targets
                                           || should_cull(
@@ -1839,7 +1858,8 @@ namespace tbx::internal
             const MaterialInstance material = entity.has_component<MaterialInstance>()
                                                   ? entity.get_component<MaterialInstance>()
                                                   : MaterialInstance();
-            const MaterialConfig config = resolve_draw_material_config(asset_manager, material);
+            const MaterialConfig config =
+                resolve_draw_material_config(asset_manager, material_configs, material);
             const uint64 material_key = hash(material);
             const bool is_shadow_culled = !has_shadow_targets
                                           || should_cull(
@@ -1998,28 +2018,6 @@ namespace tbx::internal
         }
 
         return {};
-    }
-
-    static void release_render_pass_bind_groups(
-        IGraphicsBackend& backend,
-        std::vector<RenderPass>& render_passes)
-    {
-        for (auto& render_pass : render_passes)
-        {
-            for (auto& draw : render_pass.draws)
-            {
-                for (const auto& bind_group : draw.bind_groups)
-                    (void)backend.destroy_resource(bind_group);
-                draw.bind_groups.clear();
-            }
-
-            for (auto& draw : render_pass.indexed_draws)
-            {
-                for (const auto& bind_group : draw.bind_groups)
-                    (void)backend.destroy_resource(bind_group);
-                draw.bind_groups.clear();
-            }
-        }
     }
 
     //// FRAME SETUP ////

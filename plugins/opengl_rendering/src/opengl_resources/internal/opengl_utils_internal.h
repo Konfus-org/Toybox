@@ -1,6 +1,6 @@
 #pragma once
-#include "opengl_shader.h"
-#include "opengl_utils.h"
+#include "../opengl_shader.h"
+#include "../opengl_utils.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <string>

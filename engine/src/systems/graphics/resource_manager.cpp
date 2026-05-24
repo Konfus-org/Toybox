@@ -2,6 +2,7 @@
 #include "systems/graphics/internal/resource_manager_internal.h"
 #include <algorithm>
 #include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -29,12 +30,18 @@ namespace tbx
         if (!backend)
             return;
 
-        const auto tracked_resources = _tracker->get_tracked_resources();
+        auto stale_resources = std::vector<uint>();
+        const auto& tracked_resources = _tracker->get_tracked_resources();
         for (const uint resource : tracked_resources)
         {
             if (_tracker->get_time_alive(resource) < _resource_unload_time_seconds)
                 continue;
 
+            stale_resources.push_back(resource);
+        }
+
+        for (const uint resource : stale_resources)
+        {
             const auto resource_id = Uuid(resource);
             if (backend->destroy_resource(resource_id))
             {
@@ -68,6 +75,13 @@ namespace tbx
         RenderingMeshUploadData& out_mesh) const
     {
         return _uploader->upload_dynamic_mesh(mesh_data, *_tracker, out_mesh);
+    }
+
+    Result RenderingResourceManager::upload_bind_group(
+        const BindGroupDesc& desc,
+        Uuid& out_bind_group) const
+    {
+        return _uploader->upload_bind_group(desc, *_tracker, out_bind_group);
     }
 
     Result RenderingResourceManager::upload_fallback_material(

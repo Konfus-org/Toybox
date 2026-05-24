@@ -70,6 +70,11 @@ namespace tbx::internal
             RenderingResourceTracker& resource_tracker,
             RenderingMeshUploadData& out_mesh) const;
 
+        Result upload_bind_group(
+            const BindGroupDesc& desc,
+            RenderingResourceTracker& resource_tracker,
+            Uuid& out_bind_group) const;
+
         Result upload_fallback_mesh(
             RenderingResourceTracker& resource_tracker,
             std::vector<RenderingMeshUploadData>& out_meshes) const;

@@ -63,9 +63,33 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Stores one cached bind group and its canonical binding description.
+    struct TBX_API RenderingBindGroupCacheEntry
+    {
+        Uuid resource = {};
+        BindGroupDesc desc = {};
+    };
+
+    /// @brief
+    /// Purpose: Caches uploaded bind groups by ordered resource binding content.
+    struct TBX_API RenderingBindGroupCache
+    {
+        std::unordered_map<uint64, std::vector<RenderingBindGroupCacheEntry>> bind_groups = {};
+    };
+
+    /// @brief
+    /// Purpose: Caches resolved material upload data by material instance content.
+    struct TBX_API MaterialResourceCache
+    {
+        std::unordered_map<uint64, RenderingMaterialUploadData> materials = {};
+    };
+
+    /// @brief
     /// Purpose: Groups renderer upload caches owned by the resource manager internals.
     struct TBX_API ResourceUploadCaches
     {
+        RenderingBindGroupCache bind_groups = {};
+        MaterialResourceCache materials = {};
         PipelineResourceCache pipelines = {};
         MeshResourceCache meshes = {};
         TextureResourceCache textures = {};

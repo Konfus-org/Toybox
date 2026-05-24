@@ -1,5 +1,5 @@
 #pragma once
-#include "opengl_shader.h"
+#include "../opengl_shader.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/typedefs.h"
 #include <glad/glad.h>

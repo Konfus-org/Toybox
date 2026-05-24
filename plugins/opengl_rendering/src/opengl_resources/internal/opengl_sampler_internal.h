@@ -1,5 +1,5 @@
 #pragma once
-#include "opengl_sampler.h"
+#include "../opengl_sampler.h"
 #include <utility>
 
 namespace opengl_rendering::internal

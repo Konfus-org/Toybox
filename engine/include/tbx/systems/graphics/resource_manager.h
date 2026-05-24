@@ -98,6 +98,10 @@ namespace tbx
             RenderingMeshUploadData& out_mesh) const;
 
         /// @brief
+        /// Purpose: Uploads or reuses one bind group for ordered draw resource bindings.
+        Result upload_bind_group(const BindGroupDesc& desc, Uuid& out_bind_group) const;
+
+        /// @brief
         /// Purpose: Uploads the renderer fallback material used for incomplete draw data.
         Result upload_fallback_material(RenderingMaterialUploadData& out_material) const;
 

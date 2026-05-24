@@ -8,6 +8,7 @@
 #include "tbx/types/material.h"
 #include "tbx/types/texture.h"
 #include "tbx/types/vertex.h"
+#include "tbx/utils/hash.h"
 #include <algorithm>
 #include <optional>
 #include <string>
@@ -98,6 +99,158 @@ namespace tbx::internal
             else
                 ++cache_iterator;
         }
+    }
+
+    static bool is_same_binding_key(const ResourceBinding& left, const ResourceBinding& right)
+    {
+        return left.binding_slot == right.binding_slot
+               && left.resource_handle == right.resource_handle && left.offset == right.offset
+               && left.range == right.range;
+    }
+
+    static bool is_same_bind_group_key(const BindGroupDesc& left, const BindGroupDesc& right)
+    {
+        if (left.layout_handle != right.layout_handle
+            || left.bindings.size() != right.bindings.size())
+            return false;
+
+        for (size index = 0U; index < left.bindings.size(); ++index)
+            if (!is_same_binding_key(left.bindings[index], right.bindings[index]))
+                return false;
+
+        return true;
+    }
+
+    static bool bind_group_uses_resource(
+        const RenderingBindGroupCacheEntry& entry,
+        const Uuid& resource)
+    {
+        if (entry.resource == resource)
+            return true;
+
+        return std::any_of(
+            entry.desc.bindings.begin(),
+            entry.desc.bindings.end(),
+            [resource](const ResourceBinding& binding)
+            {
+                return binding.resource_handle == resource;
+            });
+    }
+
+    static uint64 make_bind_group_cache_hash(const BindGroupDesc& desc)
+    {
+        uint64 result = hash(desc.layout_handle);
+        for (const auto& binding : desc.bindings)
+        {
+            result = hash(binding.binding_slot, result);
+            result = hash(binding.resource_handle, result);
+            result = hash(binding.offset, result);
+            result = hash(binding.range, result);
+        }
+
+        return result == 0U ? 1U : result;
+    }
+
+    static void discard_cached_bind_group_resource(
+        RenderingBindGroupCache& cache,
+        const Uuid& resource)
+    {
+        for (auto cache_iterator = cache.bind_groups.begin();
+             cache_iterator != cache.bind_groups.end();)
+        {
+            auto& entries = cache_iterator->second;
+            const auto removed = std::remove_if(
+                entries.begin(),
+                entries.end(),
+                [resource](const RenderingBindGroupCacheEntry& entry)
+                {
+                    return bind_group_uses_resource(entry, resource);
+                });
+            entries.erase(removed, entries.end());
+
+            if (entries.empty())
+                cache_iterator = cache.bind_groups.erase(cache_iterator);
+            else
+                ++cache_iterator;
+        }
+    }
+
+    static void track_bind_group_resources(
+        RenderingResourceTracker& resource_tracker,
+        const BindGroupDesc& desc)
+    {
+        for (const auto& binding : desc.bindings)
+            resource_tracker.track(binding.resource_handle);
+    }
+
+    static bool material_upload_uses_resource(
+        const RenderingMaterialUploadData& material,
+        const Uuid& resource)
+    {
+        if (material.pipeline == resource)
+            return true;
+
+        return std::any_of(
+            material.textures.begin(),
+            material.textures.end(),
+            [resource](const GraphicsResourceBinding& binding)
+            {
+                return binding.resource == resource;
+            });
+    }
+
+    static void discard_cached_material_resource(MaterialResourceCache& cache, const Uuid& resource)
+    {
+        for (auto iterator = cache.materials.begin(); iterator != cache.materials.end();)
+        {
+            if (material_upload_uses_resource(iterator->second, resource))
+                iterator = cache.materials.erase(iterator);
+            else
+                ++iterator;
+        }
+    }
+
+    static uint64 make_material_upload_cache_key(
+        const Handle& material_handle,
+        const MaterialInstance* instance)
+    {
+        uint64 result = hash(material_handle.get_id());
+        result = hash(material_handle.get_name(), result);
+        if (instance == nullptr)
+            return result == 0U ? 1U : result;
+
+        result =
+            hash(static_cast<uint64>(instance->has_config_override_enabled() ? 1U : 0U), result);
+        if (instance->has_config_override_enabled())
+            result = hash(instance->overrides.config, result);
+
+        result =
+            hash(static_cast<uint64>(instance->overrides.has_parameter_override ? 1U : 0U), result);
+        for (const auto& parameter : instance->overrides.parameters)
+        {
+            result = hash(parameter.id, result);
+            result = hash(parameter.data, result);
+        }
+
+        result =
+            hash(static_cast<uint64>(instance->overrides.has_texture_override ? 1U : 0U), result);
+        for (const auto& texture : instance->overrides.textures)
+        {
+            result = hash(texture.id, result);
+            result = hash(texture.texture.get_id(), result);
+            result = hash(texture.texture.get_name(), result);
+        }
+
+        return result == 0U ? 1U : result;
+    }
+
+    static void track_material_upload_resources(
+        RenderingResourceTracker& resource_tracker,
+        const RenderingMaterialUploadData& material)
+    {
+        resource_tracker.track(material.pipeline);
+        for (const auto& texture : material.textures)
+            resource_tracker.track(texture.resource);
     }
 
     static void append_instance_layout_attributes(

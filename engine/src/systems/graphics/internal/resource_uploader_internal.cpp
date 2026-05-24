@@ -50,7 +50,16 @@ namespace tbx::internal
             return Result(false, "Resource uploader failed: fallback material unavailable.");
 
         const auto material_handle = Handle("Toybox/FallbackMaterial");
-        return upload_material_resources(
+        const uint64 cache_key = make_material_upload_cache_key(material_handle, nullptr);
+        if (const auto cached_material = _caches.materials.materials.find(cache_key);
+            cached_material != _caches.materials.materials.end())
+        {
+            out_material = cached_material->second;
+            track_material_upload_resources(resource_tracker, out_material);
+            return {};
+        }
+
+        const Result result = upload_material_resources(
             *backend,
             nullptr,
             material_handle,
@@ -61,6 +70,10 @@ namespace tbx::internal
             _fallback_textures,
             _caches,
             out_material);
+        if (result)
+            _caches.materials.materials[cache_key] = out_material;
+
+        return result;
     }
 
     void RenderingResourceUploader::cache_model_bounds(
@@ -103,6 +116,14 @@ namespace tbx::internal
             return Result(false, "Resource uploader failed: asset manager unavailable.");
 
         auto material_handle = resolve_material_handle(instance);
+        const uint64 cache_key = make_material_upload_cache_key(material_handle, &instance);
+        if (const auto cached_material = _caches.materials.materials.find(cache_key);
+            cached_material != _caches.materials.materials.end())
+        {
+            out_material = cached_material->second;
+            track_material_upload_resources(resource_tracker, out_material);
+            return {};
+        }
 
         auto loaded_material =
             asset_manager->load<Material>(material_handle, MaterialLoadParameters());
@@ -114,7 +135,7 @@ namespace tbx::internal
         const auto material = *loaded_material;
         loaded_material.reset();
 
-        return upload_material_resources(
+        const Result result = upload_material_resources(
             *backend,
             asset_manager.get(),
             material_handle,
@@ -125,6 +146,10 @@ namespace tbx::internal
             _fallback_textures,
             _caches,
             out_material);
+        if (result)
+            _caches.materials.materials[cache_key] = out_material;
+
+        return result;
     }
 
     Result RenderingResourceUploader::upload_dynamic_mesh(
@@ -177,6 +202,49 @@ namespace tbx::internal
         };
         mesh_data->clear_dirty();
         out_mesh = *uploaded_mesh;
+        return {};
+    }
+
+    Result RenderingResourceUploader::upload_bind_group(
+        const BindGroupDesc& desc,
+        RenderingResourceTracker& resource_tracker,
+        Uuid& out_bind_group) const
+    {
+        out_bind_group = {};
+        if (desc.bindings.empty())
+            return {};
+
+        const uint64 cache_hash = make_bind_group_cache_hash(desc);
+        auto& entries = _caches.bind_groups.bind_groups[cache_hash];
+        const auto cached = std::ranges::find_if(
+            entries,
+            [&desc](const RenderingBindGroupCacheEntry& entry)
+            {
+                return is_same_bind_group_key(entry.desc, desc);
+            });
+        if (cached != entries.end())
+        {
+            out_bind_group = cached->resource;
+            track_bind_group_resources(resource_tracker, cached->desc);
+            resource_tracker.track(out_bind_group);
+            return {};
+        }
+
+        const auto backend = _backend.lock();
+        if (!backend)
+            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+
+        const Result result = backend->create_bind_group(desc, out_bind_group);
+        if (!result)
+            return result;
+
+        track_bind_group_resources(resource_tracker, desc);
+        resource_tracker.track(out_bind_group);
+        entries.push_back(
+            RenderingBindGroupCacheEntry {
+                .resource = out_bind_group,
+                .desc = desc,
+            });
         return {};
     }
 
@@ -377,6 +445,8 @@ namespace tbx::internal
         if (!resource.is_valid())
             return;
 
+        discard_cached_bind_group_resource(_caches.bind_groups, resource);
+        discard_cached_material_resource(_caches.materials, resource);
         erase_uuid_cache_entry(_caches.pipelines.pipelines, resource);
         discard_cached_mesh_resource(_caches.meshes, resource);
         erase_uuid_cache_entry(_caches.textures.textures, resource);

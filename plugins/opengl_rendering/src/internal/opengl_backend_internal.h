@@ -30,19 +30,4 @@ namespace opengl_rendering::internal
         return make_failure(std::move(message));
     }
 
-    static void apply_pipeline_state(const tbx::RasterPipelineDesc& desc)
-    {
-        desc.is_depth_test_enabled ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
-        glDepthMask(desc.is_depth_write_enabled ? GL_TRUE : GL_FALSE);
-        desc.is_blending_enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
-        desc.is_culling_enabled ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
-        if (desc.is_culling_enabled)
-        {
-            glCullFace(desc.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
-        }
-
-        if (desc.is_blending_enabled)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-
 }

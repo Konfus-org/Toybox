@@ -15,6 +15,50 @@
 namespace opengl_rendering
 {
     /// @brief
+    /// Purpose: Defines the backend-ready action needed for one bind group entry.
+    enum class OpenGlBindEntryType
+    {
+        VERTEX_BUFFER,
+        INDEX_BUFFER,
+        UNIFORM_BUFFER,
+        STORAGE_BUFFER,
+        SAMPLED_TEXTURE,
+        STORAGE_TEXTURE,
+        SAMPLER,
+    };
+
+    /// @brief
+    /// Purpose: Stores one bind group entry after type resolution.
+    struct OpenGlBindEntry
+    {
+        OpenGlBindEntryType type = OpenGlBindEntryType::UNIFORM_BUFFER;
+        uint32 slot = 0U;
+        tbx::Uuid resource = {};
+        uint64 offset = 0U;
+        uint64 range = 0U;
+    };
+
+    /// @brief
+    /// Purpose: Stores the last buffer resource bound to one indexed GL binding point.
+    struct OpenGlBufferSlotBinding
+    {
+        tbx::Uuid resource = {};
+        uint64 offset = 0U;
+        uint64 range = 0U;
+    };
+
+    /// @brief
+    /// Purpose: Stores the last raster state applied to OpenGL.
+    struct OpenGlPipelineState
+    {
+        bool is_depth_test_enabled = true;
+        bool is_depth_write_enabled = true;
+        bool is_blending_enabled = false;
+        bool is_culling_enabled = true;
+        tbx::GraphicsCullMode cull_mode = tbx::GraphicsCullMode::BACK;
+    };
+
+    /// @brief
     /// Purpose: Implements the Toybox explicit graphics backend using OpenGL.
     /// @details
     /// Ownership: Owns OpenGL objects and borrows the context manager service.
@@ -101,29 +145,27 @@ namespace opengl_rendering
         void destroy_context(const tbx::Window& window);
 
       private:
-        tbx::Result bind_index_buffer(
-            const tbx::Uuid& buffer_resource_uuid,
-            tbx::GraphicsIndexType index_type);
-        tbx::Result bind_sampler(uint32 slot, const tbx::Uuid& sampler_resource_uuid);
-        tbx::Result bind_storage_buffer(uint32 slot, const tbx::Uuid& buffer_resource_uuid);
-        tbx::Result bind_texture(uint32 slot, const tbx::Uuid& texture_resource_uuid);
-        tbx::Result bind_uniform_buffer(uint32 slot, const tbx::Uuid& buffer_resource_uuid);
-        tbx::Result bind_vertex_buffer(uint32 slot, const tbx::Uuid& buffer_resource_uuid);
-        tbx::Result set_viewport(const tbx::Viewport& viewport);
+        void apply_raster_pipeline_state(const tbx::RasterPipelineDesc& desc);
         void clear_bound_state();
         void cleanup();
         void destroy_resources();
         tbx::Result ensure_frame_context(const tbx::Window& window);
         tbx::Result ensure_gl_loaded();
         tbx::Result require_gl_ready_for_resource_ops() const;
-        tbx::Result require_current_compute_pipeline() const;
-        tbx::Result require_current_raster_pipeline() const;
-        tbx::Result bind_storage_texture(uint32 slot, const tbx::Uuid& texture_resource_uuid);
 
       private:
         tbx::IOpenGlContextManager& _context_manager;
+        std::unordered_map<tbx::Window, OpenGlContext> _contexts = {};
+        tbx::Window _active_window = {};
+        tbx::Viewport _active_viewport = {};
 
-        std::unordered_map<tbx::Uuid, tbx::BindGroupDesc> _bind_groups = {};
+        tbx::Uuid _current_pipeline = {};
+        OpenGlPipelineState _current_pipeline_state = {};
+        tbx::GraphicsIndexType _current_index_type = tbx::GraphicsIndexType::UINT32;
+        tbx::VsyncMode _vsync_mode = tbx::VsyncMode::OFF;
+        int32 _max_uniform_buffer_bindings = -1;
+
+        std::unordered_map<tbx::Uuid, std::vector<OpenGlBindEntry>> _bind_groups = {};
         std::unordered_map<tbx::Uuid, tbx::BindGroupLayoutDesc> _bind_group_layouts = {};
         std::unordered_map<tbx::Uuid, OpenGlGraphicsBuffer> _buffers = {};
         std::unordered_map<tbx::Uuid, tbx::GraphicsBufferDesc> _buffer_descs = {};
@@ -134,18 +176,19 @@ namespace opengl_rendering
         std::unordered_map<tbx::Uuid, OpenGlSampler> _samplers = {};
         std::unordered_map<tbx::Uuid, OpenGlTexture> _textures = {};
         std::unordered_map<tbx::Uuid, tbx::GraphicsTextureDesc> _texture_descs = {};
-        std::unordered_map<tbx::Window, OpenGlContext> _contexts = {};
         std::unique_ptr<OpenGlFramebuffer> _pass_framebuffer = {};
 
-        tbx::Window _active_window = {};
-        tbx::Viewport _active_viewport = {};
-        tbx::Uuid _current_pipeline = {};
-        tbx::GraphicsIndexType _current_index_type = tbx::GraphicsIndexType::UINT32;
-        tbx::VsyncMode _vsync_mode = tbx::VsyncMode::OFF;
+        std::unordered_map<uint32, tbx::Uuid> _bound_image_textures = {};
+        std::unordered_map<uint32, tbx::Uuid> _bound_samplers = {};
+        std::unordered_map<uint32, OpenGlBufferSlotBinding> _bound_storage_buffers = {};
+        std::unordered_map<uint32, tbx::Uuid> _bound_textures = {};
+        std::unordered_map<uint32, OpenGlBufferSlotBinding> _bound_uniform_buffers = {};
+        std::unordered_map<uint32, tbx::Uuid> _bound_vertex_buffers = {};
+        tbx::Uuid _bound_index_buffer = {};
 
         bool _is_gl_loaded = false;
         bool _is_compute_pass_active = false;
         bool _is_pass_active = false;
-        bool _is_index_buffer_bound = false;
+        bool _has_current_pipeline_state = false;
     };
 }

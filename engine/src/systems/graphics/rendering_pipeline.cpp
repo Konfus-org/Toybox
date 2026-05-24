@@ -92,7 +92,6 @@ namespace tbx
 
         // 5.) Draw.
         result = internal::execute_passes(backend, passes);
-        internal::release_render_pass_bind_groups(backend, passes);
         if (!result)
         {
             backend.end_frame();

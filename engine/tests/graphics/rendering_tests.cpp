@@ -1055,6 +1055,7 @@ namespace tbx::tests::graphics
                 backend.callbacks.end(),
                 GraphicsBackendCallback::DRAW),
             backend.callbacks.end());
+        EXPECT_TRUE(backend.unloaded_resources.empty());
     }
 
     // Validates render uniforms are built from ECS world transforms, not local transforms.
@@ -2164,6 +2165,85 @@ namespace tbx::tests::graphics
         EXPECT_NE(first_mesh.vertex_buffer, second_mesh.vertex_buffer);
         EXPECT_GT(backend.uploaded_buffer_count, uploaded_buffer_count);
         EXPECT_FALSE(mesh_data->is_dirty());
+    }
+
+    // Validates identical draw bind groups reuse the resource-manager-owned cache entry.
+    TEST(RenderingTests, RenderingResourceManager_ReusesEquivalentBindGroups)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto resource_manager =
+            RenderingResourceManager(backend_service, std::weak_ptr<AssetManager>());
+        const auto desc = BindGroupDesc {
+            .bindings =
+                {
+                    ResourceBinding {
+                        .binding_slot = 0U,
+                        .resource_handle = Uuid(10U),
+                    },
+                    ResourceBinding {
+                        .binding_slot = 1U,
+                        .resource_handle = Uuid(20U),
+                        .offset = 16U,
+                        .range = 64U,
+                    },
+                },
+            .debug_name = "Test Bind Group",
+        };
+        auto first_bind_group = Uuid();
+        auto second_bind_group = Uuid();
+
+        // Act
+        const Result first_result = resource_manager.upload_bind_group(desc, first_bind_group);
+        const Result second_result = resource_manager.upload_bind_group(desc, second_bind_group);
+
+        // Assert
+        EXPECT_TRUE(first_result);
+        EXPECT_TRUE(second_result);
+        EXPECT_TRUE(first_bind_group.is_valid());
+        EXPECT_EQ(first_bind_group, second_bind_group);
+        EXPECT_EQ(backend.uploaded_bind_group_count, 1U);
+        EXPECT_TRUE(resource_manager.is_managed(first_bind_group));
+    }
+
+    // Validates discarded referenced resources invalidate cached bind group lookup entries.
+    TEST(RenderingTests, RenderingResourceManager_DiscardedBindGroupResourceForcesReupload)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto resource_manager =
+            RenderingResourceManager(backend_service, std::weak_ptr<AssetManager>(), 0.0F);
+        const auto referenced_buffer = Uuid(10U);
+        const auto desc = BindGroupDesc {
+            .bindings =
+                {
+                    ResourceBinding {
+                        .binding_slot = 0U,
+                        .resource_handle = referenced_buffer,
+                    },
+                },
+            .debug_name = "Invalidation Test Bind Group",
+        };
+        auto first_bind_group = Uuid();
+        const Result first_result = resource_manager.upload_bind_group(desc, first_bind_group);
+        const uint uploaded_bind_group_count = backend.uploaded_bind_group_count;
+
+        // Act
+        resource_manager.update(DeltaTime {});
+        auto second_bind_group = Uuid();
+        const Result second_result = resource_manager.upload_bind_group(desc, second_bind_group);
+
+        // Assert
+        EXPECT_TRUE(first_result);
+        EXPECT_TRUE(second_result);
+        EXPECT_TRUE(first_bind_group.is_valid());
+        EXPECT_TRUE(second_bind_group.is_valid());
+        EXPECT_NE(first_bind_group, second_bind_group);
+        EXPECT_GT(backend.uploaded_bind_group_count, uploaded_bind_group_count);
+        EXPECT_FALSE(resource_manager.is_managed(first_bind_group));
+        EXPECT_TRUE(resource_manager.is_managed(second_bind_group));
     }
 
     // Validates auto-unloaded instance vertex buffers are removed from the upload cache.
