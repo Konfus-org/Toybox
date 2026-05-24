@@ -19,6 +19,9 @@ endif()
 
 file(MAKE_DIRECTORY "${TBX_BUNDLE_DEST}")
 
+message(STATUS
+    "Toybox asset bundle: config=${TBX_BUNDLE_CONFIG}, dest=${TBX_BUNDLE_DEST}")
+
 foreach(source_dir IN LISTS TBX_BUNDLE_SOURCES)
     if(NOT IS_DIRECTORY "${source_dir}")
         message(WARNING "Toybox: asset bundle source directory not found: ${source_dir}")
@@ -27,10 +30,13 @@ foreach(source_dir IN LISTS TBX_BUNDLE_SOURCES)
 
     file(
         GLOB_RECURSE bundled_files
+        LIST_DIRECTORIES false
         RELATIVE "${source_dir}"
         "${source_dir}/*"
     )
 
+    set(processed_count 0)
+    set(updated_count 0)
     foreach(relative_path IN LISTS bundled_files)
         string(REPLACE "\\" "/" normalized_relative_path "${relative_path}")
         if(normalized_relative_path MATCHES "(^|/)generated(/|$)")
@@ -38,10 +44,6 @@ foreach(source_dir IN LISTS TBX_BUNDLE_SOURCES)
         endif()
 
         set(source_path "${source_dir}/${relative_path}")
-        if(IS_DIRECTORY "${source_path}")
-            continue()
-        endif()
-
         get_filename_component(source_name "${source_path}" NAME)
         string(TOLOWER "${source_name}" lowered_source_name)
         if(lowered_source_name STREQUAL "cmakelists.txt")
@@ -62,8 +64,16 @@ foreach(source_dir IN LISTS TBX_BUNDLE_SOURCES)
             continue()
         endif()
 
-        get_filename_component(destination_directory "${TBX_BUNDLE_DEST}/${relative_path}" DIRECTORY)
+        set(destination_path "${TBX_BUNDLE_DEST}/${normalized_relative_path}")
+        get_filename_component(destination_directory "${destination_path}" DIRECTORY)
         file(MAKE_DIRECTORY "${destination_directory}")
-        file(COPY_FILE "${source_path}" "${TBX_BUNDLE_DEST}/${relative_path}" ONLY_IF_DIFFERENT)
+        math(EXPR processed_count "${processed_count} + 1")
+        if(NOT EXISTS "${destination_path}" OR "${source_path}" IS_NEWER_THAN "${destination_path}")
+            math(EXPR updated_count "${updated_count} + 1")
+        endif()
+        file(COPY_FILE "${source_path}" "${destination_path}" ONLY_IF_DIFFERENT)
     endforeach()
+
+    message(STATUS
+        "Toybox asset bundle: ${source_dir} -> ${processed_count} files considered, ${updated_count} updated")
 endforeach()

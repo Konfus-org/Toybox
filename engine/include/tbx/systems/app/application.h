@@ -48,7 +48,18 @@ namespace tbx
         /// Thread Safety: Not thread-safe; synchronize access externally.
         const Window& get_main_window() const;
 
+        /// @brief
+        /// Purpose: Returns the service provider.
+        /// @details
+        /// Ownership: Returns a value owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
         ServiceProvider& get_service_provider();
+
+        /// @brief
+        /// Purpose: Returns the const service provider.
+        /// @details
+        /// Ownership: Returns a value owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
         const ServiceProvider& get_service_provider() const;
 
       private:

@@ -157,9 +157,9 @@ function(tbx_codegen_generate_builtin_asset_header)
 
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
-            -DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER
-            -DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}
-            -DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}
+            "-DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER"
+            "-DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}"
+            "-DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}"
             -P "${generator_script}"
         RESULT_VARIABLE builtin_assets_generation_result
     )
@@ -173,13 +173,14 @@ function(tbx_codegen_generate_builtin_asset_header)
         OUTPUT "${TBX_CODEGEN_OUTPUT_FILE}"
         BYPRODUCTS ${builtin_generated_headers}
         COMMAND "${CMAKE_COMMAND}"
-            -DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER
-            -DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}
-            -DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}
+            "-DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER"
+            "-DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}"
+            "-DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}"
             -P "${generator_script}"
         DEPENDS
             "${generator_script}"
             ${filtered_builtin_assets_meta_files}
+        COMMENT "Generating Toybox builtin asset headers from ${TBX_CODEGEN_SOURCE_ROOT}"
         VERBATIM
     )
 
@@ -274,6 +275,7 @@ function(tbx_codegen_generate_material_instance_header)
         DEPENDS
             "${generator_script}"
             ${material_inputs}
+        COMMENT "Generating Toybox material instance header from ${TBX_CODEGEN_SOURCE_ROOT}"
         VERBATIM
     )
 

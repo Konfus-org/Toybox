@@ -20,7 +20,10 @@ namespace tbx
 
     LoadedPlugin::~LoadedPlugin() noexcept
     {
-        // Plugin teardown requires a ServiceProvider, so detach is performed by PluginManager.
+        if (_state == LoadedPluginState::ATTACHED && _attached_service_provider != nullptr)
+        {
+            detach(*_attached_service_provider);
+        }
     }
 
     bool LoadedPlugin::is_valid() const
@@ -35,6 +38,7 @@ namespace tbx
 
         TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
         _state = LoadedPluginState::ATTACHED;
+        _attached_service_provider = &service_provider;
         try
         {
             instance->attach(service_provider);
@@ -42,6 +46,7 @@ namespace tbx
         catch (...)
         {
             _state = LoadedPluginState::UNATTACHED;
+            _attached_service_provider = nullptr;
             throw;
         }
     }
@@ -54,6 +59,7 @@ namespace tbx
         TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
         instance->detach(service_provider);
         _state = LoadedPluginState::DETACHED;
+        _attached_service_provider = nullptr;
     }
 
     void LoadedPlugin::receive_message(Message& msg)

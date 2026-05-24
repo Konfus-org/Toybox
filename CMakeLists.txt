@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(TBX_ENABLE_COMPILER_CACHE "Use compiler cache launchers when available" ON)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_program(TBX_CLANG_SCAN_DEPS_PROGRAM
         NAMES
             clang-scan-deps
@@ -31,12 +31,15 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 if(TBX_ENABLE_COMPILER_CACHE)
-    set(CMAKE_C_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
-    set(CMAKE_CXX_COMPILER_LAUNCHER "" CACHE STRING "" FORCE)
     set(tbx_enable_compiler_cache_launcher ON)
 
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT TBX_CLANG_SCAN_DEPS_PROGRAM)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT TBX_CLANG_SCAN_DEPS_PROGRAM)
         message(STATUS "Tbx: skipping compiler cache launcher for Clang because clang-scan-deps was not found")
+        set(tbx_enable_compiler_cache_launcher OFF)
+    endif()
+
+    if(CMAKE_C_COMPILER_LAUNCHER OR CMAKE_CXX_COMPILER_LAUNCHER)
+        message(STATUS "Tbx: using user-provided compiler cache launcher")
         set(tbx_enable_compiler_cache_launcher OFF)
     endif()
 

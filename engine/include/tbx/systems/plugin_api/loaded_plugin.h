@@ -69,6 +69,7 @@ namespace tbx
 
       private:
         LoadedPluginState _state = LoadedPluginState::UNATTACHED;
+        ServiceProvider* _attached_service_provider = nullptr;
     };
 
     /// @brief Purpose: Formats a LoadedPlugin summary string.

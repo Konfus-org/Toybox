@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-set(TBX_COPY_EXISTING_RUNTIME_DLLS_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/copy_existing_runtime_dlls.cmake")
+set(TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/copy_runtime_dependencies.cmake")
 
 function(tbx_set_test_output target_name)
     if(NOT target_name)
@@ -12,6 +12,7 @@ function(tbx_set_test_output target_name)
     endif()
 
     set_target_properties(${target_name} PROPERTIES
+        EXCLUDE_FROM_ALL TRUE
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
     )
@@ -20,8 +21,8 @@ function(tbx_set_test_output target_name)
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND}
                 "-DDESTINATION=$<TARGET_FILE_DIR:${target_name}>"
-                "-DSOURCES=$<JOIN:$<TARGET_RUNTIME_DLLS:${target_name}>,;>"
-                -P "${TBX_COPY_EXISTING_RUNTIME_DLLS_SCRIPT}"
+                "-DSOURCES=$<TARGET_RUNTIME_DLLS:${target_name}>"
+                -P "${TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT}"
             VERBATIM
         )
     endif()
