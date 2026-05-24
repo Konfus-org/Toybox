@@ -1,7 +1,9 @@
 #pragma once
 #include "opengl_resource.h"
+#include "opengl_state.h"
 #include "tbx/types/shader.h"
 #include "tbx/types/typedefs.h"
+#include <glad/glad.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -54,5 +56,31 @@ namespace opengl_rendering
       private:
         std::string _last_error = {};
         uint32 _program_id = 0;
+    };
+
+    /// @brief
+    /// Purpose: Stores one backend-ready vertex buffer binding from a raster pipeline.
+    struct OpenGlVertexBufferBinding
+    {
+        uint32 slot = 0U;
+        GLsizei stride = 0;
+    };
+
+    /// @brief
+    /// Purpose: Stores one compute pipeline's OpenGL resources.
+    struct OpenGlComputePipelineResource
+    {
+        OpenGlShaderProgram program;
+    };
+
+    /// @brief
+    /// Purpose: Stores one raster pipeline's OpenGL resources and state.
+    struct OpenGlRasterPipelineResource
+    {
+        OpenGlShaderProgram program;
+        GLuint vertex_array = 0U;
+        OpenGlPipelineState state = {};
+        GLenum primitive_type = GL_TRIANGLES;
+        std::vector<OpenGlVertexBufferBinding> vertex_buffers = {};
     };
 }

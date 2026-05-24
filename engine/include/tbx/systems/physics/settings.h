@@ -1,8 +1,9 @@
 #pragma once
-#include "tbx/types/vectors.h"
 #include "tbx/systems/messaging/observable.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/vectors.h"
 #include <cstdint>
+#include <memory>
 
 namespace tbx
 {
@@ -13,7 +14,7 @@ namespace tbx
     /// Thread Safety: Not thread-safe; synchronize access externally.
     struct TBX_API PhysicsSettings
     {
-        PhysicsSettings(IMessageDispatcher& dispatcher);
+        PhysicsSettings(std::weak_ptr<IMessageDispatcher> dispatcher);
 
         Observable<PhysicsSettings, Vec3> gravity;
         Observable<PhysicsSettings, float> fixed_time_step_seconds;

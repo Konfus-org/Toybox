@@ -5,7 +5,7 @@
 namespace tbx
 {
     AppSettings::AppSettings(
-        IMessageDispatcher& dispatcher,
+        std::weak_ptr<IMessageDispatcher> dispatcher,
         bool vsync,
         GraphicsApi api,
         Size resolution,

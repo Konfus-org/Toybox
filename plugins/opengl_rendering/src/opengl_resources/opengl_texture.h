@@ -2,6 +2,7 @@
 #include "opengl_resource.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/types/typedefs.h"
+#include <glad/glad.h>
 
 namespace opengl_rendering
 {
@@ -29,11 +30,27 @@ namespace opengl_rendering
         uint32 get_array_layer_count() const;
         void update(
             const tbx::GraphicsTextureUpdateDesc& desc,
-            tbx::GraphicsTextureFormat format,
+            GLenum upload_format,
+            GLenum upload_type,
             const void* data) const;
 
       private:
         uint32 _texture_id = 0;
         uint32 _array_layer_count = 1U;
+    };
+
+    /// @brief
+    /// Purpose: Stores a texture and the backend facts needed after upload.
+    struct OpenGlTextureResource
+    {
+        OpenGlTexture texture;
+        tbx::Size size = {};
+        uint64 bytes_per_pixel = 0U;
+        uint32 array_layer_count = 1U;
+        GLenum depth_attachment = GL_DEPTH_ATTACHMENT;
+        GLenum internal_format = GL_RGBA8;
+        GLenum upload_format = GL_RGBA;
+        GLenum upload_type = GL_UNSIGNED_BYTE;
+        bool is_storage_capable = false;
     };
 }

@@ -40,6 +40,19 @@ namespace opengl_rendering
     };
 
     /// @brief
+    /// Purpose: Stores a buffer and the backend facts needed after upload.
+    struct OpenGlBufferResource
+    {
+        OpenGlGraphicsBuffer buffer;
+        uint64 size = 0U;
+        bool is_vertex_buffer = false;
+        bool is_index_buffer = false;
+        bool is_uniform_buffer = false;
+        bool is_storage_buffer = false;
+        bool is_indirect_argument_buffer = false;
+    };
+
+    /// @brief
     /// Purpose: Owns the transient framebuffer used for explicit render passes.
     /// @details
     /// Ownership: Owns one framebuffer object and borrows attached texture handles.
@@ -58,10 +71,8 @@ namespace opengl_rendering
 
       public:
         void attach_color(uint32 index, const OpenGlTexture& texture) const;
-        void attach_depth_stencil(
-            const OpenGlTexture& texture,
-            tbx::GraphicsTextureFormat format,
-            int32 layer) const;
+        void attach_depth_stencil(const OpenGlTexture& texture, GLenum attachment, int32 layer)
+            const;
         void bind() override;
         bool is_complete() const;
         void set_draw_buffers(uint32 color_target_count) const;

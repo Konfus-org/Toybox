@@ -7,7 +7,7 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
-#include "tbx/systems/messages/message_coordinator.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
@@ -201,7 +201,7 @@ namespace tbx::tests::app
             working_directory,
             std::vector<std::filesystem::path> {}));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
-            *message_coordinator,
+            message_coordinator,
             true,
             GraphicsApi::OPEN_GL,
             Size {1280, 720}));

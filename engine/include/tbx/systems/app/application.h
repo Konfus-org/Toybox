@@ -9,7 +9,7 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/rendering.h"
-#include "tbx/systems/messages/message_coordinator.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"

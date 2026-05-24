@@ -3,7 +3,6 @@
 namespace tbx
 {
     GraphicsSettings::GraphicsSettings(
-        detail::GraphicsSettingsLocalCopyTag,
         bool vsync,
         GraphicsApi api,
         Size resolution,
@@ -12,7 +11,10 @@ namespace tbx
         float shadow_softness,
         float local_light_max_distance,
         float shadow_caster_max_distance)
-        : vsync_enabled(*this, &GraphicsSettings::vsync_enabled, vsync)
+        : vsync_enabled(
+              *this,
+              &GraphicsSettings::vsync_enabled,
+              vsync ? VsyncMode::ON : VsyncMode::OFF)
         , graphics_api(*this, &GraphicsSettings::graphics_api, api)
         , resolution(*this, &GraphicsSettings::resolution, resolution)
         , shadow_map_resolution(
@@ -36,7 +38,7 @@ namespace tbx
     }
 
     GraphicsSettings::GraphicsSettings(
-        IMessageDispatcher& dispatcher,
+        std::weak_ptr<IMessageDispatcher> dispatcher,
         bool vsync,
         GraphicsApi api,
         Size resolution,
@@ -45,7 +47,11 @@ namespace tbx
         float shadow_softness,
         float local_light_max_distance,
         float shadow_caster_max_distance)
-        : vsync_enabled(dispatcher, *this, &GraphicsSettings::vsync_enabled, vsync)
+        : vsync_enabled(
+              dispatcher,
+              *this,
+              &GraphicsSettings::vsync_enabled,
+              vsync ? VsyncMode::ON : VsyncMode::OFF)
         , graphics_api(dispatcher, *this, &GraphicsSettings::graphics_api, api)
         , resolution(dispatcher, *this, &GraphicsSettings::resolution, resolution)
         , shadow_map_resolution(
@@ -70,45 +76,5 @@ namespace tbx
               &GraphicsSettings::shadow_caster_max_distance,
               shadow_caster_max_distance)
     {
-    }
-
-    GraphicsSettings::GraphicsSettings(const GraphicsSettings& other)
-        : GraphicsSettings(
-              detail::GraphicsSettingsLocalCopyTag {},
-              other.vsync_enabled,
-              other.graphics_api,
-              other.resolution,
-              other.shadow_map_resolution,
-              other.shadow_render_distance,
-              other.shadow_softness,
-              other.local_light_max_distance,
-              other.shadow_caster_max_distance)
-    {
-    }
-
-    GraphicsSettings& GraphicsSettings::operator=(const GraphicsSettings& other)
-    {
-        if (this == &other)
-            return *this;
-
-        vsync_enabled = other.vsync_enabled.value;
-        graphics_api = other.graphics_api.value;
-        resolution = other.resolution.value;
-        shadow_map_resolution = other.shadow_map_resolution.value;
-        shadow_render_distance = other.shadow_render_distance.value;
-        shadow_softness = other.shadow_softness.value;
-        local_light_max_distance = other.local_light_max_distance.value;
-        shadow_caster_max_distance = other.shadow_caster_max_distance.value;
-        return *this;
-    }
-
-    GraphicsSettings::GraphicsSettings(GraphicsSettings&& other) noexcept
-        : GraphicsSettings(other)
-    {
-    }
-
-    GraphicsSettings& GraphicsSettings::operator=(GraphicsSettings&& other) noexcept
-    {
-        return operator=(other);
     }
 }

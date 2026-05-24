@@ -68,7 +68,3 @@ target_link_libraries(Engine
     PRIVATE
         spdlog::spdlog
 )
-
-set(CMAKE_FOLDER "tests")
-add_subdirectory(tests)
-unset(CMAKE_FOLDER)

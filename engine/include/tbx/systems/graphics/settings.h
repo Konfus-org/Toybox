@@ -4,16 +4,10 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
+#include <memory>
 
 namespace tbx
 {
-    namespace detail
-    {
-        struct GraphicsSettingsLocalCopyTag
-        {
-        };
-    }
-
     /// @brief
     /// Purpose: Defines global graphics runtime settings shared across render plugins.
     /// @details
@@ -22,7 +16,6 @@ namespace tbx
     struct TBX_API GraphicsSettings
     {
         GraphicsSettings(
-            IMessageDispatcher& dispatcher,
             bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0},
@@ -32,15 +25,21 @@ namespace tbx
             float local_light_max_distance = 64.0F,
             float shadow_caster_max_distance = 96.0F);
 
-        GraphicsSettings(const GraphicsSettings& other);
-        GraphicsSettings& operator=(const GraphicsSettings& other);
-        GraphicsSettings(GraphicsSettings&& other) noexcept;
-        GraphicsSettings& operator=(GraphicsSettings&& other) noexcept;
+        GraphicsSettings(
+            std::weak_ptr<IMessageDispatcher> dispatcher,
+            bool vsync = false,
+            GraphicsApi api = GraphicsApi::OPEN_GL,
+            Size resolution = {0, 0},
+            uint32 shadow_map_resolution = 2048U,
+            float shadow_render_distance = 90.0F,
+            float shadow_softness = 1.0F,
+            float local_light_max_distance = 64.0F,
+            float shadow_caster_max_distance = 96.0F);
 
         template <typename TOwner>
         GraphicsSettings(
-            IMessageDispatcher& dispatcher,
-            Observable<TOwner, GraphicsSettings>& parent_property,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
+            Observable<TOwner, GraphicsSettings>& parent,
             bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0},
@@ -51,44 +50,39 @@ namespace tbx
             float shadow_caster_max_distance = 96.0F)
             : vsync_enabled(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::vsync_enabled,
-                  vsync)
-            , graphics_api(dispatcher, parent_property, *this, &GraphicsSettings::graphics_api, api)
-            , resolution(
-                  dispatcher,
-                  parent_property,
-                  *this,
-                  &GraphicsSettings::resolution,
-                  resolution)
+                  vsync ? VsyncMode::ON : VsyncMode::OFF)
+            , graphics_api(dispatcher, parent, *this, &GraphicsSettings::graphics_api, api)
+            , resolution(dispatcher, parent, *this, &GraphicsSettings::resolution, resolution)
             , shadow_map_resolution(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::shadow_map_resolution,
                   shadow_map_resolution)
             , shadow_render_distance(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::shadow_render_distance,
                   shadow_render_distance)
             , shadow_softness(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::shadow_softness,
                   shadow_softness)
             , local_light_max_distance(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::local_light_max_distance,
                   local_light_max_distance)
             , shadow_caster_max_distance(
                   dispatcher,
-                  parent_property,
+                  parent,
                   *this,
                   &GraphicsSettings::shadow_caster_max_distance,
                   shadow_caster_max_distance)
@@ -100,7 +94,7 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        Observable<GraphicsSettings, bool> vsync_enabled;
+        Observable<GraphicsSettings, VsyncMode> vsync_enabled;
 
         /// @brief
         /// Purpose: Selects which graphics backend plugins should activate.
@@ -156,18 +150,6 @@ namespace tbx
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         Observable<GraphicsSettings, float> shadow_caster_max_distance;
-
-      private:
-        GraphicsSettings(
-            detail::GraphicsSettingsLocalCopyTag,
-            bool vsync = false,
-            GraphicsApi api = GraphicsApi::OPEN_GL,
-            Size resolution = {0, 0},
-            uint32 shadow_map_resolution = 2048U,
-            float shadow_render_distance = 90.0F,
-            float shadow_softness = 1.0F,
-            float local_light_max_distance = 64.0F,
-            float shadow_caster_max_distance = 96.0F);
     };
 
 }

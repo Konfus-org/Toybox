@@ -1,7 +1,7 @@
 #include "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
 #include "opengl_backend.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
 #include <memory>
@@ -10,14 +10,14 @@ namespace opengl_rendering
 {
     void OpenGlRenderingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        auto context_manager = service_provider.get_service<tbx::IOpenGlContextManager>().lock();
-        TBX_ASSERT(context_manager != nullptr, "OpenGL rendering plugin requires context manager.");
-        if (!context_manager)
+        auto context_backend = service_provider.get_service<tbx::IOpenGlContextBackend>().lock();
+        TBX_ASSERT(context_backend != nullptr, "OpenGL rendering plugin requires context backend.");
+        if (!context_backend)
             return;
 
-        context_manager->initialize(4, 5, 24, 8, true, false);
+        context_backend->initialize(4, 5, 24, 8, true, false);
 
-        auto backend = std::make_unique<OpenGlGraphicsBackend>(*context_manager);
+        auto backend = std::make_unique<OpenGlGraphicsBackend>(*context_backend);
         service_provider.register_service<tbx::IGraphicsBackend>(std::move(backend));
 
         auto backend_service = service_provider.get_service<tbx::IGraphicsBackend>().lock();

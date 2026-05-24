@@ -31,25 +31,16 @@ namespace tbx
         friend class Observable;
 
         Observable(TOwner& owner_ref, Observable<TOwner, TProp> TOwner::* member_ptr, TProp val)
-            : Observable(nullptr, owner_ref, member_ptr, std::move(val))
+            : Observable(std::weak_ptr<IMessageDispatcher>(), owner_ref, member_ptr, std::move(val))
         {
         }
 
         Observable(
-            IMessageDispatcher& dispatch,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
             TOwner& owner_ref,
             Observable<TOwner, TProp> TOwner::* member_ptr,
             TProp val)
-            : Observable(&dispatch, owner_ref, member_ptr, std::move(val))
-        {
-        }
-
-        Observable(
-            IMessageDispatcher* dispatch,
-            TOwner& owner_ref,
-            Observable<TOwner, TProp> TOwner::* member_ptr,
-            TProp val)
-            : _dispatcher(dispatch)
+            : _dispatcher(std::move(dispatcher))
             , _notify_parent_property()
             , _member(member_ptr)
             , owner(owner_ref)
@@ -60,17 +51,17 @@ namespace tbx
 
         template <typename TParentOwner>
         Observable(
-            IMessageDispatcher& dispatch,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
             Observable<TParentOwner, TOwner>& parent_property,
             TOwner& owner_ref,
             Observable<TOwner, TProp> TOwner::* member_ptr,
             TProp val)
-            : _dispatcher(&dispatch)
+            : _dispatcher(std::move(dispatcher))
             , _notify_parent_property(
                   [member_ptr, &parent_property](const TProp& previous_value)
                   {
                       auto previous_parent_value = parent_property.value;
-                      previous_parent_value.*member_ptr = previous_value;
+                      (previous_parent_value.*member_ptr).value = previous_value;
                       parent_property.notify(previous_parent_value, parent_property.value);
                   })
             , _member(member_ptr)
@@ -81,16 +72,16 @@ namespace tbx
 
         template <typename... TArgs>
         Observable(
-            IMessageDispatcher& dispatch,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
             TOwner& owner_ref,
             Observable<TOwner, TProp> TOwner::* member_ptr,
             std::in_place_t,
             TArgs&&... args)
-            : _dispatcher(&dispatch)
+            : _dispatcher(std::move(dispatcher))
             , _notify_parent_property()
             , _member(member_ptr)
             , owner(owner_ref)
-            , value(dispatch, *this, std::forward<TArgs>(args)...)
+            , value(_dispatcher, *this, std::forward<TArgs>(args)...)
         {
             notify(value, value);
         }
@@ -138,7 +129,7 @@ namespace tbx
         }
 
       private:
-        IMessageDispatcher* _dispatcher = nullptr;
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
         std::function<void(const TProp&)> _notify_parent_property = {};
         Observable<TOwner, TProp> TOwner::* _member = nullptr;
         std::reference_wrapper<TOwner> owner;
@@ -166,10 +157,11 @@ namespace tbx
 
         void notify(const TProp& previous, const TProp& current) const
         {
-            if (!_dispatcher)
+            auto dispatcher = _dispatcher.lock();
+            if (!dispatcher)
                 return;
 
-            _dispatcher->send<PropertyChangedEvent<TOwner, TProp>>(
+            dispatcher->send<PropertyChangedEvent<TOwner, TProp>>(
                 _member,
                 owner.get(),
                 previous,

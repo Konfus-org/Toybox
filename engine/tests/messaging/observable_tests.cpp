@@ -1,11 +1,12 @@
-#include "tbx/systems/messages/message_coordinator.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/messaging/observable.h"
+#include <memory>
 
 namespace tbx::tests::messaging
 {
     struct ChildObservableTestSettings
     {
-        ChildObservableTestSettings(IMessageDispatcher& dispatcher)
+        ChildObservableTestSettings(std::weak_ptr<IMessageDispatcher> dispatcher)
             : value(dispatcher, *this, &ChildObservableTestSettings::value, 1)
         {
         }
@@ -15,14 +16,14 @@ namespace tbx::tests::messaging
         {
         }
 
-        explicit ChildObservableTestSettings(int initial_value)
+        ChildObservableTestSettings(int initial_value)
             : value(*this, &ChildObservableTestSettings::value, initial_value)
         {
         }
 
         template <typename TOwner>
         ChildObservableTestSettings(
-            IMessageDispatcher& dispatcher,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
             Observable<TOwner, ChildObservableTestSettings>& parent_property,
             int initial_value = 1)
             : value(
@@ -34,26 +35,12 @@ namespace tbx::tests::messaging
         {
         }
 
-        ChildObservableTestSettings(const ChildObservableTestSettings& other)
-            : ChildObservableTestSettings(other.value.value)
-        {
-        }
-
-        ChildObservableTestSettings& operator=(const ChildObservableTestSettings& other)
-        {
-            if (this == &other)
-                return *this;
-
-            value = other.value.value;
-            return *this;
-        }
-
         Observable<ChildObservableTestSettings, int> value;
     };
 
     struct ParentObservableTestSettings
     {
-        ParentObservableTestSettings(IMessageDispatcher& dispatcher)
+        ParentObservableTestSettings(std::weak_ptr<IMessageDispatcher> dispatcher)
             : child(dispatcher, *this, &ParentObservableTestSettings::child, std::in_place)
         {
         }
@@ -64,10 +51,10 @@ namespace tbx::tests::messaging
     TEST(ObservableTests, ParentPropertyChangedEvent_IsSentWhenChildObservableChanges)
     {
         // Arrange
-        auto dispatcher = MessageCoordinator();
+        auto dispatcher = std::make_shared<MessageCoordinator>();
         auto settings = ParentObservableTestSettings(dispatcher);
         auto parent_property_change_count = 0;
-        dispatcher.register_handler(
+        dispatcher->register_handler(
             [&parent_property_change_count](Message& msg)
             {
                 if (handle_property_changed<&ParentObservableTestSettings::child>(msg))

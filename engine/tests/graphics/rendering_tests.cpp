@@ -10,7 +10,7 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
-#include "tbx/systems/messages/message_coordinator.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/mesh.h"
@@ -723,10 +723,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = Entity("Triangle", registry);
@@ -785,10 +785,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = Entity("Triangle", registry);
@@ -832,10 +832,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto caller_thread_id = std::this_thread::get_id();
@@ -874,10 +874,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
@@ -916,10 +916,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = MessageCoordinator {};
+        auto dispatcher = std::make_shared<MessageCoordinator>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings = AppSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         settings.graphics->local_light_max_distance = 1.0F;
         auto camera = Entity("Camera", registry);
@@ -940,7 +940,7 @@ namespace tbx::tests::graphics
             thread_manager_service,
             window_manager_service,
             settings.graphics);
-        dispatcher.register_handler(
+        dispatcher->register_handler(
             [&rendering](Message& msg)
             {
                 rendering.receive_message(msg);
@@ -1015,10 +1015,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = Entity("Cube", registry);
@@ -1066,10 +1066,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto root = Entity("Root", registry);
@@ -1118,10 +1118,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = Entity("Camera", registry);
@@ -1173,10 +1173,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = Entity("Camera", registry);
@@ -1222,7 +1222,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         serialization_registry.register_reader<ShaderProgram>(
             [](const std::filesystem::path&, const ShaderLoadParameters&)
@@ -1252,7 +1252,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Material>(std::move(material));
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = Entity("Camera", registry);
@@ -1359,7 +1359,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto material_load_count = uint {};
         serialization_registry.register_reader<Material>(
@@ -1373,7 +1373,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Material>(std::move(material));
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto material_handle = Handle("Materials/Transient.mat");
@@ -1418,7 +1418,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto model_load_count = uint {};
         serialization_registry.register_reader<Model>(
@@ -1428,7 +1428,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Model>(Mesh::TRIANGLE);
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/Triangle.fbx");
@@ -1479,10 +1479,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
@@ -1524,10 +1524,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto first = Entity("First", registry);
@@ -1567,10 +1567,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
@@ -1616,10 +1616,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
@@ -1663,7 +1663,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         serialization_registry.register_reader<Model>(
             [](const std::filesystem::path&, const ModelLoadParameters&)
@@ -1671,7 +1671,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Model>(Mesh::TRIANGLE);
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/BatchedTriangle.fbx");
@@ -1712,7 +1712,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         serialization_registry.register_reader<Material>(
             [](const std::filesystem::path& path, const MaterialLoadParameters&)
@@ -1728,7 +1728,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Material>(std::move(material));
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto opaque = Entity("OpaqueCube", registry);
@@ -1782,7 +1782,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         serialization_registry.register_reader<Model>(
             [](const std::filesystem::path&, const ModelLoadParameters&)
@@ -1790,7 +1790,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Model>(Mesh::TRIANGLE);
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/SplitTriangle.fbx");
@@ -1837,7 +1837,7 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         serialization_registry.register_reader<Model>(
             [](const std::filesystem::path&, const ModelLoadParameters&)
@@ -1845,7 +1845,7 @@ namespace tbx::tests::graphics
                 return std::make_shared<Model>(Mesh::TRIANGLE);
             });
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/ShadowTriangle.fbx");
@@ -1900,10 +1900,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = Entity("Triangle", registry);
@@ -1983,10 +1983,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings = GraphicsSettings(
             dispatcher,
             false,
@@ -2037,10 +2037,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = Entity("Triangle", registry);
@@ -2093,10 +2093,10 @@ namespace tbx::tests::graphics
         auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = Entity("Triangle", registry);
@@ -2137,10 +2137,10 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto resource_manager =
@@ -2251,10 +2251,10 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto dispatcher = NullMessageDispatcher {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
-            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto resource_manager =

@@ -3,6 +3,7 @@
 #include "tbx/systems/messaging/message.h"
 #include <concepts>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>

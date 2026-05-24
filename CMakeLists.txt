@@ -60,4 +60,8 @@ add_subdirectory(engine)
 add_subdirectory(plugins)
 add_subdirectory(examples)
 
+set(CMAKE_FOLDER "tests")
+add_subdirectory(engine/tests)
+unset(CMAKE_FOLDER)
+
 include(utilities)

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/interfaces/opengl_context_manager.h"
+#include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
 #include <string>
@@ -29,7 +29,7 @@ namespace sdl_opengl_context_manager
     /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.
-    class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::IOpenGlContextManager
+    class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::IOpenGlContextBackend
     {
       public:
         SdlOpenGlContextManager(tbx::IWindowManager& window_manager);

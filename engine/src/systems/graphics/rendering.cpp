@@ -7,14 +7,6 @@
 #include <string_view>
 #include <utility>
 
-namespace tbx::internal
-{
-    static VsyncMode to_vsync_mode(const bool is_enabled)
-    {
-        return is_enabled ? VsyncMode::ON : VsyncMode::OFF;
-    }
-}
-
 namespace tbx
 {
     Rendering::Rendering(
@@ -135,7 +127,7 @@ namespace tbx
             return _settings;
         }();
 
-        const auto vsync_mode = internal::to_vsync_mode(settings.vsync_enabled.value);
+        const auto vsync_mode = settings.vsync_enabled.value;
         if (backend->get_vsync() != vsync_mode)
         {
             const auto vsync_result = backend->set_vsync(vsync_mode);

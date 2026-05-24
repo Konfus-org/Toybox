@@ -1,6 +1,5 @@
 #include "opengl_buffers.h"
 #include "internal/opengl_buffers_internal.h"
-#include "opengl_utils.h"
 #include "tbx/systems/debugging/macros.h"
 #include <array>
 #include <glad/glad.h>
@@ -12,7 +11,7 @@ namespace opengl_rendering
         const tbx::GraphicsBufferDesc& desc,
         const void* data,
         const uint64 data_size)
-        : _target(to_gl_buffer_target(desc.usage))
+        : _target(internal::to_gl_buffer_target(desc.usage))
     {
         const auto* upload_data = data_size == desc.size ? data : nullptr;
         glCreateBuffers(1, &_buffer_id);
@@ -20,7 +19,7 @@ namespace opengl_rendering
             _buffer_id,
             static_cast<GLsizeiptr>(desc.size),
             upload_data,
-            to_gl_buffer_usage(desc));
+            internal::to_gl_buffer_usage(desc));
         if (upload_data == nullptr && data != nullptr && data_size > 0U)
             update(data, data_size, 0U);
     }
@@ -32,7 +31,7 @@ namespace opengl_rendering
     }
 
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(OpenGlGraphicsBuffer&& other) noexcept
-        : _buffer_id(internal::take_gl_handle(other._buffer_id))
+        : _buffer_id(internal::take_buffer_gl_handle(other._buffer_id))
         , _target(other._target)
     {
         other._target = GL_ARRAY_BUFFER;
@@ -46,7 +45,7 @@ namespace opengl_rendering
         if (_buffer_id != 0U)
             glDeleteBuffers(1, &_buffer_id);
 
-        _buffer_id = internal::take_gl_handle(other._buffer_id);
+        _buffer_id = internal::take_buffer_gl_handle(other._buffer_id);
         _target = other._target;
         other._target = GL_ARRAY_BUFFER;
         return *this;
@@ -94,7 +93,7 @@ namespace opengl_rendering
     }
 
     OpenGlFramebuffer::OpenGlFramebuffer(OpenGlFramebuffer&& other) noexcept
-        : _framebuffer_id(internal::take_gl_handle(other._framebuffer_id))
+        : _framebuffer_id(internal::take_buffer_gl_handle(other._framebuffer_id))
     {
     }
 
@@ -106,7 +105,7 @@ namespace opengl_rendering
         if (_framebuffer_id != 0U)
             glDeleteFramebuffers(1, &_framebuffer_id);
 
-        _framebuffer_id = internal::take_gl_handle(other._framebuffer_id);
+        _framebuffer_id = internal::take_buffer_gl_handle(other._framebuffer_id);
         return *this;
     }
 
@@ -121,25 +120,21 @@ namespace opengl_rendering
 
     void OpenGlFramebuffer::attach_depth_stencil(
         const OpenGlTexture& texture,
-        const tbx::GraphicsTextureFormat format,
+        const GLenum attachment,
         const int32 layer) const
     {
         if (layer >= 0)
         {
             glNamedFramebufferTextureLayer(
                 _framebuffer_id,
-                get_depth_attachment(format),
+                attachment,
                 texture.get_texture_id(),
                 0,
                 layer);
             return;
         }
 
-        glNamedFramebufferTexture(
-            _framebuffer_id,
-            get_depth_attachment(format),
-            texture.get_texture_id(),
-            0);
+        glNamedFramebufferTexture(_framebuffer_id, attachment, texture.get_texture_id(), 0);
     }
 
     void OpenGlFramebuffer::bind()

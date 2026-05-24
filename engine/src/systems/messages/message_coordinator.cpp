@@ -1,4 +1,4 @@
-#include "tbx/systems/messages/message_coordinator.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/debugging/macros.h"
 #include "systems/messages/internal/message_coordinator_internal.h"
 #include <algorithm>

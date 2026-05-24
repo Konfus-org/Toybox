@@ -6,6 +6,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include <filesystem>
+#include <memory>
 
 namespace tbx
 {
@@ -28,7 +29,7 @@ namespace tbx
     struct TBX_API AppSettings
     {
         AppSettings(
-            IMessageDispatcher& dispatcher,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
             bool vsync = false,
             GraphicsApi api = GraphicsApi::OPEN_GL,
             Size resolution = {0, 0},

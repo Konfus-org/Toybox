@@ -45,7 +45,7 @@ namespace tbx::internal
             *serialization_registry,
             desc.working_root));
         auto settings = std::make_unique<AppSettings>(
-            *message_coordinator,
+            message_coordinator,
             false,
             GraphicsApi::OPEN_GL,
             Size {0, 0});

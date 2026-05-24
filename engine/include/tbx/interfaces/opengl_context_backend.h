@@ -4,7 +4,6 @@
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 
-
 namespace tbx
 {
     /// @brief
@@ -15,15 +14,15 @@ namespace tbx
     using GraphicsProcAddress = void* (*)(const char*);
 
     /// @brief
-    /// Purpose: Exposes active OpenGL context management for the engine render pipeline.
+    /// Purpose: Exposes active OpenGL context operations for the engine render pipeline.
     /// @details
     /// Ownership: Implementations own backend window/context state.
     /// Thread Safety: Not inherently thread-safe; callers should follow the implementation rules.
-    class TBX_API IOpenGlContextManager
+    class TBX_API IOpenGlContextBackend
     {
       public:
-        IOpenGlContextManager();
-        virtual ~IOpenGlContextManager() noexcept;
+        IOpenGlContextBackend();
+        virtual ~IOpenGlContextBackend() noexcept;
 
       public:
         virtual void initialize(

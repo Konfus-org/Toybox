@@ -2,9 +2,12 @@
 #include "../opengl_shader.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/utils/result.h"
 #include <glad/glad.h>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace opengl_rendering::internal
 {
@@ -59,4 +62,7 @@ namespace opengl_rendering::internal
         return message;
     }
 
+    tbx::Result create_shaders(
+        const tbx::ShaderProgram& shader_desc,
+        std::vector<std::shared_ptr<OpenGlShader>>& out_shaders);
 }

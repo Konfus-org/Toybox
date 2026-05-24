@@ -2,19 +2,20 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <concepts>
-#include <condition_variable>
-#include <deque>
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 
+namespace tbx::internal
+{
+    class ThreadLane;
+}
 
 namespace tbx
 {
@@ -89,38 +90,11 @@ namespace tbx
         size get_lane_count() const;
 
       private:
-        class ThreadLane final
-        {
-          public:
-            ThreadLane(std::string lane_name);
-            ~ThreadLane() noexcept;
-
-            ThreadLane(const ThreadLane&) = delete;
-            ThreadLane& operator=(const ThreadLane&) = delete;
-            ThreadLane(ThreadLane&&) = delete;
-            ThreadLane& operator=(ThreadLane&&) = delete;
-
-            void post(Task&& task);
-            void stop();
-
-          private:
-            void run(std::stop_token stop_token);
-
-          private:
-            std::string _name = {};
-            std::jthread _worker = {};
-            std::mutex _queue_mutex = {};
-            std::condition_variable _queued_task_signal = {};
-            std::deque<Task> _queued_tasks = {};
-            bool _accepting_tasks = true;
-        };
-
-      private:
-        std::shared_ptr<ThreadLane> get_lane(std::string_view lane_name) const;
+        std::shared_ptr<internal::ThreadLane> get_lane(std::string_view lane_name) const;
 
       private:
         mutable std::mutex _lanes_mutex = {};
-        std::unordered_map<std::string, std::shared_ptr<ThreadLane>> _lanes = {};
+        std::unordered_map<std::string, std::shared_ptr<internal::ThreadLane>> _lanes = {};
     };
 }
 

@@ -3,7 +3,7 @@
 
 namespace tbx
 {
-    PhysicsSettings::PhysicsSettings(IMessageDispatcher& dispatcher)
+    PhysicsSettings::PhysicsSettings(std::weak_ptr<IMessageDispatcher> dispatcher)
         : gravity(dispatcher, *this, &PhysicsSettings::gravity, Vec3(0.0F, -9.81F, 0.0F))
         , fixed_time_step_seconds(
               dispatcher,

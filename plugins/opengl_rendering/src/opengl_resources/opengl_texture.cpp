@@ -1,6 +1,5 @@
 #include "opengl_texture.h"
 #include "internal/opengl_texture_internal.h"
-#include "opengl_utils.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <utility>
@@ -22,7 +21,7 @@ namespace opengl_rendering
             glTextureStorage3D(
                 _texture_id,
                 levels,
-                get_texture_internal_format(desc.format),
+                internal::get_texture_internal_format(desc.format),
                 width,
                 height,
                 layer_count);
@@ -32,7 +31,7 @@ namespace opengl_rendering
             glTextureStorage2D(
                 _texture_id,
                 levels,
-                get_texture_internal_format(desc.format),
+                internal::get_texture_internal_format(desc.format),
                 width,
                 height);
         }
@@ -50,8 +49,8 @@ namespace opengl_rendering
                     width,
                     height,
                     layer_count,
-                    get_texture_upload_format(desc.format),
-                    get_texture_upload_type(desc.format),
+                    internal::get_texture_upload_format(desc.format),
+                    internal::get_texture_upload_type(desc.format),
                     data);
             }
             else
@@ -63,8 +62,8 @@ namespace opengl_rendering
                     0,
                     width,
                     height,
-                    get_texture_upload_format(desc.format),
-                    get_texture_upload_type(desc.format),
+                    internal::get_texture_upload_format(desc.format),
+                    internal::get_texture_upload_type(desc.format),
                     data);
             }
         }
@@ -153,7 +152,8 @@ namespace opengl_rendering
 
     void OpenGlTexture::update(
         const tbx::GraphicsTextureUpdateDesc& desc,
-        const tbx::GraphicsTextureFormat format,
+        const GLenum upload_format,
+        const GLenum upload_type,
         const void* data) const
     {
         if (_array_layer_count > 1U)
@@ -167,8 +167,8 @@ namespace opengl_rendering
                 static_cast<GLsizei>(desc.width),
                 static_cast<GLsizei>(desc.height),
                 1,
-                get_texture_upload_format(format),
-                get_texture_upload_type(format),
+                upload_format,
+                upload_type,
                 data);
             return;
         }
@@ -180,8 +180,8 @@ namespace opengl_rendering
             static_cast<GLint>(desc.y),
             static_cast<GLsizei>(desc.width),
             static_cast<GLsizei>(desc.height),
-            get_texture_upload_format(format),
-            get_texture_upload_type(format),
+            upload_format,
+            upload_type,
             data);
     }
 }

@@ -18,6 +18,6 @@ namespace sdl_opengl_context_manager
         void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        std::weak_ptr<SdlOpenGlContextManager> _context_manager = {};
+        std::weak_ptr<SdlOpenGlContextManager> _context_backend = {};
     };
 }
