@@ -12,7 +12,6 @@ function(tbx_set_test_output target_name)
     endif()
 
     set_target_properties(${target_name} PROPERTIES
-        EXCLUDE_FROM_ALL TRUE
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
     )
