@@ -10,6 +10,7 @@
 #include "tbx/types/vertex.h"
 #include "tbx/utils/hash.h"
 #include <algorithm>
+#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -214,8 +215,8 @@ namespace tbx::internal
         const Handle& material_handle,
         const MaterialInstance* instance)
     {
-        uint64 result = hash(material_handle.get_id());
-        result = hash(material_handle.get_name(), result);
+        uint64 result = hash(material_handle.id);
+        result = hash(material_handle.name, result);
         if (instance == nullptr)
             return result == 0U ? 1U : result;
 
@@ -237,8 +238,8 @@ namespace tbx::internal
         for (const auto& texture : instance->overrides.textures)
         {
             result = hash(texture.id, result);
-            result = hash(texture.texture.get_id(), result);
-            result = hash(texture.texture.get_name(), result);
+            result = hash(texture.texture.id, result);
+            result = hash(texture.texture.name, result);
         }
 
         return result == 0U ? 1U : result;
@@ -474,7 +475,7 @@ namespace tbx::internal
             .is_depth_write_enabled = config.is_depth_write_enabled,
             .is_blending_enabled = config.blend_mode == MaterialBlendMode::ALPHA_BLEND,
             .is_culling_enabled = config.is_cullable && !config.is_two_sided,
-            .debug_name = std::string("Material ") + to_string(handle),
+            .debug_name = std::format("Material {}", handle),
         };
     }
 
@@ -535,15 +536,14 @@ namespace tbx::internal
 
     static Handle make_default_material_handle()
     {
-        return Handle("Materials/Pbr.mat", PbrMaterial::HANDLE.get_id());
+        return Handle("Materials/Pbr.mat", PbrMaterial::HANDLE.id);
     }
 
     static Handle resolve_material_handle(const MaterialInstance& instance)
     {
         auto material_handle = instance.get_handle();
-        if (!material_handle.is_valid()
-            || (material_handle.get_name().empty()
-                && material_handle.get_id() == PbrMaterial::HANDLE.get_id()))
+        if (!material_handle.id.is_valid()
+            || (material_handle.name.empty() && material_handle.id == PbrMaterial::HANDLE.id))
         {
             material_handle = make_default_material_handle();
         }
@@ -562,7 +562,7 @@ namespace tbx::internal
         const Handle& handle,
         const MaterialConfig& config)
     {
-        auto key = to_string(handle);
+        auto key = std::format("{}", handle);
         key += "|depth_test=" + std::to_string(config.is_depth_test_enabled ? 1 : 0);
         key += "|depth_write=" + std::to_string(config.is_depth_write_enabled ? 1 : 0);
         key += "|two_sided=" + std::to_string(config.is_two_sided ? 1 : 0);
@@ -645,7 +645,7 @@ namespace tbx::internal
             .size = texture.resolution,
             .mip_count = 1U,
             .array_layer_count = 1U,
-            .debug_name = std::string("Texture ") + to_string(handle),
+            .debug_name = std::format("Texture {}", handle),
         };
     }
 
@@ -708,7 +708,7 @@ namespace tbx::internal
         auto loaded_shader_ids = std::vector<Uuid> {};
         auto has_shader_failure = false;
 
-        if (material.shader.compute.is_valid())
+        if (material.shader.compute.id.is_valid())
         {
             has_shader_failure = !append_shader_sources(
                 asset_manager,
@@ -750,7 +750,7 @@ namespace tbx::internal
         TBX_TRACE_WARNING_ONCE(
             "Material '{}' failed to load one or more shader stages. Falling back to non-shaded "
             "magenta shader.",
-            to_string(handle));
+            handle);
         return fallback_shader == nullptr ? ShaderProgram() : *fallback_shader;
     }
 
@@ -787,8 +787,7 @@ namespace tbx::internal
             .usage = GraphicsBufferUsage::VERTEX,
             .size = byte_size,
             .is_dynamic = false,
-            .debug_name = std::string("Model ") + to_string(handle) + " Mesh "
-                          + std::to_string(mesh_index) + " Vertices",
+            .debug_name = std::format("Model {} Mesh {} Vertices", handle, mesh_index),
         };
     }
 
@@ -801,8 +800,7 @@ namespace tbx::internal
             .usage = GraphicsBufferUsage::INDEX,
             .size = byte_size,
             .is_dynamic = false,
-            .debug_name = std::string("Model ") + to_string(handle) + " Mesh "
-                          + std::to_string(mesh_index) + " Indices",
+            .debug_name = std::format("Model {} Mesh {} Indices", handle, mesh_index),
         };
     }
 
@@ -843,6 +841,24 @@ namespace tbx::internal
         std::unordered_map<uint32, Texture>& fallback_textures,
         TextureResourceCache& cache);
 
+    static MaterialParameterBindings make_material_parameter_bindings(
+        const MaterialParameterBindings& source)
+    {
+        auto bindings = MaterialParameterBindings {};
+        for (const auto& parameter : source)
+            bindings.set(parameter);
+        return bindings;
+    }
+
+    static MaterialTextureBindings make_material_texture_bindings(
+        const MaterialTextureBindings& source)
+    {
+        auto bindings = MaterialTextureBindings {};
+        for (const auto& texture : source)
+            bindings.set(texture);
+        return bindings;
+    }
+
     static std::optional<GraphicsResourceBinding> upload_material_texture(
         IGraphicsBackend& backend,
         AssetManager& asset_manager,
@@ -854,7 +870,7 @@ namespace tbx::internal
         const auto slot = resolve_shader_texture_slot(binding.id);
         auto handle = binding.texture;
         auto source_texture = std::shared_ptr<Texture> {};
-        if (!binding.texture.is_valid())
+        if (!binding.texture.id.is_valid())
             return upload_fallback_texture(
                 backend,
                 resource_tracker,
@@ -1002,8 +1018,8 @@ namespace tbx::internal
         ResourceUploadCaches& caches,
         RenderingMaterialUploadData& out_material)
     {
-        auto parameters = material.parameters;
-        auto textures = material.textures;
+        auto parameters = make_material_parameter_bindings(material.parameters);
+        auto textures = make_material_texture_bindings(material.textures);
         const auto config =
             instance == nullptr ? material.config : resolve_material_config(material, *instance);
 
@@ -1058,7 +1074,7 @@ namespace tbx::internal
         for (const auto& texture : textures)
         {
             auto texture_binding = std::optional<GraphicsResourceBinding>();
-            if (asset_manager != nullptr && texture.texture.is_valid())
+            if (asset_manager != nullptr && texture.texture.id.is_valid())
             {
                 texture_binding = upload_material_texture(
                     backend,

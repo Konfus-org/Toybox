@@ -15,7 +15,7 @@ namespace tbx::tests::graphics
         Sky sky = {};
 
         // Act
-        const bool is_material_valid = sky.material.get_handle().is_valid();
+        const bool is_material_valid = sky.material.get_handle().id.is_valid();
 
         // Assert
         EXPECT_FALSE(is_material_valid);
@@ -43,7 +43,7 @@ namespace tbx::tests::graphics
         PostProcessingEffect effect = {};
 
         // Act
-        const bool is_material_valid = effect.material.get_handle().is_valid();
+        const bool is_material_valid = effect.material.get_handle().id.is_valid();
         const bool is_enabled = effect.is_enabled;
         const float blend = effect.blend;
 
@@ -60,7 +60,7 @@ namespace tbx::tests::graphics
         MaterialInstance material_instance = {};
 
         // Act
-        const bool is_material_valid = material_instance.get_handle().is_valid();
+        const bool is_material_valid = material_instance.get_handle().id.is_valid();
         const bool has_parameters = material_instance.overrides.has_parameter_override;
         const bool has_textures = material_instance.overrides.has_texture_override;
 
@@ -80,7 +80,7 @@ namespace tbx::tests::graphics
         const auto& handle = material_instance.get_handle();
 
         // Assert
-        EXPECT_EQ(handle.get_id(), FlatMaterial::HANDLE.get_id());
+        EXPECT_EQ(handle.id, FlatMaterial::HANDLE.id);
     }
 
     // Validates shader source text is owned after construction.
@@ -197,13 +197,13 @@ namespace tbx::tests::graphics
         const auto diffuse_map = material.get_texture_handle_or(PbrMaterial::ALBEDO_MAP);
 
         // Assert
-        EXPECT_TRUE(PbrMaterial::HANDLE.is_valid());
-        EXPECT_TRUE(FlatMaterial::HANDLE.is_valid());
+        EXPECT_TRUE(PbrMaterial::HANDLE.id.is_valid());
+        EXPECT_TRUE(FlatMaterial::HANDLE.id.is_valid());
         EXPECT_FLOAT_EQ(color.r, Color::RED.r);
         EXPECT_FLOAT_EQ(color.g, Color::RED.g);
         EXPECT_FLOAT_EQ(color.b, Color::RED.b);
         EXPECT_FLOAT_EQ(color.a, Color::RED.a);
-        EXPECT_EQ(diffuse_map.get_id(), CheckerboardTexture::HANDLE.get_id());
+        EXPECT_EQ(diffuse_map.id, CheckerboardTexture::HANDLE.id);
     }
 
     // Validates Lods defaults to no LOD entries and no render-distance cap.

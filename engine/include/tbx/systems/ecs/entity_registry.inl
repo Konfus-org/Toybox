@@ -4,6 +4,7 @@
 namespace tbx
 {
     template <typename TComponent, typename... TArgs>
+        requires std::derived_from<TComponent, Component>
     TComponent& EntityRegistry::add(const Uuid& id, TArgs&&... args)
     {
         auto guard = std::unique_lock(_mutex);
@@ -12,6 +13,7 @@ namespace tbx
     }
 
     template <typename TComponent>
+        requires std::derived_from<TComponent, Component>
     void EntityRegistry::remove(const Uuid& id)
     {
         auto guard = std::unique_lock(_mutex);
@@ -23,6 +25,7 @@ namespace tbx
     }
 
     template <typename... TComponent>
+        requires(std::derived_from<TComponent, Component> && ...)
     std::vector<Entity> EntityRegistry::get_with() const
     {
         auto ids = std::vector<Uuid> {};
@@ -47,6 +50,7 @@ namespace tbx
     }
 
     template <typename... TComponent>
+        requires(std::derived_from<TComponent, Component> && ...)
     Entity EntityRegistry::first_with() const
     {
         auto first_id = Uuid {};
@@ -67,6 +71,7 @@ namespace tbx
     }
 
     template <typename... TComponent>
+        requires(std::derived_from<TComponent, Component> && ...)
     void EntityRegistry::for_each_with(const std::function<void(Entity&)>& callback)
     {
         if (!callback)
@@ -91,6 +96,7 @@ namespace tbx
     }
 
     template <typename... TComponent>
+        requires(std::derived_from<TComponent, Component> && ...)
     decltype(auto) EntityRegistry::get_with(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
@@ -99,6 +105,7 @@ namespace tbx
     }
 
     template <typename TComponent>
+        requires std::derived_from<TComponent, Component>
     bool EntityRegistry::has(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);

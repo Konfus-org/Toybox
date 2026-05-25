@@ -26,6 +26,11 @@ namespace tbx
         return stride_bytes == 0U ? 16U : stride_bytes / static_cast<uint32>(sizeof(float));
     }
 
+    StaticMesh::StaticMesh(Handle model_handle)
+        : handle(std::move(model_handle))
+    {
+    }
+
     DynamicMesh::DynamicMesh(Mesh mesh)
         : _data(std::make_shared<DynamicMeshData>(std::move(mesh)))
     {

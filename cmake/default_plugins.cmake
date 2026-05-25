@@ -29,11 +29,8 @@ function(tbx_define_default_plugins)
     if (NOT TARGET Tbx::Plugins::AssimpModelLoaderPlugin)
         message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::AssimpModelLoaderPlugin (call after add_subdirectory(plugins))")
     endif ()
-    if (NOT TARGET Tbx::Plugins::TbxShaderLoaderPlugin)
-        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::TbxShaderLoaderPlugin (call after add_subdirectory(plugins))")
-    endif ()
-    if (NOT TARGET Tbx::Plugins::TbxMaterialLoaderPlugin)
-        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::TbxMaterialLoaderPlugin (call after add_subdirectory(plugins))")
+    if (NOT TARGET Tbx::Plugins::ShaderIncludeLoader)
+        message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::ShaderIncludeLoader (call after add_subdirectory(plugins))")
     endif ()
     if (NOT TARGET Tbx::Plugins::SdlOpenGlContextManagerPlugin)
         message(WARNING "Tbx::DefaultPlugins could not find Tbx::Plugins::SdlOpenGlContextManagerPlugin (call after add_subdirectory(plugins))")
@@ -52,8 +49,6 @@ function(tbx_define_default_plugins)
             Tbx::Plugins::OpenGlRenderingPlugin
             Tbx::Plugins::StbImageLoaderPlugin
             Tbx::Plugins::AssimpModelLoaderPlugin
-            Tbx::Plugins::TbxShaderLoaderPlugin
-            Tbx::Plugins::TbxMaterialLoaderPlugin
+            Tbx::Plugins::ShaderIncludeLoader
     )
 endfunction()
-

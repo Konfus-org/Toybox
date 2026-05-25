@@ -1,6 +1,9 @@
 #pragma once
+#include "tbx/types/component.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/uuid.h"
+#include <concepts>
+#include <format>
 #include <functional>
 #include <optional>
 #include <string>
@@ -47,21 +50,27 @@ namespace tbx
         bool try_get_parent_entity(Entity& out_parent) const;
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         TComponent& add_component(const TComponent& component);
 
         template <typename TComponent, typename... TArgs>
+            requires std::derived_from<TComponent, Component>
         TComponent& add_component(TArgs&&... args);
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         void remove_component();
 
         template <typename... TComponent>
+            requires(std::derived_from<TComponent, Component> && ...)
         decltype(auto) get_components() const;
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         TComponent& get_component() const;
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         bool has_component() const;
 
       private:
@@ -70,13 +79,6 @@ namespace tbx
         std::optional<std::reference_wrapper<EntityRegistry>> _registry = std::nullopt;
         Uuid _id = {};
     };
-
-    /// @brief
-    /// Purpose: Formats an entity identifier and metadata for debugging output.
-    /// @details
-    /// Ownership: Returns an owned std::string.
-    /// Thread Safety: Safe for concurrent use when the entity metadata is not being mutated.
-    TBX_API std::string to_string(const Entity& entity);
 
     /// @brief
     /// Purpose: Resolves an entity transform in world space by composing parent local transforms.
@@ -100,5 +102,30 @@ namespace tbx
         Entity entity;
     };
 }
+
+template <>
+struct std::formatter<tbx::Entity>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::Entity& entity, TFormatContext& ctx) const
+    {
+        return _formatter.format(
+            std::format(
+                "Entity{{id={}, name='{}', tag='{}', layer='{}', parent={}}}",
+                entity.get_id().value,
+                entity.get_name(),
+                entity.get_tag(),
+                entity.get_layer(),
+                entity.get_parent().value),
+            ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};
 
 #include "tbx/systems/ecs/entity.inl"

@@ -67,9 +67,9 @@ namespace tbx
 
     constexpr uint32 MAX_LIGHTS = 128U;
     constexpr uint32 DIRECTIONAL_SHADOW_CASCADE_COUNT = 4U;
-    constexpr float SHADER_LIGHT_TYPE_DIRECTIONAL = 0.0F;
-    constexpr float SHADER_LIGHT_TYPE_POINT = 1.0F;
-    constexpr float SHADER_LIGHT_TYPE_SPOT = 2.0F;
+    constexpr uint32 SHADER_LIGHT_TYPE_DIRECTIONAL = 0U;
+    constexpr uint32 SHADER_LIGHT_TYPE_POINT = 1U;
+    constexpr uint32 SHADER_LIGHT_TYPE_SPOT = 2U;
 
     struct alignas(16) FrameShaderData
     {
@@ -88,11 +88,10 @@ namespace tbx
         Vec4 world_position = Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     };
 
-    // TODO: rename to ModelShaderData
-    struct alignas(16) ObjectShaderData
+    struct alignas(16) ModelShaderData
     {
         Mat4 model = Mat4(1.0F);
-        Mat4 normal_matrix = Mat4(1.0F); // TODO: rename to normal
+        Mat4 normal = Mat4(1.0F);
     };
 
     struct alignas(16) ShaderLightData

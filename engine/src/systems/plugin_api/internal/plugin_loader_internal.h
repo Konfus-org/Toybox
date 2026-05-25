@@ -200,15 +200,14 @@ namespace tbx::internal
         auto load_path = library_path;
         auto cleanup_path = std::filesystem::path {};
 
-        // TODO: Don't pay for this in release! Add a TBX_FULL_RELEASE flag we can use to optimize
-        // out stuff that shouldn't be in final versions, then replace the existing debug only
-        // things like the perf title in the perf monitor plugin with the full release ifdef
+#if !defined(TBX_FULL_RELEASE)
         if (const auto shadow_copy_path = try_create_plugin_shadow_copy(library_path, file_ops);
             !shadow_copy_path.empty())
         {
             load_path = shadow_copy_path;
             cleanup_path = shadow_copy_path.parent_path();
         }
+#endif
 
         auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
         if (!lib->is_valid() && load_path != library_path)

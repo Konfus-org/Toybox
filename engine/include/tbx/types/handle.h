@@ -1,7 +1,10 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/types/uuid.h"
+#include <atomic>
+#include <format>
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -11,96 +14,82 @@ namespace tbx
     /// Purpose: Represents a general handle that references assets or runtime objects by stable
     /// name and id.
     /// @details
-    /// Ownership: Stores owned name strings and UUID values.
-    /// Thread Safety: Safe to copy between threads; there are no mutating public APIs.
-    // TODO: add a is_valid bool that is a shared ptr. Then we can flag invalid when something is
-    // put in an invalid state (like deleting an asset, or closing a window, or anything like that)
-    class Handle
+    /// Ownership: Stores owned name strings, UUID values, and shared validity state.
+    /// Thread Safety: Safe to copy between threads; invalidation is atomic.
+    struct Handle
     {
-      public:
         Handle() = default;
 
         Handle(std::string handle_name)
-            : _name(std::move(handle_name))
-            , _id(hash_string_to_id(_name))
+            : name(std::move(handle_name))
+            , id(hash_string_to_id(name))
         {
         }
 
         Handle(Uuid handle_id)
-            : _id(handle_id)
+            : id(handle_id)
         {
         }
 
         Handle(std::string handle_name, Uuid handle_id)
-            : _name(std::move(handle_name))
-            , _id(handle_id)
+            : name(std::move(handle_name))
+            , id(handle_id)
         {
-        }
-
-      public:
-        bool is_valid() const
-        {
-            return _id.is_valid();
-        }
-
-        const std::string& get_name() const
-        {
-            return _name;
-        }
-
-        const Uuid& get_id() const
-        {
-            return _id;
         }
 
         bool operator==(const Handle& other) const
         {
-            return _id == other._id && _name == other._name;
+            return id == other.id && name == other.name;
         }
 
-        bool operator!=(const Handle& other) const
+        bool is_valid() const
         {
-            return !(*this == other);
+            return id.is_valid() && _is_valid && _is_valid->load();
         }
 
-        operator std::string() const
+        void invalidate() const
         {
-            return _name;
+            if (_is_valid)
+                _is_valid->store(false);
         }
+
+        std::string name = {};
+        Uuid id = {};
 
       private:
-        static Uuid hash_string_to_id(std::string_view handle_name)
-        {
-            const auto hasher = std::hash<std::string_view>();
-            const auto hashed = static_cast<uint32>(hasher(handle_name));
-            return hashed == 0U ? Uuid(1U) : Uuid(hashed);
-        }
-
-      private:
-        std::string _name = {};
-        Uuid _id = {};
+        std::shared_ptr<std::atomic_bool> _is_valid = std::make_shared<std::atomic_bool>(true);
     };
 
-    // TODO: make logging take into account to_string implementations
-    inline std::string to_string(const Handle& value)
-    {
-        if (!value.get_name().empty())
-            return value.get_name();
-
-        return to_string(value.get_id());
-    }
+    TBX_SERIALIZABLE_STRUCT(Handle, name, id)
 }
 
-namespace std
+template <>
+struct std::formatter<tbx::Handle>
 {
-    template <>
-    struct hash<tbx::Handle>
+    constexpr auto parse(std::format_parse_context& ctx)
     {
-        ::size operator()(const tbx::Handle& value) const
-        {
-            auto seed = hash<tbx::Uuid>()(value.get_id());
-            seed ^= hash<std::string>()(value.get_name()) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
-            return seed;
-        }
-    };
-}
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::Handle& value, TFormatContext& ctx) const
+    {
+        if (!value.name.empty())
+            return _formatter.format(value.name, ctx);
+
+        return _formatter.format(std::format("{}", value.id), ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};
+
+template <>
+struct std::hash<tbx::Handle>
+{
+    ::size operator()(const tbx::Handle& value) const
+    {
+        auto seed = hash<tbx::Uuid>()(value.id);
+        seed ^= hash<std::string>()(value.name) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};

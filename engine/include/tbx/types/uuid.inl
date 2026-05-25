@@ -1,9 +1,6 @@
 #pragma once
 
-namespace std
+inline ::size std::hash<tbx::Uuid>::operator()(const tbx::Uuid& value) const
 {
-    inline ::size hash<tbx::Uuid>::operator()(const tbx::Uuid& value) const
-    {
-        return hash<::uint32>()(static_cast<::uint32>(value));
-    }
+    return std::hash<::uint32>()(static_cast<::uint32>(value));
 }

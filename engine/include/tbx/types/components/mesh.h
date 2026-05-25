@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
@@ -71,8 +72,11 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API StaticMesh
+    struct TBX_API StaticMesh : Component
     {
+        StaticMesh() = default;
+        StaticMesh(Handle handle);
+
         /// @brief
         /// Purpose: Model asset handle that provides mesh geometry (and optional part materials).
         /// @details
@@ -81,13 +85,15 @@ namespace tbx
         Handle handle = {};
     };
 
+    TBX_SERIALIZABLE_STRUCT(StaticMesh, id, handle)
+
     /// @brief
     /// Purpose: Identifies reusable runtime mesh geometry shared by many renderable entities.
     /// @details
     /// Ownership: Holds a shared pointer to mesh data owned by a producer system.
     /// Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
     /// itself is safe to copy between threads.
-    struct TBX_API DynamicMesh
+    struct TBX_API DynamicMesh : Component
     {
         DynamicMesh() = default;
         DynamicMesh(Mesh mesh);

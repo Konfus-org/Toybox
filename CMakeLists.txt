@@ -11,6 +11,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 option(TBX_ENABLE_COMPILER_CACHE "Use compiler cache launchers when available" ON)
+option(TBX_FULL_RELEASE "Disable development-only runtime behavior for final release builds" OFF)
+
+if(TBX_FULL_RELEASE)
+    add_compile_definitions(TBX_FULL_RELEASE)
+endif()
+
+function(tbx_log_cache_options)
+    get_cmake_property(cache_variables CACHE_VARIABLES)
+    list(FILTER cache_variables INCLUDE REGEX "^TBX_")
+    list(SORT cache_variables)
+
+    message(STATUS "Tbx: cache options:")
+    foreach(cache_variable IN LISTS cache_variables)
+        get_property(cache_value CACHE "${cache_variable}" PROPERTY VALUE)
+        message(STATUS "  ${cache_variable}=${cache_value}")
+    endforeach()
+endfunction()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_program(TBX_CLANG_SCAN_DEPS_PROGRAM
@@ -54,6 +71,8 @@ if(TBX_ENABLE_COMPILER_CACHE)
         endif()
     endif()
 endif()
+
+tbx_log_cache_options()
 
 # Includes and subdirectories
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

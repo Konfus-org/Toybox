@@ -22,9 +22,11 @@ namespace stb_image_loader
         void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        std::shared_ptr<tbx::Texture> read_texture(
+        tbx::Result read_texture(
             const std::filesystem::path& asset_path,
-            const tbx::TextureLoadParameters& parameters) const;
+            const tbx::TextureLoadParameters& parameters,
+            const tbx::AssetLoadMetadata& metadata,
+            tbx::Texture& texture) const;
 
         std::unique_ptr<tbx::IFileOps> _file_ops = {};
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};

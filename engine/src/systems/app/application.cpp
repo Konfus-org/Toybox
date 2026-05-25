@@ -161,7 +161,9 @@ namespace tbx
         try
         {
             TBX_TRACE_INFO("Initializing application: {}", _name);
-#if defined(TBX_RELEASE)
+#if defined(TBX_FULL_RELEASE)
+            TBX_TRACE_INFO("Build Configuration: Full Release");
+#elif defined(TBX_RELEASE)
             TBX_TRACE_INFO("Build Configuration: Release");
 #elif defined(TBX_DEBUG)
             TBX_TRACE_INFO("Build Configuration: Debug");

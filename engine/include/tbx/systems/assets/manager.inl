@@ -5,6 +5,23 @@
 namespace tbx
 {
     template <typename TAsset>
+    static void warn_if_asset_metadata_is_invalid(
+        const AssetRecord<TAsset>& asset_record,
+        const AssetLoadMetadata& metadata)
+    {
+        if (metadata.id.is_valid() || metadata.version != 0U)
+            return;
+
+        TBX_TRACE_WARNING(
+            "Asset '{}' (id={}, type={}) loaded with invalid metadata. This signifies the meta "
+            "does not exist or is corrupt.",
+            asset_record.normalized_path,
+            asset_record.asset_id,
+            typeid(TAsset).name());
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::shared_ptr<TAsset> AssetManager::load(
         const Handle& handle,
         const AssetLoadParameters<TAsset>& parameters)
@@ -16,8 +33,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.get_name(),
-                to_string(handle.get_id()),
+                handle.name,
+                handle.id,
                 ensure_result.result.get_report());
             return {};
         }
@@ -42,22 +59,34 @@ namespace tbx
             TBX_TRACE_INFO(
                 "Loading asset: '{}' (id={}, type={})",
                 asset_record.normalized_path,
-                to_string(asset_record.asset_id),
+                asset_record.asset_id,
                 typeid(TAsset).name());
             asset_record.stream_state = AssetStreamState::LOADING;
-            asset_record.asset =
-                get_serialization_registry().has_reader<TAsset>()
-                    ? get_serialization_registry().read<TAsset>(entry.resolved_path, parameters)
-                    : std::shared_ptr<TAsset>();
+            auto read_result =
+                get_serialization_registry().can_read<TAsset>()
+                    ? get_serialization_registry().read_result<TAsset>(
+                          entry.resolved_path,
+                          parameters)
+                    : AssetReadResult<TAsset> {
+                          .asset = {},
+                          .result = Result(false, "Serialization loader is not registered."),
+                      };
+            asset_record.asset = std::move(read_result.asset);
             if (!asset_record.asset)
             {
                 TBX_TRACE_WARNING(
-                    "Primary asset load failed for '{}' (id={}, type={}).",
+                    "Primary asset load failed for '{}' (id={}, type={}): {}",
                     asset_record.normalized_path,
-                    to_string(asset_record.asset_id),
-                    typeid(TAsset).name());
+                    asset_record.asset_id,
+                    typeid(TAsset).name(),
+                    read_result.result.get_report());
             }
             populate_loaded_asset_data<TAsset>(asset_record.asset);
+            if (asset_record.asset)
+            {
+                warn_if_asset_metadata_is_invalid(asset_record, read_result.metadata);
+                asset_record.asset->id = asset_record.asset_id;
+            }
             store_asset_load_parameters(asset_record, parameters);
             asset_record.pending_load = {};
             asset_record.stream_state =
@@ -67,7 +96,7 @@ namespace tbx
                 TBX_TRACE_WARNING(
                     "Failed to load asset: '{}' (id={}, type={})",
                     asset_record.normalized_path,
-                    to_string(asset_record.asset_id),
+                    asset_record.asset_id,
                     typeid(TAsset).name());
             }
         }
@@ -76,6 +105,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     AssetUsage AssetManager::get_usage(const Handle& handle) const
     {
         std::lock_guard lock(_mutex);
@@ -97,6 +127,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     AssetPromise<TAsset> AssetManager::load_async(
         const Handle& handle,
         const AssetLoadParameters<TAsset>& parameters)
@@ -109,8 +140,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.get_name(),
-                to_string(handle.get_id()),
+                handle.name,
+                handle.id,
                 ensure_result.result.get_report());
             return result;
         }
@@ -141,10 +172,10 @@ namespace tbx
         TBX_TRACE_INFO(
             "Loading asset asynchronously: '{}' (id={}, type={})",
             asset_record.normalized_path,
-            to_string(asset_record.asset_id),
+            asset_record.asset_id,
             typeid(TAsset).name());
         auto promise =
-            get_serialization_registry().has_reader<TAsset>()
+            get_serialization_registry().can_read<TAsset>()
                 ? get_serialization_registry().read_async<TAsset>(entry.resolved_path, parameters)
                 : AssetPromise<TAsset>();
         if (!promise.asset)
@@ -152,10 +183,15 @@ namespace tbx
             TBX_TRACE_WARNING(
                 "Primary async asset load failed for '{}' (id={}, type={}).",
                 asset_record.normalized_path,
-                to_string(asset_record.asset_id),
+                asset_record.asset_id,
                 typeid(TAsset).name());
         }
         populate_loaded_asset_data<TAsset>(promise.asset);
+        if (promise.asset)
+        {
+            warn_if_asset_metadata_is_invalid(asset_record, promise.metadata);
+            promise.asset->id = asset_record.asset_id;
+        }
         asset_record.asset = std::move(promise.asset);
         asset_record.pending_load = promise.promise;
         store_asset_load_parameters(asset_record, parameters);
@@ -168,6 +204,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     bool AssetManager::unload(const Handle& handle, bool force)
     {
         std::lock_guard lock(_mutex);
@@ -183,6 +220,7 @@ namespace tbx
             return false;
         }
         auto& asset_record = record->get();
+        update_asset_stream_state(asset_record);
 
         if (!force && (asset_record.is_pinned || is_asset_record_referenced(asset_record)))
         {
@@ -192,7 +230,7 @@ namespace tbx
         TBX_TRACE_INFO(
             "Unloaded asset: '{}' (id={}, type={})",
             asset_record.normalized_path,
-            to_string(asset_record.asset_id),
+            asset_record.asset_id,
             typeid(TAsset).name());
         asset_record.asset.reset();
         asset_record.stream_state = AssetStreamState::UNLOADED;
@@ -200,6 +238,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     bool AssetManager::reload(const Handle& handle)
     {
         std::lock_guard lock(_mutex);
@@ -208,8 +247,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset entry for reload handle (name='{}', id={}): {}",
-                handle.get_name(),
-                to_string(handle.get_id()),
+                handle.name,
+                handle.id,
                 ensure_result.result.get_report());
             return false;
         }
@@ -234,14 +273,14 @@ namespace tbx
             TBX_TRACE_INFO(
                 "Reloading asset: '{}' (id={}, type={})",
                 entry.normalized_path,
-                to_string(entry.asset_id),
+                entry.asset_id,
                 typeid(TAsset).name());
             if (!reload_result.succeeded)
             {
                 TBX_TRACE_WARNING(
                     "Failed to reload asset: '{}' (id={}, type={})",
                     entry.normalized_path,
-                    to_string(entry.asset_id),
+                    entry.asset_id,
                     typeid(TAsset).name());
             }
         }
@@ -249,6 +288,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::optional<std::reference_wrapper<AssetStore<TAsset>>> AssetManager::get_store(
         bool create_if_missing)
     {
@@ -270,6 +310,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::optional<std::reference_wrapper<const AssetStore<TAsset>>> AssetManager::get_store() const
     {
         auto type_key = std::type_index(typeid(TAsset));
@@ -283,6 +324,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::optional<std::reference_wrapper<AssetRecord<TAsset>>> AssetManager::get_record(
         AssetStore<TAsset>& store,
         const AssetRegistryEntry& entry,
@@ -307,6 +349,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::optional<std::reference_wrapper<AssetRecord<TAsset>>> AssetManager::get_record(
         AssetStore<TAsset>& store,
         const Handle& handle)
@@ -321,6 +364,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::optional<std::reference_wrapper<const AssetRecord<TAsset>>> AssetManager::get_record(
         const AssetStore<TAsset>& store,
         const Handle& handle) const

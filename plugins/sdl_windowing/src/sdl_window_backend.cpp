@@ -238,7 +238,7 @@ namespace sdl_windowing
         {
             TBX_TRACE_ERROR(
                 "SDL window backend: failed to create native window '{}'. Error: {}",
-                tbx::to_string(window),
+                window,
                 SDL_GetError());
             SDL_ClearError();
             return nullptr;

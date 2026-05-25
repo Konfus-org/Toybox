@@ -70,4 +70,26 @@ namespace tbx::tests::file_system
         ASSERT_EQ(bools.size(), 2u);
         EXPECT_GE(floats.size(), 2u);
     }
+
+    TEST(JsonTests, ReadsHandleFromTbxSerializableObject)
+    {
+        // Arrange
+        const std::string text =
+            "{\n"
+            "  \"handle\": {\n"
+            "    \"_id\": { \"value\": 77 }\n"
+            "  }\n"
+            "}";
+
+        auto json = Json(text);
+        auto handle = Handle();
+
+        // Act
+        const auto was_loaded = json.try_get<Handle>("handle", handle);
+
+        // Assert
+        EXPECT_TRUE(was_loaded);
+        EXPECT_EQ(handle.id, Uuid(77U));
+        EXPECT_TRUE(handle.name.empty());
+    }
 }

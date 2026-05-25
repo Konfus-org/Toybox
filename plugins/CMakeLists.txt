@@ -6,7 +6,6 @@ set(CMAKE_FOLDER "plugins")
 
 add_subdirectory(stb_image_loader)
 add_subdirectory(tbx_shader_loader)
-add_subdirectory(tbx_material_loader)
 add_subdirectory(assimp_model_loader)
 add_subdirectory(tbx_performance_monitor)
 add_subdirectory(sdl_base_systems)

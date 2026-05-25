@@ -1,6 +1,5 @@
 #include "tbx/types/bounds.h"
 #include "tbx/types/trig.h"
-#include <format>
 
 namespace tbx
 {
@@ -37,15 +36,5 @@ namespace tbx
         const float bottom = -top;
 
         return {left, right, top, bottom};
-    }
-
-    std::string to_string(const Bounds& bounds)
-    {
-        return std::format(
-            "[Left: {}, Right: {}, Top: {}, Bottom: {}]",
-            bounds.left,
-            bounds.right,
-            bounds.top,
-            bounds.bottom);
     }
 }

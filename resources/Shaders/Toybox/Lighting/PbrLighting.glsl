@@ -92,7 +92,7 @@ vec3 tbx_evaluate_pbr_brdf(
 
 vec3 tbx_evaluate_light_pbr(TbxLight light, PbrSurface surface, vec3 view_dir)
 {
-    float light_type = light.position_type.w;
+    int light_type = int(light.position_type.w);
 
     vec3 light_dir;
     float attenuation = 1.0;
@@ -133,7 +133,7 @@ vec3 tbx_evaluate_light_pbr(TbxLight light, PbrSurface surface, vec3 view_dir)
 
 vec3 tbx_get_shadow_light_direction(TbxLight light, PbrSurface surface)
 {
-    if (light.position_type.w == TBX_LIGHT_TYPE_DIRECTIONAL)
+    if (int(light.position_type.w) == TBX_LIGHT_TYPE_DIRECTIONAL)
     {
         return light.direction_range.xyz;
     }

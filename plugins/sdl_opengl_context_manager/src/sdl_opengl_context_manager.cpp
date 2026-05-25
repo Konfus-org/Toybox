@@ -2,6 +2,7 @@
 #include "internal/sdl_opengl_context_manager_internal.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
+#include <format>
 #include <string_view>
 #include <utility>
 
@@ -40,15 +41,15 @@ namespace sdl_opengl_context_manager
 
     tbx::Result SdlOpenGlContextManager::create_context(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
         if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
-        const std::string label = to_string(window);
+        const std::string label = std::format("{}", window);
         if (!try_create_context(window, sdl_window, label))
             return make_failure("SDL OpenGL context manager: failed to create context.");
 
@@ -59,8 +60,8 @@ namespace sdl_opengl_context_manager
 
     tbx::Result SdlOpenGlContextManager::destroy_context(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         destroy_native_context(window);
@@ -72,15 +73,15 @@ namespace sdl_opengl_context_manager
 
     tbx::Result SdlOpenGlContextManager::make_context_current(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
         if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
-        const std::string label = to_string(window);
+        const std::string label = std::format("{}", window);
         const auto context_it = _contexts.find(window);
         if (context_it == _contexts.end())
             return make_failure("SDL OpenGL context manager: context not created.");
@@ -95,8 +96,8 @@ namespace sdl_opengl_context_manager
 
     tbx::Result SdlOpenGlContextManager::swap_buffers(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
@@ -230,7 +231,7 @@ namespace sdl_opengl_context_manager
 
     void SdlOpenGlContextManager::destroy_native_context(const tbx::Window& window)
     {
-        if (!window.is_valid())
+        if (!window.id.is_valid())
             return;
 
         auto context_it = _contexts.find(window);

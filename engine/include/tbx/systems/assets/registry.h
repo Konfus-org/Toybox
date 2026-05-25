@@ -111,6 +111,7 @@ namespace tbx
     };
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     struct AssetRecord
     {
         std::shared_ptr<TAsset> asset = {};
@@ -125,9 +126,11 @@ namespace tbx
     };
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     void populate_loaded_asset_data(const std::shared_ptr<TAsset>& asset);
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     struct AssetStore final : IAssetStore
     {
         std::unordered_map<Uuid, AssetRecord<TAsset>> records = {};
@@ -160,6 +163,8 @@ namespace tbx
             auto promise =
                 serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
             populate_loaded_asset_data<TAsset>(promise.asset);
+            if (promise.asset)
+                promise.asset->id = entry.asset_id;
             record.asset = std::move(promise.asset);
             record.pending_load = promise.promise;
             record.load_parameters = parameters;
@@ -218,6 +223,7 @@ namespace tbx
     };
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     bool asset_load_parameters_match(
         const AssetRecord<TAsset>& record,
         const AssetLoadParameters<TAsset>& parameters)
@@ -226,6 +232,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     void store_asset_load_parameters(
         AssetRecord<TAsset>& record,
         const AssetLoadParameters<TAsset>& parameters)
@@ -235,6 +242,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     void populate_loaded_asset_data(const std::shared_ptr<TAsset>&)
     {
     }
@@ -250,6 +258,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     AssetUsage build_asset_usage(const AssetRecord<TAsset>& record)
     {
         AssetUsage usage = {};
@@ -265,6 +274,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     void update_asset_stream_state(AssetRecord<TAsset>& record)
     {
         if (record.stream_state != AssetStreamState::LOADING)
@@ -285,6 +295,7 @@ namespace tbx
     }
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     bool is_asset_record_referenced(const AssetRecord<TAsset>& record)
     {
         if (!record.asset)

@@ -1,9 +1,9 @@
 {
   "id": "10343045",
-  "texture": {
-    "wrap": "clamp_to_edge",
-    "filter": "linear",
-    "format": "rgba",
-    "mipmaps": "enabled"
-  }
+  "version": 1,
+  "wrap": "clamp_to_edge",
+  "filter": "linear",
+  "format": "rgba",
+  "mipmaps": "enabled",
+  "compression": "disabled"
 }

@@ -30,8 +30,9 @@ namespace tbx::internal
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<MessageCoordinator>());
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+        auto file_ops = std::make_shared<FileOperator>(desc.working_root);
         service_provider.register_service<SerializationRegistry>(
-            std::make_unique<SerializationRegistry>());
+            std::make_unique<SerializationRegistry>(file_ops));
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
         TBX_ASSERT(
@@ -43,7 +44,10 @@ namespace tbx::internal
         service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
             *message_coordinator,
             *serialization_registry,
-            desc.working_root));
+            desc.working_root,
+            std::vector<std::filesystem::path>(),
+            HandleSource(),
+            file_ops));
         auto settings = std::make_unique<AppSettings>(
             message_coordinator,
             false,

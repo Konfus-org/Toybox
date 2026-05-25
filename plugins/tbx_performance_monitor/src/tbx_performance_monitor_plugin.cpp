@@ -4,6 +4,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
+#include <format>
 
 namespace tbx::performance_monitor
 {
@@ -27,7 +28,7 @@ namespace tbx::performance_monitor
         trace_perf_info();
         reset_performance_sample();
 
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
         _debug_main_window_title.clear();
         _debug_window_title_elapsed_seconds = 0.0;
         _debug_window_title_frame_count = 0U;
@@ -36,7 +37,7 @@ namespace tbx::performance_monitor
 
     void TbxPerformanceMonitorPlugin::on_update(const tbx::DeltaTime& dt)
     {
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
         update_debug_main_window_title(dt);
 #endif
     }
@@ -68,7 +69,7 @@ namespace tbx::performance_monitor
         _main_window_base_title = application.get_name().empty() ? std::string("Toybox Application")
                                                                  : application.get_name();
 
-        if (!_main_window.is_valid())
+        if (!_main_window.id.is_valid())
             return;
 
         auto window_manager = _window_manager.lock();
@@ -133,10 +134,10 @@ namespace tbx::performance_monitor
         }
     }
 
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
     void TbxPerformanceMonitorPlugin::update_debug_main_window_title(const tbx::DeltaTime& dt)
     {
-        if (!_main_window.is_valid())
+        if (!_main_window.id.is_valid())
             return;
 
         if (_window_manager.expired() && _service_provider)
@@ -158,12 +159,11 @@ namespace tbx::performance_monitor
         if (!settings)
             return;
 
-        auto next_title = _main_window_base_title;
-        next_title += " [";
-        next_title += tbx::to_string(settings->graphics->graphics_api);
-        next_title += ", FPS: ";
-        next_title += std::to_string(static_cast<int>(average_fps));
-        next_title += "]";
+        auto next_title = std::format(
+            "{} [{}, FPS: {}]",
+            _main_window_base_title,
+            settings->graphics->graphics_api.value,
+            static_cast<int>(average_fps));
 
         if (_debug_main_window_title != next_title)
         {

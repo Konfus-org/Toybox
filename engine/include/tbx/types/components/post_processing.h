@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/components/material_instance.h"
 #include <initializer_list>
 #include <utility>
@@ -39,12 +40,14 @@ namespace tbx
         float blend = 1.0f;
     };
 
+    TBX_SERIALIZABLE_STRUCT(PostProcessingEffect, material, is_enabled, blend)
+
     /// @brief
     /// Purpose: Configures the scene-wide post-processing material for the final screen pass.
     /// @details
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API PostProcessing
+    struct TBX_API PostProcessing : Component
     {
         ~PostProcessing();
 
@@ -62,4 +65,6 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         bool is_enabled = true;
     };
+
+    TBX_SERIALIZABLE_STRUCT(PostProcessing, id, effects, is_enabled)
 }

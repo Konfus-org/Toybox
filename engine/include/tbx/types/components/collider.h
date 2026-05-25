@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
 #include <functional>
@@ -61,50 +62,77 @@ namespace tbx
         void request_overlap_scan();
     };
 
+    TBX_SERIALIZABLE_STRUCT(
+        ColliderTrigger,
+        is_trigger_only,
+        is_overlap_enabled,
+        is_manual_scan_requested,
+        overlap_execution_mode)
+
     /// @brief
     /// Purpose: Configures mesh collider behavior for geometry sourced from a mesh component on the
     /// same entity.
     /// @details
     /// Ownership: Owns mesh collider settings by value only; geometry ownership stays with the mesh
     /// component. Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API MeshCollider
+    struct TBX_API MeshCollider : Component
     {
+        MeshCollider() = default;
+        MeshCollider(bool is_convex, ColliderTrigger trigger = {});
+
         bool is_convex = true;
         ColliderTrigger trigger = {};
     };
+
+    TBX_SERIALIZABLE_STRUCT(MeshCollider, id, is_convex, trigger)
 
     /// @brief
     /// Purpose: Defines an axis-aligned box collider by half extents.
     /// @details
     /// Ownership: Owns size data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API CubeCollider
+    struct TBX_API CubeCollider : Component
     {
+        CubeCollider() = default;
+        CubeCollider(Vec3 half_extents, ColliderTrigger trigger = {});
+
         Vec3 half_extents = Vec3(0.5F, 0.5F, 0.5F);
         ColliderTrigger trigger = {};
     };
+
+    TBX_SERIALIZABLE_STRUCT(CubeCollider, id, half_extents, trigger)
 
     /// @brief
     /// Purpose: Defines a sphere collider by radius.
     /// @details
     /// Ownership: Owns radius data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API SphereCollider
+    struct TBX_API SphereCollider : Component
     {
+        SphereCollider() = default;
+        SphereCollider(float radius, ColliderTrigger trigger = {});
+
         float radius = 0.5F;
         ColliderTrigger trigger = {};
     };
+
+    TBX_SERIALIZABLE_STRUCT(SphereCollider, id, radius, trigger)
 
     /// @brief
     /// Purpose: Defines a capsule collider by radius and half-height.
     /// @details
     /// Ownership: Owns capsule dimensions by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API CapsuleCollider
+    struct TBX_API CapsuleCollider : Component
     {
+        CapsuleCollider() = default;
+        CapsuleCollider(float radius, float half_height, ColliderTrigger trigger = {});
+
         float radius = 0.5F;
         float half_height = 0.5F;
         ColliderTrigger trigger = {};
     };
+
+    TBX_SERIALIZABLE_STRUCT(CapsuleCollider, id, radius, half_height, trigger)
 
 }

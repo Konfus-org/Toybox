@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/asset.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/material.h"
 #include "tbx/types/matrices.h"
@@ -32,7 +33,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns mesh, material, and part data by value.
     /// Thread Safety: Safe to construct on any thread.
-    struct TBX_API Model
+    struct TBX_API Model : Asset
     {
         Model();
         Model(Mesh mesh);
@@ -42,4 +43,6 @@ namespace tbx
         std::vector<Material> materials = {};
         std::vector<ModelPart> parts = {};
     };
+
+    TBX_SERIALIZABLE_ASSET_META(Model, 1U)
 }

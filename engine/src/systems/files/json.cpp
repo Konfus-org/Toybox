@@ -4,6 +4,7 @@
 #include <cctype>
 #include <charconv>
 #include <functional>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
@@ -12,7 +13,7 @@ namespace tbx
     class Json::Impl
     {
       public:
-        nlohmann::json Data;
+        nlohmann::json data;
     };
 
     Json::Json()
@@ -23,7 +24,7 @@ namespace tbx
     Json::Json(const std::string& data)
         : _data(std::make_unique<Impl>())
     {
-        _data->Data = nlohmann::json::parse(data, nullptr, true, true);
+        _data->data = nlohmann::json::parse(data, nullptr, true, true);
     }
 
     Json::Json(Json&& other) noexcept = default;
@@ -34,13 +35,34 @@ namespace tbx
 
     std::string Json::to_string(int indent) const
     {
-        return _data->Data.dump(indent);
+        return _data->data.dump(indent);
+    }
+
+    Json Json::parse(const std::string& data)
+    {
+        return Json(data);
+    }
+
+    bool Json::try_get_raw(std::string& out_value) const
+    {
+        out_value = _data->data.dump();
+        return true;
+    }
+
+    bool Json::try_get_raw(const std::string& key, std::string& out_value) const
+    {
+        const auto value = internal::try_get_value(_data->data, key);
+        if (!value.has_value())
+            return false;
+
+        out_value = value->get().dump();
+        return true;
     }
 
     template <>
     bool Json::try_get<int>(const std::string& key, int& out_value) const
     {
-        const auto value = internal::try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->data, key);
         if (!value.has_value() || !value->get().is_number_integer())
             return false;
 
@@ -49,9 +71,45 @@ namespace tbx
     }
 
     template <>
+    bool Json::try_get<uint16>(const std::string& key, uint16& out_value) const
+    {
+        uint32 parsed_value = 0U;
+        if (!try_get<uint32>(key, parsed_value))
+            return false;
+
+        if (parsed_value > static_cast<uint32>(std::numeric_limits<uint16>::max()))
+            return false;
+
+        out_value = static_cast<uint16>(parsed_value);
+        return true;
+    }
+
+    template <>
+    bool Json::try_get<uint32>(const std::string& key, uint32& out_value) const
+    {
+        const auto value = internal::try_get_value(_data->data, key);
+        if (!value.has_value() || !value->get().is_number_unsigned())
+            return false;
+
+        out_value = value->get().get<uint32>();
+        return true;
+    }
+
+    template <>
+    bool Json::try_get<uint64>(const std::string& key, uint64& out_value) const
+    {
+        const auto value = internal::try_get_value(_data->data, key);
+        if (!value.has_value() || !value->get().is_number_unsigned())
+            return false;
+
+        out_value = value->get().get<uint64>();
+        return true;
+    }
+
+    template <>
     bool Json::try_get<bool>(const std::string& key, bool& out_value) const
     {
-        const auto value = internal::try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->data, key);
         if (!value.has_value() || !value->get().is_boolean())
             return false;
 
@@ -62,7 +120,7 @@ namespace tbx
     template <>
     bool Json::try_get<float>(const std::string& key, float& out_value) const
     {
-        const auto value = internal::try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->data, key);
         if (!value.has_value() || !value->get().is_number())
             return false;
 
@@ -71,13 +129,39 @@ namespace tbx
     }
 
     template <>
+    bool Json::try_get<double>(const std::string& key, double& out_value) const
+    {
+        const auto value = internal::try_get_value(_data->data, key);
+        if (!value.has_value() || !value->get().is_number())
+            return false;
+
+        out_value = value->get().get<double>();
+        return true;
+    }
+
+    template <>
     bool Json::try_get<std::string>(const std::string& key, std::string& out_value) const
     {
-        const auto value = internal::try_get_value(_data->Data, key);
+        const auto value = internal::try_get_value(_data->data, key);
         if (!value.has_value() || !value->get().is_string())
             return false;
 
         out_value = value->get().get<std::string>();
+        return true;
+    }
+
+    template <>
+    bool Json::try_get<Handle>(const std::string& key, Handle& out_value) const
+    {
+        auto handle_data = Json();
+        if (try_get_child(key, handle_data))
+            return handle_data.try_get(out_value);
+
+        auto text = std::string();
+        if (!try_get<std::string>(key, text))
+            return false;
+
+        out_value = internal::parse_asset_handle(text);
         return true;
     }
 
@@ -96,7 +180,7 @@ namespace tbx
     bool Json::try_get<Vec2>(const std::string& key, Vec2& out_value) const
     {
         float components[2] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Vec2(components[0], components[1]);
@@ -107,7 +191,7 @@ namespace tbx
     bool Json::try_get<Vec3>(const std::string& key, Vec3& out_value) const
     {
         float components[3] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Vec3(components[0], components[1], components[2]);
@@ -118,7 +202,7 @@ namespace tbx
     bool Json::try_get<Vec4>(const std::string& key, Vec4& out_value) const
     {
         float components[4] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Vec4(components[0], components[1], components[2], components[3]);
@@ -129,7 +213,7 @@ namespace tbx
     bool Json::try_get<Quat>(const std::string& key, Quat& out_value) const
     {
         float components[4] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Quat(components[3], components[0], components[1], components[2]);
@@ -140,7 +224,7 @@ namespace tbx
     bool Json::try_get<Mat3>(const std::string& key, Mat3& out_value) const
     {
         float components[9] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Mat3(1.0f);
@@ -154,7 +238,7 @@ namespace tbx
     bool Json::try_get<Mat4>(const std::string& key, Mat4& out_value) const
     {
         float components[16] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Mat4(1.0f);
@@ -168,10 +252,48 @@ namespace tbx
     bool Json::try_get<Color>(const std::string& key, Color& out_value) const
     {
         float components[4] = {};
-        if (!internal::try_parse_float_components(_data->Data, key, components))
+        if (!internal::try_parse_float_components(_data->data, key, components))
             return false;
 
         out_value = Color(components[0], components[1], components[2], components[3]);
+        return true;
+    }
+
+    template <>
+    bool Json::try_get<ShaderType>(const std::string& key, ShaderType& out_value) const
+    {
+        auto text = std::string();
+        if (!try_get<std::string>(key, text))
+            return false;
+        return internal::try_parse_shader_type(text, out_value);
+    }
+
+    template <>
+    bool Json::try_get<Shader>(const std::string& key, Shader& out_value) const
+    {
+        auto shader_data = Json();
+        if (!try_get_child(key, shader_data))
+        {
+            if (key != "shader" || !try_get_child("shaders", shader_data))
+            {
+                auto handle = Handle();
+                if (!try_get<Handle>(key, handle))
+                    return false;
+
+                out_value.vertex = handle;
+                out_value.fragment = handle;
+                return true;
+            }
+        }
+
+        auto shader = out_value;
+        shader_data.try_get<Handle>("vertex", shader.vertex);
+        shader_data.try_get<Handle>("fragment", shader.fragment);
+        shader_data.try_get<Handle>("tesselation", shader.tesselation);
+        shader_data.try_get<Handle>("tessellation", shader.tesselation);
+        shader_data.try_get<Handle>("geometry", shader.geometry);
+        shader_data.try_get<Handle>("compute", shader.compute);
+        out_value = shader;
         return true;
     }
 
@@ -225,7 +347,7 @@ namespace tbx
     bool Json::try_get<int>(const std::string& key, std::vector<int>& out_values) const
     {
         return internal::try_get_array_impl<int>(
-            _data->Data,
+            _data->data,
             key,
             out_values,
             [](const nlohmann::json& entry)
@@ -242,7 +364,7 @@ namespace tbx
     bool Json::try_get<bool>(const std::string& key, std::vector<bool>& out_values) const
     {
         return internal::try_get_array_impl<bool>(
-            _data->Data,
+            _data->data,
             key,
             out_values,
             [](const nlohmann::json& entry)
@@ -259,7 +381,7 @@ namespace tbx
     bool Json::try_get<float>(const std::string& key, std::vector<float>& out_values) const
     {
         return internal::try_get_array_impl<float>(
-            _data->Data,
+            _data->data,
             key,
             out_values,
             [](const nlohmann::json& entry)
@@ -277,7 +399,7 @@ namespace tbx
         const
     {
         return internal::try_get_array_impl<std::string>(
-            _data->Data,
+            _data->data,
             key,
             out_values,
             [](const nlohmann::json& entry)
@@ -291,28 +413,28 @@ namespace tbx
     }
     bool Json::try_get_child(const std::string& key, Json& out_value) const
     {
-        if (!_data->Data.is_object())
+        if (!_data->data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key);
-        if (iterator == _data->Data.end())
+        const auto iterator = _data->data.find(key);
+        if (iterator == _data->data.end())
             return false;
 
         if (!iterator->is_object())
             return false;
 
         out_value._data = std::make_unique<Impl>();
-        out_value._data->Data = *iterator;
+        out_value._data->data = *iterator;
         return true;
     }
 
     bool Json::try_get_children(const std::string& key, std::vector<Json>& out_values) const
     {
-        if (!_data->Data.is_object())
+        if (!_data->data.is_object())
             return false;
 
-        const auto iterator = _data->Data.find(key);
-        if (iterator == _data->Data.end())
+        const auto iterator = _data->data.find(key);
+        if (iterator == _data->data.end())
             return false;
 
         if (!iterator->is_array())
@@ -324,7 +446,7 @@ namespace tbx
             if (entry.is_object())
             {
                 Json child;
-                child._data->Data = entry;
+                child._data->data = entry;
                 out_values.push_back(std::move(child));
                 found = true;
             }

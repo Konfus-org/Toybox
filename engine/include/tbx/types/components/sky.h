@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/typedefs.h"
 
@@ -21,9 +22,14 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API Sky
+    struct TBX_API Sky : Component
     {
+        Sky() = default;
+        Sky(MaterialInstance material, SkyType type = SkyType::SPHERE);
+
         MaterialInstance material = {};
         SkyType type = SkyType::SPHERE;
     };
+
+    TBX_SERIALIZABLE_STRUCT(Sky, id, material, type)
 }

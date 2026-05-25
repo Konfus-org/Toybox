@@ -51,7 +51,7 @@ namespace tbx::performance_monitor
         void reset_performance_sample();
         FpsInfo calculate_fps_averages();
 
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
         void update_debug_main_window_title(const tbx::DeltaTime& dt);
 #endif
 
@@ -68,7 +68,7 @@ namespace tbx::performance_monitor
         double _performance_sample_max_frame_time_ms = 0.0;
         bool _performance_sample_has_data = false;
 
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
         std::string _debug_main_window_title = {};
         double _debug_window_title_elapsed_seconds = 0.0;
         uint _debug_window_title_frame_count = 0U;

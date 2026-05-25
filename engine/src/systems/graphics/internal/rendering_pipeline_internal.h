@@ -105,7 +105,7 @@ namespace tbx::internal
     struct RenderMeshInstance
     {
         Mat4 model_matrix = Mat4(1.0F);
-        Mat4 normal_matrix = Mat4(1.0F);
+        Mat4 normal = Mat4(1.0F);
     };
 
     struct RenderBatch
@@ -183,13 +183,10 @@ namespace tbx::internal
 
     static Vec3 get_shadow_up_vector(const Vec3& direction)
     {
-        // TODO: Lets make a new Struct that inherits from the glm vec types and introduce a
-        // Vec3::UP, DOWN, LEFT, RIGHT
-        const Vec3 world_up = Vec3(0.0F, 1.0F, 0.0F);
-        if (std::abs(dot(normalize_or_zero(direction), world_up)) < 0.95F)
-            return world_up;
+        if (std::abs(dot(normalize_or_zero(direction), VEC3_UP)) < 0.95F)
+            return VEC3_UP;
 
-        return Vec3(1.0F, 0.0F, 0.0F);
+        return VEC3_RIGHT;
     }
 
     static float snap_to_shadow_texel(const float value, const float texel_size)
@@ -333,7 +330,7 @@ namespace tbx::internal
             if (light.shadow_index < 0 || light.shadow_layer_count == 0U)
                 continue;
 
-            if (light.type == static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL))
+            if (light.type == SHADER_LIGHT_TYPE_DIRECTIONAL)
             {
                 // Directional lights split the camera range into fixed cascades. Each cascade owns
                 // a layer and stores its blend band for smoother transitions in the lighting pass.
@@ -404,7 +401,7 @@ namespace tbx::internal
         AssetManager& asset_manager,
         const MaterialInstance& material)
     {
-        if (!material.get_handle().is_valid())
+        if (!material.get_handle().id.is_valid())
             return MaterialConfig();
 
         if (material.has_config_override_enabled())
@@ -567,7 +564,7 @@ namespace tbx::internal
         const Transform& transform,
         const Frustum& frustum)
     {
-        if (!mesh.handle.is_valid())
+        if (!mesh.handle.id.is_valid())
             return should_cull(Mesh::CUBE.bounds, transform, frustum);
 
         // Cache model bounds only for this extraction pass. AssetManager owns actual asset
@@ -624,7 +621,7 @@ namespace tbx::internal
         uint32 directional_light_count = 0U;
         for (const auto& light : render_data.lighting.lights)
         {
-            if (light.type != static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL))
+            if (light.type != SHADER_LIGHT_TYPE_DIRECTIONAL)
                 continue;
 
             ambient_color_sum += Vec3(light.color.r, light.color.g, light.color.b);
@@ -712,7 +709,7 @@ namespace tbx::internal
         const MaterialInstance& material,
         RenderingMaterialUploadData& out_material)
     {
-        const Result result = material.get_handle().is_valid()
+        const Result result = material.get_handle().id.is_valid()
                                   ? resource_manager.upload_material(material, out_material)
                                   : resource_manager.upload_fallback_material(out_material);
         if (result)
@@ -731,8 +728,9 @@ namespace tbx::internal
         {
             // Static meshes are model assets. Invalid handles deliberately fall back to a visible
             // debug mesh so missing content fails visibly instead of silently dropping a draw.
-            result = mesh.handle.is_valid() ? resource_manager.upload_model(mesh.handle, out_meshes)
-                                            : resource_manager.upload_fallback_mesh(out_meshes);
+            result = mesh.handle.id.is_valid()
+                         ? resource_manager.upload_model(mesh.handle, out_meshes)
+                         : resource_manager.upload_fallback_mesh(out_meshes);
         }
         else
         {
@@ -784,9 +782,9 @@ namespace tbx::internal
 
             // Object and instance data are uploaded together here so the batch stays CPU-friendly
             // until it is converted into the backend draw contract.
-            const auto object_data = ObjectShaderData {
+            const auto object_data = ModelShaderData {
                 .model = batch.instances.front().model_matrix,
-                .normal_matrix = batch.instances.front().normal_matrix,
+                .normal = batch.instances.front().normal,
             };
             const auto object_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_OBJECT_DATA,
@@ -897,9 +895,9 @@ namespace tbx::internal
             if (batch.instances.empty())
                 continue;
 
-            const auto object_data = ObjectShaderData {
+            const auto object_data = ModelShaderData {
                 .model = batch.instances.front().model_matrix,
-                .normal_matrix = batch.instances.front().normal_matrix,
+                .normal = batch.instances.front().normal,
             };
             const auto object_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_OBJECT_DATA,
@@ -1129,7 +1127,8 @@ namespace tbx::internal
 
     static bool should_render_post_effect(const PostProcessingEffect& effect)
     {
-        return effect.is_enabled && effect.blend > 0.0F && effect.material.get_handle().is_valid();
+        return effect.is_enabled && effect.blend > 0.0F
+               && effect.material.get_handle().id.is_valid();
     }
 
     static Result append_post_process_draw(
@@ -1379,7 +1378,7 @@ namespace tbx::internal
                     .debug_name = "Toybox Skybox Pass",
                 },
         };
-        if (render_data.sky.material.get_handle().is_valid())
+        if (render_data.sky.material.get_handle().id.is_valid())
         {
             // Sky geometry is a cube or sphere drawn with identity transform. The shader handles
             // camera-relative behavior through camera uniforms.
@@ -1415,9 +1414,9 @@ namespace tbx::internal
                 frame_index,
                 &sky_instance,
                 static_cast<uint64>(sizeof(sky_instance)));
-            const auto sky_object_data = ObjectShaderData {
+            const auto sky_object_data = ModelShaderData {
                 .model = Mat4(1.0F),
-                .normal_matrix = Mat4(1.0F),
+                .normal = Mat4(1.0F),
             };
             const auto sky_object_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_OBJECT_DATA,
@@ -1675,7 +1674,7 @@ namespace tbx::internal
         for (auto& entity : entity_registry.get_with<Camera>())
         {
             const auto render_target = entity.get_component<Camera>().get_render_target();
-            if (render_target.is_valid())
+            if (render_target.id.is_valid())
                 return render_target;
 
             break;
@@ -1758,19 +1757,25 @@ namespace tbx::internal
         const float shadow_caster_max_distance = settings.shadow_caster_max_distance.value;
 
         // Scene-wide state: the first supported component wins for singleton-style render features.
+        auto has_selected_sky = false;
         for (auto& entity : entity_registry.get_with<Sky>())
         {
+            if (has_selected_sky)
+            {
+                TBX_TRACE_WARNING_ONCE(
+                    "Multiple Sky components found. Rendering will use the first Sky component "
+                    "and ignore the rest.");
+                break;
+            }
+
+            has_selected_sky = true;
             render_data.sky = entity.get_component<Sky>();
-            if (!render_data.sky.material.get_handle().is_valid())
+            if (!render_data.sky.material.get_handle().id.is_valid())
                 render_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
 
             const Color clear_color =
                 render_data.sky.material.get_parameter_or(TexturedSkyMaterial::COLOR, Color::BLACK);
             render_data.clear_color = clear_color;
-
-            // TODO: Warn if there is more than one sky, and say picking first found as only one is
-            // supported.
-            break;
         }
 
         for (auto& entity : entity_registry.get_with<PostProcessing>())
@@ -1793,7 +1798,7 @@ namespace tbx::internal
             append_light(
                 render_data,
                 RenderLight {
-                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_DIRECTIONAL),
+                    .type = SHADER_LIGHT_TYPE_DIRECTIONAL,
                     .color = light.color,
                     .intensity = light.intensity,
                     .ambient = light.ambient,
@@ -1819,7 +1824,7 @@ namespace tbx::internal
             append_light(
                 render_data,
                 RenderLight {
-                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
+                    .type = SHADER_LIGHT_TYPE_POINT,
                     .color = light.color,
                     .intensity = light.intensity,
                     .shadow_index = shadow_index,
@@ -1844,8 +1849,7 @@ namespace tbx::internal
             append_light(
                 render_data,
                 RenderLight {
-                    .type =
-                        static_cast<uint>(SHADER_LIGHT_TYPE_SPOT), // TODO: Convert types to ints
+                    .type = SHADER_LIGHT_TYPE_SPOT,
                     .color = light.color,
                     .intensity = light.intensity,
                     .inner_cone = angle_to_cosine(light.inner_angle),
@@ -1872,7 +1876,7 @@ namespace tbx::internal
             append_light(
                 render_data,
                 RenderLight {
-                    .type = static_cast<uint>(SHADER_LIGHT_TYPE_POINT),
+                    .type = SHADER_LIGHT_TYPE_POINT,
                     .color = light.color,
                     .intensity = light.intensity,
                     .shadow_index = shadow_index,
@@ -1930,7 +1934,7 @@ namespace tbx::internal
             };
             const auto instance = RenderMeshInstance {
                 .model_matrix = model_matrix,
-                .normal_matrix = normal(model_matrix),
+                .normal = normal(model_matrix),
             };
             if (!is_mesh_culled)
             {
@@ -1939,7 +1943,7 @@ namespace tbx::internal
                                     : render_data.opaque_batches;
                 append_batch(
                     batches,
-                    make_batch_hash(static_mesh.handle.get_id(), nullptr, material_key),
+                    make_batch_hash(static_mesh.handle.id, nullptr, material_key),
                     mesh,
                     material,
                     instance);
@@ -1948,7 +1952,7 @@ namespace tbx::internal
             {
                 append_batch(
                     render_data.shadow_batches,
-                    make_batch_hash(static_mesh.handle.get_id(), nullptr, 0U),
+                    make_batch_hash(static_mesh.handle.id, nullptr, 0U),
                     mesh,
                     MaterialInstance(),
                     instance);
@@ -1991,7 +1995,7 @@ namespace tbx::internal
             };
             const auto instance = RenderMeshInstance {
                 .model_matrix = model_matrix,
-                .normal_matrix = normal(model_matrix),
+                .normal = normal(model_matrix),
             };
             if (!is_mesh_culled)
             {

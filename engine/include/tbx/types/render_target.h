@@ -16,17 +16,36 @@ namespace tbx
             : Handle(std::move(handle))
         {
         }
-    };
-}
 
-namespace std
-{
-    template <>
-    struct hash<tbx::RenderTarget>
-    {
-        ::size operator()(const tbx::RenderTarget& value) const
+        bool operator==(const RenderTarget& other) const
         {
-            return hash<tbx::Handle>()(value);
+            return static_cast<const Handle&>(*this) == static_cast<const Handle&>(other);
         }
     };
 }
+
+template <>
+struct std::hash<tbx::RenderTarget>
+{
+    ::size operator()(const tbx::RenderTarget& value) const
+    {
+        return hash<tbx::Handle>()(value);
+    }
+};
+
+template <>
+struct std::formatter<tbx::RenderTarget>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::RenderTarget& value, TFormatContext& ctx) const
+    {
+        return _formatter.format(static_cast<const tbx::Handle&>(value), ctx);
+    }
+
+    std::formatter<tbx::Handle> _formatter;
+};

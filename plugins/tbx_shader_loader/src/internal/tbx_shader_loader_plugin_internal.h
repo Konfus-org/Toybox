@@ -1,12 +1,10 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/plugins/tbx_shader_loader/tbx_shader_loader_plugin.h"
+#include "tbx/plugins/shader_include_loader/shader_include_loader.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/shader.h"
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -93,49 +91,6 @@ namespace tbx::shader_loader::internal
         return false;
     }
 
-    static bool try_get_shader_type_from_extension(
-        const std::filesystem::path& path,
-        tbx::ShaderType& out_type)
-    {
-        std::string extension = path.extension().generic_string();
-        std::ranges::transform(
-            extension,
-            extension.begin(),
-            [](unsigned char ch)
-            {
-                return static_cast<char>(std::tolower(ch));
-            });
-
-        if (extension == ".vert")
-        {
-            out_type = tbx::ShaderType::VERTEX;
-            return true;
-        }
-        if (extension == ".tes")
-        {
-            out_type = tbx::ShaderType::TESSELATION;
-            return true;
-        }
-        if (extension == ".geom")
-        {
-            out_type = tbx::ShaderType::GEOMETRY;
-            return true;
-        }
-        if (extension == ".frag")
-        {
-            out_type = tbx::ShaderType::FRAGMENT;
-            return true;
-        }
-        if (extension == ".comp")
-        {
-            out_type = tbx::ShaderType::COMPUTE;
-            return true;
-        }
-
-        out_type = tbx::ShaderType::NONE;
-        return false;
-    }
-
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         const std::string_view reason)
@@ -149,23 +104,6 @@ namespace tbx::shader_loader::internal
             message.append(")");
         }
         return message;
-    }
-
-    static ShaderLoadResult try_read_shader_file(
-        const tbx::IFileOps& file_operator,
-        const std::filesystem::path& path,
-        std::string& out_data)
-    {
-        if (path.empty())
-            return make_shader_load_failure("tbx::Shader loader: empty shader path.");
-
-        if (!file_operator.read_file(path, tbx::FileDataFormat::UTF8_TEXT, out_data))
-        {
-            return make_shader_load_failure(
-                build_load_failure_message(path, "file could not be read"));
-        }
-
-        return make_shader_load_success({});
     }
 
     // Trims whitespace from both ends of a string view, returning an owned string for convenience.
@@ -271,7 +209,7 @@ namespace tbx::shader_loader::internal
         std::unordered_set<std::string>& included_files,
         size_t depth)
     {
-        if (constexpr size_t MAX_DEPTH = 32U; depth > MAX_DEPTH)
+        if (constexpr size_t max_depth = 32U; depth > max_depth)
             return make_shader_load_failure("tbx::Shader loader: include depth exceeded.");
 
         auto stream = std::istringstream(source);

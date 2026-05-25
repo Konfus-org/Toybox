@@ -1,27 +1,103 @@
 {
-  "shaders": { "vertex": "0000013D", "fragment": "0000013E" },
-  "config": {
-    "depth": {
-      "test": false,
-      "write": false,
-      "prepass": false,
-      "function": "less"
+  "shader": {
+    "vertex": {
+      "name": "",
+      "id": {
+        "value": 317
+      }
     },
-    "transparency": {
-      "blend_mode": "opaque"
+    "fragment": {
+      "name": "",
+      "id": {
+        "value": 318
+      }
     },
-    "cullable": false,
-    "two_sided": true,
-    "shadow_mode": "none"
+    "tesselation": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
+    },
+    "geometry": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
+    },
+    "compute": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
+    }
   },
-  "textures": [
-    { "name": "skybox_texture", "value": "" },
-    { "name": "secondary_skybox_texture", "value": "" }
-  ],
-  "parameters": [
-    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "brightness", "type": "float", "value": 1.0 },
-    { "name": "ambient_multiplier", "type": "float", "value": 0.0 },
-    { "name": "blend_factor", "type": "float", "value": 0.0 }
-  ]
+  "parameters": {
+    "values": [
+      {
+        "name": "color",
+        "data": {
+          "type": "color",
+          "value": {
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          }
+        }
+      },
+      {
+        "name": "brightness",
+        "data": {
+          "type": "float",
+          "value": 1
+        }
+      },
+      {
+        "name": "ambient_multiplier",
+        "data": {
+          "type": "float",
+          "value": 0
+        }
+      },
+      {
+        "name": "blend_factor",
+        "data": {
+          "type": "float",
+          "value": 0
+        }
+      }
+    ]
+  },
+  "textures": {
+    "values": [
+      {
+        "name": "skybox_texture",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "name": "secondary_skybox_texture",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      }
+    ]
+  },
+  "config": {
+    "is_depth_test_enabled": false,
+    "is_depth_write_enabled": false,
+    "is_depth_prepass_enabled": false,
+    "is_two_sided": true,
+    "is_cullable": false,
+    "depth_function": "less",
+    "blend_mode": "opaque",
+    "shadow_mode": "none"
+  }
 }

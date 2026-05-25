@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
@@ -23,7 +24,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type that owns all component data by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    struct TBX_API Rigidbody
+    struct TBX_API Rigidbody : Component
     {
         float mass = 1.0F;
         bool is_kinematic = false;
@@ -44,4 +45,21 @@ namespace tbx
 
         bool is_valid() const;
     };
+
+    TBX_SERIALIZABLE_STRUCT(
+        Rigidbody,
+        id,
+        mass,
+        is_kinematic,
+        is_gravity_enabled,
+        transform_sync_mode,
+        linear_velocity,
+        angular_velocity,
+        friction,
+        restitution,
+        linear_damping,
+        angular_damping,
+        is_sleep_enabled,
+        sleep_velocity_threshold,
+        sleep_time_seconds)
 }

@@ -3,7 +3,6 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/files/json.h"
 #include "tbx/types/texture.h"
 #include <memory>
 #include <stb_image.h>
@@ -27,12 +26,14 @@ namespace stb_image_loader
             _file_ops = std::make_unique<tbx::FileOperator>(settings->paths.working_directory);
         }
 
-        serialization_registry->register_reader<tbx::Texture>(
+        serialization_registry->register_loader<tbx::Texture>(
             [this](
                 const std::filesystem::path& asset_path,
-                const tbx::TextureLoadParameters& parameters)
+                const tbx::TextureLoadParameters& parameters,
+                const tbx::AssetLoadMetadata& metadata,
+                tbx::Texture& texture)
             {
-                return read_texture(asset_path, parameters);
+                return read_texture(asset_path, parameters, metadata, texture);
             });
     }
 
@@ -40,48 +41,35 @@ namespace stb_image_loader
     {
         if (auto serialization_registry = _serialization_registry.lock())
         {
-            serialization_registry->deregister_reader<tbx::Texture>();
+            serialization_registry->deregister_loader<tbx::Texture>();
         }
 
         _serialization_registry = {};
     }
 
-    std::shared_ptr<tbx::Texture> StbImageLoaderPlugin::read_texture(
+    tbx::Result StbImageLoaderPlugin::read_texture(
         const std::filesystem::path& asset_path,
-        const tbx::TextureLoadParameters& parameters) const
+        const tbx::TextureLoadParameters& parameters,
+        const tbx::AssetLoadMetadata&,
+        tbx::Texture& texture) const
     {
+        auto result = tbx::Result {};
         if (!_file_ops)
         {
-            TBX_TRACE_WARNING("Stb image loader: file services unavailable.");
-            return {};
+            result.flag_failure("Stb image loader: file services unavailable.");
+            return result;
         }
 
-        tbx::Texture load_texture = parameters.texture;
-
-        auto meta_path = asset_path;
-        meta_path += ".meta";
-        if (std::string meta_data = {};
-            _file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
-        {
-            try
-            {
-                const auto data = tbx::Json(meta_data);
-                internal::try_parse_texture(data, load_texture);
-            }
-            catch (...)
-            {
-                // Ignore meta parsing errors and fall back to request settings.
-                TBX_TRACE_WARNING("Failed to parse texture meta data for {}", asset_path.string());
-            }
-        }
+        tbx::Texture load_texture = texture;
+        if (load_texture.pixels.empty())
+            load_texture = parameters.texture;
 
         std::string encoded_image;
         if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
         {
-            TBX_TRACE_WARNING(
-                "{}",
+            result.flag_failure(
                 internal::build_load_failure_message(asset_path, "file could not be read"));
-            return {};
+            return result;
         }
 
         stbi_set_flip_vertically_on_load(true);
@@ -97,10 +85,9 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            TBX_TRACE_WARNING(
-                "{}",
+            result.flag_failure(
                 internal::build_load_failure_message(asset_path, stbi_failure_reason()));
-            return {};
+            return result;
         }
 
         const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height)
@@ -109,7 +96,7 @@ namespace stb_image_loader
         stbi_image_free(raw_data);
 
         const tbx::Size resolution = {static_cast<uint32>(width), static_cast<uint32>(height)};
-        return std::make_shared<tbx::Texture>(
+        texture = tbx::Texture(
             resolution,
             load_texture.wrap,
             load_texture.filter,
@@ -117,5 +104,7 @@ namespace stb_image_loader
             load_texture.mipmaps,
             load_texture.compression,
             pixels);
+        result.flag_success();
+        return result;
     }
 }

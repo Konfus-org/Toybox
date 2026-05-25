@@ -1,6 +1,8 @@
 #pragma once
 #include "entt/entt.hpp"
+#include "tbx/types/component.h"
 #include "tbx/types/uuid.h"
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <shared_mutex>
@@ -37,9 +39,11 @@ namespace tbx
         bool has(const Uuid& id) const;
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         bool has(const Uuid& id) const;
 
         template <typename TComponent, typename... TArgs>
+            requires std::derived_from<TComponent, Component>
         TComponent& add(const Uuid& id, TArgs&&... args);
         Uuid add(
             const std::string& name = "",
@@ -48,19 +52,24 @@ namespace tbx
             const Uuid& parent = Uuid());
 
         template <typename TComponent>
+            requires std::derived_from<TComponent, Component>
         void remove(const Uuid& id);
         void remove(Entity& entity);
 
         template <typename... TComponent>
+            requires(std::derived_from<TComponent, Component> && ...)
         decltype(auto) get_with(const Uuid& id) const;
         template <typename... TComponent>
+            requires(std::derived_from<TComponent, Component> && ...)
         std::vector<Entity> get_with() const;
         template <typename... TComponent>
+            requires(std::derived_from<TComponent, Component> && ...)
         Entity first_with() const;
         std::vector<Entity> get_all() const;
         Entity get(const Uuid& id) const;
 
         template <typename... TComponent>
+            requires(std::derived_from<TComponent, Component> && ...)
         void for_each_with(const std::function<void(Entity&)>& callback);
         void for_each(const std::function<void(Entity&)>& callback);
 

@@ -95,15 +95,15 @@ namespace three_d_example
             camera_world_transform.rotation,
             tbx::Vec3(projectile_visual_scale, projectile_visual_scale, projectile_visual_scale));
         projectile.add_component<tbx::SphereCollider>(projectile_visual_scale / 2.0F);
-        projectile.add_component<tbx::Rigidbody>(tbx::Rigidbody {
-            .mass = 0.2F,
-            .linear_velocity = shot_direction * _projectile_speed,
-            .friction = 0.2F,
-            .restitution = 0.1F,
-            .linear_damping = 0.02F,
-            .angular_damping = 0.02F,
-            .is_sleep_enabled = true,
-        });
+        auto rigidbody = tbx::Rigidbody {};
+        rigidbody.mass = 0.2F;
+        rigidbody.linear_velocity = shot_direction * _projectile_speed;
+        rigidbody.friction = 0.2F;
+        rigidbody.restitution = 0.1F;
+        rigidbody.linear_damping = 0.02F;
+        rigidbody.angular_damping = 0.02F;
+        rigidbody.is_sleep_enabled = true;
+        projectile.add_component<tbx::Rigidbody>(rigidbody);
 
         _active_projectiles.push_back(projectile);
         _active_projectile_lifetimes.push_back(_projectile_lifetime_seconds);

@@ -287,7 +287,7 @@ layout(std140, binding = TBX_BINDING_CAMERA_DATA) uniform TbxCameraData
 layout(std140, binding = TBX_BINDING_OBJECT_DATA) uniform TbxObjectData
 {
     mat4 u_model;
-    mat4 u_normal_matrix;
+    mat4 u_normal;
 };
 ```
 
@@ -318,7 +318,7 @@ void tbx_default_vertex()
     vec4 world_position = u_model * vec4(a_position, 1.0);
 
     v_world_position = world_position.xyz;
-    v_world_normal = normalize((u_normal_matrix * vec4(a_normal, 0.0)).xyz);
+    v_world_normal = normalize((u_normal * vec4(a_normal, 0.0)).xyz);
     v_world_tangent = vec4(normalize((u_model * vec4(a_tangent.xyz, 0.0)).xyz), a_tangent.w);
     v_tex_coord = a_tex_coord;
     v_color = a_color;

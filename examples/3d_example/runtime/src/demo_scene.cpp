@@ -92,10 +92,10 @@ namespace three_d_example
         auto lut_effect = tbx::PostProcessingEffect {};
         lut_effect.material = lut_post_process_material;
         lut_effect.blend = 1.0F;
-        _post_processing.add_component<tbx::PostProcessing>(tbx::PostProcessing {
-            .effects = {lut_effect},
-            .is_enabled = true,
-        });
+        auto post_processing = tbx::PostProcessing {};
+        post_processing.effects = {lut_effect};
+        post_processing.is_enabled = true;
+        _post_processing.add_component<tbx::PostProcessing>(post_processing);
 
         _trigger_zone = tbx::Entity("TriggerZone", registry);
         _trigger_zone.add_component<tbx::MaterialInstance>(

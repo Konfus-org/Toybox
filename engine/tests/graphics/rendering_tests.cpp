@@ -408,7 +408,7 @@ namespace tbx::tests::graphics
         {
             (void)create_info;
             is_window_open = true;
-            if (!main_window.is_valid())
+            if (!main_window.id.is_valid())
                 main_window = window;
             return window;
         }
@@ -477,7 +477,7 @@ namespace tbx::tests::graphics
 
         bool has_main_window() const override
         {
-            return main_window.is_valid() && is_window_open;
+            return main_window.id.is_valid() && is_window_open;
         }
 
         const Window& get_main_window() const override
@@ -578,37 +578,37 @@ namespace tbx::tests::graphics
         return std::nullopt;
     }
 
-    static std::optional<ObjectShaderData> find_object_shader_data(
+    static std::optional<ModelShaderData> find_object_shader_data(
         const std::vector<RecordedBufferUpload>& uploads)
     {
         for (const auto& upload : uploads)
         {
             if (upload.desc.debug_name != "Object Shader Data"
-                || upload.data.size() < sizeof(ObjectShaderData))
+                || upload.data.size() < sizeof(ModelShaderData))
                 continue;
 
-            auto shader_data = ObjectShaderData {};
-            std::memcpy(&shader_data, upload.data.data(), sizeof(ObjectShaderData));
+            auto shader_data = ModelShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(ModelShaderData));
             return shader_data;
         }
 
         return std::nullopt;
     }
 
-    static std::vector<ObjectShaderData> find_object_shader_data_uploads(
+    static std::vector<ModelShaderData> find_object_shader_data_uploads(
         const std::vector<RecordedBufferUpload>& uploads)
     {
-        auto shader_data_uploads = std::vector<ObjectShaderData> {};
+        auto shader_data_uploads = std::vector<ModelShaderData> {};
         for (const auto& upload : uploads)
         {
             if (upload.desc.debug_name != "Object Shader Data"
-                || upload.data.size() < sizeof(ObjectShaderData))
+                || upload.data.size() < sizeof(ModelShaderData))
             {
                 continue;
             }
 
-            auto shader_data = ObjectShaderData {};
-            std::memcpy(&shader_data, upload.data.data(), sizeof(ObjectShaderData));
+            auto shader_data = ModelShaderData {};
+            std::memcpy(&shader_data, upload.data.data(), sizeof(ModelShaderData));
             shader_data_uploads.push_back(shader_data);
         }
 
@@ -674,7 +674,7 @@ namespace tbx::tests::graphics
         auto count = uint {};
         for (const auto& buffer : buffers)
         {
-            if (buffer.debug_name.find("DynamicMesh") != std::string::npos
+            if (buffer.usage == GraphicsBufferUsage::VERTEX
                 && buffer.debug_name.find("Vertices") != std::string::npos)
             {
                 count += 1U;
@@ -807,7 +807,7 @@ namespace tbx::tests::graphics
             GraphicsBackendCallback::END_FRAME,
         };
 
-        EXPECT_EQ(backend.recorded_output_window.get_id(), window_manager.window.get_id());
+        EXPECT_EQ(backend.recorded_output_window.id, window_manager.window.id);
         EXPECT_EQ(backend.recorded_viewport.width, window_manager.size.width);
         EXPECT_EQ(backend.recorded_viewport.height, window_manager.size.height);
         ASSERT_FALSE(backend.recorded_passes.empty());
@@ -1316,23 +1316,30 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<ShaderProgram>(
-            [](const std::filesystem::path&, const ShaderLoadParameters&)
+        serialization_registry.register_loader<ShaderProgram>(
+            [](const std::filesystem::path&,
+               const ShaderLoadParameters&,
+               const AssetLoadMetadata&,
+               ShaderProgram& shader_program)
             {
-                return std::make_shared<ShaderProgram>(std::vector<ShaderSource> {
-                    ShaderSource(
-                        "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
-                        ShaderType::VERTEX),
-                    ShaderSource(
-                        "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
-                        "vec4(1.0); }\n",
-                        ShaderType::FRAGMENT),
-                });
+                shader_program = ShaderProgram(
+                    std::vector<ShaderSource> {
+                        ShaderSource(
+                            "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
+                            ShaderType::VERTEX),
+                        ShaderSource(
+                            "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
+                            "vec4(1.0); }\n",
+                            ShaderType::FRAGMENT),
+                    });
+                return Result {};
             });
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path&, const MaterialLoadParameters&)
+        serialization_registry.register_loader<Material>(
+            [](const std::filesystem::path&,
+               const MaterialLoadParameters&,
+               const AssetLoadMetadata&,
+               Material& material)
             {
-                auto material = Material {};
                 material.shader.vertex = Handle("Shaders/TexturedSky.vert");
                 material.shader.fragment = Handle("Shaders/TexturedSky.frag");
                 material.textures.set("skybox_texture", Handle {});
@@ -1341,7 +1348,7 @@ namespace tbx::tests::graphics
                 material.parameters.set("brightness", 1.0F);
                 material.parameters.set("ambient_multiplier", 0.0F);
                 material.parameters.set("blend_factor", 0.0F);
-                return std::make_shared<Material>(std::move(material));
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1355,7 +1362,9 @@ namespace tbx::tests::graphics
         sky_material.set_texture(TexturedSkyMaterial::SKYBOX_TEXTURE, Handle("Textures/Sky.png"));
         sky_material.set_parameter(TexturedSkyMaterial::COLOR, Color(0.25F, 0.5F, 1.0F, 1.0F));
         sky_material.set_parameter(TexturedSkyMaterial::BRIGHTNESS, 1.5F);
-        sky_entity.add_component<Sky>(Sky {.material = sky_material});
+        auto sky = Sky {};
+        sky.material = sky_material;
+        sky_entity.add_component<Sky>(sky);
         auto mesh_entity = Entity("Triangle", registry);
         mesh_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -1423,7 +1432,7 @@ namespace tbx::tests::graphics
         const auto sky_object_data = std::find_if(
             object_shader_data_uploads.begin(),
             object_shader_data_uploads.end(),
-            [](const ObjectShaderData& shader_data)
+            [](const ModelShaderData& shader_data)
             {
                 return shader_data.model[3].x == 0.0F && shader_data.model[3].y == 0.0F
                        && shader_data.model[3].z == 0.0F;
@@ -1454,15 +1463,18 @@ namespace tbx::tests::graphics
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto material_load_count = uint {};
-        serialization_registry.register_reader<Material>(
-            [&material_load_count](const std::filesystem::path& path, const MaterialLoadParameters&)
+        serialization_registry.register_loader<Material>(
+            [&material_load_count](
+                const std::filesystem::path& path,
+                const MaterialLoadParameters&,
+                const AssetLoadMetadata&,
+                Material& material)
             {
                 if (path.filename() == "Transient.mat")
                     material_load_count += 1U;
 
-                auto material = Material {};
                 material.parameters.set("albedo_color", Color(0.2F, 0.4F, 0.6F, 1.0F));
-                return std::make_shared<Material>(std::move(material));
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1513,11 +1525,16 @@ namespace tbx::tests::graphics
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto model_load_count = uint {};
-        serialization_registry.register_reader<Model>(
-            [&model_load_count](const std::filesystem::path&, const ModelLoadParameters&)
+        serialization_registry.register_loader<Model>(
+            [&model_load_count](
+                const std::filesystem::path&,
+                const ModelLoadParameters&,
+                const AssetLoadMetadata&,
+                Model& model)
             {
                 model_load_count += 1U;
-                return std::make_shared<Model>(Mesh::TRIANGLE);
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1525,7 +1542,9 @@ namespace tbx::tests::graphics
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/Triangle.fbx");
         auto entity = Entity("StaticTriangle", registry);
-        entity.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto static_mesh = StaticMesh {};
+        static_mesh.handle = model_handle;
+        entity.add_component<StaticMesh>(static_mesh);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto registry_service = make_non_owning_service(registry);
@@ -1757,10 +1776,14 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Model>(
-            [](const std::filesystem::path&, const ModelLoadParameters&)
+        serialization_registry.register_loader<Model>(
+            [](const std::filesystem::path&,
+               const ModelLoadParameters&,
+               const AssetLoadMetadata&,
+               Model& model)
             {
-                return std::make_shared<Model>(Mesh::TRIANGLE);
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1768,10 +1791,14 @@ namespace tbx::tests::graphics
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/BatchedTriangle.fbx");
         auto first = Entity("FirstStatic", registry);
-        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto first_mesh = StaticMesh {};
+        first_mesh.handle = model_handle;
+        first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto second = Entity("SecondStatic", registry);
-        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto second_mesh = StaticMesh {};
+        second_mesh.handle = model_handle;
+        second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto registry_service = make_non_owning_service(registry);
@@ -1806,10 +1833,12 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path& path, const MaterialLoadParameters&)
+        serialization_registry.register_loader<Material>(
+            [](const std::filesystem::path& path,
+               const MaterialLoadParameters&,
+               const AssetLoadMetadata&,
+               Material& material)
             {
-                auto material = Material {};
                 material.parameters.set("albedo_color", Color::WHITE);
                 if (path.filename() == "Transparent.mat")
                 {
@@ -1817,7 +1846,7 @@ namespace tbx::tests::graphics
                     material.config.blend_mode = MaterialBlendMode::ALPHA_BLEND;
                 }
 
-                return std::make_shared<Material>(std::move(material));
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1880,14 +1909,16 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Material>(
-            [](const std::filesystem::path&, const MaterialLoadParameters&)
+        serialization_registry.register_loader<Material>(
+            [](const std::filesystem::path&,
+               const MaterialLoadParameters&,
+               const AssetLoadMetadata&,
+               Material& material)
             {
-                auto material = Material {};
                 material.parameters.set("albedo_color", Color::WHITE);
                 material.config.is_depth_write_enabled = false;
                 material.config.blend_mode = MaterialBlendMode::ALPHA_BLEND;
-                return std::make_shared<Material>(std::move(material));
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1944,10 +1975,14 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Model>(
-            [](const std::filesystem::path&, const ModelLoadParameters&)
+        serialization_registry.register_loader<Model>(
+            [](const std::filesystem::path&,
+               const ModelLoadParameters&,
+               const AssetLoadMetadata&,
+               Model& model)
             {
-                return std::make_shared<Model>(Mesh::TRIANGLE);
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -1959,11 +1994,15 @@ namespace tbx::tests::graphics
         auto second_material = MaterialInstance(PbrMaterial::HANDLE);
         second_material.set_parameter("test_value", 2.0F);
         auto first = Entity("FirstStatic", registry);
-        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto first_mesh = StaticMesh {};
+        first_mesh.handle = model_handle;
+        first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         first.add_component<MaterialInstance>(first_material);
         auto second = Entity("SecondStatic", registry);
-        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto second_mesh = StaticMesh {};
+        second_mesh.handle = model_handle;
+        second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         second.add_component<MaterialInstance>(second_material);
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
@@ -1999,10 +2038,14 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
-        serialization_registry.register_reader<Model>(
-            [](const std::filesystem::path&, const ModelLoadParameters&)
+        serialization_registry.register_loader<Model>(
+            [](const std::filesystem::path&,
+               const ModelLoadParameters&,
+               const AssetLoadMetadata&,
+               Model& model)
             {
-                return std::make_shared<Model>(Mesh::TRIANGLE);
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
@@ -2013,17 +2056,23 @@ namespace tbx::tests::graphics
         light.add_component<DirectionalLight>(DirectionalLight());
         light.add_component<Transform>(Vec3(0.0F));
         auto first = Entity("FirstCaster", registry);
-        first.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto first_mesh = StaticMesh {};
+        first_mesh.handle = model_handle;
+        first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto second = Entity("SecondCaster", registry);
-        second.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto second_mesh = StaticMesh {};
+        second_mesh.handle = model_handle;
+        second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto no_shadow_config = MaterialConfig {};
         no_shadow_config.shadow_mode = ShadowMode::NONE;
         auto no_shadow_material = MaterialInstance(PbrMaterial::HANDLE);
         no_shadow_material.set_config(no_shadow_config);
         auto hidden = Entity("NoShadow", registry);
-        hidden.add_component<StaticMesh>(StaticMesh {.handle = model_handle});
+        auto hidden_mesh = StaticMesh {};
+        hidden_mesh.handle = model_handle;
+        hidden.add_component<StaticMesh>(hidden_mesh);
         hidden.add_component<Transform>(Vec3(2.0F, 0.0F, -2.0F));
         hidden.add_component<MaterialInstance>(no_shadow_material);
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
@@ -2103,9 +2152,9 @@ namespace tbx::tests::graphics
         for (int index = 0; index < light_data->light_meta.x; ++index)
         {
             const auto& shader_light = light_data->lights[static_cast<size>(index)];
-            if (shader_light.position_type.w == SHADER_LIGHT_TYPE_DIRECTIONAL)
+            if (static_cast<uint32>(shader_light.position_type.w) == SHADER_LIGHT_TYPE_DIRECTIONAL)
                 directional_data = &shader_light;
-            if (shader_light.position_type.w == SHADER_LIGHT_TYPE_POINT)
+            if (static_cast<uint32>(shader_light.position_type.w) == SHADER_LIGHT_TYPE_POINT)
                 point_data = &shader_light;
         }
 
@@ -2475,7 +2524,7 @@ namespace tbx::tests::graphics
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto resource_manager =
             RenderingResourceManager(backend_service, asset_manager_service, 0.0F);
-        auto instance = ObjectShaderData {};
+        auto instance = ModelShaderData {};
         const GraphicsResourceBinding first_binding = resource_manager.upload_instance_buffer(
             "Toybox/Test/Instances",
             0U,

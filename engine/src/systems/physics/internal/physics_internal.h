@@ -269,7 +269,7 @@ namespace tbx::internal
             return false;
 
         const auto& static_mesh = entity.get_component<StaticMesh>();
-        if (!static_mesh.handle.is_valid())
+        if (!static_mesh.handle.id.is_valid())
             return false;
 
         auto model = asset_manager.load<Model>(static_mesh.handle);
@@ -407,7 +407,7 @@ namespace tbx::internal
             TBX_TRACE_WARNING(
                 "Physics: tbx::MeshCollider on entity {} has no usable mesh geometry, using "
                 "fallback box shape.",
-                to_string(entity.get_id()));
+                entity.get_id());
         }
 
         create_info.shape_type = PhysicsColliderShapeType::BOX;

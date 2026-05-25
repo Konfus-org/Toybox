@@ -80,7 +80,7 @@ namespace tbx::internal
         const Handle& model_handle,
         const MeshBounds& bounds) const
     {
-        if (model_handle.is_valid() && bounds.is_valid)
+        if (model_handle.id.is_valid() && bounds.is_valid)
             _caches.meshes.model_bounds[model_handle] = bounds;
     }
 

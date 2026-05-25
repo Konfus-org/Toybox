@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
 
@@ -10,7 +11,7 @@ namespace tbx
     // transforms.
     // Ownership: value type; callers own instances and should copy when sharing across systems.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    struct TBX_API Transform
+    struct TBX_API Transform : Component
     {
         Transform();
         Transform(const Vec3& position);
@@ -32,6 +33,8 @@ namespace tbx
         // Thread Safety: synchronize external access when sharing instances.
         Vec3 scale = Vec3(1.0f);
     };
+
+    TBX_SERIALIZABLE_STRUCT(Transform, id, position, rotation, scale)
 
     /// @brief
     /// Purpose: Converts a world-space transform into a local-space transform relative to a parent

@@ -1,4 +1,6 @@
+#pragma once
 #include "tbx/tbx_api.h"
+#include <format>
 #include <string>
 
 namespace tbx
@@ -32,5 +34,28 @@ namespace tbx
         float bottom = 0.0f;
     };
 
-    TBX_API std::string to_string(const Bounds& bounds);
 }
+
+template <>
+struct std::formatter<tbx::Bounds>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::Bounds& bounds, TFormatContext& ctx) const
+    {
+        return _formatter.format(
+            std::format(
+                "[Left: {}, Right: {}, Top: {}, Bottom: {}]",
+                bounds.left,
+                bounds.right,
+                bounds.top,
+                bounds.bottom),
+            ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};

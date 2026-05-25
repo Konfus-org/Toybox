@@ -90,7 +90,7 @@ namespace tbx
 
         unload(loaded_plugin.meta.name);
 
-#if defined(TBX_DEBUG)
+#if !defined(TBX_FULL_RELEASE)
         if (!loaded_plugin.meta.resource_directory.empty())
         {
             if (auto asset_manager = _service_provider.get_service<AssetManager>().lock())

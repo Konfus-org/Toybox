@@ -15,15 +15,54 @@
 
 namespace tbx
 {
-    struct TestAsset
+    struct TestAsset : Asset
     {
         int value = 0;
     };
 
-    struct ReentrantResolveAsset
+    struct ReentrantResolveAsset : Asset
     {
         std::filesystem::path resolved_include_path = {};
     };
+
+    struct MacroOnlyAsset : Asset
+    {
+        int value = 0;
+    };
+
+    TBX_SERIALIZABLE_ASSET(MacroOnlyAsset, 1U, value)
+
+    struct OverlayAsset : Asset
+    {
+        bool was_overlaid = false;
+        int value = 0;
+    };
+
+    TBX_SERIALIZABLE_ASSET(OverlayAsset, 1U, value)
+
+    struct LoaderPriorityAsset : Asset
+    {
+        bool loader_received_metadata = false;
+        bool loader_saw_default_asset = false;
+        int value = 0;
+    };
+
+    TBX_SERIALIZABLE_ASSET(LoaderPriorityAsset, 1U, value)
+
+    struct DefaultOnlyAsset : Asset
+    {
+        bool loader_observed_default = false;
+        int value = 7;
+    };
+
+    struct TextOnlyAsset : Asset
+    {
+        std::string source = "";
+        int value = 0;
+    };
+
+    TBX_SERIALIZABLE_TEXT_ASSET(TextOnlyAsset, source)
+    TBX_SERIALIZABLE_ASSET_META(TextOnlyAsset, 1U, value)
 
     struct TestAssetLoadParameters
     {
@@ -80,14 +119,14 @@ namespace tbx
         state.completion.reset();
     }
 
-    static AssetPromise<TestAsset> read_test_asset_async(
+    static std::shared_future<Result> read_test_asset_async(
         const std::filesystem::path&,
-        const TestAssetLoadParameters& parameters = {})
+        const TestAssetLoadParameters& parameters,
+        AssetLoadMetadata,
+        const std::shared_ptr<TestAsset>& asset)
     {
         auto& state = get_test_asset_loader_state();
-        AssetPromise<TestAsset> promise = {};
-        promise.asset = std::make_shared<TestAsset>();
-        promise.asset->value = parameters.value;
+        asset->value = parameters.value;
         state.async_load_count += 1;
         state.last_async_parameters = parameters;
 
@@ -96,36 +135,36 @@ namespace tbx
             Result result;
             result.flag_success();
             std::promise<Result> completion;
-            promise.promise = completion.get_future().share();
+            auto promise = completion.get_future().share();
             completion.set_value(result);
             return promise;
         }
 
-        state.asset = promise.asset;
+        state.asset = asset;
         state.completion = std::make_shared<std::promise<Result>>();
-        promise.promise = state.completion->get_future().share();
-        return promise;
+        return state.completion->get_future().share();
     }
 
-    static std::shared_ptr<TestAsset> read_test_asset(
+    static Result read_test_asset(
         const std::filesystem::path&,
-        const TestAssetLoadParameters& parameters = {})
+        const TestAssetLoadParameters& parameters,
+        const AssetLoadMetadata&,
+        TestAsset& asset)
     {
         auto& state = get_test_asset_loader_state();
-        auto asset = std::make_shared<TestAsset>();
-        asset->value = parameters.value;
+        asset.value = parameters.value;
         state.sync_load_count += 1;
         state.last_sync_parameters = parameters;
-        return asset;
+        return {};
     }
 
-    static void register_test_asset_reader(SerializationRegistry& registry)
+    static void register_test_asset_loader(SerializationRegistry& registry)
     {
         static bool is_registered = false;
         if (is_registered)
             return;
 
-        registry.register_reader<TestAsset>(read_test_asset, read_test_asset_async);
+        registry.register_loader<TestAsset>(read_test_asset, read_test_asset_async);
         is_registered = true;
     }
 
@@ -150,29 +189,65 @@ namespace tbx
         state.sync_load_count = 0;
     }
 
-    static std::shared_ptr<ReentrantResolveAsset> read_reentrant_resolve_asset(
+    static Result read_reentrant_resolve_asset(
         const std::filesystem::path&,
-        const ReentrantResolveAssetLoadParameters& parameters = {})
+        const ReentrantResolveAssetLoadParameters& parameters,
+        const AssetLoadMetadata&,
+        ReentrantResolveAsset& asset)
     {
         auto& state = get_reentrant_resolve_loader_state();
-        auto asset = std::make_shared<ReentrantResolveAsset>();
         if (state.manager != nullptr)
         {
             state.last_resolved_include_path = state.manager->resolve(parameters.include_path);
-            asset->resolved_include_path = state.last_resolved_include_path;
+            asset.resolved_include_path = state.last_resolved_include_path;
         }
         state.sync_load_count += 1;
-        return asset;
+        return {};
     }
 
-    static void register_reentrant_resolve_asset_reader(SerializationRegistry& registry)
+    static void register_reentrant_resolve_asset_loader(SerializationRegistry& registry)
     {
         static bool is_registered = false;
         if (is_registered)
             return;
 
-        registry.register_reader<ReentrantResolveAsset>(read_reentrant_resolve_asset);
+        registry.register_loader<ReentrantResolveAsset>(read_reentrant_resolve_asset);
         is_registered = true;
+    }
+
+    static Result overlay_macro_asset(
+        const std::filesystem::path&,
+        const DefaultAssetLoadParameters&,
+        const AssetLoadMetadata&,
+        OverlayAsset& asset)
+    {
+        asset.was_overlaid = true;
+        asset.value += 2;
+        return {};
+    }
+
+    static Result load_priority_asset(
+        const std::filesystem::path&,
+        const DefaultAssetLoadParameters&,
+        const AssetLoadMetadata& metadata,
+        LoaderPriorityAsset& asset)
+    {
+        asset.loader_received_metadata = metadata.id == Uuid(0x2DU) && metadata.version == 1U;
+        asset.loader_saw_default_asset =
+            !asset.id.is_valid() && asset.version == 1U && asset.value == 0;
+        asset.value = 13;
+        return {};
+    }
+
+    static Result read_default_only_asset(
+        const std::filesystem::path&,
+        const DefaultAssetLoadParameters&,
+        const AssetLoadMetadata&,
+        DefaultOnlyAsset& asset)
+    {
+        asset.loader_observed_default = asset.value == 7;
+        asset.value = 11;
+        return {};
     }
 
     class NullMessageDispatcher final : public IMessageDispatcher
@@ -394,12 +469,12 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         return AssetManager(
             get_null_dispatcher(),
             get_test_serialization_registry(),
             working_directory,
-            std::vector<std::filesystem::path> {},
+            std::vector<std::filesystem::path>(),
             provider,
             file_ops);
     }
@@ -407,14 +482,170 @@ namespace tbx::tests::assets
     static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
     {
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         return AssetManager(
             get_null_dispatcher(),
             get_test_serialization_registry(),
             working_directory,
-            std::vector<std::filesystem::path> {},
+            std::vector<std::filesystem::path>(),
             {},
             file_ops);
+    }
+
+    TEST(serialization_registry, macro_only_asset_loads_meta_and_body_json)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.tasset", "{ \"value\": 42 }");
+        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002A\", \"version\": 1 }");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<MacroOnlyAsset>("content/value.tasset");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->id, Uuid(0x2AU));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->value, 42);
+    }
+
+    TEST(serialization_registry, asset_meta_rejects_missing_version)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.tasset", "{ \"value\": 5 }");
+        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002B\" }");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<MacroOnlyAsset>("content/value.tasset");
+
+        // Assert
+        EXPECT_EQ(asset, nullptr);
+    }
+
+    TEST(serialization_registry, asset_meta_rejects_mismatched_version)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.tasset", "{ \"value\": 5 }");
+        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002B\", \"version\": 2 }");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<MacroOnlyAsset>("content/value.tasset");
+
+        // Assert
+        EXPECT_EQ(asset, nullptr);
+    }
+
+    TEST(serialization_registry, custom_transformer_overlays_macro_loaded_asset)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.overlay", "{ \"value\": 40 }");
+        auto registry = SerializationRegistry {file_ops};
+        registry.register_transformer<OverlayAsset>(overlay_macro_asset);
+
+        // Act
+        const auto asset = registry.read<OverlayAsset>("content/value.overlay");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_TRUE(asset->was_overlaid);
+        EXPECT_EQ(asset->value, 42);
+    }
+
+    TEST(serialization_registry, text_asset_loads_body_and_meta_without_custom_loader)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.text", "plain text body");
+        file_ops->set_text(
+            "content/value.text.meta",
+            "{ \"id\": \"0000002E\", \"version\": 1, \"value\": 77 }");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<TextOnlyAsset>("content/value.text");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->id, Uuid(0x2EU));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->source, "plain text body");
+        EXPECT_EQ(asset->value, 77);
+    }
+
+    TEST(serialization_registry, custom_loader_takes_priority_over_macro_asset_body)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.priority", "{ \"value\": 40 }");
+        file_ops->set_text(
+            "content/value.priority.meta",
+            "{ \"id\": \"0000002D\", \"version\": 1 }");
+        auto registry = SerializationRegistry {file_ops};
+        registry.register_loader<LoaderPriorityAsset>(load_priority_asset);
+
+        // Act
+        const auto asset = registry.read<LoaderPriorityAsset>("content/value.priority");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_TRUE(asset->loader_received_metadata);
+        EXPECT_TRUE(asset->loader_saw_default_asset);
+        EXPECT_EQ(asset->id, Uuid(0x2DU));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->value, 13);
+    }
+
+    TEST(serialization_registry, texture_meta_loads_macro_settings_without_pixel_loader)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text(
+            "content/texture.png.meta",
+            "{"
+            "\"id\": \"0000002C\","
+            "\"version\": 1,"
+            "\"wrap\": \"clamp_to_edge\","
+            "\"filter\": \"nearest\","
+            "\"format\": \"rgba\","
+            "\"mipmaps\": \"disabled\","
+            "\"compression\": \"auto\""
+            "}");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<Texture>("content/texture.png");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->id, Uuid(0x2CU));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->wrap, TextureWrap::CLAMP_TO_EDGE);
+        EXPECT_EQ(asset->filter, TextureFilter::NEAREST);
+        EXPECT_EQ(asset->format, TextureFormat::RGBA);
+        EXPECT_EQ(asset->mipmaps, TextureMipmaps::DISABLED);
+        EXPECT_EQ(asset->compression, TextureCompression::AUTO);
+        EXPECT_FALSE(asset->pixels.empty());
+    }
+
+    TEST(serialization_registry, custom_loader_receives_default_asset_without_macros)
+    {
+        // Arrange
+        auto registry = SerializationRegistry {};
+        registry.register_loader<DefaultOnlyAsset>(read_default_only_asset);
+
+        // Act
+        const auto asset = registry.read<DefaultOnlyAsset>("content/default.custom");
+
+        // Assert
+        ASSERT_NE(asset, nullptr);
+        EXPECT_TRUE(asset->loader_observed_default);
+        EXPECT_EQ(asset->value, 11);
     }
 
     TEST(asset_manager, resolves_handle_by_path)
@@ -752,7 +983,7 @@ namespace tbx::tests::assets
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
         AssetManager manager = make_manager(working_directory);
-        register_reentrant_resolve_asset_reader(get_test_serialization_registry());
+        register_reentrant_resolve_asset_loader(get_test_serialization_registry());
         reset_reentrant_resolve_loader_state();
 
         auto& loader_state = get_reentrant_resolve_loader_state();
@@ -792,7 +1023,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         auto directories = manager.get_directories();
 
         // Assert
@@ -830,7 +1061,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         auto ensured_id = manager.ensure(Handle("stone.asset"));
         auto resolved_id = manager.resolve(Handle("stone.asset"));
 
@@ -861,7 +1092,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x2U)));
 
         // Assert
@@ -928,7 +1159,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
 
         // Act
         file_ops->write_file("content/created.asset", FileDataFormat::UTF8_TEXT, "created");
@@ -939,7 +1170,7 @@ namespace tbx::tests::assets
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "created.asset");
-        EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x90U));
+        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x90U));
 
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x90U)));
         EXPECT_NE(asset, nullptr);
@@ -968,7 +1199,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
 
         // Act
         file_ops->touch("content/modified.asset", base_time + std::chrono::seconds(1));
@@ -979,7 +1210,7 @@ namespace tbx::tests::assets
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "modified.asset");
-        EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x91U));
+        EXPECT_EQ(events[0].affected_asset.id, Uuid(0x91U));
     }
 
     TEST(asset_manager, reloads_loaded_assets_when_watched_file_changes)
@@ -1005,7 +1236,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x95U)));
         ASSERT_NE(asset, nullptr);
@@ -1019,11 +1250,11 @@ namespace tbx::tests::assets
 
         const auto modified_events = dispatcher.get_modified_events();
         ASSERT_EQ(modified_events.size(), 1U);
-        EXPECT_EQ(modified_events[0].affected_asset.get_id(), Uuid(0x95U));
+        EXPECT_EQ(modified_events[0].affected_asset.id, Uuid(0x95U));
 
         const auto reloaded_events = dispatcher.get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
-        EXPECT_EQ(reloaded_events[0].affected_asset.get_id(), Uuid(0x95U));
+        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x95U));
 
         const auto& loader_state = get_test_asset_loader_state();
         EXPECT_EQ(loader_state.sync_load_count, 1);
@@ -1053,7 +1284,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x96U)));
         ASSERT_NE(asset, nullptr);
@@ -1072,7 +1303,7 @@ namespace tbx::tests::assets
 
         const auto reloaded_events = dispatcher.get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
-        EXPECT_EQ(reloaded_events[0].affected_asset.get_id(), Uuid(0x96U));
+        EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x96U));
 
         const auto& loader_state = get_test_asset_loader_state();
         EXPECT_EQ(loader_state.sync_load_count, 1);
@@ -1104,7 +1335,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_reader(get_test_serialization_registry());
+        register_test_asset_loader(get_test_serialization_registry());
         auto initial_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
         ASSERT_NE(initial_asset, nullptr);
 
@@ -1120,7 +1351,7 @@ namespace tbx::tests::assets
             ASSERT_EQ(events.size(), 1U);
             EXPECT_EQ(events[0].watched_path, working_directory / "content");
             EXPECT_EQ(events[0].asset_path, working_directory / "content" / "removed.asset");
-            EXPECT_EQ(events[0].affected_asset.get_id(), Uuid(0x92U));
+            EXPECT_EQ(events[0].affected_asset.id, Uuid(0x92U));
         }
 
         auto removed_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));

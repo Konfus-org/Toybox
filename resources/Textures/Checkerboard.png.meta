@@ -1,3 +1,9 @@
 {
-  "id": "00000024"
+  "id": "00000024",
+  "version": 1,
+  "wrap": "repeat",
+  "filter": "linear",
+  "format": "rgb",
+  "mipmaps": "enabled",
+  "compression": "disabled"
 }

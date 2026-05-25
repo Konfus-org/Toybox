@@ -166,6 +166,50 @@ namespace tbx::internal
         return false;
     }
 
+    static Handle parse_asset_handle(std::string_view value)
+    {
+        const auto text = trim(value);
+        if (text.empty())
+            return {};
+
+        const auto id = parse_uuid_text(text);
+        if (id.is_valid())
+            return Handle(id);
+
+        return Handle(std::string(text));
+    }
+
+    static bool try_parse_shader_type(std::string_view value, ShaderType& out_value)
+    {
+        const auto lowered = to_lower(trim(value));
+        if (lowered == "vertex" || lowered == "vert")
+        {
+            out_value = ShaderType::VERTEX;
+            return true;
+        }
+        if (lowered == "tesselation" || lowered == "tessellation" || lowered == "tes")
+        {
+            out_value = ShaderType::TESSELATION;
+            return true;
+        }
+        if (lowered == "geometry" || lowered == "geom")
+        {
+            out_value = ShaderType::GEOMETRY;
+            return true;
+        }
+        if (lowered == "fragment" || lowered == "frag")
+        {
+            out_value = ShaderType::FRAGMENT;
+            return true;
+        }
+        if (lowered == "compute" || lowered == "comp")
+        {
+            out_value = ShaderType::COMPUTE;
+            return true;
+        }
+        return false;
+    }
+
     template <typename TValue>
     static bool try_get_array_impl(
         const nlohmann::json& data,

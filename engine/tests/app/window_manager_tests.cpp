@@ -76,7 +76,7 @@ namespace tbx::tests::app
                 .mode = WindowMode::WINDOWED,
             });
 
-        ASSERT_TRUE(main_window.is_valid());
+        ASSERT_TRUE(main_window.id.is_valid());
         ASSERT_TRUE(manager.has_main_window());
 
         auto observed_closed_event = false;
@@ -105,6 +105,8 @@ namespace tbx::tests::app
         EXPECT_EQ(observed_window, main_window);
         EXPECT_FALSE(observed_has_main_window);
         EXPECT_FALSE(observed_is_open);
+        EXPECT_FALSE(observed_window.is_valid());
+        EXPECT_FALSE(main_window.is_valid());
         EXPECT_FALSE(manager.has_main_window());
         EXPECT_FALSE(manager.has(main_window));
     }

@@ -5,22 +5,22 @@
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <filesystem>
-#include <functional>
 #include <memory>
-#include <optional>
 
 namespace tbx::shader_loader
 {
-    class TBX_PLUGIN_API TbxShaderLoaderPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API ShaderIncludeLoader final : public tbx::Plugin
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
         void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        std::shared_ptr<tbx::ShaderProgram> read_shader(
+        tbx::Result transform_shader(
             const std::filesystem::path& asset_path,
-            const tbx::ShaderLoadParameters& parameters);
+            const tbx::ShaderLoadParameters& parameters,
+            const tbx::AssetLoadMetadata& metadata,
+            tbx::ShaderProgram& shader_program);
 
         std::weak_ptr<tbx::AssetManager> _asset_manager = {};
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};

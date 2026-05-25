@@ -1,6 +1,6 @@
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/debugging/macros.h"
 #include "systems/ecs/internal/entity_internal.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/types/uuid.h"
 #include <cstddef>
 namespace tbx
@@ -180,37 +180,6 @@ namespace tbx
 
         out_parent = registry.get(parent_id);
         return out_parent.get_id().is_valid();
-    }
-
-    std::string to_string(const Entity& entity)
-    {
-        auto idValue = std::to_string(entity.get_id().value);
-        auto nameValue = entity.get_name();
-        auto tagValue = entity.get_tag();
-        auto layerValue = entity.get_layer();
-        auto parentValue = std::to_string(entity.get_parent().value);
-
-        std::string value = {};
-        value.reserve(
-            32U + idValue.size() + nameValue.size() + tagValue.size() + layerValue.size()
-            + parentValue.size());
-
-        value += "Entity{";
-        value += "id=";
-        value += idValue;
-        value += ", name='";
-        value += nameValue;
-        value += "'";
-        value += ", tag='";
-        value += tagValue;
-        value += "'";
-        value += ", layer='";
-        value += layerValue;
-        value += "'";
-        value += ", parent=";
-        value += parentValue;
-        value += "}";
-        return value;
     }
 
     Transform get_world_space_transform(const Entity& entity)

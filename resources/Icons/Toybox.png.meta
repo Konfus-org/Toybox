@@ -1,3 +1,9 @@
 {
-  "id": "a7b25a34"
+  "id": "a7b25a34",
+  "version": 1,
+  "wrap": "repeat",
+  "filter": "linear",
+  "format": "rgb",
+  "mipmaps": "enabled",
+  "compression": "disabled"
 }

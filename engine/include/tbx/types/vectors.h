@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
 #include <glm/glm.hpp>
 namespace tbx
@@ -23,6 +24,13 @@ namespace tbx
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     using Vec4 = glm::vec4;
+
+    inline const Vec3 VEC3_UP = Vec3(0.0F, 1.0F, 0.0F);
+    inline const Vec3 VEC3_RIGHT = Vec3(1.0F, 0.0F, 0.0F);
+
+    TBX_SERIALIZABLE_TYPE(Vec2)
+    TBX_SERIALIZABLE_TYPE(Vec3)
+    TBX_SERIALIZABLE_TYPE(Vec4)
 
     /// @brief
     /// Purpose: Represents a two-component signed integer vector compatible with GLM operations.
@@ -108,4 +116,11 @@ namespace tbx
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
     TBX_API float distance(const Vec3& a, const Vec3& b);
+}
+
+namespace glm
+{
+    TBX_SERIALIZABLE_STRUCT(tbx::Vec2, x, y)
+    TBX_SERIALIZABLE_STRUCT(tbx::Vec3, x, y, z)
+    TBX_SERIALIZABLE_STRUCT(tbx::Vec4, x, y, z, w)
 }

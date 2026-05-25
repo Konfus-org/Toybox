@@ -76,8 +76,8 @@ namespace tbx
         {
             TBX_TRACE_WARNING(
                 "Failed to ensure asset id for handle (name='{}', id={}): {}",
-                handle.get_name(),
-                to_string(handle.get_id()),
+                handle.name,
+                handle.id,
                 ensure_result.get_report());
             return {};
         }
@@ -248,14 +248,14 @@ namespace tbx
                             TBX_TRACE_INFO(
                                 "Reloading asset: '{}' (id={}, type={})",
                                 registry_entry.normalized_path,
-                                to_string(registry_entry.asset_id),
+                                registry_entry.asset_id,
                                 type_name);
                             if (!store_reload_result.succeeded)
                             {
                                 TBX_TRACE_WARNING(
                                     "Failed to reload asset: '{}' (id={}, type={})",
                                     registry_entry.normalized_path,
-                                    to_string(registry_entry.asset_id),
+                                    registry_entry.asset_id,
                                     type_name);
                             }
 
@@ -302,6 +302,7 @@ namespace tbx
                     }
 
                     affected_asset = internal::build_asset_handle(registry_entry);
+                    affected_asset.invalidate();
                     pending_event_type = PendingAssetEventType::REMOVED;
 
                     TBX_TRACE_INFO("File removed: {}", changed_asset_path.string());

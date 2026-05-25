@@ -1,7 +1,7 @@
 #include "tbx/systems/windowing/window_manager.h"
+#include "systems/windowing/internal/window_manager_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
-#include "systems/windowing/internal/window_manager_internal.h"
 #include <algorithm>
 #include <string_view>
 #include <utility>
@@ -49,14 +49,14 @@ namespace tbx
         {
             TBX_TRACE_ERROR(
                 "Window manager: backend returned a null native handle for window '{}'.",
-                to_string(window));
+                window);
             _backend.destroy_window(window);
             return {};
         }
 
         record.native_handle = native_handle;
         _windows[window] = std::move(record);
-        if (!_main_window.is_valid())
+        if (!_main_window.id.is_valid())
             _main_window = window;
         send_window_opened(window);
         return window;
@@ -73,6 +73,7 @@ namespace tbx
 
         const bool was_main_window = (_main_window == window);
         const Window closed_window = record->id;
+        record->id.invalidate();
         if (was_main_window)
             _main_window = {};
 
@@ -172,7 +173,7 @@ namespace tbx
 
     bool WindowManager::has_main_window() const
     {
-        return _main_window.is_valid() && has(_main_window);
+        return _main_window.id.is_valid() && has(_main_window);
     }
 
     const Window& WindowManager::get_main_window() const

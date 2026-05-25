@@ -2,6 +2,7 @@
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/color.h"
+#include "tbx/types/component.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
@@ -11,7 +12,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    struct TBX_API Light
+    struct TBX_API Light : Component
     {
         Light();
 
@@ -40,6 +41,8 @@ namespace tbx
         bool cast_shadows = true;
     };
 
+    TBX_SERIALIZABLE_STRUCT(Light, id, color, intensity, cast_shadows)
+
     /// @brief
     /// Purpose: Describes a point light source for scene rendering.
     /// @details
@@ -57,6 +60,8 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         float range = 10.0f;
     };
+
+    TBX_SERIALIZABLE_STRUCT(PointLight, id, color, intensity, cast_shadows, range)
 
     /// @brief
     /// Purpose: Describes a spot light source for scene rendering.
@@ -95,6 +100,16 @@ namespace tbx
         float outer_angle = 35.0f;
     };
 
+    TBX_SERIALIZABLE_STRUCT(
+        SpotLight,
+        id,
+        color,
+        intensity,
+        cast_shadows,
+        range,
+        inner_angle,
+        outer_angle)
+
     /// @brief
     /// Purpose: Describes an area light source for scene rendering.
     /// @details
@@ -124,6 +139,8 @@ namespace tbx
         Vec2 area_size = Vec2(1.0f, 1.0f);
     };
 
+    TBX_SERIALIZABLE_STRUCT(AreaLight, id, color, intensity, cast_shadows, range, area_size)
+
     /// @brief
     /// Purpose: Describes a directional light source for scene rendering.
     /// @details
@@ -143,4 +160,6 @@ namespace tbx
         /// (ambient * intensity) across directional lights.
         float ambient = 0.03f;
     };
+
+    TBX_SERIALIZABLE_STRUCT(DirectionalLight, id, color, intensity, cast_shadows, ambient)
 }

@@ -2,6 +2,11 @@
 
 namespace tbx::tests::ecs
 {
+    struct TestComponent : Component
+    {
+        int value = 0;
+    };
+
     // Validates parent metadata roundtrip via id-based accessors.
     TEST(ECSTests, CreatesEntityWithDescription)
     {
@@ -60,5 +65,23 @@ namespace tbx::tests::ecs
         EXPECT_TRUE(has_before_destroy);
         EXPECT_FALSE(has_after_destroy);
         EXPECT_FALSE(has_invalid_id);
+    }
+
+    TEST(ECSTests, ComponentId_IsGeneratedAndPreservedWhenStored)
+    {
+        // Arrange
+        EntityRegistry ecs = {};
+        auto entity = Entity("ComponentIdentity", ecs);
+        auto component = TestComponent {};
+        component.value = 42;
+        const auto component_id = component.id;
+
+        // Act
+        auto& stored = entity.add_component<TestComponent>(component);
+
+        // Assert
+        EXPECT_TRUE(component_id.is_valid());
+        EXPECT_EQ(stored.id, component_id);
+        EXPECT_EQ(stored.value, 42);
     }
 }

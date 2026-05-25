@@ -1,29 +1,149 @@
 {
-  "shaders": { "vertex": "00000130", "fragment": "00000141" },
-  "config": {
-    "depth": {
-      "test": true,
-      "write": false,
-      "prepass": false,
-      "function": "less"
+  "shader": {
+    "vertex": {
+      "name": "",
+      "id": {
+        "value": 304
+      }
     },
-    "transparency": {
-      "blend_mode": "alpha_blend"
+    "fragment": {
+      "name": "",
+      "id": {
+        "value": 321
+      }
+    },
+    "tesselation": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
+    },
+    "geometry": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
+    },
+    "compute": {
+      "name": "",
+      "id": {
+        "value": 0
+      }
     }
   },
-  "textures": [
-    { "name": "albedo_map", "value": "" },
-    { "name": "normal_map", "value": "" },
-    { "name": "metallic_roughness_map", "value": "" },
-    { "name": "ao_map", "value": "" },
-    { "name": "emissive_map", "value": "" }
-  ],
-  "parameters": [
-    { "name": "albedo_color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "emissive_color", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "metallic", "type": "float", "value": 0.0 },
-    { "name": "roughness", "type": "float", "value": 1.0 },
-    { "name": "normal_strength", "type": "float", "value": 1.0 },
-    { "name": "ao", "type": "float", "value": 1.0 }
-  ]
+  "parameters": {
+    "values": [
+      {
+        "name": "albedo_color",
+        "data": {
+          "type": "color",
+          "value": {
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          }
+        }
+      },
+      {
+        "name": "emissive_color",
+        "data": {
+          "type": "color",
+          "value": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          }
+        }
+      },
+      {
+        "name": "metallic",
+        "data": {
+          "type": "float",
+          "value": 0
+        }
+      },
+      {
+        "name": "roughness",
+        "data": {
+          "type": "float",
+          "value": 1
+        }
+      },
+      {
+        "name": "normal_strength",
+        "data": {
+          "type": "float",
+          "value": 1
+        }
+      },
+      {
+        "name": "ao",
+        "data": {
+          "type": "float",
+          "value": 1
+        }
+      }
+    ]
+  },
+  "textures": {
+    "values": [
+      {
+        "name": "albedo_map",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "name": "normal_map",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "name": "metallic_roughness_map",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "name": "ao_map",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      },
+      {
+        "name": "emissive_map",
+        "texture": {
+          "name": "",
+          "id": {
+            "value": 0
+          }
+        }
+      }
+    ]
+  },
+  "config": {
+    "is_depth_test_enabled": true,
+    "is_depth_write_enabled": false,
+    "is_depth_prepass_enabled": false,
+    "is_two_sided": false,
+    "is_cullable": true,
+    "depth_function": "less",
+    "blend_mode": "alpha_blend",
+    "shadow_mode": "standard"
+  }
 }

@@ -4,6 +4,7 @@
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/plugin_api/shared_library.h"
 #include "tbx/tbx_api.h"
+#include <format>
 #include <functional>
 #include <memory>
 #include <string>
@@ -72,8 +73,23 @@ namespace tbx
         ServiceProvider* _attached_service_provider = nullptr;
     };
 
-    /// @brief Purpose: Formats a LoadedPlugin summary string.
-    /// @details Ownership: Returns an owned std::string.
-    /// Thread Safety: Stateless and safe for concurrent use.
-    TBX_API std::string to_string(const LoadedPlugin& loaded);
 }
+
+template <>
+struct std::formatter<tbx::LoadedPlugin>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::LoadedPlugin& loaded, TFormatContext& ctx) const
+    {
+        return _formatter.format(
+            std::format("Name={}, Version={}", loaded.meta.name, loaded.meta.version),
+            ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};

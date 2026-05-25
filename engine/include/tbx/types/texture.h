@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/asset.h"
 #include "tbx/types/size.h"
 #include <vector>
 
@@ -39,12 +40,48 @@ namespace tbx
         AUTO
     };
 
+    TBX_SERIALIZABLE_ENUM(
+        TextureFilter,
+        {
+            {TextureFilter::NEAREST, "nearest"},
+            {TextureFilter::LINEAR, "linear"},
+        })
+
+    TBX_SERIALIZABLE_ENUM(
+        TextureWrap,
+        {
+            {TextureWrap::CLAMP_TO_EDGE, "clamp_to_edge"},
+            {TextureWrap::MIRRORED_REPEAT, "mirrored_repeat"},
+            {TextureWrap::REPEAT, "repeat"},
+        })
+
+    TBX_SERIALIZABLE_ENUM(
+        TextureFormat,
+        {
+            {TextureFormat::RGB, "rgb"},
+            {TextureFormat::RGBA, "rgba"},
+        })
+
+    TBX_SERIALIZABLE_ENUM(
+        TextureMipmaps,
+        {
+            {TextureMipmaps::DISABLED, "disabled"},
+            {TextureMipmaps::ENABLED, "enabled"},
+        })
+
+    TBX_SERIALIZABLE_ENUM(
+        TextureCompression,
+        {
+            {TextureCompression::DISABLED, "disabled"},
+            {TextureCompression::AUTO, "auto"},
+        })
+
     /// @brief
     /// Purpose: Stores texture sampling, surface settings, and pixel data.
     /// @details
     /// Ownership: Owns texture pixel data by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API Texture
+    struct TBX_API Texture : Asset
     {
         Texture() = default;
         Texture(
@@ -95,7 +132,10 @@ namespace tbx
         std::vector<Pixel> pixels = {255, 255, 255};
     };
 
+    TBX_SERIALIZABLE_ASSET_META(Texture, 1U, wrap, filter, format, mipmaps, compression)
+
     struct TBX_API RenderTexture : Texture
     {
     };
+
 }

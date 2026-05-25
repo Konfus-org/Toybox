@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/material.h"
 #include <string>
@@ -17,12 +18,21 @@ namespace tbx
         bool has_config_override = false;
     };
 
+    TBX_SERIALIZABLE_STRUCT(
+        MaterialOverrides,
+        textures,
+        parameters,
+        config,
+        has_texture_override,
+        has_parameter_override,
+        has_config_override)
+
     /// @brief
     /// Purpose: Stores a material asset handle plus flat runtime override data.
     /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API MaterialInstance
+    struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
         MaterialInstance(Handle handle);
@@ -87,7 +97,18 @@ namespace tbx
         bool _is_dirty = true;
     };
 
+    TBX_SERIALIZABLE_STRUCT(MaterialInstance, id, material, overrides)
+
     TBX_API uint64 hash(const MaterialInstance& material, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
+
+template <>
+struct std::hash<tbx::MaterialInstance>
+{
+    ::size operator()(const tbx::MaterialInstance& value) const
+    {
+        return static_cast<::size>(tbx::hash(value));
+    }
+};
 
 #include "tbx/types/components/material_instance.inl"

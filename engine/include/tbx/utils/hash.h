@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
+#include <functional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -62,5 +63,16 @@ namespace tbx
     inline uint64 fnv1a_hash_uuid(const Uuid value, const uint64 hash)
     {
         return fnv1a_hash_value(static_cast<uint32>(value), hash);
+    }
+
+    inline uint64 hash_combine_value(const uint64 seed, const uint64 value)
+    {
+        return fnv1a_hash_value(value, seed);
+    }
+
+    template <typename TValue>
+    inline uint64 hash_combine(const uint64 seed, const TValue& value)
+    {
+        return hash_combine_value(seed, static_cast<uint64>(std::hash<TValue>()(value)));
     }
 }

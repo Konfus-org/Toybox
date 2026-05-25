@@ -4,9 +4,11 @@
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/asset.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -26,8 +28,10 @@ namespace tbx
     struct IAssetStore;
 
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     struct AssetRecord;
     template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     struct AssetStore;
 
     /// @brief
@@ -85,6 +89,7 @@ namespace tbx
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::shared_ptr<TAsset> load(
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
@@ -102,6 +107,7 @@ namespace tbx
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         AssetUsage get_usage(const Handle& handle) const;
 
         /// @brief
@@ -167,6 +173,7 @@ namespace tbx
         /// Ownership: Returns an AssetPromise that shares ownership with the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         AssetPromise<TAsset> load_async(
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
@@ -177,6 +184,7 @@ namespace tbx
         /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         bool unload(const Handle& handle, bool force = false);
 
         /// @brief
@@ -201,6 +209,7 @@ namespace tbx
         /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         bool reload(const Handle& handle);
 
         /// @brief
@@ -218,30 +227,35 @@ namespace tbx
 
       private:
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::optional<std::reference_wrapper<AssetStore<TAsset>>> get_store(
             bool create_if_missing = false);
 
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::optional<std::reference_wrapper<const AssetStore<TAsset>>> get_store() const;
 
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
             AssetStore<TAsset>& store,
             const AssetRegistryEntry& entry,
             bool create_if_missing = false);
 
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
             AssetStore<TAsset>& store,
             const Handle& handle);
 
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::optional<std::reference_wrapper<const AssetRecord<TAsset>>> get_record(
             const AssetStore<TAsset>& store,
             const Handle& handle) const;
 
       private:
-        // Asset readers can synchronously re-enter AssetManager APIs (for example shader includes
+        // Asset loaders can synchronously re-enter AssetManager APIs (for example shader includes
         // resolving additional asset paths) on the same thread during load.
         mutable std::recursive_mutex _mutex = {};
         IMessageDispatcher& _dispatcher;

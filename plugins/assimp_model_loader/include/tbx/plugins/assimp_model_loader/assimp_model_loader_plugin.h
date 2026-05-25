@@ -14,9 +14,11 @@ namespace assimp_model_loader
         void on_detach(tbx::ServiceProvider& service_provider) override;
 
       private:
-        static std::shared_ptr<tbx::Model> read_model(
+        static tbx::Result read_model(
             const std::filesystem::path& asset_path,
-            const tbx::ModelLoadParameters& parameters);
+            const tbx::ModelLoadParameters& parameters,
+            const tbx::AssetLoadMetadata& metadata,
+            tbx::Model& model);
 
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };

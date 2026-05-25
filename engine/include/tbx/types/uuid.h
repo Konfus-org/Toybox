@@ -3,8 +3,10 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
@@ -46,21 +48,38 @@ namespace tbx
         static const Uuid NONE;
     };
 
+    TBX_SERIALIZABLE_STRUCT(Uuid, value)
+
     inline const Uuid Uuid::NONE = {};
 
-    /// @brief Purpose: Formats a UUID value as a hex string.
-    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
-    /// concurrent use.
-    TBX_API std::string to_string(const Uuid& value);
+    /// @brief Purpose: Parses a UUID value from a hex string.
+    TBX_API Uuid parse_uuid(std::string_view value);
+
+    /// @brief Purpose: Hashes a string to produce a UUID value.
+    TBX_API Uuid hash_string_to_id(std::string_view handle_name);
 }
 
-namespace std
+template <>
+struct std::formatter<tbx::Uuid>
 {
-    template <>
-    struct hash<tbx::Uuid>
+    constexpr auto parse(std::format_parse_context& ctx)
     {
-        ::size operator()(const tbx::Uuid& value) const;
-    };
-}
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::Uuid& value, TFormatContext& ctx) const
+    {
+        return _formatter.format(std::format("{:x}", value.value), ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};
+
+template <>
+struct std::hash<tbx::Uuid>
+{
+    ::size operator()(const tbx::Uuid& value) const;
+};
 
 #include "tbx/types/uuid.inl"

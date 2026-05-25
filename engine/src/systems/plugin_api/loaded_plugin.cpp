@@ -70,8 +70,4 @@ namespace tbx
         instance->receive_message(msg);
     }
 
-    std::string to_string(const LoadedPlugin& loaded)
-    {
-        return "Name=" + loaded.meta.name + ", Version=" + loaded.meta.version;
-    }
 }

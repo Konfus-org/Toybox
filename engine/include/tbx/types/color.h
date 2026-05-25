@@ -47,4 +47,6 @@ namespace tbx
         static const Color LIGHT_GREY;
         static const Color DARK_GREY;
     };
+
+    TBX_SERIALIZABLE_STRUCT(Color, r, g, b, a)
 }

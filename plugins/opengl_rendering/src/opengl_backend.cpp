@@ -88,7 +88,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::Window& output_target)
     {
-        if (!output_target.is_valid())
+        if (!output_target.id.is_valid())
             return make_failure("OpenGL backend: frame output window is invalid.");
 
         if (auto result = ensure_frame_context(output_target); !result)
@@ -108,7 +108,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::present()
     {
-        if (!_state.current_target.is_valid())
+        if (!_state.current_target.id.is_valid())
             return make_failure("OpenGL backend: no active window to present.");
 
         if (!std::ranges::contains(_contexts, _state.current_target))
@@ -1151,7 +1151,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::make_current(const tbx::Window window) const
     {
-        if (!window.is_valid())
+        if (!window.id.is_valid())
             return make_failure("OpenGL backend: context window is invalid.");
 
         return _context_backend.make_context_current(window);
@@ -1159,7 +1159,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::present(const tbx::Window window) const
     {
-        if (!window.is_valid())
+        if (!window.id.is_valid())
             return make_failure("OpenGL backend: context window is invalid.");
 
         return _context_backend.swap_buffers(window);
@@ -1300,7 +1300,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::require_gl_ready_for_resource_ops() const
     {
-        if (!_state.current_target.is_valid())
+        if (!_state.current_target.id.is_valid())
         {
             return make_failure(
                 "OpenGL backend: begin_frame must be called before resource upload.");

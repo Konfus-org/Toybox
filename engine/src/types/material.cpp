@@ -5,6 +5,7 @@
 #include <string>
 #include <type_traits>
 #include <variant>
+
 namespace tbx
 {
     MaterialParameter::MaterialParameter(uint32 parameter_id, MaterialParameterData parameter_data)
@@ -29,13 +30,15 @@ namespace tbx
     MaterialTextureBinding::MaterialTextureBinding(
         std::string_view binding_name,
         Handle texture_handle)
-        : MaterialTextureBinding(make_param_id(binding_name), std::move(texture_handle))
+        : name(binding_name)
+        , id(make_param_id(binding_name))
+        , texture(std::move(texture_handle))
     {
     }
 
     void MaterialParameterBindings::set(std::string_view name, MaterialParameterData value)
     {
-        set(make_param_id(name), std::move(value));
+        set(MaterialParameter(name, std::move(value)));
     }
 
     void MaterialParameterBindings::set(const uint32 id, MaterialParameterData value)
@@ -52,7 +55,19 @@ namespace tbx
 
     void MaterialParameterBindings::set(MaterialParameter parameter)
     {
-        set(parameter.id, std::move(parameter.data));
+        const uint32 id = parameter.id == INVALID_MATERIAL_PARAM_ID && !parameter.name.empty()
+                              ? make_param_id(parameter.name)
+                              : parameter.id;
+        auto existing_parameter = internal::try_get_uniform_by_id(values, id);
+        if (existing_parameter.has_value())
+        {
+            existing_parameter->get().name = std::move(parameter.name);
+            existing_parameter->get().data = std::move(parameter.data);
+            return;
+        }
+
+        parameter.id = id;
+        values.push_back(std::move(parameter));
     }
 
     void MaterialParameterBindings::set(std::initializer_list<MaterialParameter> parameters)
@@ -152,7 +167,7 @@ namespace tbx
 
     void MaterialTextureBindings::set(std::string_view name, Handle texture)
     {
-        set(make_param_id(name), std::move(texture));
+        set(MaterialTextureBinding(name, std::move(texture)));
     }
 
     void MaterialTextureBindings::set(const uint32 id, Handle texture)
@@ -169,7 +184,20 @@ namespace tbx
 
     void MaterialTextureBindings::set(MaterialTextureBinding texture_binding)
     {
-        set(texture_binding.id, std::move(texture_binding.texture));
+        const uint32 id =
+            texture_binding.id == INVALID_MATERIAL_PARAM_ID && !texture_binding.name.empty()
+                ? make_param_id(texture_binding.name)
+                : texture_binding.id;
+        auto existing_texture = internal::try_get_texture_by_id(values, id);
+        if (existing_texture.has_value())
+        {
+            existing_texture->get().name = std::move(texture_binding.name);
+            existing_texture->get().texture = std::move(texture_binding.texture);
+            return;
+        }
+
+        texture_binding.id = id;
+        values.push_back(std::move(texture_binding));
     }
 
     void MaterialTextureBindings::set(
@@ -407,8 +435,7 @@ namespace tbx
         set_parameter(id, value);
     }
 
-    bool MaterialInstance::get_bool_parameter_or(const std::string& name, const bool fallback)
-        const
+    bool MaterialInstance::get_bool_parameter_or(const std::string& name, const bool fallback) const
     {
         return get_bool_parameter_or(make_param_id(name), fallback);
     }
@@ -418,8 +445,7 @@ namespace tbx
         return get_parameter_or(id, fallback);
     }
 
-    int MaterialInstance::get_int_parameter_or(const std::string& name, const int fallback)
-        const
+    int MaterialInstance::get_int_parameter_or(const std::string& name, const int fallback) const
     {
         return get_int_parameter_or(make_param_id(name), fallback);
     }
@@ -429,9 +455,8 @@ namespace tbx
         return get_parameter_or(id, fallback);
     }
 
-    float MaterialInstance::get_float_parameter_or(
-        const std::string& name,
-        const float fallback) const
+    float MaterialInstance::get_float_parameter_or(const std::string& name, const float fallback)
+        const
     {
         return get_float_parameter_or(make_param_id(name), fallback);
     }
@@ -451,9 +476,8 @@ namespace tbx
         return fallback;
     }
 
-    double MaterialInstance::get_double_parameter_or(
-        const std::string& name,
-        const double fallback) const
+    double MaterialInstance::get_double_parameter_or(const std::string& name, const double fallback)
+        const
     {
         return get_double_parameter_or(make_param_id(name), fallback);
     }
@@ -473,9 +497,8 @@ namespace tbx
         return fallback;
     }
 
-    Handle MaterialInstance::get_texture_handle_or(
-        const std::string& name,
-        const Handle& fallback) const
+    Handle MaterialInstance::get_texture_handle_or(const std::string& name, const Handle& fallback)
+        const
     {
         return get_texture_handle_or(make_param_id(name), fallback);
     }
@@ -488,7 +511,9 @@ namespace tbx
         return texture->get().texture;
     }
 
-    uint64 hash(const MaterialParameterData& data, const uint64 value)
+    static uint64 hash_material_parameter_data(
+        const MaterialParameterData& data,
+        const uint64 value)
     {
         uint64 result = hash(static_cast<uint64>(data.index()), value);
         std::visit(
@@ -504,7 +529,7 @@ namespace tbx
         return result;
     }
 
-    uint64 hash(const MaterialConfig& config, const uint64 value)
+    static uint64 hash_material_config(const MaterialConfig& config, const uint64 value)
     {
         uint64 result = value;
         result = hash(static_cast<uint64>(config.is_depth_test_enabled ? 1U : 0U), result);
@@ -517,10 +542,10 @@ namespace tbx
         return hash(static_cast<uint64>(config.shadow_mode), result);
     }
 
-    uint64 hash(const MaterialInstance& material, const uint64 value)
+    static uint64 hash_material_instance(const MaterialInstance& material, const uint64 value)
     {
-        uint64 result = hash(material.get_handle().get_id(), value);
-        result = hash(material.get_handle().get_name(), result);
+        uint64 result = hash(material.get_handle().id, value);
+        result = hash(material.get_handle().name, result);
         result =
             hash(static_cast<uint64>(material.has_config_override_enabled() ? 1U : 0U), result);
         if (material.has_config_override_enabled())
@@ -539,10 +564,27 @@ namespace tbx
         for (const auto& texture : material.overrides.textures)
         {
             result = hash(texture.id, result);
-            result = hash(texture.texture.get_id(), result);
-            result = hash(texture.texture.get_name(), result);
+            result = hash(texture.texture.id, result);
+            result = hash(texture.texture.name, result);
         }
 
         return result == 0U ? 1U : result;
+    }
+
+    uint64 hash(const MaterialParameterData& data, const uint64 value)
+    {
+        return hash_combine_value(
+            value,
+            hash_material_parameter_data(data, TBX_FNV1A_OFFSET_BASIS));
+    }
+
+    uint64 hash(const MaterialConfig& config, const uint64 value)
+    {
+        return hash_combine_value(value, hash_material_config(config, TBX_FNV1A_OFFSET_BASIS));
+    }
+
+    uint64 hash(const MaterialInstance& material, const uint64 value)
+    {
+        return hash_combine_value(value, hash_material_instance(material, TBX_FNV1A_OFFSET_BASIS));
     }
 }

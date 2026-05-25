@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/asset.h"
 #include "tbx/types/color.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/matrices.h"
@@ -28,6 +29,17 @@ namespace tbx
         FRAGMENT,
         COMPUTE
     };
+
+    TBX_SERIALIZABLE_ENUM(
+        ShaderType,
+        {
+            {ShaderType::NONE, "none"},
+            {ShaderType::VERTEX, "vertex"},
+            {ShaderType::TESSELATION, "tesselation"},
+            {ShaderType::GEOMETRY, "geometry"},
+            {ShaderType::FRAGMENT, "fragment"},
+            {ShaderType::COMPUTE, "compute"},
+        })
 
     /// @brief
     /// Purpose: Stores shader source text for a single stage.
@@ -57,12 +69,15 @@ namespace tbx
         ShaderType type = ShaderType::NONE;
     };
 
+    TBX_SERIALIZABLE_TEXT_ASSET(ShaderSource, source)
+    TBX_SERIALIZABLE_ASSET_META(ShaderSource, 1U, type)
+
     /// @brief
     /// Purpose: Stores one or more shader stages that can be linked into a graphics pipeline.
     /// @details
     /// Ownership: Owns copied shader stage sources.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API ShaderProgram
+    struct TBX_API ShaderProgram : Asset
     {
         ShaderProgram() = default;
         ShaderProgram(const char* shader_source, ShaderType shader_type)
@@ -77,11 +92,11 @@ namespace tbx
             : sources({ShaderSource(std::move(shader_source), shader_type)})
         {
         }
-        explicit ShaderProgram(ShaderSource shader_source)
+        ShaderProgram(ShaderSource shader_source)
             : sources({std::move(shader_source)})
         {
         }
-        explicit ShaderProgram(std::vector<ShaderSource> shader_sources)
+        ShaderProgram(std::vector<ShaderSource> shader_sources)
             : sources(std::move(shader_sources))
         {
         }
@@ -135,8 +150,13 @@ namespace tbx
             return has_vertex && has_fragment;
         }
 
+        std::string source = "";
+        ShaderType type = ShaderType::NONE;
         std::vector<ShaderSource> sources = {};
     };
+
+    TBX_SERIALIZABLE_TEXT_ASSET(ShaderProgram, source)
+    TBX_SERIALIZABLE_ASSET_META(ShaderProgram, 1U, type)
 
     /// @brief
     /// Purpose: Holds explicit shader stage handles used to build a shader program.
@@ -187,17 +207,19 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently.
         bool is_valid() const
         {
-            const bool has_compute = compute.is_valid();
-            const bool has_graphics_stages = vertex.is_valid() || fragment.is_valid()
-                                             || tesselation.is_valid() || geometry.is_valid();
+            const bool has_compute = compute.id.is_valid();
+            const bool has_graphics_stages = vertex.id.is_valid() || fragment.id.is_valid()
+                                             || tesselation.id.is_valid() || geometry.id.is_valid();
 
             if (has_compute)
                 return !has_graphics_stages;
 
-            if (!vertex.is_valid() || !fragment.is_valid())
+            if (!vertex.id.is_valid() || !fragment.id.is_valid())
                 return false;
 
             return true;
         }
     };
+
+    TBX_SERIALIZABLE_STRUCT(Shader, vertex, fragment, tesselation, geometry, compute)
 }

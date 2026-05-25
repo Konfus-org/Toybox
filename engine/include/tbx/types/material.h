@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/asset.h"
 #include "tbx/types/color.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/shader.h"
@@ -35,6 +36,8 @@ namespace tbx
     using MaterialParameterData =
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
+    TBX_SERIALIZABLE_VARIANT(MaterialParameterData)
+
     /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
     /// @details
@@ -47,6 +50,14 @@ namespace tbx
         ALWAYS = 2
     };
 
+    TBX_SERIALIZABLE_ENUM(
+        MaterialDepthFunction,
+        {
+            {MaterialDepthFunction::LESS, "less"},
+            {MaterialDepthFunction::LESS_EQUAL, "less_equal"},
+            {MaterialDepthFunction::ALWAYS, "always"},
+        })
+
     /// @brief
     /// Purpose: Selects the transparency path used when rendering a material.
     /// @details
@@ -57,6 +68,13 @@ namespace tbx
         OPAQUE = 0,
         ALPHA_BLEND = 1
     };
+
+    TBX_SERIALIZABLE_ENUM(
+        MaterialBlendMode,
+        {
+            {MaterialBlendMode::OPAQUE, "opaque"},
+            {MaterialBlendMode::ALPHA_BLEND, "alpha_blend"},
+        })
 
     /// @brief
     /// Purpose: Controls when shadows are rendered for a material. Always ignores the global
@@ -70,6 +88,14 @@ namespace tbx
         STANDARD = 1,
         ALWAYS = 2
     };
+
+    TBX_SERIALIZABLE_ENUM(
+        ShadowMode,
+        {
+            {ShadowMode::NONE, "none"},
+            {ShadowMode::STANDARD, "standard"},
+            {ShadowMode::ALWAYS, "always"},
+        })
 
     /// @brief
     /// Purpose: Stores one material parameter value keyed by a stable hashed id.
@@ -86,9 +112,12 @@ namespace tbx
         template <typename TValue>
         MaterialParameter(const std::string& parameter_name, TValue&& parameter_data);
 
+        std::string name = "";
         uint32 id = INVALID_MATERIAL_PARAM_ID;
         MaterialParameterData data = 0.0f;
     };
+
+    TBX_SERIALIZABLE_STRUCT(MaterialParameter, name, data)
 
     /// @brief
     /// Purpose: Stores parameter bindings for a material or material instance.
@@ -131,6 +160,8 @@ namespace tbx
         std::vector<MaterialParameter> values = {};
     };
 
+    TBX_SERIALIZABLE_STRUCT(MaterialParameterBindings, values)
+
     /// @brief
     /// Purpose: Stores one texture binding keyed by a stable hashed id.
     /// @details
@@ -143,9 +174,12 @@ namespace tbx
         MaterialTextureBinding(const std::string& binding_name, Handle texture_handle);
         MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
 
+        std::string name = "";
         uint32 id = INVALID_MATERIAL_PARAM_ID;
         Handle texture = {};
     };
+
+    TBX_SERIALIZABLE_STRUCT(MaterialTextureBinding, name, texture)
 
     /// @brief
     /// Purpose: Stores texture bindings for a material or material instance.
@@ -188,6 +222,8 @@ namespace tbx
         std::vector<MaterialTextureBinding> values = {};
     };
 
+    TBX_SERIALIZABLE_STRUCT(MaterialTextureBindings, values)
+
     /// @brief
     /// Purpose: Stores render-state configuration for a material.
     /// @details
@@ -206,13 +242,24 @@ namespace tbx
         ShadowMode shadow_mode = ShadowMode::STANDARD;
     };
 
+    TBX_SERIALIZABLE_STRUCT(
+        MaterialConfig,
+        is_depth_test_enabled,
+        is_depth_write_enabled,
+        is_depth_prepass_enabled,
+        is_two_sided,
+        is_cullable,
+        depth_function,
+        blend_mode,
+        shadow_mode)
+
     /// @brief
     /// Purpose: Stores the shader program, default bindings, and render config for a material
     /// asset.
     /// @details
     /// Ownership: Owns shader handles, default parameter bindings, default texture bindings, and
     /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API Material
+    struct TBX_API Material : Asset
     {
         Shader shader = {};
         MaterialParameterBindings parameters = {};
@@ -220,11 +267,29 @@ namespace tbx
         MaterialConfig config = {};
     };
 
-    TBX_API uint64 hash(
-        const MaterialParameterData& data,
-        uint64 value = TBX_FNV1A_OFFSET_BASIS);
+    TBX_SERIALIZABLE_ASSET(Material, 1U, shader, parameters, textures, config)
+
+    TBX_API uint64 hash(const MaterialParameterData& data, uint64 value = TBX_FNV1A_OFFSET_BASIS);
     TBX_API uint64 hash(const MaterialConfig& config, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
+
+template <>
+struct std::hash<tbx::MaterialParameterData>
+{
+    ::size operator()(const tbx::MaterialParameterData& value) const
+    {
+        return static_cast<::size>(tbx::hash(value));
+    }
+};
+
+template <>
+struct std::hash<tbx::MaterialConfig>
+{
+    ::size operator()(const tbx::MaterialConfig& value) const
+    {
+        return static_cast<::size>(tbx::hash(value));
+    }
+};
 
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/material.inl"

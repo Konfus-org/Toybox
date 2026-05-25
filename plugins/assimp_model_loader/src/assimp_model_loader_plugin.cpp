@@ -20,21 +20,24 @@ namespace assimp_model_loader
     {
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
         if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->register_reader<tbx::Model>(read_model);
+            serialization_registry->register_loader<tbx::Model>(read_model);
     }
 
     void AssimpModelLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->deregister_reader<tbx::Model>();
+            serialization_registry->deregister_loader<tbx::Model>();
 
         _serialization_registry = {};
     }
 
-    std::shared_ptr<tbx::Model> AssimpModelLoaderPlugin::read_model(
+    tbx::Result AssimpModelLoaderPlugin::read_model(
         const std::filesystem::path& asset_path,
-        const tbx::ModelLoadParameters&)
+        const tbx::ModelLoadParameters&,
+        const tbx::AssetLoadMetadata&,
+        tbx::Model& model)
     {
+        auto result = tbx::Result {};
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
@@ -44,10 +47,9 @@ namespace assimp_model_loader
         const aiScene* scene = importer.ReadFile(asset_path.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
-            TBX_TRACE_WARNING(
-                "{}",
+            result.flag_failure(
                 internal::build_load_failure_message(asset_path, importer.GetErrorString()));
-            return {};
+            return result;
         }
 
         // Build materials from Assimp material data.
@@ -176,10 +178,10 @@ namespace assimp_model_loader
         }
 
         // Assemble the final model payload.
-        tbx::Model model = {};
         model.meshes = std::move(meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
-        return std::make_shared<tbx::Model>(std::move(model));
+        result.flag_success();
+        return result;
     }
 }

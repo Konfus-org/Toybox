@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"
@@ -10,7 +11,7 @@
 
 namespace tbx
 {
-    class TBX_API Camera
+    class TBX_API Camera : public Component
     {
       public:
         Camera();
@@ -49,4 +50,6 @@ namespace tbx
         float _fov = 60.0f;
         float _aspect = 1.78f;
     };
+
+    TBX_SERIALIZABLE_STRUCT(Camera, id)
 }

@@ -55,7 +55,7 @@ namespace tbx::internal
             "layout(std140, binding = 2) uniform TbxObjectData\n"
             "{\n"
             "    mat4 u_model;\n"
-            "    mat4 u_normal_matrix;\n"
+            "    mat4 u_normal;\n"
             "};\n"
             "void main()\n"
             "{\n"

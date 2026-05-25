@@ -2,8 +2,8 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
+#include <format>
 #include <string>
-
 
 namespace tbx
 {
@@ -30,8 +30,43 @@ namespace tbx
         TimeUnit unit = TimeUnit::MILLISECONDS;
     };
 
-    /// @brief Purpose: Formats a TimeSpan value with its unit for display.
-    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
-    /// concurrent use.
-    TBX_API std::string to_string(const TimeSpan& time_span);
 }
+
+template <>
+struct std::formatter<tbx::TimeSpan>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::TimeSpan& time_span, TFormatContext& ctx) const
+    {
+        auto suffix = std::string_view("(unknown unit)");
+        switch (time_span.unit)
+        {
+            case tbx::TimeUnit::MILLISECONDS:
+                suffix = "ms";
+                break;
+            case tbx::TimeUnit::SECONDS:
+                suffix = "s";
+                break;
+            case tbx::TimeUnit::MINUTES:
+                suffix = "min";
+                break;
+            case tbx::TimeUnit::HOURS:
+                suffix = "h";
+                break;
+            case tbx::TimeUnit::DAYS:
+                suffix = "d";
+                break;
+            default:
+                break;
+        }
+
+        return _formatter.format(std::format("{} {}", time_span.value, suffix), ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};

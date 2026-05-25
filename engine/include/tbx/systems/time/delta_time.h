@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include <chrono>
+#include <format>
 #include <string>
 
 namespace tbx
@@ -13,11 +14,6 @@ namespace tbx
         double seconds = 0.0;
         double milliseconds = 0.0;
     };
-
-    /// @brief Purpose: Formats a DeltaTime as a human-readable string.
-    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
-    /// concurrent use.
-    TBX_API std::string to_string(const DeltaTime& delta_time);
 
     // Simple per-thread timer to compute DeltaTime.
     // Thread-safety: Not thread-safe; use a separate instance per thread.
@@ -37,3 +33,20 @@ namespace tbx
     };
 
 }
+
+template <>
+struct std::formatter<tbx::DeltaTime>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    template <typename TFormatContext>
+    auto format(const tbx::DeltaTime& delta_time, TFormatContext& ctx) const
+    {
+        return _formatter.format(std::format("{}s", delta_time.seconds), ctx);
+    }
+
+    std::formatter<std::string> _formatter;
+};

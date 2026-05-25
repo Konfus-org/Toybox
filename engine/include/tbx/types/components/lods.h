@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/files/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/component.h"
 #include "tbx/types/handle.h"
 #include <vector>
 
@@ -17,14 +18,18 @@ namespace tbx
         float max_distance = 0.0f;
     };
 
+    TBX_SERIALIZABLE_STRUCT(Lod, handle, max_distance)
+
     /// @brief
     /// Purpose: Stores mesh LOD selection data for a renderable entity.
     /// @details
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API Lods
+    struct TBX_API Lods : Component
     {
         std::vector<Lod> values = {};
         float render_distance = 0.0f;
     };
+
+    TBX_SERIALIZABLE_STRUCT(Lods, id, values, render_distance)
 }

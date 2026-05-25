@@ -33,9 +33,9 @@
 
 #define TBX_MAX_LIGHTS 128
 
-#define TBX_LIGHT_TYPE_DIRECTIONAL 0.0
-#define TBX_LIGHT_TYPE_POINT       1.0
-#define TBX_LIGHT_TYPE_SPOT        2.0
+#define TBX_LIGHT_TYPE_DIRECTIONAL 0
+#define TBX_LIGHT_TYPE_POINT       1
+#define TBX_LIGHT_TYPE_SPOT        2
 
 layout(std140, binding = TBX_BINDING_FRAME_DATA) uniform TbxFrameData
 {
@@ -57,7 +57,7 @@ layout(std140, binding = TBX_BINDING_CAMERA_DATA) uniform TbxCameraData
 layout(std140, binding = TBX_BINDING_OBJECT_DATA) uniform TbxObjectData
 {
     mat4 u_model;
-    mat4 u_normal_matrix;
+    mat4 u_normal;
 };
 
 struct TbxLight

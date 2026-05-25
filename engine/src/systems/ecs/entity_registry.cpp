@@ -2,6 +2,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "systems/ecs/internal/entity_registry_internal.h"
+#include <format>
 #include <mutex>
 namespace tbx
 {
@@ -43,7 +44,7 @@ namespace tbx
         auto id = internal::to_entity_id(handle);
         auto resolvedName = name;
         if (resolvedName.empty())
-            resolvedName = tbx::to_string(id);
+            resolvedName = std::format("{}", id);
 
         _impl->emplace<internal::EntityNameComponent>(
             handle,
