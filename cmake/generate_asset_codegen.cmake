@@ -101,6 +101,26 @@ function(tbx_codegen_format_double_literal raw_value out_literal)
     set(${out_literal} "${literal}" PARENT_SCOPE)
 endfunction()
 
+function(tbx_codegen_write_file_if_different output_file content)
+    cmake_path(GET output_file PARENT_PATH output_directory)
+    file(MAKE_DIRECTORY "${output_directory}")
+
+    set(should_write TRUE)
+    if(EXISTS "${output_file}")
+        file(READ "${output_file}" existing_content)
+        if(existing_content STREQUAL content)
+            set(should_write FALSE)
+        endif()
+    endif()
+
+    if(should_write)
+        file(WRITE "${output_file}" "${content}")
+        message(STATUS "Toybox asset codegen: wrote ${output_file}")
+    else()
+        message(STATUS "Toybox asset codegen: unchanged ${output_file}")
+    endif()
+endfunction()
+
 function(tbx_codegen_make_handle_literal raw_value out_literal)
     string(STRIP "${raw_value}" trimmed_value)
     if(trimmed_value STREQUAL "")
@@ -238,18 +258,12 @@ function(tbx_codegen_make_material_render_config_literal material_file material_
     endif()
 
     set(render_config_literal
-        "tbx::MaterialRenderConfig {\n"
-        "                .depth =\n"
-        "                    tbx::MaterialDepthConfig {\n"
-            "                        .is_test_enabled = ${depth_test_literal},\n"
-        "                        .is_write_enabled = ${depth_write_literal},\n"
-        "                        .is_prepass_enabled = ${depth_prepass_literal},\n"
-        "                        .function = ${depth_function_literal},\n"
-        "                    },\n"
-        "                .transparency =\n"
-        "                    tbx::MaterialTransparencyConfig {\n"
-        "                        .blend_mode = ${blend_mode_literal},\n"
-        "                    },\n"
+        "tbx::MaterialConfig {\n"
+        "                .is_depth_test_enabled = ${depth_test_literal},\n"
+        "                .is_depth_write_enabled = ${depth_write_literal},\n"
+        "                .is_depth_prepass_enabled = ${depth_prepass_literal},\n"
+        "                .depth_function = ${depth_function_literal},\n"
+        "                .blend_mode = ${blend_mode_literal},\n"
         "            }")
     set(${out_literal} "${render_config_literal}" PARENT_SCOPE)
 endfunction()
@@ -344,6 +358,20 @@ function(tbx_codegen_read_meta_id relative_meta_path out_id_hex)
 
     string(TOUPPER "${id_hex}" id_hex_upper)
     set(${out_id_hex} "${id_hex_upper}" PARENT_SCOPE)
+endfunction()
+
+function(tbx_codegen_make_material_binding_identifier binding_name out_identifier)
+    string(REPLACE "\"" "" identifier_source "${binding_name}")
+    string(SUBSTRING "${identifier_source}" 1 1 second_character)
+    if(second_character STREQUAL "_")
+        string(LENGTH "${identifier_source}" identifier_length)
+        math(EXPR identifier_tail_length "${identifier_length} - 2")
+        string(SUBSTRING "${identifier_source}" 2 ${identifier_tail_length} identifier_source)
+    endif()
+
+    string(MAKE_C_IDENTIFIER "${identifier_source}" identifier)
+    string(TOUPPER "${identifier}" identifier)
+    set(${out_identifier} "${identifier}" PARENT_SCOPE)
 endfunction()
 
 function(tbx_codegen_append_texture_binding
@@ -486,6 +514,9 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
     if(resources_meta_files STREQUAL "")
         message(FATAL_ERROR "generate_asset_codegen: no resource meta files found")
     endif()
+    list(LENGTH resources_meta_files resources_meta_count)
+    message(STATUS
+        "Toybox asset codegen: generating builtin asset headers from ${resources_meta_count} meta files in ${SOURCE_ROOT}")
 
     set(builtin_asset_entries "")
     set(used_property_names "")
@@ -509,6 +540,8 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
     list(REMOVE_DUPLICATES used_group_identifiers)
     list(SORT used_group_identifiers)
     list(SORT builtin_asset_entries)
+    list(LENGTH used_group_identifiers builtin_group_count)
+    message(STATUS "Toybox asset codegen: builtin assets span ${builtin_group_count} groups")
 
     cmake_path(GET OUTPUT_FILE PARENT_PATH output_directory)
     file(MAKE_DIRECTORY "${output_directory}")
@@ -519,7 +552,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
     foreach(group_identifier IN LISTS used_group_identifiers)
         set(group_content "")
         string(APPEND group_content "#pragma once\n")
-        string(APPEND group_content "#include \"tbx/common/handle.h\"\n\n")
+        string(APPEND group_content "#include \"tbx/types/handle.h\"\n\n")
         string(APPEND group_content "namespace tbx\n")
         string(APPEND group_content "{\n")
 
@@ -549,7 +582,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
         string(APPEND group_content "}\n")
 
         set(group_header "${output_directory}/builtin_assets_${group_identifier}.generated.h")
-        file(WRITE "${group_header}" "${group_content}")
+        tbx_codegen_write_file_if_different("${group_header}" "${group_content}")
         list(APPEND expected_group_headers "${group_header}")
     endforeach()
 
@@ -557,6 +590,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
         list(FIND expected_group_headers "${existing_group_header}" group_header_index)
         if(group_header_index EQUAL -1)
             file(REMOVE "${existing_group_header}")
+            message(STATUS "Toybox asset codegen: removed stale ${existing_group_header}")
         endif()
     endforeach()
 
@@ -566,7 +600,7 @@ if(TBX_ASSET_CODEGEN_MODE STREQUAL "BUILTIN_HEADER")
         cmake_path(GET group_header FILENAME group_header_name)
         string(APPEND content "#include \"${group_header_name}\"\n")
     endforeach()
-    file(WRITE "${OUTPUT_FILE}" "${content}")
+    tbx_codegen_write_file_if_different("${OUTPUT_FILE}" "${content}")
 elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
     if(NOT DEFINED OUTPUT_FILE)
         message(FATAL_ERROR "generate_asset_codegen: OUTPUT_FILE is required")
@@ -587,11 +621,14 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
     )
     list(FILTER material_files EXCLUDE REGEX "^generated/")
     list(SORT material_files)
+    list(LENGTH material_files material_count)
+    message(STATUS
+        "Toybox asset codegen: generating material instance header from ${material_count} material files in ${SOURCE_ROOT}")
 
     set(content "")
     string(APPEND content "#pragma once\n")
-    string(APPEND content "#include \"tbx/common/handle.h\"\n")
-    string(APPEND content "#include <string_view>\n\n")
+    string(APPEND content "#include \"tbx/types/handle.h\"\n")
+    string(APPEND content "#include <string>\n\n")
 
     if(NAMESPACE)
         string(APPEND content "namespace ${NAMESPACE}\n")
@@ -632,8 +669,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                 math(EXPR last_texture_index "${texture_count} - 1")
                 foreach(texture_index RANGE ${last_texture_index})
                     string(JSON texture_name GET "${material_text}" textures ${texture_index} name)
-                    string(MAKE_C_IDENTIFIER "${texture_name}" binding_name)
-                    string(TOUPPER "${binding_name}" binding_name)
+                    tbx_codegen_make_material_binding_identifier("${texture_name}" binding_name)
                     list(FIND used_binding_names "${binding_name}" duplicate_binding_index)
                     if(NOT duplicate_binding_index EQUAL -1)
                         message(FATAL_ERROR
@@ -641,7 +677,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                     endif()
                     list(APPEND used_binding_names "${binding_name}")
                     string(APPEND binding_content
-                        "        static constexpr std::string_view ${binding_name} = \"${texture_name}\";\n")
+                        "        static inline const std::string ${binding_name} = \"${texture_name}\";\n")
                 endforeach()
             endif()
         endif()
@@ -659,8 +695,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                         continue()
                     endif()
 
-                    string(MAKE_C_IDENTIFIER "${parameter_name}" binding_name)
-                    string(TOUPPER "${binding_name}" binding_name)
+                    tbx_codegen_make_material_binding_identifier("${parameter_name}" binding_name)
                     list(FIND used_binding_names "${binding_name}" duplicate_binding_index)
                     if(NOT duplicate_binding_index EQUAL -1)
                         message(FATAL_ERROR
@@ -668,20 +703,18 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
                     endif()
                     list(APPEND used_binding_names "${binding_name}")
                     string(APPEND binding_content
-                        "        static constexpr std::string_view ${binding_name} = \"${parameter_name}\";\n")
+                        "        static inline const std::string ${binding_name} = \"${parameter_name}\";\n")
                 endforeach()
             endif()
         endif()
 
         string(APPEND content
             "\n"
-            "    /// \n"
+            "    /// @brief\n"
             "    /// Purpose: Typed material keys generated from '${relative_material_path}'.\n"
-            "    \n"
-            "    /// \n"
-            "    /// Ownership: Stores the material handle by value and exposes parameter and texture names as string views.\n"
+            "    /// @details\n"
+            "    /// Ownership: Stores the material handle by value and exposes parameter and texture names as strings.\n"
             "    /// Thread Safety: Safe to read concurrently.\n"
-            "    \n"
             "    struct ${struct_name} final\n"
             "    {\n"
             "        static inline const tbx::Handle HANDLE = ${material_handle_literal};\n"
@@ -693,9 +726,7 @@ elseif(TBX_ASSET_CODEGEN_MODE STREQUAL "MATERIAL_INSTANCES")
         string(APPEND content "}\n")
     endif()
 
-    cmake_path(GET OUTPUT_FILE PARENT_PATH output_directory)
-    file(MAKE_DIRECTORY "${output_directory}")
-    file(WRITE "${OUTPUT_FILE}" "${content}")
+    tbx_codegen_write_file_if_different("${OUTPUT_FILE}" "${content}")
 else()
     message(FATAL_ERROR
         "generate_asset_codegen: unsupported TBX_ASSET_CODEGEN_MODE '${TBX_ASSET_CODEGEN_MODE}'")

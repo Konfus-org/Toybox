@@ -1,11 +1,12 @@
 #include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-#include "tbx/assets/requests.h"
-#include "tbx/common/string_utils.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/graphics/model.h"
-#include "tbx/graphics/vertex.h"
-#include "tbx/math/matrices.h"
+#include "internal/assimp_model_loader_plugin_internal.h"
+#include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/components/model.h"
+#include "tbx/types/material.h"
+#include "tbx/types/matrices.h"
+#include "tbx/types/vertex.h"
+#include "tbx/utils/string_utils.h"
 #include <assimp/Importer.hpp>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
@@ -13,236 +14,54 @@
 #include <assimp/types.h>
 #include <string>
 #include <vector>
-
 namespace assimp_model_loader
 {
-    static std::string build_load_failure_message(
-        const std::filesystem::path& path,
-        const char* reason)
+    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        std::string message = "Assimp model loader failed to load model: ";
-        message.append(path.string());
-        if (reason && *reason)
-        {
-            message.append(" (reason: ");
-            message.append(reason);
-            message.append(")");
-        }
-        return message;
+        _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
+        if (auto serialization_registry = _serialization_registry.lock())
+            serialization_registry->register_reader<tbx::Model>(read_model);
     }
 
-    static tbx::Mat4 to_mat4(const aiMatrix4x4& matrix)
+    void AssimpModelLoaderPlugin::on_detach(tbx::ServiceProvider&)
     {
-        return tbx::Mat4(
-            matrix.a1,
-            matrix.b1,
-            matrix.c1,
-            matrix.d1,
-            matrix.a2,
-            matrix.b2,
-            matrix.c2,
-            matrix.d2,
-            matrix.a3,
-            matrix.b3,
-            matrix.c3,
-            matrix.d3,
-            matrix.a4,
-            matrix.b4,
-            matrix.c4,
-            matrix.d4);
+        if (auto serialization_registry = _serialization_registry.lock())
+            serialization_registry->deregister_reader<tbx::Model>();
+
+        _serialization_registry = {};
     }
 
-    static tbx::Vec2 to_vec2(const aiVector3D& vector)
+    std::shared_ptr<tbx::Model> AssimpModelLoaderPlugin::read_model(
+        const std::filesystem::path& asset_path,
+        const tbx::ModelLoadParameters&)
     {
-        return tbx::Vec2(vector.x, vector.y);
-    }
-
-    static tbx::Vec3 to_vec3(const aiVector3D& vector)
-    {
-        return tbx::Vec3(vector.x, vector.y, vector.z);
-    }
-
-    static tbx::Color to_color(const aiColor4D& color)
-    {
-        return tbx::Color(color.r, color.g, color.b, color.a);
-    }
-
-    static float get_default_scale_to_meters_for_path(const std::filesystem::path& path)
-    {
-        if (const std::string extension = tbx::to_lower(path.extension().string());
-            extension == ".fbx")
-            return 0.01f;
-
-        return 1.0f;
-    }
-
-    static float get_scene_scale_to_meters(
-        const aiScene& scene,
-        const std::filesystem::path& source_path)
-    {
-        if (!scene.mMetaData)
-        {
-            return get_default_scale_to_meters_for_path(source_path);
-        }
-
-        ai_real unit_scale = 0.0;
-        if (!scene.mMetaData->Get("UnitScaleFactor", unit_scale))
-        {
-            scene.mMetaData->Get("OriginalUnitScaleFactor", unit_scale);
-        }
-
-        if (unit_scale > static_cast<ai_real>(0.0))
-        {
-            return unit_scale * static_cast<ai_real>(0.01);
-        }
-
-        return get_default_scale_to_meters_for_path(source_path);
-    }
-
-    static tbx::Color get_material_diffuse_color(const aiMaterial& material)
-    {
-        aiColor4D diffuse = {};
-        if (aiGetMaterialColor(&material, AI_MATKEY_COLOR_DIFFUSE, &diffuse) == AI_SUCCESS)
-        {
-            return to_color(diffuse);
-        }
-
-        return tbx::Color(1.0f, 1.0f, 1.0f, 1.0f);
-    }
-
-    static tbx::VertexBufferLayout get_default_mesh_layout()
-    {
-        return {{
-            tbx::Vec3(0.0f),
-            tbx::Color(),
-            tbx::Vec3(0.0f),
-            tbx::Vec2(0.0f),
-            tbx::Vec4(0.0f),
-        }};
-    }
-
-    static void append_parts_from_node(
-        const aiNode& node,
-        const tbx::Mat4& accumulated_transform,
-        const std::vector<uint32>& mesh_material_indices,
-        std::vector<tbx::ModelPart>& parts,
-        const uint32 parent_index,
-        const bool has_parent)
-    {
-        // Accumulate transform-only ancestors until a model part is emitted.
-        const tbx::Mat4 local_transform = accumulated_transform * to_mat4(node.mTransformation);
-        uint32 first_part_index = 0U;
-        bool has_first_part = false;
-
-        for (uint32 mesh_offset = 0; mesh_offset < node.mNumMeshes; ++mesh_offset)
-        {
-            // Use the mesh index referenced by the node.
-            const uint32 mesh_index = node.mMeshes[mesh_offset];
-            // Store the transform relative to the nearest emitted parent part.
-            tbx::ModelPart part = {};
-            part.transform = local_transform;
-            part.mesh_index = mesh_index;
-            // Clamp material index to available materials.
-            const uint32 material_index =
-                mesh_index < mesh_material_indices.size() ? mesh_material_indices[mesh_index] : 0U;
-            part.material_index = material_index;
-            parts.push_back(part);
-
-            // Track the newly created part index for hierarchy wiring.
-            uint32 part_index = static_cast<uint32>(parts.size() - 1U);
-            // Attach this part as a child of the parent when applicable.
-            if (has_parent)
-            {
-                parts.at(parent_index).children.push_back(part_index);
-            }
-
-            if (!has_first_part)
-            {
-                first_part_index = part_index;
-                has_first_part = true;
-            }
-        }
-
-        // Children become relative to the first emitted part on this node. When the node only
-        // contributes transform, keep accumulating until a descendant emits a part.
-        const bool next_has_parent = has_parent || has_first_part;
-        const uint32 next_parent_index = has_first_part ? first_part_index : parent_index;
-        const tbx::Mat4 next_accumulated_transform =
-            has_first_part ? tbx::Mat4(1.0f) : local_transform;
-
-        // Recurse through child nodes to build nested parts.
-        for (uint32 child_index = 0; child_index < node.mNumChildren; ++child_index)
-        {
-            append_parts_from_node(
-                *node.mChildren[child_index],
-                next_accumulated_transform,
-                mesh_material_indices,
-                parts,
-                next_parent_index,
-                next_has_parent);
-        }
-    }
-
-    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider&) {}
-
-    void AssimpModelLoaderPlugin::on_detach() {}
-
-    void AssimpModelLoaderPlugin::on_recieve_message(tbx::Message& msg)
-    {
-        auto* request = handle_message<tbx::LoadModelRequest>(msg);
-        if (!request)
-        {
-            return;
-        }
-
-        on_load_model_request(*request);
-    }
-
-    void AssimpModelLoaderPlugin::on_load_model_request(tbx::LoadModelRequest& request)
-    {
-        // Validate request payload before attempting to import.
-        auto* asset = request.asset;
-        if (!asset)
-        {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure("Assimp model loader: missing model asset wrapper.");
-            return;
-        }
-
-        // Honor cancellation requests before doing any work.
-        if (request.cancellation_token && request.cancellation_token.is_cancelled())
-        {
-            request.state = tbx::MessageState::CANCELLED;
-            request.result.flag_failure("Assimp model loader cancelled.");
-            return;
-        }
-
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals
                              | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices
                              | aiProcess_FlipUVs;
         // Load the scene with Assimp.
-        const aiScene* scene = importer.ReadFile(request.path.string(), flags);
+        const aiScene* scene = importer.ReadFile(asset_path.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
-            request.state = tbx::MessageState::ERROR;
-            request.result.flag_failure(
-                build_load_failure_message(request.path, importer.GetErrorString()));
-            return;
+            TBX_TRACE_WARNING(
+                "{}",
+                internal::build_load_failure_message(asset_path, importer.GetErrorString()));
+            return {};
         }
 
         // Build materials from Assimp material data.
         std::vector<tbx::Material> materials;
         materials.reserve(scene->mNumMaterials);
-        for (uint32 material_index = 0; material_index < scene->mNumMaterials;
-             ++material_index)
+        for (uint32 material_index = 0; material_index < scene->mNumMaterials; ++material_index)
         {
             const aiMaterial* source_material = scene->mMaterials[material_index];
             tbx::Material material = {};
             if (source_material)
             {
-                material.parameters.set("color", get_material_diffuse_color(*source_material));
+                material.parameters.set(
+                    "color",
+                    internal::get_material_diffuse_color(*source_material));
             }
             materials.push_back(material);
         }
@@ -258,7 +77,7 @@ namespace assimp_model_loader
         // Track material indices per mesh for model part creation.
         std::vector<uint32> mesh_material_indices;
         mesh_material_indices.reserve(scene->mNumMeshes);
-        tbx::VertexBufferLayout layout = get_default_mesh_layout();
+        tbx::VertexBufferLayout layout = internal::get_default_mesh_layout();
 
         // Convert each mesh in the scene.
         for (uint32 mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
@@ -275,8 +94,8 @@ namespace assimp_model_loader
 
             // Clamp material index to available materials.
             uint32 material_index = mesh->mMaterialIndex < materials.size()
-                                             ? static_cast<uint32>(mesh->mMaterialIndex)
-                                             : 0U;
+                                        ? static_cast<uint32>(mesh->mMaterialIndex)
+                                        : 0U;
             mesh_material_indices.push_back(material_index);
 
             // Convert vertices for this mesh.
@@ -288,23 +107,22 @@ namespace assimp_model_loader
             {
                 // Fill a single vertex from the Assimp vertex data.
                 tbx::Vertex vertex = {};
-                vertex.position = to_vec3(mesh->mVertices[vertex_index]);
+                vertex.position = internal::to_vec3(mesh->mVertices[vertex_index]);
                 if (mesh->HasNormals())
-                    vertex.normal = to_vec3(mesh->mNormals[vertex_index]);
+                    vertex.normal = internal::to_vec3(mesh->mNormals[vertex_index]);
                 if (mesh->HasTextureCoords(0))
-                    vertex.uv = to_vec2(mesh->mTextureCoords[0][vertex_index]);
+                    vertex.uv = internal::to_vec2(mesh->mTextureCoords[0][vertex_index]);
                 if (mesh->HasTangentsAndBitangents())
                 {
-                    const auto tangent = to_vec3(mesh->mTangents[vertex_index]);
-                    const auto bitangent = to_vec3(mesh->mBitangents[vertex_index]);
+                    const auto tangent = internal::to_vec3(mesh->mTangents[vertex_index]);
+                    const auto bitangent = internal::to_vec3(mesh->mBitangents[vertex_index]);
                     auto tangent_handedness = 1.0F;
                     if (tbx::dot(tbx::cross(vertex.normal, tangent), bitangent) < 0.0F)
                         tangent_handedness = -1.0F;
-                    vertex.tangent =
-                        tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
+                    vertex.tangent = tbx::Vec4(tangent.x, tangent.y, tangent.z, tangent_handedness);
                 }
                 if (mesh->HasVertexColors(0))
-                    vertex.color = to_color(mesh->mColors[0][vertex_index]);
+                    vertex.color = internal::to_color(mesh->mColors[0][vertex_index]);
                 else
                     vertex.color = tbx::Color(1.0f, 1.0f, 1.0f, 1.0f);
                 vertices.push_back(vertex);
@@ -331,13 +149,13 @@ namespace assimp_model_loader
         // Build model parts from the node hierarchy.
         std::vector<tbx::ModelPart> parts;
         parts.reserve(meshes.size());
-        float scene_scale_to_meters = get_scene_scale_to_meters(*scene, request.path);
+        float scene_scale_to_meters = internal::get_scene_scale_to_meters(*scene, asset_path);
         tbx::Mat4 scene_scale = scene_scale_to_meters == 1.0f
                                     ? tbx::Mat4(1.0f)
                                     : tbx::scale(tbx::Vec3(scene_scale_to_meters));
         if (scene->mRootNode && !mesh_material_indices.empty())
         {
-            append_parts_from_node(
+            internal::append_parts_from_node(
                 *scene->mRootNode,
                 scene_scale,
                 mesh_material_indices,
@@ -362,9 +180,6 @@ namespace assimp_model_loader
         model.meshes = std::move(meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
-        *asset = std::move(model);
-
-        // Mark the request as handled on success.
-        request.state = tbx::MessageState::HANDLED;
+        return std::make_shared<tbx::Model>(std::move(model));
     }
 }

@@ -151,10 +151,12 @@ function(tbx_enable_release_asset_bundling)
     if(NOT asset_bundle_paths)
         return()
     endif()
+    list(LENGTH asset_bundle_paths asset_bundle_path_count)
 
     set(bundle_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bundle_assets_post_build.cmake")
 
-    message(STATUS "Adding Toybox release asset bundling to '${TBX_BUNDLE_TARGET}'")
+    message(STATUS
+        "Adding Toybox release asset bundling to '${TBX_BUNDLE_TARGET}' from ${asset_bundle_path_count} source paths")
 
     add_custom_command(TARGET ${TBX_BUNDLE_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND}

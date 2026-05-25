@@ -157,9 +157,9 @@ function(tbx_codegen_generate_builtin_asset_header)
 
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
-            -DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER
-            -DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}
-            -DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}
+            "-DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER"
+            "-DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}"
+            "-DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}"
             -P "${generator_script}"
         RESULT_VARIABLE builtin_assets_generation_result
     )
@@ -173,13 +173,14 @@ function(tbx_codegen_generate_builtin_asset_header)
         OUTPUT "${TBX_CODEGEN_OUTPUT_FILE}"
         BYPRODUCTS ${builtin_generated_headers}
         COMMAND "${CMAKE_COMMAND}"
-            -DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER
-            -DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}
-            -DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}
+            "-DTBX_ASSET_CODEGEN_MODE=BUILTIN_HEADER"
+            "-DOUTPUT_FILE=${TBX_CODEGEN_OUTPUT_FILE}"
+            "-DSOURCE_ROOT=${TBX_CODEGEN_SOURCE_ROOT}"
             -P "${generator_script}"
         DEPENDS
             "${generator_script}"
             ${filtered_builtin_assets_meta_files}
+        COMMENT "Generating Toybox builtin asset headers from ${TBX_CODEGEN_SOURCE_ROOT}"
         VERBATIM
     )
 
@@ -221,6 +222,11 @@ function(tbx_codegen_generate_material_instance_header)
     set(include_scope "${TBX_CODEGEN_INCLUDE_SCOPE}")
     if(NOT include_scope)
         set(include_scope PRIVATE)
+    endif()
+    set(include_directory_scope "${include_scope}")
+    get_target_property(target_type ${TBX_CODEGEN_TARGET} TYPE)
+    if(target_type STREQUAL "INTERFACE_LIBRARY" AND include_scope STREQUAL "PRIVATE")
+        set(include_directory_scope INTERFACE)
     endif()
 
     set(generator_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/generate_asset_codegen.cmake")
@@ -269,6 +275,7 @@ function(tbx_codegen_generate_material_instance_header)
         DEPENDS
             "${generator_script}"
             ${material_inputs}
+        COMMENT "Generating Toybox material instance header from ${TBX_CODEGEN_SOURCE_ROOT}"
         VERBATIM
     )
 
@@ -276,7 +283,7 @@ function(tbx_codegen_generate_material_instance_header)
     set_source_files_properties("${TBX_CODEGEN_OUTPUT_FILE}" PROPERTIES HEADER_FILE_ONLY TRUE)
     target_sources(${TBX_CODEGEN_TARGET} ${include_scope} "${TBX_CODEGEN_OUTPUT_FILE}")
     target_include_directories(${TBX_CODEGEN_TARGET}
-        ${include_scope}
+        ${include_directory_scope}
             $<BUILD_INTERFACE:${output_directory}>
     )
 
@@ -358,13 +365,6 @@ function(tbx_codegen_generate_plugin_artifacts)
         set(PLUGIN_DEPENDENCIES_BLOCK "    \"dependencies\": [\n${dependencies_json}\n    ],\n")
     endif()
 
-    if(TBX_CODEGEN_PLUGIN_ASSET_PATH)
-        set(PLUGIN_RESOURCES_BLOCK
-            "    \"resources\": [\n        \"${TBX_CODEGEN_PLUGIN_ASSET_PATH}\"\n    ],\n")
-    else()
-        set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
-    endif()
-
     set(PLUGIN_CATEGORY "${TBX_CODEGEN_PLUGIN_CATEGORY}")
     set(PLUGIN_PRIORITY "${TBX_CODEGEN_PLUGIN_PRIORITY}")
     set(PLUGIN_ABI_VERSION ${TBX_CODEGEN_PLUGIN_ABI_VERSION})
@@ -372,19 +372,35 @@ function(tbx_codegen_generate_plugin_artifacts)
 
     set(meta_template "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/templates/plugin.meta.in")
     set(meta_output "${TBX_CODEGEN_GENERATED_DIR}/${TBX_CODEGEN_PLUGIN_NAME}.meta")
+    set(PLUGIN_RESOURCES_BLOCK "    \"resources\": [],\n")
     configure_file("${meta_template}" "${meta_output}" @ONLY)
     set_source_files_properties("${meta_output}" PROPERTIES HEADER_FILE_ONLY TRUE)
     target_sources(${TBX_CODEGEN_TARGET} PRIVATE "${meta_output}")
 
-    source_group(TREE "${TBX_CODEGEN_BASE_DIR}" FILES "${registration_output}" "${meta_output}")
+    set(meta_copy_source "${meta_output}")
+    set(generated_files "${registration_output}" "${meta_output}")
+
+    if(TBX_CODEGEN_PLUGIN_ASSET_PATH)
+        set(development_meta_output
+            "${TBX_CODEGEN_GENERATED_DIR}/${TBX_CODEGEN_PLUGIN_NAME}.development.meta")
+        set(PLUGIN_RESOURCES_BLOCK
+            "    \"resources\": [\n        \"${TBX_CODEGEN_PLUGIN_ASSET_PATH}\"\n    ],\n")
+        configure_file("${meta_template}" "${development_meta_output}" @ONLY)
+        set_source_files_properties("${development_meta_output}" PROPERTIES HEADER_FILE_ONLY TRUE)
+        target_sources(${TBX_CODEGEN_TARGET} PRIVATE "${development_meta_output}")
+        set(meta_copy_source "$<IF:$<CONFIG:Debug>,${development_meta_output},${meta_output}>")
+        list(APPEND generated_files "${development_meta_output}")
+    endif()
+
+    source_group(TREE "${TBX_CODEGEN_BASE_DIR}" FILES ${generated_files})
     tbx_codegen_register_generated_files(
         BASE_DIR "${TBX_CODEGEN_BASE_DIR}"
-        FILES "${registration_output}" "${meta_output}"
+        FILES ${generated_files}
     )
 
     add_custom_command(TARGET ${TBX_CODEGEN_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${meta_output}"
+            "${meta_copy_source}"
             "$<TARGET_FILE_DIR:${TBX_CODEGEN_TARGET}>/$<TARGET_FILE_NAME:${TBX_CODEGEN_TARGET}>.meta"
     )
 endfunction()

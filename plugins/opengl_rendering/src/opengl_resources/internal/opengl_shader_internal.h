@@ -1,0 +1,68 @@
+#pragma once
+#include "../opengl_shader.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/types/typedefs.h"
+#include "tbx/utils/result.h"
+#include <glad/glad.h>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace opengl_rendering::internal
+{
+    static uint32 take_gl_handle(uint32& id) noexcept
+    {
+        return std::exchange(id, 0);
+    }
+
+    static GLenum to_gl_shader_type(tbx::ShaderType type)
+    {
+        switch (type)
+        {
+            case tbx::ShaderType::VERTEX:
+                return GL_VERTEX_SHADER;
+            case tbx::ShaderType::TESSELATION:
+                return GL_TESS_EVALUATION_SHADER;
+            case tbx::ShaderType::GEOMETRY:
+                return GL_GEOMETRY_SHADER;
+            case tbx::ShaderType::FRAGMENT:
+                return GL_FRAGMENT_SHADER;
+            case tbx::ShaderType::COMPUTE:
+                return GL_COMPUTE_SHADER;
+            default:
+                TBX_ASSERT(false, "OpenGL rendering: unsupported shader type.");
+                return GL_VERTEX_SHADER;
+        }
+    }
+
+    static std::string build_shader_compile_error_message(uint32 shader_id, tbx::ShaderType type)
+    {
+        GLint length = 0;
+        glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
+        std::string error_log(static_cast<uint64>(length), '\0');
+        glGetShaderInfoLog(shader_id, length, &length, error_log.data());
+
+        auto message = std::string("OpenGL rendering: shader compilation failure (type ");
+        message += std::to_string(static_cast<int>(type));
+        message += "). ";
+        message += error_log;
+        return message;
+    }
+
+    static std::string build_program_link_error_message(uint32 program_id)
+    {
+        GLint length = 0;
+        glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
+        std::string error_log(static_cast<uint64>(length), '\0');
+        glGetProgramInfoLog(program_id, length, &length, error_log.data());
+
+        auto message = std::string("OpenGL rendering: shader program link failure. ");
+        message += error_log;
+        return message;
+    }
+
+    tbx::Result create_shaders(
+        const tbx::ShaderProgram& shader_desc,
+        std::vector<std::shared_ptr<OpenGlShader>>& out_shaders);
+}

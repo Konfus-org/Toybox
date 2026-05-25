@@ -1,81 +1,13 @@
 #pragma once
-#include "tbx/app/settings.h"
-#include "tbx/assets/manager.h"
-#include "tbx/async/thread_manager.h"
-#include "tbx/math/quaternions.h"
-#include "tbx/math/vectors.h"
-#include "tbx/physics/raycast.h"
-#include "tbx/plugin_api/plugin.h"
-#include "tbx/plugin_api/plugin_export.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/common/handle.h"
-#include <Jolt/Jolt.h>
-// clang-format off
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-// clang-format on
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <thread>
-#include <unordered_map>
-#include <unordered_set>
+#include "tbx/interfaces/plugin.h"
+#include "tbx/systems/plugin_api/plugin_export.h"
 
 namespace jolt_physics
 {
-    /// @brief
-    /// Purpose: Caches body identity and last synchronized transform state used by the plugin.
-    /// @details
-    /// Ownership: Plain value type owned by `JoltPhysicsPlugin` body maps; no resource ownership.
-    /// Thread Safety: Not thread-safe; accessed on the plugin physics lane.
-    struct JoltBodyRecord
-    {
-        JPH::BodyID body_id = {};
-        bool is_physics_driven = false;
-        tbx::Vec3 last_position = tbx::Vec3(0.0F, 0.0F, 0.0F);
-        tbx::Quat last_rotation = tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F);
-        tbx::Vec3 last_scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
-        bool has_last_transform = false;
-        bool is_trigger_only = false;
-    };
-
     class TBX_PLUGIN_API JoltPhysicsPlugin final : public tbx::Plugin
     {
       public:
-        ~JoltPhysicsPlugin() override;
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
-        void on_fixed_update(const tbx::DeltaTime& dt) override;
-        void on_recieve_message(tbx::Message& msg) override;
-
-      private:
-        void clear_bodies();
-        void apply_world_settings();
-        void sync_entities_to_world(float dt_seconds);
-        void sync_world_to_entities();
-        void process_trigger_colliders();
-        void process_pending_mesh_collider_refreshes();
-        void handle_raycast_request(tbx::RaycastRequest& request) const;
-        void invalidate_mesh_collider_bodies_for_asset(const tbx::Handle& asset_handle);
-        tbx::Uuid try_get_entity_for_body(const JPH::BodyID& body_id) const;
-        bool is_on_physics_thread() const;
-        void run_on_physics_lane_and_wait(const std::function<void()>& work);
-
-      private:
-        JPH::PhysicsSystem _physics_system = {};
-        std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
-        std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
-        std::unordered_map<tbx::Uuid, JoltBodyRecord> _bodies_by_entity = {};
-        std::unordered_map<std::uint32_t, tbx::Uuid> _entity_by_body_key = {};
-        std::unordered_map<tbx::Uuid, std::unordered_set<tbx::Uuid>> _overlap_entities_by_trigger =
-            {};
-        std::unordered_set<tbx::Uuid> _pending_mesh_collider_refresh_asset_ids = {};
-        tbx::AssetManager* _asset_manager = nullptr;
-        tbx::EntityRegistry* _entity_registry = nullptr;
-        tbx::AppSettings* _settings = nullptr;
-        tbx::ThreadManager* _thread_manager = nullptr;
-        std::thread::id _physics_thread_id = {};
-        bool _is_ready = false;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
     };
 }

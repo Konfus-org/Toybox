@@ -3,22 +3,9 @@ set(plugin_name OpenGlRenderingPlugin)
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
 
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-list(FILTER SRCS EXCLUDE REGEX ".*/opengl_fallbacks\\.cpp$")
-target_sources(${plugin_name} PRIVATE ${SRCS})
-target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-        Tbx::App
-        Tbx::PluginApi
-        Tbx::Time
-        Tbx::Debugging
-        Tbx::Assets
-        Tbx::Async
-        Tbx::Input
-        Tbx::Common
-        Tbx::ECS
-        Tbx::Graphics
+        Tbx::Engine
         glad::glad
 )
 
@@ -29,6 +16,6 @@ tbx_register_plugin(
         NAME "${plugin_name}"
         VERSION "1.0.0"
         CATEGORY "rendering"
-        DEPENDENCIES SdlOpenGlAdapterPlugin
         PRIORITY 100
+        DEPENDENCIES SdlOpenGlContextManagerPlugin
 )

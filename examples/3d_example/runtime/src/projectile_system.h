@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/common/typedefs.h"
-#include "tbx/ecs/entity.h"
-#include "tbx/ecs/entity_registry.h"
-#include "tbx/graphics/material.h"
-#include "tbx/graphics/mesh.h"
-#include "tbx/time/delta_time.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/time/delta_time.h"
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/material.h"
+#include "tbx/types/typedefs.h"
 #include <functional>
 #include <memory>
 #include <vector>
@@ -15,7 +15,7 @@ namespace three_d_example
     {
       public:
         ProjectileSystem(
-            tbx::EntityRegistry& entity_registry,
+            std::weak_ptr<tbx::EntityRegistry> entity_registry,
             std::function<tbx::Entity()> camera_provider);
         ~ProjectileSystem();
 
@@ -33,9 +33,11 @@ namespace three_d_example
         tbx::MaterialInstance create_projectile_material() const;
 
       private:
-        tbx::EntityRegistry* _entity_registry = nullptr;
+        std::weak_ptr<tbx::EntityRegistry> _entity_registry = {};
         std::function<tbx::Entity()> _camera_provider = {};
-        std::shared_ptr<tbx::Mesh> _projectile_mesh = std::make_shared<tbx::Mesh>(tbx::sphere);
+        tbx::MaterialInstance _projectile_material = {};
+        std::shared_ptr<tbx::DynamicMeshData> _projectile_mesh =
+            std::make_shared<tbx::DynamicMeshData>(tbx::Mesh::SPHERE);
         float _projectile_spawn_distance = 1.35F;
         float _projectile_speed = 26.0F;
         double _projectile_lifetime_seconds = 8.0;

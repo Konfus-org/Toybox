@@ -1,6 +1,6 @@
 #pragma once
 #include "demo_scene.h"
-#include "tbx/plugin_api/plugin.h"
+#include "tbx/interfaces/plugin.h"
 #include <memory>
 
 namespace three_d_example
@@ -9,7 +9,7 @@ namespace three_d_example
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach() override;
+        void on_detach(tbx::ServiceProvider& service_provider) override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       private:

@@ -13,16 +13,18 @@ add_custom_target(CompileCommandsLink ALL
 
 add_custom_target(Tests
     DEPENDS
-        TbxCommonTests
-        TbxFileSystemTests
-        TbxMathTests
+        TbxAppTests
+        TbxAssetsTests
         TbxAsyncTests
-        TbxTimeTests
+        TbxECSTests
+        TbxFileSystemTests
+        TbxGraphicsTests
+        TbxInputTests
+        TbxMathTests
         TbxMessagingTests
         TbxPluginApiTests
-        TbxECSTests
-        TbxGraphicsTests
-        TbxAppTests
+        TbxTimeTests
+        TbxUtilsTests
 )
 
 unset(CMAKE_FOLDER)

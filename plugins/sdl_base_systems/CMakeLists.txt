@@ -3,21 +3,10 @@ set(plugin_name SdlBaseSystemsPlugin)
 add_library(${plugin_name} SHARED)
 add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
 
-file(GLOB_RECURSE SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
-target_sources(${plugin_name} PRIVATE ${SRCS})
-target_include_directories(${plugin_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${plugin_name} PRIVATE
-        Tbx::Common
-        Tbx::App
-        Tbx::PluginApi
-        Tbx::Time
+        Tbx::Engine
         EnTT::EnTT
-        Tbx::Debugging
-        Tbx::Assets
-        Tbx::Async
-        Tbx::Input
-        Tbx::ECS
         SDL3::SDL3-shared
 )
 

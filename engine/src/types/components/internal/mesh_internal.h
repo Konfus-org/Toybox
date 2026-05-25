@@ -1,0 +1,566 @@
+#pragma once
+#include "tbx/types/components/mesh.h"
+#include "tbx/types/mesh_bounds.h"
+#include "tbx/types/trig.h"
+#include "tbx/types/vectors.h"
+
+namespace tbx::internal
+{
+    struct CapsuleRing
+    {
+        float y = 0.0F;
+        float radius = 0.0F;
+    };
+
+    VertexBuffer make_vertex_buffer(const std::vector<Vertex>& vertices)
+    {
+        return VertexBuffer(vertices, get_default_vertex_buffer_layout());
+    }
+
+    Vec3 get_fallback_tangent(const Vec3& normal)
+    {
+        const auto up = Vec3(0.0F, 1.0F, 0.0F);
+        const auto right = Vec3(1.0F, 0.0F, 0.0F);
+        auto tangent = cross(up, normal);
+        const float tangent_length_squared = dot(tangent, tangent);
+        if (tangent_length_squared <= 0.000001F)
+            tangent = cross(right, normal);
+        return normalize_or_zero(tangent);
+    }
+
+    void compute_tangents(std::vector<Vertex>& vertices, const IndexBuffer& indices)
+    {
+        auto tangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
+        auto bitangent_sums = std::vector<Vec3>(vertices.size(), Vec3(0.0F));
+
+        for (size_t triangle_index = 0U; triangle_index + 2U < indices.size(); triangle_index += 3U)
+        {
+            const auto index0 = static_cast<size_t>(indices[triangle_index + 0U]);
+            const auto index1 = static_cast<size_t>(indices[triangle_index + 1U]);
+            const auto index2 = static_cast<size_t>(indices[triangle_index + 2U]);
+            if (index0 >= vertices.size() || index1 >= vertices.size() || index2 >= vertices.size())
+                continue;
+
+            const auto& vertex0 = vertices[index0];
+            const auto& vertex1 = vertices[index1];
+            const auto& vertex2 = vertices[index2];
+
+            const auto edge0 = vertex1.position - vertex0.position;
+            const auto edge1 = vertex2.position - vertex0.position;
+            const auto uv_delta0 = vertex1.uv - vertex0.uv;
+            const auto uv_delta1 = vertex2.uv - vertex0.uv;
+
+            const float determinant = (uv_delta0.x * uv_delta1.y) - (uv_delta1.x * uv_delta0.y);
+            if (determinant >= -0.000001F && determinant <= 0.000001F)
+                continue;
+
+            const float inverse_determinant = 1.0F / determinant;
+            const auto tangent =
+                ((edge0 * uv_delta1.y) - (edge1 * uv_delta0.y)) * inverse_determinant;
+            const auto bitangent =
+                ((edge1 * uv_delta0.x) - (edge0 * uv_delta1.x)) * inverse_determinant;
+
+            tangent_sums[index0] += tangent;
+            tangent_sums[index1] += tangent;
+            tangent_sums[index2] += tangent;
+            bitangent_sums[index0] += bitangent;
+            bitangent_sums[index1] += bitangent;
+            bitangent_sums[index2] += bitangent;
+        }
+
+        for (size_t vertex_index = 0U; vertex_index < vertices.size(); ++vertex_index)
+        {
+            const auto normal = normalize_or_zero(vertices[vertex_index].normal);
+            auto tangent =
+                tangent_sums[vertex_index] - (normal * dot(normal, tangent_sums[vertex_index]));
+            tangent = normalize_or_zero(tangent);
+            if (dot(tangent, tangent) <= 0.000001F)
+                tangent = get_fallback_tangent(normal);
+
+            const auto bitangent = bitangent_sums[vertex_index];
+            const float handedness = dot(cross(normal, tangent), bitangent) < 0.0F ? -1.0F : 1.0F;
+            vertices[vertex_index].tangent = Vec4(tangent.x, tangent.y, tangent.z, handedness);
+        }
+    }
+
+    Mesh make_triangle_mesh()
+    {
+        const std::vector<Vertex> triangle_mesh_vertices = {
+            Vertex {
+                Vec3(-0.5F, -0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(0.5F, -0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(0.0F, 0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
+
+        const IndexBuffer index_buffer = {0, 1, 2};
+        auto vertices = triangle_mesh_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, index_buffer);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_quad_mesh()
+    {
+        const std::vector<Vertex> quad_mesh_vertices = {
+            Vertex {
+                Vec3(-0.5F, -0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(0.5F, -0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(0.5F, 0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 1.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(-0.5F, 0.5F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 1.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
+
+        const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
+        auto vertices = quad_mesh_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, index_buffer);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_fullscreen_quad_mesh()
+    {
+        const std::vector<Vertex> fullscreen_quad_vertices = {
+            Vertex {
+                Vec3(-1.0F, -1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(1.0F, -1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 0.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(1.0F, 1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(1.0F, 1.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)},
+            Vertex {
+                Vec3(-1.0F, 1.0F, 0.0F),
+                Vec3(0.0F, 0.0F, 1.0F),
+                Vec2(0.0F, 1.0F),
+                Color(1.0F, 1.0F, 1.0F, 1.0F)}};
+
+        const IndexBuffer index_buffer = {0, 1, 2, 2, 3, 0};
+        auto vertices = fullscreen_quad_vertices;
+        compute_tangents(vertices, index_buffer);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, index_buffer);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_cube_mesh()
+    {
+        const std::array<Vec3, 8> positions = {
+            Vec3(-0.5F, -0.5F, -0.5F),
+            Vec3(0.5F, -0.5F, -0.5F),
+            Vec3(0.5F, 0.5F, -0.5F),
+            Vec3(-0.5F, 0.5F, -0.5F),
+            Vec3(-0.5F, -0.5F, 0.5F),
+            Vec3(0.5F, -0.5F, 0.5F),
+            Vec3(0.5F, 0.5F, 0.5F),
+            Vec3(-0.5F, 0.5F, 0.5F),
+        };
+
+        const std::array<Vec3, 6> normals = {
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+        };
+
+        const std::array<std::array<uint32, 4>, 6> faces = {
+            std::array<uint32, 4> {4, 5, 6, 7},
+            std::array<uint32, 4> {1, 0, 3, 2},
+            std::array<uint32, 4> {0, 4, 7, 3},
+            std::array<uint32, 4> {5, 1, 2, 6},
+            std::array<uint32, 4> {3, 7, 6, 2},
+            std::array<uint32, 4> {0, 1, 5, 4},
+        };
+
+        const std::array<Vec2, 4> uvs = {
+            Vec2(0.0F, 0.0F),
+            Vec2(1.0F, 0.0F),
+            Vec2(1.0F, 1.0F),
+            Vec2(0.0F, 1.0F),
+        };
+
+        auto vertices = std::vector<Vertex> {};
+        auto indices = IndexBuffer {};
+        vertices.reserve(24U);
+        indices.reserve(36U);
+
+        for (size_t face_index = 0U; face_index < faces.size(); ++face_index)
+        {
+            const uint32 base_vertex = static_cast<uint32>(vertices.size());
+            for (uint32 corner = 0U; corner < 4U; ++corner)
+            {
+                vertices.push_back(
+                    Vertex {
+                        positions[faces[face_index][corner]],
+                        normals[face_index],
+                        uvs[corner],
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
+                    });
+            }
+
+            indices.push_back(base_vertex + 0U);
+            indices.push_back(base_vertex + 1U);
+            indices.push_back(base_vertex + 2U);
+            indices.push_back(base_vertex + 2U);
+            indices.push_back(base_vertex + 3U);
+            indices.push_back(base_vertex + 0U);
+        }
+
+        compute_tangents(vertices, indices);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, indices);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_uv_sphere_mesh(float radius, uint32 stacks, uint32 sectors)
+    {
+        auto vertices = std::vector<Vertex> {};
+        auto indices = IndexBuffer {};
+
+        const uint32 ring_vertex_count = sectors + 1U;
+        vertices.reserve(static_cast<size_t>(ring_vertex_count) * static_cast<size_t>(stacks + 1U));
+        indices.reserve(static_cast<size_t>(stacks) * static_cast<size_t>(sectors) * 6U);
+
+        for (uint32 stack_index = 0U; stack_index <= stacks; ++stack_index)
+        {
+            const float stack_ratio = static_cast<float>(stack_index) / static_cast<float>(stacks);
+            const float stack_angle = tbx::PI * stack_ratio;
+            const float y = tbx::cos(stack_angle);
+            const float ring_radius = tbx::sin(stack_angle);
+
+            for (uint32 sector_index = 0U; sector_index <= sectors; ++sector_index)
+            {
+                const float sector_ratio =
+                    static_cast<float>(sector_index) / static_cast<float>(sectors);
+                const float sector_angle = tbx::PI * 2.0F * sector_ratio;
+
+                const float x = ring_radius * tbx::cos(sector_angle);
+                const float z = ring_radius * tbx::sin(sector_angle);
+
+                const Vec3 unit_position = Vec3(x, y, z);
+                vertices.push_back(
+                    Vertex {
+                        unit_position * radius,
+                        normalize_or_zero(unit_position),
+                        Vec2(sector_ratio, 1.0F - stack_ratio),
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
+                    });
+            }
+        }
+
+        for (uint32 stack_index = 0U; stack_index < stacks; ++stack_index)
+        {
+            const uint32 current_ring = stack_index * ring_vertex_count;
+            const uint32 next_ring = (stack_index + 1U) * ring_vertex_count;
+
+            for (uint32 sector_index = 0U; sector_index < sectors; ++sector_index)
+            {
+                const uint32 current = current_ring + sector_index;
+                const uint32 next = next_ring + sector_index;
+
+                if (stack_index != 0U)
+                {
+                    indices.push_back(current);
+                    indices.push_back(current + 1U);
+                    indices.push_back(next);
+                }
+
+                if (stack_index != stacks - 1U)
+                {
+                    indices.push_back(current + 1U);
+                    indices.push_back(next + 1U);
+                    indices.push_back(next);
+                }
+            }
+        }
+
+        compute_tangents(vertices, indices);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, indices);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_capsule_mesh(
+        float radius,
+        float cylinder_half_height,
+        uint32 hemisphere_stacks,
+        uint32 cylinder_stacks,
+        uint32 sectors)
+    {
+        auto rings = std::vector<internal::CapsuleRing> {};
+        rings.reserve(hemisphere_stacks * 2U + cylinder_stacks + 1U);
+
+        for (uint32 stack_index = 0U; stack_index <= hemisphere_stacks; ++stack_index)
+        {
+            const float ratio =
+                static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
+            const float angle = (tbx::PI * 0.5F) * ratio;
+            rings.push_back(
+                internal::CapsuleRing {
+                    .y = cylinder_half_height + tbx::cos(angle) * radius,
+                    .radius = tbx::sin(angle) * radius,
+                });
+        }
+
+        for (uint32 stack_index = 1U; stack_index < cylinder_stacks; ++stack_index)
+        {
+            const float ratio =
+                static_cast<float>(stack_index) / static_cast<float>(cylinder_stacks);
+            rings.push_back(
+                internal::CapsuleRing {
+                    .y = cylinder_half_height - (ratio * 2.0F * cylinder_half_height),
+                    .radius = radius,
+                });
+        }
+
+        for (uint32 stack_index = hemisphere_stacks; stack_index > 0U; --stack_index)
+        {
+            const float ratio =
+                static_cast<float>(stack_index) / static_cast<float>(hemisphere_stacks);
+            const float angle = (tbx::PI * 0.5F) * ratio;
+            rings.push_back(
+                internal::CapsuleRing {
+                    .y = -cylinder_half_height - tbx::cos(angle) * radius,
+                    .radius = tbx::sin(angle) * radius,
+                });
+        }
+
+        rings.push_back(
+            internal::CapsuleRing {
+                .y = -cylinder_half_height - radius,
+                .radius = 0.0F,
+            });
+
+        const uint32 ring_count = static_cast<uint32>(rings.size());
+        const uint32 ring_vertex_count = sectors + 1U;
+
+        auto vertices = std::vector<Vertex> {};
+        auto indices = IndexBuffer {};
+        vertices.reserve(static_cast<size_t>(ring_count) * static_cast<size_t>(ring_vertex_count));
+        indices.reserve(static_cast<size_t>(ring_count - 1U) * static_cast<size_t>(sectors) * 6U);
+
+        const float total_half_height = cylinder_half_height + radius;
+        const float total_height = total_half_height * 2.0F;
+
+        for (uint32 ring_index = 0U; ring_index < ring_count; ++ring_index)
+        {
+            const internal::CapsuleRing ring = rings[ring_index];
+            const float v = (ring.y + total_half_height) / total_height;
+
+            for (uint32 sector_index = 0U; sector_index <= sectors; ++sector_index)
+            {
+                const float u = static_cast<float>(sector_index) / static_cast<float>(sectors);
+                const float angle = tbx::PI * 2.0F * u;
+
+                const float x = ring.radius * tbx::cos(angle);
+                const float z = ring.radius * tbx::sin(angle);
+                const Vec3 position = Vec3(x, ring.y, z);
+
+                Vec3 normal = Vec3(0.0F, 0.0F, 0.0F);
+                if (ring.y > cylinder_half_height)
+                {
+                    normal = normalize_or_zero(Vec3(x, ring.y - cylinder_half_height, z));
+                }
+                else if (ring.y < -cylinder_half_height)
+                {
+                    normal = normalize_or_zero(Vec3(x, ring.y + cylinder_half_height, z));
+                }
+                else
+                {
+                    normal = normalize_or_zero(Vec3(x, 0.0F, z));
+                }
+
+                vertices.push_back(
+                    Vertex {
+                        position,
+                        normal,
+                        Vec2(u, 1.0F - v),
+                        Color(1.0F, 1.0F, 1.0F, 1.0F),
+                    });
+            }
+        }
+
+        for (uint32 ring_index = 0U; ring_index + 1U < ring_count; ++ring_index)
+        {
+            const uint32 current_ring = ring_index * ring_vertex_count;
+            const uint32 next_ring = (ring_index + 1U) * ring_vertex_count;
+
+            for (uint32 sector_index = 0U; sector_index < sectors; ++sector_index)
+            {
+                const uint32 current = current_ring + sector_index;
+                const uint32 next = next_ring + sector_index;
+
+                indices.push_back(current);
+                indices.push_back(next);
+                indices.push_back(current + 1U);
+
+                indices.push_back(current + 1U);
+                indices.push_back(next);
+                indices.push_back(next + 1U);
+            }
+        }
+
+        compute_tangents(vertices, indices);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, indices);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+
+    Mesh make_sphere_mesh()
+    {
+        constexpr float radius = 0.5F;
+        constexpr uint32 stacks = 16U;
+        constexpr uint32 sectors = 24U;
+        return make_uv_sphere_mesh(radius, stacks, sectors);
+    }
+
+    Mesh make_capsule_default_mesh()
+    {
+        constexpr float radius = 0.25F;
+        constexpr float cylinder_half_height = 0.25F;
+        constexpr uint32 hemisphere_stacks = 8U;
+        constexpr uint32 cylinder_stacks = 8U;
+        constexpr uint32 sectors = 24U;
+
+        return make_capsule_mesh(
+            radius,
+            cylinder_half_height,
+            hemisphere_stacks,
+            cylinder_stacks,
+            sectors);
+    }
+
+    Mesh make_half_sphere_mesh()
+    {
+        constexpr uint32 subdivision_count = 24U;
+        constexpr auto face_count = size_t {6U};
+
+        const auto face_normals = std::array<Vec3, face_count> {
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+        };
+        const auto face_u_axes = std::array<Vec3, face_count> {
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(1.0F, 0.0F, 0.0F),
+        };
+        const auto face_v_axes = std::array<Vec3, face_count> {
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+        };
+
+        const uint32 vertices_per_row = subdivision_count + 1U;
+        const uint32 vertices_per_face = vertices_per_row * vertices_per_row;
+        auto vertices = std::vector<Vertex> {};
+        vertices.reserve(static_cast<size_t>(vertices_per_face) * face_count);
+
+        auto indices = IndexBuffer {};
+        indices.reserve(
+            static_cast<size_t>(subdivision_count) * static_cast<size_t>(subdivision_count) * 6U
+            * face_count);
+
+        for (size_t face_index = 0U; face_index < face_count; ++face_index)
+        {
+            const uint32 face_vertex_offset = static_cast<uint32>(vertices.size());
+            const Vec3 face_normal = face_normals[face_index];
+            const Vec3 face_u = face_u_axes[face_index];
+            const Vec3 face_v = face_v_axes[face_index];
+
+            for (uint32 y = 0U; y <= subdivision_count; ++y)
+            {
+                const float v = static_cast<float>(y) / static_cast<float>(subdivision_count);
+                const float cube_y = (v * 2.0F) - 1.0F;
+
+                for (uint32 x = 0U; x <= subdivision_count; ++x)
+                {
+                    const float u = static_cast<float>(x) / static_cast<float>(subdivision_count);
+                    const float cube_x = (u * 2.0F) - 1.0F;
+                    const Vec3 cube_position = face_normal + (face_u * cube_x) + (face_v * cube_y);
+                    const Vec3 sphere_position = normalize_or_zero(cube_position);
+
+                    vertices.push_back(
+                        Vertex {
+                            .position = sphere_position,
+                            .normal = sphere_position,
+                            .uv = Vec2(u, 1.0F - v),
+                        });
+                }
+            }
+
+            for (uint32 y = 0U; y < subdivision_count; ++y)
+            {
+                for (uint32 x = 0U; x < subdivision_count; ++x)
+                {
+                    const uint32 top_left = face_vertex_offset + (y * vertices_per_row) + x;
+                    const uint32 top_right = top_left + 1U;
+                    const uint32 bottom_left = top_left + vertices_per_row;
+                    const uint32 bottom_right = bottom_left + 1U;
+
+                    indices.push_back(top_left);
+                    indices.push_back(bottom_left);
+                    indices.push_back(top_right);
+
+                    indices.push_back(top_right);
+                    indices.push_back(bottom_left);
+                    indices.push_back(bottom_right);
+                }
+            }
+        }
+
+        compute_tangents(vertices, indices);
+        const VertexBuffer vertex_buffer = make_vertex_buffer(vertices);
+        Mesh mesh(vertex_buffer, indices);
+        update_mesh_bounds(mesh);
+        return mesh;
+    }
+}
