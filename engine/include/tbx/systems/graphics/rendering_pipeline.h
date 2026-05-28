@@ -6,11 +6,7 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/utils/result.h"
-#include <memory>
-#include <vector>
 
 namespace tbx
 {

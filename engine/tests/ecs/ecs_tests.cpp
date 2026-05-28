@@ -267,7 +267,7 @@ namespace tbx::tests::ecs
     {
         // Arrange
         auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
-        file_ops->set_text("main.world.meta", R"({ "id": "00000010", "version": 1 })");
+        file_ops->set_text("main.world.meta", R"({ "id": 16, "version": 1 })");
         file_ops->set_text(
             "main.world",
             R"({
@@ -310,7 +310,7 @@ namespace tbx::tests::ecs
     {
         // Arrange
         auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
-        file_ops->set_text("main.world.meta", R"({ "id": "00000011", "version": 1 })");
+        file_ops->set_text("main.world.meta", R"({ "id": 17, "version": 1 })");
         file_ops->set_text(
             "main.world",
             R"({
@@ -372,7 +372,7 @@ namespace tbx::tests::ecs
     {
         // Arrange
         auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
-        file_ops->set_text("main.world.meta", R"({ "id": "00000020", "version": 1 })");
+        file_ops->set_text("main.world.meta", R"({ "id": 32, "version": 1 })");
         file_ops->set_text(
             "main.world",
             R"({
@@ -411,8 +411,8 @@ namespace tbx::tests::ecs
                     }
                 ]
             })");
-        file_ops->set_text("chunks/full.chunk.meta", R"({ "id": "00000050", "version": 1 })");
-        file_ops->set_text("chunks/low.chunk.meta", R"({ "id": "00000051", "version": 1 })");
+        file_ops->set_text("chunks/full.chunk.meta", R"({ "id": 80, "version": 1 })");
+        file_ops->set_text("chunks/low.chunk.meta", R"({ "id": 81, "version": 1 })");
         file_ops->set_text(
             "chunks/full.chunk",
             R"({

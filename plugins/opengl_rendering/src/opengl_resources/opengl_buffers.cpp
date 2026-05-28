@@ -1,8 +1,6 @@
 #include "opengl_buffers.h"
 #include "tbx/systems/debugging/macros.h"
-#include <array>
 #include <glad/glad.h>
-#include <utility>
 
 namespace opengl_rendering
 {

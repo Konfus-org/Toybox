@@ -1,4 +1,5 @@
 #include "tbx/systems/assets/serialization.h"
+#include "tbx/systems/plugin_api/plugin_loader.h"
 
 namespace tbx
 {
@@ -44,6 +45,9 @@ namespace tbx
 
     void register_asset_type_entry(AssetTypeRegistration entry)
     {
+        if (is_plugin_meta_query_active())
+            return;
+
         if (entry.type == std::type_index(typeid(void)))
             return;
 
@@ -82,6 +86,9 @@ namespace tbx
 
     void register_serializable_type_entry(SerializableTypeRegistration entry)
     {
+        if (is_plugin_meta_query_active())
+            return;
+
         if (entry.name.empty() || !entry.write_value || !entry.read_value)
             return;
 

@@ -5,7 +5,6 @@
 #include <memory>
 #include <type_traits>
 #include <typeindex>
-#include <typeinfo>
 #include <unordered_map>
 #include <utility>
 

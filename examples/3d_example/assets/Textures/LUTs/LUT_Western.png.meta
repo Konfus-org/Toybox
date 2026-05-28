@@ -1,9 +1,9 @@
 {
-  "id": "23243562",
-  "version": 1,
-  "wrap": "clamp_to_edge",
-  "filter": "linear",
-  "format": "rgb",
-  "mipmaps": "disabled",
-  "compression": "disabled"
+    "id":  589575522,
+    "version":  1,
+    "wrap":  "clamp_to_edge",
+    "filter":  "linear",
+    "format":  "rgb",
+    "mipmaps":  "disabled",
+    "compression":  "disabled"
 }

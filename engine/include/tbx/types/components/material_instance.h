@@ -1,9 +1,6 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/components/component.h"
-#include "tbx/types/handle.h"
-#include <string>
 
 namespace tbx
 {
@@ -31,6 +28,9 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    // TODO: replace all 'tbx::hash' methods with hash attribute fully, so we
+    // shouldn't just have the attributes call a hash method we should give the attribute what it
+    // needs to generate a hash.
     [[tbx::serializable]];
     [[tbx::hash(tbx::hash($))]];
     [[tbx::prop(id, material, overrides)]];

@@ -7,11 +7,7 @@
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include "tbx/utils/result.h"
 #include <future>
-#include <memory>
-#include <mutex>
 
 namespace tbx
 {

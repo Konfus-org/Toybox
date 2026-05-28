@@ -1,12 +1,7 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
-#include "tbx/types/handle.h"
 #include "tbx/types/mesh_bounds.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/types/vertex.h"
-#include <memory>
-#include <vector>
 
 namespace tbx
 {

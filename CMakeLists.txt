@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.28.3)
 project(Toybox LANGUAGES C CXX)
-enable_testing()
 
 # Global configs
 set(CMAKE_CXX_STANDARD 23)
@@ -11,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 option(TBX_ENABLE_COMPILER_CACHE "Use compiler cache launchers when available" ON)
+option(TBX_BUILD_TESTS "Build Toybox test targets" OFF)
 option(TBX_FULL_RELEASE "Disable development-only runtime behavior for final release builds" OFF)
 
 if(TBX_FULL_RELEASE)
@@ -82,8 +82,11 @@ add_subdirectory(engine)
 add_subdirectory(plugins)
 add_subdirectory(examples)
 
-set(CMAKE_FOLDER "tests")
-add_subdirectory(engine/tests)
-unset(CMAKE_FOLDER)
+if(TBX_BUILD_TESTS)
+    enable_testing()
+    set(CMAKE_FOLDER "tests")
+    add_subdirectory(engine/tests)
+    unset(CMAKE_FOLDER)
+endif()
 
 include(utilities)

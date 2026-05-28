@@ -1,5 +1,4 @@
 #include "tbx/utils/string_utils.h"
-#include "tbx/types/typedefs.h"
 
 namespace tbx
 {

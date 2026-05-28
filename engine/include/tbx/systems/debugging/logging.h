@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/systems/debugging/log_level.h"
+#include "tbx/tbx_api.h"
 #include <string>
 #include <string_view>
 

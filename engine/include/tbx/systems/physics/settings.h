@@ -1,9 +1,6 @@
 #pragma once
 #include "tbx/systems/messaging/observable.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/vectors.h"
-#include <cstdint>
-#include <memory>
 
 namespace tbx
 {

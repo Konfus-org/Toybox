@@ -1,17 +1,10 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
-#include "tbx/types/color.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/matrices.h"
-#include "tbx/types/vectors.h"
-#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
-#include <vector>
 
 namespace tbx
 {
@@ -38,20 +31,20 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[tbx::serializable]];
     [[tbx::version(1U)]];
-    struct TBX_API ShaderSource
+    struct TBX_API Shader : public Asset
     {
-        ShaderSource() = default;
-        ShaderSource(const char* shader_source, ShaderType shader_type)
+        Shader() = default;
+        Shader(const char* shader_source, ShaderType shader_type)
             : source(shader_source ? shader_source : "")
             , type(shader_type)
         {
         }
-        ShaderSource(std::string_view shader_source, ShaderType shader_type)
+        Shader(std::string_view shader_source, ShaderType shader_type)
             : source(shader_source)
             , type(shader_type)
         {
         }
-        ShaderSource(std::string&& shader_source, ShaderType shader_type)
+        Shader(std::string&& shader_source, ShaderType shader_type)
             : source(std::move(shader_source))
             , type(shader_type)
         {
@@ -69,95 +62,12 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores one or more shader stages that can be linked into a graphics pipeline.
-    /// @details
-    /// Ownership: Owns copied shader stage sources.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API ShaderProgram : Asset
-    {
-        ShaderProgram() = default;
-        ShaderProgram(const char* shader_source, ShaderType shader_type)
-            : sources({ShaderSource(shader_source, shader_type)})
-        {
-        }
-        ShaderProgram(std::string_view shader_source, ShaderType shader_type)
-            : sources({ShaderSource(shader_source, shader_type)})
-        {
-        }
-        ShaderProgram(std::string&& shader_source, ShaderType shader_type)
-            : sources({ShaderSource(std::move(shader_source), shader_type)})
-        {
-        }
-        ShaderProgram(ShaderSource shader_source)
-            : sources({std::move(shader_source)})
-        {
-        }
-        ShaderProgram(std::vector<ShaderSource> shader_sources)
-            : sources(std::move(shader_sources))
-        {
-        }
-
-        bool is_valid() const
-        {
-            bool has_vertex = false;
-            bool has_fragment = false;
-            bool has_tesselation = false;
-            bool has_geometry = false;
-            bool has_compute = false;
-
-            for (const auto& source : sources)
-            {
-                switch (source.type)
-                {
-                    case ShaderType::VERTEX:
-                        if (has_vertex)
-                            return false;
-                        has_vertex = true;
-                        break;
-                    case ShaderType::FRAGMENT:
-                        if (has_fragment)
-                            return false;
-                        has_fragment = true;
-                        break;
-                    case ShaderType::TESSELATION:
-                        if (has_tesselation)
-                            return false;
-                        has_tesselation = true;
-                        break;
-                    case ShaderType::GEOMETRY:
-                        if (has_geometry)
-                            return false;
-                        has_geometry = true;
-                        break;
-                    case ShaderType::COMPUTE:
-                        if (has_compute)
-                            return false;
-                        has_compute = true;
-                        break;
-                    case ShaderType::NONE:
-                    default:
-                        return false;
-                }
-            }
-
-            if (has_compute)
-                return !has_vertex && !has_fragment && !has_tesselation && !has_geometry;
-
-            return has_vertex && has_fragment;
-        }
-
-        std::string source = "";
-        ShaderType type = ShaderType::NONE;
-        std::vector<ShaderSource> sources = {};
-    };
-
-    /// @brief
     /// Purpose: Holds explicit shader stage handles used to build a shader program.
     /// @details
     /// Ownership: Stores stage handles by value; does not own loaded shader assets.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[tbx::serializable]];
-    struct TBX_API Shader
+    struct TBX_API ShaderProgram
     {
         /// @brief
         /// Purpose: Identifies the vertex shader stage asset.

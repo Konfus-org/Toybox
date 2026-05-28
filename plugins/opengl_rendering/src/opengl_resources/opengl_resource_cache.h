@@ -4,10 +4,6 @@
 #include "opengl_sampler.h"
 #include "opengl_shader.h"
 #include "opengl_texture.h"
-#include "tbx/types/uuid.h"
-#include <memory>
-#include <unordered_map>
-#include <vector>
 
 namespace opengl_rendering
 {

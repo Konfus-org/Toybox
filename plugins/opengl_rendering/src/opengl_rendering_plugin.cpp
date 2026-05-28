@@ -4,7 +4,6 @@
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
-#include <memory>
 
 namespace opengl_rendering
 {

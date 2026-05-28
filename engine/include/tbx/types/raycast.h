@@ -1,7 +1,5 @@
 #pragma once
 #include "tbx/types/vectors.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/uuid.h"
 
 namespace tbx
 {

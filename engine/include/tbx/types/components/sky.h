@@ -1,8 +1,6 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/material_instance.h"
-#include "tbx/types/typedefs.h"
 
 namespace tbx
 {

@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/audio_clip.h"
 #include "tbx/types/assets/material.h"
@@ -10,22 +8,9 @@
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/utils/result.h"
-#include <chrono>
 #include <concepts>
-#include <filesystem>
-#include <functional>
 #include <future>
-#include <iterator>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <string>
-#include <type_traits>
 #include <typeindex>
-#include <typeinfo>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
 namespace tbx
 {
@@ -118,7 +103,7 @@ namespace tbx
     };
 
     template <>
-    struct AssetSerializationTraits<ShaderProgram>
+    struct AssetSerializationTraits<Shader>
     {
         using Parameters = ShaderLoadParameters;
     };

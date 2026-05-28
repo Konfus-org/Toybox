@@ -3,11 +3,7 @@
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/world.h"
-#include "tbx/types/handle.h"
-#include "tbx/types/typedefs.h"
-#include <functional>
-#include <memory>
-#include <vector>
+#include "tbx/types/components/material_instance.h"
 
 namespace three_d_example
 {

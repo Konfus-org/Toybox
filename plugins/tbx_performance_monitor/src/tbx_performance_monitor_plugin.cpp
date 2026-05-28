@@ -3,8 +3,6 @@
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
-#include <algorithm>
-#include <format>
 
 namespace tbx::performance_monitor
 {

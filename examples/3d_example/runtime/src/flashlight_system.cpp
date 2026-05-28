@@ -1,8 +1,6 @@
 #include "flashlight_system.h"
 #include "tbx/types/components/transform.h"
-#include <algorithm>
 #include <glm/ext/quaternion_common.hpp>
-#include <utility>
 
 namespace three_d_example
 {

@@ -1,8 +1,5 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
-#include "tbx/types/typedefs.h"
-#include <vector>
 
 namespace tbx
 {

@@ -2,7 +2,6 @@
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/trig.h"
-#include <numbers>
 
 namespace tbx
 {

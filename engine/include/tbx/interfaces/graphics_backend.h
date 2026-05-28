@@ -2,9 +2,8 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/graphics/api.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/color.h"
-#include "tbx/types/components/camera.h"
 #include "tbx/types/assets/shader.h"
+#include "tbx/types/color.h"
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
@@ -334,7 +333,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API RasterPipelineDesc
     {
-        ShaderProgram shader = {};
+        std::vector<Shader> shaders = {};
         std::vector<BindGroupLayoutDesc> bind_group_layouts = {};
         std::vector<GraphicsVertexBufferLayoutDesc> vertex_buffers = {};
         std::vector<GraphicsVertexAttributeDesc> vertex_attributes = {};
@@ -354,7 +353,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API ComputePipelineDesc
     {
-        ShaderProgram compute_shader = {};
+        std::vector<Shader> shaders = {};
         std::vector<BindGroupLayoutDesc> bind_group_layouts = {};
         std::string debug_name = {};
     };

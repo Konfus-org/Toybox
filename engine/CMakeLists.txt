@@ -10,9 +10,15 @@ if(CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
 endif()
 
+get_cmake_property(tbx_cache_variables CACHE_VARIABLES)
+list(FILTER tbx_cache_variables INCLUDE REGEX "^TBX_")
+list(SORT tbx_cache_variables)
+
 message(STATUS "Tbx Options:")
-message(STATUS "   TBX_BUILD_SHARED: ${TBX_BUILD_SHARED}")
-message(STATUS "   TBX_ENABLE_VERBOSE: ${TBX_ENABLE_VERBOSE}")
+foreach(tbx_cache_variable IN LISTS tbx_cache_variables)
+    get_property(tbx_cache_value CACHE "${tbx_cache_variable}" PROPERTY VALUE)
+    message(STATUS "   ${tbx_cache_variable}: ${tbx_cache_value}")
+endforeach()
 
 if(TBX_BUILD_SHARED)
     add_library(Engine SHARED)
@@ -33,6 +39,8 @@ include(code_gen_utility)
 
 file(GLOB_RECURSE TBX_Engine_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE TBX_Engine_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
+list(FILTER TBX_Engine_INCLUDES EXCLUDE REGEX "\\.tmp[0-9A-Za-z]*$")
+list(FILTER TBX_Engine_SOURCES EXCLUDE REGEX "\\.tmp[0-9A-Za-z]*$")
 
 target_sources(Engine PRIVATE ${TBX_Engine_SOURCES} ${TBX_Engine_INCLUDES})
 

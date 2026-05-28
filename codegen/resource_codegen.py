@@ -44,15 +44,15 @@ def write_if_different(output_path: Path, output: str) -> None:
     output_path.write_text(output, encoding="utf-8", newline="\n")
 
 
-def read_meta_id(meta_path: Path) -> str:
+def read_meta_id(meta_path: Path) -> int:
     if not meta_path.exists():
         raise CodegenError(f"resource_codegen: missing meta file '{meta_path}'")
 
     data = json.loads(meta_path.read_text(encoding="utf-8"))
     value = data.get("id")
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise CodegenError(f"resource_codegen: missing id in '{meta_path}'")
-    return value.upper()
+    return value
 
 
 def is_builtin_asset_meta(relative_meta_path: Path) -> bool:
@@ -122,7 +122,7 @@ def generate_builtin_asset_headers(source_root: Path, output_file: Path) -> None
     if not meta_files:
         raise CodegenError("resource_codegen: no resource meta files found")
 
-    entries: list[tuple[str, str, str]] = []
+    entries: list[tuple[str, str, int]] = []
     used_struct_names: set[str] = set()
     for meta_file in meta_files:
         relative_meta_path = meta_file.relative_to(source_root)
@@ -144,7 +144,7 @@ def generate_builtin_asset_headers(source_root: Path, output_file: Path) -> None
             "namespace tbx",
             "{",
         ]
-        for entry_group, struct_name, id_hex in sorted(entries):
+        for entry_group, struct_name, id_value in sorted(entries):
             if entry_group != group:
                 continue
             group_lines.extend(
@@ -157,7 +157,7 @@ def generate_builtin_asset_headers(source_root: Path, output_file: Path) -> None
                     "    /// Thread Safety: Safe to read concurrently.",
                     f"    struct {struct_name} final",
                     "    {",
-                    f"        static inline const Handle HANDLE = Handle(Uuid(0x{id_hex}U));",
+                    f"        static inline const Handle HANDLE = Handle(Uuid({id_value}U));",
                     "    };",
                 ]
             )
@@ -204,7 +204,7 @@ def generate_material_instance_header(source_root: Path, output_file: Path, name
     for material_file in material_files:
         relative_material_path = material_file.relative_to(source_root).as_posix()
         meta_file = material_file.with_name(material_file.name + ".meta")
-        material_id_hex = read_meta_id(meta_file)
+        material_id_value = read_meta_id(meta_file)
         struct_name = make_pascal_identifier(material_file.stem) + "Material"
         if struct_name in used_struct_names:
             raise CodegenError(f"resource_codegen: duplicate material struct '{struct_name}'")
@@ -241,7 +241,7 @@ def generate_material_instance_header(source_root: Path, output_file: Path, name
                 "    /// Thread Safety: Safe to read concurrently.",
                 f"    struct {struct_name} final",
                 "    {",
-                f"        static inline const tbx::Handle HANDLE = tbx::Handle(tbx::Uuid(0x{material_id_hex}U));",
+                f"        static inline const tbx::Handle HANDLE = tbx::Handle(tbx::Uuid({material_id_value}U));",
                 *binding_lines,
                 "    };",
             ]

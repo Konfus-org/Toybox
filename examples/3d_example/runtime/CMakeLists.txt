@@ -7,6 +7,16 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/../assets" PREFIX "assets" FILES 
 target_link_libraries(ThreeDExampleRuntime PRIVATE
     Tbx::DefaultPlugins
 )
+target_precompile_headers(ThreeDExampleRuntime PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")
+
+tbx_register_asset_bundle_path(
+    TARGET ThreeDExampleRuntime
+    PATH "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+)
+tbx_enable_release_asset_bundling(
+    TARGET ThreeDExampleRuntime
+    CONFIGS Debug Release
+)
 
 tbx_codegen_generate_plugin_registration(
     TARGET ThreeDExampleRuntime

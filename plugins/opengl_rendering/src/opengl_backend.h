@@ -4,7 +4,6 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/types/window.h"
-#include <vector>
 
 namespace opengl_rendering
 {

@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/size.h"
-#include <vector>
 
 namespace tbx
 {

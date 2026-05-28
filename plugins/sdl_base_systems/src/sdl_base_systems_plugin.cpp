@@ -1,6 +1,11 @@
 #include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_stdinc.h"
 #include "tbx/systems/debugging/macros.h"
-#include <SDL3/SDL.h>
+#include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/systems/time/delta_time.h"
 
 namespace sdl_base_systems
 {

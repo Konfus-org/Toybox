@@ -1,10 +1,6 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
-#include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
-#include <functional>
-#include <vector>
 
 namespace tbx
 {

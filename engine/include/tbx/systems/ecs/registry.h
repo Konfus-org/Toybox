@@ -1,13 +1,8 @@
 #pragma once
 #include "entt/entt.hpp"
 #include "tbx/types/components/component.h"
-#include "tbx/types/uuid.h"
 #include <concepts>
-#include <functional>
-#include <memory>
 #include <shared_mutex>
-#include <string>
-#include <vector>
 
 namespace tbx
 {

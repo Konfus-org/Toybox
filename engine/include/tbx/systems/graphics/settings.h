@@ -1,10 +1,7 @@
 #pragma once
 #include "tbx/systems/graphics/api.h"
 #include "tbx/systems/messaging/observable.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/size.h"
-#include "tbx/types/typedefs.h"
-#include <memory>
 
 namespace tbx
 {

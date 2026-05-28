@@ -1,12 +1,6 @@
 #include "opengl_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/viewport.h"
-#include <algorithm>
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
 
 namespace opengl_rendering
 {
@@ -1228,7 +1222,7 @@ namespace opengl_rendering
             return result;
 
         auto shaders = std::vector<std::shared_ptr<OpenGlShader>> {};
-        if (auto result = create_shaders(desc.compute_shader, shaders); !result)
+        if (auto result = create_shaders(desc.shaders, shaders); !result)
         {
             auto message = std::string("OpenGL backend: compute shader upload failed");
             if (!desc.debug_name.empty())
@@ -1265,7 +1259,7 @@ namespace opengl_rendering
             return result;
 
         auto shaders = std::vector<std::shared_ptr<OpenGlShader>> {};
-        if (auto result = create_shaders(desc.shader, shaders); !result)
+        if (auto result = create_shaders(desc.shaders, shaders); !result)
         {
             auto message = std::string("OpenGL backend: shader upload failed");
             if (!desc.debug_name.empty())

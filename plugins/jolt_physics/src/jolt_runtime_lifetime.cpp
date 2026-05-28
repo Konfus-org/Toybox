@@ -2,14 +2,13 @@
 #include "tbx/systems/debugging/macros.h"
 // clang-format off
 #include <Jolt/Jolt.h>
+#include <Jolt/Core/Memory.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/IssueReporting.h>
 #include <Jolt/RegisterTypes.h>
 // clang-format on
 #include <cstdarg>
 #include <cstdio>
-#include <mutex>
-#include <string>
 
 namespace jolt_physics
 {

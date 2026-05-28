@@ -1,7 +1,5 @@
 #pragma once
 #include "tbx/interfaces/message_dispatcher.h"
-#include "tbx/tbx_api.h"
-#include <memory>
 
 namespace tbx
 {

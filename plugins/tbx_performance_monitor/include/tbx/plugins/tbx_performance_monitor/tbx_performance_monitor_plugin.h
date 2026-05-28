@@ -3,9 +3,6 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/types/typedefs.h"
-#include <memory>
-#include <string>
 
 namespace tbx
 {

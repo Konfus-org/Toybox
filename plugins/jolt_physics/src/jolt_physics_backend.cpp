@@ -14,8 +14,6 @@
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <algorithm>
-#include <cmath>
 
 namespace jolt_physics
 {

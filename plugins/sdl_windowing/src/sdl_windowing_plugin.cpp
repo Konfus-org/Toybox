@@ -5,9 +5,6 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/observable.h"
 #include "tbx/systems/windowing/manager.h"
-#include <filesystem>
-#include <memory>
-#include <string_view>
 
 namespace sdl_windowing
 {
@@ -94,6 +91,9 @@ namespace sdl_windowing
         if (!asset_manager)
             return;
 
+        // AppDescription defaults to ID-only builtin icon handles. Ensure an entry exists before
+        // resolving the path so startup can load the icon from registered asset directories.
+        static_cast<void>(asset_manager->resolve(settings->icon));
         const auto& const_asset_manager = static_cast<const tbx::AssetManager&>(*asset_manager);
         const std::filesystem::path icon_path = const_asset_manager.resolve(settings->icon);
         if (icon_path.empty())

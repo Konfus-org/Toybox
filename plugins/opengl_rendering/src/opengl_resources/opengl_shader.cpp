@@ -1,9 +1,6 @@
 #include "opengl_shader.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/typedefs.h"
 #include <glad/glad.h>
-#include <string>
-#include <utility>
 
 namespace opengl_rendering
 {
@@ -59,18 +56,18 @@ namespace opengl_rendering
     }
 
     tbx::Result create_shaders(
-        const tbx::ShaderProgram& shader_desc,
+        const std::vector<tbx::Shader>& shader_desc,
         std::vector<std::shared_ptr<OpenGlShader>>& out_shaders)
     {
         auto result = tbx::Result {};
-        if (shader_desc.sources.empty())
+        if (shader_desc.empty())
         {
             result.flag_failure("OpenGL backend: pipeline has no shader sources.");
             return result;
         }
 
-        out_shaders.reserve(shader_desc.sources.size());
-        for (const auto& source : shader_desc.sources)
+        out_shaders.reserve(shader_desc.size());
+        for (const auto& source : shader_desc)
         {
             auto shader = std::make_shared<OpenGlShader>(source);
             if (!shader->compile())
@@ -93,7 +90,7 @@ namespace opengl_rendering
         return result;
     }
 
-    OpenGlShader::OpenGlShader(const tbx::ShaderSource& shader)
+    OpenGlShader::OpenGlShader(const tbx::Shader& shader)
         : _source(shader.source)
         , _type(shader.type)
     {

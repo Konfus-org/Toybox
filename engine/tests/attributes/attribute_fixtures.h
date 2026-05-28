@@ -1,9 +1,6 @@
 #pragma once
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/asset.h"
-#include "tbx/types/typedefs.h"
-#include <string>
-#include <variant>
 
 namespace tbx
 {

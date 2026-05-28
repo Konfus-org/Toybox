@@ -1,5 +1,4 @@
 #include "player_input.h"
-#include <vector>
 
 namespace three_d_example
 {

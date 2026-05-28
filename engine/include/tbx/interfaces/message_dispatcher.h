@@ -3,10 +3,8 @@
 #include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 #include <concepts>
-#include <functional>
 #include <future>
 #include <memory>
-#include <optional>
 #include <type_traits>
 #include <utility>
 

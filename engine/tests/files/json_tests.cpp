@@ -3,8 +3,6 @@
 #include "tbx/types/handle.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
-#include <string>
-#include <vector>
 
 namespace tbx::tests::file_system
 {

@@ -2,14 +2,8 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/color.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 namespace tbx
 {

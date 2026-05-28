@@ -2,7 +2,6 @@
 #include "tbx/systems/input/action.h"
 #include "tbx/systems/input/scheme.h"
 #include "tbx/systems/time/delta_time.h"
-#include <functional>
 #include <optional>
 #include <string>
 #include <unordered_map>

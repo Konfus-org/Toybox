@@ -1,11 +1,6 @@
 #pragma once
 #include "tbx/systems/input/action.h"
-#include <functional>
 #include <initializer_list>
-#include <optional>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace tbx
 {

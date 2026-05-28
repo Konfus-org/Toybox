@@ -9,8 +9,6 @@
 #include <Jolt/Physics/Collision/Shape/Shape.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 // clang-format on
-#include <memory>
-#include <unordered_map>
 
 namespace jolt_physics
 {

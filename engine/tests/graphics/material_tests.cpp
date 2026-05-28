@@ -1,6 +1,6 @@
-#include "tbx/systems/assets/builtin_assets.h"
-#include "tbx/types/handle.h"
+#include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/components/material_instance.h"
 
 namespace tbx::tests::graphics
 {

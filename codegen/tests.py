@@ -86,7 +86,7 @@ class AttributeCodegenTests(unittest.TestCase):
             root = Path(temp_dir)
             shader_meta = root / "Shaders" / "Default.vert.meta"
             shader_meta.parent.mkdir(parents=True)
-            shader_meta.write_text('{"id": "0000002A", "version": 1}', encoding="utf-8")
+            shader_meta.write_text('{"id": 42, "version": 1}', encoding="utf-8")
 
             material = root / "Materials" / "Pbr.mat"
             material.parent.mkdir(parents=True)
@@ -100,7 +100,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 encoding="utf-8",
             )
             material.with_name("Pbr.mat.meta").write_text(
-                '{"id": "0000000D", "version": 1}',
+                '{"id": 13, "version": 1}',
                 encoding="utf-8",
             )
 

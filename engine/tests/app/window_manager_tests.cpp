@@ -2,9 +2,6 @@
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/windowing/manager.h"
-#include <algorithm>
-#include <memory>
-#include <vector>
 
 namespace tbx::tests::app
 {

@@ -9,3 +9,4 @@ target_link_libraries(ThreeDExampleLauncher PRIVATE
     Tbx::DefaultPlugins
     Tbx::Examples::ThreeDExampleRuntime
 )
+target_precompile_headers(ThreeDExampleLauncher PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")

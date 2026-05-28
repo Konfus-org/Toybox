@@ -1,15 +1,8 @@
 #include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/watcher.h"
-#include <algorithm>
 #include <chrono>
 #include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <string>
 #include <thread>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
 namespace tbx::tests::file_system
 {

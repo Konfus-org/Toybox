@@ -2,10 +2,6 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/window_manager.h"
-#include "tbx/tbx_api.h"
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace tbx
 {

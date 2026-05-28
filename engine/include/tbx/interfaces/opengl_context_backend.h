@@ -1,7 +1,6 @@
 #pragma once
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/graphics/api.h"
-#include "tbx/tbx_api.h"
 #include "tbx/utils/result.h"
 
 namespace tbx

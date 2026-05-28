@@ -3,7 +3,6 @@
 #include "tbx/types/quaternions.h"
 #include "tbx/types/trig.h"
 #include "tbx/types/vectors.h"
-#include <cmath>
 
 namespace tbx::tests::graphics
 {

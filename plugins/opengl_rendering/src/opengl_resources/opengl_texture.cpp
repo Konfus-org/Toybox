@@ -1,7 +1,5 @@
 #include "opengl_texture.h"
-#include <algorithm>
 #include <glad/glad.h>
-#include <utility>
 
 namespace opengl_rendering
 {

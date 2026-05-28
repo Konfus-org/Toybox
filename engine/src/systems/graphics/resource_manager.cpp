@@ -1,16 +1,15 @@
 #include "tbx/systems/graphics/resource_manager.h"
-#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/resource_upload_caches.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/types/vertex.h"
 #include "tbx/utils/hash.h"
 
@@ -147,7 +146,7 @@ namespace tbx
         mutable ResourceUploadCaches _caches = {};
         std::shared_ptr<Material> _fallback_material = {};
         std::shared_ptr<Model> _fallback_model = {};
-        std::shared_ptr<ShaderProgram> _fallback_shader = {};
+        std::shared_ptr<std::vector<Shader>> _fallback_shader = {};
         mutable std::unordered_map<uint32, Texture> _fallback_textures = {};
     };
 
@@ -221,9 +220,9 @@ namespace tbx
         return std::make_shared<Material>(std::move(material));
     }
 
-    inline std::shared_ptr<ShaderProgram> make_fallback_shader()
+    inline std::shared_ptr<std::vector<Shader>> make_fallback_shader()
     {
-        auto vertex_shader = ShaderSource(
+        auto vertex_shader = Shader(
             "#version 450 core\n"
             "layout(location = 0) in vec3 a_position;\n"
             "layout(location = 5) in mat4 a_instance_model;\n"
@@ -247,7 +246,7 @@ namespace tbx
             "}\n",
             ShaderType::VERTEX);
 
-        auto fragment_shader = ShaderSource(
+        auto fragment_shader = Shader(
             "#version 450 core\n"
             "layout(location = 0) out vec4 o_color;\n"
             "void main()\n"
@@ -256,10 +255,10 @@ namespace tbx
             "}\n",
             ShaderType::FRAGMENT);
 
-        auto sources = std::vector<ShaderSource>();
+        auto sources = std::vector<Shader>();
         sources.push_back(std::move(vertex_shader));
         sources.push_back(std::move(fragment_shader));
-        return std::make_shared<ShaderProgram>(std::move(sources));
+        return std::make_shared<std::vector<Shader>>(std::move(sources));
     }
 
     inline std::shared_ptr<Model> make_fallback_model()
@@ -694,7 +693,7 @@ namespace tbx
 
     static RasterPipelineDesc make_material_pipeline_desc(
         const Handle& handle,
-        ShaderProgram shader,
+        std::vector<Shader> shaders,
         const MaterialConfig& config)
     {
         const VertexBufferLayout vertex_layout = get_default_vertex_buffer_layout();
@@ -703,7 +702,7 @@ namespace tbx
         append_instance_layout_attributes(vertex_attributes);
 
         return RasterPipelineDesc {
-            .shader = std::move(shader),
+            .shaders = std::move(shaders),
             .bind_group_layouts = make_material_bind_group_layouts(),
             .vertex_buffers =
                 {
@@ -923,7 +922,7 @@ namespace tbx
         AssetManager& asset_manager,
         const Handle& handle,
         std::vector<Uuid>& loaded_shader_ids,
-        std::vector<ShaderSource>& shader_sources)
+        std::vector<Shader>& shader_sources)
     {
         if (!handle.is_valid())
             return true;
@@ -936,23 +935,23 @@ namespace tbx
             if (loaded_shader_id == asset_id)
                 return true;
 
-        const std::shared_ptr<ShaderProgram> shader =
-            asset_manager.load<ShaderProgram>(handle, ShaderLoadParameters());
+        const std::shared_ptr<Shader> shader =
+            asset_manager.load<Shader>(handle, ShaderLoadParameters());
         if (!shader)
             return false;
 
         loaded_shader_ids.push_back(asset_id);
-        shader_sources.insert(shader_sources.end(), shader->sources.begin(), shader->sources.end());
+        shader_sources.push_back(*shader);
         return true;
     }
 
-    static ShaderProgram build_material_shader(
+    static std::vector<Shader> build_material_shader(
         AssetManager& asset_manager,
         const Handle& handle,
         const Material& material,
-        const ShaderProgram* fallback_shader)
+        const std::vector<Shader>* fallback_shader)
     {
-        auto shader_sources = std::vector<ShaderSource> {};
+        auto shader_sources = std::vector<Shader> {};
         auto loaded_shader_ids = std::vector<Uuid> {};
         auto has_shader_failure = false;
 
@@ -993,13 +992,13 @@ namespace tbx
         }
 
         if (!has_shader_failure && !shader_sources.empty())
-            return ShaderProgram(std::move(shader_sources));
+            return shader_sources;
 
         TBX_TRACE_WARNING_ONCE(
             "Material '{}' failed to load one or more shader stages. Falling back to non-shaded "
             "magenta shader.",
             handle);
-        return fallback_shader == nullptr ? ShaderProgram() : *fallback_shader;
+        return fallback_shader == nullptr ? std::vector<Shader> {} : *fallback_shader;
     }
 
     static GraphicsBufferDesc make_uniform_buffer_desc(
@@ -1261,7 +1260,7 @@ namespace tbx
         const Material& material,
         const MaterialInstance* instance,
         RenderingResourceTracker& resource_tracker,
-        const ShaderProgram* fallback_shader,
+        const std::vector<Shader>* fallback_shader,
         std::unordered_map<uint32, Texture>& fallback_textures,
         ResourceUploadCaches& caches,
         RenderingMaterialUploadData& out_material)
@@ -1289,7 +1288,7 @@ namespace tbx
         }
         else
         {
-            auto shader = ShaderProgram();
+            auto shader = std::vector<Shader> {};
             if (asset_manager != nullptr)
                 shader = build_material_shader(
                     *asset_manager,
@@ -1300,7 +1299,7 @@ namespace tbx
                 shader = *fallback_shader;
 
             const RasterPipelineDesc pipeline_desc =
-                make_material_pipeline_desc(material_handle, shader, config);
+                make_material_pipeline_desc(material_handle, std::move(shader), config);
 
             const Result pipeline_result = backend.create_raster_pipeline(pipeline_desc, pipeline);
             if (!pipeline_result)

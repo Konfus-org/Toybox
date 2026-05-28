@@ -1,10 +1,11 @@
 #pragma once
 #include "tbx/systems/app/settings.h"
-#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/assets/builtin_assets.h"
 #include <filesystem>
 #include <string>
 #include <vector>
+
 
 namespace tbx
 {

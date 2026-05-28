@@ -1,7 +1,7 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/types/uuid.h"
+#include "tbx/systems/plugin_api/plugin_loader.h"
 #include <shared_mutex>
 
 namespace tbx
@@ -71,6 +71,9 @@ namespace tbx
 
     void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
     {
+        if (is_plugin_meta_query_active())
+            return;
+
         if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
             return;
 

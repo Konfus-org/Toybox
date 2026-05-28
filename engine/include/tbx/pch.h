@@ -1,10 +1,13 @@
 #pragma once
 
+#include "tbx/tbx_api.h"
+#include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

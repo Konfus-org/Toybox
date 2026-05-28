@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/world.h"
-#include <memory>
 
 namespace tbx
 {

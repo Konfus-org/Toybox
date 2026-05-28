@@ -1,5 +1,4 @@
 #include "jolt_collision_layers.h"
-#include <cstdint>
 
 namespace jolt_physics
 {

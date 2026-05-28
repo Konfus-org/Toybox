@@ -3,11 +3,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/texture.h"
-#include <filesystem>
-#include <memory>
 #include <stb_image.h>
-#include <string>
-#include <vector>
 
 namespace stb_image_loader
 {

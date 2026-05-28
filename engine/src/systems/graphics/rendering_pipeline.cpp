@@ -1,7 +1,6 @@
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
-#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/graphics/render_pass.h"
@@ -9,6 +8,7 @@
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/camera.h"
@@ -24,6 +24,7 @@
 #include "tbx/types/trig.h"
 #include "tbx/types/viewport.h"
 #include "tbx/utils/hash.h"
+
 
 namespace tbx
 {

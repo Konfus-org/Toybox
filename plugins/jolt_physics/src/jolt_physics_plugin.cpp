@@ -3,7 +3,6 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/service_provider.h"
-#include <memory>
 
 namespace jolt_physics
 {

@@ -2,15 +2,10 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/handle.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/utils/result.h"
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace tbx
 {

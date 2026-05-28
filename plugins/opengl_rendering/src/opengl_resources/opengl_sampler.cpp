@@ -1,5 +1,4 @@
 #include "opengl_sampler.h"
-#include <utility>
 
 namespace opengl_rendering
 {

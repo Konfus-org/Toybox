@@ -6,8 +6,6 @@
 #include "tbx/systems/time/span.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/bounds.h"
-#include "tbx/types/handle.h"
-#include <format>
 
 namespace tbx::tests::utils
 {

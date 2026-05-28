@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/types/vectors.h"
-#include <memory>
-#include <string>
 
 namespace three_d_example
 {

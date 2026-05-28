@@ -1,6 +1,5 @@
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/messaging/observable.h"
-#include <memory>
 
 namespace tbx::tests::messaging
 {

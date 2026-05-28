@@ -2,7 +2,6 @@
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"
-#include <utility>
 
 namespace three_d_example
 {

@@ -1,6 +1,4 @@
 #pragma once
-#include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
 
 namespace opengl_rendering
 {

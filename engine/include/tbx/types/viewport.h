@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/size.h"
 #include "tbx/types/vectors.h"
 

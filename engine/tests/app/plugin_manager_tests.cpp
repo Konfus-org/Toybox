@@ -1,7 +1,6 @@
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
-#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
@@ -11,13 +10,8 @@
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
-#include <filesystem>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
-#include <utility>
-#include <vector>
+#include "tbx/types/assets/builtin_assets.h"
+
 
 namespace tbx::tests::app
 {

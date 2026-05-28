@@ -2,11 +2,8 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
-#include "tbx/types/uuid.h"
-#include <memory>
 
 namespace tbx
 {

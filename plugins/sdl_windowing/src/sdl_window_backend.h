@@ -1,10 +1,6 @@
 #pragma once
 #include "tbx/interfaces/window_backend.h"
 #include <SDL3/SDL.h>
-#include <optional>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace sdl_windowing
 {

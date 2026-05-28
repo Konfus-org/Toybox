@@ -90,8 +90,14 @@ namespace tbx
         else
             settings->paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
+        const auto working_resource_directory = settings->paths.working_directory / "resources";
+        const bool has_working_resource_directory =
+            std::filesystem::is_directory(working_resource_directory);
+        if (has_working_resource_directory)
+            asset_manager->add_directory(working_resource_directory);
+
         const auto resource_directory = get_default_asset_directory();
-        if (!resource_directory.empty())
+        if (!has_working_resource_directory && !resource_directory.empty())
             asset_manager->add_directory(resource_directory);
 
         if (!desc.args.empty())

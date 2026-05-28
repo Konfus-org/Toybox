@@ -9,3 +9,4 @@ target_link_libraries(TwoDExampleLauncher PRIVATE
     Tbx::DefaultPlugins
     Tbx::Examples::TwoDExampleRuntime
 )
+target_precompile_headers(TwoDExampleLauncher PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")

@@ -1,9 +1,5 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/uuid.h"
-#include <string>
-#include <vector>
 
 namespace tbx
 {

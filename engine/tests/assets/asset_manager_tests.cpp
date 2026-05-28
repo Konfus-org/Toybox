@@ -2,16 +2,11 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
-#include "tbx/types/handle.h"
 #include "tbx/utils/result.h"
 #include <chrono>
 #include <condition_variable>
-#include <filesystem>
 #include <future>
-#include <mutex>
-#include <string>
 #include <thread>
-#include <unordered_map>
 
 namespace tbx
 {

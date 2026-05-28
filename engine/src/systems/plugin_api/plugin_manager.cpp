@@ -6,9 +6,7 @@
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
-#include <ctime>
 
 namespace tbx
 {

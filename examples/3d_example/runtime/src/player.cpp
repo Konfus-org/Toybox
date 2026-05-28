@@ -2,7 +2,6 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/raycast.h"
-#include <utility>
 
 namespace three_d_example
 {

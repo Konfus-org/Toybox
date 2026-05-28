@@ -3,7 +3,6 @@
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/light.h"
-#include <memory>
 
 namespace three_d_example
 {

@@ -102,6 +102,21 @@ namespace tbx
             auto data = JsonParser::parse(contents);
             auto id = Uuid();
             static_cast<void>(JsonParser::try_get(data, "id", id));
+
+            if (!id.is_valid())
+            {
+                auto id_value = uint32 {};
+                if (JsonParser::try_get(data, "id", id_value) && id_value != 0U)
+                {
+                    id = Uuid(id_value);
+                }
+            }
+
+            if (!id.is_valid())
+            {
+                return nullptr;
+            }
+
             return std::make_unique<Handle>(asset_path.lexically_normal().generic_string(), id);
         }
         catch (...)

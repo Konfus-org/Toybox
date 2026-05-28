@@ -1,9 +1,7 @@
 #pragma once
-#include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
-#include <memory>
 
 namespace sdl_input
 {

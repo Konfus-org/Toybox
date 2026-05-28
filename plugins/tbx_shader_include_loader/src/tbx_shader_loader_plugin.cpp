@@ -4,12 +4,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/shader.h"
-#include <filesystem>
 #include <sstream>
-#include <string>
-#include <string_view>
-#include <unordered_set>
-#include <vector>
 
 namespace tbx::shader_loader
 {
@@ -299,21 +294,21 @@ namespace tbx::shader_loader
         if (!_file_ops)
             _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
 
-        serialization_registry->register_transformer<tbx::ShaderProgram>(
+        serialization_registry->register_transformer<tbx::Shader>(
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::ShaderLoadParameters& parameters,
                 const tbx::AssetLoadMetadata& metadata,
-                tbx::ShaderProgram& shader_program)
+                tbx::Shader& shader)
             {
-                return transform_shader(asset_path, parameters, metadata, shader_program);
+                return transform_shader(asset_path, parameters, metadata, shader);
             });
     }
 
     void ShaderIncludeLoader::on_detach(tbx::ServiceProvider&)
     {
         if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->deregister_transformer<tbx::ShaderProgram>();
+            serialization_registry->deregister_transformer<tbx::Shader>();
 
         _asset_manager = {};
         _serialization_registry = {};
@@ -324,7 +319,7 @@ namespace tbx::shader_loader
         const std::filesystem::path& asset_path,
         const tbx::ShaderLoadParameters&,
         const tbx::AssetLoadMetadata&,
-        tbx::ShaderProgram& shader_program)
+        tbx::Shader& shader)
     {
         auto result = tbx::Result {};
         if (!_file_ops)
@@ -340,13 +335,13 @@ namespace tbx::shader_loader
             return result;
         }
 
-        if (shader_program.type == tbx::ShaderType::NONE)
+        if (shader.type == tbx::ShaderType::NONE)
         {
             result.flag_failure("tbx::Shader loader: shader type metadata is missing.");
             return result;
         }
 
-        if (shader_program.source.empty())
+        if (shader.source.empty())
         {
             result.flag_failure("tbx::Shader loader: shader source is empty.");
             return result;
@@ -358,7 +353,7 @@ namespace tbx::shader_loader
             *_file_ops,
             *asset_manager,
             asset_path,
-            shader_program.source,
+            shader.source,
             include_stack,
             included_files,
             0U);
@@ -368,9 +363,7 @@ namespace tbx::shader_loader
             return result;
         }
 
-        shader_program.sources.clear();
-        shader_program.sources.emplace_back(std::move(expanded.data), shader_program.type);
-        shader_program.source.clear();
+        shader.source = std::move(expanded.data);
 
         result.flag_success();
         return result;

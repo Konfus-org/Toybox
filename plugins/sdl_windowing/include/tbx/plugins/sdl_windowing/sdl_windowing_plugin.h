@@ -1,10 +1,8 @@
 #pragma once
-#include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include <SDL3/SDL.h>
-#include <memory>
 
 namespace sdl_windowing
 {

@@ -1,9 +1,12 @@
 #include "sdl_window_backend.h"
+#include "SDL3/SDL_error.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_surface.h"
+#include "SDL3/SDL_video.h"
+#include "tbx/interfaces/window_backend.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/handle.h"
-#include "tbx/types/typedefs.h"
-#include <ranges>
-#include <string_view>
+#include "tbx/types/size.h"
+#include "tbx/types/window.h"
 
 namespace sdl_windowing
 {

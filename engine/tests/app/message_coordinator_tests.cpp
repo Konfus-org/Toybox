@@ -1,13 +1,10 @@
 #include "tbx/systems/async/cancellation_token.h"
-#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/messaging/message.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/time/span.h"
-#include <any>
 #include <atomic>
 #include <chrono>
 #include <future>
-#include <string>
-#include <vector>
 
 namespace tbx::tests::app
 {

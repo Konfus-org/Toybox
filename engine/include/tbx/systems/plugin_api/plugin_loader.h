@@ -3,13 +3,13 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include <filesystem>
-#include <string>
-#include <vector>
 
 namespace tbx
 {
+    // Returns true while the loader is probing plugin metadata by temporarily loading modules.
+    // Callers can use this to ignore global registration side effects from discovery loads.
+    TBX_API bool is_plugin_meta_query_active();
+
     // Returns true when the path matches the platform-specific plugin library filename pattern.
     TBX_API bool is_plugin_library_path(const std::filesystem::path& path);
 

@@ -3,6 +3,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/result.h"
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -16,13 +17,18 @@
 
 #define TBX_SERIALIZATION_CONCAT_INNER(Left, Right) Left##Right
 #define TBX_SERIALIZATION_CONCAT(Left, Right) TBX_SERIALIZATION_CONCAT_INNER(Left, Right)
-#define TBX_SERIALIZATION_AUTO_REGISTER(Name, Expression)                                          \
-    /* NOLINTNEXTLINE(bugprone-throwing-static-initialization) */                                  \
-    static const bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = []() noexcept                  \
-    {                                                                                              \
-        static_cast<void>(Expression);                                                             \
-        return true;                                                                               \
-    }()
+#if defined(TBX_PLUGIN_EXPORTING_SYMBOLS)
+    #define TBX_SERIALIZATION_AUTO_REGISTER(Name, Expression)                                      \
+        static constexpr bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = true
+#else
+    #define TBX_SERIALIZATION_AUTO_REGISTER(Name, Expression)                                      \
+        /* NOLINTNEXTLINE(bugprone-throwing-static-initialization) */                              \
+        static const bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = []() noexcept              \
+        {                                                                                          \
+            static_cast<void>(Expression);                                                         \
+            return true;                                                                           \
+        }()
+#endif
 
 namespace tbx
 {

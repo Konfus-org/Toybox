@@ -1,15 +1,7 @@
 #pragma once
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/transform.h"
-#include "tbx/types/uuid.h"
 #include <concepts>
-#include <format>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <utility>
 
 namespace tbx
 {

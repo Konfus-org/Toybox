@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include <glm/gtc/quaternion.hpp>
 
 namespace tbx

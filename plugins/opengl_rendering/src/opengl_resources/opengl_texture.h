@@ -1,7 +1,6 @@
 #pragma once
 #include "opengl_resource.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/types/typedefs.h"
 #include <glad/glad.h>
 
 namespace opengl_rendering

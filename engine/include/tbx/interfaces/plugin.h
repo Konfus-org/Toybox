@@ -1,20 +1,18 @@
 #pragma once
 #include "tbx/interfaces/message_dispatcher.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
-#include <functional>
 #include <future>
-#include <memory>
-#include <string_view>
-#include <type_traits>
-#include <utility>
 
 namespace tbx
 {
+    using GetPluginMetaFn = void (*)(PluginMeta*);
+    using CreatePluginFn = Plugin* (*)();
+    using DestroyPluginFn = void (*)(Plugin*);
+
     // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.
     class TBX_API Plugin
@@ -85,10 +83,6 @@ namespace tbx
 
         std::weak_ptr<IMessageDispatcher> _dispatcher = {};
     };
-
-    using GetPluginMetaFn = void (*)(PluginMeta*);
-    using CreatePluginFn = Plugin* (*)();
-    using DestroyPluginFn = void (*)(Plugin*);
 }
 
 #include "tbx/interfaces/plugin.inl"

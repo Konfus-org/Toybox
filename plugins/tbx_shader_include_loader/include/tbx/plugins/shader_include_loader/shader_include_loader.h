@@ -4,8 +4,6 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-#include <filesystem>
-#include <memory>
 
 namespace tbx::shader_loader
 {
@@ -24,7 +22,7 @@ namespace tbx::shader_loader
             const std::filesystem::path& asset_path,
             const tbx::ShaderLoadParameters& parameters,
             const tbx::AssetLoadMetadata& metadata,
-            tbx::ShaderProgram& shader_program);
+            tbx::Shader& shader);
 
         std::weak_ptr<tbx::AssetManager> _asset_manager = {};
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};

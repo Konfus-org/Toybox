@@ -1,8 +1,5 @@
 #include "tbx/types/bounds.h"
 #include "tbx/types/trig.h"
-#include <cmath>
-#include <format>
-#include <string>
 
 namespace tbx::tests::math
 {

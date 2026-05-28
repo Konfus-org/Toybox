@@ -2,8 +2,8 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
+#include <atomic>
 #include <chrono>
 #include <numeric>
 #include <system_error>
@@ -13,6 +13,25 @@ namespace tbx
 {
     inline constexpr std::string_view PluginShadowCopyDirectory = ".plugin_load_copies";
     inline constexpr std::string_view PluginShadowCopyMarker = ".load_copy";
+    static std::atomic_uint32_t g_plugin_meta_query_depth = 0U;
+
+    bool is_plugin_meta_query_active()
+    {
+        return g_plugin_meta_query_depth.load(std::memory_order_relaxed) > 0U;
+    }
+
+    struct PluginMetaQueryScope final
+    {
+        PluginMetaQueryScope()
+        {
+            g_plugin_meta_query_depth.fetch_add(1U, std::memory_order_relaxed);
+        }
+
+        ~PluginMetaQueryScope() noexcept
+        {
+            g_plugin_meta_query_depth.fetch_sub(1U, std::memory_order_relaxed);
+        }
+    };
 
     static bool path_contains_directory_token(
         const std::filesystem::path& path,
@@ -179,6 +198,8 @@ namespace tbx
         IFileOps& file_ops,
         PluginMeta& out_meta)
     {
+        const auto query_scope = PluginMetaQueryScope {};
+        static_cast<void>(query_scope);
         auto lib = load_plugin_library(library_path, file_ops);
         if (!lib || !lib->is_valid())
             return false;

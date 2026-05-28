@@ -1,10 +1,7 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
 #include "tbx/types/viewport.h"
 #include "tbx/types/window.h"
-#include <unordered_map>
 
 namespace opengl_rendering
 {

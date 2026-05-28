@@ -2,8 +2,6 @@
 #include "tbx/types/plane.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/matrices.h"
-#include "tbx/tbx_api.h"
-#include <array>
 #include <glm/geometric.hpp>
 
 namespace tbx

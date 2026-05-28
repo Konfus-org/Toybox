@@ -4,8 +4,6 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/types/handle.h"
-#include <memory>
 
 namespace three_d_example
 {
@@ -15,6 +13,15 @@ namespace three_d_example
     [[tbx::name("ThreeDExampleRuntime")]];
     [[tbx::version("1.0.0")]];
     [[tbx::category("gameplay")]];
+    [[tbx::dependency("SdlBaseSystemsPlugin")]];
+    [[tbx::dependency("SdlWindowingPlugin")]];
+    [[tbx::dependency("SdlOpenGlContextManagerPlugin")]];
+    [[tbx::dependency("OpenGlRenderingPlugin")]];
+    [[tbx::dependency("SdlInputPlugin")]];
+    [[tbx::dependency("JoltPhysicsPlugin")]];
+    [[tbx::dependency("AssimpModelLoaderPlugin")]];
+    [[tbx::dependency("StbImageLoaderPlugin")]];
+    [[tbx::dependency("ShaderIncludeLoader")]];
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:

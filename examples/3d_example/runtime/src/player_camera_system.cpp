@@ -1,9 +1,6 @@
 #include "player_camera_system.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/trig.h"
-#include <algorithm>
-#include <cmath>
-#include <utility>
 
 namespace three_d_example
 {

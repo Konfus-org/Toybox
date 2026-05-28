@@ -1,5 +1,4 @@
 #include "tbx/types/components/mesh.h"
-#include <array>
 
 namespace tbx::tests::graphics
 {

@@ -1,9 +1,9 @@
 {
-  "id": "10203042",
-  "version": 1,
-  "wrap": "repeat",
-  "filter": "linear",
-  "format": "rgba",
-  "mipmaps": "enabled",
-  "compression": "disabled"
+    "id":  270544962,
+    "version":  1,
+    "wrap":  "repeat",
+    "filter":  "linear",
+    "format":  "rgba",
+    "mipmaps":  "enabled",
+    "compression":  "disabled"
 }

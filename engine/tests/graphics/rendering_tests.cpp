@@ -2,7 +2,6 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/app/settings.h"
-#include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
@@ -10,6 +9,7 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/messaging/message_coordinator.h"
+#include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/shader.h"
@@ -21,20 +21,11 @@
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
-#include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstring>
-#include <filesystem>
-#include <functional>
 #include <future>
-#include <memory>
-#include <optional>
-#include <string>
 #include <thread>
-#include <unordered_map>
-#include <utility>
-#include <vector>
+
 
 namespace tbx::tests::graphics
 {
@@ -1370,22 +1361,19 @@ namespace tbx::tests::graphics
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = std::make_shared<SerializationRegistry>();
-        serialization_registry->register_loader<ShaderProgram>(
-            [](const std::filesystem::path&,
+        serialization_registry->register_loader<Shader>(
+            [](const std::filesystem::path& asset_path,
                const ShaderLoadParameters&,
                const AssetLoadMetadata&,
-               ShaderProgram& shader_program)
+               Shader& shader)
             {
-                shader_program = ShaderProgram(
-                    std::vector<ShaderSource> {
-                        ShaderSource(
-                            "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n",
-                            ShaderType::VERTEX),
-                        ShaderSource(
-                            "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
-                            "vec4(1.0); }\n",
-                            ShaderType::FRAGMENT),
-                    });
+                const bool is_vertex_shader = asset_path.extension() == ".vert";
+                shader = Shader(
+                    is_vertex_shader
+                        ? "#version 450 core\nvoid main(){ gl_Position = vec4(0.0); }\n"
+                        : "#version 450 core\nlayout(location=0) out vec4 c; void main(){ c = "
+                          "vec4(1.0); }\n",
+                    is_vertex_shader ? ShaderType::VERTEX : ShaderType::FRAGMENT);
                 return Result {};
             });
         serialization_registry->register_loader<Material>(

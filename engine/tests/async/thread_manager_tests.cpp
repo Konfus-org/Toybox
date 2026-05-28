@@ -1,7 +1,6 @@
 #include "tbx/systems/async/thread_manager.h"
 #include <atomic>
 #include <chrono>
-#include <stdexcept>
 #include <thread>
 
 namespace tbx::tests::async

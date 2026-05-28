@@ -1,12 +1,13 @@
 #include "projectile_system.h"
-#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/systems/ecs/entity.h"
+#include "tbx/systems/time/delta_time.h"
+#include "tbx/types/assets/builtin_assets.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/types/components/collider.h"
+#include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
-#include <cmath>
-#include <string>
-#include <utility>
 
 namespace three_d_example
 {

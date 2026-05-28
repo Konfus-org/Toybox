@@ -1,7 +1,4 @@
 #include "sdl_input_manager.h"
-#include <array>
-#include <memory>
-#include <utility>
 
 namespace sdl_input
 {

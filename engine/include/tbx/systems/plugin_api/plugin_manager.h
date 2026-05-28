@@ -5,15 +5,6 @@
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include <chrono>
-#include <filesystem>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
 
 namespace tbx
 {

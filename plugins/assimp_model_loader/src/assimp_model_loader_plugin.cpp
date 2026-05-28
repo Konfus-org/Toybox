@@ -11,8 +11,6 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/types.h>
-#include <string>
-#include <vector>
 
 namespace assimp_model_loader
 {

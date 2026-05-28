@@ -1,8 +1,6 @@
 #pragma once
 #include "tbx/types/matrices.h"
 #include "tbx/types/vectors.h"
-#include "tbx/tbx_api.h"
-#include <cmath>
 #include <glm/geometric.hpp>
 
 namespace tbx

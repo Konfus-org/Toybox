@@ -1,9 +1,4 @@
 #pragma once
-#include "tbx/tbx_api.h"
-#include "tbx/types/typedefs.h"
-#include <filesystem>
-#include <string>
-#include <vector>
 
 #ifndef TBX_PLUGIN_ABI_VERSION
     #define TBX_PLUGIN_ABI_VERSION 1

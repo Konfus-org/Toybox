@@ -1,10 +1,10 @@
-#include "tbx/systems/assets/builtin_assets.h"
+#include "tbx/types/assets/builtin_assets.h"
+#include "tbx/types/assets/shader.h"
 #include "tbx/types/components/lods.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
-#include "tbx/types/assets/shader.h"
-#include <string>
+
 
 namespace tbx::tests::graphics
 {
@@ -84,13 +84,13 @@ namespace tbx::tests::graphics
     }
 
     // Validates shader source text is owned after construction.
-    TEST(RendererTests, ShaderSource_CopiesSourceText)
+    TEST(RendererTests, Shader_CopiesSourceText)
     {
         // Arrange
         auto source_text = std::string("#version 450\nvoid main() {}\n");
 
         // Act
-        auto shader_source = ShaderSource(source_text, ShaderType::VERTEX);
+        auto shader_source = Shader(source_text, ShaderType::VERTEX);
         source_text.clear();
 
         // Assert

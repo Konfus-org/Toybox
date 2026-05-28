@@ -3,11 +3,6 @@
 #include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/plugin_api/shared_library.h"
-#include "tbx/tbx_api.h"
-#include <format>
-#include <functional>
-#include <memory>
-#include <string>
 
 namespace tbx
 {

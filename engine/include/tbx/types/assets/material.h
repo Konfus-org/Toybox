@@ -1,20 +1,18 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/color.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/matrices.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
 #include "tbx/utils/hash.h"
 #include <cstdint>
-#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -248,7 +246,7 @@ namespace tbx
     struct TBX_API Material : Asset
     {
         [[tbx::prop]]
-        Shader shader = {};
+        ShaderProgram shader = {};
 
         [[tbx::prop]]
         MaterialParameterBindings parameters = {};
@@ -266,4 +264,3 @@ namespace tbx
 
 #include "tbx/types/assets/material.generated.h"
 #include "tbx/types/assets/material.inl"
-#include "tbx/types/components/material_instance.h"

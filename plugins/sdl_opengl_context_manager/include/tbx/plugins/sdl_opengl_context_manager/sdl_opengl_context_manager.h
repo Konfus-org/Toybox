@@ -2,9 +2,6 @@
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
-#include <memory>
-#include <string>
-#include <unordered_map>
 
 namespace sdl_opengl_context_manager
 {

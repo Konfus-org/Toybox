@@ -2,7 +2,6 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
 
 namespace tbx
 {

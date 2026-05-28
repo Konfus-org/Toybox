@@ -1,11 +1,9 @@
 #pragma once
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/matrices.h"
-#include <vector>
 
 namespace tbx
 {

@@ -2,8 +2,6 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-#include <functional>
-#include <optional>
 
 namespace assimp_model_loader
 {

@@ -4,7 +4,6 @@
 #include "tbx/utils/result.h"
 #include <functional>
 #include <optional>
-#include <typeinfo>
 
 namespace tbx
 {

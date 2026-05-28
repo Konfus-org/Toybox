@@ -1,9 +1,5 @@
 #pragma once
 #include "tbx/systems/messaging/message.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
-#include <filesystem>
-#include <utility>
 
 namespace tbx
 {

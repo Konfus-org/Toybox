@@ -1,14 +1,6 @@
 #pragma once
 #include "tbx/systems/graphics/resource_manager.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
 #include "tbx/types/mesh_bounds.h"
-#include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace tbx
 {

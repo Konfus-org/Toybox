@@ -7,6 +7,7 @@ target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(${plugin_name} PRIVATE
         Tbx::Engine
 )
+target_precompile_headers(${plugin_name} PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")
 
 tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}

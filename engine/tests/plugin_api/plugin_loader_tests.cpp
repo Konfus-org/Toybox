@@ -1,6 +1,4 @@
 #include "tbx/systems/plugin_api/plugin_loader.h"
-#include <filesystem>
-#include <vector>
 
 namespace tbx::tests::plugin_loader
 {

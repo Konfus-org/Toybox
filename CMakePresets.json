@@ -14,6 +14,7 @@
       "cacheVariables": {
         "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
+        "TBX_BUILD_TESTS": "OFF",
         "TBX_ENABLE_COMPILER_CACHE": "ON",
         "TBX_ENABLE_VERBOSE": "OFF",
         "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
@@ -53,6 +54,23 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
+    },
+    {
+      "name": "msvc-tests",
+      "displayName": "Toybox (MSVC, tests)",
+      "description": "Targeting Windows x64 with MSVC compiler and test targets enabled",
+      "inherits": "msvc",
+      "cacheVariables": {
+        "TBX_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "clang-tests",
+      "displayName": "Toybox (Clang, tests)",
+      "inherits": "clang",
+      "cacheVariables": {
+        "TBX_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -83,6 +101,30 @@
       "inherits": "build-base",
       "configurePreset": "clang",
       "configuration": "Debug"
+    },
+    {
+      "name": "msvc-release-tests",
+      "inherits": "build-base",
+      "configurePreset": "msvc-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "clang-release-tests",
+      "inherits": "build-base",
+      "configurePreset": "clang-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "msvc-debug-tests",
+      "inherits": "build-base",
+      "configurePreset": "msvc-tests",
+      "configuration": "Debug"
+    },
+    {
+      "name": "clang-debug-tests",
+      "inherits": "build-base",
+      "configurePreset": "clang-tests",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -99,25 +141,25 @@
     {
       "name": "test-msvc-release",
       "inherits": "test-base",
-      "configurePreset": "msvc",
+      "configurePreset": "msvc-tests",
       "configuration": "Release"
     },
     {
       "name": "test-clang-release",
       "inherits": "test-base",
-      "configurePreset": "clang",
+      "configurePreset": "clang-tests",
       "configuration": "Release"
     },
     {
       "name": "test-msvc-debug",
       "inherits": "test-base",
-      "configurePreset": "msvc",
+      "configurePreset": "msvc-tests",
       "configuration": "Debug"
     },
     {
       "name": "test-clang-debug",
       "inherits": "test-base",
-      "configurePreset": "clang",
+      "configurePreset": "clang-tests",
       "configuration": "Debug"
     }
   ]
