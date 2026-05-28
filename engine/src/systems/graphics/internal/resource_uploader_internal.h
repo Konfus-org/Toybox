@@ -4,9 +4,9 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/resource_upload_caches.h"
 #include "tbx/systems/graphics/shader_bindings.h"
-#include "tbx/types/components/model.h"
-#include "tbx/types/material.h"
-#include "tbx/types/texture.h"
+#include "tbx/types/assets/model.h"
+#include "tbx/types/assets/material.h"
+#include "tbx/types/assets/texture.h"
 #include "tbx/types/vertex.h"
 #include "tbx/utils/hash.h"
 #include <algorithm>
@@ -542,7 +542,7 @@ namespace tbx::internal
     static Handle resolve_material_handle(const MaterialInstance& instance)
     {
         auto material_handle = instance.get_handle();
-        if (!material_handle.id.is_valid()
+        if ((!material_handle.id.is_valid() && material_handle.name.empty())
             || (material_handle.name.empty() && material_handle.id == PbrMaterial::HANDLE.id))
         {
             material_handle = make_default_material_handle();

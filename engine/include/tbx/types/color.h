@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include <format>
 #include <string>
@@ -48,5 +48,5 @@ namespace tbx
         static const Color DARK_GREY;
     };
 
-    TBX_SERIALIZABLE_STRUCT(Color, r, g, b, a)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Color, r, g, b, a)
 }

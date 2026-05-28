@@ -4,7 +4,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/camera.h"
-#include "tbx/types/shader.h"
+#include "tbx/types/assets/shader.h"
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"

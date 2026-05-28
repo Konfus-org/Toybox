@@ -1,6 +1,8 @@
-include_guard(GLOBAL)
+set(TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT
+    "${CMAKE_CURRENT_LIST_DIR}/copy_runtime_dependencies.cmake"
+    CACHE INTERNAL "Toybox runtime dependency copy script")
 
-set(TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/copy_runtime_dependencies.cmake")
+include_guard(GLOBAL)
 
 function(tbx_set_test_output target_name)
     if(NOT target_name)
@@ -22,6 +24,16 @@ function(tbx_set_test_output target_name)
                 "-DDESTINATION=$<TARGET_FILE_DIR:${target_name}>"
                 "-DSOURCES=$<TARGET_RUNTIME_DLLS:${target_name}>"
                 -P "${TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT}"
+            VERBATIM
+        )
+
+        add_custom_target(${target_name}RuntimeDependencies ALL
+            COMMAND ${CMAKE_COMMAND}
+                "-DDESTINATION=$<TARGET_FILE_DIR:${target_name}>"
+                "-DSOURCES=$<TARGET_RUNTIME_DLLS:${target_name}>"
+                -P "${TBX_COPY_RUNTIME_DEPENDENCIES_SCRIPT}"
+            DEPENDS ${target_name}
+            COMMENT "Staging runtime dependencies for ${target_name}"
             VERBATIM
         )
     endif()

@@ -1,6 +1,6 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/systems/graphics/api.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/time/delta_time.h"
@@ -14,8 +14,8 @@ namespace tbx::tests::utils
     TEST(format_tests, FormatsToyboxTypesWithStdFormat)
     {
         // Arrange
-        auto registry = EntityRegistry {};
-        auto entity = Entity("Player", registry);
+        auto world = World {};
+        auto entity = world.create_persistent_entity("Player");
         auto plugin = LoadedPlugin {};
         plugin.meta.name = "Renderer";
         plugin.meta.version = "1.0.0";

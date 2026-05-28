@@ -3,7 +3,6 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/messaging/message.h"
@@ -27,7 +26,6 @@ namespace tbx
       public:
         Rendering(
             std::weak_ptr<IGraphicsBackend> backend,
-            std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,

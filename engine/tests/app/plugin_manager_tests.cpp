@@ -5,10 +5,10 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
-#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/messaging/message.h"
+#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include <filesystem>

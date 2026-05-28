@@ -128,6 +128,33 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
+    std::vector<std::shared_ptr<TAsset>> AssetManager::get_loaded() const
+    {
+        std::lock_guard lock(_mutex);
+        auto store = get_store<TAsset>();
+        if (!store.has_value())
+            return {};
+
+        auto assets = std::vector<std::shared_ptr<TAsset>> {};
+        for (auto& record_entry : store->get().records)
+        {
+            auto& asset_record = const_cast<AssetRecord<TAsset>&>(record_entry.second);
+            update_asset_stream_state(asset_record);
+            if (!asset_record.asset)
+                continue;
+
+            if (asset_record.stream_state != AssetStreamState::LOADED
+                && asset_record.stream_state != AssetStreamState::LOADING)
+                continue;
+
+            assets.push_back(asset_record.asset);
+        }
+
+        return assets;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     AssetPromise<TAsset> AssetManager::load_async(
         const Handle& handle,
         const AssetLoadParameters<TAsset>& parameters)

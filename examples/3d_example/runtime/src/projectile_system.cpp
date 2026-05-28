@@ -1,6 +1,7 @@
 #include "projectile_system.h"
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/types/components/collider.h"
+#include "tbx/types/components/mesh.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
 #include <cmath>
@@ -10,26 +11,27 @@
 namespace three_d_example
 {
     ProjectileSystem::ProjectileSystem(
-        std::weak_ptr<tbx::EntityRegistry> entity_registry,
+        std::weak_ptr<tbx::World> world,
         std::function<tbx::Entity()> camera_provider)
     {
-        _entity_registry = entity_registry;
+        _world = world;
         _camera_provider = std::move(camera_provider);
         _projectile_material = create_projectile_material();
+        _projectile_model = tbx::SphereModel::HANDLE;
     }
 
     ProjectileSystem::~ProjectileSystem()
     {
+        auto world = _world.lock();
         for (auto& projectile : _active_projectiles)
         {
-            if (projectile.get_id().is_valid())
-                projectile.destroy();
+            if (world)
+                destroy_projectile(*world, projectile.entity);
         }
 
-        _entity_registry.reset();
+        _world.reset();
         _camera_provider = {};
         _active_projectiles.clear();
-        _active_projectile_lifetimes.clear();
         _is_spawn_requested = false;
         _spawned_projectile_count = 0U;
     }
@@ -50,10 +52,25 @@ namespace three_d_example
         _is_spawn_requested = true;
     }
 
+    void ProjectileSystem::destroy_projectile(tbx::World& world, tbx::Entity& projectile) const
+    {
+        if (projectile.get_id().is_valid() && world.has(projectile.get_id()))
+            world.destroy(projectile);
+    }
+
+    void ProjectileSystem::remove_projectile_at(size projectile_index)
+    {
+        const auto last_index = _active_projectiles.size() - 1U;
+        if (projectile_index != last_index)
+            _active_projectiles[projectile_index] = _active_projectiles[last_index];
+
+        _active_projectiles.pop_back();
+    }
+
     void ProjectileSystem::spawn_projectile()
     {
-        auto entity_registry = _entity_registry.lock();
-        if (!entity_registry || !_camera_provider)
+        auto world = _world.lock();
+        if (!world || !_camera_provider)
             return;
 
         const auto camera = _camera_provider();
@@ -78,18 +95,15 @@ namespace three_d_example
 
         while (_active_projectiles.size() >= _max_active_projectiles)
         {
-            auto oldest_projectile = _active_projectiles.front();
-            if (oldest_projectile.get_id().is_valid())
-                oldest_projectile.destroy();
-
+            destroy_projectile(*world, _active_projectiles.front().entity);
             _active_projectiles.erase(_active_projectiles.begin());
-            _active_projectile_lifetimes.erase(_active_projectile_lifetimes.begin());
         }
 
+        // Runtime projectiles are visualized with the built-in sphere and simulated by physics.
         constexpr auto projectile_visual_scale = 0.35F;
-        auto projectile = tbx::Entity(projectile_name, *entity_registry);
+        auto projectile = world->create_spatial_entity(projectile_name);
         projectile.add_component<tbx::MaterialInstance>(_projectile_material);
-        projectile.add_component<tbx::DynamicMesh>(_projectile_mesh);
+        projectile.add_component<tbx::StaticMesh>(_projectile_model);
         projectile.add_component<tbx::Transform>(
             spawn_position,
             camera_world_transform.rotation,
@@ -104,9 +118,13 @@ namespace three_d_example
         rigidbody.angular_damping = 0.02F;
         rigidbody.is_sleep_enabled = true;
         projectile.add_component<tbx::Rigidbody>(rigidbody);
+        world->update_chunk_membership();
 
-        _active_projectiles.push_back(projectile);
-        _active_projectile_lifetimes.push_back(_projectile_lifetime_seconds);
+        _active_projectiles.push_back(
+            ProjectileInstance {
+                .entity = projectile,
+                .remaining_lifetime_seconds = _projectile_lifetime_seconds,
+            });
     }
 
     void ProjectileSystem::update_projectiles(const tbx::DeltaTime& dt)
@@ -118,11 +136,11 @@ namespace three_d_example
         auto projectile_index = size {0U};
         while (projectile_index < _active_projectiles.size())
         {
-            _active_projectile_lifetimes[projectile_index] -= delta_seconds;
             auto& projectile = _active_projectiles[projectile_index];
+            projectile.remaining_lifetime_seconds -= delta_seconds;
 
-            const auto is_expired = _active_projectile_lifetimes[projectile_index] <= 0.0;
-            const auto is_invalid = !projectile.get_id().is_valid();
+            const auto is_expired = projectile.remaining_lifetime_seconds <= 0.0;
+            const auto is_invalid = !projectile.entity.get_id().is_valid();
             if (!is_expired && !is_invalid)
             {
                 ++projectile_index;
@@ -130,18 +148,13 @@ namespace three_d_example
             }
 
             if (!is_invalid)
-                projectile.destroy();
-
-            const auto last_index = _active_projectiles.size() - 1U;
-            if (projectile_index != last_index)
             {
-                _active_projectiles[projectile_index] = _active_projectiles[last_index];
-                _active_projectile_lifetimes[projectile_index] =
-                    _active_projectile_lifetimes[last_index];
+                auto world = _world.lock();
+                if (world)
+                    destroy_projectile(*world, projectile.entity);
             }
 
-            _active_projectiles.pop_back();
-            _active_projectile_lifetimes.pop_back();
+            remove_projectile_at(projectile_index);
         }
     }
 

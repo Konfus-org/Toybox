@@ -1,10 +1,102 @@
 #include "tbx/systems/ecs/entity.h"
 #include "systems/ecs/internal/entity_internal.h"
+#include "systems/ecs/internal/entity_registry_internal.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/files/json.h"
 #include "tbx/types/uuid.h"
+#include <algorithm>
 #include <cstddef>
+#include <mutex>
+#include <shared_mutex>
+#include <string>
+
+namespace tbx::internal
+{
+    struct SerializedEntityPayload
+    {
+        Uuid id = {};
+        std::string name = {};
+        std::string tag = {};
+        std::string layer = {};
+        Uuid parent = {};
+        Json components = {};
+    };
+
+    static std::vector<EntityComponentTypeRegistration>& entity_component_type_registrations()
+    {
+        static auto registrations = std::vector<EntityComponentTypeRegistration> {};
+        return registrations;
+    }
+
+    static std::mutex& entity_component_type_registration_mutex()
+    {
+        static auto mutex = std::mutex();
+        return mutex;
+    }
+
+    static std::vector<EntityComponentTypeRegistration> snapshot_entity_component_type_registrations()
+    {
+        auto guard = std::lock_guard(entity_component_type_registration_mutex());
+        return entity_component_type_registrations();
+    }
+
+    static bool read_entity_payload(std::string_view data, SerializedEntityPayload& payload)
+    {
+        try
+        {
+            const auto json = Json::parse(std::string(data));
+            json.try_get("id", payload.id);
+            json.try_get("name", payload.name);
+            json.try_get("tag", payload.tag);
+            json.try_get("layer", payload.layer);
+            json.try_get("parent", payload.parent);
+            json.try_get_child("components", payload.components);
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+}
+
 namespace tbx
 {
+    std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations()
+    {
+        return internal::snapshot_entity_component_type_registrations();
+    }
+
+    void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
+    {
+        if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
+            return;
+
+        auto guard = std::lock_guard(internal::entity_component_type_registration_mutex());
+        auto& registrations = internal::entity_component_type_registrations();
+        const auto existing = std::ranges::find_if(
+            registrations,
+            [&entry](const EntityComponentTypeRegistration& registered)
+            {
+                return registered.type == entry.type;
+            });
+        if (existing == registrations.end())
+        {
+            registrations.push_back(std::move(entry));
+            return;
+        }
+
+        if (!entry.name.empty())
+            existing->name = std::move(entry.name);
+        if (!entry.type_name.empty())
+            existing->type_name = std::move(entry.type_name);
+        if (entry.write_value)
+            existing->write_value = std::move(entry.write_value);
+        if (entry.read_value)
+            existing->read_value = std::move(entry.read_value);
+    }
+
     Entity::Entity(const std::string& name, EntityRegistry& registry)
         : Entity(name, Uuid::NONE, registry)
     {
@@ -41,7 +133,7 @@ namespace tbx
     Uuid Entity::get_id() const
     {
         if (!_registry.has_value())
-            return {};
+            return _id;
 
         // Callers commonly use `get_id().is_valid()` as a safe validity probe.
         if (!_registry->get().has(_id))
@@ -68,6 +160,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -96,6 +189,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -124,6 +218,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -152,6 +247,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -191,8 +287,8 @@ namespace tbx
         auto cursor = entity;
         auto parent = Entity {};
         size_t iteration_count = 0U;
-        static constexpr size_t max_parent_depth = 1024U;
-        while (cursor.try_get_parent_entity(parent) && iteration_count < max_parent_depth)
+        static constexpr size_t MAX_PARENT_DEPTH = 1024U;
+        while (cursor.try_get_parent_entity(parent) && iteration_count < MAX_PARENT_DEPTH)
         {
             if (parent.get_id() == cursor.get_id())
                 break;
@@ -219,5 +315,121 @@ namespace tbx
     EntityScope::~EntityScope() noexcept
     {
         entity.destroy();
+    }
+
+    std::string Serializer<Entity>::to_json(const Entity& entity)
+    {
+        auto json = Json::object();
+        json.set("id", entity.get_id());
+        json.set("name", entity.get_name());
+        json.set("tag", entity.get_tag());
+        json.set("layer", entity.get_layer());
+        json.set("parent", entity.get_parent());
+
+        auto components = Json::object();
+        if (entity._registry.has_value())
+        {
+            auto& registry = entity._registry->get();
+            if (registry.has(entity._id))
+            {
+                const auto entity_name = entity.get_name();
+                const auto entries = get_entity_component_type_registrations();
+                const auto handle = internal::to_entity_handle(entity._id);
+                auto guard = std::shared_lock(registry._mutex);
+                for (const auto& entry : entries)
+                {
+                    const auto* storage = registry._impl->storage(entry.type_id);
+                    if (storage == nullptr || !storage->contains(handle))
+                        continue;
+
+                    if (!entry.write_value || entry.name.empty())
+                    {
+                        TBX_TRACE_WARNING(
+                            "Entity '{}' skipped unserializable component '{}'.",
+                            entity_name,
+                            entry.type_name);
+                        continue;
+                    }
+
+                    const auto* value = storage->value(handle);
+                    if (value == nullptr)
+                        continue;
+
+                    components.set(entry.name, Json::parse(entry.write_value(value)));
+                }
+            }
+        }
+
+        json.set("components", components);
+        return json.to_string(-1);
+    }
+
+    bool Serializer<Entity>::from_json(std::string_view data, Entity& entity)
+    {
+        auto owned_registry = std::make_shared<EntityRegistry>();
+        auto rebound_entity = Entity();
+        if (!from_json(data, *owned_registry, rebound_entity))
+            return false;
+
+        rebound_entity._owned_registry = std::move(owned_registry);
+        entity = std::move(rebound_entity);
+        return true;
+    }
+
+    bool Serializer<Entity>::from_json(
+        std::string_view data,
+        EntityRegistry& registry,
+        Entity& entity)
+    {
+        auto payload = internal::SerializedEntityPayload();
+        if (!internal::read_entity_payload(data, payload))
+            return false;
+
+        entity = Entity();
+        entity._id =
+            registry.add(payload.id, payload.name, payload.tag, payload.layer, payload.parent);
+        entity._registry = std::ref(registry);
+
+        if (payload.components.is_null())
+            return true;
+
+        const auto entries = get_entity_component_type_registrations();
+        const auto handle = internal::to_entity_handle(entity._id);
+        for (const auto& key : payload.components.keys())
+        {
+            auto component_json = Json();
+            if (!payload.components.try_get_child(key, component_json))
+            {
+                TBX_TRACE_WARNING(
+                    "Entity '{}' skipped malformed serialized component '{}'.",
+                    entity.get_name(),
+                    key);
+                continue;
+            }
+
+            const auto entry = std::ranges::find_if(
+                entries,
+                [&key](const EntityComponentTypeRegistration& registered)
+                {
+                    return registered.name == key;
+                });
+            if (entry == entries.end() || !entry->read_value)
+            {
+                TBX_TRACE_WARNING(
+                    "Entity '{}' skipped unsupported serialized component '{}'.",
+                    entity.get_name(),
+                    key);
+                continue;
+            }
+
+            auto registry_guard = std::unique_lock(registry._mutex);
+            if (!registry._impl->valid(handle))
+                return false;
+
+            if (!entry->read_value(component_json.to_string(-1), *registry._impl, handle))
+                return false;
+        }
+
+        return true;
     }
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
@@ -85,7 +85,7 @@ namespace tbx
         Handle handle = {};
     };
 
-    TBX_SERIALIZABLE_STRUCT(StaticMesh, id, handle)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(StaticMesh, id, handle)
 
     /// @brief
     /// Purpose: Identifies reusable runtime mesh geometry shared by many renderable entities.

@@ -1,0 +1,57 @@
+﻿{
+    "coord": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+    },
+    "lod": "low",
+    "entities": [
+        {
+            "id": {
+                "value": 12583424
+            },
+            "name": "FarColumnLow",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 54,
+                        "y": 2,
+                        "z": 1
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 5,
+                        "y": 4,
+                        "z": 5
+                    }
+                }
+            }
+        }
+    ]
+}

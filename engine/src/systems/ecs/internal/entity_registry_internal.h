@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/ecs/registry.h"
 #include <mutex>
 
 namespace tbx::internal

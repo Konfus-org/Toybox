@@ -2,7 +2,6 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
@@ -26,7 +25,6 @@ namespace tbx
       public:
         RenderingPipeline(
             std::weak_ptr<IGraphicsBackend> backend,
-            std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<IWindowManager> window_manager);
         ~RenderingPipeline() = default;
@@ -46,7 +44,6 @@ namespace tbx
             const DeltaTime& delta_time);
 
       private:
-        std::weak_ptr<EntityRegistry> _entity_registry = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         RenderingResourceManager _resource_manager;

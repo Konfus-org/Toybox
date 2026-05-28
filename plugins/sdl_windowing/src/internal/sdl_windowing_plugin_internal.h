@@ -5,7 +5,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/observable.h"
-#include "tbx/systems/windowing/window_manager.h"
+#include "tbx/systems/windowing/manager.h"
 #include <filesystem>
 #include <memory>
 #include <string_view>

@@ -6,7 +6,7 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"

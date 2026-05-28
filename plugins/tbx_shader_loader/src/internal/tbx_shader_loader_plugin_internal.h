@@ -4,7 +4,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/types/shader.h"
+#include "tbx/types/assets/shader.h"
 #include <filesystem>
 #include <sstream>
 #include <string>

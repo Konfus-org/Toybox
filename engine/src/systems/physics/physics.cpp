@@ -1,14 +1,15 @@
 #include "tbx/systems/physics/physics.h"
+#include "systems/physics/internal/physics_internal.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "systems/physics/internal/physics_internal.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
+#include "tbx/types/components/world_simulation_state.h"
 #include "tbx/types/quaternions.h"
 #include <algorithm>
 #include <cmath>
@@ -18,11 +19,9 @@ namespace tbx
 {
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
-        std::weak_ptr<EntityRegistry> entity_registry,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<AppSettings> settings)
         : _backend(std::move(backend))
-        , _entity_registry(std::move(entity_registry))
         , _asset_manager(std::move(asset_manager))
         , _settings(std::move(settings))
     {
@@ -68,11 +67,27 @@ namespace tbx
         if (_backend.expired())
             return;
 
-        sync_entities_to_backend(static_cast<float>(dt.seconds));
+        auto asset_manager = _asset_manager.lock();
+        if (!asset_manager)
+            return;
+
+        for (const auto& world : asset_manager->get_loaded<World>())
+        {
+            if (!world)
+                continue;
+
+            sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
+        }
         if (auto backend = _backend.lock())
             backend->update(get_backend_settings(), dt);
-        sync_backend_to_entities();
-        process_trigger_colliders();
+        for (const auto& world : asset_manager->get_loaded<World>())
+        {
+            if (!world)
+                continue;
+
+            sync_backend_to_entities(*world);
+            process_trigger_colliders(*world);
+        }
     }
 
     void Physics::clear_resources()
@@ -119,15 +134,14 @@ namespace tbx
         };
     }
 
-    void Physics::process_trigger_colliders()
+    void Physics::process_trigger_colliders(World& world)
     {
-        auto registry = _entity_registry.lock();
         auto backend = _backend.lock();
-        if (!registry || !backend)
+        if (!backend)
             return;
 
         auto active_trigger_entities = std::unordered_set<Uuid>();
-        auto trigger_entities = registry->get_with<Transform>();
+        auto trigger_entities = world.get_with<Transform>();
         for (auto& trigger_entity : trigger_entities)
         {
             const Uuid trigger_entity_id = trigger_entity.get_id();
@@ -229,20 +243,23 @@ namespace tbx
             _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 
-    void Physics::sync_entities_to_backend(float dt_seconds)
+    void Physics::sync_entities_to_backend(World& world, float dt_seconds)
     {
-        auto registry = _entity_registry.lock();
         auto asset_manager = _asset_manager.lock();
         auto backend = _backend.lock();
-        if (!registry || !asset_manager || !backend)
+        if (!asset_manager || !backend)
             return;
 
         auto active_entities = std::unordered_set<Uuid>();
 
-        auto entities = registry->get_with<Transform>();
+        auto entities = world.get_with<Transform>();
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
+            if (entity.has_component<WorldSimulationState>()
+                && entity.get_component<WorldSimulationState>().mode != WorldSimulationMode::FULL)
+                continue;
+
             const auto world_transform = get_world_space_transform(entity);
             const bool has_rigidbody_component = entity.has_component<Rigidbody>();
             const bool has_collider = internal::has_any_collider(entity);
@@ -378,11 +395,10 @@ namespace tbx
         }
     }
 
-    void Physics::sync_backend_to_entities()
+    void Physics::sync_backend_to_entities(World& world)
     {
-        auto registry = _entity_registry.lock();
         auto backend = _backend.lock();
-        if (!registry || !backend)
+        if (!backend)
             return;
 
         for (auto& record_entry : _records_by_entity)
@@ -390,15 +406,15 @@ namespace tbx
             const Uuid& entity_id = record_entry.first;
             auto& record = record_entry.second;
 
-            if (!registry->has<Transform>(entity_id))
+            if (!world.has<Transform>(entity_id))
                 continue;
 
-            auto& transform = registry->get_with<Transform>(entity_id);
-            auto entity = registry->get(entity_id);
+            auto entity = world.get(entity_id);
             if (!entity.get_id().is_valid())
                 continue;
+            auto& transform = entity.get_component<Transform>();
 
-            if (!registry->has<Rigidbody>(entity_id))
+            if (!world.has<Rigidbody>(entity_id))
             {
                 const auto world_transform = get_world_space_transform(entity);
                 record.last_position = world_transform.position;
@@ -412,7 +428,7 @@ namespace tbx
             if (!state.is_valid)
                 continue;
 
-            auto& rigidbody = registry->get_with<Rigidbody>(entity_id);
+            auto& rigidbody = entity.get_component<Rigidbody>();
             rigidbody.linear_velocity = state.linear_velocity;
             rigidbody.angular_velocity = state.angular_velocity;
 

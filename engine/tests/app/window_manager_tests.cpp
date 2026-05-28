@@ -1,7 +1,7 @@
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/messaging/message_coordinator.h"
-#include "tbx/systems/windowing/window_manager.h"
+#include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <vector>
 

@@ -23,8 +23,8 @@ namespace tbx::internal
 
     static std::shared_ptr<spdlog::logger> create_default_logger()
     {
-        FileOperator file_operator = FileOperator(std::filesystem::current_path());
-        auto logs_directory = std::filesystem::current_path() / "logs";
+        auto file_operator = FileOperator();
+        auto logs_directory = file_operator.resolve("logs");
         auto path = file_operator.rotate(logs_directory, "TbxDebug", ".log", 10);
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

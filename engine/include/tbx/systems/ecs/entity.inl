@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/ecs/registry.h"
 #include <utility>
 
 namespace tbx
@@ -31,8 +31,10 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     void Entity::remove_component()
     {
+        TBX_ASSERT(_registry.has_value(), "Cannot remove a component from an unbound entity.");
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -75,8 +77,10 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     bool Entity::has_component() const
     {
+        TBX_ASSERT(_registry.has_value(), "Cannot query a component from an unbound entity.");
         if (!_registry.has_value())
             return false;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {

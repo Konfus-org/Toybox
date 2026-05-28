@@ -3,7 +3,6 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
@@ -52,15 +51,13 @@ namespace tbx::internal
             return;
 
         auto physics_backend = service_provider.try_get_service<IPhysicsBackend>().lock();
-        auto entity_registry = service_provider.get_service<EntityRegistry>().lock();
         auto asset_manager = service_provider.get_service<AssetManager>().lock();
         auto settings = service_provider.get_service<AppSettings>().lock();
-        if (!physics_backend || !entity_registry || !asset_manager || !settings)
+        if (!physics_backend || !asset_manager || !settings)
             return;
 
         service_provider.register_service<Physics>(std::make_unique<Physics>(
             service_provider.try_get_service<IPhysicsBackend>(),
-            service_provider.try_get_service<EntityRegistry>(),
             service_provider.try_get_service<AssetManager>(),
             service_provider.try_get_service<AppSettings>()));
     }

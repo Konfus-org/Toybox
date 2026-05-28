@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/components/material_instance.h"
 #include <initializer_list>
 #include <utility>
@@ -40,7 +40,7 @@ namespace tbx
         float blend = 1.0f;
     };
 
-    TBX_SERIALIZABLE_STRUCT(PostProcessingEffect, material, is_enabled, blend)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(PostProcessingEffect, material, is_enabled, blend)
 
     /// @brief
     /// Purpose: Configures the scene-wide post-processing material for the final screen pass.
@@ -66,5 +66,5 @@ namespace tbx
         bool is_enabled = true;
     };
 
-    TBX_SERIALIZABLE_STRUCT(PostProcessing, id, effects, is_enabled)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(PostProcessing, id, effects, is_enabled)
 }

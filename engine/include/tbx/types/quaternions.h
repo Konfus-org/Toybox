@@ -1,6 +1,8 @@
 #pragma once
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include <glm/gtc/quaternion.hpp>
+
 namespace tbx
 {
     /// @brief
@@ -16,4 +18,9 @@ namespace tbx
     /// Ownership: returns a value copy; the caller owns the result.
     /// Thread Safety: stateless; safe to call concurrently.
     TBX_API Quat normalize(Quat q);
+}
+
+namespace glm
+{
+    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Quat, x, y, z, w)
 }

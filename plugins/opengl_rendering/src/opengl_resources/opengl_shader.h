@@ -1,7 +1,7 @@
 #pragma once
 #include "opengl_resource.h"
 #include "opengl_state.h"
-#include "tbx/types/shader.h"
+#include "tbx/types/assets/shader.h"
 #include "tbx/types/typedefs.h"
 #include <glad/glad.h>
 #include <memory>

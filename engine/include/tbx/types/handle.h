@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/types/uuid.h"
 #include <atomic>
 #include <format>
@@ -60,7 +60,7 @@ namespace tbx
         std::shared_ptr<std::atomic_bool> _is_valid = std::make_shared<std::atomic_bool>(true);
     };
 
-    TBX_SERIALIZABLE_STRUCT(Handle, name, id)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Handle, name, id)
 }
 
 template <>

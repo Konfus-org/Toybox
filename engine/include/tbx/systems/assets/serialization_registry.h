@@ -3,18 +3,19 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/asset.h"
-#include "tbx/types/audio_clip.h"
-#include "tbx/types/components/model.h"
-#include "tbx/types/material.h"
-#include "tbx/types/shader.h"
-#include "tbx/types/texture.h"
+#include "tbx/types/assets/asset.h"
+#include "tbx/types/assets/audio_clip.h"
+#include "tbx/types/assets/model.h"
+#include "tbx/types/assets/material.h"
+#include "tbx/types/assets/shader.h"
+#include "tbx/types/assets/texture.h"
 #include "tbx/utils/result.h"
 #include <chrono>
 #include <concepts>
 #include <filesystem>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -318,26 +319,30 @@ namespace tbx
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        Result try_apply_tbx_serialized_asset_meta(
-            const AssetLoadMetadata& metadata,
-            const std::optional<Json>& meta_data,
-            TAsset& asset) const;
+        static void prepend_default_meta_transformers(
+            const std::optional<AssetTypeRegistration>& asset_registration,
+            const std::optional<std::string>& meta_data,
+            bool loaded_meta,
+            std::vector<Transformer<TAsset>>& transformers);
 
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        Result try_load_tbx_serialized_asset_body(
+        static Result try_load_registered_asset_body(
             const std::filesystem::path& asset_path,
             const std::shared_ptr<IFileOps>& file_ops,
-            const AssetLoadMetadata& metadata,
-            TAsset& asset) const;
+            const AssetTypeRegistration& asset_registration,
+            void* asset);
 
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
+        static Result try_write_registered_asset_body(
+            const std::filesystem::path& asset_path,
+            const std::shared_ptr<IFileOps>& file_ops,
+            const AssetTypeRegistration& asset_registration,
+            const void* asset);
+
         Result try_read_tbx_serialized_asset_meta(
             const std::filesystem::path& asset_path,
             const std::shared_ptr<IFileOps>& file_ops,
+            uint32 expected_version,
             AssetLoadMetadata& out_metadata,
-            std::optional<Json>& out_meta_data,
+            std::optional<std::string>& out_meta_data,
             bool& out_loaded_meta) const;
 
       private:

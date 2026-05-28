@@ -13,25 +13,6 @@
 
 namespace tbx
 {
-    struct Mat3SerializationData
-    {
-        Vec3 column0 = {};
-        Vec3 column1 = {};
-        Vec3 column2 = {};
-    };
-
-    TBX_SERIALIZABLE_STRUCT(Mat3SerializationData, column0, column1, column2)
-
-    struct Mat4SerializationData
-    {
-        Vec4 column0 = {};
-        Vec4 column1 = {};
-        Vec4 column2 = {};
-        Vec4 column3 = {};
-    };
-
-    TBX_SERIALIZABLE_STRUCT(Mat4SerializationData, column0, column1, column2, column3)
-
     /// @brief
     /// Purpose: Represents a 2x2 floating-point matrix compatible with GLM operations.
     /// @details
@@ -52,9 +33,6 @@ namespace tbx
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
     using Mat4 = glm::mat4;
-
-    TBX_SERIALIZABLE_TYPE(Mat3)
-    TBX_SERIALIZABLE_TYPE(Mat4)
 
     /// @brief
     /// Purpose: Builds an orthographic projection matrix with the provided clip-space bounds.
@@ -183,25 +161,6 @@ namespace tbx
 
 namespace glm
 {
-    inline void to_json(nlohmann::json& json, const tbx::Mat3& value)
-    {
-        json = tbx::Mat3SerializationData {value[0], value[1], value[2]};
-    }
-
-    inline void from_json(const nlohmann::json& json, tbx::Mat3& value)
-    {
-        const auto data = json.get<tbx::Mat3SerializationData>();
-        value = tbx::Mat3(data.column0, data.column1, data.column2);
-    }
-
-    inline void to_json(nlohmann::json& json, const tbx::Mat4& value)
-    {
-        json = tbx::Mat4SerializationData {value[0], value[1], value[2], value[3]};
-    }
-
-    inline void from_json(const nlohmann::json& json, tbx::Mat4& value)
-    {
-        const auto data = json.get<tbx::Mat4SerializationData>();
-        value = tbx::Mat4(data.column0, data.column1, data.column2, data.column3);
-    }
+    TBX_REGISTER_SERIALIZABLE_INDEXED_TYPE(tbx::Mat3, 3U)
+    TBX_REGISTER_SERIALIZABLE_INDEXED_TYPE(tbx::Mat4, 4U)
 }

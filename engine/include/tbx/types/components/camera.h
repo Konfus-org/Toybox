@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"
@@ -51,5 +51,11 @@ namespace tbx
         float _aspect = 1.78f;
     };
 
-    TBX_SERIALIZABLE_STRUCT(Camera, id)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Camera, id)
+    // _render_target,
+    // _viewport,
+    // _z_near,
+    // _z_far,
+    // _fov,
+    // _aspect)
 }

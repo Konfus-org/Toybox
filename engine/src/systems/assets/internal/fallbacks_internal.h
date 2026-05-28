@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
-#include "tbx/types/material.h"
-#include "tbx/types/shader.h"
-#include "tbx/types/texture.h"
+#include "tbx/types/assets/model.h"
+#include "tbx/types/assets/material.h"
+#include "tbx/types/assets/shader.h"
+#include "tbx/types/assets/texture.h"
 #include <memory>
 #include <vector>
 

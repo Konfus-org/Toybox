@@ -3,6 +3,24 @@
 namespace tbx
 {
     template <typename TValue>
+    void Json::append(const TValue& value)
+    {
+        append_raw(nlohmann::json(value).dump());
+    }
+
+    template <typename TValue>
+    void Json::set(const std::string& key, const TValue& value)
+    {
+        set_raw(key, nlohmann::json(value).dump());
+    }
+
+    template <typename TValue>
+    void Json::set_value(const TValue& value)
+    {
+        set_value_raw(nlohmann::json(value).dump());
+    }
+
+    template <typename TValue>
     bool Json::try_get(TValue& out_value) const
     {
         return try_get_nlohmann(out_value);

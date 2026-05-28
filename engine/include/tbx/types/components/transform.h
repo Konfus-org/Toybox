@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
 
@@ -34,7 +34,7 @@ namespace tbx
         Vec3 scale = Vec3(1.0f);
     };
 
-    TBX_SERIALIZABLE_STRUCT(Transform, id, position, rotation, scale)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Transform, id, position, rotation, scale)
 
     /// @brief
     /// Purpose: Converts a world-space transform into a local-space transform relative to a parent

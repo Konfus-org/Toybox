@@ -7,7 +7,7 @@
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/ecs/streamer.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
@@ -77,14 +77,14 @@ namespace tbx
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
         std::weak_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
-        std::weak_ptr<EntityRegistry> _entity_registry = {};
+        std::weak_ptr<EntityStreamer> _entity_streamer = {};
         std::weak_ptr<ThreadManager> _thread_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<IInputManager> _input_manager = {};
         std::weak_ptr<Physics> _physics = {};
         std::weak_ptr<Rendering> _rendering = {};
 
-        uint _update_count = 0;
+        uint64 _update_count = 0;
         double _time_running = 0;
 
         double _fixed_update_accumulator_seconds = 0.0;

@@ -1,0 +1,111 @@
+﻿{
+    "coord": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+    },
+    "lod": "full",
+    "entities": [
+        {
+            "id": {
+                "value": 12583424
+            },
+            "name": "FarColumn",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cylinder.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 52,
+                        "y": 2,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 2,
+                        "y": 4,
+                        "z": 2
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1,
+                        "y": 2,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583425
+            },
+            "name": "FarCone",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cone.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 56,
+                        "y": 1,
+                        "z": 4
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 2,
+                        "y": 2,
+                        "z": 2
+                    }
+                }
+            }
+        }
+    ]
+}

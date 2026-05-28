@@ -6,7 +6,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
@@ -14,12 +14,13 @@
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
+#include "tbx/types/assets/model.h"
+#include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
-#include "tbx/types/material.h"
-#include "tbx/types/shader.h"
-#include "tbx/types/texture.h"
+#include "tbx/types/assets/material.h"
+#include "tbx/types/assets/shader.h"
+#include "tbx/types/assets/texture.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -554,6 +555,29 @@ namespace tbx::tests::graphics
             });
     }
 
+    static std::shared_ptr<World> load_test_world(
+        SerializationRegistry& serialization_registry,
+        AssetManager& asset_manager)
+    {
+        static uint32 next_world_id = 0x1000U;
+        serialization_registry.register_loader<World>(
+            [](const std::filesystem::path&,
+               const DefaultAssetLoadParameters&,
+               const AssetLoadMetadata&,
+               World&)
+            {
+                return Result();
+            });
+
+        const uint32 world_id = next_world_id++;
+        const Handle handle(
+            "Tests/GraphicsWorld_" + std::to_string(world_id) + ".world",
+            Uuid(world_id));
+        auto world = asset_manager.load<World>(handle);
+        asset_manager.set_pinned(handle, true);
+        return world;
+    }
+
     static std::shared_ptr<Material> make_test_material_with_texture(const Handle& texture_handle)
     {
         auto material = Material {};
@@ -766,20 +790,19 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto entity = Entity("Triangle", registry);
+        auto entity = world->create_entity("Triangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -787,7 +810,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -821,27 +843,27 @@ namespace tbx::tests::graphics
         }
     }
 
-    TEST(RenderingTests, Render_SkipsRedundantPipelineBindWithinPass)
+    TEST(RenderingTests, Render_DrawsEveryLoadedWorld)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto first_world = load_test_world(serialization_registry, asset_manager);
+        auto second_world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto first = Entity("FirstTriangle", registry);
-        first.add_component<DynamicMesh>(Mesh::TRIANGLE);
-        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto second = Entity("SecondTriangle", registry);
-        second.add_component<DynamicMesh>(Mesh::TRIANGLE);
-        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto first_entity = first_world->create_entity("FirstWorldTriangle");
+        first_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        first_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second_entity = second_world->create_entity("SecondWorldTriangle");
+        second_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        second_entity.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -849,7 +871,56 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(
+            std::count(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::BEGIN_FRAME),
+            2);
+        EXPECT_EQ(
+            std::count(
+                backend.callbacks.begin(),
+                backend.callbacks.end(),
+                GraphicsBackendCallback::PRESENT),
+            2);
+        EXPECT_GE(backend.recorded_draws.size(), 2U);
+    }
+
+    TEST(RenderingTests, Render_SkipsRedundantPipelineBindWithinPass)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto first = world->create_entity("FirstTriangle");
+        first.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto second = world->create_entity("SecondTriangle");
+        second.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -874,26 +945,24 @@ namespace tbx::tests::graphics
         auto allow_begin_frame = std::promise<void> {};
         auto backend = BlockingGraphicsBackend(allow_begin_frame.get_future().share());
         auto begin_frame_started = backend.take_begin_frame_started_future();
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto entity = Entity("Triangle", registry);
+        auto entity = world->create_entity("Triangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -921,18 +990,17 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto caller_thread_id = std::this_thread::get_id();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -941,7 +1009,6 @@ namespace tbx::tests::graphics
         {
             auto rendering = Rendering(
                 backend_service,
-                registry_service,
                 asset_manager_service,
                 thread_manager_service,
                 window_manager_service,
@@ -963,23 +1030,21 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1005,29 +1070,27 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<MessageCoordinator>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings = AppSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         settings.graphics->local_light_max_distance = 1.0F;
-        auto camera = Entity("Camera", registry);
+        auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F));
-        auto light = Entity("LocalLight", registry);
+        auto light = world->create_entity("LocalLight");
         light.add_component<PointLight>();
         light.add_component<Transform>(Vec3(0.0F, 0.0F, -10.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1104,20 +1167,19 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto entity = Entity("Cube", registry);
+        auto entity = world->create_entity("Cube");
         entity.add_component<DynamicMesh>(Mesh::CUBE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1125,7 +1187,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1155,25 +1216,24 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto root = Entity("Root", registry);
+        auto root = world->create_entity("Root");
         root.add_component<Transform>(Vec3(10.0F, 0.0F, 0.0F));
-        auto camera = Entity("Camera", root.get_id(), registry);
+        auto camera = world->create_spatial_entity("Camera", root.get_id());
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 2.0F, 11.0F));
-        auto mesh = Entity("Mesh", root.get_id(), registry);
+        auto mesh = world->create_spatial_entity("Mesh", root.get_id());
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1181,7 +1241,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1207,23 +1266,22 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto camera = Entity("Camera", registry);
+        auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(Color(1.0F, 0.5F, 0.25F, 1.0F), 2.0F, 0.15F);
         sun.add_component<Transform>();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1231,7 +1289,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1262,26 +1319,25 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto camera = Entity("Camera", registry);
+        auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
-        auto key = Entity("Key", registry);
+        auto key = world->create_entity("Key");
         key.add_component<DirectionalLight>(Color(1.0F, 0.2F, 0.0F, 1.0F), 1.0F, 0.20F);
         key.add_component<Transform>();
-        auto fill = Entity("Fill", registry);
+        auto fill = world->create_entity("Fill");
         fill.add_component<DirectionalLight>(Color(0.0F, 0.8F, 1.0F, 1.0F), 1.0F, 0.10F);
         fill.add_component<Transform>();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1289,7 +1345,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1311,7 +1366,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1352,12 +1406,13 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto camera = Entity("Camera", registry);
+        auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(3.0F, 4.0F, 5.0F));
-        auto sky_entity = Entity("Sky", registry);
+        auto sky_entity = world->create_entity("Sky");
         auto sky_material = MaterialInstance(Handle("Materials/TexturedSky.mat"));
         sky_material.set_texture(TexturedSkyMaterial::SKYBOX_TEXTURE, Handle("Textures/Sky.png"));
         sky_material.set_parameter(TexturedSkyMaterial::COLOR, Color(0.25F, 0.5F, 1.0F, 1.0F));
@@ -1365,11 +1420,10 @@ namespace tbx::tests::graphics
         auto sky = Sky {};
         sky.material = sky_material;
         sky_entity.add_component<Sky>(sky);
-        auto mesh_entity = Entity("Triangle", registry);
+        auto mesh_entity = world->create_entity("Triangle");
         mesh_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1377,7 +1431,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1452,12 +1505,223 @@ namespace tbx::tests::graphics
         ASSERT_NE(sky_material_upload, material_shader_data_uploads.end());
     }
 
+    TEST(RenderingTests, Render_LoadsNamedMaterialHandleWithInvalidSerializedId)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto named_material_load_count = uint {};
+        serialization_registry.register_loader<Material>(
+            [&named_material_load_count](
+                const std::filesystem::path& path,
+                const MaterialLoadParameters&,
+                const AssetLoadMetadata&,
+                Material& material)
+            {
+                if (path.filename() == "Named.mat")
+                    named_material_load_count += 1U;
+
+                material.parameters.set("albedo_color", Color(0.2F, 0.4F, 0.6F, 1.0F));
+                return Result {};
+            });
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = world->create_entity("Camera");
+        camera.add_component<Camera>();
+        auto mesh_entity = world->create_entity("Triangle");
+        mesh_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        mesh_entity.add_component<MaterialInstance>(
+            MaterialInstance(Handle("Materials/Named.mat", Uuid())));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(named_material_load_count, 1U);
+    }
+
+    TEST(RenderingTests, Render_LoadsNamedStaticMeshHandleWithInvalidSerializedId)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto named_model_load_count = uint {};
+        serialization_registry.register_loader<Model>(
+            [&named_model_load_count](
+                const std::filesystem::path& path,
+                const ModelLoadParameters&,
+                const AssetLoadMetadata&,
+                Model& model)
+            {
+                if (path.filename() == "NamedModel.fbx")
+                    named_model_load_count += 1U;
+
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
+            });
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = world->create_entity("Camera");
+        camera.add_component<Camera>();
+        auto mesh_entity = world->create_entity("Triangle");
+        mesh_entity.add_component<StaticMesh>(StaticMesh(Handle("Models/NamedModel.fbx", Uuid())));
+        mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(named_model_load_count, 1U);
+    }
+
+    TEST(RenderingTests, Render_PostProcessUsesNamedEffectHandleWithInvalidSerializedId)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto named_post_material_load_count = uint {};
+        serialization_registry.register_loader<Material>(
+            [&named_post_material_load_count](
+                const std::filesystem::path& path,
+                const MaterialLoadParameters&,
+                const AssetLoadMetadata&,
+                Material& material)
+            {
+                if (path.filename() == "NamedPost.mat")
+                    named_post_material_load_count += 1U;
+
+                material.config = MaterialConfig {
+                    .is_depth_test_enabled = false,
+                    .is_depth_write_enabled = false,
+                    .is_two_sided = true,
+                    .depth_function = MaterialDepthFunction::ALWAYS,
+                };
+                return Result {};
+            });
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = world->create_entity("Camera");
+        camera.add_component<Camera>();
+        auto post_entity = world->create_entity("PostProcessing");
+        auto post_processing = PostProcessing {};
+        post_processing.effects = {
+            PostProcessingEffect {
+                .material = MaterialInstance(Handle("Materials/NamedPost.mat", Uuid())),
+                .is_enabled = true,
+                .blend = 1.0F,
+            },
+        };
+        post_entity.add_component<PostProcessing>(post_processing);
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_EQ(named_post_material_load_count, 1U);
+        EXPECT_NE(
+            std::find(
+                backend.recorded_pipeline_passes.begin(),
+                backend.recorded_pipeline_passes.end(),
+                "Toybox Post Process Pass"),
+            backend.recorded_pipeline_passes.end());
+    }
+
+    TEST(RenderingTests, Render_PostProcessFallsBackToTonemapWhenNoEffectDraws)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = SerializationRegistry {};
+        auto asset_manager =
+            AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto camera = world->create_entity("Camera");
+        camera.add_component<Camera>();
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        EXPECT_NE(
+            std::find(
+                backend.recorded_pipeline_passes.begin(),
+                backend.recorded_pipeline_passes.end(),
+                "Toybox Post Process Pass"),
+            backend.recorded_pipeline_passes.end());
+    }
+
     // Validates scheduled asset cleanup keeps active materials resident between frames.
     TEST(RenderingTests, Render_ActiveMaterialSurvivesScheduledAssetCleanup)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1478,21 +1742,20 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto material_handle = Handle("Materials/Transient.mat");
-        auto entity = Entity("MaterialTriangle", registry);
+        auto entity = world->create_entity("MaterialTriangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         entity.add_component<MaterialInstance>(MaterialInstance(material_handle));
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1519,7 +1782,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1538,22 +1800,21 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/Triangle.fbx");
-        auto entity = Entity("StaticTriangle", registry);
+        auto entity = world->create_entity("StaticTriangle");
         auto static_mesh = StaticMesh {};
         static_mesh.handle = model_handle;
         entity.add_component<StaticMesh>(static_mesh);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1587,24 +1848,23 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
-        auto first = Entity("First", registry);
+        auto first = world->create_entity("First");
         first.add_component<DynamicMesh>(mesh_data);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto second = Entity("Second", registry);
+        auto second = world->create_entity("Second");
         second.add_component<DynamicMesh>(mesh_data);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1612,7 +1872,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1632,23 +1891,22 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto first = Entity("First", registry);
+        auto first = world->create_entity("First");
         first.add_component<DynamicMesh>(Mesh::TRIANGLE);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto second = Entity("Second", registry);
+        auto second = world->create_entity("Second");
         second.add_component<DynamicMesh>(Mesh::TRIANGLE);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1656,7 +1914,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1675,27 +1932,25 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
-        auto entity = Entity("DynamicTriangle", registry);
+        auto entity = world->create_entity("DynamicTriangle");
         entity.add_component<DynamicMesh>(mesh_data);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1724,27 +1979,25 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
-        auto entity = Entity("DynamicTriangle", registry);
+        auto entity = world->create_entity("DynamicTriangle");
         entity.add_component<DynamicMesh>(mesh_data);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1771,7 +2024,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1787,21 +2039,21 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/BatchedTriangle.fbx");
-        auto first = Entity("FirstStatic", registry);
+        auto first = world->create_entity("FirstStatic");
         auto first_mesh = StaticMesh {};
         first_mesh.handle = model_handle;
         first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto second = Entity("SecondStatic", registry);
+        auto second = world->create_entity("SecondStatic");
         auto second_mesh = StaticMesh {};
         second_mesh.handle = model_handle;
         second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1809,7 +2061,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1828,7 +2079,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1850,18 +2100,18 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto opaque = Entity("OpaqueCube", registry);
+        auto opaque = world->create_entity("OpaqueCube");
         opaque.add_component<DynamicMesh>(Mesh::CUBE);
         opaque.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
-        auto transparent = Entity("TransparentCube", registry);
+        auto transparent = world->create_entity("TransparentCube");
         transparent.add_component<DynamicMesh>(Mesh::CUBE);
         transparent.add_component<Transform>(Vec3(0.0F, 0.0F, -5.0F));
         transparent.add_component<MaterialInstance>(
             MaterialInstance(Handle("Materials/Transparent.mat")));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1869,7 +2119,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1904,7 +2153,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1922,18 +2170,18 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto transparent = Entity("TransparentCube", registry);
+        auto transparent = world->create_entity("TransparentCube");
         transparent.add_component<DynamicMesh>(Mesh::CUBE);
         transparent.add_component<Transform>(Vec3(0.0F, 0.0F, -5.0F));
         transparent.add_component<MaterialInstance>(
             MaterialInstance(Handle("Materials/Transparent.mat")));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(DirectionalLight());
         sun.add_component<Transform>(Vec3(0.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -1941,7 +2189,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -1970,7 +2217,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -1986,6 +2232,7 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/SplitTriangle.fbx");
@@ -1993,20 +2240,19 @@ namespace tbx::tests::graphics
         first_material.set_parameter("test_value", 1.0F);
         auto second_material = MaterialInstance(PbrMaterial::HANDLE);
         second_material.set_parameter("test_value", 2.0F);
-        auto first = Entity("FirstStatic", registry);
+        auto first = world->create_entity("FirstStatic");
         auto first_mesh = StaticMesh {};
         first_mesh.handle = model_handle;
         first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         first.add_component<MaterialInstance>(first_material);
-        auto second = Entity("SecondStatic", registry);
+        auto second = world->create_entity("SecondStatic");
         auto second_mesh = StaticMesh {};
         second_mesh.handle = model_handle;
         second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         second.add_component<MaterialInstance>(second_material);
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2014,7 +2260,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2033,7 +2278,6 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
@@ -2049,18 +2293,19 @@ namespace tbx::tests::graphics
             });
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/ShadowTriangle.fbx");
-        auto light = Entity("Sun", registry);
+        auto light = world->create_entity("Sun");
         light.add_component<DirectionalLight>(DirectionalLight());
         light.add_component<Transform>(Vec3(0.0F));
-        auto first = Entity("FirstCaster", registry);
+        auto first = world->create_entity("FirstCaster");
         auto first_mesh = StaticMesh {};
         first_mesh.handle = model_handle;
         first.add_component<StaticMesh>(first_mesh);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto second = Entity("SecondCaster", registry);
+        auto second = world->create_entity("SecondCaster");
         auto second_mesh = StaticMesh {};
         second_mesh.handle = model_handle;
         second.add_component<StaticMesh>(second_mesh);
@@ -2069,14 +2314,13 @@ namespace tbx::tests::graphics
         no_shadow_config.shadow_mode = ShadowMode::NONE;
         auto no_shadow_material = MaterialInstance(PbrMaterial::HANDLE);
         no_shadow_material.set_config(no_shadow_config);
-        auto hidden = Entity("NoShadow", registry);
+        auto hidden = world->create_entity("NoShadow");
         auto hidden_mesh = StaticMesh {};
         hidden_mesh.handle = model_handle;
         hidden.add_component<StaticMesh>(hidden_mesh);
         hidden.add_component<Transform>(Vec3(2.0F, 0.0F, -2.0F));
         hidden.add_component<MaterialInstance>(no_shadow_material);
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2084,7 +2328,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2106,28 +2349,27 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto mesh = Entity("Triangle", registry);
+        auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(DirectionalLight());
         sun.add_component<Transform>(Vec3(0.0F));
-        auto local = Entity("LocalLight", registry);
+        auto local = world->create_entity("LocalLight");
         auto& point_light = local.add_component<PointLight>();
         point_light.cast_shadows = true;
         point_light.range = 8.0F;
         local.add_component<Transform>(Vec3(0.0F, 0.0F, -3.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2135,7 +2377,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2188,23 +2429,22 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto mesh = Entity("Triangle", registry);
+        auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(DirectionalLight());
         sun.add_component<Transform>(Vec3(0.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2212,7 +2452,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2245,13 +2484,13 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings = GraphicsSettings(
             dispatcher,
             false,
@@ -2260,14 +2499,13 @@ namespace tbx::tests::graphics
             4096U,
             120.0F,
             3.0F);
-        auto mesh = Entity("Triangle", registry);
+        auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(DirectionalLight());
         sun.add_component<Transform>(Vec3(0.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2275,7 +2513,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2299,25 +2536,24 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto mesh = Entity("Triangle", registry);
+        auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto sun_light = DirectionalLight();
         sun_light.cast_shadows = false;
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(sun_light);
         sun.add_component<Transform>(Vec3(0.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
@@ -2325,7 +2561,6 @@ namespace tbx::tests::graphics
         // Act
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,
@@ -2355,29 +2590,27 @@ namespace tbx::tests::graphics
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
-        auto registry = EntityRegistry {};
         auto thread_manager = ThreadManager {};
         auto window_manager = RecordingWindowManager {};
         auto dispatcher = std::make_shared<NullMessageDispatcher>();
         auto serialization_registry = SerializationRegistry {};
         auto asset_manager =
             AssetManager(*dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(serialization_registry, asset_manager);
         auto settings =
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        auto mesh = Entity("Triangle", registry);
+        auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
-        auto sun = Entity("Sun", registry);
+        auto sun = world->create_entity("Sun");
         sun.add_component<DirectionalLight>(DirectionalLight());
         sun.add_component<Transform>(Vec3(0.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
-        auto registry_service = make_non_owning_service(registry);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
         auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
         auto rendering = Rendering(
             backend_service,
-            registry_service,
             asset_manager_service,
             thread_manager_service,
             window_manager_service,

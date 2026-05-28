@@ -21,6 +21,7 @@ namespace tbx
         std::filesystem::path logs_directory = {};
     };
 
+    // TODO: Make app settings serializable and loadable like an asset.
     /// @brief
     /// Purpose: Stores mutable runtime settings for the application host.
     /// @details

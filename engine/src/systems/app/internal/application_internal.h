@@ -5,6 +5,7 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/ecs/streamer.h"
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/time/delta_time.h"
 #include <algorithm>
@@ -29,7 +30,6 @@ namespace tbx::internal
 
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<MessageCoordinator>());
-        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         auto file_ops = std::make_shared<FileOperator>(desc.working_root);
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>(file_ops));
@@ -48,6 +48,8 @@ namespace tbx::internal
             std::vector<std::filesystem::path>(),
             HandleSource(),
             file_ops));
+        service_provider.register_service<EntityStreamer>(
+            std::make_unique<EntityStreamer>(service_provider.try_get_service<AssetManager>()));
         auto settings = std::make_unique<AppSettings>(
             message_coordinator,
             false,

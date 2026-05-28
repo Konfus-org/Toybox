@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
 #include <functional>
@@ -62,7 +62,7 @@ namespace tbx
         void request_overlap_scan();
     };
 
-    TBX_SERIALIZABLE_STRUCT(
+    TBX_REGISTER_SERIALIZABLE_STRUCT(
         ColliderTrigger,
         is_trigger_only,
         is_overlap_enabled,
@@ -84,7 +84,7 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_SERIALIZABLE_STRUCT(MeshCollider, id, is_convex, trigger)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(MeshCollider, id, is_convex, trigger)
 
     /// @brief
     /// Purpose: Defines an axis-aligned box collider by half extents.
@@ -100,7 +100,7 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_SERIALIZABLE_STRUCT(CubeCollider, id, half_extents, trigger)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(CubeCollider, id, half_extents, trigger)
 
     /// @brief
     /// Purpose: Defines a sphere collider by radius.
@@ -116,7 +116,7 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_SERIALIZABLE_STRUCT(SphereCollider, id, radius, trigger)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(SphereCollider, id, radius, trigger)
 
     /// @brief
     /// Purpose: Defines a capsule collider by radius and half-height.
@@ -133,6 +133,6 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_SERIALIZABLE_STRUCT(CapsuleCollider, id, radius, half_height, trigger)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(CapsuleCollider, id, radius, half_height, trigger)
 
 }

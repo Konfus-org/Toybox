@@ -11,7 +11,6 @@ namespace tbx
 {
     Rendering::Rendering(
         std::weak_ptr<IGraphicsBackend> backend,
-        std::weak_ptr<EntityRegistry> entity_registry,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<ThreadManager> thread_manager,
         std::weak_ptr<IWindowManager> window_manager,
@@ -20,11 +19,7 @@ namespace tbx
         , _backend(std::move(backend))
         , _window_manager(window_manager)
         , _settings(settings)
-        , _pipeline(
-              _backend,
-              std::move(entity_registry),
-              std::move(asset_manager),
-              std::move(window_manager))
+        , _pipeline(_backend, std::move(asset_manager), std::move(window_manager))
     {
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)

@@ -3,9 +3,9 @@
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/resource_upload_caches.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/types/components/model.h"
-#include "tbx/types/shader.h"
-#include "tbx/types/texture.h"
+#include "tbx/types/assets/model.h"
+#include "tbx/types/assets/shader.h"
+#include "tbx/types/assets/texture.h"
 #include "tbx/types/typedefs.h"
 #include <memory>
 #include <unordered_map>

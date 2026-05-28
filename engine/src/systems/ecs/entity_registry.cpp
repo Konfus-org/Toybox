@@ -1,9 +1,10 @@
-#include "tbx/systems/ecs/entity_registry.h"
+#include "systems/ecs/internal/entity_registry_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "systems/ecs/internal/entity_registry_internal.h"
+#include "tbx/systems/ecs/registry.h"
 #include <format>
 #include <mutex>
+
 namespace tbx
 {
     EntityRegistry::EntityRegistry()
@@ -39,9 +40,9 @@ namespace tbx
         const Uuid& parent)
     {
         auto guard = std::unique_lock(_mutex);
-        internal::EntityHandle handle = _impl->create();
+        const internal::EntityHandle handle = _impl->create();
+        const auto id = internal::to_entity_id(handle);
 
-        auto id = internal::to_entity_id(handle);
         auto resolvedName = name;
         if (resolvedName.empty())
             resolvedName = std::format("{}", id);
@@ -56,6 +57,41 @@ namespace tbx
             handle,
             internal::EntityLayerComponent {.value = layer});
         _impl->emplace<internal::EntityParentComponent>(
+            handle,
+            internal::EntityParentComponent {.value = parent});
+
+        return id;
+    }
+
+    Uuid EntityRegistry::add(
+        const Uuid& id,
+        const std::string& name,
+        const std::string& tag,
+        const std::string& layer,
+        const Uuid& parent)
+    {
+        if (!id.is_valid())
+            return add(name, tag, layer, parent);
+
+        auto guard = std::unique_lock(_mutex);
+        const internal::EntityHandle handle = internal::to_entity_handle(id);
+        if (!_impl->valid(handle))
+            static_cast<void>(_impl->create(handle));
+
+        auto resolvedName = name;
+        if (resolvedName.empty())
+            resolvedName = std::format("{}", id);
+
+        _impl->emplace_or_replace<internal::EntityNameComponent>(
+            handle,
+            internal::EntityNameComponent {.value = resolvedName});
+        _impl->emplace_or_replace<internal::EntityTagComponent>(
+            handle,
+            internal::EntityTagComponent {.value = tag});
+        _impl->emplace_or_replace<internal::EntityLayerComponent>(
+            handle,
+            internal::EntityLayerComponent {.value = layer});
+        _impl->emplace_or_replace<internal::EntityParentComponent>(
             handle,
             internal::EntityParentComponent {.value = parent});
 

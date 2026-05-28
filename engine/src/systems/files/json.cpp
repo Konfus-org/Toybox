@@ -27,6 +27,22 @@ namespace tbx
         _data->data = nlohmann::json::parse(data, nullptr, true, true);
     }
 
+    Json::Json(const Json& other)
+        : _data(std::make_unique<Impl>())
+    {
+        _data->data = other._data->data;
+    }
+
+    Json& Json::operator=(const Json& other)
+    {
+        if (this == &other)
+            return *this;
+
+        _data = std::make_unique<Impl>();
+        _data->data = other._data->data;
+        return *this;
+    }
+
     Json::Json(Json&& other) noexcept = default;
 
     Json& Json::operator=(Json&& other) = default;
@@ -38,9 +54,51 @@ namespace tbx
         return _data->data.dump(indent);
     }
 
+    Json Json::array()
+    {
+        auto json = Json();
+        json._data->data = nlohmann::json::array();
+        return json;
+    }
+
+    Json Json::object()
+    {
+        auto json = Json();
+        json._data->data = nlohmann::json::object();
+        return json;
+    }
+
     Json Json::parse(const std::string& data)
     {
         return Json(data);
+    }
+
+    bool Json::is_array() const
+    {
+        return _data->data.is_array();
+    }
+
+    bool Json::is_object() const
+    {
+        return _data->data.is_object();
+    }
+
+    bool Json::is_null() const
+    {
+        return _data->data.is_null();
+    }
+
+    std::vector<std::string> Json::keys() const
+    {
+        auto keys = std::vector<std::string> {};
+        if (!_data->data.is_object())
+            return keys;
+
+        keys.reserve(_data->data.size());
+        for (const auto& entry : _data->data.items())
+            keys.push_back(entry.key());
+
+        return keys;
     }
 
     bool Json::try_get_raw(std::string& out_value) const
@@ -57,6 +115,48 @@ namespace tbx
 
         out_value = value->get().dump();
         return true;
+    }
+
+    void Json::append(const Json& value)
+    {
+        if (!_data->data.is_array())
+            _data->data = nlohmann::json::array();
+
+        _data->data.push_back(value._data->data);
+    }
+
+    void Json::append_raw(const std::string& raw_value)
+    {
+        if (!_data->data.is_array())
+            _data->data = nlohmann::json::array();
+
+        _data->data.push_back(nlohmann::json::parse(raw_value, nullptr, true, true));
+    }
+
+    void Json::set(const std::string& key, const Json& value)
+    {
+        if (!_data->data.is_object())
+            _data->data = nlohmann::json::object();
+
+        _data->data[key] = value._data->data;
+    }
+
+    void Json::set_raw(const std::string& key, const std::string& raw_value)
+    {
+        if (!_data->data.is_object())
+            _data->data = nlohmann::json::object();
+
+        _data->data[key] = nlohmann::json::parse(raw_value, nullptr, true, true);
+    }
+
+    void Json::set_value(const Json& value)
+    {
+        _data->data = value._data->data;
+    }
+
+    void Json::set_value_raw(const std::string& raw_value)
+    {
+        _data->data = nlohmann::json::parse(raw_value, nullptr, true, true);
     }
 
     template <>
@@ -168,6 +268,10 @@ namespace tbx
     template <>
     bool Json::try_get<Uuid>(const std::string& key, Uuid& out_value) const
     {
+        auto uuid_data = Json();
+        if (try_get_child(key, uuid_data))
+            return uuid_data.try_get(out_value);
+
         std::string text = {};
         if (!try_get<std::string>(key, text))
             return false;

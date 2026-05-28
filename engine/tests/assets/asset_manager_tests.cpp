@@ -30,7 +30,7 @@ namespace tbx
         int value = 0;
     };
 
-    TBX_SERIALIZABLE_ASSET(MacroOnlyAsset, 1U, value)
+    TBX_REGISTER_SERIALIZABLE_ASSET(MacroOnlyAsset, 1U, value)
 
     struct OverlayAsset : Asset
     {
@@ -38,7 +38,7 @@ namespace tbx
         int value = 0;
     };
 
-    TBX_SERIALIZABLE_ASSET(OverlayAsset, 1U, value)
+    TBX_REGISTER_SERIALIZABLE_ASSET(OverlayAsset, 1U, value)
 
     struct LoaderPriorityAsset : Asset
     {
@@ -47,7 +47,7 @@ namespace tbx
         int value = 0;
     };
 
-    TBX_SERIALIZABLE_ASSET(LoaderPriorityAsset, 1U, value)
+    TBX_REGISTER_SERIALIZABLE_ASSET(LoaderPriorityAsset, 1U, value)
 
     struct DefaultOnlyAsset : Asset
     {
@@ -61,8 +61,41 @@ namespace tbx
         int value = 0;
     };
 
-    TBX_SERIALIZABLE_TEXT_ASSET(TextOnlyAsset, source)
-    TBX_SERIALIZABLE_ASSET_META(TextOnlyAsset, 1U, value)
+    TBX_REGISTER_SERIALIZABLE_TEXT_ASSET(TextOnlyAsset, source)
+    TBX_REGISTER_SERIALIZABLE_ASSET_META(TextOnlyAsset, 1U, value)
+
+    struct CustomBodyAsset : Asset
+    {
+        std::string label = "";
+        int value = 0;
+    };
+
+    template <>
+    struct Serializer<CustomBodyAsset>
+    {
+        static std::string to_json(const CustomBodyAsset& asset)
+        {
+            auto json = Json::object();
+            json.set("label", asset.label);
+            json.set("value", asset.value);
+            return json.to_string(-1);
+        }
+
+        static bool from_json(std::string_view data, CustomBodyAsset& asset)
+        {
+            try
+            {
+                const auto json = Json::parse(std::string(data));
+                return json.try_get("label", asset.label) && json.try_get("value", asset.value);
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
+    };
+
+    TBX_REGISTER_SERIALIZABLE_CUSTOM_ASSET(CustomBodyAsset, 1U)
 
     struct TestAssetLoadParameters
     {
@@ -540,6 +573,31 @@ namespace tbx::tests::assets
         EXPECT_EQ(asset, nullptr);
     }
 
+    TEST(serialization_registry, macro_only_asset_writes_body_json_without_custom_writer)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        auto registry = SerializationRegistry {file_ops};
+        auto asset = MacroOnlyAsset {};
+        asset.value = 64;
+
+        // Act
+        const auto result = registry.write("content/value.tasset", asset);
+        auto body = std::string();
+        const bool wrote_body =
+            file_ops->read_file("content/value.tasset", FileDataFormat::UTF8_TEXT, body);
+        auto json = Json::parse(body);
+        auto value = int();
+
+        // Assert
+        EXPECT_TRUE(registry.has_loader<MacroOnlyAsset>());
+        EXPECT_TRUE(registry.has_writer<MacroOnlyAsset>());
+        EXPECT_TRUE(result.succeeded());
+        EXPECT_TRUE(wrote_body);
+        EXPECT_TRUE(json.try_get("value", value));
+        EXPECT_EQ(value, 64);
+    }
+
     TEST(serialization_registry, custom_transformer_overlays_macro_loaded_asset)
     {
         // Arrange
@@ -571,11 +629,87 @@ namespace tbx::tests::assets
         const auto asset = registry.read<TextOnlyAsset>("content/value.text");
 
         // Assert
+        EXPECT_TRUE(registry.has_loader<TextOnlyAsset>());
+        EXPECT_TRUE(registry.has_transformer<TextOnlyAsset>());
         ASSERT_NE(asset, nullptr);
         EXPECT_EQ(asset->id, Uuid(0x2EU));
         EXPECT_EQ(asset->version, 1U);
         EXPECT_EQ(asset->source, "plain text body");
         EXPECT_EQ(asset->value, 77);
+    }
+
+    TEST(serialization_registry, custom_asset_loads_and_writes_body_with_serializer)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.custom", R"({ "label": "source", "value": 42 })");
+        file_ops->set_text("content/value.custom.meta", R"({ "id": "00000031", "version": 1 })");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto asset = registry.read<CustomBodyAsset>("content/value.custom");
+        ASSERT_NE(asset, nullptr);
+        asset->label = "written";
+        asset->value = 77;
+        const auto write_result = registry.write("content/written.custom", *asset);
+
+        auto written_body = std::string();
+        const bool wrote_body =
+            file_ops->read_file("content/written.custom", FileDataFormat::UTF8_TEXT, written_body);
+        auto written_json = Json::parse(written_body);
+        auto written_label = std::string();
+        auto written_value = int();
+
+        // Assert
+        EXPECT_TRUE(registry.has_loader<CustomBodyAsset>());
+        EXPECT_TRUE(registry.has_writer<CustomBodyAsset>());
+        EXPECT_EQ(asset->id, Uuid(0x31U));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->label, "written");
+        EXPECT_EQ(asset->value, 77);
+        EXPECT_TRUE(write_result.succeeded());
+        EXPECT_TRUE(wrote_body);
+        EXPECT_TRUE(written_json.try_get("label", written_label));
+        EXPECT_TRUE(written_json.try_get("value", written_value));
+        EXPECT_EQ(written_label, "written");
+        EXPECT_EQ(written_value, 77);
+    }
+
+    TEST(serialization_registry, registered_loader_and_writer_override_custom_asset_defaults)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/value.custom", R"({ "label": "source", "value": 42 })");
+        auto registry = SerializationRegistry {file_ops};
+        bool writer_called = false;
+        registry.register_loader<CustomBodyAsset>(
+            [](const std::filesystem::path&,
+               const DefaultAssetLoadParameters&,
+               const AssetLoadMetadata&,
+               CustomBodyAsset& asset)
+            {
+                asset.label = "loader";
+                asset.value = 100;
+                return Result();
+            });
+        registry.register_writer<CustomBodyAsset>(
+            [&writer_called](const std::filesystem::path&, const CustomBodyAsset&)
+            {
+                writer_called = true;
+                return Result();
+            });
+
+        // Act
+        const auto asset = registry.read<CustomBodyAsset>("content/value.custom");
+        ASSERT_NE(asset, nullptr);
+        const auto write_result = registry.write("content/ignored.custom", *asset);
+
+        // Assert
+        EXPECT_EQ(asset->label, "loader");
+        EXPECT_EQ(asset->value, 100);
+        EXPECT_TRUE(write_result.succeeded());
+        EXPECT_TRUE(writer_called);
+        EXPECT_FALSE(file_ops->exists("content/ignored.custom"));
     }
 
     TEST(serialization_registry, custom_loader_takes_priority_over_macro_asset_body)
@@ -622,6 +756,7 @@ namespace tbx::tests::assets
         const auto asset = registry.read<Texture>("content/texture.png");
 
         // Assert
+        EXPECT_TRUE(registry.has_transformer<Texture>());
         ASSERT_NE(asset, nullptr);
         EXPECT_EQ(asset->id, Uuid(0x2CU));
         EXPECT_EQ(asset->version, 1U);
@@ -716,6 +851,61 @@ namespace tbx::tests::assets
         const auto& loader_state = get_test_asset_loader_state();
         EXPECT_EQ(loader_state.sync_load_count, 1);
         EXPECT_EQ(loader_state.last_sync_parameters, parameters);
+    }
+
+    TEST(asset_manager, get_loaded_returns_loaded_assets_for_requested_type)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        register_reentrant_resolve_asset_loader(get_test_serialization_registry());
+        AssetManager manager = make_manager(working_directory);
+        Handle first_handle("first.asset");
+        Handle second_handle("second.asset");
+        Handle other_handle("other.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto first_asset = manager.load<TestAsset>(first_handle);
+        auto second_asset = manager.load<TestAsset>(second_handle);
+        auto other_asset = manager.load<ReentrantResolveAsset>(other_handle);
+        const auto before_usage = manager.get_usage<TestAsset>(first_handle);
+
+        const auto loaded_test_assets = manager.get_loaded<TestAsset>();
+        const auto loaded_other_assets = manager.get_loaded<ReentrantResolveAsset>();
+        const auto after_usage = manager.get_usage<TestAsset>(first_handle);
+
+        // Assert
+        ASSERT_NE(first_asset, nullptr);
+        ASSERT_NE(second_asset, nullptr);
+        ASSERT_NE(other_asset, nullptr);
+        EXPECT_EQ(loaded_test_assets.size(), 2U);
+        EXPECT_EQ(loaded_other_assets.size(), 1U);
+        EXPECT_EQ(before_usage.last_access, after_usage.last_access);
+    }
+
+    TEST(asset_manager, get_loaded_excludes_unloaded_assets)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle keep_handle("loaded.asset");
+        Handle drop_handle("unloaded.asset");
+
+        // Act
+        reset_test_asset_loader_state();
+        auto keep_asset = manager.load<TestAsset>(keep_handle);
+        auto drop_asset = manager.load<TestAsset>(drop_handle);
+        ASSERT_NE(keep_asset, nullptr);
+        ASSERT_NE(drop_asset, nullptr);
+
+        drop_asset.reset();
+        EXPECT_TRUE(manager.unload<TestAsset>(drop_handle));
+
+        const auto loaded_assets = manager.get_loaded<TestAsset>();
+
+        // Assert
+        ASSERT_EQ(loaded_assets.size(), 1U);
+        EXPECT_EQ(loaded_assets.front(), keep_asset);
     }
 
     TEST(asset_manager, supports_stream_in_out_and_pin)

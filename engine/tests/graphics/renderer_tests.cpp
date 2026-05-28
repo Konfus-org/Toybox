@@ -3,7 +3,7 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
-#include "tbx/types/shader.h"
+#include "tbx/types/assets/shader.h"
 #include <string>
 
 namespace tbx::tests::graphics

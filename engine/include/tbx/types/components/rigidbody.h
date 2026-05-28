@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
@@ -46,7 +46,7 @@ namespace tbx
         bool is_valid() const;
     };
 
-    TBX_SERIALIZABLE_STRUCT(
+    TBX_REGISTER_SERIALIZABLE_STRUCT(
         Rigidbody,
         id,
         mass,

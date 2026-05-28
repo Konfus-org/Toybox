@@ -22,7 +22,7 @@ namespace tbx
         _msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
         _settings = _service_provider.get_service<AppSettings>();
         _asset_manager = _service_provider.get_service<AssetManager>();
-        _entity_registry = _service_provider.get_service<EntityRegistry>();
+        _entity_streamer = _service_provider.get_service<EntityStreamer>();
         _thread_manager = _service_provider.get_service<ThreadManager>();
 
         auto settings = _settings.lock();
@@ -146,14 +146,14 @@ namespace tbx
         auto msg_coordinator = _msg_coordinator.lock();
         auto settings = _settings.lock();
         auto asset_manager = _asset_manager.lock();
-        auto entity_registry = _entity_registry.lock();
-        if (!msg_coordinator || !settings || !asset_manager || !entity_registry)
+        auto entity_streamer = _entity_streamer.lock();
+        if (!msg_coordinator || !settings || !asset_manager || !entity_streamer)
         {
             TBX_TRACE_ERROR("Application core services are unavailable during initialization.");
             _should_exit = true;
             TBX_ASSERT(
                 msg_coordinator != nullptr && settings != nullptr && asset_manager != nullptr
-                    && entity_registry != nullptr,
+                    && entity_streamer != nullptr,
                 "Application core services are unavailable during initialization.");
             return;
         }
@@ -207,11 +207,8 @@ namespace tbx
                     auto physics_backend = _service_provider.try_get_service<IPhysicsBackend>();
                     if (physics_backend.lock())
                     {
-                        _service_provider.register_service<Physics>(std::make_unique<Physics>(
-                            physics_backend,
-                            _entity_registry,
-                            _asset_manager,
-                            _settings));
+                        _service_provider.register_service<Physics>(
+                            std::make_unique<Physics>(physics_backend, _asset_manager, _settings));
                     }
                 }
 
@@ -263,7 +260,6 @@ namespace tbx
 
                 _service_provider.register_service<Rendering>(std::make_unique<Rendering>(
                     graphics_backend,
-                    _entity_registry,
                     _asset_manager,
                     _thread_manager,
                     _window_manager,
@@ -354,6 +350,8 @@ namespace tbx
             if (auto input_manager = _input_manager.lock())
                 input_manager->update(dt);
             _plugin_manager.update(dt);
+            if (auto entity_streamer = _entity_streamer.lock())
+                entity_streamer->update(dt);
             if (auto rendering = _rendering.lock())
                 rendering->render(dt);
         }
@@ -408,10 +406,9 @@ namespace tbx
         try
         {
             auto msg_coordinator = _msg_coordinator.lock();
-            auto entity_registry = _entity_registry.lock();
             auto asset_manager = _asset_manager.lock();
             auto thread_manager = _thread_manager.lock();
-            if (!msg_coordinator || !entity_registry || !asset_manager || !thread_manager)
+            if (!msg_coordinator || !asset_manager || !thread_manager)
                 return;
 
             // IMPORTANT: Shutdown order matters, careful re-arranging could break things.
@@ -446,8 +443,7 @@ namespace tbx
             _plugin_manager.detach_all();
             _input_manager = {};
 
-            // 6. Unregister all entities and unload assets after plugin teardown.
-            entity_registry->clear();
+            // 6. Unload world/entity assets after plugin teardown.
             asset_manager->unload_all();
 
             // 7. Unload detached plugin libraries after plugin-authored component state is gone.

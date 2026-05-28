@@ -1,6 +1,6 @@
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/material.h"
+#include "tbx/types/assets/material.h"
 
 namespace tbx::tests::graphics
 {
@@ -99,6 +99,9 @@ namespace tbx::tests::graphics
         // Arrange
         MaterialParameterData color_data = Color(0.25F, 0.5F, 0.75F, 1.0F);
         MaterialParameterData vector_data = Vec3(1.0F, 2.0F, 3.0F);
+        auto matrix3 = Mat3(1.0F);
+        matrix3[2] = Vec3(4.0F, 5.0F, 1.0F);
+        MaterialParameterData matrix3_data = matrix3;
         auto matrix = Mat4(1.0F);
         matrix[3] = Vec4(4.0F, 5.0F, 6.0F, 1.0F);
         MaterialParameterData matrix_data = matrix;
@@ -106,18 +109,22 @@ namespace tbx::tests::graphics
         // Act
         const nlohmann::json color_json = color_data;
         const nlohmann::json vector_json = vector_data;
+        const nlohmann::json matrix3_json = matrix3_data;
         const nlohmann::json matrix_json = matrix_data;
         const auto color_result = color_json.get<MaterialParameterData>();
         const auto vector_result = vector_json.get<MaterialParameterData>();
+        const auto matrix3_result = matrix3_json.get<MaterialParameterData>();
         const auto matrix_result = matrix_json.get<MaterialParameterData>();
 
         // Assert
         EXPECT_EQ(color_json.at("type").get<std::string>(), "color");
         EXPECT_EQ(vector_json.at("type").get<std::string>(), "vec3");
+        EXPECT_EQ(matrix3_json.at("type").get<std::string>(), "mat3");
         EXPECT_EQ(matrix_json.at("type").get<std::string>(), "mat4");
 
         const auto& color = std::get<Color>(color_result);
         const auto& vector = std::get<Vec3>(vector_result);
+        const auto& matrix3_value = std::get<Mat3>(matrix3_result);
         const auto& matrix_value = std::get<Mat4>(matrix_result);
         EXPECT_FLOAT_EQ(color.r, 0.25F);
         EXPECT_FLOAT_EQ(color.g, 0.5F);
@@ -125,6 +132,8 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(vector.x, 1.0F);
         EXPECT_FLOAT_EQ(vector.y, 2.0F);
         EXPECT_FLOAT_EQ(vector.z, 3.0F);
+        EXPECT_FLOAT_EQ(matrix3_value[2].x, 4.0F);
+        EXPECT_FLOAT_EQ(matrix3_value[2].y, 5.0F);
         EXPECT_FLOAT_EQ(matrix_value[3].x, 4.0F);
         EXPECT_FLOAT_EQ(matrix_value[3].y, 5.0F);
         EXPECT_FLOAT_EQ(matrix_value[3].z, 6.0F);

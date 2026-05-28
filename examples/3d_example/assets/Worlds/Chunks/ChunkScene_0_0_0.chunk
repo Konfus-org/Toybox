@@ -1,0 +1,589 @@
+﻿{
+    "coord": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "lod": "full",
+    "entities": [
+        {
+            "id": {
+                "value": 12583168
+            },
+            "name": "Ground",
+            "tag": "room",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": -0.125,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 40,
+                        "y": 0.25,
+                        "z": 40
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 40,
+                        "y": 0.25,
+                        "z": 40
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583169
+            },
+            "name": "Wall_F",
+            "tag": "room",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 5,
+                        "z": -20
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 45,
+                        "y": 11,
+                        "z": 1.5
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 45,
+                        "y": 11,
+                        "z": 1.5
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583170
+            },
+            "name": "Wall_L",
+            "tag": "room",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": -20,
+                        "y": 5,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1.5,
+                        "y": 11,
+                        "z": 45
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1.5,
+                        "y": 11,
+                        "z": 45
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583171
+            },
+            "name": "Wall_R",
+            "tag": "room",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 20,
+                        "y": 5,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1.5,
+                        "y": 11,
+                        "z": 45
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1.5,
+                        "y": 11,
+                        "z": 45
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583172
+            },
+            "name": "Wall_B",
+            "tag": "room",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 5,
+                        "z": 20
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 45,
+                        "y": 11,
+                        "z": 1.5
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 45,
+                        "y": 11,
+                        "z": 1.5
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583173
+            },
+            "name": "TriggerZone",
+            "tag": "trigger",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/TriggerVolume.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 3,
+                        "z": -5
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1.5,
+                        "y": 1.5,
+                        "z": 1.5
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 0.75,
+                        "y": 0.75,
+                        "z": 0.75
+                    },
+                    "trigger": {
+                        "is_trigger_only": true,
+                        "is_overlap_enabled": true
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583174
+            },
+            "name": "FallingSphere",
+            "tag": "physics",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Sphere.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 6,
+                        "z": -5.2
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                },
+                "sphere_collider": {
+                    "radius": 1
+                },
+                "rigidbody": {
+                    "mass": 1
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583175
+            },
+            "name": "FallingBox",
+            "tag": "physics",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Cube.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 10,
+                        "z": -4.9
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                },
+                "rigidbody": {
+                    "mass": 1
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583176
+            },
+            "name": "MonkeyDisplay",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Monkey.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": -4,
+                        "y": 1.1,
+                        "z": -8
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0.382683,
+                        "z": 0,
+                        "w": 0.92388
+                    },
+                    "scale": {
+                        "x": 1.4,
+                        "y": 1.4,
+                        "z": 1.4
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583177
+            },
+            "name": "CapsulePillar",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Capsule.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 5,
+                        "y": 1,
+                        "z": -8
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1.2,
+                        "y": 1.2,
+                        "z": 1.2
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583178
+            },
+            "name": "TorusRing",
+            "tag": "prop",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "name": "Materials/Pbr.mat",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "name": "Models/Torus.fbx",
+                        "id": {
+                            "value": 0
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 2,
+                        "z": -11
+                    },
+                    "rotation": {
+                        "x": 0.707107,
+                        "y": 0,
+                        "z": 0,
+                        "w": 0.707107
+                    },
+                    "scale": {
+                        "x": 1.6,
+                        "y": 1.6,
+                        "z": 1.6
+                    }
+                }
+            }
+        }
+    ]
+}

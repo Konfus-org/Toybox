@@ -1,11 +1,25 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "systems/async/internal/thread_manager_internal.h"
+#include <memory>
+#include <mutex>
 #include <stdexcept>
+#include <string>
+#include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace tbx
 {
+    struct ThreadManager::Impl
+    {
+        mutable std::mutex lanes_mutex = {};
+        std::unordered_map<std::string, std::shared_ptr<internal::ThreadLane>> lanes = {};
+    };
+
+    ThreadManager::ThreadManager()
+        : _impl(std::make_unique<Impl>())
+    {
+    }
+
     ThreadManager::~ThreadManager() noexcept
     {
         stop_all();
@@ -16,13 +30,13 @@ namespace tbx
         if (lane_name.empty())
             return false;
 
-        auto lock = std::scoped_lock(_lanes_mutex);
+        auto lock = std::scoped_lock(_impl->lanes_mutex);
         auto lane_key = std::string(lane_name);
-        if (_lanes.contains(lane_key))
+        if (_impl->lanes.contains(lane_key))
             return false;
 
         auto lane = std::make_shared<internal::ThreadLane>(lane_key);
-        _lanes.emplace(std::move(lane_key), std::move(lane));
+        _impl->lanes.emplace(std::move(lane_key), std::move(lane));
         return true;
     }
 
@@ -31,8 +45,8 @@ namespace tbx
         if (lane_name.empty())
             return false;
 
-        auto lock = std::scoped_lock(_lanes_mutex);
-        return _lanes.contains(std::string(lane_name));
+        auto lock = std::scoped_lock(_impl->lanes_mutex);
+        return _impl->lanes.contains(std::string(lane_name));
     }
 
     void ThreadManager::post(std::string_view lane_name, Task&& task)
@@ -40,10 +54,16 @@ namespace tbx
         if (!task)
             return;
 
-        auto lane = get_lane(lane_name);
+        auto lane = std::shared_ptr<internal::ThreadLane> {};
+        {
+            auto lock = std::scoped_lock(_impl->lanes_mutex);
+            auto found_lane = _impl->lanes.find(std::string(lane_name));
+            if (found_lane != _impl->lanes.end())
+                lane = found_lane->second;
+        }
+
         if (!lane)
             throw std::runtime_error("ThreadManager lane was not found.");
-
         lane->post(std::move(task));
     }
 
@@ -54,13 +74,13 @@ namespace tbx
 
         auto lane = std::shared_ptr<internal::ThreadLane> {};
         {
-            auto lock = std::scoped_lock(_lanes_mutex);
-            auto found_lane = _lanes.find(std::string(lane_name));
-            if (found_lane == _lanes.end())
+            auto lock = std::scoped_lock(_impl->lanes_mutex);
+            auto found_lane = _impl->lanes.find(std::string(lane_name));
+            if (found_lane == _impl->lanes.end())
                 return;
 
             lane = std::move(found_lane->second);
-            _lanes.erase(found_lane);
+            _impl->lanes.erase(found_lane);
         }
 
         if (lane)
@@ -69,36 +89,27 @@ namespace tbx
 
     void ThreadManager::stop_all()
     {
-        auto lanes = std::vector<std::shared_ptr<internal::ThreadLane>> {};
+        while (true)
         {
-            auto lock = std::scoped_lock(_lanes_mutex);
-            lanes.reserve(_lanes.size());
-            for (auto& lane_entry : _lanes)
-                lanes.push_back(std::move(lane_entry.second));
-            _lanes.clear();
-        }
+            auto lane = std::shared_ptr<internal::ThreadLane> {};
+            {
+                auto lock = std::scoped_lock(_impl->lanes_mutex);
+                auto lane_entry = _impl->lanes.begin();
+                if (lane_entry == _impl->lanes.end())
+                    return;
 
-        for (auto& lane : lanes)
+                lane = std::move(lane_entry->second);
+                _impl->lanes.erase(lane_entry);
+            }
+
             if (lane)
                 lane->stop();
+        }
     }
 
     size ThreadManager::get_lane_count() const
     {
-        auto lock = std::scoped_lock(_lanes_mutex);
-        return _lanes.size();
-    }
-
-    std::shared_ptr<internal::ThreadLane> ThreadManager::get_lane(std::string_view lane_name) const
-    {
-        if (lane_name.empty())
-            return nullptr;
-
-        auto lock = std::scoped_lock(_lanes_mutex);
-        auto found_lane = _lanes.find(std::string(lane_name));
-        if (found_lane == _lanes.end())
-            return nullptr;
-
-        return found_lane->second;
+        auto lock = std::scoped_lock(_impl->lanes_mutex);
+        return _impl->lanes.size();
     }
 }

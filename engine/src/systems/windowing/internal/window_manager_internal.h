@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
-#include "tbx/systems/windowing/window_manager.h"
+#include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <string_view>
 #include <utility>

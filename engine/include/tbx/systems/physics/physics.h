@@ -2,7 +2,7 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/raycast.h"
 #include "tbx/types/uuid.h"
@@ -36,7 +36,6 @@ namespace tbx
       public:
         Physics(
             std::weak_ptr<IPhysicsBackend> backend,
-            std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<AppSettings> settings);
         ~Physics() noexcept;
@@ -55,14 +54,13 @@ namespace tbx
         void clear_resources();
         void destroy_record(PhysicsEntityRecord& record);
         PhysicsBackendSettings get_backend_settings() const;
-        void process_trigger_colliders();
-        void sync_entities_to_backend(float dt_seconds);
-        void sync_backend_to_entities();
+        void process_trigger_colliders(World& world);
+        void sync_entities_to_backend(World& world, float dt_seconds);
+        void sync_backend_to_entities(World& world);
         Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
 
       private:
         std::weak_ptr<IPhysicsBackend> _backend;
-        std::weak_ptr<EntityRegistry> _entity_registry;
         std::weak_ptr<AssetManager> _asset_manager;
         std::weak_ptr<AppSettings> _settings;
         std::unordered_map<Uuid, PhysicsEntityRecord> _records_by_entity = {};

@@ -4,7 +4,7 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/types/typedefs.h"

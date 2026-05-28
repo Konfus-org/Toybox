@@ -1,0 +1,298 @@
+﻿{
+    "chunk_size": 16,
+    "full_visual_radius_chunks": 1,
+    "low_visual_radius_chunks": 4,
+    "simulation_radius_chunks": 1,
+    "reduced_simulation_radius_chunks": 2,
+    "unload_radius_chunks": 5,
+    "persistent_entities": [
+        {
+            "id": {
+                "value": 12582918
+            },
+            "name": "Character",
+            "tag": "player",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 10.01,
+                        "z": 11
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12582913
+            },
+            "name": "Camera",
+            "tag": "camera",
+            "layer": "",
+            "parent": {
+                "value": 12582918
+            },
+            "components": {
+                "camera": {},
+                "spot_light": {
+                    "color": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    },
+                    "intensity": 0,
+                    "cast_shadows": true,
+                    "range": 10,
+                    "inner_angle": 8,
+                    "outer_angle": 25
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": -0.069756,
+                        "y": 0,
+                        "z": 0,
+                        "w": 0.997564
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12582914
+            },
+            "name": "Sun",
+            "tag": "lighting",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "directional_light": {
+                    "color": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    },
+                    "intensity": 1,
+                    "cast_shadows": true,
+                    "ambient": 0.15
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": -0.353553,
+                        "y": 0.353553,
+                        "z": -0.146447,
+                        "w": 0.853553
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12582915
+            },
+            "name": "AreaLight",
+            "tag": "lighting",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "area_light": {
+                    "color": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    },
+                    "intensity": 1,
+                    "cast_shadows": false,
+                    "range": 10,
+                    "area_size": {
+                        "x": 1,
+                        "y": 1
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 5,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": -1,
+                        "y": 0,
+                        "z": 0,
+                        "w": 0
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12582916
+            },
+            "name": "Sky",
+            "tag": "environment",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "sky": {
+                    "material": {
+                        "material": {
+                            "name": "Materials/AnimeSkybox.mat",
+                            "id": {
+                                "value": 0
+                            }
+                        }
+                    },
+                    "type": 1
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 1,
+                        "z": 0,
+                        "w": 0
+                    },
+                    "scale": {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12582917
+            },
+            "name": "PostProcessing",
+            "tag": "rendering",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "post_processing": {
+                    "effects": [
+                        {
+                            "material": {
+                                "material": {
+                                    "name": "Materials/LutPostProcess.mat",
+                                    "id": {
+                                        "value": 0
+                                    }
+                                }
+                            },
+                            "is_enabled": true,
+                            "blend": 1
+                        }
+                    ],
+                    "is_enabled": true
+                }
+            }
+        }
+    ],
+    "chunks": [
+        {
+            "coord": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "full_chunk": {
+                "name": "Worlds/Chunks/ChunkScene_0_0_0.chunk",
+                "id": {
+                    "value": 0
+                }
+            },
+            "low_lod_chunk": {
+                "name": "",
+                "id": {
+                    "value": 0
+                }
+            },
+            "simulation_chunk": {
+                "name": "",
+                "id": {
+                    "value": 0
+                }
+            }
+        },
+        {
+            "coord": {
+                "x": 3,
+                "y": 0,
+                "z": 0
+            },
+            "full_chunk": {
+                "name": "Worlds/Chunks/ChunkScene_3_0_0.chunk",
+                "id": {
+                    "value": 0
+                }
+            },
+            "low_lod_chunk": {
+                "name": "Worlds/Chunks/ChunkScene_3_0_0.low.chunk",
+                "id": {
+                    "value": 0
+                }
+            },
+            "simulation_chunk": {
+                "name": "",
+                "id": {
+                    "value": 0
+                }
+            }
+        }
+    ]
+}

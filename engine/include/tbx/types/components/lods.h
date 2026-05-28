@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/handle.h"
 #include <vector>
 
@@ -18,7 +18,7 @@ namespace tbx
         float max_distance = 0.0f;
     };
 
-    TBX_SERIALIZABLE_STRUCT(Lod, handle, max_distance)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Lod, handle, max_distance)
 
     /// @brief
     /// Purpose: Stores mesh LOD selection data for a renderable entity.
@@ -31,5 +31,5 @@ namespace tbx
         float render_distance = 0.0f;
     };
 
-    TBX_SERIALIZABLE_STRUCT(Lods, id, values, render_distance)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Lods, id, values, render_distance)
 }

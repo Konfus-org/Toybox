@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/types/material.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/typedefs.h"
 #include <array>

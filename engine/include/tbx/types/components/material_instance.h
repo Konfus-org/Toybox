@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/tbx_api.h"
-#include "tbx/types/component.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/material.h"
+#include "tbx/types/assets/material.h"
 #include <string>
 
 namespace tbx
@@ -18,7 +18,7 @@ namespace tbx
         bool has_config_override = false;
     };
 
-    TBX_SERIALIZABLE_STRUCT(
+    TBX_REGISTER_SERIALIZABLE_STRUCT(
         MaterialOverrides,
         textures,
         parameters,
@@ -97,7 +97,7 @@ namespace tbx
         bool _is_dirty = true;
     };
 
-    TBX_SERIALIZABLE_STRUCT(MaterialInstance, id, material, overrides)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(MaterialInstance, id, material, overrides)
 
     TBX_API uint64 hash(const MaterialInstance& material, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }

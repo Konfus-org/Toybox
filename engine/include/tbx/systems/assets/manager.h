@@ -4,7 +4,7 @@
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
-#include "tbx/types/asset.h"
+#include "tbx/types/assets/asset.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
@@ -109,6 +109,15 @@ namespace tbx
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
         AssetUsage get_usage(const Handle& handle) const;
+
+        /// @brief
+        /// Purpose: Returns loaded assets of the requested type without changing asset usage.
+        /// @details
+        /// Ownership: Returns shared asset references owned jointly by the manager and callers.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        std::vector<std::shared_ptr<TAsset>> get_loaded() const;
 
         /// @brief
         /// Purpose: Resolves a handle to the canonical asset UUID, generating an in-memory id when

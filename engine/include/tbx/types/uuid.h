@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <cstddef>
@@ -48,7 +48,7 @@ namespace tbx
         static const Uuid NONE;
     };
 
-    TBX_SERIALIZABLE_STRUCT(Uuid, value)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(Uuid, value)
 
     inline const Uuid Uuid::NONE = {};
 

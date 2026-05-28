@@ -14,7 +14,7 @@ target_link_libraries(ThreeDExampleRuntime PRIVATE
 tbx_register_plugin(
     TARGET ThreeDExampleRuntime
     CLASS three_d_example::ThreeDExampleRuntimePlugin
-    HEADER "runtime.h"
+    HEADER "threed_example.h"
     NAME "ThreeDExampleRuntime"
     VERSION "1.0.0"
     CATEGORY "gameplay"

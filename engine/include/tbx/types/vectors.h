@@ -1,7 +1,11 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
+#ifndef GLM_ENABLE_EXPERIMENTAL
+    #define GLM_ENABLE_EXPERIMENTAL
+#endif
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 namespace tbx
 {
     /// @brief
@@ -27,10 +31,6 @@ namespace tbx
 
     inline const Vec3 VEC3_UP = Vec3(0.0F, 1.0F, 0.0F);
     inline const Vec3 VEC3_RIGHT = Vec3(1.0F, 0.0F, 0.0F);
-
-    TBX_SERIALIZABLE_TYPE(Vec2)
-    TBX_SERIALIZABLE_TYPE(Vec3)
-    TBX_SERIALIZABLE_TYPE(Vec4)
 
     /// @brief
     /// Purpose: Represents a two-component signed integer vector compatible with GLM operations.
@@ -120,7 +120,8 @@ namespace tbx
 
 namespace glm
 {
-    TBX_SERIALIZABLE_STRUCT(tbx::Vec2, x, y)
-    TBX_SERIALIZABLE_STRUCT(tbx::Vec3, x, y, z)
-    TBX_SERIALIZABLE_STRUCT(tbx::Vec4, x, y, z, w)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec2, x, y)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec3, x, y, z)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec4, x, y, z, w)
+    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::IVec3, x, y, z)
 }

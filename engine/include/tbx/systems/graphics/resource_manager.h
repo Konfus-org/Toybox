@@ -12,12 +12,6 @@
 #include <string>
 #include <vector>
 
-namespace tbx::internal
-{
-    class RenderingResourceTracker;
-    class RenderingResourceUploader;
-}
-
 namespace tbx
 {
     /// @brief
@@ -165,9 +159,7 @@ namespace tbx
             uint64 byte_size) const;
 
       private:
-        std::weak_ptr<IGraphicsBackend> _backend = {};
-        std::unique_ptr<internal::RenderingResourceTracker> _tracker = {};
-        std::unique_ptr<internal::RenderingResourceUploader> _uploader = {};
-        float _resource_unload_time_seconds = 3.0F;
+        struct Impl;
+        std::unique_ptr<Impl> _impl = {};
     };
 }

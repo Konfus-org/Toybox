@@ -4,7 +4,7 @@
 #include "tbx/systems/assets/builtin_assets.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
@@ -14,7 +14,7 @@
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
@@ -397,11 +397,16 @@ namespace tbx::internal
 
     // Helpers in this group normalize ECS data into RenderData: material fallback policy,
     // batching keys, transform defaults, and culling rules live here.
+    static bool has_asset_reference(const Handle& handle)
+    {
+        return handle.id.is_valid() || !handle.name.empty();
+    }
+
     static MaterialConfig resolve_draw_material_config(
         AssetManager& asset_manager,
         const MaterialInstance& material)
     {
-        if (!material.get_handle().id.is_valid())
+        if (!has_asset_reference(material.get_handle()))
             return MaterialConfig();
 
         if (material.has_config_override_enabled())
@@ -465,6 +470,14 @@ namespace tbx::internal
     {
         uint64 result = hash(mesh_id, TBX_FNV1A_OFFSET_BASIS);
         result = hash(static_cast<uint64>(reinterpret_cast<std::uintptr_t>(dynamic_mesh)), result);
+        result = hash(material_key, result);
+        return result == 0U ? 1U : result;
+    }
+
+    static uint64 make_static_mesh_batch_hash(const Handle& mesh_handle, const uint64 material_key)
+    {
+        uint64 result = hash(mesh_handle.id, TBX_FNV1A_OFFSET_BASIS);
+        result = hash(mesh_handle.name, result);
         result = hash(material_key, result);
         return result == 0U ? 1U : result;
     }
@@ -564,7 +577,7 @@ namespace tbx::internal
         const Transform& transform,
         const Frustum& frustum)
     {
-        if (!mesh.handle.id.is_valid())
+        if (!has_asset_reference(mesh.handle))
             return should_cull(Mesh::CUBE.bounds, transform, frustum);
 
         // Cache model bounds only for this extraction pass. AssetManager owns actual asset
@@ -709,7 +722,7 @@ namespace tbx::internal
         const MaterialInstance& material,
         RenderingMaterialUploadData& out_material)
     {
-        const Result result = material.get_handle().id.is_valid()
+        const Result result = has_asset_reference(material.get_handle())
                                   ? resource_manager.upload_material(material, out_material)
                                   : resource_manager.upload_fallback_material(out_material);
         if (result)
@@ -728,7 +741,7 @@ namespace tbx::internal
         {
             // Static meshes are model assets. Invalid handles deliberately fall back to a visible
             // debug mesh so missing content fails visibly instead of silently dropping a draw.
-            result = mesh.handle.id.is_valid()
+            result = has_asset_reference(mesh.handle)
                          ? resource_manager.upload_model(mesh.handle, out_meshes)
                          : resource_manager.upload_fallback_mesh(out_meshes);
         }
@@ -1128,7 +1141,7 @@ namespace tbx::internal
     static bool should_render_post_effect(const PostProcessingEffect& effect)
     {
         return effect.is_enabled && effect.blend > 0.0F
-               && effect.material.get_handle().id.is_valid();
+               && has_asset_reference(effect.material.get_handle());
     }
 
     static Result append_post_process_draw(
@@ -1378,7 +1391,7 @@ namespace tbx::internal
                     .debug_name = "Toybox Skybox Pass",
                 },
         };
-        if (render_data.sky.material.get_handle().id.is_valid())
+        if (has_asset_reference(render_data.sky.material.get_handle()))
         {
             // Sky geometry is a cube or sphere drawn with identity transform. The shader handles
             // camera-relative behavior through camera uniforms.
@@ -1645,6 +1658,21 @@ namespace tbx::internal
                     return fail_result("post process effect upload", result);
             }
         }
+        if (post_process_pass.draws.empty())
+        {
+            result = append_post_process_draw(
+                resource_manager,
+                frame_index,
+                frame_uniform,
+                camera_uniform,
+                light_uniform,
+                render_data.g_buffer,
+                MaterialInstance(TonemapPostMaterial::HANDLE),
+                "Toybox/Uniforms/Material/TonemapPost",
+                post_process_pass);
+            if (!result)
+                return fail_result("post process fallback upload", result);
+        }
 
         // Empty optional passes are skipped, but the fixed pass order is preserved whenever they
         // have work.
@@ -1667,11 +1695,11 @@ namespace tbx::internal
 
     //// SCENE DATA EXTRACTION ////
 
-    static RenderTarget extract_render_target(
-        const EntityRegistry& entity_registry,
+    static RenderTarget extract_render_target_from_world(
+        const World& world,
         const IWindowManager& window_manager)
     {
-        for (auto& entity : entity_registry.get_with<Camera>())
+        for (auto& entity : world.get_with<Camera>())
         {
             const auto render_target = entity.get_component<Camera>().get_render_target();
             if (render_target.id.is_valid())
@@ -1683,11 +1711,18 @@ namespace tbx::internal
         return window_manager.get_main_window();
     }
 
+    static RenderTarget extract_render_target(
+        const World& world,
+        const IWindowManager& window_manager)
+    {
+        return extract_render_target_from_world(world, window_manager);
+    }
+
     // Walks the ECS scene and builds RenderData for one frame. This is where visibility,
     // material fallback, batching, shadow allocation, and render feature selection are decided.
-    static Result extract_render_data(
+    static Result extract_render_data_from_world(
         RenderingResourceManager& resource_manager,
-        const EntityRegistry& entity_registry,
+        const World& world,
         const IWindowManager& window_manager,
         AssetManager& asset_manager,
         const GraphicsSettings& settings,
@@ -1704,7 +1739,7 @@ namespace tbx::internal
         // default Camera plus identity Transform produce deterministic fallback matrices.
         auto render_camera = Camera();
         auto cam_transform = Transform();
-        for (auto& entity : entity_registry.get_with<Camera>())
+        for (auto& entity : world.get_with<Camera>())
         {
             render_camera = entity.get_component<Camera>();
             // Cameras without a Transform render from identity so authoring transform-less test
@@ -1758,7 +1793,7 @@ namespace tbx::internal
 
         // Scene-wide state: the first supported component wins for singleton-style render features.
         auto has_selected_sky = false;
-        for (auto& entity : entity_registry.get_with<Sky>())
+        for (auto& entity : world.get_with<Sky>())
         {
             if (has_selected_sky)
             {
@@ -1770,7 +1805,7 @@ namespace tbx::internal
 
             has_selected_sky = true;
             render_data.sky = entity.get_component<Sky>();
-            if (!render_data.sky.material.get_handle().id.is_valid())
+            if (!has_asset_reference(render_data.sky.material.get_handle()))
                 render_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
 
             const Color clear_color =
@@ -1778,13 +1813,13 @@ namespace tbx::internal
             render_data.clear_color = clear_color;
         }
 
-        for (auto& entity : entity_registry.get_with<PostProcessing>())
+        for (auto& entity : world.get_with<PostProcessing>())
         {
             render_data.post_processing = entity.get_component<PostProcessing>();
             break;
         }
 
-        for (auto& entity : entity_registry.get_with<DirectionalLight>())
+        for (auto& entity : world.get_with<DirectionalLight>())
         {
             // Directional lights ignore distance culling because they represent scene-wide light.
             const auto& light = entity.get_component<DirectionalLight>();
@@ -1808,7 +1843,7 @@ namespace tbx::internal
                 });
         }
 
-        for (auto& entity : entity_registry.get_with<PointLight>())
+        for (auto& entity : world.get_with<PointLight>())
         {
             // Local lights are distance culled before reserving shadow layers so culled lights do
             // not consume shadow-map capacity.
@@ -1834,7 +1869,7 @@ namespace tbx::internal
                 });
         }
 
-        for (auto& entity : entity_registry.get_with<SpotLight>())
+        for (auto& entity : world.get_with<SpotLight>())
         {
             const auto& light = entity.get_component<SpotLight>();
             const Transform transform = get_optional_transform(entity);
@@ -1862,7 +1897,7 @@ namespace tbx::internal
                 });
         }
 
-        for (auto& entity : entity_registry.get_with<AreaLight>())
+        for (auto& entity : world.get_with<AreaLight>())
         {
             const auto& light = entity.get_component<AreaLight>();
             const Transform transform = get_optional_transform(entity);
@@ -1894,7 +1929,7 @@ namespace tbx::internal
         const bool has_shadow_targets = render_data.shadows.layer_count > 0U;
         auto material_configs = std::unordered_map<uint64, MaterialConfig>();
         auto static_mesh_bounds = std::unordered_map<Handle, MeshBounds>();
-        for (auto& entity : entity_registry.get_with<StaticMesh>())
+        for (auto& entity : world.get_with<StaticMesh>())
         {
             const auto& static_mesh = entity.get_component<StaticMesh>();
             const Transform transform = get_optional_transform(entity);
@@ -1943,7 +1978,7 @@ namespace tbx::internal
                                     : render_data.opaque_batches;
                 append_batch(
                     batches,
-                    make_batch_hash(static_mesh.handle.id, nullptr, material_key),
+                    make_static_mesh_batch_hash(static_mesh.handle, material_key),
                     mesh,
                     material,
                     instance);
@@ -1952,14 +1987,14 @@ namespace tbx::internal
             {
                 append_batch(
                     render_data.shadow_batches,
-                    make_batch_hash(static_mesh.handle.id, nullptr, 0U),
+                    make_static_mesh_batch_hash(static_mesh.handle, 0U),
                     mesh,
                     MaterialInstance(),
                     instance);
             }
         }
 
-        for (auto& entity : entity_registry.get_with<DynamicMesh>())
+        for (auto& entity : world.get_with<DynamicMesh>())
         {
             const auto& dynamic_mesh = entity.get_component<DynamicMesh>();
             const Transform transform = get_optional_transform(entity);
@@ -2029,6 +2064,31 @@ namespace tbx::internal
         }
 
         return {};
+    }
+
+    static Result extract_render_data(
+        RenderingResourceManager& resource_manager,
+        const World& world,
+        const IWindowManager& window_manager,
+        AssetManager& asset_manager,
+        const GraphicsSettings& settings,
+        const uint frame,
+        const DeltaTime& delta_time,
+        const float elapsed_time,
+        const RenderTarget render_target,
+        RenderData& out_render_data)
+    {
+        return extract_render_data_from_world(
+            resource_manager,
+            world,
+            window_manager,
+            asset_manager,
+            settings,
+            frame,
+            delta_time,
+            elapsed_time,
+            render_target,
+            out_render_data);
     }
 
     //// PASS EXECUTION ////
