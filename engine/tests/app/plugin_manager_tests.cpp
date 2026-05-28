@@ -196,8 +196,8 @@ namespace tbx::tests::app
             return service_provider;
 
         service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
-            *message_coordinator,
-            *serialization_registry,
+            service_provider.get_service<IMessageCoordinator>(),
+            service_provider.get_service<SerializationRegistry>(),
             working_directory,
             std::vector<std::filesystem::path> {}));
         service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(

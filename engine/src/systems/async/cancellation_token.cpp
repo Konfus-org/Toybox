@@ -1,5 +1,4 @@
 #include "tbx/systems/async/cancellation_token.h"
-#include <memory>
 
 namespace tbx
 {

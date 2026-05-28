@@ -11,7 +11,8 @@ namespace sdl_opengl_context_manager
         if (!window_manager)
             return;
 
-        auto context_backend = std::make_unique<SdlOpenGlContextManager>(*window_manager);
+        auto context_backend = std::make_unique<SdlOpenGlContextManager>(
+            service_provider.get_service<tbx::IWindowManager>());
         service_provider.register_service<tbx::IOpenGlContextBackend>(std::move(context_backend));
 
         auto context_backend_service =

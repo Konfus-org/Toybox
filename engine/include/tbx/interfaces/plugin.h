@@ -8,6 +8,7 @@
 #include "tbx/systems/time/delta_time.h"
 #include <functional>
 #include <future>
+#include <memory>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -76,13 +77,13 @@ namespace tbx
         // Unified message entry point for dispatch callbacks.
         virtual void on_recieve_message(Message& msg) {}
 
-        // Non-owning dispatcher reference provided by the service provider.
+        // Non-owning dispatcher service provided by the service provider.
         IMessageDispatcher& get_dispatcher() const;
 
       private:
         static Result dispatcher_missing_result(std::string_view action);
 
-        IMessageDispatcher* _dispatcher = nullptr;
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
     };
 
     using GetPluginMetaFn = void (*)(PluginMeta*);

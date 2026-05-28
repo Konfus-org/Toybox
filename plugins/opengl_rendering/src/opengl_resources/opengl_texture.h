@@ -6,6 +6,14 @@
 
 namespace opengl_rendering
 {
+    bool has_texture_usage(tbx::GraphicsTextureUsage value, tbx::GraphicsTextureUsage usage);
+    GLenum get_depth_attachment(tbx::GraphicsTextureFormat format);
+    GLenum get_texture_internal_format(tbx::GraphicsTextureFormat format);
+    GLenum get_texture_upload_format(tbx::GraphicsTextureFormat format);
+    GLenum get_texture_upload_type(tbx::GraphicsTextureFormat format);
+    uint64 get_texture_byte_size(const tbx::GraphicsTextureDesc& desc);
+    uint64 get_texture_bytes_per_pixel(tbx::GraphicsTextureFormat format);
+
     /// @brief
     /// Purpose: Wraps an OpenGL texture object and its binding state.
     /// @details

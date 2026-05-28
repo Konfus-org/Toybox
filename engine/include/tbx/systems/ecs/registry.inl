@@ -10,7 +10,7 @@ namespace tbx
         register_entity_component_type<TComponent>();
         auto guard = std::unique_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
-        return _impl->emplace_or_replace<TComponent>(handle, std::forward<TArgs>(args)...);
+        return _registry->emplace_or_replace<TComponent>(handle, std::forward<TArgs>(args)...);
     }
 
     template <typename TComponent>
@@ -19,10 +19,10 @@ namespace tbx
     {
         auto guard = std::unique_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
-        if (!_impl->valid(handle))
+        if (!_registry->valid(handle))
             return;
 
-        _impl->remove<TComponent>(handle);
+        _registry->remove<TComponent>(handle);
     }
 
     template <typename... TComponent>
@@ -32,7 +32,7 @@ namespace tbx
         auto ids = std::vector<Uuid> {};
         {
             auto guard = std::shared_lock(_mutex);
-            auto view = _impl->view<TComponent...>();
+            auto view = _registry->view<TComponent...>();
             for (const auto entityHandle : view)
             {
                 const auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
@@ -57,7 +57,7 @@ namespace tbx
         auto first_id = Uuid {};
         {
             auto guard = std::shared_lock(_mutex);
-            auto view = _impl->view<TComponent...>();
+            auto view = _registry->view<TComponent...>();
             for (const auto entityHandle : view)
             {
                 first_id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
@@ -81,7 +81,7 @@ namespace tbx
         auto ids = std::vector<Uuid> {};
         {
             auto guard = std::shared_lock(_mutex);
-            auto view = _impl->view<TComponent...>();
+            auto view = _registry->view<TComponent...>();
             for (const auto entityHandle : view)
             {
                 const auto id = Uuid(static_cast<uint32>(entt::to_integral(entityHandle)) + 1U);
@@ -102,7 +102,7 @@ namespace tbx
     {
         auto guard = std::shared_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
-        return _impl->get<TComponent...>(handle);
+        return _registry->get<TComponent...>(handle);
     }
 
     template <typename TComponent>
@@ -111,9 +111,9 @@ namespace tbx
     {
         auto guard = std::shared_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
-        if (!_impl->valid(handle))
+        if (!_registry->valid(handle))
             return false;
 
-        return _impl->all_of<TComponent>(handle);
+        return _registry->all_of<TComponent>(handle);
     }
 }

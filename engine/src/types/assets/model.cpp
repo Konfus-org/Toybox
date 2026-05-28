@@ -1,5 +1,4 @@
 #include "tbx/types/assets/model.h"
-#include <utility>
 
 namespace tbx
 {

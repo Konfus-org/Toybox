@@ -1,6 +1,5 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/app/settings.h"
-#include <utility>
 
 namespace tbx
 {

@@ -10,9 +10,9 @@ def emit_asset_type_registration(type_info: SerializableType, version: str) -> l
         "{",
         "    return {};",
         "}",
-        "TBX_INTERNAL_AUTO_REGISTER(",
+        "TBX_SERIALIZATION_AUTO_REGISTER(",
         "    tbx_asset_type_registration_,",
-        f"    ::tbx::internal::register_asset_type<{type_info.name}>({version}));",
+        f"    ::tbx::register_asset_type<{type_info.name}>({version}));",
         "",
     ]
 
@@ -27,12 +27,12 @@ def emit_asset_body(type_info: SerializableType, version: str, fields: list[Fiel
         ]
         + emit_json_functions(type_info, fields)
         + [
-            "TBX_INTERNAL_AUTO_REGISTER(",
+            "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_asset_body_registration_,",
-            f"    ::tbx::internal::register_asset_body_type<{type_info.name}>(",
+            f"    ::tbx::register_asset_body_type<{type_info.name}>(",
             f"        {version},",
-            f"        ::tbx::internal::read_json_asset_body<{type_info.name}>,",
-            f"        ::tbx::internal::write_json_asset_body<{type_info.name}>));",
+            f"        ::tbx::read_json_asset_body<{type_info.name}>,",
+            f"        ::tbx::write_json_asset_body<{type_info.name}>));",
             "",
         ]
     )
@@ -59,7 +59,7 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
     for field in fields:
         lines.extend(
             [
-                "        ::tbx::internal::read_serialization_field(",
+                "        ::tbx::read_serialization_field(",
                 "            json,",
                 f"            {cpp_string(json_key(field))},",
                 f"            asset.{field.name},",
@@ -72,13 +72,13 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
             "    }",
             "    catch (...)",
             "    {",
-            "        return ::tbx::internal::make_serialization_failure(",
+            "        return ::tbx::make_serialization_failure(",
             "            \"Failed to parse Toybox asset meta JSON.\");",
             "    }",
             "}",
-            "TBX_INTERNAL_AUTO_REGISTER(",
+            "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_asset_meta_registration_,",
-            f"    ::tbx::internal::register_asset_meta_type<{type_info.name}>(",
+            f"    ::tbx::register_asset_meta_type<{type_info.name}>(",
             f"        {version},",
             f"        {helper}));",
             "",
@@ -93,12 +93,12 @@ def emit_custom_asset(type_info: SerializableType, version: str) -> list[str]:
         "{",
         "    return {};",
         "}",
-        "TBX_INTERNAL_AUTO_REGISTER(",
+        "TBX_SERIALIZATION_AUTO_REGISTER(",
         "    tbx_asset_body_registration_,",
-        f"    ::tbx::internal::register_asset_body_type<{type_info.name}>(",
+        f"    ::tbx::register_asset_body_type<{type_info.name}>(",
         f"        {version},",
-        f"        ::tbx::internal::read_custom_json_asset_body<{type_info.name}>,",
-        f"        ::tbx::internal::write_custom_json_asset_body<{type_info.name}>));",
+        f"        ::tbx::read_custom_json_asset_body<{type_info.name}>,",
+        f"        ::tbx::write_custom_json_asset_body<{type_info.name}>));",
         "",
     ]
 
@@ -113,17 +113,17 @@ def emit_text_asset(type_info: SerializableType, version: str, field: Field) -> 
         "{",
         f"    value.{field.name} = std::move(text);",
         "}",
-        "TBX_INTERNAL_AUTO_REGISTER(",
+        "TBX_SERIALIZATION_AUTO_REGISTER(",
         "    tbx_asset_body_registration_,",
-        f"    ::tbx::internal::register_asset_body_type<{type_info.name}>(",
+        f"    ::tbx::register_asset_body_type<{type_info.name}>(",
         f"        {version},",
         f"        [](std::string_view data, {type_info.name}& value)",
         "        {",
-        f"            return ::tbx::internal::read_text_asset_body(data, value.{field.name});",
+        f"            return ::tbx::read_text_asset_body(data, value.{field.name});",
         "        },",
         f"        [](const {type_info.name}& value, std::string& output)",
         "        {",
-        f"            return ::tbx::internal::write_text_asset_body(value.{field.name}, output);",
+        f"            return ::tbx::write_text_asset_body(value.{field.name}, output);",
         "        }));",
         "",
     ]

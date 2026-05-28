@@ -33,6 +33,7 @@ namespace tbx
         FileWatchFilter filter = {};
     };
 
+    // TODO: This seems private, hide in cpp and don't use TBX_API?
     /// @brief
     /// Purpose: Computes file changes between two filesystem snapshots.
     /// @details

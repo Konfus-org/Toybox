@@ -1,24 +1,122 @@
-#include "systems/assets/internal/asset_registry_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/string_utils.h"
-#include <algorithm>
-#include <filesystem>
-#include <format>
-#include <memory>
-#include <string>
-#include <string_view>
+
 namespace tbx
 {
+    static Result make_failed_result(std::string report)
+    {
+        auto result = Result {};
+        result.flag_failure(std::move(report));
+        return result;
+    }
+
+    static void append_report(Result& result, std::string report)
+    {
+        if (report.empty())
+        {
+            return;
+        }
+
+        auto merged = result.get_report();
+        if (!merged.empty())
+        {
+            merged.append("; ");
+        }
+        merged.append(report);
+
+        if (result.succeeded())
+        {
+            result.flag_success(std::move(merged));
+            return;
+        }
+
+        result.flag_failure(std::move(merged));
+    }
+
+    static void merge_result(Result& destination, const Result& source)
+    {
+        append_report(destination, source.get_report());
+        if (!source.succeeded() && destination.succeeded())
+        {
+            destination.flag_failure(destination.get_report());
+        }
+    }
+
+    static bool path_contains_directory_token(
+        const std::filesystem::path& path,
+        std::string_view directory_name_lowered)
+    {
+        if (directory_name_lowered.empty())
+            return false;
+
+        for (const auto& part : path)
+        {
+            if (tbx::to_lower(part.string()) == directory_name_lowered)
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool is_non_asset_file(const std::filesystem::path& path)
+    {
+        const auto lowered_name = tbx::to_lower(path.filename().string());
+        if (lowered_name == "cmakelists.txt")
+            return true;
+
+        const auto lowered_extension = tbx::to_lower(path.extension().string());
+        return lowered_extension == ".cmake" || lowered_extension == ".h"
+               || lowered_extension == ".hh" || lowered_extension == ".hpp"
+               || lowered_extension == ".c" || lowered_extension == ".cc"
+               || lowered_extension == ".cpp" || lowered_extension == ".cxx"
+               || lowered_extension == ".in";
+    }
+
+    static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
+    {
+        auto meta_path = asset_path;
+        meta_path += ".meta";
+        return meta_path;
+    }
+
+    static std::unique_ptr<Handle> try_read_handle_from_meta(
+        const IFileOps& file_ops,
+        const std::filesystem::path& asset_path)
+    {
+        if (asset_path.empty())
+            return nullptr;
+
+        const auto meta_path = make_meta_path(asset_path);
+        if (!file_ops.exists(meta_path))
+            return nullptr;
+
+        auto contents = std::string();
+        if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
+            return nullptr;
+
+        try
+        {
+            auto data = JsonParser::parse(contents);
+            auto id = Uuid();
+            static_cast<void>(JsonParser::try_get(data, "id", id));
+            return std::make_unique<Handle>(asset_path.lexically_normal().generic_string(), id);
+        }
+        catch (...)
+        {
+            return nullptr;
+        }
+    }
+
     bool AssetRegistry::should_track_asset_path(const std::filesystem::path& asset_path)
     {
         if (asset_path.empty())
             return false;
-        if (internal::path_contains_directory_token(asset_path, "generated"))
+        if (path_contains_directory_token(asset_path, "generated"))
             return false;
-        if (internal::is_non_asset_file(asset_path))
+        if (is_non_asset_file(asset_path))
             return false;
         return asset_path.extension() != ".meta";
     }
@@ -40,13 +138,13 @@ namespace tbx
     {
         if (path.empty())
         {
-            return internal::make_failed_result("Cannot add an empty asset directory path.");
+            return make_failed_result("Cannot add an empty asset directory path.");
         }
 
         auto resolved = _file_ops->resolve(path);
         if (resolved.empty())
         {
-            return internal::make_failed_result("Failed to resolve asset directory path.");
+            return make_failed_result("Failed to resolve asset directory path.");
         }
 
         const bool is_duplicate = std::any_of(
@@ -69,7 +167,7 @@ namespace tbx
         result.flag_success("Tracking asset directory.");
 
         const auto scan_result = scan_asset_directory(resolved);
-        internal::merge_result(result, scan_result);
+        merge_result(result, scan_result);
         return result;
     }
 
@@ -79,7 +177,7 @@ namespace tbx
         {
             if (!handle.id.is_valid())
             {
-                return internal::make_failed_result(
+                return make_failed_result(
                     "Cannot ensure asset id: handle has no path and no valid id.");
             }
 
@@ -96,7 +194,7 @@ namespace tbx
 
         if (!ensure_result.entry.has_value() || !ensure_result.entry->get().asset_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Resolved asset entry for '")
                     .append(handle.name)
                     .append("' does not contain a valid id."));
@@ -121,7 +219,7 @@ namespace tbx
 
             auto asset_id = Uuid {};
             const auto resolve_result = resolve_or_repair_asset_id(entry, asset_id);
-            internal::merge_result(result.result, resolve_result);
+            merge_result(result.result, resolve_result);
             if (!resolve_result.succeeded())
             {
                 return result;
@@ -130,7 +228,7 @@ namespace tbx
             if (!asset_id.is_valid())
             {
                 asset_id = make_runtime_asset_id(entry.normalized_path);
-                internal::append_report(
+                append_report(
                     result.result,
                     std::string("Resolved an invalid asset id for '")
                         .append(entry.normalized_path)
@@ -140,7 +238,7 @@ namespace tbx
             }
 
             const auto assign_result = try_assign_asset_id(entry, asset_id);
-            internal::merge_result(result.result, assign_result);
+            merge_result(result.result, assign_result);
             if (!assign_result.succeeded())
             {
                 return result;
@@ -152,15 +250,15 @@ namespace tbx
 
         if (!handle.id.is_valid())
         {
-            result.result = internal::make_failed_result(
-                "Cannot resolve an asset entry from an invalid handle id.");
+            result.result =
+                make_failed_result("Cannot resolve an asset entry from an invalid handle id.");
             return result;
         }
 
         auto entry = find_entry_by_id(handle.id);
         if (!entry.has_value())
         {
-            result.result = internal::make_failed_result(
+            result.result = make_failed_result(
                 std::string("No registered asset entry exists for id=")
                     .append(std::format("{}", handle.id))
                     .append("."));
@@ -198,7 +296,7 @@ namespace tbx
         auto result = AssetRegistryMutationResult {};
         if (!should_track_asset_path(asset_path))
         {
-            result.result = internal::make_failed_result("Path is not a tracked asset.");
+            result.result = make_failed_result("Path is not a tracked asset.");
             return result;
         }
 
@@ -209,13 +307,13 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(entry, discovered_id);
-                internal::merge_result(result.result, assign_result);
+                merge_result(result.result, assign_result);
                 if (!assign_result.succeeded())
                 {
                     return result;
                 }
 
-                internal::append_report(
+                append_report(
                     result.result,
                     std::string("Indexed discovered asset id=")
                         .append(std::format("{}", discovered_id))
@@ -237,7 +335,7 @@ namespace tbx
         auto iterator = _entries_by_path.find(normalized_path);
         if (iterator == _entries_by_path.end())
         {
-            result.result = internal::make_failed_result(
+            result.result = make_failed_result(
                 std::string("Asset path is not registered: '")
                     .append(normalized_path)
                     .append("'."));
@@ -295,7 +393,7 @@ namespace tbx
     {
         if (root.empty())
         {
-            return internal::make_failed_result("Cannot scan an empty asset directory root.");
+            return make_failed_result("Cannot scan an empty asset directory root.");
         }
 
         auto result = Result {};
@@ -332,7 +430,7 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(registry_entry, discovered_id);
-                internal::merge_result(result, assign_result);
+                merge_result(result, assign_result);
             }
         }
 
@@ -443,13 +541,13 @@ namespace tbx
             }
         }
 
-        auto meta_path = internal::make_meta_path(entry.resolved_path);
+        auto meta_path = make_meta_path(entry.resolved_path);
         if (!_file_ops->exists(meta_path))
         {
             return {};
         }
 
-        auto parsed_handle = internal::try_read_handle_from_meta(*_file_ops, entry.resolved_path);
+        auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
         if (!parsed_handle || !parsed_handle->id.is_valid())
         {
             return {};
@@ -476,7 +574,7 @@ namespace tbx
                 }
 
                 out_asset_id = make_runtime_asset_id(entry.normalized_path);
-                internal::append_report(
+                append_report(
                     result,
                     std::string("Handle source returned an invalid id for '")
                         .append(entry.normalized_path)
@@ -490,7 +588,7 @@ namespace tbx
         if (!_file_ops->exists(entry.resolved_path))
         {
             out_asset_id = make_runtime_asset_id(entry.normalized_path);
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Requested asset '")
                     .append(entry.normalized_path)
@@ -500,12 +598,11 @@ namespace tbx
             return result;
         }
 
-        auto meta_path = internal::make_meta_path(entry.resolved_path);
+        auto meta_path = make_meta_path(entry.resolved_path);
 
         if (_file_ops->exists(meta_path))
         {
-            auto parsed_handle =
-                internal::try_read_handle_from_meta(*_file_ops, entry.resolved_path);
+            auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
             if (parsed_handle && parsed_handle->id.is_valid())
             {
                 out_asset_id = parsed_handle->id;
@@ -516,7 +613,7 @@ namespace tbx
         auto generated_id = generate_unique_asset_id();
         if (!generated_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Failed to generate a valid id for asset '")
                     .append(entry.normalized_path)
                     .append("'."));
@@ -530,7 +627,7 @@ namespace tbx
                 "Missing metadata sidecar for asset '{}'. Generated in-memory id={}.",
                 entry.normalized_path,
                 generated_id);
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Missing metadata for asset '")
                     .append(entry.normalized_path)
@@ -544,7 +641,7 @@ namespace tbx
                 "Invalid metadata sidecar for asset '{}'. Generated in-memory id={}.",
                 entry.normalized_path,
                 generated_id);
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Invalid metadata for asset '")
                     .append(entry.normalized_path)
@@ -560,7 +657,7 @@ namespace tbx
     {
         if (!asset_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Cannot assign an invalid id to asset '")
                     .append(entry.normalized_path)
                     .append("'."));
@@ -580,7 +677,7 @@ namespace tbx
                 existing_path = existing_entry_iterator->second.normalized_path;
             }
 
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Duplicate asset id=")
                     .append(std::format("{}", asset_id))
                     .append(" for '")
@@ -593,7 +690,7 @@ namespace tbx
         auto result = Result {};
         if (entry.asset_id.is_valid())
         {
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Reassigned asset id for '")
                     .append(entry.normalized_path)

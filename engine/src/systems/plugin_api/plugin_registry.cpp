@@ -1,6 +1,5 @@
 #include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/utils/string_utils.h"
-#include <algorithm>
 
 namespace tbx
 {

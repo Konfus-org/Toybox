@@ -3,71 +3,69 @@
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/windowing/manager.h"
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 namespace tbx::tests::app
 {
-    namespace internal
+    class RecordingWindowBackend final : public IWindowBackend
     {
-        class RecordingWindowBackend final : public IWindowBackend
+      public:
+        bool create_window(
+            const Window& window,
+            const WindowCreateInfo&,
+            NativeWindowHandle& out_native_handle) override
         {
-          public:
-            bool create_window(
-                const Window& window,
-                const WindowCreateInfo&,
-                NativeWindowHandle& out_native_handle) override
-            {
-                open_windows.push_back(window);
-                out_native_handle = reinterpret_cast<NativeWindowHandle>(1);
-                return true;
-            }
+            open_windows.push_back(window);
+            out_native_handle = reinterpret_cast<NativeWindowHandle>(1);
+            return true;
+        }
 
-            bool destroy_window(const Window& window) override
-            {
-                const auto window_it = std::ranges::find(open_windows, window);
-                if (window_it != open_windows.end())
-                    open_windows.erase(window_it);
-                return true;
-            }
+        bool destroy_window(const Window& window) override
+        {
+            const auto window_it = std::ranges::find(open_windows, window);
+            if (window_it != open_windows.end())
+                open_windows.erase(window_it);
+            return true;
+        }
 
-            bool set_window_mode(const Window&, WindowMode) override
-            {
-                return true;
-            }
+        bool set_window_mode(const Window&, WindowMode) override
+        {
+            return true;
+        }
 
-            bool set_window_title(const Window&, const std::string&) override
-            {
-                return true;
-            }
+        bool set_window_title(const Window&, const std::string&) override
+        {
+            return true;
+        }
 
-            bool set_window_size(const Window&, const Size&) override
-            {
-                return true;
-            }
+        bool set_window_size(const Window&, const Size&) override
+        {
+            return true;
+        }
 
-            void pump_events(std::vector<WindowBackendEvent>& out_events) override
-            {
-                out_events.insert(out_events.end(), pending_events.begin(), pending_events.end());
-                pending_events.clear();
-            }
+        void pump_events(std::vector<WindowBackendEvent>& out_events) override
+        {
+            out_events.insert(out_events.end(), pending_events.begin(), pending_events.end());
+            pending_events.clear();
+        }
 
-            void shutdown() override
-            {
-                open_windows.clear();
-                pending_events.clear();
-            }
+        void shutdown() override
+        {
+            open_windows.clear();
+            pending_events.clear();
+        }
 
-          public:
-            std::vector<Window> open_windows = {};
-            std::vector<WindowBackendEvent> pending_events = {};
-        };
-    }
+      public:
+        std::vector<Window> open_windows = {};
+        std::vector<WindowBackendEvent> pending_events = {};
+    };
 
     TEST(window_manager, close_main_window_clears_main_before_closed_event)
     {
         // Arrange
-        auto dispatcher = MessageCoordinator {};
-        auto backend = internal::RecordingWindowBackend {};
+        auto dispatcher = std::make_shared<MessageCoordinator>();
+        auto backend = std::make_shared<RecordingWindowBackend>();
         auto manager = WindowManager(dispatcher, backend);
         const Window main_window = manager.open(
             WindowCreateInfo {
@@ -83,7 +81,7 @@ namespace tbx::tests::app
         auto observed_has_main_window = true;
         auto observed_is_open = true;
         auto observed_window = Window {};
-        dispatcher.register_handler(
+        dispatcher->register_handler(
             [&](Message& msg)
             {
                 const auto closed_event = handle_message<WindowClosedEvent>(msg);

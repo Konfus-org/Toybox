@@ -3,23 +3,12 @@
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/tbx_api.h"
+#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace tbx
 {
-    struct ManagedWindowRecord
-    {
-        Window id = {};
-        std::string title = "Toybox";
-        Size size = {1280, 720};
-        WindowMode mode = WindowMode::WINDOWED;
-        WindowMode mode_to_restore = WindowMode::WINDOWED;
-        bool is_open = false;
-        NativeWindowHandle native_handle = nullptr;
-    };
-
     /// @brief
     /// Purpose: Application-owned service that tracks windows and routes operations to a backend.
     /// @details
@@ -28,7 +17,9 @@ namespace tbx
     class TBX_API WindowManager final : public IWindowManager
     {
       public:
-        WindowManager(IMessageDispatcher& dispatcher, IWindowBackend& backend);
+        WindowManager(
+            std::weak_ptr<IMessageDispatcher> dispatcher,
+            std::weak_ptr<IWindowBackend> backend);
         ~WindowManager() noexcept override;
 
       public:
@@ -55,6 +46,10 @@ namespace tbx
         bool set_main_window(const Window& window) override;
         void update() override;
         void shutdown() override;
+
+      private:
+        struct ManagedWindowRecord;
+        struct State;
 
       private:
         void handle_backend_event(const WindowBackendEvent& event);
@@ -86,10 +81,8 @@ namespace tbx
         ManagedWindowRecord* try_get_record(const Window& window);
 
       private:
-        IMessageDispatcher& _dispatcher;
-        IWindowBackend& _backend;
-        std::unordered_map<Window, ManagedWindowRecord> _windows = {};
-        std::vector<Window> _pending_close_window_ids = {};
-        Window _main_window = {};
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
+        std::weak_ptr<IWindowBackend> _backend = {};
+        std::unique_ptr<State> _state = {};
     };
 }

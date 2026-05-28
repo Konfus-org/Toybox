@@ -1,5 +1,4 @@
 #include "tbx/types/components/sky.h"
-#include <utility>
 
 namespace tbx
 {

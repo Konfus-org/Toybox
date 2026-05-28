@@ -15,39 +15,16 @@ namespace tbx
     };
 
     // Represents the available graphics APIs.
-    [[tbx::printable("{}", tbx::to_string($))]];
+    [[tbx::printable]];
     enum class GraphicsApi
     {
-        NONE,
-        VULKAN,
-        OPEN_GL,
-        DIRECT_X,
-        METAL,
-        CUSTOM
+        NONE [[tbx::name("none")]],
+        VULKAN [[tbx::name("vulkan")]],
+        OPEN_GL [[tbx::name("opengl")]],
+        DIRECT_X [[tbx::name("directx")]],
+        METAL [[tbx::name("metal")]],
+        CUSTOM [[tbx::name("custom")]]
     };
-
-    inline std::string_view to_string(GraphicsApi api)
-    {
-        switch (api)
-        {
-            case GraphicsApi::NONE:
-                return "None";
-            case GraphicsApi::VULKAN:
-                return "Vulkan";
-            case GraphicsApi::OPEN_GL:
-                return "OpenGL";
-            case GraphicsApi::DIRECT_X:
-                return "DirectX";
-            case GraphicsApi::METAL:
-                return "Metal";
-            case GraphicsApi::CUSTOM:
-                return "Custom";
-            default:
-                break;
-        }
-
-        return "Unknown";
-    }
 }
 
 #include "tbx/systems/graphics/api.generated.h"

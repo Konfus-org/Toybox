@@ -1,5 +1,4 @@
 #include "opengl_buffers.h"
-#include "internal/opengl_buffers_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include <array>
 #include <glad/glad.h>
@@ -7,11 +6,42 @@
 
 namespace opengl_rendering
 {
+    static uint32 take_buffer_gl_handle(uint32& id) noexcept
+    {
+        return std::exchange(id, 0U);
+    }
+
+    bool has_buffer_usage(
+        const tbx::GraphicsBufferUsage value,
+        const tbx::GraphicsBufferUsage usage)
+    {
+        return (static_cast<uint32>(value) & static_cast<uint32>(usage)) != 0U;
+    }
+
+    GLenum to_gl_buffer_target(const tbx::GraphicsBufferUsage usage)
+    {
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDEX))
+            return GL_ELEMENT_ARRAY_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::UNIFORM))
+            return GL_UNIFORM_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::STORAGE))
+            return GL_SHADER_STORAGE_BUFFER;
+        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDIRECT_ARGS))
+            return GL_DRAW_INDIRECT_BUFFER;
+
+        return GL_ARRAY_BUFFER;
+    }
+
+    GLenum to_gl_buffer_usage(const tbx::GraphicsBufferDesc& desc)
+    {
+        return desc.is_dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+    }
+
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(
         const tbx::GraphicsBufferDesc& desc,
         const void* data,
         const uint64 data_size)
-        : _target(internal::to_gl_buffer_target(desc.usage))
+        : _target(to_gl_buffer_target(desc.usage))
     {
         const auto* upload_data = data_size == desc.size ? data : nullptr;
         glCreateBuffers(1, &_buffer_id);
@@ -19,7 +49,7 @@ namespace opengl_rendering
             _buffer_id,
             static_cast<GLsizeiptr>(desc.size),
             upload_data,
-            internal::to_gl_buffer_usage(desc));
+            to_gl_buffer_usage(desc));
         if (upload_data == nullptr && data != nullptr && data_size > 0U)
             update(data, data_size, 0U);
     }
@@ -31,7 +61,7 @@ namespace opengl_rendering
     }
 
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(OpenGlGraphicsBuffer&& other) noexcept
-        : _buffer_id(internal::take_buffer_gl_handle(other._buffer_id))
+        : _buffer_id(take_buffer_gl_handle(other._buffer_id))
         , _target(other._target)
     {
         other._target = GL_ARRAY_BUFFER;
@@ -45,7 +75,7 @@ namespace opengl_rendering
         if (_buffer_id != 0U)
             glDeleteBuffers(1, &_buffer_id);
 
-        _buffer_id = internal::take_buffer_gl_handle(other._buffer_id);
+        _buffer_id = take_buffer_gl_handle(other._buffer_id);
         _target = other._target;
         other._target = GL_ARRAY_BUFFER;
         return *this;
@@ -93,7 +123,7 @@ namespace opengl_rendering
     }
 
     OpenGlFramebuffer::OpenGlFramebuffer(OpenGlFramebuffer&& other) noexcept
-        : _framebuffer_id(internal::take_buffer_gl_handle(other._framebuffer_id))
+        : _framebuffer_id(take_buffer_gl_handle(other._framebuffer_id))
     {
     }
 
@@ -105,7 +135,7 @@ namespace opengl_rendering
         if (_framebuffer_id != 0U)
             glDeleteFramebuffers(1, &_framebuffer_id);
 
-        _framebuffer_id = internal::take_buffer_gl_handle(other._framebuffer_id);
+        _framebuffer_id = take_buffer_gl_handle(other._framebuffer_id);
         return *this;
     }
 

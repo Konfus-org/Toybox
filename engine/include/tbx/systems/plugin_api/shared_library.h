@@ -17,6 +17,7 @@ namespace tbx
         SharedLibrary(std::filesystem::path path, std::filesystem::path cleanup_path = {});
         ~SharedLibrary() noexcept;
 
+      public:
         SharedLibrary(const SharedLibrary&) = delete;
         SharedLibrary& operator=(const SharedLibrary&) = delete;
         SharedLibrary(SharedLibrary&& other) = delete;
@@ -34,6 +35,7 @@ namespace tbx
         template <typename T>
         T get_symbol(const char* name) const;
 
+        // TODO: Move all methods that are defined in .h files into .cpp files where possible
         const std::filesystem::path& get_path() const
         {
             return _path;

@@ -1,12 +1,41 @@
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/components/mesh.h"
-#include "types/internal/mesh_bounds_internal.h"
 #include "tbx/types/matrices.h"
-#include <algorithm>
-#include <cmath>
-#include <limits>
+
 namespace tbx
 {
+    static bool try_get_position_attribute(
+        const VertexBufferLayout& layout,
+        uint32& out_stride_bytes,
+        uint32& out_offset_bytes)
+    {
+        out_stride_bytes = layout.stride;
+        out_offset_bytes = 0U;
+        if (out_stride_bytes < static_cast<uint32>(sizeof(float) * 3U))
+            return false;
+
+        const uint32 attribute_count = static_cast<uint32>(layout.elements.size());
+        for (uint32 attribute_index = 0U; attribute_index < attribute_count; ++attribute_index)
+        {
+            const auto& attribute = layout.elements[static_cast<size>(attribute_index)];
+            if (attribute.debug_name != vertex_attribute_position_debug_name)
+                continue;
+            if (get_vertex_data_count(attribute.type) != 3
+                || get_vertex_data_size(attribute.type) != static_cast<int32>(sizeof(float) * 3U))
+                continue;
+
+            out_offset_bytes = attribute.offset;
+            return true;
+        }
+
+        return false;
+    }
+
+    static float get_max_scale_component(const Vec3& scale)
+    {
+        return std::max(std::abs(scale.x), std::max(std::abs(scale.y), std::abs(scale.z)));
+    }
+
     bool try_compute_mesh_bounds(const Mesh& mesh, MeshBounds& out_bounds)
     {
         out_bounds = {};
@@ -15,10 +44,7 @@ namespace tbx
 
         uint32 stride_bytes = 0U;
         uint32 position_offset_bytes = 0U;
-        if (!internal::try_get_position_attribute(
-                mesh.vertices.layout,
-                stride_bytes,
-                position_offset_bytes))
+        if (!try_get_position_attribute(mesh.vertices.layout, stride_bytes, position_offset_bytes))
             return false;
 
         if (stride_bytes == 0U || (stride_bytes % static_cast<uint32>(sizeof(float))) != 0U
@@ -95,7 +121,7 @@ namespace tbx
     {
         const Mat4 model_to_world = build_transform_matrix(transform);
         const Vec4 transformed_center = model_to_world * Vec4(local_sphere.center, 1.0F);
-        const float max_scale = internal::get_max_scale_component(transform.scale);
+        const float max_scale = get_max_scale_component(transform.scale);
         return Sphere {
             .center = Vec3(transformed_center),
             .radius = local_sphere.radius * max_scale,

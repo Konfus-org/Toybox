@@ -9,6 +9,13 @@ def make_value_expression(argument: str) -> str:
     return f"value.{argument}"
 
 
+def emit_single_hash_return(argument: str) -> str:
+    expression = make_value_expression(argument)
+    if "$" in argument:
+        return f"        return static_cast<::size>({expression});"
+    return f"        return static_cast<::size>(std::hash<decltype({expression})>()({expression}));"
+
+
 def emit_hash(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
     if attr is None:
@@ -24,7 +31,7 @@ def emit_hash(type_info: SerializableType) -> list[str]:
             "{",
             f"    ::size operator()(const {qualified}& value) const",
             "    {",
-            f"        return static_cast<::size>(std::hash<decltype({make_value_expression(attr.args[0])})>()({make_value_expression(attr.args[0])}));",
+            emit_single_hash_return(attr.args[0]),
             "    }",
             "};",
             "",

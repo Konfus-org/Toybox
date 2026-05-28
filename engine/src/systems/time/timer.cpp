@@ -1,5 +1,4 @@
 #include "tbx/systems/time/timer.h"
-#include <utility>
 
 namespace tbx
 {

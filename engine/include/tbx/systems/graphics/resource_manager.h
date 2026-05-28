@@ -159,7 +159,7 @@ namespace tbx
             uint64 byte_size) const;
 
       private:
-        struct Impl;
-        std::unique_ptr<Impl> _impl = {};
+        struct State;
+        std::unique_ptr<State> _state = {};
     };
 }

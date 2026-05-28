@@ -23,6 +23,7 @@ namespace tbx
       public:
         DeltaTimer();
 
+      public:
         // Resets internal state and starts timing from now
         void reset();
 

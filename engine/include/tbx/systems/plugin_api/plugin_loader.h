@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-
 namespace tbx
 {
     // Returns true when the path matches the platform-specific plugin library filename pattern.
@@ -18,6 +17,12 @@ namespace tbx
     TBX_API std::filesystem::path resolve_plugin_library_path(
         const PluginMeta& meta,
         IFileOps& file_ops);
+
+    // Queries metadata from a plugin library without creating the plugin instance.
+    TBX_API bool try_query_plugin_meta_from_library(
+        const std::filesystem::path& library_path,
+        IFileOps& file_ops,
+        PluginMeta& out_meta);
 
     // Scans 'directory' for plugin libraries (e.g. `*.dll`, `*.so`),
     // skips any `resources/` subtree, filters by requested IDs,

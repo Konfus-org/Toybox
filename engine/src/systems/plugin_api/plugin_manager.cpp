@@ -1,6 +1,4 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
-#include "systems/plugin_api/internal/plugin_loader_internal.h"
-#include "systems/plugin_api/internal/plugin_manager_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
@@ -10,13 +8,56 @@
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
-#include <algorithm>
 #include <ctime>
-#include <limits>
-#include <unordered_set>
-#include <utility>
+
 namespace tbx
 {
+    static constexpr size invalid_plugin_index = std::numeric_limits<size>::max();
+
+    static bool plugin_manager_path_contains_directory_token(
+        const std::filesystem::path& path,
+        std::string_view directory_name_lowered)
+    {
+        if (directory_name_lowered.empty())
+            return false;
+
+        for (const auto& part : path)
+        {
+            if (to_lower(part.string()) == directory_name_lowered)
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool plugin_depends_on_name(const LoadedPlugin& plugin, const std::string& lowered_name)
+    {
+        for (const auto& dependency : plugin.meta.dependencies)
+        {
+            if (to_lower(trim(dependency)) == lowered_name)
+                return true;
+        }
+
+        return false;
+    }
+
+    static void ensure_physics_service_registered(ServiceProvider& service_provider)
+    {
+        if (service_provider.has_service<Physics>())
+            return;
+
+        auto physics_backend = service_provider.try_get_service<IPhysicsBackend>().lock();
+        auto asset_manager = service_provider.get_service<AssetManager>().lock();
+        auto settings = service_provider.get_service<AppSettings>().lock();
+        if (!physics_backend || !asset_manager || !settings)
+            return;
+
+        service_provider.register_service<Physics>(std::make_unique<Physics>(
+            service_provider.try_get_service<IPhysicsBackend>(),
+            service_provider.try_get_service<AssetManager>(),
+            service_provider.try_get_service<AppSettings>()));
+    }
+
     PluginManager::PluginManager(
         ServiceProvider& service_provider,
         std::shared_ptr<IFileOps> file_ops)
@@ -66,7 +107,7 @@ namespace tbx
                 .filter =
                     [](const std::filesystem::path& path)
                 {
-                    if (internal::plugin_manager_path_contains_directory_token(path, "resources"))
+                    if (plugin_manager_path_contains_directory_token(path, "resources"))
                         return false;
                     return is_plugin_library_path(path);
                 },
@@ -89,12 +130,12 @@ namespace tbx
         }
 #endif
 
-        internal::ensure_physics_service_registered(_service_provider);
+        ensure_physics_service_registered(_service_provider);
 
         _loaded.push_back(std::move(loaded_plugin));
         _loaded.back().attach(_service_provider);
 
-        internal::ensure_physics_service_registered(_service_provider);
+        ensure_physics_service_registered(_service_provider);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
@@ -148,7 +189,7 @@ namespace tbx
 
                 for (const auto& name : queued_names)
                 {
-                    if (!internal::plugin_depends_on_name(plugin, name))
+                    if (!plugin_depends_on_name(plugin, name))
                         continue;
 
                     names_to_unload.insert(current_name);
@@ -266,13 +307,13 @@ namespace tbx
         };
 
         const auto changed_path = _file_ops->resolve(change.path).lexically_normal();
-        if (internal::plugin_manager_path_contains_directory_token(changed_path, "resources"))
+        if (plugin_manager_path_contains_directory_token(changed_path, "resources"))
             return;
 
         if (!is_plugin_library_path(changed_path))
             return;
 
-        size existing_index = internal::invalid_plugin_index;
+        size existing_index = invalid_plugin_index;
         for (size index = 0; index < static_cast<size>(_loaded.size()); ++index)
         {
             const auto library_path =
@@ -287,7 +328,7 @@ namespace tbx
 
         if (change.type == FileWatchChangeType::REMOVED)
         {
-            if (existing_index != internal::invalid_plugin_index)
+            if (existing_index != invalid_plugin_index)
             {
                 if (mark_processed_or_skip(_loaded[existing_index].meta.name))
                     return;
@@ -297,9 +338,9 @@ namespace tbx
         }
 
         auto meta = PluginMeta {};
-        if (!internal::try_query_plugin_meta_from_library(changed_path, *_file_ops, meta))
+        if (!try_query_plugin_meta_from_library(changed_path, *_file_ops, meta))
         {
-            if (existing_index != internal::invalid_plugin_index)
+            if (existing_index != invalid_plugin_index)
             {
                 if (mark_processed_or_skip(_loaded[existing_index].meta.name))
                     return;
@@ -308,7 +349,7 @@ namespace tbx
             return;
         }
 
-        if (existing_index != internal::invalid_plugin_index
+        if (existing_index != invalid_plugin_index
             && to_lower(_loaded[existing_index].meta.name) != to_lower(meta.name))
         {
             if (mark_processed_or_skip(_loaded[existing_index].meta.name))

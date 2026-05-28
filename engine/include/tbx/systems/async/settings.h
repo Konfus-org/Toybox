@@ -3,7 +3,8 @@
 
 namespace tbx
 {
-
+    // TODO: Remove and just pass this inline where its needed, its two wrapper classes for ONE
+    // setting
     /// @brief
     /// Purpose: Stores asynchronous runtime configuration for the application.
     /// @details

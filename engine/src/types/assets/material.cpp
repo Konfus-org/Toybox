@@ -1,13 +1,61 @@
 #include "tbx/types/assets/material.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/components/material_instance.h"
-#include "types/assets/internal/material_internal.h"
-#include <string>
-#include <type_traits>
-#include <variant>
 
 namespace tbx
 {
+    static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_id(
+        std::vector<MaterialParameter>& values,
+        const uint32 id)
+    {
+        for (auto& value : values)
+        {
+            if (value.id == id)
+                return std::ref(value);
+        }
+
+        return std::nullopt;
+    }
+
+    static std::optional<std::reference_wrapper<const MaterialParameter>> try_get_uniform_by_id(
+        const std::vector<MaterialParameter>& values,
+        const uint32 id)
+    {
+        for (const auto& value : values)
+        {
+            if (value.id == id)
+                return std::cref(value);
+        }
+
+        return std::nullopt;
+    }
+
+    static std::optional<std::reference_wrapper<MaterialTextureBinding>> try_get_texture_by_id(
+        std::vector<MaterialTextureBinding>& values,
+        const uint32 id)
+    {
+        for (auto& texture : values)
+        {
+            if (texture.id == id)
+                return std::ref(texture);
+        }
+
+        return std::nullopt;
+    }
+
+    static std::optional<std::reference_wrapper<const MaterialTextureBinding>> try_get_texture_by_id(
+        const std::vector<MaterialTextureBinding>& values,
+        const uint32 id)
+    {
+        for (const auto& texture : values)
+        {
+            if (texture.id == id)
+                return std::cref(texture);
+        }
+
+        return std::nullopt;
+    }
+
     MaterialParameter::MaterialParameter(uint32 parameter_id, MaterialParameterData parameter_data)
         : id(parameter_id)
         , data(std::move(parameter_data))
@@ -43,7 +91,7 @@ namespace tbx
 
     void MaterialParameterBindings::set(const uint32 id, MaterialParameterData value)
     {
-        auto parameter = internal::try_get_uniform_by_id(values, id);
+        auto parameter = try_get_uniform_by_id(values, id);
         if (parameter.has_value())
         {
             parameter->get().data = std::move(value);
@@ -58,7 +106,7 @@ namespace tbx
         const uint32 id = parameter.id == INVALID_MATERIAL_PARAM_ID && !parameter.name.empty()
                               ? make_param_id(parameter.name)
                               : parameter.id;
-        auto existing_parameter = internal::try_get_uniform_by_id(values, id);
+        auto existing_parameter = try_get_uniform_by_id(values, id);
         if (existing_parameter.has_value())
         {
             existing_parameter->get().name = std::move(parameter.name);
@@ -91,13 +139,13 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialParameter>> MaterialParameterBindings::get(
         const uint32 id)
     {
-        return internal::try_get_uniform_by_id(values, id);
+        return try_get_uniform_by_id(values, id);
     }
 
     std::optional<std::reference_wrapper<const MaterialParameter>> MaterialParameterBindings::get(
         const uint32 id) const
     {
-        return internal::try_get_uniform_by_id(values, id);
+        return try_get_uniform_by_id(values, id);
     }
 
     bool MaterialParameterBindings::has(std::string_view name) const
@@ -172,7 +220,7 @@ namespace tbx
 
     void MaterialTextureBindings::set(const uint32 id, Handle texture)
     {
-        auto entry = internal::try_get_texture_by_id(values, id);
+        auto entry = try_get_texture_by_id(values, id);
         if (entry.has_value())
         {
             entry->get().texture = std::move(texture);
@@ -188,7 +236,7 @@ namespace tbx
             texture_binding.id == INVALID_MATERIAL_PARAM_ID && !texture_binding.name.empty()
                 ? make_param_id(texture_binding.name)
                 : texture_binding.id;
-        auto existing_texture = internal::try_get_texture_by_id(values, id);
+        auto existing_texture = try_get_texture_by_id(values, id);
         if (existing_texture.has_value())
         {
             existing_texture->get().name = std::move(texture_binding.name);
@@ -222,13 +270,13 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialTextureBinding>> MaterialTextureBindings::get(
         const uint32 id)
     {
-        return internal::try_get_texture_by_id(values, id);
+        return try_get_texture_by_id(values, id);
     }
 
     std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::
         get(const uint32 id) const
     {
-        return internal::try_get_texture_by_id(values, id);
+        return try_get_texture_by_id(values, id);
     }
 
     bool MaterialTextureBindings::has(std::string_view name) const

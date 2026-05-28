@@ -1,12 +1,243 @@
 #pragma once
-#include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 
 namespace tbx
 {
+    struct AssetManager::StoreReloadResult
+    {
+        bool attempted = false;
+        bool succeeded = true;
+    };
+
+    struct AssetManager::IStore
+    {
+        virtual ~IStore() = default;
+        virtual std::string_view get_asset_type_name() const = 0;
+        virtual void erase(Uuid asset_id) = 0;
+        virtual StoreReloadResult reload(
+            const AssetRegistryEntry& entry,
+            std::chrono::steady_clock::time_point timestamp,
+            const SerializationRegistry& serialization_registry) = 0;
+        virtual uint unload_unreferenced(
+            std::chrono::steady_clock::time_point timestamp,
+            std::chrono::steady_clock::duration idle_grace) = 0;
+        virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
+    };
+
+    struct AssetManager::State
+    {
+        State(
+            std::weak_ptr<IMessageDispatcher> message_dispatcher,
+            std::weak_ptr<SerializationRegistry> registry)
+            : dispatcher(std::move(message_dispatcher))
+            , serialization_registry(std::move(registry))
+        {
+        }
+
+        // Asset loaders can synchronously re-enter AssetManager APIs on the same thread.
+        mutable std::recursive_mutex mutex = {};
+        std::weak_ptr<IMessageDispatcher> dispatcher = {};
+        std::weak_ptr<SerializationRegistry> serialization_registry = {};
+        std::shared_ptr<IFileOps> file_ops = nullptr;
+        std::unique_ptr<AssetRegistry> registry = {};
+        std::unordered_map<std::type_index, std::unique_ptr<IStore>> stores = {};
+        std::vector<std::unique_ptr<FileWatcher>> file_watchers = {};
+        double unload_elapsed_seconds = 0.0;
+    };
+
     template <typename TAsset>
-    static void warn_if_asset_metadata_is_invalid(
-        const AssetRecord<TAsset>& asset_record,
+        requires std::derived_from<TAsset, Asset>
+    struct AssetManager::Record
+    {
+        std::shared_ptr<TAsset> asset = {};
+        std::string normalized_path = {};
+        bool is_pinned = false;
+        AssetStreamState stream_state = AssetStreamState::UNLOADED;
+        std::chrono::steady_clock::time_point last_access = {};
+        Uuid asset_id = {};
+        std::shared_future<Result> pending_load = {};
+        AssetLoadParameters<TAsset> load_parameters = {};
+        bool has_load_parameters = false;
+    };
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    struct AssetManager::Store final : IStore
+    {
+        std::unordered_map<Uuid, Record<TAsset>> records = {};
+
+        void erase(Uuid asset_id) override
+        {
+            records.erase(asset_id);
+        }
+
+        std::string_view get_asset_type_name() const override
+        {
+            return typeid(TAsset).name();
+        }
+
+        StoreReloadResult reload(
+            const AssetRegistryEntry& entry,
+            const std::chrono::steady_clock::time_point timestamp,
+            const SerializationRegistry& serialization_registry) override
+        {
+            auto iterator = records.find(entry.asset_id);
+            if (iterator == records.end())
+            {
+                return {};
+            }
+
+            auto& record = iterator->second;
+            auto parameters = record.has_load_parameters ? record.load_parameters
+                                                         : AssetLoadParameters<TAsset> {};
+            auto promise =
+                serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
+            populate_loaded_asset_data<TAsset>(promise.asset);
+            if (promise.asset)
+                promise.asset->id = entry.asset_id;
+            record.asset = std::move(promise.asset);
+            record.pending_load = promise.promise;
+            record.load_parameters = parameters;
+            record.has_load_parameters = true;
+            record.stream_state =
+                record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
+            record.last_access = timestamp;
+            if (record.stream_state == AssetStreamState::LOADING && record.pending_load.valid())
+            {
+                if (record.pending_load.wait_for(std::chrono::seconds(0))
+                    == std::future_status::ready)
+                {
+                    record.stream_state =
+                        record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+                    record.pending_load = {};
+                }
+            }
+
+            return {
+                .attempted = true,
+                .succeeded = record.asset != nullptr,
+            };
+        }
+
+        uint unload_unreferenced(
+            const std::chrono::steady_clock::time_point timestamp,
+            const std::chrono::steady_clock::duration idle_grace) override
+        {
+            uint unloaded_count = 0U;
+            for (auto& entry : records)
+            {
+                auto& record = entry.second;
+                if (record.is_pinned || !record.asset || record.asset.use_count() > 1)
+                    continue;
+
+                if (idle_grace > std::chrono::steady_clock::duration::zero()
+                    && timestamp - record.last_access < idle_grace)
+                    continue;
+
+                record.asset.reset();
+                record.stream_state = AssetStreamState::UNLOADED;
+                unloaded_count += 1U;
+            }
+            return unloaded_count;
+        }
+
+        void set_pinned(Uuid asset_id, bool is_pinned) override
+        {
+            auto iterator = records.find(asset_id);
+            if (iterator == records.end())
+                return;
+
+            iterator->second.is_pinned = is_pinned;
+        }
+    };
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    bool AssetManager::asset_load_parameters_match(
+        const Record<TAsset>& record,
+        const AssetLoadParameters<TAsset>& parameters)
+    {
+        return record.has_load_parameters && record.load_parameters == parameters;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    void AssetManager::store_asset_load_parameters(
+        Record<TAsset>& record,
+        const AssetLoadParameters<TAsset>& parameters)
+    {
+        record.load_parameters = parameters;
+        record.has_load_parameters = true;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    void AssetManager::populate_loaded_asset_data(const std::shared_ptr<TAsset>&)
+    {
+    }
+
+    template <>
+    inline void AssetManager::populate_loaded_asset_data<Model>(const std::shared_ptr<Model>& asset)
+    {
+        if (!asset)
+            return;
+
+        for (auto& mesh : asset->meshes)
+            update_mesh_bounds(mesh);
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    AssetUsage AssetManager::build_asset_usage(const Record<TAsset>& record)
+    {
+        AssetUsage usage = {};
+        if (record.asset)
+        {
+            const auto count = record.asset.use_count();
+            usage.ref_count = count <= 1 ? 0U : static_cast<uint>(count - 1);
+        }
+        usage.is_pinned = record.is_pinned;
+        usage.stream_state = record.stream_state;
+        usage.last_access = record.last_access;
+        return usage;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    void AssetManager::update_asset_stream_state(Record<TAsset>& record)
+    {
+        if (record.stream_state != AssetStreamState::LOADING)
+        {
+            return;
+        }
+        if (!record.pending_load.valid())
+        {
+            return;
+        }
+        using namespace std::chrono_literals;
+        if (record.pending_load.wait_for(0s) == std::future_status::ready)
+        {
+            record.stream_state =
+                record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
+            record.pending_load = {};
+        }
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    bool AssetManager::is_asset_record_referenced(const Record<TAsset>& record)
+    {
+        if (!record.asset)
+        {
+            return false;
+        }
+        return record.asset.use_count() > 1;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    void AssetManager::warn_if_asset_metadata_is_invalid(
+        const Record<TAsset>& asset_record,
         const AssetLoadMetadata& metadata)
     {
         if (metadata.id.is_valid() || metadata.version != 0U)
@@ -22,13 +253,115 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
+    std::optional<std::reference_wrapper<AssetManager::Store<TAsset>>> AssetManager::
+        get_asset_store(
+            std::unordered_map<std::type_index, std::unique_ptr<IStore>>& stores,
+            bool create_if_missing)
+    {
+        auto type_key = std::type_index(typeid(TAsset));
+        auto iterator = stores.find(type_key);
+        if (iterator != stores.end())
+        {
+            return std::ref(static_cast<Store<TAsset>&>(*iterator->second));
+        }
+        if (!create_if_missing)
+        {
+            return std::nullopt;
+        }
+
+        auto store = std::make_unique<Store<TAsset>>();
+        auto [inserted, was_inserted] = stores.emplace(type_key, std::move(store));
+        static_cast<void>(was_inserted);
+        return std::ref(static_cast<Store<TAsset>&>(*inserted->second));
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    std::optional<std::reference_wrapper<const AssetManager::Store<TAsset>>> AssetManager::
+        get_asset_store(const std::unordered_map<std::type_index, std::unique_ptr<IStore>>& stores)
+    {
+        auto type_key = std::type_index(typeid(TAsset));
+        auto iterator = stores.find(type_key);
+        if (iterator == stores.end())
+        {
+            return std::nullopt;
+        }
+
+        return std::cref(static_cast<const Store<TAsset>&>(*iterator->second));
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    std::optional<std::reference_wrapper<AssetManager::Record<TAsset>>> AssetManager::
+        get_asset_record(
+            Store<TAsset>& store,
+            const AssetRegistryEntry& entry,
+            bool create_if_missing)
+    {
+        auto iterator = store.records.find(entry.asset_id);
+        if (iterator != store.records.end())
+        {
+            return std::ref(iterator->second);
+        }
+        if (!create_if_missing)
+        {
+            return std::nullopt;
+        }
+
+        Record<TAsset> record = {};
+        record.normalized_path = entry.normalized_path;
+        record.asset_id = entry.asset_id;
+        auto [inserted, was_inserted] = store.records.emplace(entry.asset_id, std::move(record));
+        static_cast<void>(was_inserted);
+        return std::ref(inserted->second);
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    std::optional<std::reference_wrapper<AssetManager::Record<TAsset>>> AssetManager::
+        get_asset_record(AssetRegistry& registry, Store<TAsset>& store, const Handle& handle)
+    {
+        auto entry = registry.find_entry(handle);
+        if (!entry.has_value() || !entry->get().asset_id.is_valid())
+        {
+            return std::nullopt;
+        }
+
+        return get_asset_record<TAsset>(store, entry->get());
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    std::optional<std::reference_wrapper<const AssetManager::Record<TAsset>>> AssetManager::
+        get_asset_record(
+            const AssetRegistry& registry,
+            const Store<TAsset>& store,
+            const Handle& handle)
+    {
+        auto entry = registry.find_entry(handle);
+        if (!entry.has_value() || !entry->get().asset_id.is_valid())
+        {
+            return std::nullopt;
+        }
+
+        auto iterator = store.records.find(entry->get().asset_id);
+        if (iterator == store.records.end())
+        {
+            return std::nullopt;
+        }
+
+        return std::cref(iterator->second);
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     std::shared_ptr<TAsset> AssetManager::load(
         const Handle& handle,
         const AssetLoadParameters<TAsset>& parameters)
     {
         auto now = std::chrono::steady_clock::now();
-        std::lock_guard lock(_mutex);
-        const auto ensure_result = _registry->ensure_entry(handle);
+        std::lock_guard lock(_state->mutex);
+        const auto ensure_result = _state->registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -44,9 +377,9 @@ namespace tbx
         }
         const auto& entry = ensure_result.entry->get();
 
-        auto store = get_store<TAsset>(true);
+        auto store = get_asset_store<TAsset>(_state->stores, true);
         auto record =
-            store.has_value() ? get_record<TAsset>(store->get(), entry, true) : std::nullopt;
+            store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;
         if (!record.has_value())
         {
             return {};
@@ -62,11 +395,10 @@ namespace tbx
                 asset_record.asset_id,
                 typeid(TAsset).name());
             asset_record.stream_state = AssetStreamState::LOADING;
+            const auto serialization_registry = lock_serialization_registry();
             auto read_result =
-                get_serialization_registry().can_read<TAsset>()
-                    ? get_serialization_registry().read_result<TAsset>(
-                          entry.resolved_path,
-                          parameters)
+                serialization_registry && serialization_registry->can_read<TAsset>()
+                    ? serialization_registry->read_result<TAsset>(entry.resolved_path, parameters)
                     : AssetReadResult<TAsset> {
                           .asset = {},
                           .result = Result(false, "Serialization loader is not registered."),
@@ -108,20 +440,20 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     AssetUsage AssetManager::get_usage(const Handle& handle) const
     {
-        std::lock_guard lock(_mutex);
-        auto store = get_store<TAsset>();
+        std::lock_guard lock(_state->mutex);
+        auto store = get_asset_store<TAsset>(_state->stores);
         if (!store.has_value())
         {
             return {};
         }
 
-        auto record = get_record<TAsset>(store->get(), handle);
+        auto record = get_asset_record<TAsset>(*_state->registry, store->get(), handle);
         if (!record.has_value())
         {
             return {};
         }
 
-        auto& asset_record = const_cast<AssetRecord<TAsset>&>(record->get());
+        auto& asset_record = const_cast<Record<TAsset>&>(record->get());
         update_asset_stream_state(asset_record);
         return build_asset_usage(asset_record);
     }
@@ -130,15 +462,15 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     std::vector<std::shared_ptr<TAsset>> AssetManager::get_loaded() const
     {
-        std::lock_guard lock(_mutex);
-        auto store = get_store<TAsset>();
+        std::lock_guard lock(_state->mutex);
+        auto store = get_asset_store<TAsset>(_state->stores);
         if (!store.has_value())
             return {};
 
         auto assets = std::vector<std::shared_ptr<TAsset>> {};
         for (auto& record_entry : store->get().records)
         {
-            auto& asset_record = const_cast<AssetRecord<TAsset>&>(record_entry.second);
+            auto& asset_record = const_cast<Record<TAsset>&>(record_entry.second);
             update_asset_stream_state(asset_record);
             if (!asset_record.asset)
                 continue;
@@ -160,9 +492,9 @@ namespace tbx
         const AssetLoadParameters<TAsset>& parameters)
     {
         auto now = std::chrono::steady_clock::now();
-        std::lock_guard lock(_mutex);
+        std::lock_guard lock(_state->mutex);
         AssetPromise<TAsset> result = {};
-        const auto ensure_result = _registry->ensure_entry(handle);
+        const auto ensure_result = _state->registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -178,9 +510,9 @@ namespace tbx
         }
         const auto& entry = ensure_result.entry->get();
 
-        auto store = get_store<TAsset>(true);
+        auto store = get_asset_store<TAsset>(_state->stores, true);
         auto record =
-            store.has_value() ? get_record<TAsset>(store->get(), entry, true) : std::nullopt;
+            store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;
         if (!record.has_value())
         {
             return result;
@@ -201,9 +533,10 @@ namespace tbx
             asset_record.normalized_path,
             asset_record.asset_id,
             typeid(TAsset).name());
+        const auto serialization_registry = lock_serialization_registry();
         auto promise =
-            get_serialization_registry().can_read<TAsset>()
-                ? get_serialization_registry().read_async<TAsset>(entry.resolved_path, parameters)
+            serialization_registry && serialization_registry->can_read<TAsset>()
+                ? serialization_registry->read_async<TAsset>(entry.resolved_path, parameters)
                 : AssetPromise<TAsset>();
         if (!promise.asset)
         {
@@ -234,14 +567,14 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     bool AssetManager::unload(const Handle& handle, bool force)
     {
-        std::lock_guard lock(_mutex);
-        auto store = get_store<TAsset>();
+        std::lock_guard lock(_state->mutex);
+        auto store = get_asset_store<TAsset>(_state->stores);
         if (!store.has_value())
         {
             return false;
         }
 
-        auto record = get_record<TAsset>(store->get(), handle);
+        auto record = get_asset_record<TAsset>(*_state->registry, store->get(), handle);
         if (!record.has_value())
         {
             return false;
@@ -268,8 +601,8 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     bool AssetManager::reload(const Handle& handle)
     {
-        std::lock_guard lock(_mutex);
-        const auto ensure_result = _registry->ensure_entry(handle);
+        std::lock_guard lock(_state->mutex);
+        const auto ensure_result = _state->registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -285,16 +618,18 @@ namespace tbx
         }
         const auto& entry = ensure_result.entry->get();
 
-        auto store = get_store<TAsset>(true);
+        auto store = get_asset_store<TAsset>(_state->stores, true);
         if (!store.has_value())
         {
             return false;
         }
 
-        const auto reload_result = store->get().reload(
-            entry,
-            std::chrono::steady_clock::now(),
-            get_serialization_registry());
+        const auto serialization_registry = lock_serialization_registry();
+        if (!serialization_registry)
+            return false;
+
+        const auto reload_result =
+            store->get().reload(entry, std::chrono::steady_clock::now(), *serialization_registry);
         if (reload_result.attempted)
         {
             TBX_TRACE_INFO(
@@ -312,102 +647,5 @@ namespace tbx
             }
         }
         return reload_result.attempted && reload_result.succeeded;
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    std::optional<std::reference_wrapper<AssetStore<TAsset>>> AssetManager::get_store(
-        bool create_if_missing)
-    {
-        auto type_key = std::type_index(typeid(TAsset));
-        auto iterator = _stores.find(type_key);
-        if (iterator != _stores.end())
-        {
-            return std::ref(static_cast<AssetStore<TAsset>&>(*iterator->second));
-        }
-        if (!create_if_missing)
-        {
-            return std::nullopt;
-        }
-
-        auto store = std::make_unique<AssetStore<TAsset>>();
-        auto [inserted, was_inserted] = _stores.emplace(type_key, std::move(store));
-        static_cast<void>(was_inserted);
-        return std::ref(static_cast<AssetStore<TAsset>&>(*inserted->second));
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    std::optional<std::reference_wrapper<const AssetStore<TAsset>>> AssetManager::get_store() const
-    {
-        auto type_key = std::type_index(typeid(TAsset));
-        auto iterator = _stores.find(type_key);
-        if (iterator == _stores.end())
-        {
-            return std::nullopt;
-        }
-
-        return std::cref(static_cast<const AssetStore<TAsset>&>(*iterator->second));
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    std::optional<std::reference_wrapper<AssetRecord<TAsset>>> AssetManager::get_record(
-        AssetStore<TAsset>& store,
-        const AssetRegistryEntry& entry,
-        bool create_if_missing)
-    {
-        auto iterator = store.records.find(entry.asset_id);
-        if (iterator != store.records.end())
-        {
-            return std::ref(iterator->second);
-        }
-        if (!create_if_missing)
-        {
-            return std::nullopt;
-        }
-
-        AssetRecord<TAsset> record = {};
-        record.normalized_path = entry.normalized_path;
-        record.asset_id = entry.asset_id;
-        auto [inserted, was_inserted] = store.records.emplace(entry.asset_id, std::move(record));
-        static_cast<void>(was_inserted);
-        return std::ref(inserted->second);
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    std::optional<std::reference_wrapper<AssetRecord<TAsset>>> AssetManager::get_record(
-        AssetStore<TAsset>& store,
-        const Handle& handle)
-    {
-        auto entry = _registry->find_entry(handle);
-        if (!entry.has_value() || !entry->get().asset_id.is_valid())
-        {
-            return std::nullopt;
-        }
-
-        return get_record(store, entry->get());
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    std::optional<std::reference_wrapper<const AssetRecord<TAsset>>> AssetManager::get_record(
-        const AssetStore<TAsset>& store,
-        const Handle& handle) const
-    {
-        auto entry = _registry->find_entry(handle);
-        if (!entry.has_value() || !entry->get().asset_id.is_valid())
-        {
-            return std::nullopt;
-        }
-
-        auto iterator = store.records.find(entry->get().asset_id);
-        if (iterator == store.records.end())
-        {
-            return std::nullopt;
-        }
-
-        return std::cref(iterator->second);
     }
 }

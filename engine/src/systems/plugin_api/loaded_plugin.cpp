@@ -1,7 +1,5 @@
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/debugging/macros.h"
-#include <string>
-#include <utility>
 
 namespace tbx
 {

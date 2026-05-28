@@ -11,6 +11,8 @@
 namespace tbx
 {
     [[tbx::serializable]];
+    // TODO: Support putting props in parent classes and don't do it here also support private
+    // props.
     [[tbx::prop(id)]];
     class TBX_API Camera : public Component
     {
@@ -51,13 +53,6 @@ namespace tbx
         float _fov = 60.0f;
         float _aspect = 1.78f;
     };
-
-    // _render_target,
-    // _viewport,
-    // _z_near,
-    // _z_far,
-    // _fov,
-    // _aspect)
 }
 
 #include "tbx/types/components/camera.generated.h"

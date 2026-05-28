@@ -1,5 +1,4 @@
 #include "tbx/types/components/collider.h"
-#include <utility>
 
 namespace tbx
 {

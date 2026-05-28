@@ -12,7 +12,6 @@
 #include <utility>
 #include <vector>
 
-
 namespace tbx
 {
     /// @brief
@@ -36,14 +35,18 @@ namespace tbx
     {
       public:
         using Job = std::move_only_function<void()>;
+
+      public:
         JobSystem(const JobSystemConfiguration& configuration = {});
         ~JobSystem() noexcept;
 
+      public:
         JobSystem(const JobSystem&) = delete;
         JobSystem& operator=(const JobSystem&) = delete;
         JobSystem(JobSystem&&) = delete;
         JobSystem& operator=(JobSystem&&) = delete;
 
+      public:
         /// @brief
         /// Purpose: Enqueues a fire-and-forget job for asynchronous execution.
         /// @details

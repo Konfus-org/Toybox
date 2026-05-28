@@ -1,5 +1,4 @@
 #include "tbx/systems/physics/settings.h"
-#include <cmath>
 
 namespace tbx
 {

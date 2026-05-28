@@ -12,6 +12,7 @@
 namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
+
     enum class LoadedPluginState
     {
         UNATTACHED,

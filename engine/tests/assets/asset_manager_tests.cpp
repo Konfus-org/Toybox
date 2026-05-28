@@ -314,15 +314,15 @@ namespace tbx::tests::assets
 {
     using InMemoryFileOps = ::tbx::tests::InMemoryFileOps;
 
-    static IMessageDispatcher& get_null_dispatcher()
+    static std::shared_ptr<IMessageDispatcher> get_null_dispatcher()
     {
-        static NullMessageDispatcher dispatcher = {};
+        static auto dispatcher = std::make_shared<NullMessageDispatcher>();
         return dispatcher;
     }
 
-    static SerializationRegistry& get_test_serialization_registry()
+    static std::shared_ptr<SerializationRegistry> get_test_serialization_registry()
     {
-        static SerializationRegistry registry = {};
+        static auto registry = std::make_shared<SerializationRegistry>();
         return registry;
     }
 
@@ -512,7 +512,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         return AssetManager(
             get_null_dispatcher(),
             get_test_serialization_registry(),
@@ -525,7 +525,7 @@ namespace tbx::tests::assets
     static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
     {
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         return AssetManager(
             get_null_dispatcher(),
             get_test_serialization_registry(),
@@ -873,7 +873,7 @@ namespace tbx::tests::assets
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
-        register_reentrant_resolve_asset_loader(get_test_serialization_registry());
+        register_reentrant_resolve_asset_loader(*get_test_serialization_registry());
         AssetManager manager = make_manager(working_directory);
         Handle first_handle("first.asset");
         Handle second_handle("second.asset");
@@ -1189,7 +1189,7 @@ namespace tbx::tests::assets
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
         AssetManager manager = make_manager(working_directory);
-        register_reentrant_resolve_asset_loader(get_test_serialization_registry());
+        register_reentrant_resolve_asset_loader(*get_test_serialization_registry());
         reset_reentrant_resolve_loader_state();
 
         auto& loader_state = get_reentrant_resolve_loader_state();
@@ -1229,7 +1229,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         auto directories = manager.get_directories();
 
         // Assert
@@ -1267,7 +1267,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         auto ensured_id = manager.ensure(Handle("stone.asset"));
         auto resolved_id = manager.resolve(Handle("stone.asset"));
 
@@ -1298,7 +1298,7 @@ namespace tbx::tests::assets
             {"content"},
             {},
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x2U)));
 
         // Assert
@@ -1357,7 +1357,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        CapturingAssetEventDispatcher dispatcher = {};
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
         AssetManager manager(
             dispatcher,
             get_test_serialization_registry(),
@@ -1365,14 +1365,14 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
 
         // Act
         file_ops->write_file("content/created.asset", FileDataFormat::UTF8_TEXT, "created");
 
         // Assert
-        ASSERT_TRUE(dispatcher.wait_for_created_event_count(1U, std::chrono::milliseconds(1500)));
-        const auto events = dispatcher.get_created_events();
+        ASSERT_TRUE(dispatcher->wait_for_created_event_count(1U, std::chrono::milliseconds(1500)));
+        const auto events = dispatcher->get_created_events();
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "created.asset");
@@ -1397,7 +1397,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        CapturingAssetEventDispatcher dispatcher = {};
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
         AssetManager manager(
             dispatcher,
             get_test_serialization_registry(),
@@ -1405,14 +1405,14 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
 
         // Act
         file_ops->touch("content/modified.asset", base_time + std::chrono::seconds(1));
 
         // Assert
-        ASSERT_TRUE(dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
-        const auto events = dispatcher.get_modified_events();
+        ASSERT_TRUE(dispatcher->wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        const auto events = dispatcher->get_modified_events();
         ASSERT_EQ(events.size(), 1U);
         EXPECT_EQ(events[0].watched_path, working_directory / "content");
         EXPECT_EQ(events[0].asset_path, working_directory / "content" / "modified.asset");
@@ -1434,7 +1434,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        CapturingAssetEventDispatcher dispatcher = {};
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
         AssetManager manager(
             dispatcher,
             get_test_serialization_registry(),
@@ -1442,7 +1442,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x95U)));
         ASSERT_NE(asset, nullptr);
@@ -1451,14 +1451,14 @@ namespace tbx::tests::assets
         file_ops->touch("content/reload.asset", base_time + std::chrono::seconds(1));
 
         // Assert
-        ASSERT_TRUE(dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
-        ASSERT_TRUE(dispatcher.wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(dispatcher->wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(dispatcher->wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
 
-        const auto modified_events = dispatcher.get_modified_events();
+        const auto modified_events = dispatcher->get_modified_events();
         ASSERT_EQ(modified_events.size(), 1U);
         EXPECT_EQ(modified_events[0].affected_asset.id, Uuid(0x95U));
 
-        const auto reloaded_events = dispatcher.get_reloaded_events();
+        const auto reloaded_events = dispatcher->get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
         EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x95U));
 
@@ -1482,7 +1482,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        CapturingAssetEventDispatcher dispatcher = {};
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
         AssetManager manager(
             dispatcher,
             get_test_serialization_registry(),
@@ -1490,7 +1490,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         reset_test_asset_loader_state();
         auto asset = manager.load<TestAsset>(Handle(Uuid(0x96U)));
         ASSERT_NE(asset, nullptr);
@@ -1504,10 +1504,10 @@ namespace tbx::tests::assets
         file_ops->touch("content/reload_unloaded.asset", base_time + std::chrono::seconds(1));
 
         // Assert
-        ASSERT_TRUE(dispatcher.wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
-        ASSERT_TRUE(dispatcher.wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(dispatcher->wait_for_modified_event_count(1U, std::chrono::milliseconds(1500)));
+        ASSERT_TRUE(dispatcher->wait_for_reloaded_event_count(1U, std::chrono::milliseconds(1500)));
 
-        const auto reloaded_events = dispatcher.get_reloaded_events();
+        const auto reloaded_events = dispatcher->get_reloaded_events();
         ASSERT_EQ(reloaded_events.size(), 1U);
         EXPECT_EQ(reloaded_events[0].affected_asset.id, Uuid(0x96U));
 
@@ -1533,7 +1533,7 @@ namespace tbx::tests::assets
         {
             return handle_source.try_get(asset_path, out_handle);
         };
-        CapturingAssetEventDispatcher dispatcher = {};
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
         AssetManager manager(
             dispatcher,
             get_test_serialization_registry(),
@@ -1541,7 +1541,7 @@ namespace tbx::tests::assets
             {"content"},
             provider,
             file_ops);
-        register_test_asset_loader(get_test_serialization_registry());
+        register_test_asset_loader(*get_test_serialization_registry());
         auto initial_asset = manager.load<TestAsset>(Handle(Uuid(0x92U)));
         ASSERT_NE(initial_asset, nullptr);
 
@@ -1550,10 +1550,10 @@ namespace tbx::tests::assets
 
         // Assert
         const bool removed_event_observed =
-            dispatcher.wait_for_removed_event_count(1U, std::chrono::milliseconds(1500));
+            dispatcher->wait_for_removed_event_count(1U, std::chrono::milliseconds(1500));
         if (removed_event_observed)
         {
-            const auto events = dispatcher.get_removed_events();
+            const auto events = dispatcher->get_removed_events();
             ASSERT_EQ(events.size(), 1U);
             EXPECT_EQ(events[0].watched_path, working_directory / "content");
             EXPECT_EQ(events[0].asset_path, working_directory / "content" / "removed.asset");

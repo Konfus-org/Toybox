@@ -21,13 +21,13 @@ namespace tbx
     {
       public:
         ServiceProvider() = default;
-        ~ServiceProvider() noexcept = default;
+        ~ServiceProvider() noexcept;
 
       public:
         ServiceProvider(const ServiceProvider&) = delete;
         ServiceProvider& operator=(const ServiceProvider&) = delete;
-        ServiceProvider(ServiceProvider&&) noexcept = default;
-        ServiceProvider& operator=(ServiceProvider&&) noexcept = default;
+        ServiceProvider(ServiceProvider&&) noexcept;
+        ServiceProvider& operator=(ServiceProvider&&) noexcept;
 
       public:
         template <typename TService, typename TImplementation = TService>
@@ -55,25 +55,15 @@ namespace tbx
         void clear();
 
       private:
-        struct ServiceEntryBase
-        {
-            virtual ~ServiceEntryBase() noexcept = default;
-        };
-
+        struct ServiceEntryBase;
         template <typename TService>
-        struct ServiceEntry final : ServiceEntryBase
-        {
-            ServiceEntry(std::unique_ptr<TService> value)
-                : service(std::move(value))
-            {
-            }
-
-            std::shared_ptr<TService> service = nullptr;
-        };
+        struct ServiceEntry;
+        using Entries = std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>>;
 
       private:
-        std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>> _entries = {};
+        Entries _entries = {};
     };
+
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

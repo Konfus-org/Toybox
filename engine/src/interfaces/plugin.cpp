@@ -2,8 +2,6 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/utils/result.h"
-#include <string>
-
 
 namespace tbx
 {
@@ -26,14 +24,14 @@ namespace tbx
         if (!dispatcher)
             return;
 
-        _dispatcher = dispatcher.get();
+        _dispatcher = service_provider.get_service<IMessageCoordinator>();
         on_attach(service_provider);
     }
 
     void Plugin::detach(ServiceProvider& service_provider)
     {
         on_detach(service_provider);
-        _dispatcher = nullptr;
+        _dispatcher = {};
     }
 
     void Plugin::update(const DeltaTime& dt)
@@ -53,8 +51,11 @@ namespace tbx
 
     IMessageDispatcher& Plugin::get_dispatcher() const
     {
-        TBX_ASSERT(_dispatcher, "Plugins must be attached before accessing the dispatcher.");
-        return *_dispatcher;
+        const auto dispatcher = _dispatcher.lock();
+        TBX_ASSERT(
+            dispatcher != nullptr,
+            "Plugins must be attached before accessing the dispatcher.");
+        return *dispatcher;
     }
 
 }

@@ -94,7 +94,7 @@ namespace tbx
         void set_layer(const Uuid& id, const std::string& layer);
 
         mutable std::shared_mutex _mutex = {};
-        std::unique_ptr<entt::registry> _impl = nullptr;
+        std::unique_ptr<entt::registry> _registry = nullptr;
     };
 }
 

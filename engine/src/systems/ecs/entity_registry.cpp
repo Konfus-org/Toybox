@@ -1,14 +1,78 @@
-#include "systems/ecs/internal/entity_registry_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
-#include <format>
-#include <mutex>
 
 namespace tbx
 {
+    using EntityHandle = entt::entity;
+
+    struct EntityNameComponent
+    {
+        std::string value = "";
+    };
+
+    struct EntityTagComponent
+    {
+        std::string value = "";
+    };
+
+    struct EntityLayerComponent
+    {
+        std::string value = "";
+    };
+
+    struct EntityParentComponent
+    {
+        Uuid value = {};
+    };
+
+    static EntityHandle to_entity_handle(const Uuid& id)
+    {
+        if (!id.is_valid())
+            return entt::null;
+
+        return static_cast<EntityHandle>(id.value - 1U);
+    }
+
+    static Uuid to_entity_id(EntityHandle handle)
+    {
+        const auto handle_value = static_cast<uint32>(entt::to_integral(handle));
+        return Uuid(handle_value + 1U);
+    }
+
+    template <typename TComponent, typename TValue>
+    static void set_component_value(entt::registry& registry, const Uuid& id, TValue&& value)
+    {
+        auto entityHandle = to_entity_handle(id);
+        if (!registry.valid(entityHandle))
+            return;
+
+        if (!registry.all_of<TComponent>(entityHandle))
+        {
+            registry.emplace<TComponent>(
+                entityHandle,
+                TComponent {.value = std::forward<TValue>(value)});
+            return;
+        }
+
+        registry.get<TComponent>(entityHandle).value = std::forward<TValue>(value);
+    }
+
+    template <typename TComponent, typename TValue>
+    static TValue get_component_value(const entt::registry& registry, const Uuid& id)
+    {
+        auto entityHandle = to_entity_handle(id);
+        if (!registry.valid(entityHandle))
+            return {};
+
+        if (!registry.all_of<TComponent>(entityHandle))
+            return {};
+
+        return registry.get<TComponent>(entityHandle).value;
+    }
+
     EntityRegistry::EntityRegistry()
-        : _impl(std::make_unique<entt::registry>())
+        : _registry(std::make_unique<entt::registry>())
     {
     }
 
@@ -17,20 +81,20 @@ namespace tbx
     bool EntityRegistry::is_empty() const
     {
         auto guard = std::shared_lock(_mutex);
-        auto view = _impl->view<internal::EntityNameComponent>();
+        auto view = _registry->view<EntityNameComponent>();
         return view.empty();
     }
 
     void EntityRegistry::clear()
     {
         auto guard = std::unique_lock(_mutex);
-        _impl = std::make_unique<entt::registry>();
+        _registry = std::make_unique<entt::registry>();
     }
 
     bool EntityRegistry::has(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        return _impl->valid(internal::to_entity_handle(id));
+        return _registry->valid(to_entity_handle(id));
     }
 
     Uuid EntityRegistry::add(
@@ -40,25 +104,19 @@ namespace tbx
         const Uuid& parent)
     {
         auto guard = std::unique_lock(_mutex);
-        const internal::EntityHandle handle = _impl->create();
-        const auto id = internal::to_entity_id(handle);
+        const EntityHandle handle = _registry->create();
+        const auto id = to_entity_id(handle);
 
         auto resolvedName = name;
         if (resolvedName.empty())
             resolvedName = std::format("{}", id);
 
-        _impl->emplace<internal::EntityNameComponent>(
+        _registry->emplace<EntityNameComponent>(
             handle,
-            internal::EntityNameComponent {.value = resolvedName});
-        _impl->emplace<internal::EntityTagComponent>(
-            handle,
-            internal::EntityTagComponent {.value = tag});
-        _impl->emplace<internal::EntityLayerComponent>(
-            handle,
-            internal::EntityLayerComponent {.value = layer});
-        _impl->emplace<internal::EntityParentComponent>(
-            handle,
-            internal::EntityParentComponent {.value = parent});
+            EntityNameComponent {.value = resolvedName});
+        _registry->emplace<EntityTagComponent>(handle, EntityTagComponent {.value = tag});
+        _registry->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
+        _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
 
         return id;
     }
@@ -74,26 +132,26 @@ namespace tbx
             return add(name, tag, layer, parent);
 
         auto guard = std::unique_lock(_mutex);
-        const internal::EntityHandle handle = internal::to_entity_handle(id);
-        if (!_impl->valid(handle))
-            static_cast<void>(_impl->create(handle));
+        const EntityHandle handle = to_entity_handle(id);
+        if (!_registry->valid(handle))
+            static_cast<void>(_registry->create(handle));
 
         auto resolvedName = name;
         if (resolvedName.empty())
             resolvedName = std::format("{}", id);
 
-        _impl->emplace_or_replace<internal::EntityNameComponent>(
+        _registry->emplace_or_replace<EntityNameComponent>(
             handle,
-            internal::EntityNameComponent {.value = resolvedName});
-        _impl->emplace_or_replace<internal::EntityTagComponent>(
+            EntityNameComponent {.value = resolvedName});
+        _registry->emplace_or_replace<EntityTagComponent>(
             handle,
-            internal::EntityTagComponent {.value = tag});
-        _impl->emplace_or_replace<internal::EntityLayerComponent>(
+            EntityTagComponent {.value = tag});
+        _registry->emplace_or_replace<EntityLayerComponent>(
             handle,
-            internal::EntityLayerComponent {.value = layer});
-        _impl->emplace_or_replace<internal::EntityParentComponent>(
+            EntityLayerComponent {.value = layer});
+        _registry->emplace_or_replace<EntityParentComponent>(
             handle,
-            internal::EntityParentComponent {.value = parent});
+            EntityParentComponent {.value = parent});
 
         return id;
     }
@@ -104,14 +162,14 @@ namespace tbx
         if (!entity._registry.has_value() || &entity._registry->get() != this)
             return;
 
-        auto handle = internal::to_entity_handle(entity._id);
-        if (!_impl->valid(handle))
+        auto handle = to_entity_handle(entity._id);
+        if (!_registry->valid(handle))
         {
             TBX_ASSERT(false, "Attempted to remove a stale entity handle from the registry.");
             return;
         }
 
-        _impl->destroy(handle);
+        _registry->destroy(handle);
         entity._id = {};
         entity._registry = std::nullopt;
     }
@@ -119,7 +177,7 @@ namespace tbx
     Entity EntityRegistry::get(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        if (!_impl->valid(internal::to_entity_handle(id)))
+        if (!_registry->valid(to_entity_handle(id)))
             return {};
 
         auto entity = Entity {};
@@ -132,11 +190,11 @@ namespace tbx
     {
         auto guard = std::shared_lock(_mutex);
         std::vector<Entity> entities = {};
-        auto view = _impl->view<internal::EntityNameComponent>();
+        auto view = _registry->view<EntityNameComponent>();
 
         for (const auto entityHandle : view)
         {
-            auto id = internal::to_entity_id(entityHandle);
+            auto id = to_entity_id(entityHandle);
             auto entity = Entity {};
             entity._id = id;
             entity._registry = std::ref(const_cast<EntityRegistry&>(*this));
@@ -154,9 +212,9 @@ namespace tbx
         auto ids = std::vector<Uuid> {};
         {
             auto guard = std::shared_lock(_mutex);
-            auto view = _impl->view<internal::EntityNameComponent>();
+            auto view = _registry->view<EntityNameComponent>();
             for (const auto entityHandle : view)
-                ids.push_back(internal::to_entity_id(entityHandle));
+                ids.push_back(to_entity_id(entityHandle));
         }
 
         for (const auto& id : ids)
@@ -169,52 +227,48 @@ namespace tbx
     std::string EntityRegistry::get_name(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        return internal::get_component_value<internal::EntityNameComponent, std::string>(
-            *_impl,
-            id);
+        return get_component_value<EntityNameComponent, std::string>(*_registry, id);
     }
 
     void EntityRegistry::set_name(const Uuid& id, const std::string& name)
     {
         auto guard = std::unique_lock(_mutex);
-        internal::set_component_value<internal::EntityNameComponent>(*_impl, id, name);
+        set_component_value<EntityNameComponent>(*_registry, id, name);
     }
 
     std::string EntityRegistry::get_tag(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        return internal::get_component_value<internal::EntityTagComponent, std::string>(*_impl, id);
+        return get_component_value<EntityTagComponent, std::string>(*_registry, id);
     }
 
     void EntityRegistry::set_tag(const Uuid& id, const std::string& tag)
     {
         auto guard = std::unique_lock(_mutex);
-        internal::set_component_value<internal::EntityTagComponent>(*_impl, id, tag);
+        set_component_value<EntityTagComponent>(*_registry, id, tag);
     }
 
     Uuid EntityRegistry::get_parent_id(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        return internal::get_component_value<internal::EntityParentComponent, Uuid>(*_impl, id);
+        return get_component_value<EntityParentComponent, Uuid>(*_registry, id);
     }
 
     void EntityRegistry::set_parent_id(const Uuid& id, const Uuid& parent)
     {
         auto guard = std::unique_lock(_mutex);
-        internal::set_component_value<internal::EntityParentComponent>(*_impl, id, parent);
+        set_component_value<EntityParentComponent>(*_registry, id, parent);
     }
 
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
-        return internal::get_component_value<internal::EntityLayerComponent, std::string>(
-            *_impl,
-            id);
+        return get_component_value<EntityLayerComponent, std::string>(*_registry, id);
     }
 
     void EntityRegistry::set_layer(const Uuid& id, const std::string& layer)
     {
         auto guard = std::unique_lock(_mutex);
-        internal::set_component_value<internal::EntityLayerComponent>(*_impl, id, layer);
+        set_component_value<EntityLayerComponent>(*_registry, id, layer);
     }
 }

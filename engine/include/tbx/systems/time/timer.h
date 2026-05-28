@@ -5,7 +5,6 @@
 #include "tbx/types/typedefs.h"
 #include <functional>
 
-
 namespace tbx
 {
     // Schedules work using accumulated time deltas until the configured TimeSpan expires.
@@ -20,9 +19,15 @@ namespace tbx
         Timer(
             const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
-        Timer(Timer&& other) noexcept;
         ~Timer() noexcept = default;
 
+        // TODO: Do we need a copy constructor? I would think this wouldn't be required as we don't
+        // have anything that needs lifetime transfer right?
+
+      public:
+        Timer(Timer&& other) noexcept;
+
+      public:
         Timer& operator=(const Timer& other);
         Timer& operator=(Timer&& other) noexcept;
 

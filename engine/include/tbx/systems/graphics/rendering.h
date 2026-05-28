@@ -60,9 +60,9 @@ namespace tbx
 
       private:
         void render_frame(const DeltaTime& delta_time);
-
         void wait_for_render_frame() noexcept;
 
+      private:
         std::weak_ptr<ThreadManager> _thread_manager;
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;

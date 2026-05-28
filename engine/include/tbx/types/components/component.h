@@ -43,9 +43,9 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     static bool register_entity_component_type()
     {
-        static_cast<void>(internal::ensure_serializable_type_registered<TComponent>());
+        static_cast<void>(ensure_serializable_type_registered<TComponent>());
 
-        auto type_name = internal::get_serialization_type_name<TComponent>();
+        auto type_name = get_serialization_type_name<TComponent>();
         if (type_name.empty())
             type_name = typeid(TComponent).name();
 
@@ -96,7 +96,7 @@ namespace tbx
 
     template <typename TComponent>
         requires std::derived_from<TComponent, Component>
-    struct internal::SerializableTypeRegistrationHook<TComponent>
+    struct SerializableTypeRegistrationHook<TComponent>
     {
         static bool register_type(const SerializableTypeRegistration& registration)
         {

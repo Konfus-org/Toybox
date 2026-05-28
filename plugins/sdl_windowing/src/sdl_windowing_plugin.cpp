@@ -1,5 +1,4 @@
 #include "tbx/plugins/sdl_windowing/sdl_windowing_plugin.h"
-#include "internal/sdl_windowing_plugin_internal.h"
 #include "sdl_window_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
@@ -9,8 +8,38 @@
 #include <filesystem>
 #include <memory>
 #include <string_view>
+
 namespace sdl_windowing
 {
+    static bool is_wayland_video_driver_for_plugin()
+    {
+        const char* video_driver = SDL_GetCurrentVideoDriver();
+        return video_driver != nullptr && std::string_view(video_driver) == "wayland";
+    }
+
+    static SDL_Surface* try_load_icon_surface(const std::filesystem::path& icon_path)
+    {
+        if (icon_path.empty())
+            return nullptr;
+
+        if (is_wayland_video_driver_for_plugin())
+            return nullptr;
+
+        SDL_ClearError();
+        if (SDL_Surface* icon_surface = SDL_LoadSurface(icon_path.string().c_str()))
+        {
+            TBX_TRACE_INFO("Loaded app icon '{}'.", icon_path.string());
+            return icon_surface;
+        }
+
+        TBX_TRACE_WARNING(
+            "Failed to load app icon '{}'. Error: {}",
+            icon_path.string(),
+            SDL_GetError());
+        SDL_ClearError();
+        return nullptr;
+    }
+
     void SdlWindowingPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
@@ -55,7 +84,9 @@ namespace sdl_windowing
                 return;
 
             service_provider.register_service<tbx::IWindowManager>(
-                std::make_unique<tbx::WindowManager>(*msg_coordinator, *window_backend));
+                std::make_unique<tbx::WindowManager>(
+                    service_provider.get_service<tbx::IMessageCoordinator>(),
+                    _window_backend));
         }
 
         auto asset_manager = service_provider.get_service<tbx::AssetManager>().lock();
@@ -72,7 +103,7 @@ namespace sdl_windowing
             return;
         }
 
-        _window_icon_surface = internal::try_load_icon_surface(icon_path);
+        _window_icon_surface = try_load_icon_surface(icon_path);
         if (auto window_backend_ptr = _window_backend.lock())
             window_backend_ptr->set_icon_surface(_window_icon_surface);
     }

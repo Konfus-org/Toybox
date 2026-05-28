@@ -1,5 +1,4 @@
 #include "tbx/systems/assets/serialization_registry.h"
-#include <utility>
 
 namespace tbx
 {

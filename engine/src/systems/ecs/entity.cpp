@@ -1,17 +1,13 @@
 #include "tbx/systems/ecs/entity.h"
-#include "systems/ecs/internal/entity_internal.h"
-#include "systems/ecs/internal/entity_registry_internal.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/types/uuid.h"
-#include <algorithm>
-#include <cstddef>
-#include <mutex>
 #include <shared_mutex>
-#include <string>
 
-namespace tbx::internal
+namespace tbx
 {
+    using EntityHandle = entt::entity;
+
     struct SerializedEntityPayload
     {
         Uuid id = {};
@@ -60,13 +56,17 @@ namespace tbx::internal
         }
     }
 
-}
+    static EntityHandle to_entity_handle(const Uuid& id)
+    {
+        if (!id.is_valid())
+            return entt::null;
 
-namespace tbx
-{
+        return static_cast<EntityHandle>(id.value - 1U);
+    }
+
     std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations()
     {
-        return internal::snapshot_entity_component_type_registrations();
+        return snapshot_entity_component_type_registrations();
     }
 
     void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
@@ -74,8 +74,8 @@ namespace tbx
         if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
             return;
 
-        auto guard = std::lock_guard(internal::entity_component_type_registration_mutex());
-        auto& registrations = internal::entity_component_type_registrations();
+        auto guard = std::lock_guard(entity_component_type_registration_mutex());
+        auto& registrations = entity_component_type_registrations();
         const auto existing = std::ranges::find_if(
             registrations,
             [&entry](const EntityComponentTypeRegistration& registered)
@@ -297,8 +297,7 @@ namespace tbx
             if (parent.has_component<Transform>())
             {
                 const auto& parent_transform = parent.get_component<Transform>();
-                world_transform =
-                    internal::compose_world_space_transform(parent_transform, world_transform);
+                world_transform = compose_world_space_transform(parent_transform, world_transform);
             }
 
             cursor = parent;
@@ -335,11 +334,11 @@ namespace tbx
             {
                 const auto entity_name = entity.get_name();
                 const auto entries = get_entity_component_type_registrations();
-                const auto handle = internal::to_entity_handle(entity._id);
+                const auto handle = to_entity_handle(entity._id);
                 auto guard = std::shared_lock(registry._mutex);
                 for (const auto& entry : entries)
                 {
-                    const auto* storage = registry._impl->storage(entry.type_id);
+                    const auto* storage = registry._registry->storage(entry.type_id);
                     if (storage == nullptr || !storage->contains(handle))
                         continue;
 
@@ -382,8 +381,8 @@ namespace tbx
         EntityRegistry& registry,
         Entity& entity)
     {
-        auto payload = internal::SerializedEntityPayload();
-        if (!internal::read_entity_payload(data, payload))
+        auto payload = SerializedEntityPayload();
+        if (!read_entity_payload(data, payload))
             return false;
 
         entity = Entity();
@@ -395,7 +394,7 @@ namespace tbx
             return true;
 
         const auto entries = get_entity_component_type_registrations();
-        const auto handle = internal::to_entity_handle(entity._id);
+        const auto handle = to_entity_handle(entity._id);
         for (const auto& [key, component_json] : payload.components.items())
         {
             const auto entry = std::ranges::find_if(
@@ -414,10 +413,10 @@ namespace tbx
             }
 
             auto registry_guard = std::unique_lock(registry._mutex);
-            if (!registry._impl->valid(handle))
+            if (!registry._registry->valid(handle))
                 return false;
 
-            if (!entry->read_value(component_json.dump(), *registry._impl, handle))
+            if (!entry->read_value(component_json.dump(), *registry._registry, handle))
                 return false;
         }
 

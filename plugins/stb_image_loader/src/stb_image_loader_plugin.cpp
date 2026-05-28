@@ -1,15 +1,31 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
-#include "internal/stb_image_loader_plugin_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/texture.h"
+#include <filesystem>
 #include <memory>
 #include <stb_image.h>
 #include <string>
 #include <vector>
+
 namespace stb_image_loader
 {
+    static std::string build_load_failure_message(
+        const std::filesystem::path& path,
+        const char* reason)
+    {
+        std::string message = "Stb image loader failed to load image: ";
+        message.append(path.string());
+        if (reason && *reason)
+        {
+            message.append(" (reason: ");
+            message.append(reason);
+            message.append(")");
+        }
+        return message;
+    }
+
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
@@ -67,8 +83,7 @@ namespace stb_image_loader
         std::string encoded_image;
         if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
         {
-            result.flag_failure(
-                internal::build_load_failure_message(asset_path, "file could not be read"));
+            result.flag_failure(build_load_failure_message(asset_path, "file could not be read"));
             return result;
         }
 
@@ -85,8 +100,7 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            result.flag_failure(
-                internal::build_load_failure_message(asset_path, stbi_failure_reason()));
+            result.flag_failure(build_load_failure_message(asset_path, stbi_failure_reason()));
             return result;
         }
 

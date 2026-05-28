@@ -2,8 +2,6 @@
 
 ## General
 - Target C++23.
-- Do not use C++ attributes (for example `[[nodiscard]]`) except Toybox codegen
-  attributes in the `tbx` namespace.
 - Do not use `explicit` on constructors.
 - Prefer () style init for structs and classes over {} ALWAYS. Only use {} when doing simple inits like auto my_var = {}; or when using .prop_name = prop_val style init to improve readability
 - Do not use blanket namespace imports.
@@ -27,24 +25,16 @@
 #pragma once // do not use old style ifdefs
 #includes... // <> for external, "" for internal, should be sorted by name. If order matters then wrap in // clang-format off ... // clang-format on comments
 
-// Internal rules:
-// Never expose internal in your return types or public documentation.
-// Never allow external consumer code to depend on a internal namespace.
-// Do not put headers inside an internal namespace; always restrict those to the .cpp source files
-// Should be within its own /internal folder and _internal version of the source files.
-// Internal declarations and definitions must live in matching *_internal.h/.cpp files under the
-// owning system's /internal folder, not in the system's public .cpp implementation files.
-namespace tbx::internal
-{
-    Usings...
-    Methods (should always be static in internal namespace)
-    Structs...
-    Classes...
-}
-
-// the public API
+// Source-file support declarations and definitions should live in the associated .cpp file above
+// the public declarations. Header-only support code is public API support.
 namespace tbx
 {
+    Usings...
+    Methods (should always be static when local to the source file)
+    Structs...
+    Classes...
+
+    // the public API
     Usings...
     Methods (sort by keyword: static/inline/etc, then by name)...
     Structs...
@@ -107,8 +97,9 @@ struct Name
 ```
 
 ## Type Organization
-- Do not nest classes or structs inside other classes/structs.
-- Move nested helper types to top-level declarations within the same namespace.
+- Do not nest public classes or structs inside other classes/structs.
+- Private class-owned implementation details may use nested forward declarations when the definitions live in the owning `.cpp` file or are required for header-only template code.
+- Move helper types that are not owned by a class to top-level declarations within the same namespace.
 
 ## Formatting
 - Follow root `.clang-format`.

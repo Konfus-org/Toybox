@@ -5,6 +5,7 @@
 #include "tbx/systems/files/json.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/camera.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/transform.h"
 
@@ -16,17 +17,17 @@ namespace tbx::tests::ecs
     {
         int value = 0;
     };
-
-    struct UnserializedComponent : Component
-    {
-        int value = 0;
-    };
 }
 
 #include "ecs_tests.generated.h"
 
 namespace tbx::tests::ecs
 {
+    struct UnserializedComponent : Component
+    {
+        int value = 0;
+    };
+
     class NullMessageDispatcher final : public IMessageDispatcher
     {
       protected:
@@ -43,9 +44,9 @@ namespace tbx::tests::ecs
         }
     };
 
-    static NullMessageDispatcher& get_null_dispatcher()
+    static std::shared_ptr<IMessageDispatcher> get_null_dispatcher()
     {
-        static NullMessageDispatcher dispatcher = {};
+        static auto dispatcher = std::make_shared<NullMessageDispatcher>();
         return dispatcher;
     }
 
@@ -444,10 +445,10 @@ namespace tbx::tests::ecs
                     }
                 ]
             })");
-        auto serialization_registry = std::make_unique<SerializationRegistry>(file_ops);
+        auto serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
         auto asset_manager = std::make_shared<AssetManager>(
             get_null_dispatcher(),
-            *serialization_registry,
+            serialization_registry,
             "/virtual/worlds",
             std::vector<std::filesystem::path>(),
             HandleSource(),

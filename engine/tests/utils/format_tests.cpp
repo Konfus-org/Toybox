@@ -41,7 +41,7 @@ namespace tbx::tests::utils
         EXPECT_NE(entity_text.find("Entity{id="), std::string::npos);
         EXPECT_NE(entity_text.find("name='Player'"), std::string::npos);
         EXPECT_NE(entity_text.find("parent=0"), std::string::npos);
-        EXPECT_EQ(graphics_api_text, "OpenGL");
+        EXPECT_EQ(graphics_api_text, "opengl");
         EXPECT_EQ(plugin_text, "Name=Renderer, Version=1.0.0");
 
         TBX_TRACE_INFO(

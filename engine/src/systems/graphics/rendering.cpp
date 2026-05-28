@@ -1,14 +1,11 @@
 #include "tbx/systems/graphics/rendering.h"
-#include "systems/graphics/internal/rendering_internal.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
-#include <mutex>
-#include <string>
-#include <string_view>
-#include <utility>
 
 namespace tbx
 {
+    constexpr auto RENDER_LANE_NAME = std::string_view("render");
+
     Rendering::Rendering(
         std::weak_ptr<IGraphicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
@@ -29,8 +26,8 @@ namespace tbx
             return;
         }
 
-        if (!thread_manager_service->has_lane(internal::RENDER_LANE_NAME)
-            && !thread_manager_service->try_create_lane(internal::RENDER_LANE_NAME))
+        if (!thread_manager_service->has_lane(RENDER_LANE_NAME)
+            && !thread_manager_service->try_create_lane(RENDER_LANE_NAME))
         {
             TBX_TRACE_ERROR("Rendering initialization failed because render lane creation failed.");
             return;
@@ -48,7 +45,7 @@ namespace tbx
                     if (auto backend = _backend.lock())
                     {
                         auto idle_future = thread_manager->post_with_future(
-                            std::string(internal::RENDER_LANE_NAME),
+                            std::string(RENDER_LANE_NAME),
                             [backend]()
                             {
                                 backend->wait_for_idle();
@@ -56,7 +53,7 @@ namespace tbx
                         idle_future.get();
                     }
 
-                    thread_manager->stop_lane(std::string(internal::RENDER_LANE_NAME));
+                    thread_manager->stop_lane(std::string(RENDER_LANE_NAME));
                 }
             },
             "Toybox renderer shutdown failed.");
@@ -65,7 +62,7 @@ namespace tbx
     void Rendering::render(const DeltaTime& delta_time)
     {
         auto thread_manager = _thread_manager.lock();
-        if (!thread_manager || !thread_manager->has_lane(internal::RENDER_LANE_NAME))
+        if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
         {
             TBX_TRACE_ERROR("Toybox renderer render lane is unavailable.");
             return;
@@ -80,7 +77,7 @@ namespace tbx
         TBX_TRY_CATCH_ASSERT(
             {
                 _render_future = thread_manager->post_with_future(
-                    internal::RENDER_LANE_NAME,
+                    RENDER_LANE_NAME,
                     [this, delta_time]()
                     {
                         render_frame(delta_time);

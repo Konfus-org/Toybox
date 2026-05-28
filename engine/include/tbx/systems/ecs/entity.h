@@ -36,6 +36,7 @@ namespace tbx
         Entity(const std::string& name, const Uuid& parent, EntityRegistry& registry);
         Entity(const Uuid& parent, EntityRegistry& registry);
 
+      public:
         void destroy();
 
         Uuid get_id() const;

@@ -3,6 +3,7 @@
 #include "opengl_state.h"
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/utils/result.h"
 #include <glad/glad.h>
 #include <memory>
 #include <string>
@@ -10,6 +11,12 @@
 
 namespace opengl_rendering
 {
+    class OpenGlShader;
+
+    tbx::Result create_shaders(
+        const tbx::ShaderProgram& shader_desc,
+        std::vector<std::shared_ptr<OpenGlShader>>& out_shaders);
+
     class OpenGlShader final : public IOpenGlResource
     {
       public:

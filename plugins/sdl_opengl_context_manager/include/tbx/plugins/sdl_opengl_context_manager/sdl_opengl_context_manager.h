@@ -2,6 +2,7 @@
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include <SDL3/SDL.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -32,7 +33,7 @@ namespace sdl_opengl_context_manager
     class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::IOpenGlContextBackend
     {
       public:
-        SdlOpenGlContextManager(tbx::IWindowManager& window_manager);
+        SdlOpenGlContextManager(std::weak_ptr<tbx::IWindowManager> window_manager);
         ~SdlOpenGlContextManager() noexcept override;
 
         void initialize(
@@ -71,7 +72,7 @@ namespace sdl_opengl_context_manager
         void apply_vsync_setting();
 
       private:
-        tbx::IWindowManager& _window_manager;
+        std::weak_ptr<tbx::IWindowManager> _window_manager = {};
         SdlOpenGlContextSettings _settings = {};
         std::unordered_map<tbx::Window, SDL_GLContext> _contexts = {};
     };

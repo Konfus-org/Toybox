@@ -1,10 +1,7 @@
 #include "tbx/types/assets/world.h"
 #include "tbx/systems/debugging/macros.h"
-#include <algorithm>
-#include <cmath>
-#include <utility>
 
-namespace tbx::internal
+namespace tbx
 {
     static WorldChunkCoord make_chunk_coord(const Vec3& position, float chunk_size)
     {
@@ -14,10 +11,7 @@ namespace tbx::internal
             static_cast<int32>(std::floor(position.y / safe_chunk_size)),
             static_cast<int32>(std::floor(position.z / safe_chunk_size)));
     }
-}
 
-namespace tbx
-{
     World::World() = default;
 
     World::~World() noexcept = default;
@@ -296,7 +290,7 @@ namespace tbx
         if (entity.has_component<Transform>())
         {
             const auto& transform = entity.get_component<Transform>();
-            coord = internal::make_chunk_coord(transform.position, chunk_size);
+            coord = make_chunk_coord(transform.position, chunk_size);
         }
 
         const Uuid id = entity.get_id();

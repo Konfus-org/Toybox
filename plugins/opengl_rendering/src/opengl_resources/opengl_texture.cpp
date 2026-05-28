@@ -1,10 +1,106 @@
 #include "opengl_texture.h"
-#include "internal/opengl_texture_internal.h"
 #include <algorithm>
 #include <glad/glad.h>
 #include <utility>
+
 namespace opengl_rendering
 {
+    static uint32 take_texture_gl_handle(uint32& id) noexcept
+    {
+        return std::exchange(id, 0U);
+    }
+
+    static bool is_depth_texture_format(const tbx::GraphicsTextureFormat format)
+    {
+        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8
+               || format == tbx::GraphicsTextureFormat::DEPTH32_FLOAT;
+    }
+
+    bool has_texture_usage(
+        const tbx::GraphicsTextureUsage value,
+        const tbx::GraphicsTextureUsage usage)
+    {
+        return (static_cast<uint8>(value) & static_cast<uint8>(usage)) != 0U;
+    }
+
+    GLenum get_depth_attachment(const tbx::GraphicsTextureFormat format)
+    {
+        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
+                                                                      : GL_DEPTH_ATTACHMENT;
+    }
+
+    GLenum get_texture_internal_format(const tbx::GraphicsTextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+                return GL_RGBA16F;
+            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+                return GL_RGBA32F;
+            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+                return GL_DEPTH24_STENCIL8;
+            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+                return GL_DEPTH_COMPONENT32F;
+            case tbx::GraphicsTextureFormat::RGBA8:
+            default:
+                return GL_RGBA8;
+        }
+    }
+
+    GLenum get_texture_upload_format(const tbx::GraphicsTextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+                return GL_DEPTH_STENCIL;
+            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+                return GL_DEPTH_COMPONENT;
+            case tbx::GraphicsTextureFormat::RGBA8:
+            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+            default:
+                return GL_RGBA;
+        }
+    }
+
+    GLenum get_texture_upload_type(const tbx::GraphicsTextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+                return GL_FLOAT;
+            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+                return GL_UNSIGNED_INT_24_8;
+            case tbx::GraphicsTextureFormat::RGBA8:
+            default:
+                return GL_UNSIGNED_BYTE;
+        }
+    }
+
+    uint64 get_texture_byte_size(const tbx::GraphicsTextureDesc& desc)
+    {
+        return static_cast<uint64>(desc.size.width) * static_cast<uint64>(desc.size.height)
+               * get_texture_bytes_per_pixel(desc.format);
+    }
+
+    uint64 get_texture_bytes_per_pixel(const tbx::GraphicsTextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+                return 8U;
+            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+                return 16U;
+            case tbx::GraphicsTextureFormat::RGBA8:
+            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+            default:
+                return 4U;
+        }
+    }
+
     OpenGlTexture::OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data)
         : _array_layer_count(std::max(desc.array_layer_count, 1U))
     {
@@ -21,7 +117,7 @@ namespace opengl_rendering
             glTextureStorage3D(
                 _texture_id,
                 levels,
-                internal::get_texture_internal_format(desc.format),
+                get_texture_internal_format(desc.format),
                 width,
                 height,
                 layer_count);
@@ -31,7 +127,7 @@ namespace opengl_rendering
             glTextureStorage2D(
                 _texture_id,
                 levels,
-                internal::get_texture_internal_format(desc.format),
+                get_texture_internal_format(desc.format),
                 width,
                 height);
         }
@@ -49,8 +145,8 @@ namespace opengl_rendering
                     width,
                     height,
                     layer_count,
-                    internal::get_texture_upload_format(desc.format),
-                    internal::get_texture_upload_type(desc.format),
+                    get_texture_upload_format(desc.format),
+                    get_texture_upload_type(desc.format),
                     data);
             }
             else
@@ -62,13 +158,13 @@ namespace opengl_rendering
                     0,
                     width,
                     height,
-                    internal::get_texture_upload_format(desc.format),
-                    internal::get_texture_upload_type(desc.format),
+                    get_texture_upload_format(desc.format),
+                    get_texture_upload_type(desc.format),
                     data);
             }
         }
 
-        const bool is_depth_format = internal::is_depth_texture_format(desc.format);
+        const bool is_depth_format = is_depth_texture_format(desc.format);
         glTextureParameteri(
             _texture_id,
             GL_TEXTURE_MIN_FILTER,
@@ -97,7 +193,7 @@ namespace opengl_rendering
     }
 
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
-        : _texture_id(internal::take_texture_gl_handle(other._texture_id))
+        : _texture_id(take_texture_gl_handle(other._texture_id))
         , _array_layer_count(other._array_layer_count)
     {
         other._array_layer_count = 1U;
@@ -111,7 +207,7 @@ namespace opengl_rendering
         if (_texture_id != 0)
             glDeleteTextures(1, &_texture_id);
 
-        _texture_id = internal::take_texture_gl_handle(other._texture_id);
+        _texture_id = take_texture_gl_handle(other._texture_id);
         _array_layer_count = other._array_layer_count;
         other._array_layer_count = 1U;
         return *this;

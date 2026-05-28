@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/plugin_api/plugin_linkage.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <filesystem>
@@ -18,6 +17,12 @@ namespace tbx
     /// Ownership: Not applicable.
     /// Thread Safety: Immutable constant.
     inline constexpr uint32 PluginAbiVersion = static_cast<uint32>(TBX_PLUGIN_ABI_VERSION);
+
+    enum class PluginLinkage
+    {
+        DYNAMIC,
+        // STATIC <- Currently unsupported!
+    };
 
     /// @brief
     /// Purpose: Describe broad update phases that the host can use when ordering plugin updates.

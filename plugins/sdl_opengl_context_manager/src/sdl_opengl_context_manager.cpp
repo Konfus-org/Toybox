@@ -1,5 +1,4 @@
 #include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
-#include "internal/sdl_opengl_context_manager_internal.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include <format>
@@ -8,8 +7,47 @@
 
 namespace sdl_opengl_context_manager
 {
-    SdlOpenGlContextManager::SdlOpenGlContextManager(tbx::IWindowManager& window_manager)
-        : _window_manager(window_manager)
+    static void try_release_current_context(SDL_GLContext context)
+    {
+        if (!context)
+            return;
+        if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0U)
+            return;
+
+        SDL_GLContext current_context = SDL_GL_GetCurrentContext();
+        if (current_context != context)
+            return;
+
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            const char* error = SDL_GetError();
+            if (error && std::string_view(error) == "OpenGL not initialized")
+            {
+                SDL_ClearError();
+                return;
+            }
+
+            TBX_TRACE_WARNING(
+                "Failed to release current SDL OpenGL context before destruction: {}",
+                error);
+            SDL_ClearError();
+        }
+    }
+
+    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
+    {
+        if (!SDL_GL_SetAttribute(attribute, value))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to set SDL OpenGL attribute {}: {}",
+                static_cast<int>(attribute),
+                SDL_GetError());
+        }
+    }
+
+    SdlOpenGlContextManager::SdlOpenGlContextManager(
+        std::weak_ptr<tbx::IWindowManager> window_manager)
+        : _window_manager(std::move(window_manager))
     {
     }
 
@@ -129,7 +167,7 @@ namespace sdl_opengl_context_manager
             if (!context_entry.second)
                 continue;
 
-            internal::try_release_current_context(context_entry.second);
+            try_release_current_context(context_entry.second);
             SDL_GL_DestroyContext(context_entry.second);
         }
 
@@ -143,15 +181,13 @@ namespace sdl_opengl_context_manager
 
     void SdlOpenGlContextManager::apply_default_attributes() const
     {
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, _settings.major_version);
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, _settings.minor_version);
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        internal::set_opengl_attribute(SDL_GL_DEPTH_SIZE, _settings.depth_bits);
-        internal::set_opengl_attribute(SDL_GL_STENCIL_SIZE, _settings.stencil_bits);
-        internal::set_opengl_attribute(
-            SDL_GL_DOUBLEBUFFER,
-            _settings.is_double_buffer_enabled ? 1 : 0);
-        internal::set_opengl_attribute(
+        set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, _settings.major_version);
+        set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, _settings.minor_version);
+        set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        set_opengl_attribute(SDL_GL_DEPTH_SIZE, _settings.depth_bits);
+        set_opengl_attribute(SDL_GL_STENCIL_SIZE, _settings.stencil_bits);
+        set_opengl_attribute(SDL_GL_DOUBLEBUFFER, _settings.is_double_buffer_enabled ? 1 : 0);
+        set_opengl_attribute(
             SDL_GL_CONTEXT_FLAGS,
             _settings.is_debug_context_enabled ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
     }
@@ -179,7 +215,11 @@ namespace sdl_opengl_context_manager
 
     SDL_Window* SdlOpenGlContextManager::get_sdl_window(const tbx::Window& window) const
     {
-        return static_cast<SDL_Window*>(_window_manager.get_native_handle(window));
+        const auto window_manager = _window_manager.lock();
+        if (!window_manager)
+            return nullptr;
+
+        return static_cast<SDL_Window*>(window_manager->get_native_handle(window));
     }
 
     bool SdlOpenGlContextManager::try_create_context(
@@ -240,7 +280,7 @@ namespace sdl_opengl_context_manager
 
         if (context_it->second)
         {
-            internal::try_release_current_context(context_it->second);
+            try_release_current_context(context_it->second);
             SDL_GL_DestroyContext(context_it->second);
         }
         _contexts.erase(context_it);

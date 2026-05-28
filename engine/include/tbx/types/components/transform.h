@@ -36,6 +36,24 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Composes a parent world-space transform with a child local-space transform.
+    /// @details
+    /// Ownership: Returns an owned Transform value.
+    /// Thread Safety: Stateless helper; safe to call concurrently.
+    inline Transform compose_world_space_transform(
+        const Transform& parent_transform,
+        const Transform& local_transform)
+    {
+        auto world_transform = Transform {};
+        world_transform.scale = parent_transform.scale * local_transform.scale;
+        world_transform.rotation = normalize(parent_transform.rotation * local_transform.rotation);
+        world_transform.position =
+            parent_transform.position
+            + (parent_transform.rotation * (parent_transform.scale * local_transform.position));
+        return world_transform;
+    }
+
+    /// @brief
     /// Purpose: Converts a world-space transform into a local-space transform relative to a parent
     /// world-space transform.
     /// @details
