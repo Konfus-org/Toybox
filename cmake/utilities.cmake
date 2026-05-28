@@ -23,6 +23,7 @@ add_custom_target(Tests
         TbxMathTests
         TbxMessagingTests
         TbxPluginApiTests
+        TbxAttributeTests
         TbxTimeTests
         TbxUtilsTests
 )

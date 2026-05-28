@@ -44,13 +44,14 @@ namespace tbx::internal
     {
         try
         {
-            const auto json = Json::parse(std::string(data));
-            json.try_get("id", payload.id);
-            json.try_get("name", payload.name);
-            json.try_get("tag", payload.tag);
-            json.try_get("layer", payload.layer);
-            json.try_get("parent", payload.parent);
-            json.try_get_child("components", payload.components);
+            const auto json = JsonParser::parse(data);
+            JsonParser::try_get(json, "id", payload.id);
+            JsonParser::try_get(json, "name", payload.name);
+            JsonParser::try_get(json, "tag", payload.tag);
+            JsonParser::try_get(json, "layer", payload.layer);
+            JsonParser::try_get(json, "parent", payload.parent);
+            if (const auto components = json.find("components"); components != json.end())
+                payload.components = *components;
             return true;
         }
         catch (...)
@@ -320,11 +321,11 @@ namespace tbx
     std::string Serializer<Entity>::to_json(const Entity& entity)
     {
         auto json = Json::object();
-        json.set("id", entity.get_id());
-        json.set("name", entity.get_name());
-        json.set("tag", entity.get_tag());
-        json.set("layer", entity.get_layer());
-        json.set("parent", entity.get_parent());
+        json["id"] = entity.get_id();
+        json["name"] = entity.get_name();
+        json["tag"] = entity.get_tag();
+        json["layer"] = entity.get_layer();
+        json["parent"] = entity.get_parent();
 
         auto components = Json::object();
         if (entity._registry.has_value())
@@ -355,13 +356,13 @@ namespace tbx
                     if (value == nullptr)
                         continue;
 
-                    components.set(entry.name, Json::parse(entry.write_value(value)));
+                    components[entry.name] = JsonParser::parse(entry.write_value(value));
                 }
             }
         }
 
-        json.set("components", components);
-        return json.to_string(-1);
+        json["components"] = components;
+        return json.dump();
     }
 
     bool Serializer<Entity>::from_json(std::string_view data, Entity& entity)
@@ -395,18 +396,8 @@ namespace tbx
 
         const auto entries = get_entity_component_type_registrations();
         const auto handle = internal::to_entity_handle(entity._id);
-        for (const auto& key : payload.components.keys())
+        for (const auto& [key, component_json] : payload.components.items())
         {
-            auto component_json = Json();
-            if (!payload.components.try_get_child(key, component_json))
-            {
-                TBX_TRACE_WARNING(
-                    "Entity '{}' skipped malformed serialized component '{}'.",
-                    entity.get_name(),
-                    key);
-                continue;
-            }
-
             const auto entry = std::ranges::find_if(
                 entries,
                 [&key](const EntityComponentTypeRegistration& registered)
@@ -426,7 +417,7 @@ namespace tbx
             if (!registry._impl->valid(handle))
                 return false;
 
-            if (!entry->read_value(component_json.to_string(-1), *registry._impl, handle))
+            if (!entry->read_value(component_json.dump(), *registry._impl, handle))
                 return false;
         }
 

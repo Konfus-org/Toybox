@@ -11,12 +11,7 @@ target_link_libraries(${plugin_name} PRIVATE
         glm
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS jolt_physics::JoltPhysicsPlugin
-        HEADER "tbx/plugins/jolt_physics/jolt_physics_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "physics"
-        PRIORITY 50
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

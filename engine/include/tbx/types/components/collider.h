@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/uuid.h"
@@ -43,6 +42,12 @@ namespace tbx
     /// @details
     /// Ownership: Owns overlap query state and callback lists by value.
     /// Thread Safety: Not thread-safe; mutate and trigger from the main thread.
+    [[tbx::serializable]];
+    [[tbx::prop(
+        is_trigger_only,
+        is_overlap_enabled,
+        is_manual_scan_requested,
+        overlap_execution_mode)]];
     struct TBX_API ColliderTrigger
     {
         bool is_trigger_only = false;
@@ -62,19 +67,14 @@ namespace tbx
         void request_overlap_scan();
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(
-        ColliderTrigger,
-        is_trigger_only,
-        is_overlap_enabled,
-        is_manual_scan_requested,
-        overlap_execution_mode)
-
     /// @brief
     /// Purpose: Configures mesh collider behavior for geometry sourced from a mesh component on the
     /// same entity.
     /// @details
     /// Ownership: Owns mesh collider settings by value only; geometry ownership stays with the mesh
     /// component. Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    [[tbx::serializable]];
+    [[tbx::prop(id, is_convex, trigger)]];
     struct TBX_API MeshCollider : Component
     {
         MeshCollider() = default;
@@ -84,13 +84,13 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(MeshCollider, id, is_convex, trigger)
-
     /// @brief
     /// Purpose: Defines an axis-aligned box collider by half extents.
     /// @details
     /// Ownership: Owns size data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    [[tbx::serializable]];
+    [[tbx::prop(id, half_extents, trigger)]];
     struct TBX_API CubeCollider : Component
     {
         CubeCollider() = default;
@@ -100,13 +100,13 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(CubeCollider, id, half_extents, trigger)
-
     /// @brief
     /// Purpose: Defines a sphere collider by radius.
     /// @details
     /// Ownership: Owns radius data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    [[tbx::serializable]];
+    [[tbx::prop(id, radius, trigger)]];
     struct TBX_API SphereCollider : Component
     {
         SphereCollider() = default;
@@ -116,13 +116,13 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(SphereCollider, id, radius, trigger)
-
     /// @brief
     /// Purpose: Defines a capsule collider by radius and half-height.
     /// @details
     /// Ownership: Owns capsule dimensions by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
+    [[tbx::serializable]];
+    [[tbx::prop(id, radius, half_height, trigger)]];
     struct TBX_API CapsuleCollider : Component
     {
         CapsuleCollider() = default;
@@ -133,6 +133,6 @@ namespace tbx
         ColliderTrigger trigger = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(CapsuleCollider, id, radius, half_height, trigger)
-
 }
+
+#include "tbx/types/components/collider.generated.h"

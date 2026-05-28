@@ -3,6 +3,7 @@ option(TBX_BUILD_EXAMPLES "Build Toybox examples" ON)
 if (TBX_BUILD_EXAMPLES)
     set(CMAKE_FOLDER "examples")
 
+    include(code_gen_utility)
     include(default_plugins)
     tbx_define_default_plugins()
 

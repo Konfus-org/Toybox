@@ -11,6 +11,8 @@ namespace tbx
     /// @details
     /// Ownership: Instances own their sample buffers.
     /// Thread Safety: Safe to move across threads; synchronize shared mutation externally.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TBX_API AudioClip : Asset
     {
         uint32 sample_rate = 44100;
@@ -18,5 +20,6 @@ namespace tbx
         std::vector<float> samples = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(AudioClip, 1U)
 }
+
+#include "tbx/types/assets/audio_clip.generated.h"

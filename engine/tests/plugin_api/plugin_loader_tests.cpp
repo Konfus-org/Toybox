@@ -27,6 +27,22 @@ namespace tbx::tests::plugin_loader
         // Assert
         ASSERT_TRUE(loaded.empty());
     }
+
+    TEST(plugin_loader, recognizes_platform_library_paths)
+    {
+        // Arrange / Act / Assert
+#if defined(TBX_PLATFORM_WINDOWS)
+        EXPECT_TRUE(::tbx::is_plugin_library_path("ExamplePlugin.dll"));
+        EXPECT_FALSE(::tbx::is_plugin_library_path("ExamplePlugin.dll.meta"));
+#elif defined(TBX_PLATFORM_MACOS)
+        EXPECT_TRUE(::tbx::is_plugin_library_path("libExamplePlugin.dylib"));
+        EXPECT_FALSE(::tbx::is_plugin_library_path("libExamplePlugin.dylib.meta"));
+#else
+        EXPECT_TRUE(::tbx::is_plugin_library_path("libExamplePlugin.so"));
+        EXPECT_FALSE(::tbx::is_plugin_library_path("libExamplePlugin.so.meta"));
+#endif
+    }
+
     TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
     {
         // Arrange

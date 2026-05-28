@@ -14,13 +14,20 @@
 namespace tbx
 {
     class EntityRegistry;
-    class Json;
 
     /// @brief
     /// Purpose: Represents a lightweight handle to an entity owned by an EntityRegistry.
     /// @details
     /// Ownership: Does not own the registry; caller ensures registry lifetime exceeds this
     /// instance. Thread Safety: Not thread-safe; synchronize external concurrent access.
+    [[tbx::serializable]];
+    [[tbx::printable(
+        "Entity{{id={}, name='{}', tag='{}', layer='{}', parent={}}}",
+        get_id().value,
+        get_name(),
+        get_tag(),
+        get_layer(),
+        get_parent().value)]];
     class TBX_API Entity
     {
       public:
@@ -109,32 +116,7 @@ namespace tbx
     /// Transform components are authored and stored in local space.
     TBX_API Transform get_world_space_transform(const Entity& entity);
 
-    TBX_REGISTER_SERIALIZABLE_CUSTOM_STRUCT(Entity)
 }
 
-template <>
-struct std::formatter<tbx::Entity>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::Entity& entity, TFormatContext& ctx) const
-    {
-        return _formatter.format(
-            std::format(
-                "Entity{{id={}, name='{}', tag='{}', layer='{}', parent={}}}",
-                entity.get_id().value,
-                entity.get_name(),
-                entity.get_tag(),
-                entity.get_layer(),
-                entity.get_parent().value),
-            ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
-
+#include "tbx/systems/ecs/entity.generated.h"
 #include "tbx/systems/ecs/entity.inl"

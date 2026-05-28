@@ -1,11 +1,11 @@
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
-include(register_plugin)
+include(code_gen_utility)
 
 set(CMAKE_FOLDER "plugins")
 
 add_subdirectory(stb_image_loader)
-add_subdirectory(tbx_shader_loader)
+add_subdirectory(tbx_shader_include_loader)
 add_subdirectory(assimp_model_loader)
 add_subdirectory(tbx_performance_monitor)
 add_subdirectory(sdl_base_systems)

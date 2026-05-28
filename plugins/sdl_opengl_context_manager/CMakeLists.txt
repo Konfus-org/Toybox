@@ -11,12 +11,7 @@ target_link_libraries(${plugin_name} PRIVATE
         SDL3::SDL3-shared
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS sdl_opengl_context_manager::SdlOpenGlContextManagerPlugin
-        HEADER "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "rendering"
-        DEPENDENCIES SdlBaseSystemsPlugin SdlWindowingPlugin
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

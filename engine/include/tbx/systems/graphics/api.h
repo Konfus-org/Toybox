@@ -2,6 +2,7 @@
 #include "tbx/tbx_api.h"
 #include <format>
 #include <string>
+#include <string_view>
 
 namespace tbx
 {
@@ -14,6 +15,7 @@ namespace tbx
     };
 
     // Represents the available graphics APIs.
+    [[tbx::printable("{}", tbx::to_string($))]];
     enum class GraphicsApi
     {
         NONE,
@@ -24,46 +26,28 @@ namespace tbx
         CUSTOM
     };
 
-}
-
-template <>
-struct std::formatter<tbx::GraphicsApi>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
+    inline std::string_view to_string(GraphicsApi api)
     {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(tbx::GraphicsApi api, TFormatContext& ctx) const
-    {
-        auto name = std::string_view("Unknown");
         switch (api)
         {
-            case tbx::GraphicsApi::NONE:
-                name = "None";
-                break;
-            case tbx::GraphicsApi::VULKAN:
-                name = "Vulkan";
-                break;
-            case tbx::GraphicsApi::OPEN_GL:
-                name = "OpenGL";
-                break;
-            case tbx::GraphicsApi::DIRECT_X:
-                name = "DirectX";
-                break;
-            case tbx::GraphicsApi::METAL:
-                name = "Metal";
-                break;
-            case tbx::GraphicsApi::CUSTOM:
-                name = "Custom";
-                break;
+            case GraphicsApi::NONE:
+                return "None";
+            case GraphicsApi::VULKAN:
+                return "Vulkan";
+            case GraphicsApi::OPEN_GL:
+                return "OpenGL";
+            case GraphicsApi::DIRECT_X:
+                return "DirectX";
+            case GraphicsApi::METAL:
+                return "Metal";
+            case GraphicsApi::CUSTOM:
+                return "Custom";
             default:
                 break;
         }
 
-        return _formatter.format(std::string(name), ctx);
+        return "Unknown";
     }
+}
 
-    std::formatter<std::string> _formatter;
-};
+#include "tbx/systems/graphics/api.generated.h"

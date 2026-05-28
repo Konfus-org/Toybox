@@ -1,8 +1,8 @@
 #include "tbx/systems/plugin_api/plugin_loader.h"
+#include "systems/plugin_api/internal/plugin_loader_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/debugging/macros.h"
-#include "systems/plugin_api/internal/plugin_loader_internal.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
@@ -20,15 +20,15 @@
 #include <vector>
 namespace tbx
 {
-    bool is_plugin_manifest_path(const std::filesystem::path& path)
+    bool is_plugin_library_path(const std::filesystem::path& path)
     {
         const std::string lowered_name = to_lower(path.filename().string());
 #if defined(TBX_PLATFORM_WINDOWS)
-        return lowered_name.ends_with(".dll.meta");
+        return lowered_name.ends_with(".dll");
 #elif defined(TBX_PLATFORM_MACOS)
-        return lowered_name.ends_with(".dylib.meta");
+        return lowered_name.ends_with(".dylib");
 #else
-        return lowered_name.ends_with(".so.meta");
+        return lowered_name.ends_with(".so");
 #endif
     }
 
@@ -78,39 +78,28 @@ namespace tbx
         std::vector<LoadedPlugin> loaded;
 
         std::vector<PluginMeta> discovered;
-        PluginMetaParser parser;
         if (file_ops.exists(directory))
         {
             for (const std::filesystem::path& entry : file_ops.read_directory(directory))
             {
-                // Release builds often bundle assets into a `resources/` folder near the
-                // executable. Keep plugin discovery from crawling that subtree.
+                // Keep plugin discovery from crawling bundled assets or loader-owned shadow
+                // copies near the executable.
                 if (internal::path_contains_directory_token(entry, "resources"))
+                    continue;
+                if (internal::path_contains_directory_token(
+                        entry,
+                        internal::PluginShadowCopyDirectory))
                     continue;
 
                 if (file_ops.get_type(entry) != FileType::FILE)
                     continue;
 
-                // Only treat manifests as plugin metadata when their filename also contains the
-                // platform's dynamic library extension (e.g. `Foo.dll.meta`, `libFoo.so.meta`).
-                if (!is_plugin_manifest_path(entry))
+                if (!is_plugin_library_path(entry))
                     continue;
 
-                std::string manifest_data;
-                if (!file_ops.read_file(entry, FileDataFormat::UTF8_TEXT, manifest_data))
-                    continue;
-
-                PluginMeta manifest_meta;
-                if (parser.try_parse_from_source(
-                        std::string_view(manifest_data),
-                        entry,
-                        manifest_meta))
-                    discovered.push_back(manifest_meta);
-                else
-                {
-                    const std::string manifest_path = entry.string();
-                    TBX_TRACE_WARNING("Plugin {} is unable to be loaded!", manifest_path);
-                }
+                auto meta = PluginMeta {};
+                if (internal::try_query_plugin_meta_from_library(entry, file_ops, meta))
+                    discovered.push_back(std::move(meta));
             }
         }
 

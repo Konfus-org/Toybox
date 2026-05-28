@@ -26,6 +26,7 @@ namespace tbx
     /// Ownership: Owns `instance` and `library` (if any). Movable, non-copyable
     /// by virtue of unique_ptr semantics.
     /// Thread-safety: Not thread-safe; expected to be used by the main thread.
+    [[tbx::printable("Name={}, Version={}", meta.name, meta.version)]];
     class TBX_API LoadedPlugin
     {
       public:
@@ -75,21 +76,4 @@ namespace tbx
 
 }
 
-template <>
-struct std::formatter<tbx::LoadedPlugin>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::LoadedPlugin& loaded, TFormatContext& ctx) const
-    {
-        return _formatter.format(
-            std::format("Name={}, Version={}", loaded.meta.name, loaded.meta.version),
-            ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
+#include "tbx/systems/plugin_api/loaded_plugin.generated.h"

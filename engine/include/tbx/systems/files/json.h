@@ -1,102 +1,115 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/color.h"
-#include "tbx/types/handle.h"
-#include "tbx/types/matrices.h"
-#include "tbx/types/quaternions.h"
-#include "tbx/types/assets/shader.h"
-#include "tbx/types/assets/texture.h"
-#include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
-#include "tbx/types/vectors.h"
+#include "tbx/interfaces/file_ops.h"
 #include <cstddef>
-#include <memory>
+#include <filesystem>
+#include <nlohmann/json.hpp>
 #include <string>
-#include <type_traits>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace tbx
 {
-    class TBX_API Json
+    using Json = nlohmann::json;
+
+    class JsonParser final
     {
       public:
-        Json();
-        Json(const std::string& data);
-        Json(const Json& other);
-        Json& operator=(const Json& other);
-        Json(Json&& other) noexcept;
-        Json& operator=(Json&& other);
-        ~Json() noexcept;
+        JsonParser() = delete;
 
-        // Serializes the wrapped JSON value into a string.
-        std::string to_string(int indent = 4) const;
+        static Json parse(std::string_view data)
+        {
+            return Json::parse(std::string(data), nullptr, true, true);
+        }
 
-        static Json array();
-        static Json object();
-        static Json parse(const std::string& data);
+        static bool try_parse(std::string_view data, Json& out_json)
+        {
+            try
+            {
+                out_json = parse(data);
+                return true;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
 
-        bool is_array() const;
-        bool is_object() const;
-        bool is_null() const;
+        static bool try_parse_file(
+            const IFileOps& file_ops,
+            const std::filesystem::path& path,
+            Json& out_json)
+        {
+            auto data = std::string();
+            if (!file_ops.read_file(path, FileDataFormat::UTF8_TEXT, data))
+                return false;
 
-        std::vector<std::string> keys() const;
-
-        template <typename TValue>
-        bool try_get(TValue& out_value) const;
-
-        template <typename TValue>
-        bool try_update(TValue& in_out_value) const;
-
-        template <typename TValue>
-        bool try_get(const std::string& key, TValue& out_value) const;
-
-        template <typename TValue>
-        bool try_get(const std::string& key, std::vector<TValue>& out_values) const;
-
-        template <typename TValue>
-        bool try_get(const std::string& key, size expected_size, std::vector<TValue>& out_values)
-            const;
-
-        // Attempts to retrieve a nested JSON object stored at the specified object key.
-        bool try_get_child(const std::string& key, Json& out_value) const;
-
-        // Attempts to retrieve an array of nested JSON objects stored at the specified object key.
-        bool try_get_children(const std::string& key, std::vector<Json>& out_values) const;
+            return try_parse(data, out_json);
+        }
 
         template <typename TValue>
-        void append(const TValue& value);
-        void append(const Json& value);
+        static bool try_get(const Json& data, TValue& out_value)
+        {
+            try
+            {
+                out_value = data.get<TValue>();
+                return true;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
 
         template <typename TValue>
-        void set(const std::string& key, const TValue& value);
-        void set(const std::string& key, const Json& value);
+        static bool try_get(const Json& data, const std::string& key, TValue& out_value)
+        {
+            const auto value = data.find(key);
+            if (value == data.end())
+                return false;
+
+            return try_get(*value, out_value);
+        }
 
         template <typename TValue>
-        void set_value(const TValue& value);
-        void set_value(const Json& value);
+        static bool try_get(
+            const Json& data,
+            const std::string& key,
+            std::vector<TValue>& out_values)
+        {
+            const auto value = data.find(key);
+            if (value == data.end() || !value->is_array())
+                return false;
 
-      private:
-        bool try_get_raw(std::string& out_value) const;
-        bool try_get_raw(const std::string& key, std::string& out_value) const;
-        void append_raw(const std::string& raw_value);
-        void set_raw(const std::string& key, const std::string& raw_value);
-        void set_value_raw(const std::string& raw_value);
+            auto parsed_values = std::vector<TValue>();
+            parsed_values.reserve(value->size());
+            for (const auto& entry : *value)
+            {
+                auto parsed_value = TValue();
+                if (try_get(entry, parsed_value))
+                    parsed_values.push_back(std::move(parsed_value));
+            }
+
+            out_values.insert(out_values.end(), parsed_values.begin(), parsed_values.end());
+            return !parsed_values.empty();
+        }
 
         template <typename TValue>
-        bool try_get_nlohmann(TValue& out_value) const;
+        static bool try_get(
+            const Json& data,
+            const std::string& key,
+            size_t expected_size,
+            std::vector<TValue>& out_values)
+        {
+            auto parsed_values = std::vector<TValue>();
+            if (!try_get(data, key, parsed_values))
+                return false;
 
-        template <typename TValue>
-        bool try_update_nlohmann(TValue& in_out_value) const;
+            if (parsed_values.size() != expected_size)
+                return false;
 
-        template <typename TValue>
-        bool try_get_nlohmann(const std::string& key, TValue& out_value) const;
-
-        class Impl;
-        std::unique_ptr<Impl> _data;
+            out_values.insert(out_values.end(), parsed_values.begin(), parsed_values.end());
+            return true;
+        }
     };
-
 }
-
-#include "tbx/systems/files/json.inl"

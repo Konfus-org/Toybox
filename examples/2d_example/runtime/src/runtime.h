@@ -10,6 +10,10 @@ namespace two_d_example
     /// @details
     /// Ownership: Owned by the plugin host; stores no owning references to host-managed systems.
     /// Thread Safety: Not thread-safe; the host invokes lifecycle callbacks on the main thread.
+    [[tbx::plugin]];
+    [[tbx::name("TwoDExampleRuntime")]];
+    [[tbx::version("1.0.0")]];
+    [[tbx::category("gameplay")]];
     class TwoDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:

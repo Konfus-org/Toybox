@@ -24,6 +24,8 @@ namespace tbx
 
     /// @brief
     /// Purpose: References authored chunk assets for one world grid cell.
+    [[tbx::serializable]];
+    [[tbx::prop(coord, full_chunk, low_lod_chunk, simulation_chunk)]];
     struct TBX_API WorldChunkRef
     {
         WorldChunkCoord coord = {};
@@ -32,41 +34,44 @@ namespace tbx
         Handle simulation_chunk = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(
-        WorldChunkRef,
-        coord,
-        full_chunk,
-        low_lod_chunk,
-        simulation_chunk)
-
     /// @brief
     /// Purpose: Describes the visual detail currently loaded for a chunk.
+    [[tbx::serializable]];
     enum class WorldChunkLod
     {
-        FULL,
-        LOW
+        FULL [[tbx::name("full")]],
+        LOW [[tbx::name("low")]]
     };
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        WorldChunkLod,
-        {
-            {WorldChunkLod::FULL, "full"},
-            {WorldChunkLod::LOW, "low"},
-        })
 
     /// @brief
     /// Purpose: Stores serialized spatial entities for one chunk asset.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TBX_API WorldChunk : Asset
     {
+        [[tbx::prop]]
         WorldChunkCoord coord = {};
+
+        [[tbx::prop]]
         WorldChunkLod lod = WorldChunkLod::FULL;
+
+        [[tbx::prop]]
         std::vector<Entity> entities = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_ASSET(WorldChunk, 1U, coord, lod, entities)
-
     /// @brief
     /// Purpose: Gameplay-facing entity container with a persistent layer and spatial chunk grid.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
+    [[tbx::prop(
+        chunk_size,
+        full_visual_radius_chunks,
+        low_visual_radius_chunks,
+        simulation_radius_chunks,
+        reduced_simulation_radius_chunks,
+        unload_radius_chunks,
+        persistent_entities,
+        chunks)]];
     class TBX_API World : public Asset
     {
       public:
@@ -153,17 +158,7 @@ namespace tbx
         world.rebuild_persistent_entities();
     }
 
-    TBX_REGISTER_SERIALIZABLE_ASSET(
-        World,
-        1U,
-        chunk_size,
-        full_visual_radius_chunks,
-        low_visual_radius_chunks,
-        simulation_radius_chunks,
-        reduced_simulation_radius_chunks,
-        unload_radius_chunks,
-        persistent_entities,
-        chunks)
 }
 
+#include "tbx/types/assets/world.generated.h"
 #include "tbx/types/assets/world.inl"

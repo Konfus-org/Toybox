@@ -1,12 +1,10 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/types/uuid.h"
 #include <atomic>
-#include <format>
-#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace tbx
 {
@@ -16,6 +14,9 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned name strings, UUID values, and shared validity state.
     /// Thread Safety: Safe to copy between threads; invalidation is atomic.
+    [[tbx::serializable]];
+    [[tbx::printable("[Name: {}, Id: {}]", name, id)]];
+    [[tbx::hash(name, id)]];
     struct Handle
     {
         Handle() = default;
@@ -53,43 +54,16 @@ namespace tbx
                 _is_valid->store(false);
         }
 
+        [[tbx::prop]]
         std::string name = {};
+
+        [[tbx::prop]]
         Uuid id = {};
 
       private:
         std::shared_ptr<std::atomic_bool> _is_valid = std::make_shared<std::atomic_bool>(true);
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Handle, name, id)
 }
 
-template <>
-struct std::formatter<tbx::Handle>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::Handle& value, TFormatContext& ctx) const
-    {
-        if (!value.name.empty())
-            return _formatter.format(value.name, ctx);
-
-        return _formatter.format(std::format("{}", value.id), ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
-
-template <>
-struct std::hash<tbx::Handle>
-{
-    ::size operator()(const tbx::Handle& value) const
-    {
-        auto seed = hash<tbx::Uuid>()(value.id);
-        seed ^= hash<std::string>()(value.name) + 0x9e3779b9U + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
+#include "tbx/types/handle.generated.h"

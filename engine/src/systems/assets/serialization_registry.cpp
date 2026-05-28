@@ -33,10 +33,10 @@ namespace tbx
         uint32 expected_version,
         AssetLoadMetadata& out_metadata)
     {
-        data.try_get("id", out_metadata.id);
+        JsonParser::try_get(data, "id", out_metadata.id);
 
         auto version = uint32();
-        if (!data.try_get("version", version))
+        if (!JsonParser::try_get(data, "version", version))
         {
             if (expected_version != 0U)
             {

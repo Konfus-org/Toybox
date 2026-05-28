@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/frustum.h"
@@ -11,6 +10,8 @@
 
 namespace tbx
 {
+    [[tbx::serializable]];
+    [[tbx::prop(id)]];
     class TBX_API Camera : public Component
     {
       public:
@@ -51,7 +52,6 @@ namespace tbx
         float _aspect = 1.78f;
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Camera, id)
     // _render_target,
     // _viewport,
     // _z_near,
@@ -59,3 +59,5 @@ namespace tbx
     // _fov,
     // _aspect)
 }
+
+#include "tbx/types/components/camera.generated.h"

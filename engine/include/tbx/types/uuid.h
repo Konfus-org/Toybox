@@ -1,15 +1,16 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <cstddef>
 #include <format>
-#include <functional>
 #include <string>
 #include <string_view>
 
 namespace tbx
 {
+    [[tbx::serializable]];
+    [[tbx::printable("{:x}", value)]];
+    [[tbx::hash(value)]];
     struct Uuid
     {
         TBX_API Uuid();
@@ -43,12 +44,11 @@ namespace tbx
         TBX_API bool operator==(const Uuid& other) const;
         TBX_API bool operator!=(const Uuid& other) const;
 
+        [[tbx::prop]]
         uint32 value = 0U;
 
         static const Uuid NONE;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Uuid, value)
 
     inline const Uuid Uuid::NONE = {};
 
@@ -59,27 +59,4 @@ namespace tbx
     TBX_API Uuid hash_string_to_id(std::string_view handle_name);
 }
 
-template <>
-struct std::formatter<tbx::Uuid>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::Uuid& value, TFormatContext& ctx) const
-    {
-        return _formatter.format(std::format("{:x}", value.value), ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
-
-template <>
-struct std::hash<tbx::Uuid>
-{
-    ::size operator()(const tbx::Uuid& value) const;
-};
-
-#include "tbx/types/uuid.inl"
+#include "tbx/types/uuid.generated.h"

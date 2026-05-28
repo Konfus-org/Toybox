@@ -1,12 +1,20 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/assets/material.h"
 #include <string>
 
 namespace tbx
 {
+    [[tbx::serializable]];
+    [[tbx::prop(
+        textures,
+        parameters,
+        config,
+        has_texture_override,
+        has_parameter_override,
+        has_config_override)]];
     struct TBX_API MaterialOverrides
     {
         MaterialTextureBindings textures = {};
@@ -18,20 +26,14 @@ namespace tbx
         bool has_config_override = false;
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(
-        MaterialOverrides,
-        textures,
-        parameters,
-        config,
-        has_texture_override,
-        has_parameter_override,
-        has_config_override)
-
     /// @brief
     /// Purpose: Stores a material asset handle plus flat runtime override data.
     /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    [[tbx::serializable]];
+    [[tbx::hash(tbx::hash($))]];
+    [[tbx::prop(id, material, overrides)]];
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
@@ -97,18 +99,8 @@ namespace tbx
         bool _is_dirty = true;
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(MaterialInstance, id, material, overrides)
-
     TBX_API uint64 hash(const MaterialInstance& material, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
-template <>
-struct std::hash<tbx::MaterialInstance>
-{
-    ::size operator()(const tbx::MaterialInstance& value) const
-    {
-        return static_cast<::size>(tbx::hash(value));
-    }
-};
-
+#include "tbx/types/components/material_instance.generated.h"
 #include "tbx/types/components/material_instance.inl"

@@ -161,6 +161,15 @@ namespace tbx
 
 namespace glm
 {
-    TBX_REGISTER_SERIALIZABLE_INDEXED_TYPE(tbx::Mat3, 3U)
-    TBX_REGISTER_SERIALIZABLE_INDEXED_TYPE(tbx::Mat4, 4U)
+    [[tbx::serializable]];
+    [[tbx::name("Mat3")]];
+    [[tbx::count(3U)]];
+    using TbxMat3 = tbx::Mat3;
+
+    [[tbx::serializable]];
+    [[tbx::name("Mat4")]];
+    [[tbx::count(4U)]];
+    using TbxMat4 = tbx::Mat4;
 }
+
+#include "tbx/types/matrices.generated.h"

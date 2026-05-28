@@ -8,6 +8,8 @@ namespace tbx
     // Represents axis-aligned bounds for projection calculations.
     // Ownership: value type; callers own copies and may store or return them freely.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[tbx::serializable]];
+    [[tbx::printable("[Left: {}, Right: {}, Top: {}, Bottom: {}]", left, right, top, bottom)]];
     struct TBX_API Bounds
     {
       public:
@@ -28,34 +30,18 @@ namespace tbx
         // Thread Safety: stateless; safe to call concurrently.
         static Bounds from_perspective_projection(float fov, float aspect_ratio, float z_near);
 
+        [[tbx::prop]]
         float left = 0.0f;
+
+        [[tbx::prop]]
         float right = 0.0f;
+
+        [[tbx::prop]]
         float top = 0.0f;
+
+        [[tbx::prop]]
         float bottom = 0.0f;
     };
-
 }
 
-template <>
-struct std::formatter<tbx::Bounds>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::Bounds& bounds, TFormatContext& ctx) const
-    {
-        return _formatter.format(
-            std::format(
-                "[Left: {}, Right: {}, Top: {}, Bottom: {}]",
-                bounds.left,
-                bounds.right,
-                bounds.top,
-                bounds.bottom),
-            ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
+#include "tbx/types/bounds.generated.h"

@@ -25,29 +25,34 @@ namespace tbx
         std::filesystem::path resolved_include_path = {};
     };
 
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct MacroOnlyAsset : Asset
     {
+        [[tbx::prop]]
         int value = 0;
     };
 
-    TBX_REGISTER_SERIALIZABLE_ASSET(MacroOnlyAsset, 1U, value)
-
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct OverlayAsset : Asset
     {
         bool was_overlaid = false;
+
+        [[tbx::prop]]
         int value = 0;
     };
 
-    TBX_REGISTER_SERIALIZABLE_ASSET(OverlayAsset, 1U, value)
-
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct LoaderPriorityAsset : Asset
     {
         bool loader_received_metadata = false;
         bool loader_saw_default_asset = false;
+
+        [[tbx::prop]]
         int value = 0;
     };
-
-    TBX_REGISTER_SERIALIZABLE_ASSET(LoaderPriorityAsset, 1U, value)
 
     struct DefaultOnlyAsset : Asset
     {
@@ -55,15 +60,19 @@ namespace tbx
         int value = 7;
     };
 
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TextOnlyAsset : Asset
     {
+        [[tbx::text]]
         std::string source = "";
+
+        [[tbx::meta]]
         int value = 0;
     };
 
-    TBX_REGISTER_SERIALIZABLE_TEXT_ASSET(TextOnlyAsset, source)
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(TextOnlyAsset, 1U, value)
-
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct CustomBodyAsset : Asset
     {
         std::string label = "";
@@ -76,17 +85,18 @@ namespace tbx
         static std::string to_json(const CustomBodyAsset& asset)
         {
             auto json = Json::object();
-            json.set("label", asset.label);
-            json.set("value", asset.value);
-            return json.to_string(-1);
+            json["label"] = asset.label;
+            json["value"] = asset.value;
+            return json.dump();
         }
 
         static bool from_json(std::string_view data, CustomBodyAsset& asset)
         {
             try
             {
-                const auto json = Json::parse(std::string(data));
-                return json.try_get("label", asset.label) && json.try_get("value", asset.value);
+                const auto json = JsonParser::parse(data);
+                return JsonParser::try_get(json, "label", asset.label)
+                       && JsonParser::try_get(json, "value", asset.value);
             }
             catch (...)
             {
@@ -94,8 +104,6 @@ namespace tbx
             }
         }
     };
-
-    TBX_REGISTER_SERIALIZABLE_CUSTOM_ASSET(CustomBodyAsset, 1U)
 
     struct TestAssetLoadParameters
     {
@@ -299,6 +307,8 @@ namespace tbx
         }
     };
 }
+
+#include "asset_manager_tests.generated.h"
 
 namespace tbx::tests::assets
 {
@@ -530,7 +540,9 @@ namespace tbx::tests::assets
         // Arrange
         auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
         file_ops->set_text("content/value.tasset", "{ \"value\": 42 }");
-        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002A\", \"version\": 1 }");
+        file_ops->set_text(
+            "content/value.tasset.meta",
+            "{ \"id\": { \"value\": 42 }, \"version\": 1 }");
         auto registry = SerializationRegistry {file_ops};
 
         // Act
@@ -548,7 +560,7 @@ namespace tbx::tests::assets
         // Arrange
         auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
         file_ops->set_text("content/value.tasset", "{ \"value\": 5 }");
-        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002B\" }");
+        file_ops->set_text("content/value.tasset.meta", "{ \"id\": { \"value\": 43 } }");
         auto registry = SerializationRegistry {file_ops};
 
         // Act
@@ -563,7 +575,9 @@ namespace tbx::tests::assets
         // Arrange
         auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
         file_ops->set_text("content/value.tasset", "{ \"value\": 5 }");
-        file_ops->set_text("content/value.tasset.meta", "{ \"id\": \"0000002B\", \"version\": 2 }");
+        file_ops->set_text(
+            "content/value.tasset.meta",
+            "{ \"id\": { \"value\": 43 }, \"version\": 2 }");
         auto registry = SerializationRegistry {file_ops};
 
         // Act
@@ -586,7 +600,7 @@ namespace tbx::tests::assets
         auto body = std::string();
         const bool wrote_body =
             file_ops->read_file("content/value.tasset", FileDataFormat::UTF8_TEXT, body);
-        auto json = Json::parse(body);
+        auto json = JsonParser::parse(body);
         auto value = int();
 
         // Assert
@@ -594,7 +608,7 @@ namespace tbx::tests::assets
         EXPECT_TRUE(registry.has_writer<MacroOnlyAsset>());
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(wrote_body);
-        EXPECT_TRUE(json.try_get("value", value));
+        EXPECT_TRUE(JsonParser::try_get(json, "value", value));
         EXPECT_EQ(value, 64);
     }
 
@@ -622,7 +636,7 @@ namespace tbx::tests::assets
         file_ops->set_text("content/value.text", "plain text body");
         file_ops->set_text(
             "content/value.text.meta",
-            "{ \"id\": \"0000002E\", \"version\": 1, \"value\": 77 }");
+            "{ \"id\": { \"value\": 46 }, \"version\": 1, \"value\": 77 }");
         auto registry = SerializationRegistry {file_ops};
 
         // Act
@@ -643,7 +657,9 @@ namespace tbx::tests::assets
         // Arrange
         auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
         file_ops->set_text("content/value.custom", R"({ "label": "source", "value": 42 })");
-        file_ops->set_text("content/value.custom.meta", R"({ "id": "00000031", "version": 1 })");
+        file_ops->set_text(
+            "content/value.custom.meta",
+            R"({ "id": { "value": 49 }, "version": 1 })");
         auto registry = SerializationRegistry {file_ops};
 
         // Act
@@ -656,7 +672,7 @@ namespace tbx::tests::assets
         auto written_body = std::string();
         const bool wrote_body =
             file_ops->read_file("content/written.custom", FileDataFormat::UTF8_TEXT, written_body);
-        auto written_json = Json::parse(written_body);
+        auto written_json = JsonParser::parse(written_body);
         auto written_label = std::string();
         auto written_value = int();
 
@@ -669,8 +685,8 @@ namespace tbx::tests::assets
         EXPECT_EQ(asset->value, 77);
         EXPECT_TRUE(write_result.succeeded());
         EXPECT_TRUE(wrote_body);
-        EXPECT_TRUE(written_json.try_get("label", written_label));
-        EXPECT_TRUE(written_json.try_get("value", written_value));
+        EXPECT_TRUE(JsonParser::try_get(written_json, "label", written_label));
+        EXPECT_TRUE(JsonParser::try_get(written_json, "value", written_value));
         EXPECT_EQ(written_label, "written");
         EXPECT_EQ(written_value, 77);
     }
@@ -719,7 +735,7 @@ namespace tbx::tests::assets
         file_ops->set_text("content/value.priority", "{ \"value\": 40 }");
         file_ops->set_text(
             "content/value.priority.meta",
-            "{ \"id\": \"0000002D\", \"version\": 1 }");
+            "{ \"id\": { \"value\": 45 }, \"version\": 1 }");
         auto registry = SerializationRegistry {file_ops};
         registry.register_loader<LoaderPriorityAsset>(load_priority_asset);
 
@@ -742,7 +758,7 @@ namespace tbx::tests::assets
         file_ops->set_text(
             "content/texture.png.meta",
             "{"
-            "\"id\": \"0000002C\","
+            "\"id\": { \"value\": 44 },"
             "\"version\": 1,"
             "\"wrap\": \"clamp_to_edge\","
             "\"filter\": \"nearest\","
@@ -1272,7 +1288,7 @@ namespace tbx::tests::assets
         file_ops->write_file(
             "content/material.mat.meta",
             FileDataFormat::UTF8_TEXT,
-            "{ \"id\": \"2\" }\n");
+            "{ \"id\": { \"value\": 2 } }\n");
 
         // Act
         AssetManager manager(

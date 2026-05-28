@@ -22,14 +22,17 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    [[tbx::serializable]];
+    [[tbx::prop(id, material, type)]];
     struct TBX_API Sky : Component
     {
         Sky() = default;
         Sky(MaterialInstance material, SkyType type = SkyType::SPHERE);
 
         MaterialInstance material = {};
+
         SkyType type = SkyType::SPHERE;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Sky, id, material, type)
 }
+
+#include "tbx/types/components/sky.generated.h"

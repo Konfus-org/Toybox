@@ -5,8 +5,8 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/audio_clip.h"
-#include "tbx/types/assets/model.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/utils/result.h"
@@ -39,6 +39,7 @@ namespace tbx
         bool operator==(const DefaultAssetLoadParameters& other) const = default;
     };
 
+    // TODO: move the explicit load params next to the asset structs/classes
     /// @brief
     /// Purpose: Provides texture-specific read parameters for serialized texture assets.
     /// @details

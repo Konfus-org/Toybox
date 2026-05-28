@@ -105,9 +105,9 @@ namespace tbx::internal
 
         try
         {
-            auto data = Json(contents);
+            auto data = JsonParser::parse(contents);
             auto id = Uuid();
-            static_cast<void>(data.try_get<Uuid>("id", id));
+            static_cast<void>(JsonParser::try_get(data, "id", id));
             return std::make_unique<Handle>(asset_path.lexically_normal().generic_string(), id);
         }
         catch (...)

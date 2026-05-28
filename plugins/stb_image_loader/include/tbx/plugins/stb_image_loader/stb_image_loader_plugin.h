@@ -15,6 +15,10 @@ namespace stb_image_loader
     /// Ownership: tbx::Plugin lifetime is owned by the host; it keeps non-owning references to the
     /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
     /// synchronization.
+    [[tbx::plugin]];
+    [[tbx::name("StbImageLoaderPlugin")]];
+    [[tbx::version("1.0.0")]];
+    [[tbx::category("default")]];
     class TBX_PLUGIN_API StbImageLoaderPlugin final : public tbx::Plugin
     {
       public:

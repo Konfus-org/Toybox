@@ -33,6 +33,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns mesh, material, and part data by value.
     /// Thread Safety: Safe to construct on any thread.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TBX_API Model : Asset
     {
         Model();
@@ -44,5 +46,6 @@ namespace tbx
         std::vector<ModelPart> parts = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(Model, 1U)
 }
+
+#include "tbx/types/assets/model.generated.h"

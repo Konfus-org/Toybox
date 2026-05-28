@@ -8,11 +8,7 @@ target_link_libraries(${plugin_name} PRIVATE
         Tbx::Engine
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS tbx::performance_monitor::TbxPerformanceMonitorPlugin
-        HEADER "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "logging"
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

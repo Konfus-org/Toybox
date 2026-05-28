@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #ifndef GLM_ENABLE_EXPERIMENTAL
     #define GLM_ENABLE_EXPERIMENTAL
@@ -120,8 +119,25 @@ namespace tbx
 
 namespace glm
 {
-    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec2, x, y)
-    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec3, x, y, z)
-    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Vec4, x, y, z, w)
-    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::IVec3, x, y, z)
+    [[tbx::serializable]];
+    [[tbx::name("Vec2")]];
+    [[tbx::prop(x, y)]];
+    using TbxVec2 = tbx::Vec2;
+
+    [[tbx::serializable]];
+    [[tbx::name("Vec3")]];
+    [[tbx::prop(x, y, z)]];
+    using TbxVec3 = tbx::Vec3;
+
+    [[tbx::serializable]];
+    [[tbx::name("Vec4")]];
+    [[tbx::prop(x, y, z, w)]];
+    using TbxVec4 = tbx::Vec4;
+
+    [[tbx::serializable]];
+    [[tbx::name("IVec3")]];
+    [[tbx::prop(x, y, z)]];
+    using TbxIVec3 = tbx::IVec3;
 }
+
+#include "tbx/types/vectors.generated.h"

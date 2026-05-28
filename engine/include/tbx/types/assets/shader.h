@@ -20,32 +20,24 @@ namespace tbx
     /// @details
     /// Ownership: Does not own resources.
     /// Thread Safety: Safe to read concurrently.
+    [[tbx::serializable]];
     enum class ShaderType
     {
-        NONE,
-        VERTEX,
-        TESSELATION,
-        GEOMETRY,
-        FRAGMENT,
-        COMPUTE
+        NONE [[tbx::name("none")]],
+        VERTEX [[tbx::name("vertex")]],
+        TESSELATION [[tbx::name("tesselation")]],
+        GEOMETRY [[tbx::name("geometry")]],
+        FRAGMENT [[tbx::name("fragment")]],
+        COMPUTE [[tbx::name("compute")]]
     };
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        ShaderType,
-        {
-            {ShaderType::NONE, "none"},
-            {ShaderType::VERTEX, "vertex"},
-            {ShaderType::TESSELATION, "tesselation"},
-            {ShaderType::GEOMETRY, "geometry"},
-            {ShaderType::FRAGMENT, "fragment"},
-            {ShaderType::COMPUTE, "compute"},
-        })
 
     /// @brief
     /// Purpose: Stores shader source text for a single stage.
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TBX_API ShaderSource
     {
         ShaderSource() = default;
@@ -65,12 +57,16 @@ namespace tbx
         {
         }
 
+        // TODO: Update serializable attribute to have a optional 'mode' param that defaults to
+        // "json", the other option is "text" the text option expects one prop that is a string or
+        // char* or string view to serialize into plain text if there is more than one prop we
+        // should get a compiler error!
+        [[tbx::text]]
         std::string source = "";
+
+        [[tbx::meta]]
         ShaderType type = ShaderType::NONE;
     };
-
-    TBX_REGISTER_SERIALIZABLE_TEXT_ASSET(ShaderSource, source)
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(ShaderSource, 1U, type)
 
     /// @brief
     /// Purpose: Stores one or more shader stages that can be linked into a graphics pipeline.
@@ -155,14 +151,12 @@ namespace tbx
         std::vector<ShaderSource> sources = {};
     };
 
-    TBX_REGISTER_SERIALIZABLE_TEXT_ASSET(ShaderProgram, source)
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(ShaderProgram, 1U, type)
-
     /// @brief
     /// Purpose: Holds explicit shader stage handles used to build a shader program.
     /// @details
     /// Ownership: Stores stage handles by value; does not own loaded shader assets.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    [[tbx::serializable]];
     struct TBX_API Shader
     {
         /// @brief
@@ -170,6 +164,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle vertex = {};
 
         /// @brief
@@ -177,6 +172,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle fragment = {};
 
         /// @brief
@@ -184,6 +180,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle tesselation = {};
 
         /// @brief
@@ -191,6 +188,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle geometry = {};
 
         /// @brief
@@ -198,6 +196,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle compute = {};
 
         /// @brief
@@ -221,5 +220,6 @@ namespace tbx
         }
     };
 
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Shader, vertex, fragment, tesselation, geometry, compute)
 }
+
+#include "tbx/types/assets/shader.generated.h"

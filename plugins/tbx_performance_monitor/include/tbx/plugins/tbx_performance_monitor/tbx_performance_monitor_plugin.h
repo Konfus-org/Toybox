@@ -26,6 +26,10 @@ namespace tbx::performance_monitor
     /// @details
     /// Ownership: Does not own application services; samples frame timing from app lifecycle
     /// events. Thread Safety: Not thread-safe; expected to run on the main thread.
+    [[tbx::plugin]];
+    [[tbx::name("TbxPerformanceMonitorPlugin")]];
+    [[tbx::version("1.0.0")]];
+    [[tbx::category("logging")]];
     class TBX_PLUGIN_API TbxPerformanceMonitorPlugin final : public tbx::Plugin
     {
       public:

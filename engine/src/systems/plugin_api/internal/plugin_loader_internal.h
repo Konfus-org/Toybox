@@ -12,6 +12,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <unordered_map>
@@ -21,6 +22,8 @@
 
 namespace tbx::internal
 {
+    inline constexpr std::string_view PluginShadowCopyDirectory = ".plugin_load_copies";
+
     static bool path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
@@ -58,7 +61,7 @@ namespace tbx::internal
         static uint64 next_shadow_copy_index = 0U;
 
         const auto copy_stem = library_path.stem().string();
-        const auto copy_root = library_path.parent_path() / ".plugin_load_copies";
+        const auto copy_root = library_path.parent_path() / PluginShadowCopyDirectory;
 
         for (auto attempt = 0U; attempt < 128U; ++attempt)
         {
@@ -141,6 +144,9 @@ namespace tbx::internal
         if (file_ops.get_type(library_path) != FileType::FILE)
             return {};
 
+        if (path_contains_directory_token(library_path, PluginShadowCopyDirectory))
+            return {};
+
         const auto shadow_copy_path = make_plugin_shadow_copy_path(library_path, file_ops);
         if (shadow_copy_path.empty())
             return {};
@@ -184,19 +190,10 @@ namespace tbx::internal
         return {};
     }
 
-    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileOps& file_ops)
+    static std::unique_ptr<SharedLibrary> load_plugin_library(
+        const std::filesystem::path& library_path,
+        IFileOps& file_ops)
     {
-        if (meta.abi_version != PluginAbiVersion)
-        {
-            TBX_TRACE_WARNING(
-                "Plugin ABI mismatch for {}: expected {}, found {}",
-                meta.name,
-                PluginAbiVersion,
-                meta.abi_version);
-            return {};
-        }
-
-        const std::filesystem::path library_path = resolve_plugin_library_path(meta, file_ops);
         auto load_path = library_path;
         auto cleanup_path = std::filesystem::path {};
 
@@ -252,28 +249,71 @@ namespace tbx::internal
             {
                 TBX_TRACE_WARNING("Failed to load plugin module '{}'.", load_path.string());
             }
+            return nullptr;
+        }
+
+        return lib;
+    }
+
+    static bool try_query_plugin_meta_from_library(
+        const std::filesystem::path& library_path,
+        IFileOps& file_ops,
+        PluginMeta& out_meta)
+    {
+        auto lib = load_plugin_library(library_path, file_ops);
+        if (!lib || !lib->is_valid())
+            return false;
+
+        GetPluginMetaFn get_meta = lib->get_symbol<GetPluginMetaFn>("tbx_get_plugin_meta");
+        if (!get_meta)
+            return false;
+
+        auto meta = PluginMeta {};
+        get_meta(&meta);
+        if (meta.name.empty() || meta.version.empty())
+            return false;
+
+        meta.root_directory = library_path.parent_path();
+        meta.library_path = library_path;
+        meta.linkage = PluginLinkage::DYNAMIC;
+        out_meta = std::move(meta);
+        return true;
+    }
+
+    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileOps& file_ops)
+    {
+        if (meta.abi_version != PluginAbiVersion)
+        {
+            TBX_TRACE_WARNING(
+                "Plugin ABI mismatch for {}: expected {}, found {}",
+                meta.name,
+                PluginAbiVersion,
+                meta.abi_version);
             return {};
         }
 
-        const std::string create_symbol = "create_" + meta.name;
-        CreatePluginFn create = lib->get_symbol<CreatePluginFn>(create_symbol.c_str());
+        const std::filesystem::path library_path = resolve_plugin_library_path(meta, file_ops);
+        auto lib = load_plugin_library(library_path, file_ops);
+        if (!lib || !lib->is_valid())
+            return {};
+
+        CreatePluginFn create = lib->get_symbol<CreatePluginFn>("tbx_create_plugin");
         if (!create)
         {
             TBX_TRACE_WARNING(
                 "Entry point not found in plugin module '{}': {}",
-                load_path.string(),
-                create_symbol);
+                lib->get_path().string(),
+                "tbx_create_plugin");
             return {};
         }
 
-        const std::string destroy_symbol = "destroy_" + meta.name;
-        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>(destroy_symbol.c_str());
+        DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>("tbx_destroy_plugin");
         if (!destroy)
         {
             TBX_TRACE_WARNING(
                 "Destroy entry point not found in plugin module '{}': {}",
-                load_path.string(),
-                destroy_symbol);
+                lib->get_path().string(),
+                "tbx_destroy_plugin");
             return {};
         }
 

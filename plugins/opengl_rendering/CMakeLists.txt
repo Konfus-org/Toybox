@@ -9,13 +9,7 @@ target_link_libraries(${plugin_name} PRIVATE
         glad::glad
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS opengl_rendering::OpenGlRenderingPlugin
-        HEADER "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "rendering"
-        PRIORITY 100
-        DEPENDENCIES SdlOpenGlContextManagerPlugin
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

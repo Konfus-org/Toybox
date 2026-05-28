@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include <glm/gtc/quaternion.hpp>
 
@@ -22,5 +21,10 @@ namespace tbx
 
 namespace glm
 {
-    TBX_REGISTER_SERIALIZABLE_STRUCT(tbx::Quat, x, y, z, w)
+    [[tbx::serializable]];
+    [[tbx::name("Quat")]];
+    [[tbx::prop(x, y, z, w)]];
+    using TbxQuat = tbx::Quat;
 }
+
+#include "tbx/types/quaternions.generated.h"

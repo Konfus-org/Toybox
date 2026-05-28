@@ -11,6 +11,10 @@ namespace three_d_example
 {
     /// @brief
     /// Purpose: Loads the authored 3D example world and wires its runtime gameplay systems.
+    [[tbx::plugin]];
+    [[tbx::name("ThreeDExampleRuntime")]];
+    [[tbx::version("1.0.0")]];
+    [[tbx::category("gameplay")]];
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:

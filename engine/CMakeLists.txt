@@ -29,6 +29,8 @@ endif()
 add_library(Tbx::Engine ALIAS Engine)
 set_target_properties(Engine PROPERTIES FOLDER "engine")
 
+include(code_gen_utility)
+
 file(GLOB_RECURSE TBX_Engine_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE TBX_Engine_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 
@@ -45,9 +47,23 @@ target_include_directories(Engine
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+tbx_codegen_generate_attribute_headers(
+    TARGET Engine
+    SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated/include"
+    INCLUDE_SCOPE PUBLIC
+)
+
 target_compile_definitions(Engine
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
+)
+
+target_compile_options(Engine
+    PUBLIC
+        $<$<CXX_COMPILER_ID:MSVC>:/wd5030>
+        $<$<CXX_COMPILER_ID:Clang>:-Wno-unknown-attributes>
+        $<$<CXX_COMPILER_ID:GNU>:-Wno-attributes>
 )
 
 if(TBX_ENABLE_VERBOSE)

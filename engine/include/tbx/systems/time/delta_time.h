@@ -9,6 +9,7 @@ namespace tbx
     // Time delta between frames/updates.
     // Ownership: value type.
     // Thread-safety: value type; freely copyable.
+    [[tbx::printable("{}s", seconds)]];
     struct TBX_API DeltaTime
     {
         double seconds = 0.0;
@@ -34,19 +35,4 @@ namespace tbx
 
 }
 
-template <>
-struct std::formatter<tbx::DeltaTime>
-{
-    constexpr auto parse(std::format_parse_context& ctx)
-    {
-        return _formatter.parse(ctx);
-    }
-
-    template <typename TFormatContext>
-    auto format(const tbx::DeltaTime& delta_time, TFormatContext& ctx) const
-    {
-        return _formatter.format(std::format("{}s", delta_time.seconds), ctx);
-    }
-
-    std::formatter<std::string> _formatter;
-};
+#include "tbx/systems/time/delta_time.generated.h"

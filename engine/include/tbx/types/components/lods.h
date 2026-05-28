@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/handle.h"
@@ -12,24 +11,29 @@ namespace tbx
     /// @details
     /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
     struct TBX_API Lod
     {
+        [[tbx::prop]]
         Handle handle = {};
+
+        [[tbx::prop]]
         float max_distance = 0.0f;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Lod, handle, max_distance)
 
     /// @brief
     /// Purpose: Stores mesh LOD selection data for a renderable entity.
     /// @details
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    [[tbx::serializable]];
+    [[tbx::prop(id, values, render_distance)]];
     struct TBX_API Lods : Component
     {
         std::vector<Lod> values = {};
+
         float render_distance = 0.0f;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(Lods, id, values, render_distance)
 }
+
+#include "tbx/types/components/lods.generated.h"

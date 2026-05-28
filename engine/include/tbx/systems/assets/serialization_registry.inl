@@ -605,7 +605,7 @@ namespace tbx
 
         try
         {
-            auto data = Json::parse(contents);
+            auto data = JsonParser::parse(contents);
             auto common_meta_result =
                 try_read_tbx_asset_common_meta(data, meta_path, expected_version, out_metadata);
             if (!common_meta_result.succeeded())

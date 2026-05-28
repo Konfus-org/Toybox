@@ -9,78 +9,49 @@ namespace tbx
 {
     using Pixel = unsigned char;
 
+    [[tbx::serializable]];
     enum class TextureFilter
     {
-        NEAREST,
-        LINEAR
+        NEAREST [[tbx::name("nearest")]],
+        LINEAR [[tbx::name("linear")]]
     };
 
+    [[tbx::serializable]];
     enum class TextureWrap
     {
-        CLAMP_TO_EDGE,
-        MIRRORED_REPEAT,
-        REPEAT
+        CLAMP_TO_EDGE [[tbx::name("clamp_to_edge")]],
+        MIRRORED_REPEAT [[tbx::name("mirrored_repeat")]],
+        REPEAT [[tbx::name("repeat")]]
     };
 
+    [[tbx::serializable]];
     enum class TextureFormat
     {
-        RGB,
-        RGBA
+        RGB [[tbx::name("rgb")]],
+        RGBA [[tbx::name("rgba")]]
     };
 
+    [[tbx::serializable]];
     enum class TextureMipmaps
     {
-        DISABLED,
-        ENABLED
+        DISABLED [[tbx::name("disabled")]],
+        ENABLED [[tbx::name("enabled")]]
     };
 
+    [[tbx::serializable]];
     enum class TextureCompression
     {
-        DISABLED,
-        AUTO
+        DISABLED [[tbx::name("disabled")]],
+        AUTO [[tbx::name("auto")]]
     };
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        TextureFilter,
-        {
-            {TextureFilter::NEAREST, "nearest"},
-            {TextureFilter::LINEAR, "linear"},
-        })
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        TextureWrap,
-        {
-            {TextureWrap::CLAMP_TO_EDGE, "clamp_to_edge"},
-            {TextureWrap::MIRRORED_REPEAT, "mirrored_repeat"},
-            {TextureWrap::REPEAT, "repeat"},
-        })
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        TextureFormat,
-        {
-            {TextureFormat::RGB, "rgb"},
-            {TextureFormat::RGBA, "rgba"},
-        })
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        TextureMipmaps,
-        {
-            {TextureMipmaps::DISABLED, "disabled"},
-            {TextureMipmaps::ENABLED, "enabled"},
-        })
-
-    TBX_REGISTER_SERIALIZABLE_ENUM(
-        TextureCompression,
-        {
-            {TextureCompression::DISABLED, "disabled"},
-            {TextureCompression::AUTO, "auto"},
-        })
 
     /// @brief
     /// Purpose: Stores texture sampling, surface settings, and pixel data.
     /// @details
     /// Ownership: Owns texture pixel data by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
+    [[tbx::version(1U)]];
     struct TBX_API Texture : Asset
     {
         Texture() = default;
@@ -124,18 +95,27 @@ namespace tbx
         }
 
         Size resolution = {1, 1};
+        [[tbx::meta]]
         TextureWrap wrap = TextureWrap::REPEAT;
+
+        [[tbx::meta]]
         TextureFilter filter = TextureFilter::LINEAR;
+
+        [[tbx::meta]]
         TextureFormat format = TextureFormat::RGB;
+
+        [[tbx::meta]]
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
+
+        [[tbx::meta]]
         TextureCompression compression = TextureCompression::DISABLED;
         std::vector<Pixel> pixels = {255, 255, 255};
     };
-
-    TBX_REGISTER_SERIALIZABLE_ASSET_META(Texture, 1U, wrap, filter, format, mipmaps, compression)
 
     struct TBX_API RenderTexture : Texture
     {
     };
 
 }
+
+#include "tbx/types/assets/texture.generated.h"

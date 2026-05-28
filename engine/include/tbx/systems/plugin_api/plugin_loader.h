@@ -11,15 +11,15 @@
 
 namespace tbx
 {
-    // Returns true when the path matches the platform-specific plugin manifest filename pattern.
-    TBX_API bool is_plugin_manifest_path(const std::filesystem::path& path);
+    // Returns true when the path matches the platform-specific plugin library filename pattern.
+    TBX_API bool is_plugin_library_path(const std::filesystem::path& path);
 
     // Resolves the concrete plugin library path that should be loaded for the given metadata.
     TBX_API std::filesystem::path resolve_plugin_library_path(
         const PluginMeta& meta,
         IFileOps& file_ops);
 
-    // Scans 'directory' for plugin manifests (e.g. `*.dll.meta`, `*.so.meta`),
+    // Scans 'directory' for plugin libraries (e.g. `*.dll`, `*.so`),
     // skips any `resources/` subtree, filters by requested IDs,
     // resolves load order, loads plugins, and returns owned plugin containers.
     // Ownership: The caller owns the returned LoadedPlugin objects.

@@ -1,4 +1,8 @@
 #include "tbx/systems/files/json.h"
+#include "tbx/types/color.h"
+#include "tbx/types/handle.h"
+#include "tbx/types/quaternions.h"
+#include "tbx/types/vectors.h"
 #include <string>
 #include <vector>
 
@@ -9,13 +13,13 @@ namespace tbx::tests::file_system
         const std::string text =
             "{\n  \"value\": 5,\n  // comment should be ignored\n  \"flag\": true\n}";
 
-        Json json(text);
+        Json json = JsonParser::parse(text);
 
         int value = {};
         bool flag = {};
 
-        EXPECT_TRUE(json.try_get<int>("value", value));
-        EXPECT_TRUE(json.try_get<bool>("flag", flag));
+        EXPECT_TRUE(JsonParser::try_get(json, "value", value));
+        EXPECT_TRUE(JsonParser::try_get(json, "flag", flag));
 
         EXPECT_EQ(value, 5);
         EXPECT_TRUE(flag);
@@ -25,20 +29,20 @@ namespace tbx::tests::file_system
     {
         const std::string text =
             "{\n"
-            "  \"color\": [0.1, 0.2, 0.3, 1.0],\n"
-            "  \"position\": [2.0, 3.0, 4.0],\n"
-            "  \"rotation\": [0.0, 0.0, 0.0, 1.0]\n"
+            "  \"color\": { \"r\": 0.1, \"g\": 0.2, \"b\": 0.3, \"a\": 1.0 },\n"
+            "  \"position\": { \"x\": 2.0, \"y\": 3.0, \"z\": 4.0 },\n"
+            "  \"rotation\": { \"x\": 0.0, \"y\": 0.0, \"z\": 0.0, \"w\": 1.0 }\n"
             "}";
 
-        Json json(text);
+        Json json = JsonParser::parse(text);
 
         auto color = Color();
         auto position = Vec3();
         auto rotation = Quat();
 
-        EXPECT_TRUE(json.try_get<Color>("color", color));
-        EXPECT_TRUE(json.try_get<Vec3>("position", position));
-        EXPECT_TRUE(json.try_get<Quat>("rotation", rotation));
+        EXPECT_TRUE(JsonParser::try_get(json, "color", color));
+        EXPECT_TRUE(JsonParser::try_get(json, "position", position));
+        EXPECT_TRUE(JsonParser::try_get(json, "rotation", rotation));
 
         EXPECT_FLOAT_EQ(color.r, 0.1f);
         EXPECT_FLOAT_EQ(position.y, 3.0f);
@@ -54,17 +58,17 @@ namespace tbx::tests::file_system
             "  \"floats\": [1.5, 4, \"nope\"]\n"
             "}";
 
-        Json json(text);
+        Json json = JsonParser::parse(text);
 
         std::vector<int> ints;
         std::vector<bool> bools;
         std::vector<float> floats;
 
-        EXPECT_TRUE(json.try_get<int>("ints", ints));
-        EXPECT_TRUE(json.try_get<bool>("bools", bools));
-        EXPECT_TRUE(json.try_get<float>("floats", floats));
-        EXPECT_TRUE(json.try_get<float>("floats", 2U, floats));
-        EXPECT_FALSE(json.try_get<float>("floats", 3U, floats));
+        EXPECT_TRUE(JsonParser::try_get(json, "ints", ints));
+        EXPECT_TRUE(JsonParser::try_get(json, "bools", bools));
+        EXPECT_TRUE(JsonParser::try_get(json, "floats", floats));
+        EXPECT_TRUE(JsonParser::try_get(json, "floats", 2U, floats));
+        EXPECT_FALSE(JsonParser::try_get(json, "floats", 3U, floats));
 
         ASSERT_EQ(ints.size(), 2u);
         ASSERT_EQ(bools.size(), 2u);
@@ -81,11 +85,11 @@ namespace tbx::tests::file_system
             "  }\n"
             "}";
 
-        auto json = Json(text);
+        auto json = JsonParser::parse(text);
         auto handle = Handle();
 
         // Act
-        const auto was_loaded = json.try_get<Handle>("handle", handle);
+        const auto was_loaded = JsonParser::try_get(json, "handle", handle);
 
         // Assert
         EXPECT_TRUE(was_loaded);

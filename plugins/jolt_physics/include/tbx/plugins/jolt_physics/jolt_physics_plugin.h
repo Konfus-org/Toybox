@@ -4,6 +4,11 @@
 
 namespace jolt_physics
 {
+    [[tbx::plugin]];
+    [[tbx::name("JoltPhysicsPlugin")]];
+    [[tbx::version("1.0.0")]];
+    [[tbx::category("physics")]];
+    [[tbx::priority(50)]];
     class TBX_PLUGIN_API JoltPhysicsPlugin final : public tbx::Plugin
     {
       public:

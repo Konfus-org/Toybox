@@ -2,6 +2,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/message.h"
+#include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
@@ -84,6 +85,7 @@ namespace tbx
         IMessageDispatcher* _dispatcher = nullptr;
     };
 
+    using GetPluginMetaFn = void (*)(PluginMeta*);
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
 }
@@ -95,16 +97,3 @@ namespace tbx
 #else
     #define TBX_PLUGIN_ENTRY_EXPORT extern "C"
 #endif
-
-#define TBX_REGISTER_PLUGIN(PluginName, PluginType)                                                \
-    TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* create_##PluginName()                                   \
-    {                                                                                              \
-        ::tbx::Plugin* plugin = new PluginType();                                                  \
-        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                \
-        return plugin;                                                                             \
-    }                                                                                              \
-    TBX_PLUGIN_ENTRY_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                       \
-    {                                                                                              \
-        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
-        delete plugin;                                                                             \
-    }

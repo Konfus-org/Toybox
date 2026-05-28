@@ -11,64 +11,6 @@
         return true;                                                                               \
     }()
 
-#define TBX_INTERNAL_DECLARE_SERIALIZABLE_TYPE(Type)                                               \
-    inline constexpr std::string_view tbx_serialization_type_name(const Type*)                     \
-    {                                                                                              \
-        return #Type;                                                                              \
-    }
-
-#define TBX_INTERNAL_DECLARE_SERIALIZATION_VERSION(Type, Version)                                  \
-    inline std::true_type tbx_has_serialization_version(const Type*)                               \
-    {                                                                                              \
-        return {};                                                                                 \
-    }                                                                                              \
-    inline std::integral_constant<uint32, Version> tbx_serialization_version(const Type*)          \
-    {                                                                                              \
-        return {};                                                                                 \
-    }
-
-#define TBX_INTERNAL_SERIALIZATION_FIELD_TO(v1)                                                    \
-    ::tbx::internal::write_serialization_field(nlohmann_json_j, #v1, nlohmann_json_t.v1);
-
-#define TBX_INTERNAL_SERIALIZATION_FIELD_FROM_WITH_DEFAULT(v1)                                     \
-    ::tbx::internal::read_serialization_field(                                                     \
-        nlohmann_json_j,                                                                           \
-        #v1,                                                                                       \
-        nlohmann_json_t.v1,                                                                        \
-        nlohmann_json_default_obj.v1);
-
-#define TBX_INTERNAL_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Type, ...)                             \
-    template <typename BasicJsonType>                                                              \
-    void to_json(BasicJsonType& nlohmann_json_j, const Type& nlohmann_json_t)                      \
-    {                                                                                              \
-        NLOHMANN_JSON_EXPAND(                                                                      \
-            NLOHMANN_JSON_PASTE(TBX_INTERNAL_SERIALIZATION_FIELD_TO, __VA_ARGS__))                 \
-    }                                                                                              \
-    template <typename BasicJsonType>                                                              \
-    void from_json(const BasicJsonType& nlohmann_json_j, Type& nlohmann_json_t)                    \
-    {                                                                                              \
-        const Type nlohmann_json_default_obj {};                                                   \
-        NLOHMANN_JSON_EXPAND(                                                                      \
-            NLOHMANN_JSON_PASTE(TBX_INTERNAL_SERIALIZATION_FIELD_FROM_WITH_DEFAULT, __VA_ARGS__))  \
-    }
-
-#define TBX_INTERNAL_DEFINE_INDEXED_TYPE(Type, Count)                                              \
-    template <typename BasicJsonType>                                                              \
-    void to_json(BasicJsonType& nlohmann_json_j, const Type& nlohmann_json_t)                      \
-    {                                                                                              \
-        nlohmann_json_j = ::tbx::internal::write_indexed_serialization_value<BasicJsonType>(       \
-            nlohmann_json_t,                                                                       \
-            Count);                                                                                \
-    }                                                                                              \
-    template <typename BasicJsonType>                                                              \
-    void from_json(const BasicJsonType& nlohmann_json_j, Type& nlohmann_json_t)                    \
-    {                                                                                              \
-        ::tbx::internal::read_indexed_serialization_value(                                         \
-            nlohmann_json_j,                                                                       \
-            nlohmann_json_t,                                                                       \
-            Count);                                                                                \
-    }
-
 namespace tbx::internal
 {
     static std::string make_serializable_type_name(std::string_view type_name);
@@ -139,7 +81,10 @@ namespace tbx::internal
         return false;
     }
 
-    inline void tbx_after_deserialize(...) {}
+    template <typename TValue>
+    inline void tbx_after_deserialize(TValue&)
+    {
+    }
 
     template <typename TValue>
     static bool ensure_serializable_type_registered()
@@ -158,7 +103,7 @@ namespace tbx::internal
     {
         try
         {
-            from_json(nlohmann::json::parse(data), value);
+            from_json(::tbx::JsonParser::parse(data), value);
             return true;
         }
         catch (...)
@@ -189,7 +134,7 @@ namespace tbx::internal
     template <typename TAsset>
     static Result write_json_asset_body(const TAsset& asset, std::string& output)
     {
-        auto json = nlohmann::json();
+        auto json = ::tbx::Json();
         to_json(json, asset);
         output = json.dump(4);
         return {};
@@ -516,12 +461,12 @@ namespace tbx::internal
     template <typename TVariant, typename TValue>
     struct SerializableVariantValue
     {
-        static TValue read(const nlohmann::json& json)
+        static TValue read(const ::tbx::Json& json)
         {
             return json.get<TValue>();
         }
 
-        static nlohmann::json write(const TValue& value)
+        static ::tbx::Json write(const TValue& value)
         {
             return value;
         }
@@ -529,7 +474,7 @@ namespace tbx::internal
 
     template <typename TVariant, typename TValue>
     static bool try_read_serializable_variant_alternative(
-        const nlohmann::json& json,
+        const ::tbx::Json& json,
         TVariant& value,
         std::string_view requested_type)
     {
@@ -546,14 +491,12 @@ namespace tbx::internal
     }
 
     template <typename TVariant, typename TValue>
-    static bool try_write_serializable_variant_alternative(
-        nlohmann::json& json,
-        const TVariant& value)
+    static bool try_write_serializable_variant_alternative(::tbx::Json& json, const TVariant& value)
     {
         if (!std::holds_alternative<TValue>(value))
             return false;
 
-        json = nlohmann::json {
+        json = ::tbx::Json {
             {std::string(SERIALIZABLE_VARIANT_TYPE_KEY),
              make_serializable_type_name(get_serializable_variant_type_name<TValue>())},
             {std::string(SERIALIZABLE_VARIANT_VALUE_KEY),
@@ -564,7 +507,7 @@ namespace tbx::internal
 
     template <typename TVariant, size... Indices>
     static void from_json_serializable_variant(
-        const nlohmann::json& json,
+        const ::tbx::Json& json,
         TVariant& value,
         std::index_sequence<Indices...>)
     {
@@ -585,7 +528,7 @@ namespace tbx::internal
     }
 
     template <typename TVariant>
-    static void from_json_serializable_variant(const nlohmann::json& json, TVariant& value)
+    static void from_json_serializable_variant(const ::tbx::Json& json, TVariant& value)
     {
         from_json_serializable_variant(
             json,
@@ -595,7 +538,7 @@ namespace tbx::internal
 
     template <typename TVariant, size... Indices>
     static void to_json_serializable_variant(
-        nlohmann::json& json,
+        ::tbx::Json& json,
         const TVariant& value,
         std::index_sequence<Indices...>)
     {
@@ -610,7 +553,7 @@ namespace tbx::internal
     }
 
     template <typename TVariant>
-    static void to_json_serializable_variant(nlohmann::json& json, const TVariant& value)
+    static void to_json_serializable_variant(::tbx::Json& json, const TVariant& value)
     {
         to_json_serializable_variant(
             json,

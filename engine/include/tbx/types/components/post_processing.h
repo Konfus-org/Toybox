@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/material_instance.h"
@@ -14,6 +13,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning material handle reference and value settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
     struct TBX_API PostProcessingEffect
     {
         ~PostProcessingEffect();
@@ -23,6 +23,7 @@ namespace tbx
         /// @details
         /// Ownership: Owns parameter/texture override sets and a base material handle.
         /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+        [[tbx::prop]]
         MaterialInstance material = {};
 
         /// @brief
@@ -30,6 +31,7 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         bool is_enabled = true;
 
         /// @brief
@@ -37,16 +39,17 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         float blend = 1.0f;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(PostProcessingEffect, material, is_enabled, blend)
 
     /// @brief
     /// Purpose: Configures the scene-wide post-processing material for the final screen pass.
     /// @details
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
+    [[tbx::prop(id, effects, is_enabled)]];
     struct TBX_API PostProcessing : Component
     {
         ~PostProcessing();
@@ -65,6 +68,6 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         bool is_enabled = true;
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(PostProcessing, id, effects, is_enabled)
 }
+
+#include "tbx/types/components/post_processing.generated.h"

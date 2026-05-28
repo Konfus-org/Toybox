@@ -1,4 +1,5 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
+#include "systems/plugin_api/internal/plugin_loader_internal.h"
 #include "systems/plugin_api/internal/plugin_manager_internal.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/physics_backend.h"
@@ -67,17 +68,7 @@ namespace tbx
                 {
                     if (internal::plugin_manager_path_contains_directory_token(path, "resources"))
                         return false;
-                    if (is_plugin_manifest_path(path))
-                        return true;
-
-                    const auto extension = to_lower(path.extension().string());
-#if defined(TBX_PLATFORM_WINDOWS)
-                    return extension == ".dll";
-#elif defined(TBX_PLATFORM_MACOS)
-                    return extension == ".dylib";
-#else
-                    return extension == ".so";
-#endif
+                    return is_plugin_library_path(path);
                 },
             },
             _file_ops);
@@ -254,24 +245,6 @@ namespace tbx
             process_file_change(change, processed_plugin_names);
     }
 
-    bool PluginManager::try_parse_plugin_meta(
-        const std::filesystem::path& manifest_path,
-        PluginMeta& out_meta) const
-    {
-        if (!_file_ops || !_file_ops->exists(manifest_path))
-            return false;
-
-        auto manifest_text = std::string {};
-        if (!_file_ops->read_file(manifest_path, FileDataFormat::UTF8_TEXT, manifest_text))
-            return false;
-
-        auto parser = PluginMetaParser {};
-        return parser.try_parse_from_source(
-            std::string_view(manifest_text),
-            manifest_path,
-            out_meta);
-    }
-
     void PluginManager::process_file_change(
         const FileWatchChange& change,
         std::unordered_set<std::string>& processed_plugin_names)
@@ -296,62 +269,8 @@ namespace tbx
         if (internal::plugin_manager_path_contains_directory_token(changed_path, "resources"))
             return;
 
-        if (is_plugin_manifest_path(changed_path))
-        {
-            size existing_index = internal::invalid_plugin_index;
-            for (size index = 0; index < static_cast<size>(_loaded.size()); ++index)
-            {
-                if (_loaded[index].meta.manifest_path.lexically_normal() == changed_path)
-                {
-                    existing_index = index;
-                    break;
-                }
-            }
-
-            if (change.type == FileWatchChangeType::REMOVED)
-            {
-                if (existing_index != internal::invalid_plugin_index)
-                {
-                    if (mark_processed_or_skip(_loaded[existing_index].meta.name))
-                        return;
-                    unload(_loaded[existing_index].meta.name);
-                }
-                return;
-            }
-
-            auto meta = PluginMeta {};
-            if (!try_parse_plugin_meta(changed_path, meta))
-            {
-                if (existing_index != internal::invalid_plugin_index)
-                {
-                    if (mark_processed_or_skip(_loaded[existing_index].meta.name))
-                        return;
-                    unload(_loaded[existing_index].meta.name);
-                }
-                return;
-            }
-
-            if (existing_index != internal::invalid_plugin_index
-                && to_lower(_loaded[existing_index].meta.name) != to_lower(meta.name))
-            {
-                if (mark_processed_or_skip(_loaded[existing_index].meta.name))
-                    return;
-                unload(_loaded[existing_index].meta.name);
-            }
-
-            if (!should_load_plugin(meta.name))
-            {
-                if (mark_processed_or_skip(meta.name))
-                    return;
-                unload(meta.name);
-                return;
-            }
-
-            if (mark_processed_or_skip(meta.name))
-                return;
-            load(meta);
+        if (!is_plugin_library_path(changed_path))
             return;
-        }
 
         size existing_index = internal::invalid_plugin_index;
         for (size index = 0; index < static_cast<size>(_loaded.size()); ++index)
@@ -366,26 +285,47 @@ namespace tbx
             }
         }
 
-        if (existing_index == internal::invalid_plugin_index)
-            return;
-
-        const auto manifest_path = _loaded[existing_index].meta.manifest_path;
-        const auto plugin_name = _loaded[existing_index].meta.name;
-        if (mark_processed_or_skip(plugin_name))
-            return;
-
         if (change.type == FileWatchChangeType::REMOVED)
         {
-            unload(plugin_name);
+            if (existing_index != internal::invalid_plugin_index)
+            {
+                if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                    return;
+                unload(_loaded[existing_index].meta.name);
+            }
             return;
         }
 
         auto meta = PluginMeta {};
-        if (!try_parse_plugin_meta(manifest_path, meta) || !should_load_plugin(meta.name))
+        if (!internal::try_query_plugin_meta_from_library(changed_path, *_file_ops, meta))
         {
-            unload(plugin_name);
+            if (existing_index != internal::invalid_plugin_index)
+            {
+                if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                    return;
+                unload(_loaded[existing_index].meta.name);
+            }
             return;
         }
+
+        if (existing_index != internal::invalid_plugin_index
+            && to_lower(_loaded[existing_index].meta.name) != to_lower(meta.name))
+        {
+            if (mark_processed_or_skip(_loaded[existing_index].meta.name))
+                return;
+            unload(_loaded[existing_index].meta.name);
+        }
+
+        if (!should_load_plugin(meta.name))
+        {
+            if (mark_processed_or_skip(meta.name))
+                return;
+            unload(meta.name);
+            return;
+        }
+
+        if (mark_processed_or_skip(meta.name))
+            return;
 
         load(meta);
     }

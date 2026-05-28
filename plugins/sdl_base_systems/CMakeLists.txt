@@ -10,11 +10,7 @@ target_link_libraries(${plugin_name} PRIVATE
         SDL3::SDL3-shared
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS sdl_base_systems::SdlBaseSystemsPlugin
-        HEADER "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "input"
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

@@ -2,7 +2,8 @@
 
 ## General
 - Target C++23.
-- Do not use C++ attributes (for example `[[nodiscard]]`).
+- Do not use C++ attributes (for example `[[nodiscard]]`) except Toybox codegen
+  attributes in the `tbx` namespace.
 - Do not use `explicit` on constructors.
 - Prefer () style init for structs and classes over {} ALWAYS. Only use {} when doing simple inits like auto my_var = {}; or when using .prop_name = prop_val style init to improve readability
 - Do not use blanket namespace imports.

@@ -108,8 +108,6 @@ namespace tbx
       private:
         bool should_load_plugin(const std::string& plugin_name) const;
         void process_pending_file_changes();
-        bool try_parse_plugin_meta(const std::filesystem::path& manifest_path, PluginMeta& out_meta)
-            const;
         void process_file_change(
             const FileWatchChange& change,
             std::unordered_set<std::string>& processed_plugin_names);

@@ -11,11 +11,7 @@ target_link_libraries(${plugin_name} PRIVATE
         assimp::assimp
 )
 
-tbx_register_plugin(
+tbx_codegen_generate_plugin_registration(
         TARGET ${plugin_name}
-        CLASS assimp_model_loader::AssimpModelLoaderPlugin
-        HEADER "include/tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "default"
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
 )

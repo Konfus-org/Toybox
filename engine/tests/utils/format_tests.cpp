@@ -1,10 +1,10 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "tbx/types/assets/world.h"
 #include "tbx/systems/graphics/api.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/systems/time/span.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/types/bounds.h"
 #include "tbx/types/handle.h"
 #include <format>
@@ -34,7 +34,7 @@ namespace tbx::tests::utils
 
         // Assert
         EXPECT_EQ(uuid_text, "2a");
-        EXPECT_EQ(handle_text, "Texture");
+        EXPECT_EQ(handle_text, "[Name: Texture, Id: 11]");
         EXPECT_EQ(bounds_text, "[Left: -1, Right: 1, Top: 2, Bottom: -2]");
         EXPECT_EQ(time_span_text, "5 s");
         EXPECT_EQ(delta_time_text, "0.5s");

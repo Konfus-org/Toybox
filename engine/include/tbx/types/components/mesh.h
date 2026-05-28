@@ -72,6 +72,8 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[tbx::serializable]];
+    [[tbx::prop(id, handle)]];
     struct TBX_API StaticMesh : Component
     {
         StaticMesh() = default;
@@ -84,8 +86,6 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         Handle handle = {};
     };
-
-    TBX_REGISTER_SERIALIZABLE_STRUCT(StaticMesh, id, handle)
 
     /// @brief
     /// Purpose: Identifies reusable runtime mesh geometry shared by many renderable entities.
@@ -134,3 +134,5 @@ namespace tbx
         bool _is_dirty = true;
     };
 }
+
+#include "tbx/types/components/mesh.generated.h"

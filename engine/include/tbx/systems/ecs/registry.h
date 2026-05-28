@@ -12,7 +12,6 @@
 namespace tbx
 {
     class Entity;
-    class Json;
 
     /// @brief
     /// Purpose: Owns the ECS registry backend and provides entity lifecycle operations.
