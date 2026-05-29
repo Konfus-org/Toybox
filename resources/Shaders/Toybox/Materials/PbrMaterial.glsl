@@ -63,3 +63,19 @@ PbrSurface tbx_build_pbr_surface(
 
     return surface;
 }
+
+PbrSurface tbx_build_pbr_surface_from_fragment(
+    vec3 world_position,
+    vec3 world_normal,
+    vec4 world_tangent,
+    vec2 uv,
+    bool is_front_facing)
+{
+    vec3 resolved_normal = normalize(world_normal);
+    if (!is_front_facing)
+    {
+        resolved_normal = -resolved_normal;
+    }
+
+    return tbx_build_pbr_surface(world_position, resolved_normal, world_tangent, uv);
+}

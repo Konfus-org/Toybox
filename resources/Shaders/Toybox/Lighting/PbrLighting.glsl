@@ -40,15 +40,19 @@ vec3 tbx_fresnel_schlick(float cos_theta, vec3 f0)
 
 float tbx_point_attenuation(float distance_to_light, float radius)
 {
-    float attenuation = clamp(1.0 - distance_to_light / max(radius, TBX_EPSILON), 0.0, 1.0);
-    return attenuation * attenuation;
+    float normalized_distance = distance_to_light / max(radius, TBX_EPSILON);
+    float range_fade = saturate(1.0 - normalized_distance * normalized_distance);
+    range_fade *= range_fade;
+
+    return range_fade / max(distance_to_light * distance_to_light, 1.0);
 }
 
 float tbx_spot_attenuation(vec3 light_dir, vec3 spot_dir, float inner_cos, float outer_cos)
 {
     float theta = dot(light_dir, normalize(-spot_dir));
     float epsilon = max(inner_cos - outer_cos, TBX_EPSILON);
-    return clamp((theta - outer_cos) / epsilon, 0.0, 1.0);
+    float cone_fade = saturate((theta - outer_cos) / epsilon);
+    return cone_fade * cone_fade;
 }
 
 vec3 tbx_evaluate_pbr_brdf(
@@ -119,7 +123,8 @@ vec3 tbx_evaluate_light_pbr(TbxLight light, PbrSurface surface, vec3 view_dir)
         }
     }
 
-    vec3 radiance = light.color_intensity.rgb * light.color_intensity.w * attenuation;
+    vec3 radiance =
+        max(light.color_intensity.rgb, vec3(0.0)) * max(light.color_intensity.w, 0.0) * attenuation;
 
     return tbx_evaluate_pbr_brdf(
         surface.normal,

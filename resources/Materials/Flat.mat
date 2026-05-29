@@ -62,6 +62,6 @@
         "is_cullable": true,
         "depth_function": "less",
         "blend_mode": "opaque",
-        "shadow_mode": "none"
+        "shadow_mode": "off"
     }
 }

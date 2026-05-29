@@ -18,18 +18,17 @@ vec3 tbx_project_shadow_coord(vec3 world_position, int shadow_index)
     return projected * 0.5 + 0.5;
 }
 
+bool tbx_shadow_coord_in_bounds(vec3 shadow_coord)
+{
+    return shadow_coord.z >= 0.0 && shadow_coord.z <= 1.0 &&
+           shadow_coord.x >= 0.0 && shadow_coord.x <= 1.0 &&
+           shadow_coord.y >= 0.0 && shadow_coord.y <= 1.0;
+}
+
 float tbx_sample_shadow_hardware(vec3 shadow_coord, float bias, int shadow_index)
 {
-    if (shadow_coord.z < 0.0 || shadow_coord.z > 1.0)
-    {
+    if (!tbx_shadow_coord_in_bounds(shadow_coord))
         return 1.0;
-    }
-
-    if (shadow_coord.x < 0.0 || shadow_coord.x > 1.0 ||
-        shadow_coord.y < 0.0 || shadow_coord.y > 1.0)
-    {
-        return 1.0;
-    }
 
     return texture(u_shadow_map, vec4(shadow_coord.xy, shadow_index, shadow_coord.z - bias));
 }
@@ -100,6 +99,30 @@ int tbx_select_shadow_cascade(float view_depth, int shadow_index, int shadow_lay
     return selected_index;
 }
 
+int tbx_select_containing_shadow_cascade(
+    vec3 world_position,
+    vec3 normal,
+    int shadow_index,
+    int shadow_layer_count,
+    int selected_index)
+{
+    for (int cascade_index = selected_index;
+         cascade_index < shadow_index + shadow_layer_count;
+         ++cascade_index)
+    {
+        float normal_bias = u_shadow_params[cascade_index].y;
+        vec3 shadow_coord = tbx_project_shadow_coord(
+            world_position + normal * normal_bias,
+            cascade_index);
+        if (tbx_shadow_coord_in_bounds(shadow_coord))
+        {
+            return cascade_index;
+        }
+    }
+
+    return selected_index;
+}
+
 float tbx_sample_shadow(
     vec3 world_position,
     vec3 normal,
@@ -119,7 +142,14 @@ float tbx_sample_shadow(
     }
 
     float view_depth = -(u_view * vec4(world_position, 1.0)).z;
-    int selected_index = tbx_select_shadow_cascade(view_depth, shadow_index, valid_layer_count);
+    int selected_index =
+        tbx_select_shadow_cascade(view_depth, shadow_index, valid_layer_count);
+    selected_index = tbx_select_containing_shadow_cascade(
+        world_position,
+        normal,
+        shadow_index,
+        valid_layer_count,
+        selected_index);
     float visibility = tbx_sample_shadow_layer(
         world_position,
         normal,
@@ -134,12 +164,20 @@ float tbx_sample_shadow(
         float blend = smoothstep(blend_start, blend_end, view_depth);
         if (blend > 0.0)
         {
-            float next_visibility = tbx_sample_shadow_layer(
-                world_position,
-                normal,
-                light_direction,
-                selected_index + 1);
-            visibility = mix(visibility, next_visibility, blend);
+            int next_index = selected_index + 1;
+            float next_normal_bias = u_shadow_params[next_index].y;
+            vec3 next_shadow_coord = tbx_project_shadow_coord(
+                world_position + normal * next_normal_bias,
+                next_index);
+            if (tbx_shadow_coord_in_bounds(next_shadow_coord))
+            {
+                float next_visibility = tbx_sample_shadow_layer(
+                    world_position,
+                    normal,
+                    light_direction,
+                    next_index);
+                visibility = mix(visibility, next_visibility, blend);
+            }
         }
     }
 

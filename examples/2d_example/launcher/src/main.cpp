@@ -7,8 +7,13 @@ int main()
         .name = "2DExample",
         .requested_plugins = {"TwoDExampleRuntime"},
     };
-    auto app = tbx::Application(desc);
 
-    // Run the application main loop
-    return app.run();
+    TBX_TRY_CATCH_ASSERT(
+        {
+            auto app = tbx::Application(desc);
+
+            // Run the application main loop
+            return app.run();
+        },
+        "Application error occured!");
 }

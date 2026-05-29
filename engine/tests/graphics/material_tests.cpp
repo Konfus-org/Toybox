@@ -206,7 +206,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(blend_mode, MaterialBlendMode::OPAQUE);
         EXPECT_FALSE(is_two_sided);
         EXPECT_TRUE(is_cullable);
-        EXPECT_EQ(shadow_mode, ShadowMode::STANDARD);
+        EXPECT_EQ(shadow_mode, ShadowMode::ON);
     }
 
     TEST(MaterialTests, StdHash_ChangesForMaterialInputs)

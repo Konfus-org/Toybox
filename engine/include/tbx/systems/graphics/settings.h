@@ -141,8 +141,8 @@ namespace tbx
 
         /// @brief
         /// Purpose: Maximum distance from the active camera at which opaque meshes may cast
-        /// shadows for local lights and directional cascades. Materials with shadow mode Always
-        /// ignore this limit. Zero or negative values disable the limit.
+        /// shadows for local lights and directional cascades. Zero or negative values disable the
+        /// limit.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.

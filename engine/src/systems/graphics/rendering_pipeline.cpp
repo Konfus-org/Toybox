@@ -32,12 +32,13 @@ namespace tbx
     // These values define the default realtime shadow shape. They are intentionally centralized
     // here because shadow map allocation, shadow pass shader data, and lighting all need to agree
     // on the same near plane, bias, and strength assumptions.
-    constexpr float SHADOW_DEPTH_BIAS = 0.0015F;
-    constexpr float SHADOW_NORMAL_BIAS = 0.035F;
+    constexpr float SHADOW_DEPTH_BIAS = 0.006F;
+    constexpr float SHADOW_NORMAL_BIAS = 0.004F;
     constexpr float SHADOW_STRENGTH = 0.75F;
-    constexpr float SHADOW_SLOPE_BIAS = 0.0025F;
+    constexpr float SHADOW_SLOPE_BIAS = 0.012F;
     constexpr float SHADOW_NEAR_PLANE = 0.1F;
     constexpr float SHADOW_DEPTH_PADDING = 16.0F;
+    constexpr float SHADOW_CASCADE_SIDE_PADDING = 2.0F;
 
     //// RENDER DATA ////
 
@@ -126,6 +127,7 @@ namespace tbx
         GBuffer g_buffer = {};
 
         Sky sky = {};
+        Quat sky_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
 
         RenderLighting lighting = {};
         RenderShadows shadows = {};
@@ -147,6 +149,12 @@ namespace tbx
     {
         Uuid pipeline = {};
         std::vector<Uuid> bind_groups = {};
+    };
+
+    struct DirectionalShadowProjection
+    {
+        Mat4 view_projection = Mat4(1.0F);
+        float depth_range = 1.0F;
     };
 
     //// SHADOW PROJECTION HELPERS ////
@@ -193,8 +201,6 @@ namespace tbx
         const float clip_y,
         const float view_depth)
     {
-        // Build a world-space frustum point at the requested view depth. The projection inverse
-        // gives us a direction in view space, then inverse view moves it into world space.
         Vec4 view_corner = camera.inverse_projection * Vec4(clip_x, clip_y, 1.0F, 1.0F);
         view_corner /= std::abs(view_corner.w) > 0.000001F ? view_corner.w : 1.0F;
 
@@ -222,15 +228,14 @@ namespace tbx
         };
     }
 
-    static Mat4 make_directional_shadow_matrix(
+    static DirectionalShadowProjection make_directional_shadow_projection(
         const RenderCamera& camera,
         const Vec3& light_direction,
         const float split_near,
         const float split_far,
+        const float shadow_caster_distance,
         const uint32 shadow_map_resolution)
     {
-        // Fit the directional light projection around one camera cascade. Padding gives casters a
-        // little depth headroom so geometry just outside the camera slice can still contribute.
         const auto corners = make_camera_frustum_corners(camera, split_near, split_far);
         auto center = Vec3(0.0F);
         for (const Vec3& corner : corners)
@@ -258,8 +263,14 @@ namespace tbx
             max_bounds = glm::max(max_bounds, light_space_corner);
         }
 
-        // Snap cascade bounds to shadow texels. Keeping the light projection aligned to the map
-        // grid removes sub-texel swimming as the camera moves through the world.
+        // X/Y stay frustum-fitted for resolution, while Z reaches back toward the light by the
+        // caster distance so offscreen casters can still shadow visible receivers.
+        min_bounds.x -= SHADOW_CASCADE_SIDE_PADDING;
+        min_bounds.y -= SHADOW_CASCADE_SIDE_PADDING;
+        max_bounds.x += SHADOW_CASCADE_SIDE_PADDING;
+        max_bounds.y += SHADOW_CASCADE_SIDE_PADDING;
+        max_bounds.z += std::max(shadow_caster_distance, 0.0F);
+
         const float resolution = static_cast<float>(std::max(shadow_map_resolution, 1U));
         const float texel_size_x = std::max((max_bounds.x - min_bounds.x) / resolution, 0.000001F);
         const float texel_size_y = std::max((max_bounds.y - min_bounds.y) / resolution, 0.000001F);
@@ -268,14 +279,19 @@ namespace tbx
         max_bounds.x = snap_to_shadow_texel(max_bounds.x, texel_size_x) + texel_size_x;
         max_bounds.y = snap_to_shadow_texel(max_bounds.y, texel_size_y) + texel_size_y;
 
+        const float near_plane = std::max(0.01F, -max_bounds.z - SHADOW_DEPTH_PADDING);
+        const float far_plane = std::max(0.02F, -min_bounds.z + SHADOW_DEPTH_PADDING);
         const Mat4 light_projection = ortho_projection(
             min_bounds.x,
             max_bounds.x,
             min_bounds.y,
             max_bounds.y,
-            std::max(0.01F, -max_bounds.z - SHADOW_DEPTH_PADDING),
-            std::max(0.02F, -min_bounds.z + SHADOW_DEPTH_PADDING));
-        return light_projection * light_view;
+            near_plane,
+            far_plane);
+        return DirectionalShadowProjection {
+            .view_projection = light_projection * light_view,
+            .depth_range = std::max(far_plane - near_plane, 0.000001F),
+        };
     }
 
     static Mat4 make_local_shadow_matrix(const RenderCamera& camera, const RenderLight& light)
@@ -291,8 +307,13 @@ namespace tbx
         direction = normalize(direction);
         const Mat4 light_view =
             look_at(light.position, light.position + direction, get_shadow_up_vector(direction));
+        const float shadow_fov = light.type == SHADER_LIGHT_TYPE_SPOT
+                                     ? std::max(
+                                         to_radians(1.0F),
+                                         acos(clamp(light.outer_cone, -1.0F, 1.0F)) * 2.0F)
+                                     : to_radians(90.0F);
         const Mat4 light_projection = perspective_projection(
-            to_radians(90.0F),
+            shadow_fov,
             1.0F,
             SHADOW_NEAR_PLANE,
             std::max(light.range, 1.0F));
@@ -302,6 +323,7 @@ namespace tbx
     static ShadowShaderData make_shadow_shader_data(
         const RenderData& render_data,
         const float shadow_render_distance,
+        const float shadow_caster_max_distance,
         const float shadow_softness,
         const uint32 shadow_map_resolution)
     {
@@ -333,19 +355,26 @@ namespace tbx
                         cascade_length * static_cast<float>(cascade + 1U));
                     const float blend_size =
                         std::min(cascade_length * 0.2F, shadow_softness * 4.0F);
+                    const float projection_far =
+                        std::min(directional_shadow_distance, split_far + blend_size);
 
-                    shadow_data.light_view_projections[layer] = make_directional_shadow_matrix(
+                    const DirectionalShadowProjection projection =
+                        make_directional_shadow_projection(
                         render_data.camera,
                         light.direction,
                         split_near,
-                        split_far,
+                        projection_far,
+                        shadow_caster_max_distance,
                         shadow_map_resolution);
+                    const float depth_bias = SHADOW_DEPTH_BIAS / projection.depth_range;
+                    const float slope_bias = SHADOW_SLOPE_BIAS / projection.depth_range;
+                    shadow_data.light_view_projections[layer] = projection.view_projection;
                     shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
                     shadow_data.shadow_params[layer] = Vec4(
-                        SHADOW_DEPTH_BIAS,
+                        depth_bias,
                         SHADOW_NORMAL_BIAS,
                         SHADOW_STRENGTH,
-                        SHADOW_SLOPE_BIAS);
+                        slope_bias);
                     shadow_data.shadow_extra_params[layer] = Vec4(
                         split_near,
                         split_far,
@@ -537,13 +566,10 @@ namespace tbx
         const Vec3& camera_position,
         const float max_distance)
     {
-        // ShadowMode::ALWAYS lets important silhouettes cast from beyond the global distance cap.
-        // ShadowMode::NONE removes the caster even if it would otherwise be in range.
-        if (config.shadow_mode == ShadowMode::NONE)
+        if (config.shadow_mode == ShadowMode::OFF)
             return true;
 
-        return config.shadow_mode != ShadowMode::ALWAYS
-               && should_cull(position, camera_position, max_distance);
+        return should_cull(position, camera_position, max_distance);
     }
 
     static bool should_cull(
@@ -628,7 +654,7 @@ namespace tbx
                 continue;
 
             ambient_color_sum += Vec3(light.color.r, light.color.g, light.color.b);
-            ambient_intensity_sum += light.ambient;
+            ambient_intensity_sum += light.ambient * std::max(light.intensity, 0.0F);
             ++directional_light_count;
         }
 
@@ -1005,6 +1031,7 @@ namespace tbx
         const uint64 frame_index,
         uint32 shadow_map_resolution,
         float shadow_render_distance,
+        float shadow_caster_max_distance,
         float shadow_softness,
         const GraphicsResourceBinding& frame_uniform,
         const GraphicsResourceBinding& camera_uniform,
@@ -1040,6 +1067,7 @@ namespace tbx
         const auto frame_shadow_data = make_shadow_shader_data(
             render_data,
             shadow_render_distance,
+            shadow_caster_max_distance,
             shadow_softness,
             shadow_map_resolution);
         auto uploaded_shadow_draws = std::vector<PreparedIndexedDrawResource>();
@@ -1257,6 +1285,7 @@ namespace tbx
         const RenderData& render_data,
         uint32 shadow_map_resolution,
         float shadow_render_distance,
+        float shadow_caster_max_distance,
         float shadow_softness,
         RenderingResourceManager& resource_manager,
         std::vector<RenderPass>& out_passes)
@@ -1330,6 +1359,7 @@ namespace tbx
             frame_index,
             shadow_map_resolution,
             shadow_render_distance,
+            shadow_caster_max_distance,
             shadow_softness,
             frame_uniform,
             camera_uniform,
@@ -1352,8 +1382,7 @@ namespace tbx
         };
         if (has_asset_reference(render_data.sky.material.get_handle()))
         {
-            // Sky geometry is a cube or sphere drawn with identity transform. The shader handles
-            // camera-relative behavior through camera uniforms.
+            // Sky geometry stays camera-relative; authored rotation only changes texture lookup.
             const auto sky_mesh_handle = render_data.sky.type == SkyType::BOX
                                              ? Handle("Toybox/SkyBox")
                                              : Handle("Toybox/SkySphere");
@@ -1371,6 +1400,8 @@ namespace tbx
                 PARAM_SECONDARY_SKYBOX_TEXTURE,
                 sky_material_upload.textures);
 
+            const auto sky_model_matrix = build_transform_matrix(
+                Transform(Vec3(0.0F), render_data.sky_rotation, Vec3(1.0F)));
             const auto sky_instance = RenderMeshInstance {};
             const auto sky_instance_buffer = resource_manager.upload_instance_buffer(
                 "Toybox/Instances/Sky",
@@ -1378,8 +1409,8 @@ namespace tbx
                 &sky_instance,
                 static_cast<uint64>(sizeof(sky_instance)));
             const auto sky_object_data = ModelShaderData {
-                .model = Mat4(1.0F),
-                .normal = Mat4(1.0F),
+                .model = sky_model_matrix,
+                .normal = normal(sky_model_matrix),
             };
             const auto sky_object_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_OBJECT_DATA,
@@ -1751,6 +1782,7 @@ namespace tbx
 
             has_selected_sky = true;
             render_data.sky = entity.get_component<Sky>();
+            render_data.sky_rotation = get_optional_transform(entity).rotation;
             if (!has_asset_reference(render_data.sky.material.get_handle()))
                 render_data.sky.material = MaterialInstance(TexturedSkyMaterial::HANDLE);
 
@@ -2352,6 +2384,7 @@ namespace tbx
                 render_data,
                 settings.shadow_map_resolution.value,
                 settings.shadow_render_distance.value,
+                settings.shadow_caster_max_distance.value,
                 settings.shadow_softness.value,
                 _resource_manager,
                 _passes);

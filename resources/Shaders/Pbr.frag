@@ -14,11 +14,12 @@ layout(location = 3) out vec4 o_gbuffer_emissive;
 
 void main()
 {
-    PbrSurface surface = tbx_build_pbr_surface(
+    PbrSurface surface = tbx_build_pbr_surface_from_fragment(
         v_world_position,
-        normalize(v_world_normal),
+        v_world_normal,
         v_world_tangent,
-        v_tex_coord);
+        v_tex_coord,
+        gl_FrontFacing);
 
     o_gbuffer_albedo = vec4(surface.albedo, surface.alpha);
     o_gbuffer_normal = vec4(normalize(surface.normal) * 0.5 + 0.5, 1.0);

@@ -7,6 +7,11 @@ int main()
         .requested_plugins = {"ThreeDExampleRuntime"},
         .startup_world = tbx::Handle("Worlds/Example.world"),
     };
-    auto app = tbx::Application(desc);
-    return app.run();
+
+    TBX_TRY_CATCH_ASSERT(
+        {
+            auto app = tbx::Application(desc);
+            return app.run();
+        },
+        "Application error occured!");
 }

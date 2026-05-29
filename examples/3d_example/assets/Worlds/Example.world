@@ -15,7 +15,7 @@
                     "position": [
                         0,
                         10.01,
-                        11
+                        15
                     ],
                     "rotation": [
                         0,
@@ -42,7 +42,8 @@
                             "overrides": {
                                 "camera_entity": {
                                     "value": 12582913
-                                }
+                                },
+                                "initial_pitch": -0.35
                             }
                         }
                     ]
@@ -68,10 +69,10 @@
                         0
                     ],
                     "rotation": [
-                        -0.069756,
+                        -0.174108,
                         0,
                         0,
-                        0.997564
+                        0.984727
                     ],
                     "scale": [
                         1,
@@ -117,11 +118,11 @@
                         "b": 1,
                         "a": 1
                     },
-                    "intensity": 0,
+                    "intensity": 0.1,
                     "cast_shadows": true,
-                    "range": 10,
-                    "inner_angle": 8,
-                    "outer_angle": 25
+                    "range": 25,
+                    "inner_angle": 10,
+                    "outer_angle": 45
                 },
                 "transform": {
                     "position": [
@@ -182,6 +183,19 @@
                         1,
                         1
                     ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": {
+                                "value": 822100005
+                            },
+                            "enabled": true,
+                            "binding_id": {
+                                "value": 12584005
+                            }
+                        }
+                    ]
                 }
             }
         },
@@ -193,7 +207,7 @@
             "tag": "lighting",
             "layer": "",
             "parent": {
-                "value": 0
+                "value": 12582918
             },
             "components": {
                 "area_light": {
@@ -205,7 +219,7 @@
                     },
                     "intensity": 1,
                     "cast_shadows": false,
-                    "range": 10,
+                    "range": 20,
                     "area_size": [
                         1,
                         1

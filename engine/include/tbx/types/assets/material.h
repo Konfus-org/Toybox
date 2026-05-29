@@ -63,17 +63,15 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Controls when shadows are rendered for a material. Always ignores the global
-    /// shadow caster distance limit so distant geometry can still cast.
+    /// Purpose: Controls how a material participates in realtime shadowing.
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
     [[serializable]];
     enum class ShadowMode : uint8_t
     {
-        NONE [[name("none")]] = 0,
-        STANDARD [[name("standard")]] = 1,
-        ALWAYS [[name("always")]] = 2
+        OFF [[name("off")]] = 0,
+        ON [[name("on")]] = 1
     };
 
     /// @brief
@@ -238,7 +236,7 @@ namespace tbx
         MaterialBlendMode blend_mode = MaterialBlendMode::OPAQUE;
 
         [[prop]]
-        ShadowMode shadow_mode = ShadowMode::STANDARD;
+        ShadowMode shadow_mode = ShadowMode::ON;
     };
 
     /// @brief

@@ -134,6 +134,6 @@
         "is_cullable": true,
         "depth_function": "less",
         "blend_mode": "alpha_blend",
-        "shadow_mode": "standard"
+        "shadow_mode": "on"
     }
 }

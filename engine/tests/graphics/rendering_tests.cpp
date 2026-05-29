@@ -683,6 +683,19 @@ namespace tbx::tests::graphics
         return std::nullopt;
     }
 
+    static Vec3 project_shadow_coord(const Mat4& light_view_projection, const Vec3& world_position)
+    {
+        Vec4 light_position = light_view_projection * Vec4(world_position, 1.0F);
+        light_position /= std::abs(light_position.w) > 0.000001F ? light_position.w : 1.0F;
+        return Vec3(light_position) * 0.5F + Vec3(0.5F);
+    }
+
+    static bool is_shadow_coord_in_bounds(const Vec3& coord)
+    {
+        return coord.x >= 0.0F && coord.x <= 1.0F && coord.y >= 0.0F && coord.y <= 1.0F
+               && coord.z >= 0.0F && coord.z <= 1.0F;
+    }
+
     static uint count_dynamic_mesh_vertex_uploads(const std::vector<GraphicsBufferDesc>& buffers)
     {
         auto count = uint {};
@@ -1217,10 +1230,10 @@ namespace tbx::tests::graphics
             GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto root = world->create_entity("Root");
         root.add_component<Transform>(Vec3(10.0F, 0.0F, 0.0F));
-        auto camera = world->create_spatial_entity("Camera", root.get_id());
+        auto camera = world->create_entity("Camera", root.get_id());
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 2.0F, 11.0F));
-        auto mesh = world->create_spatial_entity("Mesh", root.get_id());
+        auto mesh = world->create_entity("Mesh", root.get_id());
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
@@ -1292,9 +1305,9 @@ namespace tbx::tests::graphics
         EXPECT_EQ(offsetof(LightingShaderData, lights), 48U);
         ASSERT_TRUE(light_shader_data.has_value());
         EXPECT_EQ(light_shader_data->light_meta.x, 1);
-        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.x, 0.15F);
-        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.y, 0.075F);
-        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.0375F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.x, 0.3F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.y, 0.15F);
+        EXPECT_FLOAT_EQ(light_shader_data->ambient_color.z, 0.075F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].position_type.w, 0.0F);
         EXPECT_FLOAT_EQ(light_shader_data->lights[0U].color_intensity.w, 2.0F);
         EXPECT_EQ(light_shader_data->light_meta.y, DIRECTIONAL_SHADOW_CASCADE_COUNT);
@@ -1407,6 +1420,9 @@ namespace tbx::tests::graphics
         auto sky = Sky {};
         sky.material = sky_material;
         sky_entity.add_component<Sky>(sky);
+        sky_entity.add_component<Transform>(
+            Vec3(0.0F),
+            Quat(0.70710678F, 0.0F, 0.70710678F, 0.0F));
         auto mesh_entity = world->create_entity("Triangle");
         mesh_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -1481,6 +1497,7 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(sky_object_data->model[3].x, 0.0F);
         EXPECT_FLOAT_EQ(sky_object_data->model[3].y, 0.0F);
         EXPECT_FLOAT_EQ(sky_object_data->model[3].z, 0.0F);
+        EXPECT_NEAR(std::abs(sky_object_data->model[0].z), 1.0F, 0.0001F);
         const auto sky_material_upload = std::find_if(
             material_shader_data_uploads.begin(),
             material_shader_data_uploads.end(),
@@ -2298,7 +2315,7 @@ namespace tbx::tests::graphics
         second.add_component<StaticMesh>(second_mesh);
         second.add_component<Transform>(Vec3(1.0F, 0.0F, -2.0F));
         auto no_shadow_config = MaterialConfig {};
-        no_shadow_config.shadow_mode = ShadowMode::NONE;
+        no_shadow_config.shadow_mode = ShadowMode::OFF;
         auto no_shadow_material = MaterialInstance(PbrMaterial::HANDLE);
         no_shadow_material.set_config(no_shadow_config);
         auto hidden = world->create_entity("NoShadow");
@@ -2516,6 +2533,50 @@ namespace tbx::tests::graphics
         ASSERT_FALSE(backend.recorded_texture_descs.empty());
         EXPECT_EQ(backend.recorded_texture_descs.front().size.width, 4096U);
         EXPECT_EQ(backend.recorded_texture_descs.front().size.height, 4096U);
+    }
+
+    // Validates frustum-fitted directional cascades still cover offscreen casters on the light ray.
+    TEST(RenderingTests, Render_DirectionalShadowCascadeIncludesOffscreenCasterDepth)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = std::make_shared<SerializationRegistry>();
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(*serialization_registry, asset_manager);
+        auto settings =
+            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        auto mesh = world->create_entity("Triangle");
+        mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
+        mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto sun = world->create_entity("Sun");
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+        const auto shadow_data = find_shadow_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(shadow_data.has_value());
+        const Vec3 offscreen_caster_position = Vec3(0.0F, 0.0F, 20.0F);
+        const Vec3 shadow_coord =
+            project_shadow_coord(shadow_data->light_view_projections[0], offscreen_caster_position);
+        EXPECT_TRUE(is_shadow_coord_in_bounds(shadow_coord));
     }
 
     // Validates shadow resources are not uploaded when no eligible light casts shadows.

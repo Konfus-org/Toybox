@@ -2,6 +2,7 @@
 #include "scripts/flashlight_controller.h"
 #include "scripts/player_controller.h"
 #include "scripts/sky_rotator.h"
+#include "scripts/sun_rotator.h"
 #include "tbx/systems/assets/serialization.h"
 
 namespace three_d_example
@@ -21,5 +22,9 @@ namespace three_d_example
             1U,
             tbx_apply_script_overrides_SkyRotator,
             tbx_bind_script_runtime_SkyRotator));
+        static_cast<void>(tbx::register_script_asset_type<SunRotator>(
+            1U,
+            tbx_apply_script_overrides_SunRotator,
+            tbx_bind_script_runtime_SunRotator));
     }
 }

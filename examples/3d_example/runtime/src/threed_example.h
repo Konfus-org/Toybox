@@ -9,6 +9,7 @@ namespace three_d_example
     [[tbx::name("ThreeDExampleRuntime")]];
     [[tbx::version("1.0.0")]];
     [[tbx::category("gameplay")]];
+    // TODO: Make it to where if we don't specify dependencies defaults are used
     [[tbx::dependency("SdlBaseSystemsPlugin")]];
     [[tbx::dependency("SdlWindowingPlugin")]];
     [[tbx::dependency("SdlOpenGlContextManagerPlugin")]];
@@ -18,6 +19,7 @@ namespace three_d_example
     [[tbx::dependency("AssimpModelLoaderPlugin")]];
     [[tbx::dependency("StbImageLoaderPlugin")]];
     [[tbx::dependency("ShaderIncludeLoader")]];
+    [[tbx::dependency("PerformanceMonitor")]];
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
       public:

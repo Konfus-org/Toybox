@@ -88,6 +88,6 @@
         "is_cullable": false,
         "depth_function": "always",
         "blend_mode": "opaque",
-        "shadow_mode": "standard"
+        "shadow_mode": "on"
     }
 }

@@ -7,7 +7,7 @@
 namespace tbx::performance_monitor
 {
 
-    void TbxPerformanceMonitorPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void PerformanceMonitor::on_attach(tbx::ServiceProvider& service_provider)
     {
         _service_provider = &service_provider;
         _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
@@ -15,7 +15,7 @@ namespace tbx::performance_monitor
         reset_performance_sample();
     }
 
-    void TbxPerformanceMonitorPlugin::on_detach(tbx::ServiceProvider&)
+    void PerformanceMonitor::on_detach(tbx::ServiceProvider&)
     {
         _service_provider = nullptr;
         _window_manager = {};
@@ -33,14 +33,14 @@ namespace tbx::performance_monitor
 #endif
     }
 
-    void TbxPerformanceMonitorPlugin::on_update(const tbx::DeltaTime& dt)
+    void PerformanceMonitor::on_update(const tbx::DeltaTime& dt)
     {
 #if !defined(TBX_FULL_RELEASE)
         update_debug_main_window_title(dt);
 #endif
     }
 
-    void TbxPerformanceMonitorPlugin::on_recieve_message(tbx::Message& msg)
+    void PerformanceMonitor::on_recieve_message(tbx::Message& msg)
     {
         if (auto initialized_event = tbx::handle_message<tbx::ApplicationInitializedEvent>(msg))
         {
@@ -55,7 +55,7 @@ namespace tbx::performance_monitor
         }
     }
 
-    void TbxPerformanceMonitorPlugin::initialize_main_window(tbx::Application& application)
+    void PerformanceMonitor::initialize_main_window(tbx::Application& application)
     {
         if (!_service_provider)
             _service_provider = &application.get_service_provider();
@@ -75,7 +75,7 @@ namespace tbx::performance_monitor
             _main_window_base_title = window_manager->get_title(_main_window);
     }
 
-    void TbxPerformanceMonitorPlugin::record_frame(const tbx::DeltaTime& dt)
+    void PerformanceMonitor::record_frame(const tbx::DeltaTime& dt)
     {
         ++_performance_sample_frame_count;
         _performance_sample_elapsed_seconds += dt.seconds;
@@ -106,7 +106,7 @@ namespace tbx::performance_monitor
         reset_performance_sample();
     }
 
-    void TbxPerformanceMonitorPlugin::reset_performance_sample()
+    void PerformanceMonitor::reset_performance_sample()
     {
         _performance_sample_elapsed_seconds = 0.0;
         _performance_sample_frame_count = 0U;
@@ -115,7 +115,7 @@ namespace tbx::performance_monitor
         _performance_sample_has_data = false;
     }
 
-    void TbxPerformanceMonitorPlugin::trace_perf_info()
+    void PerformanceMonitor::trace_perf_info()
     {
         auto fps_info = calculate_fps_averages();
         TBX_TRACE_INFO(
@@ -133,7 +133,7 @@ namespace tbx::performance_monitor
     }
 
 #if !defined(TBX_FULL_RELEASE)
-    void TbxPerformanceMonitorPlugin::update_debug_main_window_title(const tbx::DeltaTime& dt)
+    void PerformanceMonitor::update_debug_main_window_title(const tbx::DeltaTime& dt)
     {
         if (!_main_window.id.is_valid())
             return;
@@ -174,7 +174,7 @@ namespace tbx::performance_monitor
     }
 #endif
 
-    FpsInfo TbxPerformanceMonitorPlugin::calculate_fps_averages()
+    FpsInfo PerformanceMonitor::calculate_fps_averages()
     {
         double average_fps = 0.0;
         double average_frame_time_ms = 0.0;

@@ -24,20 +24,20 @@ namespace tbx::performance_monitor
     /// Ownership: Does not own application services; samples frame timing from app lifecycle
     /// events. Thread Safety: Not thread-safe; expected to run on the main thread.
     [[tbx::plugin]];
-    [[tbx::name("TbxPerformanceMonitorPlugin")]];
+    [[tbx::name("PerformanceMonitor")]];
     [[tbx::version("1.0.0")]];
     [[tbx::category("logging")]];
-    class TBX_PLUGIN_API TbxPerformanceMonitorPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API PerformanceMonitor final : public tbx::Plugin
     {
       public:
-        TbxPerformanceMonitorPlugin() = default;
-        ~TbxPerformanceMonitorPlugin() noexcept override = default;
+        PerformanceMonitor() = default;
+        ~PerformanceMonitor() noexcept override = default;
 
       public:
-        TbxPerformanceMonitorPlugin(const TbxPerformanceMonitorPlugin&) = delete;
-        TbxPerformanceMonitorPlugin& operator=(const TbxPerformanceMonitorPlugin&) = delete;
-        TbxPerformanceMonitorPlugin(TbxPerformanceMonitorPlugin&&) noexcept = default;
-        TbxPerformanceMonitorPlugin& operator=(TbxPerformanceMonitorPlugin&&) noexcept = default;
+        PerformanceMonitor(const PerformanceMonitor&) = delete;
+        PerformanceMonitor& operator=(const PerformanceMonitor&) = delete;
+        PerformanceMonitor(PerformanceMonitor&&) noexcept = default;
+        PerformanceMonitor& operator=(PerformanceMonitor&&) noexcept = default;
 
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;

@@ -85,7 +85,7 @@ LitMaterial.glsl
 PbrLighting.glsl
 ShadowSampling.glsl
 PostProcessBase.glsl
-DefaultPbr.frag
+Pbr.frag
 DefaultUnlit.frag
 ```
 
@@ -478,7 +478,7 @@ PbrSurface tbx_build_pbr_surface(
 
 ---
 
-### `DefaultPbr.frag`
+### `Pbr.frag`
 
 ```glsl
 #version 450

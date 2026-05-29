@@ -119,7 +119,7 @@
                             "is_cullable": false,
                             "depth_function": "less",
                             "blend_mode": "opaque",
-                            "shadow_mode": "standard"
+                            "shadow_mode": "on"
                         },
                         "has_config_override": true
                     }
@@ -201,7 +201,7 @@
                             "is_cullable": false,
                             "depth_function": "less",
                             "blend_mode": "opaque",
-                            "shadow_mode": "standard"
+                            "shadow_mode": "on"
                         },
                         "has_config_override": true
                     }
@@ -283,7 +283,7 @@
                             "is_cullable": false,
                             "depth_function": "less",
                             "blend_mode": "opaque",
-                            "shadow_mode": "standard"
+                            "shadow_mode": "on"
                         },
                         "has_config_override": true
                     }
@@ -365,7 +365,7 @@
                             "is_cullable": false,
                             "depth_function": "less",
                             "blend_mode": "opaque",
-                            "shadow_mode": "standard"
+                            "shadow_mode": "on"
                         },
                         "has_config_override": true
                     }
@@ -870,26 +870,26 @@
                 "static_mesh": {
                     "handle": {
                         "id": {
-                            "value": 514
+                            "value": 519
                         }
                     }
                 },
                 "transform": {
                     "position": [
                         0,
-                        0.12,
+                        0.15,
                         -5
                     ],
                     "rotation": [
+                        -0.707107,
                         0,
                         0,
-                        0,
-                        1
+                        0.707107
                     ],
                     "scale": [
                         4,
-                        0.024,
-                        4
+                        4,
+                        1
                     ]
                 }
             }
