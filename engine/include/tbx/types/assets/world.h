@@ -4,7 +4,6 @@
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
-#include "tbx/types/components/world_simulation_state.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
@@ -25,22 +24,13 @@ namespace tbx
     /// @brief
     /// Purpose: References authored chunk assets for one world grid cell.
     [[tbx::serializable]];
-    [[tbx::prop(coord, full_chunk, low_lod_chunk, simulation_chunk)]];
     struct TBX_API WorldChunkRef
     {
+        [[tbx::prop]]
         WorldChunkCoord coord = {};
-        Handle full_chunk = {};
-        Handle low_lod_chunk = {};
-        Handle simulation_chunk = {};
-    };
 
-    /// @brief
-    /// Purpose: Describes the visual detail currently loaded for a chunk.
-    [[tbx::serializable]];
-    enum class WorldChunkLod
-    {
-        FULL [[tbx::name("full")]],
-        LOW [[tbx::name("low")]]
+        [[tbx::prop]]
+        Handle full_chunk = {};
     };
 
     /// @brief
@@ -53,9 +43,6 @@ namespace tbx
         WorldChunkCoord coord = {};
 
         [[tbx::prop]]
-        WorldChunkLod lod = WorldChunkLod::FULL;
-
-        [[tbx::prop]]
         std::vector<Entity> entities = {};
     };
 
@@ -63,15 +50,6 @@ namespace tbx
     /// Purpose: Gameplay-facing entity container with a persistent layer and spatial chunk grid.
     [[tbx::serializable]];
     [[tbx::version(1U)]];
-    [[tbx::prop(
-        chunk_size,
-        full_visual_radius_chunks,
-        low_visual_radius_chunks,
-        simulation_radius_chunks,
-        reduced_simulation_radius_chunks,
-        unload_radius_chunks,
-        persistent_entities,
-        chunks)]];
     class TBX_API World : public Asset
     {
       public:
@@ -105,11 +83,8 @@ namespace tbx
         Entity get(const Uuid& id) const;
         std::vector<Entity> get_all() const;
 
-        void load_chunk(const WorldChunk& chunk, WorldSimulationMode simulation_mode);
+        void load_chunk(const WorldChunk& chunk);
         void unload_chunk(const WorldChunkCoord& coord);
-        void set_chunk_simulation_mode(
-            const WorldChunkCoord& coord,
-            WorldSimulationMode simulation_mode);
 
         template <typename TComponent>
             requires std::derived_from<TComponent, Component>
@@ -129,14 +104,17 @@ namespace tbx
 
       public:
         // TODO: extract setting props into a WorldSettings struct that we put on the AppSettings
-        float chunk_size = 32.0F;
-        uint32 full_visual_radius_chunks = 2U;
-        uint32 low_visual_radius_chunks = 6U;
-        uint32 simulation_radius_chunks = 2U;
-        uint32 reduced_simulation_radius_chunks = 4U;
-        uint32 unload_radius_chunks = 8U;
+        [[tbx::prop]]
 
+        float chunk_size = 32.0F;
+
+        [[tbx::prop]]
+        uint32 unload_radius_chunks = 6U;
+
+        [[tbx::prop]]
         std::vector<Entity> persistent_entities = {};
+
+        [[tbx::prop]]
         std::vector<WorldChunkRef> chunks = {};
 
       private:
@@ -153,6 +131,9 @@ namespace tbx
         std::unordered_map<WorldChunkCoord, std::vector<Uuid>> _entities_by_chunk = {};
     };
 
+    // TODO: Instead of these floater after methods, implement a post_load attribute we can point
+    // towards a function, do the same for pre-load and also add custom save_override and
+    // load_override attributes
     inline void tbx_after_deserialize(World& world)
     {
         world.rebuild_persistent_entities();

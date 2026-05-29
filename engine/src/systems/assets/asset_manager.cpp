@@ -51,6 +51,37 @@ namespace tbx
         _state->unload_elapsed_seconds = 0.0;
     }
 
+    std::shared_ptr<Asset> AssetManager::load(const Handle& handle)
+    {
+        std::lock_guard lock(_state->mutex);
+        const auto ensure_result = _state->registry->ensure_entry(handle);
+        if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
+        {
+            TBX_TRACE_WARNING(
+                "Failed to ensure polymorphic asset entry for handle (id={}): {}",
+                handle.id,
+                ensure_result.result.get_report());
+            return {};
+        }
+
+        const auto serialization_registry = lock_serialization_registry();
+        if (!serialization_registry)
+            return {};
+
+        const auto read_result =
+            serialization_registry->read_registered_asset_result(ensure_result.entry->get().resolved_path);
+        if (!read_result.result.succeeded())
+        {
+            TBX_TRACE_WARNING(
+                "Failed to load polymorphic asset id={}: {}",
+                handle.id,
+                read_result.result.get_report());
+            return {};
+        }
+
+        return read_result.asset;
+    }
+
     void AssetManager::unload_all()
     {
         TBX_TRACE_INFO("Unloading all assets.");

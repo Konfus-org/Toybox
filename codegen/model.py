@@ -15,6 +15,7 @@ class Field:
     name: str
     kind: str
     json_name: str | None = None
+    type_name: str = ""
 
 
 @dataclasses.dataclass

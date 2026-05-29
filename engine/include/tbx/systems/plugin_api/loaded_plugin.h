@@ -72,9 +72,8 @@ namespace tbx
       private:
         LoadedPluginState _state = LoadedPluginState::UNATTACHED;
         ServiceProvider* _attached_service_provider = nullptr;
-        PluginInstanceId _plugin_id = PluginInstanceId{};
+        PluginInstanceId _plugin_id = PluginInstanceId {};
     };
-
 }
 
 #include "tbx/systems/plugin_api/loaded_plugin.generated.h"

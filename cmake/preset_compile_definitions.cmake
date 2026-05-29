@@ -1,8 +1,13 @@
+if(TBX_FULL_RELEASE)
+  set(TBX_RESOURCES_DEFINE "resources")
+else()
+  set(TBX_RESOURCES_DEFINE "${TBX_RESOURCES_PATH}")
+endif()
+
 add_compile_definitions(
   $<$<CONFIG:Debug>:TBX_DEBUG>
   $<$<CONFIG:Release>:TBX_RELEASE>
-  $<$<CONFIG:Debug>:TBX_RESOURCES="${TBX_RESOURCES_PATH}">
-  $<$<CONFIG:Release>:TBX_RESOURCES="resources">
+  TBX_RESOURCES="${TBX_RESOURCES_DEFINE}"
   $<$<CONFIG:Debug>:TBX_ASSERTS_ENABLED>
   $<$<PLATFORM_ID:Windows>:TBX_PLATFORM_WINDOWS>
   $<$<PLATFORM_ID:Darwin>:TBX_PLATFORM_MACOS>

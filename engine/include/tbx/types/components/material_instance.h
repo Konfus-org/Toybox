@@ -5,21 +5,24 @@
 namespace tbx
 {
     [[tbx::serializable]];
-    [[tbx::prop(
-        textures,
-        parameters,
-        config,
-        has_texture_override,
-        has_parameter_override,
-        has_config_override)]];
     struct TBX_API MaterialOverrides
     {
+        [[tbx::prop]]
         MaterialTextureBindings textures = {};
+
+        [[tbx::prop]]
         MaterialParameterBindings parameters = {};
+
+        [[tbx::prop]]
         MaterialConfig config = {};
 
+        [[tbx::prop]]
         bool has_texture_override = false;
+
+        [[tbx::prop]]
         bool has_parameter_override = false;
+
+        [[tbx::prop]]
         bool has_config_override = false;
     };
 
@@ -33,7 +36,6 @@ namespace tbx
     // needs to generate a hash.
     [[tbx::serializable]];
     [[tbx::hash(tbx::hash($))]];
-    [[tbx::prop(id, material, overrides)]];
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
@@ -92,7 +94,10 @@ namespace tbx
         template <typename TValue>
         TValue get_parameter_or(uint32 id, const TValue& fallback) const;
 
+        [[tbx::prop]]
         Handle material = {};
+
+        [[tbx::prop]]
         MaterialOverrides overrides = {};
 
       private:

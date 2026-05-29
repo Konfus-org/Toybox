@@ -78,6 +78,8 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertNotIn("::tbx::PluginAbiVersion", output)
         self.assertIn("::tbx::PluginCategory::RENDERING", output)
         self.assertIn('meta.dependencies = {"WindowPlugin"};', output)
+        self.assertIn("#if defined(TBX_PLUGIN_RESOURCE_DIRECTORY)", output)
+        self.assertIn("meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;", output)
         self.assertIn("*out_meta = meta;", output)
         self.assertIn("new tbx::tests::ExamplePlugin()", output)
 
@@ -138,6 +140,161 @@ class AttributeCodegenTests(unittest.TestCase):
         )
         self.assertIn("register_asset_body_type<Value>", output)
         self.assertIn("register_asset_meta_type<Value>", output)
+
+    def test_no_semicolon_attribute_blocks_are_generated(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]]
+            [[tbx::name("renamed")]]
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        self.assertIn('return "renamed";', output)
+        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+
+    def test_parent_field_props_are_generated(self) -> None:
+        source = textwrap.dedent(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]]
+            struct Value : Base
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        context = textwrap.dedent(
+            """
+            namespace tbx::tests
+            {
+            struct Base
+            {
+                [[tbx::prop]]
+                int id = 0;
+            };
+            }
+            """
+        )
+
+        output = generate_header(parse_source(source, context_source=context))
+
+        self.assertIn('tbx_json["id"] = tbx_value.id;', output)
+        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+
+    def test_type_level_struct_props_are_rejected(self) -> None:
+        with self.assertRaises(CodegenError):
+            self.generate(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::serializable]]
+                [[tbx::prop(id, value)]]
+                struct Value
+                {
+                    int id = 0;
+                    int value = 0;
+                };
+                }
+                """
+            )
+
+    def test_type_level_alias_props_are_rejected(self) -> None:
+        with self.assertRaises(CodegenError):
+            self.generate(
+                """
+                namespace glm
+                {
+                [[tbx::serializable]]
+                [[tbx::prop(x, y, z)]]
+                using TbxVec3 = tbx::Vec3;
+                }
+                """
+            )
+
+    def test_type_level_meta_is_rejected(self) -> None:
+        with self.assertRaises(CodegenError):
+            self.generate(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::serializable]]
+                [[tbx::version(1)]]
+                [[tbx::meta(id)]]
+                struct Value : Asset
+                {
+                    int id = 0;
+                };
+                }
+                """
+            )
+
+    def test_parent_props_are_inherited_when_child_has_props(self) -> None:
+        source = textwrap.dedent(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]]
+            struct Value : Base
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        context = textwrap.dedent(
+            """
+            namespace tbx::tests
+            {
+            struct Base
+            {
+                [[tbx::prop]]
+                int id = 0;
+            };
+            }
+            """
+        )
+
+        output = generate_header(parse_source(source, context_source=context))
+
+        self.assertIn('tbx_json["id"] = tbx_value.id;', output)
+        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+
+    def test_script_asset_registration_is_generated(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::script]]
+            [[tbx::name("door_controller")]]
+            [[tbx::version(1)]]
+            class DoorController : public tbx::Script
+            {
+              public:
+                [[tbx::prop]]
+                float open_speed = 1.0F;
+
+                [[tbx::inject]]
+                tbx::ServiceRef<tbx::IInputManager> input = {};
+            };
+            }
+            """
+        )
+        self.assertIn("register_script_asset_type<DoorController>", output)
+        self.assertIn("tbx_json[\"open_speed\"] = tbx_value.open_speed;", output)
+        self.assertIn("bind_script_field(tbx_value.open_speed", output)
+        self.assertIn("bind_script_field(tbx_value.input", output)
+        self.assertNotIn("tbx_json[\"input\"]", output)
 
     def test_version_only_asset_registers_type_only(self) -> None:
         output = self.generate(
@@ -253,16 +410,11 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("::tbx::Json& json", output)
         self.assertIn("to_json_serializable_variant", output)
 
-    def test_alias_fields_and_indexed_alias_are_generated(self) -> None:
+    def test_indexed_alias_is_generated(self) -> None:
         output = self.generate(
             """
             namespace glm
             {
-            [[tbx::serializable]];
-            [[tbx::name("Vec3")]];
-            [[tbx::prop(x, y, z)]];
-            using TbxVec3 = tbx::Vec3;
-
             [[tbx::serializable]];
             [[tbx::name("Mat4")]];
             [[tbx::count(4U)]];
@@ -271,7 +423,6 @@ class AttributeCodegenTests(unittest.TestCase):
             """
         )
         self.assertIn("namespace glm", output)
-        self.assertIn("tbx_json[\"x\"] = tbx_value.x;", output)
         self.assertIn("write_indexed_serialization_value", output)
 
     def test_printable_and_hash_are_generated(self) -> None:

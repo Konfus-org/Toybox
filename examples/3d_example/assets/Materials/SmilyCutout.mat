@@ -1,0 +1,67 @@
+{
+    "shader": {
+        "vertex": {
+            "id": {
+                "value": 315
+            }
+        },
+        "fragment": {
+            "id": {
+                "value": 270544963
+            }
+        },
+        "tesselation": {
+            "id": {
+                "value": 0
+            }
+        },
+        "geometry": {
+            "id": {
+                "value": 0
+            }
+        },
+        "compute": {
+            "id": {
+                "value": 0
+            }
+        }
+    },
+    "parameters": {
+        "values": [
+            {
+                "name": "albedo_color",
+                "data": {
+                    "type": "color",
+                    "value": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    }
+                }
+            }
+        ]
+    },
+    "textures": {
+        "values": [
+            {
+                "name": "albedo_map",
+                "texture": {
+                    "id": {
+                        "value": 270544962
+                    }
+                }
+            }
+        ]
+    },
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "less_equal",
+        "blend_mode": "opaque",
+        "shadow_mode": "none"
+    }
+}

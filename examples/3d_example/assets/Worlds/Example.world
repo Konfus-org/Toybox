@@ -1,10 +1,6 @@
-﻿{
+{
     "chunk_size": 16,
-    "full_visual_radius_chunks": 1,
-    "low_visual_radius_chunks": 4,
-    "simulation_radius_chunks": 1,
-    "reduced_simulation_radius_chunks": 2,
-    "unload_radius_chunks": 5,
+    "unload_radius_chunks": 1024,
     "persistent_entities": [
         {
             "id": {
@@ -184,9 +180,8 @@
                 "sky": {
                     "material": {
                         "material": {
-                            "name": "Materials/AnimeSkybox.mat",
                             "id": {
-                                "value": 0
+                                "value": 271593556
                             }
                         }
                     },
@@ -228,9 +223,8 @@
                         {
                             "material": {
                                 "material": {
-                                    "name": "Materials/LutPostProcess.mat",
                                     "id": {
-                                        "value": 0
+                                        "value": 539243890
                                     }
                                 }
                             },
@@ -251,21 +245,8 @@
                 "z": 0
             },
             "full_chunk": {
-                "name": "Worlds/Chunks/ChunkScene_0_0_0.chunk",
                 "id": {
-                    "value": 0
-                }
-            },
-            "low_lod_chunk": {
-                "name": "",
-                "id": {
-                    "value": 0
-                }
-            },
-            "simulation_chunk": {
-                "name": "",
-                "id": {
-                    "value": 0
+                    "value": 822083585
                 }
             }
         },
@@ -276,21 +257,8 @@
                 "z": 0
             },
             "full_chunk": {
-                "name": "Worlds/Chunks/ChunkScene_3_0_0.chunk",
                 "id": {
-                    "value": 0
-                }
-            },
-            "low_lod_chunk": {
-                "name": "Worlds/Chunks/ChunkScene_3_0_0.low.chunk",
-                "id": {
-                    "value": 0
-                }
-            },
-            "simulation_chunk": {
-                "name": "",
-                "id": {
-                    "value": 0
+                    "value": 822083586
                 }
             }
         }

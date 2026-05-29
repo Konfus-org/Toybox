@@ -45,6 +45,25 @@ namespace tbx
         return *existing;
     }
 
+    std::optional<AssetTypeRegistration> get_asset_type_registration(std::string_view type_name)
+    {
+        if (type_name.empty())
+            return std::nullopt;
+
+        auto guard = std::lock_guard(asset_type_registration_mutex());
+        const auto& registrations = asset_type_registrations();
+        const auto existing = std::ranges::find_if(
+            registrations,
+            [type_name](const AssetTypeRegistration& registered)
+            {
+                return registered.type_name == type_name;
+            });
+        if (existing == registrations.end())
+            return std::nullopt;
+
+        return *existing;
+    }
+
     void unregister_asset_type_entry(std::type_index asset_type)
     {
         if (asset_type == std::type_index(typeid(void)))
@@ -94,12 +113,18 @@ namespace tbx
                 existing->type_name = std::move(entry.type_name);
             if (entry.version != 0U)
                 existing->version = entry.version;
+            if (entry.create_asset)
+                existing->create_asset = std::move(entry.create_asset);
             if (entry.read_body)
                 existing->read_body = std::move(entry.read_body);
             if (entry.write_body)
                 existing->write_body = std::move(entry.write_body);
             if (entry.transform_meta)
                 existing->transform_meta = std::move(entry.transform_meta);
+            if (entry.apply_overrides)
+                existing->apply_overrides = std::move(entry.apply_overrides);
+            if (entry.bind_runtime)
+                existing->bind_runtime = std::move(entry.bind_runtime);
             return;
         }
 

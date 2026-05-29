@@ -20,16 +20,16 @@ namespace tbx
         std::filesystem::path resolved_include_path = {};
     };
 
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[tbx::serializable]]
+    [[tbx::version(1U)]]
     struct MacroOnlyAsset : Asset
     {
         [[tbx::prop]]
         int value = 0;
     };
 
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[tbx::serializable]]
+    [[tbx::version(1U)]]
     struct OverlayAsset : Asset
     {
         bool was_overlaid = false;
@@ -38,8 +38,8 @@ namespace tbx
         int value = 0;
     };
 
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[tbx::serializable]]
+    [[tbx::version(1U)]]
     struct LoaderPriorityAsset : Asset
     {
         bool loader_received_metadata = false;
@@ -55,8 +55,8 @@ namespace tbx
         int value = 7;
     };
 
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[tbx::serializable]]
+    [[tbx::version(1U)]]
     struct TextOnlyAsset : Asset
     {
         [[tbx::text]]
@@ -66,8 +66,8 @@ namespace tbx
         int value = 0;
     };
 
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[tbx::serializable]]
+    [[tbx::version(1U)]]
     struct CustomBodyAsset : Asset
     {
         std::string label = "";

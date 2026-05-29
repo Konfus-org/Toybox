@@ -214,7 +214,7 @@ namespace tbx
         return entities;
     }
 
-    void World::load_chunk(const WorldChunk& chunk, WorldSimulationMode simulation_mode)
+    void World::load_chunk(const WorldChunk& chunk)
     {
         unload_chunk(chunk.coord);
         auto& loaded_entities = _loaded_entities_by_chunk[chunk.coord];
@@ -226,8 +226,6 @@ namespace tbx
             if (!id.is_valid())
                 continue;
 
-            entity.add_component<WorldSimulationState>(
-                WorldSimulationState {.mode = simulation_mode});
             loaded_entities.push_back(entity);
             _chunk_by_entity[id] = chunk.coord;
             _entities_by_chunk[chunk.coord].push_back(id);
@@ -246,25 +244,6 @@ namespace tbx
 
         _loaded_entities_by_chunk.erase(coord);
         _entities_by_chunk.erase(coord);
-    }
-
-    void World::set_chunk_simulation_mode(
-        const WorldChunkCoord& coord,
-        WorldSimulationMode simulation_mode)
-    {
-        const auto entities_it = _entities_by_chunk.find(coord);
-        if (entities_it == _entities_by_chunk.end())
-            return;
-
-        for (const auto& id : entities_it->second)
-        {
-            auto entity = get(id);
-            if (!entity.get_id().is_valid())
-                continue;
-
-            entity.add_component<WorldSimulationState>(
-                WorldSimulationState {.mode = simulation_mode});
-        }
     }
 
     Entity World::create_entity(const std::string& name, const Uuid& parent, bool is_persistent)

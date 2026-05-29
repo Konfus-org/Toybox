@@ -68,7 +68,6 @@ namespace tbx
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[tbx::serializable]];
-    [[tbx::prop(id, handle)]];
     struct TBX_API StaticMesh : Component
     {
         StaticMesh() = default;
@@ -79,6 +78,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         Handle handle = {};
     };
 

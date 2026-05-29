@@ -18,10 +18,10 @@ namespace tbx
             CancellationSource cancellation_source = CancellationSource());
         ~Timer() noexcept = default;
 
-        // TODO: Do we need a copy constructor? I would think this wouldn't be required as we don't
-        // have anything that needs lifetime transfer right?
-
       public:
+        // TODO: Do we need a copy constructor and assignment ops? I would think this wouldn't be
+        // required as we don't have anything that needs lifetime transfer right?
+
         Timer(Timer&& other) noexcept;
 
       public:

@@ -46,8 +46,8 @@ namespace tbx
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[tbx::serializable]];
-    [[tbx::prop(id, effects, is_enabled)]];
-    struct TBX_API PostProcessing : Component
+    struct TBX_API PostProcessing
+        : Component
     {
         ~PostProcessing();
 
@@ -56,6 +56,7 @@ namespace tbx
         /// @details
         /// Ownership: Owns the effect stack vector and effect settings.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         std::vector<PostProcessingEffect> effects = {};
 
         /// @brief
@@ -63,6 +64,7 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[tbx::prop]]
         bool is_enabled = true;
     };
 }

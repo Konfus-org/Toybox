@@ -68,13 +68,6 @@ target_compile_definitions(Engine
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
 )
 
-target_compile_options(Engine
-    PUBLIC
-        $<$<CXX_COMPILER_ID:MSVC>:/wd5030>
-        $<$<CXX_COMPILER_ID:Clang>:-Wno-unknown-attributes>
-        $<$<CXX_COMPILER_ID:GNU>:-Wno-attributes>
-)
-
 if(TBX_ENABLE_VERBOSE)
     target_compile_definitions(Engine
         PUBLIC

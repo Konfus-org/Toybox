@@ -7,10 +7,8 @@
 
 namespace tbx::shader_loader
 {
-    [[tbx::plugin]];
-    [[tbx::name("ShaderIncludeLoader")]];
-    [[tbx::version("1.0.0")]];
-    [[tbx::category("default")]];
+    [[tbx::plugin]] [[tbx::name("ShaderIncludeLoader")]] [[tbx::version("1.0.0")]] [[tbx::category(
+        "default")]];
     class TBX_PLUGIN_API ShaderIncludeLoader final : public tbx::Plugin
     {
       public:

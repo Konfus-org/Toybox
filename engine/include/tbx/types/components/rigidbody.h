@@ -23,38 +23,45 @@ namespace tbx
     /// Ownership: Value type that owns all component data by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[tbx::serializable]];
-    [[tbx::prop(
-        id,
-        mass,
-        is_kinematic,
-        is_gravity_enabled,
-        transform_sync_mode,
-        linear_velocity,
-        angular_velocity,
-        friction,
-        restitution,
-        linear_damping,
-        angular_damping,
-        is_sleep_enabled,
-        sleep_velocity_threshold,
-        sleep_time_seconds)]];
     struct TBX_API Rigidbody : Component
     {
+        [[tbx::prop]]
         float mass = 1.0F;
+
+        [[tbx::prop]]
         bool is_kinematic = false;
+
+        [[tbx::prop]]
         bool is_gravity_enabled = true;
+
+        [[tbx::prop]]
         PhysicsTransformSyncMode transform_sync_mode = PhysicsTransformSyncMode::SWEEP;
 
+        [[tbx::prop]]
         Vec3 linear_velocity = Vec3(0.0F, 0.0F, 0.0F);
+
+        [[tbx::prop]]
         Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
 
+        [[tbx::prop]]
         float friction = 0.5F;
+
+        [[tbx::prop]]
         float restitution = 0.0F;
+
+        [[tbx::prop]]
         float linear_damping = 0.05F;
+
+        [[tbx::prop]]
         float angular_damping = 0.05F;
 
+        [[tbx::prop]]
         bool is_sleep_enabled = true;
+
+        [[tbx::prop]]
         float sleep_velocity_threshold = 0.03F;
+
+        [[tbx::prop]]
         float sleep_time_seconds = 0.5F;
 
         bool is_valid() const;

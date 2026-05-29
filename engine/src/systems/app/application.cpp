@@ -51,6 +51,10 @@ namespace tbx
             file_ops));
         service_provider.register_service<EntityStreamer>(
             std::make_unique<EntityStreamer>(service_provider.try_get_service<AssetManager>()));
+        service_provider.register_service<ScriptSystem>(
+            std::make_unique<ScriptSystem>(
+                service_provider.try_get_service<AssetManager>(),
+                service_provider));
         auto settings = std::make_unique<AppSettings>(
             message_coordinator,
             false,
@@ -77,6 +81,7 @@ namespace tbx
         _settings = _service_provider.get_service<AppSettings>();
         _asset_manager = _service_provider.get_service<AssetManager>();
         _entity_streamer = _service_provider.get_service<EntityStreamer>();
+        _script_system = _service_provider.get_service<ScriptSystem>();
         _thread_manager = _service_provider.get_service<ThreadManager>();
 
         auto settings = _settings.lock();
@@ -94,14 +99,8 @@ namespace tbx
         else
             settings->paths.logs_directory = file_operator.resolve(desc.logs_directory);
 
-        const auto working_resource_directory = settings->paths.working_directory / "resources";
-        const bool has_working_resource_directory =
-            std::filesystem::is_directory(working_resource_directory);
-        if (has_working_resource_directory)
-            asset_manager->add_directory(working_resource_directory);
-
         const auto resource_directory = get_default_asset_directory();
-        if (!has_working_resource_directory && !resource_directory.empty())
+        if (!resource_directory.empty())
             asset_manager->add_directory(resource_directory);
 
         if (!desc.args.empty())
@@ -412,6 +411,8 @@ namespace tbx
             _plugin_manager.update(dt);
             if (auto entity_streamer = _entity_streamer.lock())
                 entity_streamer->update(dt);
+            if (auto script_system = _script_system.lock())
+                script_system->update(dt);
             if (auto rendering = _rendering.lock())
                 rendering->render(dt);
         }
@@ -446,6 +447,9 @@ namespace tbx
             };
 
             _plugin_manager.fixed_update(fixed_dt);
+
+            if (auto script_system = _script_system.lock())
+                script_system->fixed_update(fixed_dt);
 
             if (auto physics = _physics.lock())
                 physics->update(fixed_dt);

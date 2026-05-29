@@ -4,8 +4,6 @@
 
 namespace three_d_example
 {
-    constexpr float ROOM_INNER_HALF_EXTENT = 18.0F;
-
     PlayerCameraSystem::PlayerCameraSystem(
         tbx::Entity character_entity,
         tbx::Entity camera_entity,
@@ -79,16 +77,6 @@ namespace three_d_example
 
         character_transform.position += tbx::Vec3(0.0F, input.get_vertical_axis().y, 0.0F)
                                         * _move_speed * static_cast<float>(dt.seconds);
-        // The authored demo room walls sit at +/-20 with thickness. Keep the free-fly camera
-        // inside their inner faces so movement respects the visible room bounds.
-        character_transform.position.x = std::clamp(
-            character_transform.position.x,
-            -ROOM_INNER_HALF_EXTENT,
-            ROOM_INNER_HALF_EXTENT);
-        character_transform.position.z = std::clamp(
-            character_transform.position.z,
-            -ROOM_INNER_HALF_EXTENT,
-            ROOM_INNER_HALF_EXTENT);
         character_transform.rotation = yaw_rotation;
 
         _character_entity.get_component<tbx::Transform>() = character_transform;

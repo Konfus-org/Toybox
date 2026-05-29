@@ -11,6 +11,7 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
 #include <memory>
 #include <string>
@@ -81,6 +82,7 @@ namespace tbx
         std::weak_ptr<IInputManager> _input_manager = {};
         std::weak_ptr<Physics> _physics = {};
         std::weak_ptr<Rendering> _rendering = {};
+        std::weak_ptr<ScriptSystem> _script_system = {};
 
         uint64 _update_count = 0;
         double _time_running = 0;

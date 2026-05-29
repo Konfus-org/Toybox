@@ -134,6 +134,12 @@ function(tbx_enable_release_asset_bundling)
             "tbx_enable_release_asset_bundling: target '${TBX_BUNDLE_TARGET}' does not exist")
     endif()
 
+    if(NOT TBX_FULL_RELEASE)
+        message(STATUS
+            "Skipping Toybox asset bundling for '${TBX_BUNDLE_TARGET}' because TBX_FULL_RELEASE is OFF")
+        return()
+    endif()
+
     get_target_property(is_enabled ${TBX_BUNDLE_TARGET} TBX_RELEASE_ASSET_BUNDLING_ENABLED)
     if(is_enabled)
         return()

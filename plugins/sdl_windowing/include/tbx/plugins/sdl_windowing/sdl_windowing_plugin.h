@@ -8,10 +8,8 @@ namespace sdl_windowing
 {
     class SdlWindowBackend;
 
-    [[tbx::plugin]];
-    [[tbx::name("SdlWindowingPlugin")]];
-    [[tbx::version("1.0.0")]];
-    [[tbx::category("input")]];
+    [[tbx::plugin]] [[tbx::name("SdlWindowingPlugin")]] [[tbx::version("1.0.0")]] [[tbx::category(
+        "input")]];
     class TBX_PLUGIN_API SdlWindowingPlugin final : public tbx::Plugin
     {
       public:

@@ -1,73 +1,67 @@
 {
-  "shader": {
-    "vertex": {
-      "name": "",
-      "id": {
-        "value": 315
-      }
+    "shader": {
+        "vertex": {
+            "id": {
+                "value": 315
+            }
+        },
+        "fragment": {
+            "id": {
+                "value": 316
+            }
+        },
+        "tesselation": {
+            "id": {
+                "value": 0
+            }
+        },
+        "geometry": {
+            "id": {
+                "value": 0
+            }
+        },
+        "compute": {
+            "id": {
+                "value": 0
+            }
+        }
     },
-    "fragment": {
-      "name": "",
-      "id": {
-        "value": 316
-      }
+    "parameters": {
+        "values": [
+            {
+                "name": "albedo_color",
+                "data": {
+                    "type": "color",
+                    "value": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    }
+                }
+            }
+        ]
     },
-    "tesselation": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "textures": {
+        "values": [
+            {
+                "name": "albedo_map",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            }
+        ]
     },
-    "geometry": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
-    },
-    "compute": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": false,
+        "is_cullable": true,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "none"
     }
-  },
-  "parameters": {
-    "values": [
-      {
-        "name": "albedo_color",
-        "data": {
-          "type": "color",
-          "value": {
-            "r": 1,
-            "g": 1,
-            "b": 1,
-            "a": 1
-          }
-        }
-      }
-    ]
-  },
-  "textures": {
-    "values": [
-      {
-        "name": "albedo_map",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      }
-    ]
-  },
-  "config": {
-    "is_depth_test_enabled": true,
-    "is_depth_write_enabled": true,
-    "is_depth_prepass_enabled": false,
-    "is_two_sided": false,
-    "is_cullable": true,
-    "depth_function": "less",
-    "blend_mode": "opaque",
-    "shadow_mode": "none"
-  }
 }

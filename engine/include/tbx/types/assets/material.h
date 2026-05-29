@@ -213,25 +213,30 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[tbx::serializable]];
     [[tbx::hash(tbx::hash($))]];
-    [[tbx::prop(
-        is_depth_test_enabled,
-        is_depth_write_enabled,
-        is_depth_prepass_enabled,
-        is_two_sided,
-        is_cullable,
-        depth_function,
-        blend_mode,
-        shadow_mode)]];
     struct TBX_API MaterialConfig
     {
+        [[tbx::prop]]
         bool is_depth_test_enabled = true;
+
+        [[tbx::prop]]
         bool is_depth_write_enabled = true;
+
+        [[tbx::prop]]
         bool is_depth_prepass_enabled = false;
+
+        [[tbx::prop]]
         bool is_two_sided = false;
+
+        [[tbx::prop]]
         bool is_cullable = true;
 
+        [[tbx::prop]]
         MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
+
+        [[tbx::prop]]
         MaterialBlendMode blend_mode = MaterialBlendMode::OPAQUE;
+
+        [[tbx::prop]]
         ShadowMode shadow_mode = ShadowMode::STANDARD;
     };
 

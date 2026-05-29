@@ -72,9 +72,26 @@ namespace stb_image_loader
             return result;
         }
 
-        tbx::Texture load_texture = texture;
-        if (load_texture.pixels.empty())
-            load_texture = parameters.texture;
+        tbx::Texture load_texture = parameters.texture;
+        auto meta_path = asset_path;
+        meta_path += ".meta";
+        if (_file_ops->exists(meta_path))
+        {
+            auto meta_data = std::string {};
+            if (!_file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
+            {
+                result.flag_failure(
+                    build_load_failure_message(asset_path, "texture metadata could not be read"));
+                return result;
+            }
+
+            const auto meta_result = tbx::tbx_read_json_asset_meta_Texture(meta_data, load_texture);
+            if (!meta_result.succeeded())
+            {
+                result.flag_failure(meta_result.get_report());
+                return result;
+            }
+        }
 
         std::string encoded_image;
         if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))

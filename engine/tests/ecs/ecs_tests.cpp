@@ -11,10 +11,10 @@
 
 namespace tbx::tests::ecs
 {
-    [[tbx::serializable]];
-    [[tbx::prop(id, value)]];
+    [[tbx::serializable]]
     struct TestComponent : Component
     {
+        [[tbx::prop]]
         int value = 0;
     };
 }
@@ -368,7 +368,7 @@ namespace tbx::tests::ecs
         EXPECT_FLOAT_EQ(get_world_space_transform(camera).position.y, 10.0F);
     }
 
-    TEST(ECSTests, EntityStreamer_LoadsLowVisualChunkWithFullSimulation)
+    TEST(ECSTests, EntityStreamer_LoadsFullChunkWithinUnloadRadius)
     {
         // Arrange
         auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
@@ -377,10 +377,6 @@ namespace tbx::tests::ecs
             "main.world",
             R"({
                 "chunk_size": 10.0,
-                "full_visual_radius_chunks": 1,
-                "low_visual_radius_chunks": 5,
-                "simulation_radius_chunks": 4,
-                "reduced_simulation_radius_chunks": 5,
                 "unload_radius_chunks": 6,
                 "persistent_entities": [
                     {
@@ -405,39 +401,19 @@ namespace tbx::tests::ecs
                 "chunks": [
                     {
                         "coord": { "x": 3, "y": 0, "z": 0 },
-                        "full_chunk": { "name": "chunks/full.chunk", "id": { "value": 50 } },
-                        "low_lod_chunk": { "name": "chunks/low.chunk", "id": { "value": 51 } },
-                        "simulation_chunk": { "name": "", "id": { "value": 0 } }
+                        "full_chunk": { "name": "chunks/full.chunk", "id": { "value": 50 } }
                     }
                 ]
             })");
         file_ops->set_text("chunks/full.chunk.meta", R"({ "id": 80, "version": 1 })");
-        file_ops->set_text("chunks/low.chunk.meta", R"({ "id": 81, "version": 1 })");
         file_ops->set_text(
             "chunks/full.chunk",
             R"({
                 "coord": { "x": 3, "y": 0, "z": 0 },
-                "lod": "full",
                 "entities": [
                     {
                         "id": { "value": 60 },
                         "name": "FullTile",
-                        "tag": "",
-                        "layer": "",
-                        "parent": { "value": 0 },
-                        "components": {}
-                    }
-                ]
-            })");
-        file_ops->set_text(
-            "chunks/low.chunk",
-            R"({
-                "coord": { "x": 3, "y": 0, "z": 0 },
-                "lod": "low",
-                "entities": [
-                    {
-                        "id": { "value": 60 },
-                        "name": "LowTile",
                         "tag": "",
                         "layer": "",
                         "parent": { "value": 0 },
@@ -463,10 +439,6 @@ namespace tbx::tests::ecs
         ASSERT_NE(world, nullptr);
         auto streamed_entity = world->get(Uuid(60U));
         ASSERT_TRUE(streamed_entity.get_id().is_valid());
-        EXPECT_EQ(streamed_entity.get_name(), "LowTile");
-        ASSERT_TRUE(streamed_entity.has_component<WorldSimulationState>());
-        EXPECT_EQ(
-            streamed_entity.get_component<WorldSimulationState>().mode,
-            WorldSimulationMode::FULL);
+        EXPECT_EQ(streamed_entity.get_name(), "FullTile");
     }
 }

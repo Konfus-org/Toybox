@@ -152,6 +152,18 @@ function(tbx_codegen_generate_plugin_registration)
 
     target_compile_definitions(${TBX_CODEGEN_TARGET} PRIVATE TBX_PLUGIN_EXPORTING_SYMBOLS)
 
+    get_target_property(plugin_resource_directories ${TBX_CODEGEN_TARGET} TBX_ASSET_BUNDLE_PATHS)
+    if(plugin_resource_directories AND NOT plugin_resource_directories STREQUAL "plugin_resource_directories-NOTFOUND")
+        list(GET plugin_resource_directories 0 plugin_resource_directory)
+        string(REPLACE "\\" "/" plugin_resource_directory "${plugin_resource_directory}")
+        if(NOT TBX_FULL_RELEASE)
+            target_compile_definitions(${TBX_CODEGEN_TARGET}
+                PRIVATE
+                    "TBX_PLUGIN_RESOURCE_DIRECTORY=\"${plugin_resource_directory}\""
+            )
+        endif()
+    endif()
+
     file(GLOB_RECURSE plugin_sources CONFIGURE_DEPENDS "${TBX_CODEGEN_BASE_DIR}/src/*.*")
     if(plugin_sources)
         target_sources(${TBX_CODEGEN_TARGET} PRIVATE ${plugin_sources})

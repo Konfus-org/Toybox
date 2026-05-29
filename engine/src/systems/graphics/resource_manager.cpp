@@ -67,23 +67,19 @@ namespace tbx
 
         void cache_model_bounds(const Handle& model_handle, const MeshBounds& bounds) const;
 
-        Result upload_dynamic_mesh(
+        RenderingMeshUploadData upload_dynamic_mesh(
             const std::shared_ptr<DynamicMeshData>& mesh_data,
-            RenderingResourceTracker& resource_tracker,
-            RenderingMeshUploadData& out_mesh) const;
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_bind_group(
+        Uuid upload_bind_group(
             const BindGroupDesc& desc,
-            RenderingResourceTracker& resource_tracker,
-            Uuid& out_bind_group) const;
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_fallback_mesh(
-            RenderingResourceTracker& resource_tracker,
-            std::vector<RenderingMeshUploadData>& out_meshes) const;
+        std::vector<RenderingMeshUploadData> upload_fallback_mesh(
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_fallback_material(
-            RenderingResourceTracker& resource_tracker,
-            RenderingMaterialUploadData& out_material) const;
+        RenderingMaterialUploadData upload_fallback_material(
+            RenderingResourceTracker& resource_tracker) const;
 
         GraphicsResourceBinding upload_fallback_texture(
             RenderingResourceTracker& resource_tracker,
@@ -96,27 +92,23 @@ namespace tbx
             const void* data,
             uint64 byte_size) const;
 
-        Result upload_material(
+        RenderingMaterialUploadData upload_material(
             const MaterialInstance& instance,
-            RenderingResourceTracker& resource_tracker,
-            RenderingMaterialUploadData& out_material) const;
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_model_meshes(
+        std::vector<RenderingMeshUploadData> upload_model_meshes(
             const Handle& model_handle,
-            RenderingResourceTracker& resource_tracker,
-            std::vector<RenderingMeshUploadData>& out_meshes) const;
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_runtime_mesh(
+        RenderingMeshUploadData upload_runtime_mesh(
             const Handle& mesh_handle,
             const Mesh& mesh,
-            RenderingResourceTracker& resource_tracker,
-            RenderingMeshUploadData& out_mesh) const;
+            RenderingResourceTracker& resource_tracker) const;
 
-        Result upload_static_runtime_mesh(
+        RenderingMeshUploadData upload_static_runtime_mesh(
             const Handle& mesh_handle,
             const Mesh& mesh,
-            RenderingResourceTracker& resource_tracker,
-            RenderingMeshUploadData& out_mesh) const;
+            RenderingResourceTracker& resource_tracker) const;
 
         GraphicsResourceBinding upload_texture(
             RenderingResourceTracker& resource_tracker,
@@ -196,20 +188,11 @@ namespace tbx
     inline std::shared_ptr<Material> make_fallback_material()
     {
         auto material = Material();
-        material.shader.vertex = DefaultPbrVertexShader::HANDLE;
-        material.shader.fragment = DefaultPbrFragmentShader::HANDLE;
+        material.shader.vertex = DefaultFlatVertexShader::HANDLE;
+        material.shader.fragment = DefaultFlatFragmentShader::HANDLE;
 
         material.parameters.set("albedo_color", Color(1.0F, 0.0F, 1.0F, 1.0F));
-        material.parameters.set("emissive_color", Color(1.0F, 0.0F, 1.0F, 1.0F));
-        material.parameters.set("metallic", 0.0F);
-        material.parameters.set("roughness", 1.0F);
-        material.parameters.set("normal_strength", 1.0F);
-        material.parameters.set("ao", 1.0F);
         material.textures.set("albedo_map", {});
-        material.textures.set("normal_map", {});
-        material.textures.set("metallic_roughness_map", {});
-        material.textures.set("ao_map", {});
-        material.textures.set("emissive_map", {});
         material.config = MaterialConfig {
             .is_depth_test_enabled = true,
             .is_depth_write_enabled = true,
@@ -248,10 +231,16 @@ namespace tbx
 
         auto fragment_shader = Shader(
             "#version 450 core\n"
-            "layout(location = 0) out vec4 o_color;\n"
+            "layout(location = 0) out vec4 o_gbuffer_albedo;\n"
+            "layout(location = 1) out vec4 o_gbuffer_normal;\n"
+            "layout(location = 2) out vec4 o_gbuffer_material;\n"
+            "layout(location = 3) out vec4 o_gbuffer_emissive;\n"
             "void main()\n"
             "{\n"
-            "    o_color = vec4(1.0, 0.0, 1.0, 1.0);\n"
+            "    o_gbuffer_albedo = vec4(1.0, 0.0, 1.0, 1.0);\n"
+            "    o_gbuffer_normal = vec4(0.5, 0.5, 1.0, 1.0);\n"
+            "    o_gbuffer_material = vec4(0.0, 1.0, 1.0, 1.0);\n"
+            "    o_gbuffer_emissive = vec4(1.0, 0.0, 1.0, 1.0);\n"
             "}\n",
             ShaderType::FRAGMENT);
 
@@ -783,7 +772,12 @@ namespace tbx
 
     static Handle make_default_material_handle()
     {
-        return Handle("Materials/Pbr.mat", PbrMaterial::HANDLE.id);
+        return Handle(PbrMaterial::HANDLE.id);
+    }
+
+    static bool has_asset_reference(const Handle& handle)
+    {
+        return handle.id.is_valid() || !handle.name.empty();
     }
 
     static Handle resolve_material_handle(const MaterialInstance& instance)
@@ -1137,21 +1131,48 @@ namespace tbx
 
         source_texture = asset_manager.load<Texture>(binding.texture, TextureLoadParameters());
         if (!source_texture)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering texture '{}' failed to load for material binding '{}'. Using fallback "
+                "texture.",
+                binding.texture,
+                binding.name);
             return upload_fallback_texture(
                 backend,
                 resource_tracker,
                 binding.id,
                 fallback_textures,
                 cache);
+        }
 
         if (!source_texture)
             return std::nullopt;
 
-        const uint64 source_byte_size = get_texture_source_byte_size(*source_texture);
-        if (source_texture->resolution.width == 0U || source_texture->resolution.height == 0U
-            || (source_byte_size > 0U
-                && static_cast<uint64>(source_texture->pixels.size()) < source_byte_size))
+        auto source_byte_size = get_texture_source_byte_size(*source_texture);
+        auto has_valid_pixels =
+            source_texture->resolution.width != 0U && source_texture->resolution.height != 0U
+            && (source_byte_size == 0U
+                || static_cast<uint64>(source_texture->pixels.size()) >= source_byte_size);
+        if (!has_valid_pixels && asset_manager.reload<Texture>(binding.texture))
         {
+            source_texture = asset_manager.load<Texture>(binding.texture, TextureLoadParameters());
+            if (source_texture)
+            {
+                source_byte_size = get_texture_source_byte_size(*source_texture);
+                has_valid_pixels =
+                    source_texture->resolution.width != 0U
+                    && source_texture->resolution.height != 0U
+                    && (source_byte_size == 0U
+                        || static_cast<uint64>(source_texture->pixels.size()) >= source_byte_size);
+            }
+        }
+        if (!source_texture || !has_valid_pixels)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering texture '{}' has invalid pixel data for material binding '{}'. Using "
+                "fallback texture.",
+                binding.texture,
+                binding.name);
             return upload_fallback_texture(
                 backend,
                 resource_tracker,
@@ -1521,9 +1542,8 @@ namespace tbx
     {
     }
 
-    Result RenderingResourceUploader::upload_fallback_mesh(
-        RenderingResourceTracker& resource_tracker,
-        std::vector<RenderingMeshUploadData>& out_meshes) const
+    std::vector<RenderingMeshUploadData> RenderingResourceUploader::upload_fallback_mesh(
+        RenderingResourceTracker& resource_tracker) const
     {
         const auto fallback_mesh_handle = Handle("Toybox/FallbackMesh");
         if (const auto cached_mesh = _caches.meshes.runtime_meshes.find(fallback_mesh_handle);
@@ -1531,30 +1551,49 @@ namespace tbx
         {
             resource_tracker.track(cached_mesh->second.vertex_buffer);
             resource_tracker.track(cached_mesh->second.index_buffer);
-            out_meshes.push_back(cached_mesh->second);
+            return {cached_mesh->second};
+        }
+
+        const auto backend = _backend.lock();
+        if (!backend)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering fallback mesh upload skipped because graphics backend is unavailable.");
             return {};
         }
 
-        auto mesh = RenderingMeshUploadData();
-        const Result result =
-            upload_static_runtime_mesh(fallback_mesh_handle, Mesh::CUBE, resource_tracker, mesh);
-        if (!result)
-            return Result(false, "Resource uploader failed: fallback mesh upload failed.");
+        const auto mesh =
+            upload_mesh(*backend, resource_tracker, fallback_mesh_handle, Mesh::CUBE, 0U);
+        if (!mesh.has_value())
+        {
+            TBX_TRACE_WARNING("Rendering fallback mesh upload failed.");
+            return {};
+        }
 
-        out_meshes.push_back(mesh);
-        return {};
+        _caches.meshes.runtime_meshes[fallback_mesh_handle] = *mesh;
+        return {*mesh};
     }
 
-    Result RenderingResourceUploader::upload_fallback_material(
-        RenderingResourceTracker& resource_tracker,
-        RenderingMaterialUploadData& out_material) const
+    RenderingMaterialUploadData RenderingResourceUploader::upload_fallback_material(
+        RenderingResourceTracker& resource_tracker) const
     {
+        auto out_material = RenderingMaterialUploadData();
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering fallback material upload skipped because graphics backend is "
+                "unavailable.");
+            return out_material;
+        }
 
         if (!_fallback_material)
-            return Result(false, "Resource uploader failed: fallback material unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering fallback material upload skipped because fallback material is "
+                "unavailable.");
+            return out_material;
+        }
 
         const auto material_handle = Handle("Toybox/FallbackMaterial");
         const uint64 cache_key = make_material_upload_cache_key(material_handle, nullptr);
@@ -1563,7 +1602,7 @@ namespace tbx
         {
             out_material = cached_material->second;
             track_material_upload_resources(resource_tracker, out_material);
-            return {};
+            return out_material;
         }
 
         const Result result = upload_material_resources(
@@ -1579,15 +1618,17 @@ namespace tbx
             out_material);
         if (result)
             _caches.materials.materials[cache_key] = out_material;
+        else
+            TBX_TRACE_WARNING("Rendering fallback material upload failed: {}", result.get_report());
 
-        return result;
+        return out_material;
     }
 
     void RenderingResourceUploader::cache_model_bounds(
         const Handle& model_handle,
         const MeshBounds& bounds) const
     {
-        if ((model_handle.id.is_valid() || !model_handle.name.empty()) && bounds.is_valid)
+        if (has_asset_reference(model_handle) && bounds.is_valid)
             _caches.meshes.model_bounds[model_handle] = bounds;
     }
 
@@ -1609,19 +1650,20 @@ namespace tbx
         return binding.value_or(GraphicsResourceBinding {.slot = *slot});
     }
 
-    Result RenderingResourceUploader::upload_material(
+    RenderingMaterialUploadData RenderingResourceUploader::upload_material(
         const MaterialInstance& instance,
-        RenderingResourceTracker& resource_tracker,
-        RenderingMaterialUploadData& out_material) const
+        RenderingResourceTracker& resource_tracker) const
     {
+        auto out_material = RenderingMaterialUploadData();
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering material upload skipped because graphics backend is unavailable.");
+            return out_material;
+        }
 
         const auto asset_manager = _asset_manager.lock();
-        if (!asset_manager)
-            return Result(false, "Resource uploader failed: asset manager unavailable.");
-
         auto material_handle = resolve_material_handle(instance);
         const uint64 cache_key = make_material_upload_cache_key(material_handle, &instance);
         if (const auto cached_material = _caches.materials.materials.find(cache_key);
@@ -1629,15 +1671,39 @@ namespace tbx
         {
             out_material = cached_material->second;
             track_material_upload_resources(resource_tracker, out_material);
-            return {};
+            return out_material;
         }
 
         auto loaded_material =
-            asset_manager->load<Material>(material_handle, MaterialLoadParameters());
+            asset_manager && has_asset_reference(material_handle)
+                ? asset_manager->load<Material>(material_handle, MaterialLoadParameters())
+                : nullptr;
+        if (!asset_manager)
+        {
+            TBX_TRACE_WARNING(
+                "Rendering material '{}' could not load because asset manager is unavailable. "
+                "Using bright magenta fallback material.",
+                material_handle);
+        }
+        else if (!has_asset_reference(material_handle))
+        {
+            TBX_TRACE_WARNING(
+                "Rendering material upload received an invalid handle. Using bright magenta "
+                "fallback material.");
+        }
         if (!loaded_material)
+        {
+            if (asset_manager && has_asset_reference(material_handle))
+            {
+                TBX_TRACE_WARNING(
+                    "Rendering material '{}' failed to load. Using bright magenta fallback "
+                    "material.",
+                    material_handle);
+            }
             loaded_material = _fallback_material;
+        }
         if (!loaded_material)
-            return Result(false, "Resource uploader failed: material load failed.");
+            return upload_fallback_material(resource_tracker);
 
         const auto material = *loaded_material;
         loaded_material.reset();
@@ -1655,21 +1721,39 @@ namespace tbx
             out_material);
         if (result)
             _caches.materials.materials[cache_key] = out_material;
+        else
+        {
+            TBX_TRACE_WARNING(
+                "Rendering material '{}' upload failed: {}. Using bright magenta fallback "
+                "material.",
+                material_handle,
+                result.get_report());
+            out_material = upload_fallback_material(resource_tracker);
+        }
 
-        return result;
+        return out_material;
     }
 
-    Result RenderingResourceUploader::upload_dynamic_mesh(
+    RenderingMeshUploadData RenderingResourceUploader::upload_dynamic_mesh(
         const std::shared_ptr<DynamicMeshData>& mesh_data,
-        RenderingResourceTracker& resource_tracker,
-        RenderingMeshUploadData& out_mesh) const
+        RenderingResourceTracker& resource_tracker) const
     {
         if (!mesh_data)
-            return Result(false, "Resource uploader failed: dynamic mesh data is unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering dynamic mesh upload used fallback mesh because mesh data is "
+                "unavailable.");
+            const auto fallback_meshes = upload_fallback_mesh(resource_tracker);
+            return fallback_meshes.empty() ? RenderingMeshUploadData() : fallback_meshes.front();
+        }
 
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering dynamic mesh upload skipped because graphics backend is unavailable.");
+            return {};
+        }
 
         const Mesh& mesh = mesh_data->get_mesh();
         const DynamicMeshData* cache_key = mesh_data.get();
@@ -1686,38 +1770,37 @@ namespace tbx
             {
                 resource_tracker.track(cached_mesh->second.mesh.vertex_buffer);
                 resource_tracker.track(cached_mesh->second.mesh.index_buffer);
-                out_mesh = cached_mesh->second.mesh;
-                return {};
+                return cached_mesh->second.mesh;
             }
 
             if (try_update_mesh(*backend, resource_tracker, cached_mesh->second.mesh, mesh))
             {
                 mesh_data->clear_dirty();
-                out_mesh = cached_mesh->second.mesh;
-                return {};
+                return cached_mesh->second.mesh;
             }
         }
 
         const auto uploaded_mesh =
             upload_mesh(*backend, resource_tracker, Handle("Toybox/DynamicMesh"), mesh, 0U);
         if (!uploaded_mesh.has_value())
-            return Result(false, "Resource uploader failed: dynamic mesh upload failed.");
+        {
+            TBX_TRACE_WARNING("Rendering dynamic mesh upload failed. Using fallback mesh.");
+            const auto fallback_meshes = upload_fallback_mesh(resource_tracker);
+            return fallback_meshes.empty() ? RenderingMeshUploadData() : fallback_meshes.front();
+        }
 
         _caches.meshes.dynamic_meshes[cache_key] = DynamicMeshResourceCacheEntry {
             .data = mesh_data,
             .mesh = *uploaded_mesh,
         };
         mesh_data->clear_dirty();
-        out_mesh = *uploaded_mesh;
-        return {};
+        return *uploaded_mesh;
     }
 
-    Result RenderingResourceUploader::upload_bind_group(
+    Uuid RenderingResourceUploader::upload_bind_group(
         const BindGroupDesc& desc,
-        RenderingResourceTracker& resource_tracker,
-        Uuid& out_bind_group) const
+        RenderingResourceTracker& resource_tracker) const
     {
-        out_bind_group = {};
         if (desc.bindings.empty())
             return {};
 
@@ -1731,19 +1814,29 @@ namespace tbx
             });
         if (cached != entries.end())
         {
-            out_bind_group = cached->resource;
             track_bind_group_resources(resource_tracker, cached->desc);
-            resource_tracker.track(out_bind_group);
-            return {};
+            resource_tracker.track(cached->resource);
+            return cached->resource;
         }
 
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering bind group upload skipped because graphics backend is unavailable.");
+            return {};
+        }
 
+        auto out_bind_group = Uuid();
         const Result result = backend->create_bind_group(desc, out_bind_group);
         if (!result)
-            return result;
+        {
+            TBX_TRACE_WARNING(
+                "Rendering bind group '{}' upload failed: {}",
+                desc.debug_name,
+                result.get_report());
+            return {};
+        }
 
         track_bind_group_resources(resource_tracker, desc);
         resource_tracker.track(out_bind_group);
@@ -1752,40 +1845,65 @@ namespace tbx
                 .resource = out_bind_group,
                 .desc = desc,
             });
-        return {};
+        return out_bind_group;
     }
 
-    Result RenderingResourceUploader::upload_model_meshes(
+    std::vector<RenderingMeshUploadData> RenderingResourceUploader::upload_model_meshes(
         const Handle& model_handle,
-        RenderingResourceTracker& resource_tracker,
-        std::vector<RenderingMeshUploadData>& out_meshes) const
+        RenderingResourceTracker& resource_tracker) const
     {
         if (const auto cached_meshes = _caches.meshes.model_meshes.find(model_handle);
             cached_meshes != _caches.meshes.model_meshes.end())
         {
+            auto out_meshes = std::vector<RenderingMeshUploadData>();
             for (const auto& mesh : cached_meshes->second)
             {
                 resource_tracker.track(mesh.vertex_buffer);
                 resource_tracker.track(mesh.index_buffer);
                 out_meshes.push_back(mesh);
             }
-            return {};
+            return out_meshes;
         }
 
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering model '{}' upload skipped because graphics backend is unavailable.",
+                model_handle);
+            return {};
+        }
 
         const auto asset_manager = _asset_manager.lock();
+        auto model = asset_manager && has_asset_reference(model_handle)
+                         ? asset_manager->load<Model>(model_handle, ModelLoadParameters())
+                         : nullptr;
         if (!asset_manager)
-            return Result(false, "Resource uploader failed: asset manager unavailable.");
-
-        auto model = asset_manager->load<Model>(model_handle, ModelLoadParameters());
+        {
+            TBX_TRACE_WARNING(
+                "Rendering model '{}' could not load because asset manager is unavailable. Using "
+                "fallback cube model.",
+                model_handle);
+        }
+        else if (!has_asset_reference(model_handle))
+        {
+            TBX_TRACE_WARNING(
+                "Rendering model upload received an invalid handle. Using fallback cube model.");
+        }
         if (!model)
+        {
+            if (asset_manager && has_asset_reference(model_handle))
+            {
+                TBX_TRACE_WARNING(
+                    "Rendering model '{}' failed to load. Using fallback cube model.",
+                    model_handle);
+            }
             model = _fallback_model;
+        }
         if (!model)
-            return Result(false, "Resource uploader failed: model load failed.");
+            return upload_fallback_mesh(resource_tracker);
 
+        auto out_meshes = std::vector<RenderingMeshUploadData>();
         for (uint mesh_index = 0U; mesh_index < static_cast<uint>(model->meshes.size());
              ++mesh_index)
         {
@@ -1799,30 +1917,49 @@ namespace tbx
             {
                 out_meshes.push_back(*mesh);
             }
+            else
+            {
+                TBX_TRACE_WARNING(
+                    "Rendering model '{}' mesh {} upload failed.",
+                    model_handle,
+                    mesh_index);
+            }
         }
 
         if (!out_meshes.empty())
             _caches.meshes.model_meshes[model_handle] = out_meshes;
+        else
+            out_meshes = upload_fallback_mesh(resource_tracker);
 
-        return {};
+        return out_meshes;
     }
 
-    Result RenderingResourceUploader::upload_runtime_mesh(
+    RenderingMeshUploadData RenderingResourceUploader::upload_runtime_mesh(
         const Handle& mesh_handle,
         const Mesh& mesh,
-        RenderingResourceTracker& resource_tracker,
-        RenderingMeshUploadData& out_mesh) const
+        RenderingResourceTracker& resource_tracker) const
     {
         const auto backend = _backend.lock();
         if (!backend)
-            return Result(false, "Resource uploader failed: graphics backend unavailable.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering runtime mesh '{}' upload skipped because graphics backend is "
+                "unavailable.",
+                mesh_handle);
+            return {};
+        }
 
         const auto mesh_data = upload_mesh(*backend, resource_tracker, mesh_handle, mesh, 0U);
         if (!mesh_data.has_value())
-            return Result(false, "Resource uploader failed: runtime mesh upload failed.");
+        {
+            TBX_TRACE_WARNING(
+                "Rendering runtime mesh '{}' upload failed. Using fallback mesh.",
+                mesh_handle);
+            const auto fallback_meshes = upload_fallback_mesh(resource_tracker);
+            return fallback_meshes.empty() ? RenderingMeshUploadData() : fallback_meshes.front();
+        }
 
-        out_mesh = *mesh_data;
-        return {};
+        return *mesh_data;
     }
 
     bool RenderingResourceUploader::try_get_static_runtime_mesh(
@@ -1852,21 +1989,20 @@ namespace tbx
         return true;
     }
 
-    Result RenderingResourceUploader::upload_static_runtime_mesh(
+    RenderingMeshUploadData RenderingResourceUploader::upload_static_runtime_mesh(
         const Handle& mesh_handle,
         const Mesh& mesh,
-        RenderingResourceTracker& resource_tracker,
-        RenderingMeshUploadData& out_mesh) const
+        RenderingResourceTracker& resource_tracker) const
     {
+        auto out_mesh = RenderingMeshUploadData();
         if (try_get_static_runtime_mesh(mesh_handle, resource_tracker, out_mesh))
-            return {};
+            return out_mesh;
 
-        const Result result = upload_runtime_mesh(mesh_handle, mesh, resource_tracker, out_mesh);
-        if (!result)
-            return result;
+        out_mesh = upload_runtime_mesh(mesh_handle, mesh, resource_tracker);
 
-        _caches.meshes.runtime_meshes[mesh_handle] = out_mesh;
-        return {};
+        if (out_mesh.vertex_buffer.is_valid() && out_mesh.index_buffer.is_valid())
+            _caches.meshes.runtime_meshes[mesh_handle] = out_mesh;
+        return out_mesh;
     }
 
     GraphicsResourceBinding RenderingResourceUploader::upload_instance_buffer(
@@ -2047,30 +2183,25 @@ namespace tbx
         return _state->uploader->try_get_model_bounds(model_handle, out_bounds);
     }
 
-    Result RenderingResourceManager::upload_dynamic_mesh(
-        const std::shared_ptr<DynamicMeshData>& mesh_data,
-        RenderingMeshUploadData& out_mesh) const
+    RenderingMeshUploadData RenderingResourceManager::upload_dynamic_mesh(
+        const std::shared_ptr<DynamicMeshData>& mesh_data) const
     {
-        return _state->uploader->upload_dynamic_mesh(mesh_data, *_state->tracker, out_mesh);
+        return _state->uploader->upload_dynamic_mesh(mesh_data, *_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_bind_group(
-        const BindGroupDesc& desc,
-        Uuid& out_bind_group) const
+    Uuid RenderingResourceManager::upload_bind_group(const BindGroupDesc& desc) const
     {
-        return _state->uploader->upload_bind_group(desc, *_state->tracker, out_bind_group);
+        return _state->uploader->upload_bind_group(desc, *_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_fallback_material(
-        RenderingMaterialUploadData& out_material) const
+    RenderingMaterialUploadData RenderingResourceManager::upload_fallback_material() const
     {
-        return _state->uploader->upload_fallback_material(*_state->tracker, out_material);
+        return _state->uploader->upload_fallback_material(*_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_fallback_mesh(
-        std::vector<RenderingMeshUploadData>& out_meshes) const
+    std::vector<RenderingMeshUploadData> RenderingResourceManager::upload_fallback_mesh() const
     {
-        return _state->uploader->upload_fallback_mesh(*_state->tracker, out_meshes);
+        return _state->uploader->upload_fallback_mesh(*_state->tracker);
     }
 
     GraphicsResourceBinding RenderingResourceManager::upload_fallback_texture(
@@ -2089,35 +2220,30 @@ namespace tbx
             ->upload_instance_buffer(*_state->tracker, cache_key, frame_index, data, byte_size);
     }
 
-    Result RenderingResourceManager::upload_material(
-        const MaterialInstance& instance,
-        RenderingMaterialUploadData& out_material) const
+    RenderingMaterialUploadData RenderingResourceManager::upload_material(
+        const MaterialInstance& instance) const
     {
-        return _state->uploader->upload_material(instance, *_state->tracker, out_material);
+        return _state->uploader->upload_material(instance, *_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_model(
-        const Handle& model_handle,
-        std::vector<RenderingMeshUploadData>& out_meshes) const
+    std::vector<RenderingMeshUploadData> RenderingResourceManager::upload_model(
+        const Handle& model_handle) const
     {
-        return _state->uploader->upload_model_meshes(model_handle, *_state->tracker, out_meshes);
+        return _state->uploader->upload_model_meshes(model_handle, *_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_dynamic_runtime_mesh(
+    RenderingMeshUploadData RenderingResourceManager::upload_dynamic_runtime_mesh(
         const Handle& mesh_handle,
-        const Mesh& mesh,
-        RenderingMeshUploadData& out_mesh) const
+        const Mesh& mesh) const
     {
-        return _state->uploader->upload_runtime_mesh(mesh_handle, mesh, *_state->tracker, out_mesh);
+        return _state->uploader->upload_runtime_mesh(mesh_handle, mesh, *_state->tracker);
     }
 
-    Result RenderingResourceManager::upload_static_runtime_mesh(
+    RenderingMeshUploadData RenderingResourceManager::upload_static_runtime_mesh(
         const Handle& mesh_handle,
-        const Mesh& mesh,
-        RenderingMeshUploadData& out_mesh) const
+        const Mesh& mesh) const
     {
-        return _state->uploader
-            ->upload_static_runtime_mesh(mesh_handle, mesh, *_state->tracker, out_mesh);
+        return _state->uploader->upload_static_runtime_mesh(mesh_handle, mesh, *_state->tracker);
     }
 
     GraphicsResourceBinding RenderingResourceManager::upload_texture(

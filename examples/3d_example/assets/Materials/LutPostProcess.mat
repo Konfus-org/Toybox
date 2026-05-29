@@ -1,99 +1,93 @@
 {
-  "shader": {
-    "vertex": {
-      "name": "",
-      "id": {
-        "value": 539243888
-      }
+    "shader": {
+        "vertex": {
+            "id": {
+                "value": 539243888
+            }
+        },
+        "fragment": {
+            "id": {
+                "value": 539243889
+            }
+        },
+        "tesselation": {
+            "id": {
+                "value": 0
+            }
+        },
+        "geometry": {
+            "id": {
+                "value": 0
+            }
+        },
+        "compute": {
+            "id": {
+                "value": 0
+            }
+        }
     },
-    "fragment": {
-      "name": "",
-      "id": {
-        "value": 539243889
-      }
+    "parameters": {
+        "values": [
+            {
+                "name": "lut_tint",
+                "data": {
+                    "type": "color",
+                    "value": {
+                        "r": 1,
+                        "g": 1,
+                        "b": 1,
+                        "a": 1
+                    }
+                }
+            },
+            {
+                "name": "lut_emissive",
+                "data": {
+                    "type": "color",
+                    "value": {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                        "a": 1
+                    }
+                }
+            },
+            {
+                "name": "lut_strength",
+                "data": {
+                    "type": "float",
+                    "value": 1
+                }
+            },
+            {
+                "name": "blend",
+                "data": {
+                    "type": "float",
+                    "value": 1
+                }
+            }
+        ]
     },
-    "tesselation": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "textures": {
+        "values": [
+            {
+                "name": "lut",
+                "texture": {
+                    "id": {
+                        "value": 623207780
+                    }
+                }
+            }
+        ]
     },
-    "geometry": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
-    },
-    "compute": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "config": {
+        "is_depth_test_enabled": false,
+        "is_depth_write_enabled": false,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "always",
+        "blend_mode": "opaque",
+        "shadow_mode": "standard"
     }
-  },
-  "parameters": {
-    "values": [
-      {
-        "name": "lut_tint",
-        "data": {
-          "type": "color",
-          "value": {
-            "r": 1,
-            "g": 1,
-            "b": 1,
-            "a": 1
-          }
-        }
-      },
-      {
-        "name": "lut_emissive",
-        "data": {
-          "type": "color",
-          "value": {
-            "r": 0,
-            "g": 0,
-            "b": 0,
-            "a": 1
-          }
-        }
-      },
-      {
-        "name": "lut_strength",
-        "data": {
-          "type": "float",
-          "value": 1
-        }
-      },
-      {
-        "name": "blend",
-        "data": {
-          "type": "float",
-          "value": 1
-        }
-      }
-    ]
-  },
-  "textures": {
-    "values": [
-      {
-        "name": "lut",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 623207780
-          }
-        }
-      }
-    ]
-  },
-  "config": {
-    "is_depth_test_enabled": false,
-    "is_depth_write_enabled": false,
-    "is_depth_prepass_enabled": false,
-    "is_two_sided": true,
-    "is_cullable": false,
-    "depth_function": "always",
-    "blend_mode": "opaque",
-    "shadow_mode": "standard"
-  }
 }

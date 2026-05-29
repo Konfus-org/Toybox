@@ -1,50 +1,45 @@
 {
-  "shader": {
-    "vertex": {
-      "name": "",
-      "id": {
-        "value": 308
-      }
+    "shader": {
+        "vertex": {
+            "id": {
+                "value": 308
+            }
+        },
+        "fragment": {
+            "id": {
+                "value": 309
+            }
+        },
+        "tesselation": {
+            "id": {
+                "value": 0
+            }
+        },
+        "geometry": {
+            "id": {
+                "value": 0
+            }
+        },
+        "compute": {
+            "id": {
+                "value": 0
+            }
+        }
     },
-    "fragment": {
-      "name": "",
-      "id": {
-        "value": 309
-      }
+    "parameters": {
+        "values": []
     },
-    "tesselation": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "textures": {
+        "values": []
     },
-    "geometry": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
-    },
-    "compute": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": false,
+        "is_cullable": true,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "standard"
     }
-  },
-  "parameters": {
-    "values": []
-  },
-  "textures": {
-    "values": []
-  },
-  "config": {
-    "is_depth_test_enabled": true,
-    "is_depth_write_enabled": true,
-    "is_depth_prepass_enabled": false,
-    "is_two_sided": false,
-    "is_cullable": true,
-    "depth_function": "less",
-    "blend_mode": "opaque",
-    "shadow_mode": "standard"
-  }
 }

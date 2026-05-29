@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from asset_codegen import (
@@ -23,6 +24,7 @@ from model import (
     find_attr,
     has_attr,
     is_asset,
+    json_key,
     qualified_name,
     type_version,
 )
@@ -33,6 +35,7 @@ from variant_codegen import emit_variant
 GENERATED_CODE_BANNER = (
     "// GENERATED CODE ANY MODIFICATIONS WILL BE OVERWRITTEN NEXT TIME GENERATION IS RUN!"
 )
+INCLUDE_PATTERN = re.compile(r'^\s*#include\s+"([^"]+)"', re.MULTILINE)
 
 PLUGIN_CATEGORY_EXPRESSIONS = {
     "default": "::tbx::PluginCategory::DEFAULT",
@@ -53,23 +56,126 @@ def attr_values(attrs: list, name: str) -> list[str]:
     return values
 
 
+def serializable_mode(type_info: SerializableType) -> str:
+    attr = find_attr(type_info.attrs, "serializable")
+    if attr is None or not attr.args:
+        return "json"
+
+    mode = attr.args[0]
+    if mode not in {"json", "text"}:
+        raise CodegenError(
+            f"{type_info.name} uses unsupported serializable mode '{mode}'. "
+            "Expected 'json' or 'text'."
+        )
+    return mode
+
+
+def emit_script_asset(type_info: SerializableType, version: str, prop_fields: list[Field]) -> list[str]:
+    if "Script" not in type_info.bases:
+        raise CodegenError(f"{type_info.name} uses [[tbx::script]] but does not derive from tbx::Script.")
+
+    bind_fields = prop_fields + fields_of(type_info, "inject")
+    override_helper = f"tbx_apply_script_overrides_{type_info.name}"
+    bind_helper = f"tbx_bind_script_runtime_{type_info.name}"
+    lines = [
+        f"inline std::true_type tbx_has_asset_serialization(const {type_info.name}*)",
+        "{",
+        "    return {};",
+        "}",
+    ]
+    lines.extend(emit_json_functions(type_info, prop_fields))
+    lines.extend(
+        [
+            f"inline ::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value)",
+            "{",
+            "    try",
+            "    {",
+            "        if (!tbx_json.is_object())",
+            "            return {};",
+        ]
+    )
+    for field in prop_fields:
+        lines.extend(
+            [
+                f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
+                f"            tbx_value.{field.name} = tbx_value_it->template get<decltype(tbx_value.{field.name})>();",
+            ]
+        )
+    lines.extend(
+        [
+            "        return {};",
+            "    }",
+            "    catch (const std::exception& exception)",
+            "    {",
+            "        return ::tbx::make_serialization_failure(",
+            f"            std::string(\"Failed to apply script overrides for {type_info.name}: \").append(exception.what()));",
+            "    }",
+            "    catch (...)",
+            "    {",
+            "        return ::tbx::make_serialization_failure(",
+            f"            \"Failed to apply script overrides for {type_info.name}.\");",
+            "    }",
+            "}",
+            f"inline void {bind_helper}({type_info.name}& tbx_value, ::tbx::ScriptContext& tbx_context)",
+            "{",
+        ]
+    )
+    for field in bind_fields:
+        lines.append(f"    ::tbx::bind_script_field(tbx_value.{field.name}, tbx_context);")
+    lines.extend(
+        [
+            "}",
+            "TBX_SERIALIZATION_AUTO_REGISTER(",
+            "    tbx_script_asset_type_registration_,",
+            f"    ::tbx::register_script_asset_type<{type_info.name}>(",
+            f"        {version},",
+            f"        {override_helper},",
+            f"        {bind_helper}));",
+            "",
+        ]
+    )
+    return lines
+
+
 def emit_type(type_info: SerializableType) -> list[str]:
     version = type_version(type_info)
     prop_fields = fields_of(type_info, "prop")
     type_prop_attr = find_attr(type_info.attrs, "prop")
-    if not prop_fields and type_prop_attr is not None and type_prop_attr.args:
-        prop_fields = [Field(name=field, kind="prop") for field in type_prop_attr.args]
+    type_meta_attr = find_attr(type_info.attrs, "meta")
+    if type_prop_attr is not None:
+        raise CodegenError(
+            f"{type_info.name} uses unsupported type-level [[tbx::prop(...)]] fields. "
+            "Place [[tbx::prop]] on each exposed property instead."
+        )
+    if type_meta_attr is not None:
+        raise CodegenError(
+            f"{type_info.name} uses unsupported type-level [[tbx::meta(...)]] fields. "
+            "Place [[tbx::meta]] on each exposed property instead."
+        )
     meta_fields = fields_of(type_info, "meta")
     text_fields = fields_of(type_info, "text")
     lines: list[str] = []
 
+    if has_attr(type_info.attrs, "script"):
+        if version is None:
+            raise CodegenError(f"{type_info.name} is a script and requires [[tbx::version(N)]].")
+        lines.extend(emit_type_name(type_info))
+        lines.extend(emit_version(type_info))
+        lines.extend(emit_script_asset(type_info, version, prop_fields))
+        return lines
+
     if has_attr(type_info.attrs, "serializable"):
+        mode = serializable_mode(type_info)
         lines.extend(emit_type_name(type_info))
         lines.extend(emit_version(type_info))
 
         if type_info.declaration_kind == "enum":
+            if mode != "json":
+                raise CodegenError(f"{type_info.name} enum serialization only supports json mode.")
             lines.extend(emit_enum(type_info))
         elif type_info.declaration_kind == "using":
+            if mode != "json":
+                raise CodegenError(f"{type_info.name} alias serialization only supports json mode.")
             count = attr_value(type_info.attrs, "count")
             if count is not None:
                 lines.extend(emit_indexed(type_info, count))
@@ -83,24 +189,38 @@ def emit_type(type_info: SerializableType) -> list[str]:
         else:
             count = attr_value(type_info.attrs, "count")
             if count is not None:
+                if mode != "json":
+                    raise CodegenError(f"{type_info.name} indexed serialization only supports json mode.")
                 lines.extend(emit_indexed(type_info, count))
             elif is_asset(type_info):
                 if version is None:
                     raise CodegenError(f"{type_info.name} is an asset and requires [[tbx::version(N)]].")
                 if len(text_fields) > 1:
                     raise CodegenError(f"{type_info.name} can only have one [[tbx::text]] field.")
+                if mode == "text" and text_fields:
+                    raise CodegenError(
+                        f"{type_info.name} text mode uses one [[tbx::prop]] field instead of [[tbx::text]]."
+                    )
+                if mode == "text" and len(prop_fields) != 1:
+                    raise CodegenError(
+                        f"{type_info.name} text mode requires exactly one [[tbx::prop]] field."
+                    )
 
                 lines.extend(emit_asset_type_registration(type_info, version))
-                if text_fields:
+                if mode == "text":
+                    lines.extend(emit_text_asset(type_info, version, prop_fields[0]))
+                elif text_fields:
                     lines.extend(emit_text_asset(type_info, version, text_fields[0]))
-                if prop_fields:
+                if mode == "json" and prop_fields:
                     lines.extend(emit_asset_body(type_info, version, prop_fields))
                 if meta_fields:
                     lines.extend(emit_asset_meta(type_info, version, meta_fields))
-                if not text_fields and not prop_fields and not meta_fields:
+                if mode == "json" and not text_fields and not prop_fields and not meta_fields:
                     if type_info.has_serializer:
                         lines.extend(emit_custom_asset(type_info, version))
             else:
+                if mode != "json":
+                    raise CodegenError(f"{type_info.name} text mode is only supported for assets.")
                 if text_fields or meta_fields:
                     if version is None:
                         raise CodegenError(
@@ -232,6 +352,9 @@ def emit_plugin_source(
         f"    meta.priority = {priority}U;",
         "    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;",
         f"    meta.dependencies = {dependency_initializer};",
+        "#if defined(TBX_PLUGIN_RESOURCE_DIRECTORY)",
+        "    meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;",
+        "#endif",
     ]
     if description is not None:
         lines.append(f"    meta.description = {cpp_string(description)};")
@@ -303,6 +426,27 @@ def resolve_include_path(input_path: Path, include_root: Path | None) -> str:
     return input_path.name
 
 
+def read_include_context(input_path: Path, include_root: Path | None) -> str:
+    source = input_path.read_text(encoding="utf-8")
+    context: list[str] = []
+    for match in INCLUDE_PATTERN.finditer(source):
+        include_name = match.group(1)
+        if ".generated." in include_name:
+            continue
+
+        candidates = [input_path.parent / include_name]
+        if include_root is not None:
+            candidates.append(include_root / include_name)
+
+        for candidate in candidates:
+            if not candidate.exists() or candidate.resolve() == input_path.resolve():
+                continue
+            context.append(candidate.read_text(encoding="utf-8"))
+            break
+
+    return "\n".join(context)
+
+
 def run_codegen(
     input_path: Path,
     output_header_path: Path,
@@ -311,7 +455,7 @@ def run_codegen(
     plugin_abi_version: str = "1",
 ) -> None:
     source = input_path.read_text(encoding="utf-8")
-    types = parse_source(source, str(input_path))
+    types = parse_source(source, str(input_path), read_include_context(input_path, include_root))
     write_if_different(output_header_path, generate_header(types))
     include_path = resolve_include_path(input_path, include_root)
     write_if_different(

@@ -29,7 +29,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable]];
+    [[tbx::serializable("text")]];
     [[tbx::version(1U)]];
     struct TBX_API Shader : public Asset
     {
@@ -50,11 +50,7 @@ namespace tbx
         {
         }
 
-        // TODO: Update serializable attribute to have a optional 'mode' param that defaults to
-        // "json", the other option is "text" the text option expects one prop that is a string or
-        // char* or string view to serialize into plain text if there is more than one prop we
-        // should get a compiler error!
-        [[tbx::text]]
+        [[tbx::prop]]
         std::string source = "";
 
         [[tbx::meta]]
@@ -69,6 +65,7 @@ namespace tbx
     [[tbx::serializable]];
     struct TBX_API ShaderProgram
     {
+      public:
         /// @brief
         /// Purpose: Identifies the vertex shader stage asset.
         /// @details

@@ -5,7 +5,6 @@
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/mesh_bounds.h"
-#include "tbx/utils/result.h"
 
 namespace tbx
 {
@@ -82,21 +81,20 @@ namespace tbx
 
         /// @brief
         /// Purpose: Uploads, updates, or reuses one shared dynamic runtime mesh buffer pair.
-        Result upload_dynamic_mesh(
-            const std::shared_ptr<DynamicMeshData>& mesh_data,
-            RenderingMeshUploadData& out_mesh) const;
+        RenderingMeshUploadData upload_dynamic_mesh(
+            const std::shared_ptr<DynamicMeshData>& mesh_data) const;
 
         /// @brief
         /// Purpose: Uploads or reuses one bind group for ordered draw resource bindings.
-        Result upload_bind_group(const BindGroupDesc& desc, Uuid& out_bind_group) const;
+        Uuid upload_bind_group(const BindGroupDesc& desc) const;
 
         /// @brief
         /// Purpose: Uploads the renderer fallback material used for incomplete draw data.
-        Result upload_fallback_material(RenderingMaterialUploadData& out_material) const;
+        RenderingMaterialUploadData upload_fallback_material() const;
 
         /// @brief
         /// Purpose: Uploads a fallback mesh when extracted geometry cannot produce commands.
-        Result upload_fallback_mesh(std::vector<RenderingMeshUploadData>& out_meshes) const;
+        std::vector<RenderingMeshUploadData> upload_fallback_mesh() const;
 
         /// @brief
         /// Purpose: Uploads a fallback texture for a material texture binding id.
@@ -112,29 +110,23 @@ namespace tbx
 
         /// @brief
         /// Purpose: Uploads a material pipeline, material uniforms, and material textures.
-        Result upload_material(
-            const MaterialInstance& instance,
-            RenderingMaterialUploadData& out_material) const;
+        RenderingMaterialUploadData upload_material(const MaterialInstance& instance) const;
 
         /// @brief
         /// Purpose: Uploads all mesh buffers for one model asset.
-        Result upload_model(
-            const Handle& model_handle,
-            std::vector<RenderingMeshUploadData>& out_meshes) const;
+        std::vector<RenderingMeshUploadData> upload_model(const Handle& model_handle) const;
 
         /// @brief
         /// Purpose: Uploads one runtime mesh buffer pair.
-        Result upload_dynamic_runtime_mesh(
+        RenderingMeshUploadData upload_dynamic_runtime_mesh(
             const Handle& mesh_handle,
-            const Mesh& mesh,
-            RenderingMeshUploadData& out_mesh) const;
+            const Mesh& mesh) const;
 
         /// @brief
         /// Purpose: Uploads or reuses one stable runtime mesh buffer pair.
-        Result upload_static_runtime_mesh(
+        RenderingMeshUploadData upload_static_runtime_mesh(
             const Handle& mesh_handle,
-            const Mesh& mesh,
-            RenderingMeshUploadData& out_mesh) const;
+            const Mesh& mesh) const;
 
         /// @brief
         /// Purpose: Uploads or reuses a renderer-owned texture such as a pass target.

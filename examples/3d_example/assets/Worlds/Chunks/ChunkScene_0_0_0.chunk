@@ -1,10 +1,9 @@
-﻿{
+{
     "coord": {
         "x": 0,
         "y": 0,
         "z": 0
     },
-    "lod": "full",
     "entities": [
         {
             "id": {
@@ -19,17 +18,34 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.22,
+                                            "g": 0.38,
+                                            "b": 0.24,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 514
                         }
                     }
                 },
@@ -53,9 +69,9 @@
                 },
                 "cube_collider": {
                     "half_extents": {
-                        "x": 40,
-                        "y": 0.25,
-                        "z": 40
+                        "x": 20,
+                        "y": 0.125,
+                        "z": 20
                     }
                 }
             }
@@ -73,17 +89,45 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.46,
+                                            "g": 0.46,
+                                            "b": 0.48,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true,
+                        "config": {
+                            "is_depth_test_enabled": true,
+                            "is_depth_write_enabled": true,
+                            "is_depth_prepass_enabled": false,
+                            "is_two_sided": true,
+                            "is_cullable": false,
+                            "depth_function": "less",
+                            "blend_mode": "opaque",
+                            "shadow_mode": "standard"
+                        },
+                        "has_config_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 519
                         }
                     }
                 },
@@ -91,7 +135,7 @@
                     "position": {
                         "x": 0,
                         "y": 5,
-                        "z": -20
+                        "z": -20.25
                     },
                     "rotation": {
                         "x": 0,
@@ -100,16 +144,16 @@
                         "w": 1
                     },
                     "scale": {
-                        "x": 45,
-                        "y": 11,
-                        "z": 1.5
+                        "x": 40,
+                        "y": 10,
+                        "z": 1
                     }
                 },
                 "cube_collider": {
                     "half_extents": {
-                        "x": 45,
-                        "y": 11,
-                        "z": 1.5
+                        "x": 20,
+                        "y": 5,
+                        "z": 0.25
                     }
                 }
             }
@@ -127,43 +171,71 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.46,
+                                            "g": 0.46,
+                                            "b": 0.48,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true,
+                        "config": {
+                            "is_depth_test_enabled": true,
+                            "is_depth_write_enabled": true,
+                            "is_depth_prepass_enabled": false,
+                            "is_two_sided": true,
+                            "is_cullable": false,
+                            "depth_function": "less",
+                            "blend_mode": "opaque",
+                            "shadow_mode": "standard"
+                        },
+                        "has_config_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 519
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": -20,
+                        "x": -20.25,
                         "y": 5,
                         "z": 0
                     },
                     "rotation": {
                         "x": 0,
-                        "y": 0,
+                        "y": -0.707107,
                         "z": 0,
-                        "w": 1
+                        "w": 0.707107
                     },
                     "scale": {
-                        "x": 1.5,
-                        "y": 11,
-                        "z": 45
+                        "x": 40,
+                        "y": 10,
+                        "z": 1
                     }
                 },
                 "cube_collider": {
                     "half_extents": {
-                        "x": 1.5,
-                        "y": 11,
-                        "z": 45
+                        "x": 20,
+                        "y": 5,
+                        "z": 0.25
                     }
                 }
             }
@@ -181,43 +253,71 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.46,
+                                            "g": 0.46,
+                                            "b": 0.48,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true,
+                        "config": {
+                            "is_depth_test_enabled": true,
+                            "is_depth_write_enabled": true,
+                            "is_depth_prepass_enabled": false,
+                            "is_two_sided": true,
+                            "is_cullable": false,
+                            "depth_function": "less",
+                            "blend_mode": "opaque",
+                            "shadow_mode": "standard"
+                        },
+                        "has_config_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 519
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": 20,
+                        "x": 20.25,
                         "y": 5,
                         "z": 0
                     },
                     "rotation": {
                         "x": 0,
-                        "y": 0,
+                        "y": 0.707107,
                         "z": 0,
-                        "w": 1
+                        "w": 0.707107
                     },
                     "scale": {
-                        "x": 1.5,
-                        "y": 11,
-                        "z": 45
+                        "x": 40,
+                        "y": 10,
+                        "z": 1
                     }
                 },
                 "cube_collider": {
                     "half_extents": {
-                        "x": 1.5,
-                        "y": 11,
-                        "z": 45
+                        "x": 20,
+                        "y": 5,
+                        "z": 0.25
                     }
                 }
             }
@@ -235,17 +335,45 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.46,
+                                            "g": 0.46,
+                                            "b": 0.48,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true,
+                        "config": {
+                            "is_depth_test_enabled": true,
+                            "is_depth_write_enabled": true,
+                            "is_depth_prepass_enabled": false,
+                            "is_two_sided": true,
+                            "is_cullable": false,
+                            "depth_function": "less",
+                            "blend_mode": "opaque",
+                            "shadow_mode": "standard"
+                        },
+                        "has_config_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 519
                         }
                     }
                 },
@@ -253,7 +381,7 @@
                     "position": {
                         "x": 0,
                         "y": 5,
-                        "z": 20
+                        "z": 20.25
                     },
                     "rotation": {
                         "x": 0,
@@ -262,16 +390,16 @@
                         "w": 1
                     },
                     "scale": {
-                        "x": 45,
-                        "y": 11,
-                        "z": 1.5
+                        "x": 40,
+                        "y": 10,
+                        "z": 1
                     }
                 },
                 "cube_collider": {
                     "half_extents": {
-                        "x": 45,
-                        "y": 11,
-                        "z": 1.5
+                        "x": 20,
+                        "y": 5,
+                        "z": 0.25
                     }
                 }
             }
@@ -289,17 +417,34 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/TriggerVolume.mat",
                         "id": {
-                            "value": 0
+                            "value": 32
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 1.0,
+                                            "g": 0.08,
+                                            "b": 0.04,
+                                            "a": 0.35
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 514
                         }
                     }
                 },
@@ -347,25 +492,42 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.05,
+                                            "g": 0.32,
+                                            "b": 1.0,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Sphere.fbx",
                         "id": {
-                            "value": 0
+                            "value": 517
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": 0,
+                        "x": -16,
                         "y": 6,
-                        "z": -5.2
+                        "z": -16
                     },
                     "rotation": {
                         "x": 0,
@@ -383,7 +545,8 @@
                     "radius": 1
                 },
                 "rigidbody": {
-                    "mass": 1
+                    "mass": 1,
+                    "restitution": 0.35
                 }
             }
         },
@@ -400,25 +563,42 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 1.0,
+                                            "g": 0.48,
+                                            "b": 0.08,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Cube.fbx",
                         "id": {
-                            "value": 0
+                            "value": 514
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": 0,
-                        "y": 10,
-                        "z": -4.9
+                        "x": 16,
+                        "y": 8,
+                        "z": -16
                     },
                     "rotation": {
                         "x": 0,
@@ -440,7 +620,8 @@
                     }
                 },
                 "rigidbody": {
-                    "mass": 1
+                    "mass": 1.25,
+                    "restitution": 0.15
                 }
             }
         },
@@ -457,25 +638,42 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.7,
+                                            "g": 0.22,
+                                            "b": 0.9,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Monkey.fbx",
                         "id": {
-                            "value": 0
+                            "value": 516
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": -4,
-                        "y": 1.1,
-                        "z": -8
+                        "x": -16,
+                        "y": 2.2,
+                        "z": 15
                     },
                     "rotation": {
                         "x": 0,
@@ -488,6 +686,16 @@
                         "y": 1.4,
                         "z": 1.4
                     }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1.1,
+                        "y": 1.1,
+                        "z": 1.1
+                    }
+                },
+                "rigidbody": {
+                    "mass": 1.5
                 }
             }
         },
@@ -504,25 +712,42 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 0.0,
+                                            "g": 0.72,
+                                            "b": 0.68,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Capsule.fbx",
                         "id": {
-                            "value": 0
+                            "value": 512
                         }
                     }
                 },
                 "transform": {
                     "position": {
-                        "x": 5,
-                        "y": 1,
-                        "z": -8
+                        "x": 16,
+                        "y": 1.8,
+                        "z": 15
                     },
                     "rotation": {
                         "x": 0,
@@ -535,6 +760,13 @@
                         "y": 1.2,
                         "z": 1.2
                     }
+                },
+                "capsule_collider": {
+                    "radius": 0.6,
+                    "half_height": 0.9
+                },
+                "rigidbody": {
+                    "mass": 1.1
                 }
             }
         },
@@ -551,25 +783,42 @@
             "components": {
                 "material_instance": {
                     "material": {
-                        "name": "Materials/Pbr.mat",
                         "id": {
-                            "value": 0
+                            "value": 2
                         }
+                    },
+                    "overrides": {
+                        "parameters": {
+                            "values": [
+                                {
+                                    "name": "albedo_color",
+                                    "data": {
+                                        "type": "color",
+                                        "value": {
+                                            "r": 1.0,
+                                            "g": 0.84,
+                                            "b": 0.12,
+                                            "a": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
                     "handle": {
-                        "name": "Models/Torus.fbx",
                         "id": {
-                            "value": 0
+                            "value": 518
                         }
                     }
                 },
                 "transform": {
                     "position": {
                         "x": 0,
-                        "y": 2,
-                        "z": -11
+                        "y": 2.5,
+                        "z": 17
                     },
                     "rotation": {
                         "x": 0.707107,
@@ -581,6 +830,66 @@
                         "x": 1.6,
                         "y": 1.6,
                         "z": 1.6
+                    }
+                },
+                "cube_collider": {
+                    "half_extents": {
+                        "x": 1.4,
+                        "y": 1.4,
+                        "z": 0.45
+                    }
+                },
+                "rigidbody": {
+                    "mass": 1.0,
+                    "angular_velocity": {
+                        "x": 0,
+                        "y": 0.4,
+                        "z": 0
+                    }
+                }
+            }
+        },
+        {
+            "id": {
+                "value": 12583179
+            },
+            "name": "SmilyCarpet",
+            "tag": "decor",
+            "layer": "",
+            "parent": {
+                "value": 0
+            },
+            "components": {
+                "material_instance": {
+                    "material": {
+                        "id": {
+                            "value": 270544964
+                        }
+                    }
+                },
+                "static_mesh": {
+                    "handle": {
+                        "id": {
+                            "value": 514
+                        }
+                    }
+                },
+                "transform": {
+                    "position": {
+                        "x": 0,
+                        "y": 0.12,
+                        "z": -5
+                    },
+                    "rotation": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    },
+                    "scale": {
+                        "x": 4,
+                        "y": 0.024,
+                        "z": 4
                     }
                 }
             }

@@ -152,6 +152,8 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
             kind = "meta"
         elif has_attr(active_attrs, "text"):
             kind = "text"
+        elif has_attr(active_attrs, "inject"):
+            kind = "inject"
 
         if not kind:
             continue
@@ -160,7 +162,14 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
         if not match:
             raise CodegenError(f"Could not parse attributed field declaration: {line.strip()}")
 
-        fields.append(Field(name=match.group(2), kind=kind, json_name=attr_value(active_attrs, "name")))
+        fields.append(
+            Field(
+                name=match.group(2),
+                kind=kind,
+                json_name=attr_value(active_attrs, "name"),
+                type_name=match.group(1).strip(),
+            )
+        )
 
     return fields
 
@@ -186,7 +195,54 @@ def parse_enum_values(lines: list[str], start: int, end: int) -> list[EnumValue]
     return values
 
 
-def parse_source(source: str, source_path: str = "<memory>") -> list[SerializableType]:
+def base_type_names(bases: str) -> list[str]:
+    names: list[str] = []
+    for base in bases.split(","):
+        cleaned = re.sub(r"\b(public|private|protected|virtual)\b", "", base).strip()
+        if not cleaned:
+            continue
+        names.append(cleaned.split()[-1].split("::")[-1])
+    return names
+
+
+def generation_attrs(attrs: list[Attribute]) -> bool:
+    return (
+        has_attr(attrs, "serializable")
+        or has_attr(attrs, "script")
+        or has_attr(attrs, "printable")
+        or has_attr(attrs, "hash")
+        or has_attr(attrs, "plugin")
+    )
+
+
+def append_inherited_fields(types: list[SerializableType]) -> None:
+    type_by_name = {type_info.name: type_info for type_info in types}
+
+    def inherited_fields(type_info: SerializableType, visited: set[str]) -> list[Field]:
+        fields: list[Field] = []
+        for base_name in base_type_names(type_info.bases):
+            if base_name in visited:
+                continue
+            base_type = type_by_name.get(base_name)
+            if base_type is None:
+                continue
+            next_visited = visited | {base_name}
+            fields.extend(inherited_fields(base_type, next_visited))
+            fields.extend(base_type.fields)
+        return fields
+
+    for type_info in types:
+        if not type_info.bases:
+            continue
+        inherited = inherited_fields(type_info, {type_info.name})
+        if not inherited:
+            continue
+
+        existing = {field.name for field in type_info.fields}
+        type_info.fields = [field for field in inherited if field.name not in existing] + type_info.fields
+
+
+def parse_type_declarations(source: str, source_path: str) -> list[SerializableType]:
     normalized_source = collapse_multiline_using_declarations(collapse_multiline_attributes(source))
     lines = normalized_source.splitlines()
     serializer_types = {match.group(1) for match in SERIALIZER_PATTERN.finditer(source)}
@@ -199,7 +255,7 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
         attrs = parse_attributes(line)
         without_attrs = remove_attributes(line).strip()
 
-        if attrs and without_attrs == ";":
+        if attrs and without_attrs in {"", ";"}:
             pending_attrs.extend(attrs)
             index += 1
             continue
@@ -209,18 +265,13 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
 
         active_attrs = pending_attrs + attrs
         pending_attrs = []
-        is_serializable = has_attr(active_attrs, "serializable")
 
         type_match = TYPE_PATTERN.match(without_attrs)
         if type_match:
             end = find_matching_type_end(lines, index)
-            if (
-                is_serializable
-                or has_attr(active_attrs, "printable")
-                or has_attr(active_attrs, "hash")
-                or has_attr(active_attrs, "plugin")
-            ):
-                type_name = type_match.group(2)
+            type_name = type_match.group(2)
+            fields = parse_fields(lines, index, end)
+            if generation_attrs(active_attrs) or fields:
                 serializable_types.append(
                     SerializableType(
                         namespace=current_namespace(lines, index),
@@ -228,7 +279,7 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
                         declaration_kind=type_match.group(1),
                         attrs=active_attrs,
                         bases=type_match.group(3) or "",
-                        fields=parse_fields(lines, index, end),
+                        fields=fields,
                         has_serializer=type_name in serializer_types,
                         source_path=source_path,
                         line=index + 1,
@@ -240,7 +291,11 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
         enum_match = ENUM_PATTERN.match(without_attrs)
         if enum_match:
             end = find_matching_type_end(lines, index)
-            if is_serializable or has_attr(active_attrs, "printable") or has_attr(active_attrs, "hash"):
+            if (
+                has_attr(active_attrs, "serializable")
+                or has_attr(active_attrs, "printable")
+                or has_attr(active_attrs, "hash")
+            ):
                 serializable_types.append(
                     SerializableType(
                         namespace=current_namespace(lines, index),
@@ -256,7 +311,7 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
             continue
 
         using_match = USING_PATTERN.match(without_attrs)
-        if using_match and is_serializable:
+        if using_match and has_attr(active_attrs, "serializable"):
             serializable_types.append(
                 SerializableType(
                     namespace=current_namespace(lines, index),
@@ -272,3 +327,15 @@ def parse_source(source: str, source_path: str = "<memory>") -> list[Serializabl
         index += 1
 
     return serializable_types
+
+
+def parse_source(
+    source: str,
+    source_path: str = "<memory>",
+    context_source: str = "",
+) -> list[SerializableType]:
+    context_types = parse_type_declarations(context_source, source_path) if context_source else []
+    source_types = parse_type_declarations(source, source_path)
+    all_types = context_types + source_types
+    append_inherited_fields(all_types)
+    return [type_info for type_info in source_types if generation_attrs(type_info.attrs)]

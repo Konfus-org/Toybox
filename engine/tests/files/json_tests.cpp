@@ -79,7 +79,7 @@ namespace tbx::tests::file_system
         const std::string text =
             "{\n"
             "  \"handle\": {\n"
-            "    \"_id\": { \"value\": 77 }\n"
+            "    \"id\": { \"value\": 77 }\n"
             "  }\n"
             "}";
 
@@ -93,5 +93,19 @@ namespace tbx::tests::file_system
         EXPECT_TRUE(was_loaded);
         EXPECT_EQ(handle.id, Uuid(77U));
         EXPECT_TRUE(handle.name.empty());
+    }
+
+    TEST(JsonTests, WritesHandleWithoutName)
+    {
+        // Arrange
+        const auto handle = Handle("Textures/Named.png", Uuid(88U));
+        auto json = Json();
+
+        // Act
+        to_json(json, handle);
+
+        // Assert
+        EXPECT_EQ(json.find("name"), json.end());
+        EXPECT_EQ(json.at("id").at("value"), 88U);
     }
 }

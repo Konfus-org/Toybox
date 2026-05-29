@@ -5,6 +5,7 @@
 #include "tbx/utils/result.h"
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -32,6 +33,9 @@
 
 namespace tbx
 {
+    struct Asset;
+    class ScriptContext;
+
     struct SerializableTypeRegistration
     {
         std::string name = {};
@@ -41,17 +45,27 @@ namespace tbx
         std::function<bool(std::string_view, void*)> read_value = {};
     };
 
+    /// @brief
+    /// Purpose: Describes how an asset type is created and serialized after codegen registration.
+    /// @details
+    /// Ownership: Stores type-erased callbacks. Script runtime callbacks are optional because
+    /// regular assets only need body/meta serialization.
     struct AssetTypeRegistration
     {
         std::string type_name = {};
         std::type_index type = std::type_index(typeid(void));
         uint32 version = 0U;
+        std::function<std::unique_ptr<Asset>()> create_asset = {};
         std::function<Result(std::string_view, void*)> read_body = {};
         std::function<Result(const void*, std::string&)> write_body = {};
         std::function<Result(std::string_view, void*)> transform_meta = {};
+        std::function<Result(const Json&, void*)> apply_overrides = {};
+        std::function<void(void*, ScriptContext&)> bind_runtime = {};
     };
 
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
+    TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(
+        std::string_view type_name);
     TBX_API void unregister_asset_type_entry(std::type_index asset_type);
     TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
     TBX_API std::vector<SerializableTypeRegistration> get_serializable_type_registrations();
@@ -213,15 +227,24 @@ namespace tbx
         return {};
     }
 
-    static Result read_text_asset_body(std::string_view data, std::string& output)
+    template <typename TText>
+    static Result read_text_asset_body(std::string_view data, TText& output)
     {
+        static_assert(
+            std::is_assignable_v<TText&, std::string>,
+            "Text asset fields must be assignable from std::string when deserializing.");
         output = std::string(data);
         return {};
     }
 
-    static Result write_text_asset_body(const std::string& text, std::string& output)
+    template <typename TText>
+    static Result write_text_asset_body(const TText& text, std::string& output)
     {
-        output = text;
+        static_assert(
+            std::is_convertible_v<const TText&, std::string_view>,
+            "Text asset fields must be convertible to std::string_view when serializing.");
+        const auto view = std::string_view(text);
+        output.assign(view.data(), view.size());
         return {};
     }
 
@@ -453,56 +476,106 @@ namespace tbx
     }
 
     template <typename TAsset>
+    static AssetTypeRegistration make_asset_type_registration(uint32 version)
+    {
+        // Every asset registration starts with the same stable type name, runtime C++ type, and
+        // factory. Specialized registrations append body/meta/runtime callbacks below.
+        return AssetTypeRegistration {
+            .type_name =
+                std::string(tbx_serialization_type_name(static_cast<const TAsset*>(nullptr))),
+            .type = std::type_index(typeid(TAsset)),
+            .version = version,
+            .create_asset =
+                []
+            {
+                return std::make_unique<TAsset>();
+            },
+        };
+    }
+
+    template <typename TAsset, typename TReadBody>
+    static std::function<Result(std::string_view, void*)> make_asset_body_reader(
+        TReadBody read_body)
+    {
+        // Store body readers type-erased so AssetManager can load assets by UUID before the caller
+        // knows the concrete C++ type.
+        return [read_body = std::move(read_body)](std::string_view data, void* asset)
+        {
+            return read_body(data, *static_cast<TAsset*>(asset));
+        };
+    }
+
+    template <typename TAsset, typename TWriteBody>
+    static std::function<Result(const void*, std::string&)> make_asset_body_writer(
+        TWriteBody write_body)
+    {
+        // Writers mirror readers and keep JSON/text/custom body paths on one registration shape.
+        return [write_body = std::move(write_body)](const void* asset, std::string& output)
+        {
+            return write_body(*static_cast<const TAsset*>(asset), output);
+        };
+    }
+
+    template <typename TAsset>
     static bool register_asset_type(uint32 version)
     {
-        register_asset_type_entry(
-            AssetTypeRegistration {
-                .type_name =
-                    std::string(tbx_serialization_type_name(static_cast<const TAsset*>(nullptr))),
-                .type = std::type_index(typeid(TAsset)),
-                .version = version,
-            });
+        register_asset_type_entry(make_asset_type_registration<TAsset>(version));
         return true;
     }
 
     template <typename TAsset, typename TReadBody, typename TWriteBody>
     static bool register_asset_body_type(uint32 version, TReadBody read_body, TWriteBody write_body)
     {
-        register_asset_type_entry(
-            AssetTypeRegistration {
-                .type_name =
-                    std::string(tbx_serialization_type_name(static_cast<const TAsset*>(nullptr))),
-                .type = std::type_index(typeid(TAsset)),
-                .version = version,
-                .read_body =
-                    [read_body = std::move(read_body)](std::string_view data, void* asset)
-                {
-                    return read_body(data, *static_cast<TAsset*>(asset));
-                },
-                .write_body =
-                    [write_body = std::move(write_body)](const void* asset, std::string& output)
-                {
-                    return write_body(*static_cast<const TAsset*>(asset), output);
-                },
-            });
+        auto entry = make_asset_type_registration<TAsset>(version);
+        entry.read_body = make_asset_body_reader<TAsset>(std::move(read_body));
+        entry.write_body = make_asset_body_writer<TAsset>(std::move(write_body));
+        register_asset_type_entry(std::move(entry));
         return true;
     }
 
     template <typename TAsset, typename TTransformMeta>
     static bool register_asset_meta_type(uint32 version, TTransformMeta transform_meta)
     {
-        register_asset_type_entry(
-            AssetTypeRegistration {
-                .type_name =
-                    std::string(tbx_serialization_type_name(static_cast<const TAsset*>(nullptr))),
-                .type = std::type_index(typeid(TAsset)),
-                .version = version,
-                .transform_meta =
-                    [transform_meta = std::move(transform_meta)](std::string_view data, void* asset)
-                {
-                    return transform_meta(data, *static_cast<TAsset*>(asset));
-                },
-            });
+        auto entry = make_asset_type_registration<TAsset>(version);
+        entry.transform_meta =
+            [transform_meta = std::move(transform_meta)](std::string_view data, void* asset)
+        {
+            return transform_meta(data, *static_cast<TAsset*>(asset));
+        };
+        register_asset_type_entry(std::move(entry));
+        return true;
+    }
+
+    template <typename TScript, typename TApplyOverrides, typename TBindRuntime>
+    static bool register_script_asset_type(
+        uint32 version,
+        TApplyOverrides apply_overrides,
+        TBindRuntime bind_runtime)
+    {
+        auto entry = make_asset_type_registration<TScript>(version);
+        entry.read_body =
+            [](std::string_view data, void* asset)
+        {
+            return read_json_asset_body(data, *static_cast<TScript*>(asset));
+        };
+        entry.write_body =
+            [](const void* asset, std::string& output)
+        {
+            return write_json_asset_body(*static_cast<const TScript*>(asset), output);
+        };
+        // Script instances use the normal asset serializer for defaults, plus two runtime-only
+        // callbacks for per-binding overrides and dependency injection.
+        entry.apply_overrides =
+            [apply_overrides = std::move(apply_overrides)](const Json& json, void* asset)
+        {
+            return apply_overrides(json, *static_cast<TScript*>(asset));
+        };
+        entry.bind_runtime =
+            [bind_runtime = std::move(bind_runtime)](void* asset, ScriptContext& context)
+        {
+            bind_runtime(*static_cast<TScript*>(asset), context);
+        };
+        register_asset_type_entry(std::move(entry));
         return true;
     }
 

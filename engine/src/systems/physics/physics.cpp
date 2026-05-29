@@ -8,7 +8,6 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
-#include "tbx/types/components/world_simulation_state.h"
 #include "tbx/types/quaternions.h"
 
 namespace tbx
@@ -685,10 +684,6 @@ namespace tbx
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
-            if (entity.has_component<WorldSimulationState>()
-                && entity.get_component<WorldSimulationState>().mode != WorldSimulationMode::FULL)
-                continue;
-
             const auto world_transform = get_world_space_transform(entity);
             const bool has_rigidbody_component = entity.has_component<Rigidbody>();
             const bool has_collider = has_any_collider(entity);

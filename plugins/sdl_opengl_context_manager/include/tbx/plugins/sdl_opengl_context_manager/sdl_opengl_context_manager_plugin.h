@@ -10,13 +10,11 @@ namespace sdl_opengl_context_manager
     /// @details
     /// Ownership: The service provider owns the registered context manager instance.
     /// Thread Safety: Expected to be attached/detached on the main thread.
-    [[tbx::plugin]];
-    [[tbx::name("SdlOpenGlContextManagerPlugin")]];
-    [[tbx::version("1.0.0")]];
-    [[tbx::category("rendering")]];
-    [[tbx::dependency("SdlBaseSystemsPlugin")]];
-    [[tbx::dependency("SdlWindowingPlugin")]];
-    class TBX_PLUGIN_API SdlOpenGlContextManagerPlugin final : public tbx::Plugin
+    [[tbx::plugin]] [[tbx::name("SdlOpenGlContextManagerPlugin")]] [[tbx::version("1.0.0")]]
+    [[tbx::category("rendering")]] [[tbx::dependency("SdlBaseSystemsPlugin")]] [[tbx::dependency(
+        "SdlWindowingPlugin")]];
+    class TBX_PLUGIN_API SdlOpenGlContextManagerPlugin final
+        : public tbx::Plugin
     {
       public:
         void on_attach(tbx::ServiceProvider& service_provider) override;

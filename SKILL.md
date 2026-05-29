@@ -1,13 +1,13 @@
 ---
 name: toybox
-description: Activates when the user mentions "Toybox" or requests changes within the Toybox Game Engine. Enforces repository policies and initializes tasks by executing the planning skill first.
+description: Activates when the user mentions "Toybox" or requests changes within the Toybox Game Engine. Enforces repository policies and initializes tasks by executing the planning mode.
 ---
 
 # Toybox Engine Rulebook
 
-Use this skill as the mandatory entry point for all Toybox Engine development. Always run the plan skill to validate direction before modifying code.
+Use this skill as the mandatory entry point for all Toybox Engine development. Always run the plan mode: `/plan` to validate direction before modifying code.
 
-## 📁 Authoritative Reference Files
+## Authoritative Reference Files
 
 Treat these local files as the absolute source of truth for the codebase. Read relevant sections prior to starting execution:
 * `\AGENTS.md`
@@ -15,7 +15,7 @@ Treat these local files as the absolute source of truth for the codebase. Read r
 * `\docs\Contributing.md`
 * `\docs\ShaderPipeline.md`
 
-## 🧩 Routing Matrix
+## Routing Matrix
 
 Dynamically bundle these precise sub-skills based on task domain:
 * **All C++ Tasks**: Mandatorily bundle `cpp-pro`, `cpp-coding-standards`, `memory-safety-patterns`, and `context-tools`.
@@ -23,14 +23,15 @@ Dynamically bundle these precise sub-skills based on task domain:
 * **Gameplay & Simulation**: Add `3d-games` for cameras, physics, and scene graphs.
 * **Fallback Directory**: Default to `.\` root project dir if no path is explicitly provided.
 
-## 🛠️ Core Engineering Policies
+## Core Engineering Policies
 
 * **Scope**: Keep changes isolated and highly reusable.
 * **Mechanisms**: Prefer existing engine utilities over writing raw custom solutions.
 * **Duplication**: Avoid redundant code patterns without building single-use helper functions.
-* **Lifetimes**: Use references for guaranteed objects, smart pointers for optional lifespans, and RAII for resources.
+* **Lifetimes**: Enforce strict resource safety and intent: use local values or standard references for guaranteed objects, smart pointers exclusively for heap ownership, and RAII for all resources. Replace all non-owning raw pointers with std::reference_wrapper or std::optional to explicitly communicate optionality and reassignability.
 * **Includes**: Depend exclusively on direct `#include` statements; do not use forward declarations.
 * **Housekeeping**: Permanently delete stale definitions instead of leaving commented placeholders.
+* **Comments**: Insert clear, concise code comments that explain the "why" rather than the "what." Focus strictly on documenting underlying assumptions, complex business logic, constraints, and non-obvious algorithmic decisions. Avoid commenting on self-explanatory, idiomatic code.
 * **Testing Boundary**: Enforce Arrange/Act/Assert patterns.
 * **Testing Isolation**: Ban filesystem and network I/O in tests using mocks, fakes, or stubs.
 * **Build System**: Execute exclusively via `CMakePresets.json`.
@@ -38,7 +39,7 @@ Dynamically bundle these precise sub-skills based on task domain:
 * **MSVC Toolchain**: `cmake --preset msvc` -> `cmake --build --preset msvc-debug` -> `ctest --preset test-msvc-debug`
 * **Always Test Changes**: Launch the 3d Example in debug mode and ensure there are no exceptions/errors/warnings on launch and shutdown.
 
-## 💻 C++ Implementation Standards
+## C++ Implementation Standards
 
 * **Language Target**: Standardize strictly on C++23 features.
 * **Constructors**: Never use the `explicit` keyword on constructors.

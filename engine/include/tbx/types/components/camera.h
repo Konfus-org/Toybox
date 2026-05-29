@@ -10,9 +10,6 @@
 namespace tbx
 {
     [[tbx::serializable]];
-    // TODO: Support putting props in parent classes and don't do it here also support private
-    // props.
-    [[tbx::prop(id)]];
     class TBX_API Camera : public Component
     {
       public:
@@ -43,15 +40,28 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
+        template <typename BasicJsonType>
+        friend void to_json(BasicJsonType& tbx_json, const Camera& tbx_value);
+
+        template <typename BasicJsonType>
+        friend void from_json(const BasicJsonType& tbx_json, Camera& tbx_value);
+
+        [[tbx::prop]]
         RenderTarget _render_target = {};
         Viewport _viewport = {};
+        [[tbx::prop]]
         Mat4 _projection_matrix = Mat4(1.0f);
+        [[tbx::prop]]
         bool _is_perspective = true;
+        [[tbx::prop]]
         float _z_near = 0.1f;
+        [[tbx::prop]]
         float _z_far = 1000.0f;
+        [[tbx::prop]]
         float _fov = 60.0f;
+        [[tbx::prop]]
         float _aspect = 1.78f;
     };
-}
+} // namespace tbx
 
 #include "tbx/types/components/camera.generated.h"

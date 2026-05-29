@@ -2,8 +2,13 @@ add_compile_options(
   $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>
   $<$<CXX_COMPILER_ID:MSVC>:/MP>
   $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+  $<$<CXX_COMPILER_ID:MSVC>:/wd5030>
   $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/Od>
   $<$<AND:$<CONFIG:Debug>,$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>>:-O0>
+  $<$<CXX_COMPILER_ID:Clang>:-Wno-attributes>
+  $<$<CXX_COMPILER_ID:Clang>:-Wno-ignored-attributes>
+  $<$<CXX_COMPILER_ID:Clang>:-Wno-unknown-attributes>
+  $<$<CXX_COMPILER_ID:GNU>:-Wno-attributes>
   $<$<CXX_COMPILER_ID:MSVC>:/external:W0>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
 )

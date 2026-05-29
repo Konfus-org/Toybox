@@ -1,96 +1,86 @@
 {
-  "shader": {
-    "vertex": {
-      "name": "",
-      "id": {
-        "value": 307
-      }
+    "shader": {
+        "vertex": {
+            "id": {
+                "value": 307
+            }
+        },
+        "fragment": {
+            "id": {
+                "value": 306
+            }
+        },
+        "tesselation": {
+            "id": {
+                "value": 0
+            }
+        },
+        "geometry": {
+            "id": {
+                "value": 0
+            }
+        },
+        "compute": {
+            "id": {
+                "value": 0
+            }
+        }
     },
-    "fragment": {
-      "name": "",
-      "id": {
-        "value": 306
-      }
+    "parameters": {
+        "values": []
     },
-    "tesselation": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "textures": {
+        "values": [
+            {
+                "name": "gbuffer_albedo",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": "gbuffer_normal",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": "gbuffer_material",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": "gbuffer_emissive",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": "gbuffer_depth",
+                "texture": {
+                    "id": {
+                        "value": 0
+                    }
+                }
+            }
+        ]
     },
-    "geometry": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
-    },
-    "compute": {
-      "name": "",
-      "id": {
-        "value": 0
-      }
+    "config": {
+        "is_depth_test_enabled": false,
+        "is_depth_write_enabled": false,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "always",
+        "blend_mode": "opaque",
+        "shadow_mode": "none"
     }
-  },
-  "parameters": {
-    "values": []
-  },
-  "textures": {
-    "values": [
-      {
-        "name": "gbuffer_albedo",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      },
-      {
-        "name": "gbuffer_normal",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      },
-      {
-        "name": "gbuffer_material",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      },
-      {
-        "name": "gbuffer_emissive",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      },
-      {
-        "name": "gbuffer_depth",
-        "texture": {
-          "name": "",
-          "id": {
-            "value": 0
-          }
-        }
-      }
-    ]
-  },
-  "config": {
-    "is_depth_test_enabled": false,
-    "is_depth_write_enabled": false,
-    "is_depth_prepass_enabled": false,
-    "is_two_sided": true,
-    "is_cullable": false,
-    "depth_function": "always",
-    "blend_mode": "opaque",
-    "shadow_mode": "none"
-  }
 }

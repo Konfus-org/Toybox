@@ -53,7 +53,6 @@ namespace tbx
                 _is_valid->store(false);
         }
 
-        [[tbx::prop]]
         std::string name = {};
 
         [[tbx::prop]]

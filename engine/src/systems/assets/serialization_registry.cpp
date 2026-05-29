@@ -26,6 +26,117 @@ namespace tbx
         return result;
     }
 
+    AssetReadResult<Asset> SerializationRegistry::read_registered_asset_result(
+        const std::filesystem::path& asset_path) const
+    {
+        auto read = AssetReadResult<Asset> {};
+        auto file_ops = std::shared_ptr<IFileOps> {};
+        {
+            std::lock_guard lock(_mutex);
+            file_ops = _file_ops;
+        }
+
+        if (!file_ops)
+        {
+            read.result = make_failed_result("Serialization registry has no file operations.");
+            return read;
+        }
+
+        // Registered polymorphic assets still use the normal Toybox .meta file for stable id and
+        // version. The expected version is resolved after the concrete C++ type is known.
+        auto metadata = AssetLoadMetadata {};
+        auto meta_data = std::optional<std::string> {};
+        auto loaded_meta = false;
+        auto meta_result = try_read_tbx_serialized_asset_meta(
+            asset_path,
+            file_ops,
+            0U,
+            metadata,
+            meta_data,
+            loaded_meta);
+        if (!meta_result.succeeded())
+        {
+            read.result = std::move(meta_result);
+            return read;
+        }
+        if (!metadata.id.is_valid())
+        {
+            read.result = make_failed_result(
+                std::string("Toybox registered asset '")
+                    .append(asset_path.string())
+                    .append("' is missing a valid meta id."));
+            return read;
+        }
+
+        // Rename-hardened references resolve by UUID, but construction needs the registered C++
+        // asset type. A meta "type" field is preferred; the filename fallback preserves existing
+        // asset conventions for simple cases.
+        auto type_name = std::string();
+        if (meta_data.has_value())
+        {
+            auto meta_json = Json();
+            if (JsonParser::try_parse(*meta_data, meta_json))
+                static_cast<void>(JsonParser::try_get(meta_json, "type", type_name));
+        }
+        if (type_name.empty())
+            type_name = make_serializable_type_name(asset_path.stem().string());
+
+        auto asset_registration = get_asset_type_registration(type_name);
+        if (!asset_registration.has_value() || !asset_registration->create_asset)
+        {
+            read.result = make_failed_result(
+                std::string("No registered asset type exists for type '")
+                    .append(type_name)
+                    .append("'."));
+            return read;
+        }
+        if (asset_registration->version != 0U && metadata.version != asset_registration->version)
+        {
+            read.result = make_failed_result(
+                std::string("Toybox registered asset '")
+                    .append(asset_path.string())
+                    .append("' has version ")
+                    .append(std::to_string(metadata.version))
+                    .append(" but expected version ")
+                    .append(std::to_string(asset_registration->version))
+                    .append("."));
+            return read;
+        }
+
+        // Body files are optional for script assets because the C++ class already provides default
+        // property values. If a body exists, it overlays those defaults through the registered
+        // serializer.
+        auto asset = asset_registration->create_asset();
+        if (!asset)
+        {
+            read.result = make_failed_result(
+                std::string("Failed to create registered asset type '")
+                    .append(type_name)
+                    .append("'."));
+            return read;
+        }
+
+        if (file_ops->exists(asset_path) && asset_registration->read_body)
+        {
+            auto body_result = try_load_registered_asset_body(
+                asset_path,
+                file_ops,
+                *asset_registration,
+                asset.get());
+            if (!body_result.succeeded())
+            {
+                read.result = std::move(body_result);
+                return read;
+            }
+        }
+
+        apply_tbx_asset_common_meta(metadata, *asset);
+        read.metadata = metadata;
+        read.asset = std::shared_ptr<Asset>(std::move(asset));
+        read.result.flag_success();
+        return read;
+    }
+
     Result SerializationRegistry::try_read_tbx_asset_common_meta(
         const Json& data,
         const std::filesystem::path& meta_path,

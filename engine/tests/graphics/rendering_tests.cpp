@@ -26,7 +26,6 @@
 #include <future>
 #include <thread>
 
-
 namespace tbx::tests::graphics
 {
     enum class GraphicsBackendCallback
@@ -2632,18 +2631,14 @@ namespace tbx::tests::graphics
         auto resource_manager =
             RenderingResourceManager(backend_service, asset_manager_service, 0.0F);
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
-        auto first_mesh = RenderingMeshUploadData {};
-        const Result first_result = resource_manager.upload_dynamic_mesh(mesh_data, first_mesh);
+        const auto first_mesh = resource_manager.upload_dynamic_mesh(mesh_data);
         const uint uploaded_buffer_count = backend.uploaded_buffer_count;
 
         // Act
         resource_manager.update(DeltaTime {});
-        auto second_mesh = RenderingMeshUploadData {};
-        const Result second_result = resource_manager.upload_dynamic_mesh(mesh_data, second_mesh);
+        const auto second_mesh = resource_manager.upload_dynamic_mesh(mesh_data);
 
         // Assert
-        EXPECT_TRUE(first_result);
-        EXPECT_TRUE(second_result);
         EXPECT_TRUE(first_mesh.vertex_buffer.is_valid());
         EXPECT_TRUE(second_mesh.vertex_buffer.is_valid());
         EXPECT_FALSE(resource_manager.is_managed(first_mesh.vertex_buffer));
@@ -2677,16 +2672,11 @@ namespace tbx::tests::graphics
                 },
             .debug_name = "Test Bind Group",
         };
-        auto first_bind_group = Uuid();
-        auto second_bind_group = Uuid();
-
         // Act
-        const Result first_result = resource_manager.upload_bind_group(desc, first_bind_group);
-        const Result second_result = resource_manager.upload_bind_group(desc, second_bind_group);
+        const Uuid first_bind_group = resource_manager.upload_bind_group(desc);
+        const Uuid second_bind_group = resource_manager.upload_bind_group(desc);
 
         // Assert
-        EXPECT_TRUE(first_result);
-        EXPECT_TRUE(second_result);
         EXPECT_TRUE(first_bind_group.is_valid());
         EXPECT_EQ(first_bind_group, second_bind_group);
         EXPECT_EQ(backend.uploaded_bind_group_count, 1U);
@@ -2712,18 +2702,14 @@ namespace tbx::tests::graphics
                 },
             .debug_name = "Invalidation Test Bind Group",
         };
-        auto first_bind_group = Uuid();
-        const Result first_result = resource_manager.upload_bind_group(desc, first_bind_group);
+        const Uuid first_bind_group = resource_manager.upload_bind_group(desc);
         const uint uploaded_bind_group_count = backend.uploaded_bind_group_count;
 
         // Act
         resource_manager.update(DeltaTime {});
-        auto second_bind_group = Uuid();
-        const Result second_result = resource_manager.upload_bind_group(desc, second_bind_group);
+        const Uuid second_bind_group = resource_manager.upload_bind_group(desc);
 
         // Assert
-        EXPECT_TRUE(first_result);
-        EXPECT_TRUE(second_result);
         EXPECT_TRUE(first_bind_group.is_valid());
         EXPECT_TRUE(second_bind_group.is_valid());
         EXPECT_NE(first_bind_group, second_bind_group);

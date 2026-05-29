@@ -15,15 +15,11 @@ namespace tbx
     struct EntityStreamerChunkState
     {
         bool is_loaded = false;
-        WorldChunkLod visual_lod = WorldChunkLod::FULL;
-        WorldSimulationMode simulation_mode = WorldSimulationMode::FROZEN;
     };
 
     struct EntityStreamerDesiredChunkState
     {
         bool should_load = false;
-        WorldChunkLod visual_lod = WorldChunkLod::LOW;
-        WorldSimulationMode simulation_mode = WorldSimulationMode::FROZEN;
     };
 
     struct EntityStreamerWorldState
@@ -85,33 +81,9 @@ namespace tbx
         if (distance > world.unload_radius_chunks)
             return {};
 
-        auto desired = EntityStreamerDesiredChunkState {
+        return EntityStreamerDesiredChunkState {
             .should_load = true,
-            .visual_lod = distance <= world.full_visual_radius_chunks ? WorldChunkLod::FULL
-                                                                      : WorldChunkLod::LOW,
-            .simulation_mode = WorldSimulationMode::FROZEN,
         };
-
-        if (distance <= world.simulation_radius_chunks)
-            desired.simulation_mode = WorldSimulationMode::FULL;
-        else if (distance <= world.reduced_simulation_radius_chunks)
-            desired.simulation_mode = WorldSimulationMode::REDUCED;
-
-        return desired;
-    }
-
-    static Handle select_chunk_handle(
-        const WorldChunkRef& chunk_ref,
-        const EntityStreamerDesiredChunkState& desired)
-    {
-        if (desired.simulation_mode != WorldSimulationMode::FROZEN
-            && chunk_ref.simulation_chunk.is_valid())
-            return chunk_ref.simulation_chunk;
-
-        if (desired.visual_lod == WorldChunkLod::LOW && chunk_ref.low_lod_chunk.is_valid())
-            return chunk_ref.low_lod_chunk;
-
-        return chunk_ref.full_chunk;
     }
 
     struct EntityStreamer::State
@@ -160,34 +132,20 @@ namespace tbx
                 continue;
             }
 
-            const bool needs_reload =
-                !chunk_state.is_loaded || chunk_state.visual_lod != desired.visual_lod;
-            if (needs_reload)
+            if (!chunk_state.is_loaded)
             {
-                const Handle chunk_handle = select_chunk_handle(chunk_ref, desired);
-                auto chunk = asset_manager.load<WorldChunk>(chunk_handle);
+                auto chunk = asset_manager.load<WorldChunk>(chunk_ref.full_chunk);
                 if (!chunk)
                     continue;
 
                 TBX_TRACE_INFO(
-                    "Loading world chunk ({}, {}, {}) with lod {}",
+                    "Loading world chunk ({}, {}, {})",
                     chunk->coord.x,
                     chunk->coord.y,
-                    chunk->coord.z,
-                    static_cast<int>(desired.visual_lod));
+                    chunk->coord.z);
 
-                world.load_chunk(*chunk, desired.simulation_mode);
+                world.load_chunk(*chunk);
                 chunk_state.is_loaded = true;
-                chunk_state.visual_lod = desired.visual_lod;
-                chunk_state.simulation_mode = desired.simulation_mode;
-
-                continue;
-            }
-
-            if (chunk_state.simulation_mode != desired.simulation_mode)
-            {
-                world.set_chunk_simulation_mode(chunk_ref.coord, desired.simulation_mode);
-                chunk_state.simulation_mode = desired.simulation_mode;
             }
         }
 

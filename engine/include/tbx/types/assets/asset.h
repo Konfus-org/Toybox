@@ -13,7 +13,12 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; synchronize shared mutation externally.
     struct TBX_API Asset
     {
+        virtual ~Asset() noexcept = default;
+
+        [[tbx::meta]]
         Uuid id = {};
+
+        [[tbx::meta]]
         uint32 version = 1U;
     };
 }

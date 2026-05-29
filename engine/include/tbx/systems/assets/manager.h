@@ -93,6 +93,8 @@ namespace tbx
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
 
+        std::shared_ptr<Asset> load(const Handle& handle);
+
         /// @brief
         /// Purpose: Advances asset lifecycle timers and unloads stale unreferenced assets.
         /// @details

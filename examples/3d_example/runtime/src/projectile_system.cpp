@@ -109,7 +109,7 @@ namespace three_d_example
             spawn_position,
             camera_world_transform.rotation,
             tbx::Vec3(projectile_visual_scale, projectile_visual_scale, projectile_visual_scale));
-        projectile.add_component<tbx::SphereCollider>(projectile_visual_scale / 2.0F);
+        projectile.add_component<tbx::SphereCollider>(projectile_visual_scale);
         auto rigidbody = tbx::Rigidbody {};
         rigidbody.mass = 0.2F;
         rigidbody.linear_velocity = shot_direction * _projectile_speed;

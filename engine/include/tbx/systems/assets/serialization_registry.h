@@ -235,6 +235,9 @@ namespace tbx
             const std::filesystem::path& asset_path,
             const AssetLoadParameters<TAsset>& parameters = {}) const;
 
+        AssetReadResult<Asset> read_registered_asset_result(
+            const std::filesystem::path& asset_path) const;
+
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
         std::shared_ptr<TAsset> read(

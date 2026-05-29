@@ -24,11 +24,12 @@ namespace tbx
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[tbx::serializable]];
-    [[tbx::prop(id, values, render_distance)]];
     struct TBX_API Lods : Component
     {
+        [[tbx::prop]]
         std::vector<Lod> values = {};
 
+        [[tbx::prop]]
         float render_distance = 0.0f;
     };
 }

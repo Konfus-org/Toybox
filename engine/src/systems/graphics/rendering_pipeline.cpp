@@ -25,7 +25,6 @@
 #include "tbx/types/viewport.h"
 #include "tbx/utils/hash.h"
 
-
 namespace tbx
 {
     //// SHADOW CONSTANTS ////
@@ -708,33 +707,29 @@ namespace tbx
         append_fallback_texture(resource_manager, PARAM_EMISSIVE_MAP, material_upload.textures);
     }
 
-    static Result upload_batch_material(
+    static void upload_batch_material(
         RenderingResourceManager& resource_manager,
         const MaterialInstance& material,
         RenderingMaterialUploadData& out_material)
     {
-        const Result result = has_asset_reference(material.get_handle())
-                                  ? resource_manager.upload_material(material, out_material)
-                                  : resource_manager.upload_fallback_material(out_material);
-        if (result)
-            append_pbr_fallback_textures(resource_manager, out_material);
-
-        return result;
+        out_material = has_asset_reference(material.get_handle())
+                           ? resource_manager.upload_material(material)
+                           : resource_manager.upload_fallback_material();
+        append_pbr_fallback_textures(resource_manager, out_material);
     }
 
-    static Result upload_batch_meshes(
+    static void upload_batch_meshes(
         RenderingResourceManager& resource_manager,
         const RenderMesh& mesh,
         std::vector<RenderingMeshUploadData>& out_meshes)
     {
-        auto result = Result();
         if (std::holds_alternative<StaticMesh>(mesh.data))
         {
             // Static meshes are model assets. Invalid handles deliberately fall back to a visible
             // debug mesh so missing content fails visibly instead of silently dropping a draw.
-            result = has_asset_reference(mesh.handle)
-                         ? resource_manager.upload_model(mesh.handle, out_meshes)
-                         : resource_manager.upload_fallback_mesh(out_meshes);
+            out_meshes = has_asset_reference(mesh.handle)
+                             ? resource_manager.upload_model(mesh.handle)
+                             : resource_manager.upload_fallback_mesh();
         }
         else
         {
@@ -744,21 +739,16 @@ namespace tbx
             if (mesh_data && !dynamic_mesh.get_mesh().vertices.empty()
                 && !dynamic_mesh.get_mesh().indices.empty())
             {
-                auto uploaded_mesh = RenderingMeshUploadData();
-                result = resource_manager.upload_dynamic_mesh(mesh_data, uploaded_mesh);
-                if (result)
-                    out_meshes.push_back(uploaded_mesh);
+                out_meshes.push_back(resource_manager.upload_dynamic_mesh(mesh_data));
             }
             else
             {
-                result = resource_manager.upload_fallback_mesh(out_meshes);
+                out_meshes = resource_manager.upload_fallback_mesh();
             }
         }
 
-        if (result && out_meshes.empty())
-            result = resource_manager.upload_fallback_mesh(out_meshes);
-
-        return result;
+        if (out_meshes.empty())
+            out_meshes = resource_manager.upload_fallback_mesh();
     }
 
     static Result upload_batch_draw_resources(
@@ -780,9 +770,7 @@ namespace tbx
                 continue;
 
             auto material_upload = RenderingMaterialUploadData();
-            auto result = upload_batch_material(resource_manager, batch.material, material_upload);
-            if (!result)
-                return result;
+            upload_batch_material(resource_manager, batch.material, material_upload);
 
             // Object and instance data are uploaded together here so the batch stays CPU-friendly
             // until it is converted into the backend draw contract.
@@ -816,9 +804,7 @@ namespace tbx
             }
 
             auto uploaded_meshes = std::vector<RenderingMeshUploadData>();
-            result = upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
-            if (!result)
-                return result;
+            upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
 
             for (const auto& uploaded_mesh : uploaded_meshes)
             {
@@ -919,9 +905,7 @@ namespace tbx
                 return Result(false, "Rendering pipeline failed: shadow draw upload failed.");
 
             auto uploaded_meshes = std::vector<RenderingMeshUploadData>();
-            auto result = upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
-            if (!result)
-                return result;
+            upload_batch_meshes(resource_manager, batch.mesh, uploaded_meshes);
 
             for (const auto& uploaded_mesh : uploaded_meshes)
             {
@@ -1037,12 +1021,8 @@ namespace tbx
 
         // The same material/pipeline handles every shadow layer. Per-layer uniforms select which
         // light-space matrix and output layer the shader should use.
-        auto shadow_material_upload = RenderingMaterialUploadData();
-        auto result = resource_manager.upload_material(
-            MaterialInstance(ShadowMapMaterial::HANDLE),
-            shadow_material_upload);
-        if (!result)
-            return result;
+        auto shadow_material_upload =
+            resource_manager.upload_material(MaterialInstance(ShadowMapMaterial::HANDLE));
 
         const auto shadow_material_uniform = resource_manager.upload_uniform_buffer(
             BINDING_MATERIAL_DATA,
@@ -1063,7 +1043,7 @@ namespace tbx
             shadow_softness,
             shadow_map_resolution);
         auto uploaded_shadow_draws = std::vector<PreparedIndexedDrawResource>();
-        result = upload_shadow_draw_resources(
+        auto result = upload_shadow_draw_resources(
             resource_manager,
             frame_index,
             frame_uniform,
@@ -1146,10 +1126,7 @@ namespace tbx
         const std::string& uniform_cache_key,
         RenderPass& render_pass)
     {
-        auto material_upload = RenderingMaterialUploadData();
-        auto result = resource_manager.upload_material(material, material_upload);
-        if (!result)
-            return result;
+        auto material_upload = resource_manager.upload_material(material);
 
         const auto material_uniform = resource_manager.upload_uniform_buffer(
             BINDING_MATERIAL_DATA,
@@ -1224,20 +1201,11 @@ namespace tbx
         if (bindings.empty())
             return {};
 
-        auto bind_group = Uuid();
-        const Result result = resource_manager.upload_bind_group(
+        return resource_manager.upload_bind_group(
             BindGroupDesc {
                 .bindings = std::move(bindings),
                 .debug_name = debug_name,
-            },
-            bind_group);
-        if (!result)
-        {
-            TBX_TRACE_ERROR_ONCE("Rendering bind group creation failed: {}", result.get_report());
-            return {};
-        }
-
-        return bind_group;
+            });
     }
 
     static void create_render_pass_bind_groups(
@@ -1390,19 +1358,10 @@ namespace tbx
                                              ? Handle("Toybox/SkyBox")
                                              : Handle("Toybox/SkySphere");
             const Mesh& sky_mesh = render_data.sky.type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
-            auto uploaded_sky_mesh = RenderingMeshUploadData();
-            auto result = resource_manager.upload_static_runtime_mesh(
-                sky_mesh_handle,
-                sky_mesh,
-                uploaded_sky_mesh);
-            if (!result)
-                return fail_result("sky mesh upload", result);
+            const auto uploaded_sky_mesh =
+                resource_manager.upload_static_runtime_mesh(sky_mesh_handle, sky_mesh);
 
-            auto sky_material_upload = RenderingMaterialUploadData();
-            result =
-                resource_manager.upload_material(render_data.sky.material, sky_material_upload);
-            if (!result)
-                return fail_result("sky material upload", result);
+            auto sky_material_upload = resource_manager.upload_material(render_data.sky.material);
             append_fallback_texture(
                 resource_manager,
                 PARAM_SKYBOX_TEXTURE,
@@ -1554,12 +1513,8 @@ namespace tbx
                     },
                 },
         };
-        auto lighting_material = RenderingMaterialUploadData();
-        result = resource_manager.upload_material(
-            MaterialInstance(tbx::LightingMaterial::HANDLE),
-            lighting_material);
-        if (!result)
-            return fail_result("lighting material upload", result);
+        auto lighting_material =
+            resource_manager.upload_material(MaterialInstance(tbx::LightingMaterial::HANDLE));
         lighting_pass.draws.push_back(
             GraphicsDrawCommand {
                 .pipeline = lighting_material.pipeline,

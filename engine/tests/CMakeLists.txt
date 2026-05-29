@@ -12,6 +12,7 @@ foreach(test_dir IN ITEMS
     ecs
     graphics
     attributes
+    scripting
     time
     utils
 )
