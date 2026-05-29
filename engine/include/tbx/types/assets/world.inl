@@ -18,7 +18,7 @@ namespace tbx
     std::vector<Entity> World::get_with() const
     {
         auto entities = _registry.get_with<TComponent...>();
-        for (const auto& entity : persistent_entities)
+        for (const auto& entity : globals)
         {
             if (_registry.has(entity.get_id()))
                 continue;
@@ -46,7 +46,7 @@ namespace tbx
         if (entity.get_id().is_valid())
             return entity;
 
-        for (const auto& persistent_entity : persistent_entities)
+        for (const auto& persistent_entity : globals)
         {
             if (_registry.has(persistent_entity.get_id()))
                 continue;
@@ -74,7 +74,7 @@ namespace tbx
         if (!callback)
             return;
 
-        for (auto& entity : persistent_entities)
+        for (auto& entity : globals)
         {
             if (_registry.has(entity.get_id()))
                 continue;

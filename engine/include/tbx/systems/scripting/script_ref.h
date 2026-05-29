@@ -2,8 +2,11 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/scripting/ref.h"
 #include "tbx/systems/scripting/script.h"
+#include "tbx/systems/scripting/script_ref.generated.h"
 #include "tbx/types/uuid.h"
 #include <concepts>
+#include <functional>
+#include <optional>
 
 namespace tbx
 {
@@ -12,21 +15,19 @@ namespace tbx
     /// @details
     /// Ownership: Stores UUIDs only. Runtime resolver state is kept by ScriptRef and is never
     /// written to world, chunk, or prefab JSON.
-    [[tbx::serializable]];
+    [[serializable]];
     struct ScriptRefIdentity
     {
-        [[tbx::prop]]
+        [[prop]]
         Uuid entity = {};
 
-        [[tbx::prop]]
+        [[prop]]
         Uuid script = {};
 
-        [[tbx::prop]]
+        [[prop]]
         Uuid binding_id = {};
     };
 }
-
-#include "tbx/systems/scripting/script_ref.generated.h"
 
 namespace tbx
 {
@@ -37,21 +38,23 @@ namespace tbx
     /// pointers are runtime-only and should not be cached across frames.
     template <typename TScript>
         requires std::derived_from<TScript, Script>
-    class ScriptRef final : public ScriptRefIdentity, public IRef<TScript>
+    class ScriptRef final
+        : public ScriptRefIdentity
+        , public IRef<TScript>
     {
       public:
         ScriptRef() = default;
 
         ScriptRef(Uuid script_id)
-            : script(script_id)
         {
+            script = script_id;
         }
 
         ScriptRef(Uuid entity_id, Uuid script_id, Uuid binding_id = {})
-            : entity(entity_id)
-            , script(script_id)
-            , binding_id(binding_id)
         {
+            entity = entity_id;
+            script = script_id;
+            this->binding_id = binding_id;
         }
 
       public:
@@ -74,18 +77,18 @@ namespace tbx
       public:
         void bind_context(ScriptContext& context)
         {
-            _owner_world = context.world_id();
-            _owner_entity = context.entity_id();
-            _resolver = &context.resolver();
+            _owner_world = context.get_world_id();
+            _owner_entity = context.get_entity_id();
+            _resolver = std::ref(context.get_resolver());
         }
 
       private:
         Script* try_get_script() const
         {
-            if (_resolver == nullptr || !script.is_valid())
+            if (!_resolver.has_value() || !script.is_valid())
                 return nullptr;
 
-            return _resolver->try_get_script(
+            return _resolver->get().try_get_script(
                 ScriptLookup {
                     .world = _owner_world,
                     .entity = entity.is_valid() ? entity : _owner_entity,
@@ -97,7 +100,7 @@ namespace tbx
       private:
         Uuid _owner_world = {};
         Uuid _owner_entity = {};
-        IScriptResolver* _resolver = nullptr;
+        std::optional<std::reference_wrapper<IScriptResolver>> _resolver = std::nullopt;
     };
 
     template <typename TScript>
@@ -109,15 +112,15 @@ namespace tbx
 
     template <typename TScript>
         requires std::derived_from<TScript, Script>
-    inline void to_json(Json& json, const ScriptRef<TScript>& value)
+    inline void serialize(Json& json, const ScriptRef<TScript>& value)
     {
-        to_json(json, static_cast<const ScriptRefIdentity&>(value));
+        serialize(json, static_cast<const ScriptRefIdentity&>(value));
     }
 
     template <typename TScript>
         requires std::derived_from<TScript, Script>
-    inline void from_json(const Json& json, ScriptRef<TScript>& value)
+    inline void deserialize(const Json& json, ScriptRef<TScript>& value)
     {
-        from_json(json, static_cast<ScriptRefIdentity&>(value));
+        deserialize(json, static_cast<ScriptRefIdentity&>(value));
     }
 }

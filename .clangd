@@ -1,3 +1,9 @@
 CompileFlags:
   Add:
     - -Wno-unknown-attributes
+
+Diagnostics:
+  Includes:
+    IgnoreHeader:
+      - '.*\.generated\.h'
+      - '.*\.inl'

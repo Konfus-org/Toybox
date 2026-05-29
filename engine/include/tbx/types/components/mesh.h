@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/types/components/component.h"
+#include "tbx/types/components/mesh.generated.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/vertex.h"
 
@@ -67,7 +68,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API StaticMesh : Component
     {
         StaticMesh() = default;
@@ -78,7 +79,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle handle = {};
     };
 
@@ -129,5 +130,3 @@ namespace tbx
         bool _is_dirty = true;
     };
 }
-
-#include "tbx/types/components/mesh.generated.h"

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/graphics/api.generated.h"
 
 namespace tbx
 {
@@ -11,16 +12,14 @@ namespace tbx
     };
 
     // Represents the available graphics APIs.
-    [[tbx::printable]];
+    [[printable]];
     enum class GraphicsApi
     {
-        NONE [[tbx::name("none")]],
-        VULKAN [[tbx::name("vulkan")]],
-        OPEN_GL [[tbx::name("opengl")]],
-        DIRECT_X [[tbx::name("directx")]],
-        METAL [[tbx::name("metal")]],
-        CUSTOM [[tbx::name("custom")]]
+        NONE [[name("none")]],
+        VULKAN [[name("vulkan")]],
+        OPEN_GL [[name("opengl")]],
+        DIRECT_X [[name("directx")]],
+        METAL [[name("metal")]],
+        CUSTOM [[name("custom")]]
     };
 }
-
-#include "tbx/systems/graphics/api.generated.h"

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/components/collider.generated.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/vectors.h"
 
@@ -38,19 +39,19 @@ namespace tbx
     /// @details
     /// Ownership: Owns overlap query state and callback lists by value.
     /// Thread Safety: Not thread-safe; mutate and trigger from the main thread.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API ColliderTrigger
     {
-        [[tbx::prop]]
+        [[prop]]
         bool is_trigger_only = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_overlap_enabled = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_manual_scan_requested = false;
 
-        [[tbx::prop]]
+        [[prop]]
         ColliderOverlapExecutionMode overlap_execution_mode = ColliderOverlapExecutionMode::AUTO;
 
         std::vector<ColliderOverlapCallback> overlap_begin_callbacks = {};
@@ -71,17 +72,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns mesh collider settings by value only; geometry ownership stays with the mesh
     /// component. Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    [[tbx::serializable]];
-    struct TBX_API MeshCollider
-        : Component
+    [[serializable]];
+    struct TBX_API MeshCollider : Component
     {
         MeshCollider() = default;
         MeshCollider(bool is_convex, ColliderTrigger trigger = {});
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_convex = true;
 
-        [[tbx::prop]]
+        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -90,17 +90,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns size data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    [[tbx::serializable]];
-    struct TBX_API CubeCollider
-        : Component
+    [[serializable]];
+    struct TBX_API CubeCollider : Component
     {
         CubeCollider() = default;
         CubeCollider(Vec3 half_extents, ColliderTrigger trigger = {});
 
-        [[tbx::prop]]
+        [[prop]]
         Vec3 half_extents = Vec3(0.5F, 0.5F, 0.5F);
 
-        [[tbx::prop]]
+        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -109,17 +108,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns radius data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    [[tbx::serializable]];
-    struct TBX_API SphereCollider
-        : Component
+    [[serializable]];
+    struct TBX_API SphereCollider : Component
     {
         SphereCollider() = default;
         SphereCollider(float radius, ColliderTrigger trigger = {});
 
-        [[tbx::prop]]
+        [[prop]]
         float radius = 0.5F;
 
-        [[tbx::prop]]
+        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -128,22 +126,20 @@ namespace tbx
     /// @details
     /// Ownership: Owns capsule dimensions by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API CapsuleCollider : Component
     {
         CapsuleCollider() = default;
         CapsuleCollider(float radius, float half_height, ColliderTrigger trigger = {});
 
-        [[tbx::prop]]
+        [[prop]]
         float radius = 0.5F;
 
-        [[tbx::prop]]
+        [[prop]]
         float half_height = 0.5F;
 
-        [[tbx::prop]]
+        [[prop]]
         ColliderTrigger trigger = {};
     };
 
 }
-
-#include "tbx/types/components/collider.generated.h"

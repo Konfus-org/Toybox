@@ -1,9 +1,9 @@
 {
-    "coord": {
-        "x": 3,
-        "y": 0,
-        "z": 0
-    },
+    "coord": [
+        3,
+        0,
+        0
+    ],
     "entities": [
         {
             "id": {
@@ -50,29 +50,29 @@
                     }
                 },
                 "transform": {
-                    "position": {
-                        "x": 52,
-                        "y": 2,
-                        "z": 0
-                    },
-                    "rotation": {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0,
-                        "w": 1
-                    },
-                    "scale": {
-                        "x": 2,
-                        "y": 4,
-                        "z": 2
-                    }
+                    "position": [
+                        52,
+                        2,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        2,
+                        4,
+                        2
+                    ]
                 },
                 "cube_collider": {
-                    "half_extents": {
-                        "x": 1,
-                        "y": 2,
-                        "z": 1
-                    }
+                    "half_extents": [
+                        1,
+                        2,
+                        1
+                    ]
                 },
                 "rigidbody": {
                     "mass": 2.0
@@ -124,29 +124,29 @@
                     }
                 },
                 "transform": {
-                    "position": {
-                        "x": 56,
-                        "y": 1,
-                        "z": 4
-                    },
-                    "rotation": {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0,
-                        "w": 1
-                    },
-                    "scale": {
-                        "x": 2,
-                        "y": 2,
-                        "z": 2
-                    }
+                    "position": [
+                        56,
+                        1,
+                        4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        2,
+                        2,
+                        2
+                    ]
                 },
                 "cube_collider": {
-                    "half_extents": {
-                        "x": 1,
-                        "y": 1,
-                        "z": 1
-                    }
+                    "half_extents": [
+                        1,
+                        1,
+                        1
+                    ]
                 },
                 "rigidbody": {
                     "mass": 1.0

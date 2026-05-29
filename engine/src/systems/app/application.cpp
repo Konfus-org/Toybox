@@ -8,6 +8,7 @@
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/assets/world.h"
 #include <chrono>
 #include <exception>
 
@@ -49,12 +50,6 @@ namespace tbx
             std::vector<std::filesystem::path>(),
             HandleSource(),
             file_ops));
-        service_provider.register_service<EntityStreamer>(
-            std::make_unique<EntityStreamer>(service_provider.try_get_service<AssetManager>()));
-        service_provider.register_service<ScriptSystem>(
-            std::make_unique<ScriptSystem>(
-                service_provider.try_get_service<AssetManager>(),
-                service_provider));
         auto settings = std::make_unique<AppSettings>(
             message_coordinator,
             false,
@@ -66,6 +61,13 @@ namespace tbx
 #endif
         settings->icon = desc.icon;
         service_provider.register_service<AppSettings>(std::move(settings));
+        service_provider.register_service<EntityStreamer>(std::make_unique<EntityStreamer>(
+            service_provider.try_get_service<AssetManager>(),
+            service_provider.try_get_service<AppSettings>()));
+        service_provider.register_service<ScriptSystem>(
+            std::make_unique<ScriptSystem>(
+                service_provider.try_get_service<AssetManager>(),
+                service_provider));
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
         service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
 
@@ -117,7 +119,7 @@ namespace tbx
             }
         }
 
-        initialize(desc.requested_plugins);
+        initialize(desc.requested_plugins, desc.startup_world);
     }
 
     Application::~Application() noexcept
@@ -199,7 +201,9 @@ namespace tbx
         return _service_provider;
     }
 
-    void Application::initialize(const std::vector<std::string>& requested_plugins)
+    void Application::initialize(
+        const std::vector<std::string>& requested_plugins,
+        const Handle& startup_world)
     {
         const auto startup_begin = std::chrono::steady_clock::now();
         auto msg_coordinator = _msg_coordinator.lock();
@@ -248,6 +252,8 @@ namespace tbx
                     }
 
                     _plugin_manager.receive_message(msg);
+                    if (auto entity_streamer = _entity_streamer.lock())
+                        entity_streamer->receive_message(msg);
                     if (auto rendering = _rendering.lock())
                         rendering->receive_message(msg);
                 });
@@ -258,6 +264,18 @@ namespace tbx
                 requested_plugins,
                 settings->paths.working_directory);
             _input_manager = _service_provider.try_get_service<IInputManager>();
+
+            if (startup_world.is_valid())
+            {
+                auto loaded_startup_world = asset_manager->load<World>(startup_world);
+                if (!loaded_startup_world)
+                {
+                    TBX_TRACE_ERROR("Failed to load startup world '{}'.", startup_world.name);
+                    _should_exit = true;
+                    return;
+                }
+                _startup_world = startup_world;
+            }
 
             // Setup physics
             {
@@ -420,6 +438,8 @@ namespace tbx
         // End update
         msg_coordinator->send<ApplicationUpdateEndEvent>(*this, dt);
 
+        if (_startup_world.is_valid())
+            static_cast<void>(asset_manager->load<World>(_startup_world));
         asset_manager->update(dt);
         ++_update_count;
     }
@@ -503,20 +523,26 @@ namespace tbx
                 _service_provider.deregister_service<Physics>();
             }
 
-            // 5. Detach plugins while their libraries are still loaded.
+            // 5. Destroy runtime script instances before their worlds are released.
+            _script_system = {};
+            if (_service_provider.has_service<ScriptSystem>())
+                _service_provider.deregister_service<ScriptSystem>();
+
+            // 6. Detach plugins while their libraries are still loaded.
             _plugin_manager.detach_all();
             _input_manager = {};
 
-            // 6. Unload world/entity assets after plugin teardown.
+            // 7. Unload world/entity assets after plugin teardown.
             asset_manager->unload_all();
+            _startup_world = {};
 
-            // 7. Unload detached plugin libraries after plugin-authored component state is gone.
+            // 8. Unload detached plugin libraries after plugin-authored component state is gone.
             _plugin_manager.unload_all();
 
-            // 8. Stop dedicated thread lanes after plugin teardown.
+            // 9. Stop dedicated thread lanes after plugin teardown.
             thread_manager->stop_all();
 
-            // 9. Process any remaining posted messages and clear handlers.
+            // 10. Process any remaining posted messages and clear handlers.
             msg_coordinator->flush();
             msg_coordinator->clear_handlers();
         }

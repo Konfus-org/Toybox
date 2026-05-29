@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/material_instance.h"
+#include "tbx/types/components/sky.generated.h"
 
 namespace tbx
 {
@@ -20,18 +21,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API Sky : Component
     {
         Sky() = default;
         Sky(MaterialInstance material, SkyType type = SkyType::SPHERE);
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialInstance material = {};
 
-        [[tbx::prop]]
+        [[prop]]
         SkyType type = SkyType::SPHERE;
     };
 }
-
-#include "tbx/types/components/sky.generated.h"

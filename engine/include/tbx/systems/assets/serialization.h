@@ -143,8 +143,27 @@ namespace tbx
         return false;
     }
 
+    /// @brief Lifecycle hook run immediately before serializing a value.
     template <typename TValue>
-    inline void tbx_after_deserialize(TValue&)
+    inline void pre_serialize(const TValue&)
+    {
+    }
+
+    /// @brief Lifecycle hook run immediately after serializing a value.
+    template <typename TValue>
+    inline void post_serialize(const TValue&)
+    {
+    }
+
+    /// @brief Lifecycle hook run immediately before deserializing into a value.
+    template <typename TValue>
+    inline void pre_deserialize(TValue&)
+    {
+    }
+
+    /// @brief Lifecycle hook run immediately after deserializing into a value.
+    template <typename TValue>
+    inline void post_deserialize(TValue&)
     {
     }
 
@@ -165,7 +184,9 @@ namespace tbx
     {
         try
         {
-            from_json(::tbx::JsonParser::parse(data), value);
+            pre_deserialize(value);
+            deserialize(::tbx::JsonParser::parse(data), value);
+            post_deserialize(value);
             return true;
         }
         catch (...)
@@ -185,10 +206,7 @@ namespace tbx
     static Result read_json_asset_body(std::string_view data, TAsset& asset)
     {
         if (read_json_serializable_value(data, asset))
-        {
-            tbx_after_deserialize(asset);
             return {};
-        }
 
         return make_serialization_failure("Failed to parse Toybox asset JSON.");
     }
@@ -196,9 +214,11 @@ namespace tbx
     template <typename TAsset>
     static Result write_json_asset_body(const TAsset& asset, std::string& output)
     {
+        pre_serialize(asset);
         auto json = ::tbx::Json();
-        to_json(json, asset);
+        serialize(json, asset);
         output = json.dump(4);
+        post_serialize(asset);
         return {};
     }
 
@@ -214,8 +234,12 @@ namespace tbx
     template <typename TAsset>
     static Result read_custom_json_asset_body(std::string_view data, TAsset& asset)
     {
-        if (Serializer<TAsset>::from_json(data, asset))
+        pre_deserialize(asset);
+        if (Serializer<TAsset>::deserialize(data, asset))
+        {
+            post_deserialize(asset);
             return {};
+        }
 
         return make_serialization_failure("Failed to parse custom Toybox asset body.");
     }
@@ -223,7 +247,9 @@ namespace tbx
     template <typename TAsset>
     static Result write_custom_json_asset_body(const TAsset& asset, std::string& output)
     {
-        output = Serializer<TAsset>::to_json(asset);
+        pre_serialize(asset);
+        output = Serializer<TAsset>::serialize(asset);
+        post_serialize(asset);
         return {};
     }
 
@@ -256,13 +282,109 @@ namespace tbx
         return std::string(field_name);
     }
 
+    template <typename TValue>
+    struct IsSerializableVector : std::false_type
+    {
+    };
+
+    template <typename TValue, typename TAllocator>
+    struct IsSerializableVector<std::vector<TValue, TAllocator>> : std::true_type
+    {
+    };
+
+    template <typename TValue, typename = void>
+    struct IsStaticIndexedSerializable : std::false_type
+    {
+    };
+
+    template <typename TValue>
+    struct IsStaticIndexedSerializable<
+        TValue,
+        std::void_t<
+            typename TValue::length_type,
+            decltype(TValue::length()),
+            decltype(std::declval<TValue&>()[std::declval<typename TValue::length_type>()])>>
+        : std::true_type
+    {
+    };
+
+    template <typename TJson, typename TValue>
+    static TJson write_serialization_value(const TValue& value)
+    {
+        if constexpr (requires(TJson json) { serialize(json, value); })
+        {
+            auto json = TJson();
+            serialize(json, value);
+            return json;
+        }
+        else if constexpr (IsSerializableVector<TValue>::value)
+        {
+            auto json = TJson::array();
+            for (const auto& entry : value)
+                json.push_back(write_serialization_value<TJson>(entry));
+            return json;
+        }
+        else if constexpr (IsStaticIndexedSerializable<TValue>::value)
+        {
+            auto json = TJson::array();
+            for (auto index = typename TValue::length_type(); index < TValue::length(); ++index)
+                json.push_back(write_serialization_value<TJson>(value[index]));
+            return json;
+        }
+        else
+        {
+            return value;
+        }
+    }
+
+    template <typename TJson, typename TValue>
+    static void read_serialization_value(const TJson& json, TValue& value)
+    {
+        if constexpr (requires { deserialize(json, value); })
+        {
+            deserialize(json, value);
+        }
+        else if constexpr (IsSerializableVector<TValue>::value)
+        {
+            if (!json.is_array())
+                return;
+
+            value.clear();
+            value.reserve(static_cast<size>(json.size()));
+            for (const auto& entry : json)
+            {
+                auto item = typename TValue::value_type();
+                read_serialization_value(entry, item);
+                value.push_back(std::move(item));
+            }
+        }
+        else if constexpr (IsStaticIndexedSerializable<TValue>::value)
+        {
+            if (!json.is_array())
+                return;
+
+            const auto value_count = std::min(
+                static_cast<size>(json.size()),
+                static_cast<size>(TValue::length()));
+            for (size index = 0U; index < value_count; ++index)
+                read_serialization_value(
+                    json[index],
+                    value[static_cast<typename TValue::length_type>(index)]);
+        }
+        else
+        {
+            value = json.template get<TValue>();
+        }
+    }
+
     template <typename TJson, typename TValue>
     static void write_serialization_field(
         TJson& json,
         std::string_view field_name,
         const TValue& value)
     {
-        json[make_serialization_json_key(field_name)] = value;
+        const auto key = make_serialization_json_key(field_name);
+        json[key] = write_serialization_value<TJson>(value);
     }
 
     template <typename TJson>
@@ -274,7 +396,7 @@ namespace tbx
     template <typename TJson, typename TValue>
     static void append_serialization_value(TJson& json, const TValue& value)
     {
-        json.push_back(value);
+        json.push_back(write_serialization_value<TJson>(value));
     }
 
     template <typename TJson, typename TValue>
@@ -295,7 +417,7 @@ namespace tbx
 
         const auto value_count = std::min(static_cast<size>(json.size()), count);
         for (size index = 0U; index < value_count; ++index)
-            value[index] = json[index].template get<typename TValue::col_type>();
+            read_serialization_value(json[index], value[index]);
     }
 
     template <typename TJson>
@@ -325,8 +447,13 @@ namespace tbx
         }
 
         const auto value_iterator = find_serialization_field(json, field_name);
-        value =
-            value_iterator != json.end() ? value_iterator->template get<TValue>() : default_value;
+        if (value_iterator == json.end())
+        {
+            value = default_value;
+            return;
+        }
+
+        read_serialization_value(*value_iterator, value);
     }
 
     template <typename TJson>
@@ -354,6 +481,38 @@ namespace tbx
     {
         static constexpr std::string_view VALUE =
             tbx_serialization_type_name(static_cast<const TValue*>(nullptr));
+    };
+
+    template <typename TValue>
+    struct SerializableVariantTypeName<
+        TValue,
+        std::enable_if_t<IsStaticIndexedSerializable<TValue>::value>>
+    {
+        using IndexedValue = std::remove_cvref_t<decltype(
+            std::declval<TValue&>()[std::declval<typename TValue::length_type>()])>;
+
+        static constexpr bool IS_NESTED_INDEXED =
+            IsStaticIndexedSerializable<IndexedValue>::value;
+
+        static consteval std::string_view get_value()
+        {
+            if constexpr (IS_NESTED_INDEXED && TValue::length() == 2)
+                return "Mat2";
+            else if constexpr (IS_NESTED_INDEXED && TValue::length() == 3)
+                return "Mat3";
+            else if constexpr (IS_NESTED_INDEXED && TValue::length() == 4)
+                return "Mat4";
+            else if constexpr (TValue::length() == 2)
+                return "Vec2";
+            else if constexpr (TValue::length() == 3)
+                return "Vec3";
+            else if constexpr (TValue::length() == 4)
+                return "Vec4";
+            else
+                return "";
+        }
+
+        static constexpr std::string_view VALUE = get_value();
     };
 
     template <>
@@ -467,11 +626,11 @@ namespace tbx
         return register_serializable_type<TValue>(
             [](const TValue& value)
             {
-                return Serializer<TValue>::to_json(value);
+                return Serializer<TValue>::serialize(value);
             },
             [](std::string_view data, TValue& value)
             {
-                return Serializer<TValue>::from_json(data, value);
+                return Serializer<TValue>::deserialize(data, value);
             });
     }
 
@@ -584,12 +743,14 @@ namespace tbx
     {
         static TValue read(const ::tbx::Json& json)
         {
-            return json.get<TValue>();
+            auto value = TValue();
+            read_serialization_value(json, value);
+            return value;
         }
 
         static ::tbx::Json write(const TValue& value)
         {
-            return value;
+            return write_serialization_value<::tbx::Json>(value);
         }
     };
 
@@ -627,7 +788,7 @@ namespace tbx
     }
 
     template <typename TVariant, size... Indices>
-    static void from_json_serializable_variant(
+    static void deserialize_serializable_variant(
         const ::tbx::Json& json,
         TVariant& value,
         std::index_sequence<Indices...>)
@@ -649,16 +810,16 @@ namespace tbx
     }
 
     template <typename TVariant>
-    static void from_json_serializable_variant(const ::tbx::Json& json, TVariant& value)
+    static void deserialize_serializable_variant(const ::tbx::Json& json, TVariant& value)
     {
-        from_json_serializable_variant(
+        deserialize_serializable_variant(
             json,
             value,
             std::make_index_sequence<std::variant_size_v<TVariant>>());
     }
 
     template <typename TVariant, size... Indices>
-    static void to_json_serializable_variant(
+    static void serialize_serializable_variant(
         ::tbx::Json& json,
         const TVariant& value,
         std::index_sequence<Indices...>)
@@ -674,9 +835,9 @@ namespace tbx
     }
 
     template <typename TVariant>
-    static void to_json_serializable_variant(::tbx::Json& json, const TVariant& value)
+    static void serialize_serializable_variant(::tbx::Json& json, const TVariant& value)
     {
-        to_json_serializable_variant(
+        serialize_serializable_variant(
             json,
             value,
             std::make_index_sequence<std::variant_size_v<TVariant>>());

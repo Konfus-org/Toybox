@@ -63,6 +63,13 @@ tbx_codegen_generate_attribute_headers(
     INCLUDE_SCOPE PUBLIC
 )
 
+tbx_codegen_generate_attribute_headers(
+    TARGET Engine
+    SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated/src"
+    INCLUDE_SCOPE PRIVATE
+)
+
 target_compile_definitions(Engine
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}

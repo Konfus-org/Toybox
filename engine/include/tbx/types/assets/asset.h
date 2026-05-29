@@ -15,10 +15,10 @@ namespace tbx
     {
         virtual ~Asset() noexcept = default;
 
-        [[tbx::meta]]
+        [[meta]]
         Uuid id = {};
 
-        [[tbx::meta]]
+        [[meta]]
         uint32 version = 1U;
     };
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/time/delta_time.generated.h"
 #include "tbx/tbx_api.h"
 #include <chrono>
 
@@ -7,7 +8,7 @@ namespace tbx
     // Time delta between frames/updates.
     // Ownership: value type.
     // Thread-safety: value type; freely copyable.
-    [[tbx::printable("{}s", seconds)]];
+    [[printable("{}s", seconds)]];
     struct TBX_API DeltaTime
     {
         double seconds = 0.0;
@@ -31,7 +32,4 @@ namespace tbx
       private:
         std::chrono::steady_clock::time_point _last;
     };
-
 }
-
-#include "tbx/systems/time/delta_time.generated.h"

@@ -2,6 +2,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/assets/model.generated.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/matrices.h"
 
@@ -31,8 +32,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns mesh, material, and part data by value.
     /// Thread Safety: Safe to construct on any thread.
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[serializable]];
+    [[version(1U)]];
     struct TBX_API Model : Asset
     {
         Model();
@@ -45,5 +46,3 @@ namespace tbx
     };
 
 }
-
-#include "tbx/types/assets/model.generated.h"

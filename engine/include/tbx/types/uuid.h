@@ -1,13 +1,14 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/types/uuid.generated.h"
 #include <string_view>
 
 namespace tbx
 {
-    [[tbx::serializable]];
-    [[tbx::printable("{:x}", value)]];
-    [[tbx::hash(value)]];
+    [[serializable]];
+    [[printable("{:x}", value)]];
+    [[hash(value)]];
     struct Uuid
     {
         TBX_API Uuid();
@@ -41,7 +42,7 @@ namespace tbx
         TBX_API bool operator==(const Uuid& other) const;
         TBX_API bool operator!=(const Uuid& other) const;
 
-        [[tbx::prop]]
+        [[prop]]
         uint32 value = 0U;
 
         static const Uuid NONE;
@@ -55,5 +56,3 @@ namespace tbx
     /// @brief Purpose: Hashes a string to produce a UUID value.
     TBX_API Uuid hash_string_to_id(std::string_view handle_name);
 }
-
-#include "tbx/types/uuid.generated.h"

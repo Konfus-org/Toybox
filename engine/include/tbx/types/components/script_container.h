@@ -2,6 +2,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/types/components/component.h"
+#include "tbx/types/components/script_container.generated.h"
 #include "tbx/types/uuid.h"
 #include <vector>
 
@@ -12,30 +13,28 @@ namespace tbx
     /// @details
     /// Ownership: Holds serialized binding data only; runtime script instances live in
     /// ScriptSystem.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API ScriptBinding
     {
-        [[tbx::prop]]
+        [[prop]]
         Uuid script = {};
 
-        [[tbx::prop]]
+        [[prop]]
         bool enabled = true;
 
-        [[tbx::prop]]
+        [[prop]]
         Uuid binding_id = {};
 
-        [[tbx::prop]]
+        [[prop]]
         Json overrides = Json::object();
     };
 
     /// @brief
     /// Purpose: Stores script asset bindings attached to an entity.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API ScriptContainer : Component
     {
-        [[tbx::prop]]
+        [[prop]]
         std::vector<ScriptBinding> scripts = {};
     };
 }
-
-#include "tbx/types/components/script_container.generated.h"

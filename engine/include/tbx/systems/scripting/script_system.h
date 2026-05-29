@@ -4,6 +4,7 @@
 #include "tbx/systems/scripting/script.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
+#include <functional>
 #include <memory>
 
 namespace tbx
@@ -29,7 +30,9 @@ namespace tbx
         Script* try_get_script(const ScriptLookup& lookup) override;
 
       private:
-        struct Impl;
-        std::unique_ptr<Impl> _impl = nullptr;
+        struct State;
+        std::unique_ptr<State> _state = {};
+        std::weak_ptr<AssetManager> _asset_manager = {};
+        std::reference_wrapper<ServiceProvider> _services;
     };
 }

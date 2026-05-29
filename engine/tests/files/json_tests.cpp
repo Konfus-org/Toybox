@@ -1,4 +1,4 @@
-#include "tbx/systems/files/json.h"
+﻿#include "tbx/systems/files/json.h"
 #include "tbx/types/color.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/quaternions.h"
@@ -28,8 +28,8 @@ namespace tbx::tests::file_system
         const std::string text =
             "{\n"
             "  \"color\": { \"r\": 0.1, \"g\": 0.2, \"b\": 0.3, \"a\": 1.0 },\n"
-            "  \"position\": { \"x\": 2.0, \"y\": 3.0, \"z\": 4.0 },\n"
-            "  \"rotation\": { \"x\": 0.0, \"y\": 0.0, \"z\": 0.0, \"w\": 1.0 }\n"
+            "  \"position\": [2.0, 3.0, 4.0],\n"
+            "  \"rotation\": [0.0, 0.0, 0.0, 1.0]\n"
             "}";
 
         Json json = JsonParser::parse(text);
@@ -102,7 +102,7 @@ namespace tbx::tests::file_system
         auto json = Json();
 
         // Act
-        to_json(json, handle);
+        serialize(json, handle);
 
         // Assert
         EXPECT_EQ(json.find("name"), json.end());

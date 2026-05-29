@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
+#include "tbx/types/assets/shader.generated.h"
 #include "tbx/types/handle.h"
 #include <string>
 #include <string_view>
@@ -13,15 +14,15 @@ namespace tbx
     /// @details
     /// Ownership: Does not own resources.
     /// Thread Safety: Safe to read concurrently.
-    [[tbx::serializable]];
+    [[serializable]];
     enum class ShaderType
     {
-        NONE [[tbx::name("none")]],
-        VERTEX [[tbx::name("vertex")]],
-        TESSELATION [[tbx::name("tesselation")]],
-        GEOMETRY [[tbx::name("geometry")]],
-        FRAGMENT [[tbx::name("fragment")]],
-        COMPUTE [[tbx::name("compute")]]
+        NONE [[name("none")]],
+        VERTEX [[name("vertex")]],
+        TESSELATION [[name("tesselation")]],
+        GEOMETRY [[name("geometry")]],
+        FRAGMENT [[name("fragment")]],
+        COMPUTE [[name("compute")]]
     };
 
     /// @brief
@@ -29,8 +30,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns the source string data.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable("text")]];
-    [[tbx::version(1U)]];
+    [[serializable("text")]];
+    [[version(1U)]];
     struct TBX_API Shader : public Asset
     {
         Shader() = default;
@@ -50,10 +51,10 @@ namespace tbx
         {
         }
 
-        [[tbx::prop]]
+        [[prop]]
         std::string source = "";
 
-        [[tbx::meta]]
+        [[meta]]
         ShaderType type = ShaderType::NONE;
     };
 
@@ -62,7 +63,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores stage handles by value; does not own loaded shader assets.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API ShaderProgram
     {
       public:
@@ -71,7 +72,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle vertex = {};
 
         /// @brief
@@ -79,7 +80,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle fragment = {};
 
         /// @brief
@@ -87,7 +88,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle tesselation = {};
 
         /// @brief
@@ -95,7 +96,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle geometry = {};
 
         /// @brief
@@ -103,7 +104,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Handle compute = {};
 
         /// @brief
@@ -128,5 +129,3 @@ namespace tbx
     };
 
 }
-
-#include "tbx/types/assets/shader.generated.h"

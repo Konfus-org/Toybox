@@ -5,13 +5,18 @@
 
 namespace tbx
 {
+    struct AppSettings;
+    struct Message;
+
     /// @brief
     /// Purpose: Streams world chunks around active cameras with separate visual and simulation
     /// radii.
     class TBX_API EntityStreamer final
     {
       public:
-        EntityStreamer(std::weak_ptr<AssetManager> asset_manager);
+        EntityStreamer(
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<AppSettings> settings = {});
         ~EntityStreamer() noexcept;
 
       public:
@@ -22,11 +27,19 @@ namespace tbx
 
       public:
         void update(const DeltaTime& dt);
+        void receive_message(Message& msg);
 
       private:
-        void update_world(AssetManager& asset_manager, World& world);
+        void update_world(
+            AssetManager& asset_manager,
+            World& world,
+            float chunk_size,
+            uint32 unload_radius_chunks);
 
       private:
+        std::weak_ptr<AssetManager> _asset_manager = {};
+        WorldSettings _settings = {};
+
         struct State;
         std::unique_ptr<State> _state = {};
     };

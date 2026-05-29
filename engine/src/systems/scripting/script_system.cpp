@@ -1,78 +1,63 @@
 #include "tbx/systems/scripting/script_system.h"
-#include "tbx/systems/assets/serialization.h"
+#include "script_system_state_key.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/script_container.h"
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-namespace tbx::internal
+namespace tbx
 {
-    struct ScriptInstanceKey
-    {
-        Uuid world = {};
-        Uuid entity = {};
-        Uuid script = {};
-        Uuid binding_id = {};
-
-        bool operator==(const ScriptInstanceKey& other) const
-        {
-            return world == other.world && entity == other.entity && script == other.script
-                   && binding_id == other.binding_id;
-        }
-    };
-
-    struct ScriptInstanceKeyHash
-    {
-        size operator()(const ScriptInstanceKey& key) const
-        {
-            auto seed = std::hash<uint32>()(key.world.value);
-            seed ^= std::hash<uint32>()(key.entity.value) + 0x9e3779b9U + (seed << 6U)
-                    + (seed >> 2U);
-            seed ^= std::hash<uint32>()(key.script.value) + 0x9e3779b9U + (seed << 6U)
-                    + (seed >> 2U);
-            seed ^= std::hash<uint32>()(key.binding_id.value) + 0x9e3779b9U + (seed << 6U)
-                    + (seed >> 2U);
-            return seed;
-        }
-    };
-
-    struct ScriptInstanceRecord
+    struct ScriptSystemStateRecord
     {
         std::shared_ptr<Script> script = {};
         bool started = false;
         bool touched = false;
     };
-}
 
-namespace tbx
-{
-    struct ScriptSystem::Impl
+    struct ScriptSystem::State
     {
-        Impl(std::weak_ptr<AssetManager> asset_manager_value, ServiceProvider& services_value)
-            : asset_manager(std::move(asset_manager_value))
-            , services(services_value)
-        {
-        }
+        static ScriptSystemStateKey make_key(
+            const World& world,
+            const Entity& entity,
+            const ScriptBinding& binding);
 
-        std::weak_ptr<AssetManager> asset_manager = {};
-        ServiceProvider& services;
-        std::unordered_map<
-            internal::ScriptInstanceKey,
-            internal::ScriptInstanceRecord,
-            internal::ScriptInstanceKeyHash>
-            instances = {};
+        std::unordered_map<ScriptSystemStateKey, ScriptSystemStateRecord> instances = {};
     };
 
+    ScriptSystemStateKey ScriptSystem::State::make_key(
+        const World& world,
+        const Entity& entity,
+        const ScriptBinding& binding)
+    {
+        return ScriptSystemStateKey {
+            .world = world.id,
+            .entity = entity.get_id(),
+            .script = binding.script,
+            .binding_id = binding.binding_id,
+        };
+    }
+
     ScriptSystem::ScriptSystem(std::weak_ptr<AssetManager> asset_manager, ServiceProvider& services)
-        : _impl(std::make_unique<Impl>(std::move(asset_manager), services))
+        : _state(std::make_unique<State>())
+        , _asset_manager(std::move(asset_manager))
+        , _services(services)
     {
     }
 
-    ScriptSystem::~ScriptSystem() noexcept = default;
+    ScriptSystem::~ScriptSystem() noexcept
+    {
+        for (auto& entry : _state->instances)
+        {
+            if (entry.second.script)
+                entry.second.script->on_destroy();
+        }
+        _state->instances.clear();
+    }
 
     static std::shared_ptr<Script> clone_script_prototype(const Script& prototype)
     {
@@ -124,7 +109,8 @@ namespace tbx
             return {};
         }
 
-        auto registration = get_asset_type_registration(std::type_index(typeid(*instance)));
+        auto* instance_ptr = instance.get();
+        auto registration = get_asset_type_registration(std::type_index(typeid(*instance_ptr)));
         if (registration.has_value() && registration->apply_overrides
             && !binding.overrides.is_null() && !binding.overrides.empty())
         {
@@ -142,26 +128,13 @@ namespace tbx
         return instance;
     }
 
-    static internal::ScriptInstanceKey make_script_instance_key(
-        const World& world,
-        const Entity& entity,
-        const ScriptBinding& binding)
-    {
-        return internal::ScriptInstanceKey {
-            .world = world.id,
-            .entity = entity.get_id(),
-            .script = binding.script,
-            .binding_id = binding.binding_id,
-        };
-    }
-
     void ScriptSystem::fixed_update(const DeltaTime& dt)
     {
-        auto asset_manager = _impl->asset_manager.lock();
+        auto asset_manager = _asset_manager.lock();
         if (!asset_manager)
             return;
 
-        for (auto& entry : _impl->instances)
+        for (auto& entry : _state->instances)
             entry.second.touched = false;
 
         const auto worlds = asset_manager->get_loaded<World>();
@@ -179,23 +152,20 @@ namespace tbx
                         if (!binding.enabled || !binding.script.is_valid())
                             continue;
 
-                        const auto key = make_script_instance_key(*world, entity, binding);
-                        auto& record = _impl->instances[key];
+                        const auto key = State::make_key(*world, entity, binding);
+                        auto& record = _state->instances[key];
                         record.touched = true;
                         if (!record.script)
                             record.script = create_script_instance(*asset_manager, binding);
                         if (!record.script)
                             continue;
 
-                        auto context = ScriptContext(
-                            world->id,
-                            entity,
-                            world.get(),
-                            &_impl->services,
-                            this);
+                        auto context =
+                            ScriptContext(world->id, entity, world, _services.get(), *this);
                         record.script->bind_context(context);
+                        auto* script_ptr = record.script.get();
                         if (auto registration =
-                                get_asset_type_registration(std::type_index(typeid(*record.script)));
+                                get_asset_type_registration(std::type_index(typeid(*script_ptr)));
                             registration.has_value() && registration->bind_runtime)
                         {
                             registration->bind_runtime(record.script.get(), context);
@@ -216,33 +186,33 @@ namespace tbx
     {
         if (lookup.binding_id.is_valid())
         {
-            auto iterator = _impl->instances.find(
-                internal::ScriptInstanceKey {
+            auto iterator = _state->instances.find(
+                ScriptSystemStateKey {
                     .world = lookup.world,
                     .entity = lookup.entity,
                     .script = lookup.script,
                     .binding_id = lookup.binding_id,
                 });
-            return iterator == _impl->instances.end() ? nullptr : iterator->second.script.get();
+            return iterator == _state->instances.end() ? nullptr : iterator->second.script.get();
         }
 
         const auto iterator = std::ranges::find_if(
-            _impl->instances,
+            _state->instances,
             [&lookup](const auto& entry)
             {
                 return entry.first.world == lookup.world && entry.first.entity == lookup.entity
                        && entry.first.script == lookup.script;
             });
-        return iterator == _impl->instances.end() ? nullptr : iterator->second.script.get();
+        return iterator == _state->instances.end() ? nullptr : iterator->second.script.get();
     }
 
     void ScriptSystem::update(const DeltaTime& dt)
     {
-        auto asset_manager = _impl->asset_manager.lock();
+        auto asset_manager = _asset_manager.lock();
         if (!asset_manager)
             return;
 
-        for (auto& entry : _impl->instances)
+        for (auto& entry : _state->instances)
             entry.second.touched = false;
 
         const auto worlds = asset_manager->get_loaded<World>();
@@ -260,23 +230,20 @@ namespace tbx
                         if (!binding.enabled || !binding.script.is_valid())
                             continue;
 
-                        const auto key = make_script_instance_key(*world, entity, binding);
-                        auto& record = _impl->instances[key];
+                        const auto key = State::make_key(*world, entity, binding);
+                        auto& record = _state->instances[key];
                         record.touched = true;
                         if (!record.script)
                             record.script = create_script_instance(*asset_manager, binding);
                         if (!record.script)
                             continue;
 
-                        auto context = ScriptContext(
-                            world->id,
-                            entity,
-                            world.get(),
-                            &_impl->services,
-                            this);
+                        auto context =
+                            ScriptContext(world->id, entity, world, _services.get(), *this);
                         record.script->bind_context(context);
+                        auto* script_ptr = record.script.get();
                         if (auto registration =
-                                get_asset_type_registration(std::type_index(typeid(*record.script)));
+                                get_asset_type_registration(std::type_index(typeid(*script_ptr)));
                             registration.has_value() && registration->bind_runtime)
                         {
                             registration->bind_runtime(record.script.get(), context);
@@ -292,8 +259,8 @@ namespace tbx
                 });
         }
 
-        auto stale_keys = std::vector<internal::ScriptInstanceKey> {};
-        for (const auto& entry : _impl->instances)
+        auto stale_keys = std::vector<ScriptSystemStateKey> {};
+        for (const auto& entry : _state->instances)
         {
             if (!entry.second.touched)
                 stale_keys.push_back(entry.first);
@@ -301,11 +268,11 @@ namespace tbx
 
         for (const auto& key : stale_keys)
         {
-            if (auto iterator = _impl->instances.find(key); iterator != _impl->instances.end())
+            if (auto iterator = _state->instances.find(key); iterator != _state->instances.end())
             {
                 if (iterator->second.script)
                     iterator->second.script->on_destroy();
-                _impl->instances.erase(iterator);
+                _state->instances.erase(iterator);
             }
         }
     }

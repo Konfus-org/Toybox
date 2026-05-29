@@ -11,8 +11,10 @@ namespace tbx
         value.renamed_value = 9;
 
         // Act
-        const Json json = value;
-        const auto roundtripped = json.get<AttributeStruct>();
+        auto json = Json();
+        serialize(json, value);
+        auto roundtripped = AttributeStruct();
+        deserialize(json, roundtripped);
         const auto registrations = get_serializable_type_registrations();
 
         // Assert
@@ -76,6 +78,8 @@ namespace tbx
         // Assert
         EXPECT_EQ(first_hash, repeated_hash);
         EXPECT_NE(first_hash, second_hash);
+        EXPECT_EQ(first, first);
+        EXPECT_NE(first, second);
     }
 
     TEST(AttributeTests, IndexedTypeRoundtripsAsArray)
@@ -87,8 +91,10 @@ namespace tbx
         value.values[2] = 3.0F;
 
         // Act
-        const Json json = value;
-        const auto roundtripped = json.get<AttributeIndexed>();
+        auto json = Json();
+        serialize(json, value);
+        auto roundtripped = AttributeIndexed();
+        deserialize(json, roundtripped);
 
         // Assert
         ASSERT_TRUE(json.is_array());
@@ -184,8 +190,10 @@ namespace tbx
         value.value = 64;
 
         // Act
-        const Json json = value;
-        const auto roundtripped = json.get<AttributeCustomStruct>();
+        auto json = Json();
+        serialize(json, value);
+        auto roundtripped = AttributeCustomStruct();
+        deserialize(json, roundtripped);
 
         // Assert
         EXPECT_EQ(json.at("value").get<int>(), 64);
@@ -216,8 +224,10 @@ namespace tbx
         const auto value = AttributeEnum::SECOND;
 
         // Act
-        const Json json = value;
-        const auto roundtripped = json.get<AttributeEnum>();
+        auto json = Json();
+        serialize(json, value);
+        auto roundtripped = AttributeEnum();
+        deserialize(json, roundtripped);
 
         // Assert
         EXPECT_EQ(json.get<std::string>(), "second");
@@ -231,9 +241,9 @@ namespace tbx
 
         // Act
         auto json = Json();
-        to_json(json, value);
+        serialize(json, value);
         auto roundtripped = AttributeVariant();
-        from_json(json, roundtripped);
+        deserialize(json, roundtripped);
 
         // Assert
         EXPECT_EQ(json.at("type").get<std::string>(), "int");

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/components/camera.generated.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
@@ -9,7 +10,7 @@
 
 namespace tbx
 {
-    [[tbx::serializable]];
+    [[serializable]];
     class TBX_API Camera : public Component
     {
       public:
@@ -40,28 +41,24 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
-        template <typename BasicJsonType>
-        friend void to_json(BasicJsonType& tbx_json, const Camera& tbx_value);
+        friend TBX_API void serialize(::tbx::Json& tbx_json, const Camera& tbx_value);
 
-        template <typename BasicJsonType>
-        friend void from_json(const BasicJsonType& tbx_json, Camera& tbx_value);
+        friend TBX_API void deserialize(const ::tbx::Json& tbx_json, Camera& tbx_value);
 
-        [[tbx::prop]]
+        [[prop]]
         RenderTarget _render_target = {};
         Viewport _viewport = {};
-        [[tbx::prop]]
+        [[prop]]
         Mat4 _projection_matrix = Mat4(1.0f);
-        [[tbx::prop]]
+        [[prop]]
         bool _is_perspective = true;
-        [[tbx::prop]]
+        [[prop]]
         float _z_near = 0.1f;
-        [[tbx::prop]]
+        [[prop]]
         float _z_far = 1000.0f;
-        [[tbx::prop]]
+        [[prop]]
         float _fov = 60.0f;
-        [[tbx::prop]]
+        [[prop]]
         float _aspect = 1.78f;
     };
 } // namespace tbx
-
-#include "tbx/types/components/camera.generated.h"

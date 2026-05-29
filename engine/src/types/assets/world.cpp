@@ -1,5 +1,6 @@
 #include "tbx/types/assets/world.h"
 #include "tbx/systems/debugging/macros.h"
+#include <algorithm>
 
 namespace tbx
 {
@@ -18,29 +19,25 @@ namespace tbx
 
     Entity World::create_entity(const std::string& name)
     {
-        return create_persistent_entity(name);
+        return create_entity(name, Uuid(), false, 32.0F);
     }
 
-    Entity World::create_persistent_entity(const std::string& name)
+    Entity World::create_entity(const std::string& name, const Uuid& parent)
     {
-        return create_entity(name, Uuid(), true);
+        return create_entity(name, parent, false, 32.0F);
     }
 
-    Entity World::create_spatial_entity(const std::string& name)
+    Entity World::create_global_entity(const std::string& name)
     {
-        return create_entity(name, Uuid(), false);
-    }
-
-    Entity World::create_spatial_entity(const std::string& name, const Uuid& parent)
-    {
-        return create_entity(name, parent, false);
+        // TODO: Take into account world settings!
+        return create_entity(name, Uuid(), true, 32.0F);
     }
 
     void World::destroy(Entity& entity)
     {
         const Uuid id = entity.get_id();
         remove_entity_from_chunk_tracking(id);
-        _persistent_entities.erase(id);
+        remove_global(id);
         _registry.remove(entity);
     }
 
@@ -48,46 +45,44 @@ namespace tbx
     {
         _registry.clear();
         _loaded_entities_by_chunk.clear();
-        _persistent_entities.clear();
         _chunk_by_entity.clear();
         _entities_by_chunk.clear();
     }
 
-    void World::rebuild_persistent_entities()
+    void World::rebuild_global_entities()
     {
         auto entity_records = std::vector<std::string> {};
-        entity_records.reserve(persistent_entities.size());
-        for (const auto& entity_record : persistent_entities)
-            entity_records.push_back(Serializer<Entity>::to_json(entity_record));
+        entity_records.reserve(globals.size());
+        for (const auto& entity_record : globals)
+            entity_records.push_back(Entity::serialize(entity_record));
 
         clear_runtime_entities();
-        persistent_entities.clear();
-        persistent_entities.reserve(entity_records.size());
+        globals.clear();
+        globals.reserve(entity_records.size());
 
         // Serialized entity records deserialize independently. Rebind them into this world's
         // registry so parent lookups and runtime component mutations share one ECS context.
         for (const auto& entity_record : entity_records)
         {
             auto entity = Entity();
-            if (!Serializer<Entity>::from_json(entity_record, _registry, entity))
+            if (!Entity::deserialize(entity_record, _registry, entity))
                 continue;
 
             const auto id = entity.get_id();
             if (!id.is_valid())
                 continue;
 
-            _persistent_entities.insert(id);
-            persistent_entities.push_back(entity);
+            globals.push_back(entity);
         }
     }
 
-    void World::update_chunk_membership()
+    void World::update_chunk_membership(float chunk_size)
     {
         auto entities = _registry.get_all();
         for (auto& entity : entities)
         {
             const Uuid id = entity.get_id();
-            if (_persistent_entities.contains(id))
+            if (has_global(id))
                 continue;
 
             if (!entity.has_component<Transform>())
@@ -96,7 +91,7 @@ namespace tbx
                 continue;
             }
 
-            assign_entity_to_chunk(entity);
+            assign_entity_to_chunk(entity, chunk_size);
         }
     }
 
@@ -109,24 +104,16 @@ namespace tbx
             return true;
 
         return std::ranges::any_of(
-            persistent_entities,
+            globals,
             [&id](const Entity& entity)
             {
                 return entity.get_id() == id;
             });
     }
 
-    bool World::is_persistent(const Uuid& id) const
+    bool World::is_global(const Uuid& id) const
     {
-        if (_persistent_entities.contains(id))
-            return true;
-
-        return std::ranges::any_of(
-            persistent_entities,
-            [&id](const Entity& entity)
-            {
-                return entity.get_id() == id;
-            });
+        return has_global(id);
     }
 
     bool World::try_get_chunk(const Uuid& id, WorldChunkCoord& out_coord) const
@@ -137,11 +124,6 @@ namespace tbx
 
         out_coord = chunk_it->second;
         return true;
-    }
-
-    Entity World::find_by_id(const Uuid& id) const
-    {
-        return get(id);
     }
 
     Entity World::find_by_name(std::string_view name) const
@@ -190,18 +172,18 @@ namespace tbx
         }
 
         const auto persistent_it = std::ranges::find_if(
-            persistent_entities,
+            globals,
             [&id](const Entity& persistent_entity)
             {
                 return persistent_entity.get_id() == id;
             });
-        return persistent_it != persistent_entities.end() ? *persistent_it : Entity();
+        return persistent_it != globals.end() ? *persistent_it : Entity();
     }
 
     std::vector<Entity> World::get_all() const
     {
         auto entities = _registry.get_all();
-        for (const auto& persistent_entity : persistent_entities)
+        for (const auto& persistent_entity : globals)
         {
             if (!_registry.has(persistent_entity.get_id()))
                 entities.push_back(persistent_entity);
@@ -246,7 +228,11 @@ namespace tbx
         _entities_by_chunk.erase(coord);
     }
 
-    Entity World::create_entity(const std::string& name, const Uuid& parent, bool is_persistent)
+    Entity World::create_entity(
+        const std::string& name,
+        const Uuid& parent,
+        bool is_persistent,
+        float chunk_size)
     {
         const auto id = _registry.add(name, "", "", parent);
         auto entity = _registry.get(id);
@@ -256,11 +242,11 @@ namespace tbx
             return entity;
         }
 
-        assign_entity_to_chunk(entity);
+        assign_entity_to_chunk(entity, chunk_size);
         return entity;
     }
 
-    void World::assign_entity_to_chunk(const Entity& entity)
+    void World::assign_entity_to_chunk(const Entity& entity, float chunk_size)
     {
         if (!entity.get_id().is_valid())
             return;
@@ -278,15 +264,43 @@ namespace tbx
             return;
 
         remove_entity_from_chunk_tracking(id);
-        _persistent_entities.erase(id);
+        remove_global(id);
         _chunk_by_entity[id] = coord;
         _entities_by_chunk[coord].push_back(id);
+    }
+
+    bool World::has_global(const Uuid& id) const
+    {
+        return std::ranges::any_of(
+            globals,
+            [&id](const Entity& entity)
+            {
+                return entity.get_id() == id;
+            });
     }
 
     void World::make_persistent(const Uuid& id)
     {
         remove_entity_from_chunk_tracking(id);
-        _persistent_entities.insert(id);
+        if (has_global(id))
+            return;
+
+        auto entity = _registry.get(id);
+        if (entity.get_id().is_valid())
+            globals.push_back(entity);
+    }
+
+    void World::remove_global(const Uuid& id)
+    {
+        globals.erase(
+            std::remove_if(
+                globals.begin(),
+                globals.end(),
+                [&id](const Entity& entity)
+                {
+                    return entity.get_id() == id;
+                }),
+            globals.end());
     }
 
     void World::remove_entity_from_chunk_tracking(const Uuid& id)

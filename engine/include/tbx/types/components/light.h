@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/color.h"
 #include "tbx/types/components/component.h"
+#include "tbx/types/components/light.generated.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
@@ -10,9 +11,8 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    [[tbx::serializable]];
-    struct TBX_API Light
-        : Component
+    [[serializable]];
+    struct TBX_API Light : Component
     {
         Light();
 
@@ -21,7 +21,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Color color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 
         /// @brief
@@ -32,7 +32,7 @@ namespace tbx
         /// renderer normalizes the light color so intensity scales total light energy independent
         /// of hue (e.g., a red light at intensity 1.0 should be comparable to a white light at
         /// intensity 1.0).
-        [[tbx::prop]]
+        [[prop]]
         float intensity = 1.0f;
 
         /// @brief
@@ -40,7 +40,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         bool cast_shadows = true;
     };
 
@@ -49,7 +49,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API PointLight : public Light
     {
         PointLight();
@@ -60,7 +60,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float range = 10.0f;
     };
 
@@ -69,7 +69,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API SpotLight : public Light
     {
         SpotLight();
@@ -85,7 +85,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float range = 10.0f;
 
         /// @brief
@@ -93,7 +93,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float inner_angle = 20.0f;
 
         /// @brief
@@ -101,7 +101,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float outer_angle = 35.0f;
     };
 
@@ -110,9 +110,8 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    [[tbx::serializable]];
-    struct TBX_API AreaLight
-        : public Light
+    [[serializable]];
+    struct TBX_API AreaLight : public Light
     {
         AreaLight();
         AreaLight(
@@ -126,7 +125,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float range = 10.0f;
 
         /// @brief
@@ -134,7 +133,7 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         Vec2 area_size = Vec2(1.0f, 1.0f);
     };
 
@@ -143,7 +142,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API DirectionalLight : public Light
     {
         DirectionalLight();
@@ -156,10 +155,8 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally. Notes: The
         /// renderer averages directional light colors and scales that color by the sum of
         /// (ambient * intensity) across directional lights.
-        [[tbx::prop]]
+        [[prop]]
         float ambient = 0.03f;
     };
 
 }
-
-#include "tbx/types/components/light.generated.h"

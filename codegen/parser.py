@@ -5,14 +5,16 @@ import re
 from model import Attribute, CodegenError, EnumValue, Field, SerializableType, attr_value, has_attr
 
 
-ATTRIBUTE_PATTERN = re.compile(r"\[\[\s*tbx::([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]")
+ATTRIBUTE_PATTERN = re.compile(
+    r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
+)
 NAMESPACE_PATTERN = re.compile(r"^\s*namespace\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*(?:\{)?\s*$")
 TYPE_PATTERN = re.compile(
-    r"^\s*(struct|class)\s+(?:(?:[A-Za-z_]\w*_API|TBX_API)\s+)?([A-Za-z_]\w*)"
+    r"^\s*(struct|class)\s+((?:[A-Za-z_]\w*_API|TBX_API)\s+)?([A-Za-z_]\w*)"
     r"(?:\s+final)?\s*(?::\s*([^{]+))?\s*(?:\{)?\s*$"
 )
 ENUM_PATTERN = re.compile(
-    r"^\s*enum\s+(?:class\s+)?([A-Za-z_]\w*)\s*(?::\s*[A-Za-z_]\w*)?\s*(?:\{)?\s*$"
+    r"^\s*enum\s+(class\s+)?([A-Za-z_]\w*)\s*(?::\s*([A-Za-z_]\w*(?:::[A-Za-z_]\w*)?))?\s*(?:\{)?\s*$"
 )
 USING_PATTERN = re.compile(r"^\s*using\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*;")
 SERIALIZER_PATTERN = re.compile(
@@ -23,6 +25,7 @@ FIELD_PATTERN = re.compile(
     r"(?:\s*(?:=|\{).*)?;\s*$"
 )
 ENUM_VALUE_PATTERN = re.compile(r"^\s*([A-Za-z_]\w*)\s*(.*?)(?:,|$)")
+EQUALITY_OPERATOR_PATTERN = re.compile(r"\boperator\s*==")
 
 
 def parse_arguments(raw: str | None) -> list[str]:
@@ -195,6 +198,10 @@ def parse_enum_values(lines: list[str], start: int, end: int) -> list[EnumValue]
     return values
 
 
+def has_equality_operator(lines: list[str], start: int, end: int) -> bool:
+    return any(EQUALITY_OPERATOR_PATTERN.search(line) for line in lines[start + 1 : end])
+
+
 def base_type_names(bases: str) -> list[str]:
     names: list[str] = []
     for base in bases.split(","):
@@ -269,7 +276,7 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
         type_match = TYPE_PATTERN.match(without_attrs)
         if type_match:
             end = find_matching_type_end(lines, index)
-            type_name = type_match.group(2)
+            type_name = type_match.group(3)
             fields = parse_fields(lines, index, end)
             if generation_attrs(active_attrs) or fields:
                 serializable_types.append(
@@ -278,9 +285,11 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
                         name=type_name,
                         declaration_kind=type_match.group(1),
                         attrs=active_attrs,
-                        bases=type_match.group(3) or "",
+                        api_macro=(type_match.group(2) or "").strip(),
+                        bases=type_match.group(4) or "",
                         fields=fields,
                         has_serializer=type_name in serializer_types,
+                        has_equality_operator=has_equality_operator(lines, index, end),
                         source_path=source_path,
                         line=index + 1,
                     )
@@ -299,10 +308,12 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
                 serializable_types.append(
                     SerializableType(
                         namespace=current_namespace(lines, index),
-                        name=enum_match.group(1),
+                        name=enum_match.group(2),
                         declaration_kind="enum",
                         attrs=active_attrs,
                         enum_values=parse_enum_values(lines, index, end),
+                        enum_scoped=enum_match.group(1) is not None,
+                        enum_underlying_type=enum_match.group(3) or "",
                         source_path=source_path,
                         line=index + 1,
                     )

@@ -173,10 +173,10 @@ namespace tbx
 
     static Vec3 get_shadow_up_vector(const Vec3& direction)
     {
-        if (std::abs(dot(normalize_or_zero(direction), VEC3_UP)) < 0.95F)
-            return VEC3_UP;
+        if (std::abs(dot(normalize_or_zero(direction), UP)) < 0.95F)
+            return UP;
 
-        return VEC3_RIGHT;
+        return RIGHT;
     }
 
     static float snap_to_shadow_texel(const float value, const float texel_size)

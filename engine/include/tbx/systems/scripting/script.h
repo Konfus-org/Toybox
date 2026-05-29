@@ -6,6 +6,8 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/uuid.h"
+#include <functional>
+#include <memory>
 #include <optional>
 
 namespace tbx
@@ -38,31 +40,31 @@ namespace tbx
         ScriptContext(
             Uuid world_id,
             Entity entity,
-            World* world,
-            ServiceProvider* services,
-            IScriptResolver* resolver);
+            std::weak_ptr<World> world,
+            ServiceProvider& services,
+            IScriptResolver& resolver);
 
       public:
-        Entity& entity() const;
-        Uuid entity_id() const;
-        IScriptResolver& resolver() const;
-        ServiceProvider& services() const;
-        World& world() const;
-        Uuid world_id() const;
+        Entity& get_entity() const;
+        Uuid get_entity_id() const;
+        IScriptResolver& get_resolver() const;
+        ServiceProvider& get_services() const;
+        std::weak_ptr<World> get_world_ptr() const;
+        World& get_world() const;
+        Uuid get_world_id() const;
 
       private:
         Uuid _world_id = {};
         Entity _entity = {};
-        // TODO: RAW POINTERS BAD! USE WEAK POINTERS!
-        World* _world = nullptr;
-        ServiceProvider* _services = nullptr;
-        IScriptResolver* _resolver = nullptr;
+        std::weak_ptr<World> _world = {};
+        std::optional<std::reference_wrapper<ServiceProvider>> _services = std::nullopt;
+        std::optional<std::reference_wrapper<IScriptResolver>> _resolver = std::nullopt;
     };
 
     template <typename TService>
     inline void bind_script_field(ServiceRef<TService>& service, ScriptContext& context)
     {
-        service = ServiceRef<TService>(context.services().try_get_service<TService>());
+        service = ServiceRef<TService>(context.get_services().try_get_service<TService>());
     }
 
     /// @brief
@@ -88,9 +90,10 @@ namespace tbx
         virtual void on_update(const DeltaTime&) {}
 
       protected:
-        Entity& entity() const;
-        ServiceProvider& services() const;
-        World& world() const;
+        Entity& get_entity() const;
+        ServiceProvider& get_services() const;
+        std::weak_ptr<World> get_world_ptr() const;
+        World& get_world() const;
 
       private:
         std::optional<ScriptContext> _context = std::nullopt;

@@ -107,14 +107,22 @@ namespace tbx::tests::graphics
         MaterialParameterData matrix_data = matrix;
 
         // Act
-        const nlohmann::json color_json = color_data;
-        const nlohmann::json vector_json = vector_data;
-        const nlohmann::json matrix3_json = matrix3_data;
-        const nlohmann::json matrix_json = matrix_data;
-        const auto color_result = color_json.get<MaterialParameterData>();
-        const auto vector_result = vector_json.get<MaterialParameterData>();
-        const auto matrix3_result = matrix3_json.get<MaterialParameterData>();
-        const auto matrix_result = matrix_json.get<MaterialParameterData>();
+        auto color_json = nlohmann::json();
+        auto vector_json = nlohmann::json();
+        auto matrix3_json = nlohmann::json();
+        auto matrix_json = nlohmann::json();
+        serialize(color_json, color_data);
+        serialize(vector_json, vector_data);
+        serialize(matrix3_json, matrix3_data);
+        serialize(matrix_json, matrix_data);
+        auto color_result = MaterialParameterData();
+        auto vector_result = MaterialParameterData();
+        auto matrix3_result = MaterialParameterData();
+        auto matrix_result = MaterialParameterData();
+        deserialize(color_json, color_result);
+        deserialize(vector_json, vector_result);
+        deserialize(matrix3_json, matrix3_result);
+        deserialize(matrix_json, matrix_result);
 
         // Assert
         EXPECT_EQ(color_json.at("type").get<std::string>(), "color");
@@ -148,10 +156,14 @@ namespace tbx::tests::graphics
             MaterialTextureBinding(std::string_view("albedo_map"), Handle("Textures/Smily.png"));
 
         // Act
-        const nlohmann::json parameter_json = parameter;
-        const nlohmann::json texture_json = texture;
-        const auto parameter_result = parameter_json.get<MaterialParameter>();
-        const auto texture_result = texture_json.get<MaterialTextureBinding>();
+        auto parameter_json = nlohmann::json();
+        auto texture_json = nlohmann::json();
+        serialize(parameter_json, parameter);
+        serialize(texture_json, texture);
+        auto parameter_result = MaterialParameter();
+        auto texture_result = MaterialTextureBinding();
+        deserialize(parameter_json, parameter_result);
+        deserialize(texture_json, texture_result);
         auto parameters = MaterialParameterBindings {};
         auto textures = MaterialTextureBindings {};
         parameters.set(parameter_result);

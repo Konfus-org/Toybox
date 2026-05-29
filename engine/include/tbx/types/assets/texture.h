@@ -1,46 +1,47 @@
 #pragma once
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/types/assets/asset.h"
+#include "tbx/types/assets/texture.generated.h"
 #include "tbx/types/size.h"
 
 namespace tbx
 {
     using Pixel = unsigned char;
 
-    [[tbx::serializable]];
+    [[serializable]];
     enum class TextureFilter
     {
-        NEAREST [[tbx::name("nearest")]],
-        LINEAR [[tbx::name("linear")]]
+        NEAREST [[name("nearest")]],
+        LINEAR [[name("linear")]]
     };
 
-    [[tbx::serializable]];
+    [[serializable]];
     enum class TextureWrap
     {
-        CLAMP_TO_EDGE [[tbx::name("clamp_to_edge")]],
-        MIRRORED_REPEAT [[tbx::name("mirrored_repeat")]],
-        REPEAT [[tbx::name("repeat")]]
+        CLAMP_TO_EDGE [[name("clamp_to_edge")]],
+        MIRRORED_REPEAT [[name("mirrored_repeat")]],
+        REPEAT [[name("repeat")]]
     };
 
-    [[tbx::serializable]];
+    [[serializable]];
     enum class TextureFormat
     {
-        RGB [[tbx::name("rgb")]],
-        RGBA [[tbx::name("rgba")]]
+        RGB [[name("rgb")]],
+        RGBA [[name("rgba")]]
     };
 
-    [[tbx::serializable]];
+    [[serializable]];
     enum class TextureMipmaps
     {
-        DISABLED [[tbx::name("disabled")]],
-        ENABLED [[tbx::name("enabled")]]
+        DISABLED [[name("disabled")]],
+        ENABLED [[name("enabled")]]
     };
 
-    [[tbx::serializable]];
+    [[serializable]];
     enum class TextureCompression
     {
-        DISABLED [[tbx::name("disabled")]],
-        AUTO [[tbx::name("auto")]]
+        DISABLED [[name("disabled")]],
+        AUTO [[name("auto")]]
     };
 
     /// @brief
@@ -48,8 +49,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns texture pixel data by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[serializable]];
+    [[version(1U)]];
     struct TBX_API Texture : Asset
     {
         Texture() = default;
@@ -93,19 +94,19 @@ namespace tbx
         }
 
         Size resolution = {1, 1};
-        [[tbx::meta]]
+        [[meta]]
         TextureWrap wrap = TextureWrap::REPEAT;
 
-        [[tbx::meta]]
+        [[meta]]
         TextureFilter filter = TextureFilter::LINEAR;
 
-        [[tbx::meta]]
+        [[meta]]
         TextureFormat format = TextureFormat::RGB;
 
-        [[tbx::meta]]
+        [[meta]]
         TextureMipmaps mipmaps = TextureMipmaps::ENABLED;
 
-        [[tbx::meta]]
+        [[meta]]
         TextureCompression compression = TextureCompression::DISABLED;
         std::vector<Pixel> pixels = {255, 255, 255};
     };
@@ -115,5 +116,3 @@ namespace tbx
     };
 
 }
-
-#include "tbx/types/assets/texture.generated.h"

@@ -21,7 +21,7 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; synchronize shared mutation externally.
     struct TBX_API Component
     {
-        [[tbx::prop]]
+        [[prop]]
         Uuid id = Uuid::generate();
     };
 

@@ -1,28 +1,29 @@
 #pragma once
 #include "tbx/types/assets/material.h"
 #include "tbx/types/components/component.h"
+#include "tbx/types/components/material_instance.generated.h"
 
 namespace tbx
 {
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API MaterialOverrides
     {
-        [[tbx::prop]]
+        [[prop]]
         MaterialTextureBindings textures = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialParameterBindings parameters = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialConfig config = {};
 
-        [[tbx::prop]]
+        [[prop]]
         bool has_texture_override = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool has_parameter_override = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool has_config_override = false;
     };
 
@@ -34,8 +35,8 @@ namespace tbx
     // TODO: replace all 'tbx::hash' methods with hash attribute fully, so we
     // shouldn't just have the attributes call a hash method we should give the attribute what it
     // needs to generate a hash.
-    [[tbx::serializable]];
-    [[tbx::hash(tbx::hash($))]];
+    [[serializable]];
+    [[hash(tbx::hash($))]];
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
@@ -94,10 +95,10 @@ namespace tbx
         template <typename TValue>
         TValue get_parameter_or(uint32 id, const TValue& fallback) const;
 
-        [[tbx::prop]]
+        [[prop]]
         Handle material = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialOverrides overrides = {};
 
       private:
@@ -107,5 +108,4 @@ namespace tbx
     TBX_API uint64 hash(const MaterialInstance& material, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
-#include "tbx/types/components/material_instance.generated.h"
 #include "tbx/types/components/material_instance.inl"

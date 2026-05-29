@@ -3,15 +3,23 @@ from __future__ import annotations
 from model import SerializableType
 
 
+def emit_variant_declarations(type_info: SerializableType) -> list[str]:
+    return [
+        f"void serialize(::tbx::Json& json, const {type_info.name}& value);",
+        f"void deserialize(const ::tbx::Json& json, {type_info.name}& value);",
+        "",
+    ]
+
+
 def emit_variant(type_info: SerializableType) -> list[str]:
     return [
-        f"inline void to_json(::tbx::Json& json, const {type_info.name}& value)",
+        f"void serialize(::tbx::Json& json, const {type_info.name}& value)",
         "{",
-        "    ::tbx::to_json_serializable_variant(json, value);",
+        "    ::tbx::serialize_serializable_variant(json, value);",
         "}",
-        f"inline void from_json(const ::tbx::Json& json, {type_info.name}& value)",
+        f"void deserialize(const ::tbx::Json& json, {type_info.name}& value)",
         "{",
-        "    ::tbx::from_json_serializable_variant(json, value);",
+        "    ::tbx::deserialize_serializable_variant(json, value);",
         "}",
         "",
     ]

@@ -1,4 +1,4 @@
-#include "tbx/interfaces/message_dispatcher.h"
+﻿#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/json.h"
@@ -55,12 +55,12 @@ namespace tbx::tests::scripting
         return "door_controller";
     }
 
-    inline void to_json(Json& json, const DoorScript& value)
+    inline void serialize(Json& json, const DoorScript& value)
     {
         json["open_speed"] = value.open_speed;
     }
 
-    inline void from_json(const Json& json, DoorScript& value)
+    inline void deserialize(const Json& json, DoorScript& value)
     {
         const auto default_value = DoorScript();
         read_serialization_field(json, "open_speed", value.open_speed, default_value.open_speed);
@@ -109,8 +109,10 @@ namespace tbx::tests::scripting
         container.scripts.push_back(binding);
 
         // Act
-        auto json = Json(container);
-        auto roundtripped = json.get<ScriptContainer>();
+        auto json = Json();
+        serialize(json, container);
+        auto roundtripped = ScriptContainer();
+        deserialize(json, roundtripped);
 
         // Assert
         ASSERT_TRUE(json["scripts"][0]["script"].contains("value"));
@@ -129,7 +131,7 @@ namespace tbx::tests::scripting
         resolver.script = &target;
         auto services = ServiceProvider();
         auto owner = Entity();
-        auto context = ScriptContext(Uuid(1U), owner, nullptr, &services, &resolver);
+        auto context = ScriptContext(Uuid(1U), owner, {}, services, resolver);
         auto reference = ScriptRef<DoorScript>(Uuid(70U), Uuid(0x41000001U), Uuid(9U));
         bind_script_field(reference, context);
 
@@ -154,8 +156,7 @@ namespace tbx::tests::scripting
         file_ops->set_text(
             "main.world",
             R"({
-                "chunk_size": 16.0,
-                "persistent_entities": [
+                "globals": [
                     {
                         "id": { "value": 40 },
                         "name": "Door",

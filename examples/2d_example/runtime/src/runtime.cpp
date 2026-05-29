@@ -1,5 +1,4 @@
 #include "runtime.h"
-#include "material_descriptions.generated.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
@@ -13,6 +12,7 @@
 #include "tbx/types/components/transform.h"
 #include "tbx/types/trig.h"
 #include "tbx/utils/string_utils.h"
+#include "material_descriptions.generated.h"
 
 namespace two_d_example
 {

@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/types/components/component.h"
+#include "tbx/types/components/transform.generated.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
 
@@ -9,9 +10,8 @@ namespace tbx
     // transforms.
     // Ownership: value type; callers own instances and should copy when sharing across systems.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
-    [[tbx::serializable]];
-    struct TBX_API Transform
-        : Component
+    [[serializable]];
+    struct TBX_API Transform : Component
     {
         Transform();
         Transform(const Vec3& position);
@@ -21,19 +21,19 @@ namespace tbx
         // Local-space translation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[tbx::prop]]
+        [[prop]]
         Vec3 position = Vec3(0.0f);
 
         // Local-space rotation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[tbx::prop]]
+        [[prop]]
         Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
 
         // Local-space scale component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[tbx::prop]]
+        [[prop]]
         Vec3 scale = Vec3(1.0f);
     };
 
@@ -64,5 +64,3 @@ namespace tbx
     TBX_API Transform
         world_to_local_tranform(const Transform& parent_world, const Transform& world);
 }
-
-#include "tbx/types/components/transform.generated.h"

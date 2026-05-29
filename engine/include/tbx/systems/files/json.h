@@ -46,7 +46,34 @@ namespace tbx
         {
             try
             {
-                out_value = data.get<TValue>();
+                if constexpr (requires {
+                                  typename TValue::length_type;
+                                  TValue::length();
+                                  out_value[typename TValue::length_type()];
+                              })
+                {
+                    if (!data.is_array())
+                        return false;
+
+                    const auto value_count =
+                        std::min(data.size(), static_cast<size_t>(TValue::length()));
+                    for (auto index = size_t(); index < value_count; ++index)
+                    {
+                        if (!try_get(
+                                data[index],
+                                out_value[static_cast<typename TValue::length_type>(index)]))
+                            return false;
+                    }
+                    return true;
+                }
+                else if constexpr (requires { deserialize(data, out_value); })
+                {
+                    deserialize(data, out_value);
+                }
+                else
+                {
+                    out_value = data.get<TValue>();
+                }
                 return true;
             }
             catch (...)

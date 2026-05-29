@@ -1,22 +1,23 @@
 #pragma once
+#include "tbx/systems/time/span.generated.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
 
 namespace tbx
 {
-    [[tbx::printable]];
-    enum TimeUnit
+    [[printable]];
+    enum class TimeUnit
     {
-        MILLISECONDS [[tbx::name("ms")]],
-        SECONDS [[tbx::name("s")]],
-        MINUTES [[tbx::name("min")]],
-        HOURS [[tbx::name("h")]],
-        DAYS [[tbx::name("d")]]
+        MILLISECONDS [[name("ms")]],
+        SECONDS [[name("s")]],
+        MINUTES [[name("min")]],
+        HOURS [[name("h")]],
+        DAYS [[name("d")]]
     };
 
     // Value-type duration helper; thread-safe due to copy semantics.
-    [[tbx::printable("{} {}", value, unit)]];
+    [[printable("{} {}", value, unit)]];
     struct TBX_API TimeSpan
     {
         bool is_zero() const;
@@ -29,7 +30,4 @@ namespace tbx
         uint64 value = 0;
         TimeUnit unit = TimeUnit::MILLISECONDS;
     };
-
 }
-
-#include "tbx/systems/time/span.generated.h"

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import textwrap
 import tempfile
@@ -15,7 +15,40 @@ class AttributeCodegenTests(unittest.TestCase):
     def generate(self, source: str) -> str:
         return generate_header(parse_source(textwrap.dedent(source)))
 
+    def generate_source(self, source: str) -> str:
+        return generate_source(
+            "value.generated.h",
+            parse_source(textwrap.dedent(source)),
+            "value.h",
+        )
+
     def test_struct_fields_and_name_are_generated(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            [[tbx::name("renamed")]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        output = self.generate(source)
+        source_output = self.generate_source(source)
+        self.assertIn('return "renamed";', output)
+        self.assertIn("void serialize(::tbx::Json& tbx_json, const Value& tbx_value);", output)
+        self.assertIn(
+            "void deserialize(const ::tbx::Json& tbx_json, Value& tbx_value);",
+            output,
+        )
+        self.assertNotIn("tbx_value.amount", output)
+        self.assertIn("::tbx::write_serialization_field(", source_output)
+        self.assertIn("tbx_value.amount);", source_output)
+        self.assertTrue(output.startswith(GENERATED_CODE_BANNER))
+
+    def test_generated_header_is_declaration_safe(self) -> None:
         output = self.generate(
             """
             namespace tbx::tests
@@ -30,15 +63,18 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn('return "renamed";', output)
-        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
-        self.assertTrue(output.startswith(GENERATED_CODE_BANNER))
+
+        self.assertIn("std::true_type tbx_has_struct_serialization(const Value*);", output)
+        self.assertIn("bool tbx_register_serializable_type(const Value*);", output)
+        self.assertNotIn("tbx_value.", output)
+        self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", output)
 
     def test_source_stub_is_marked_generated(self) -> None:
-        output = generate_source("value.generated.h")
+        output = generate_source("value.generated.h", [], "value.h")
 
         self.assertTrue(output.startswith(GENERATED_CODE_BANNER))
-        self.assertIn("value.generated.h", output)
+        self.assertNotIn("#include \"value.h\"", output)
+        self.assertNotIn("#include \"value.generated.h\"", output)
 
     def test_plugin_source_generates_fixed_exports(self) -> None:
         types = parse_source(
@@ -122,7 +158,7 @@ class AttributeCodegenTests(unittest.TestCase):
             self.assertIn('ALBEDO_COLOR = "albedo_color"', material_output)
 
     def test_asset_body_and_meta_are_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -142,8 +178,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("register_asset_meta_type<Value>", output)
 
     def test_no_semicolon_attribute_blocks_are_generated(self) -> None:
-        output = self.generate(
-            """
+        source = """
             namespace tbx::tests
             {
             [[tbx::serializable]]
@@ -155,9 +190,29 @@ class AttributeCodegenTests(unittest.TestCase):
             };
             }
             """
-        )
-        self.assertIn('return "renamed";', output)
-        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+        self.assertIn('return "renamed";', header_output)
+        self.assertIn("tbx_value.amount);", source_output)
+
+    def test_unqualified_attributes_are_generated(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            [[name("renamed")]];
+            struct Value
+            {
+                [[prop]]
+                int amount = 0;
+            };
+            }
+            """
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn('return "renamed";', header_output)
+        self.assertIn("tbx_value.amount);", source_output)
 
     def test_parent_field_props_are_generated(self) -> None:
         source = textwrap.dedent(
@@ -186,10 +241,14 @@ class AttributeCodegenTests(unittest.TestCase):
             """
         )
 
-        output = generate_header(parse_source(source, context_source=context))
+        output = generate_source(
+            "value.generated.h",
+            parse_source(source, context_source=context),
+            "value.h",
+        )
 
-        self.assertIn('tbx_json["id"] = tbx_value.id;', output)
-        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+        self.assertIn("tbx_value.id);", output)
+        self.assertIn("tbx_value.amount);", output)
 
     def test_type_level_struct_props_are_rejected(self) -> None:
         with self.assertRaises(CodegenError):
@@ -265,13 +324,17 @@ class AttributeCodegenTests(unittest.TestCase):
             """
         )
 
-        output = generate_header(parse_source(source, context_source=context))
+        output = generate_source(
+            "value.generated.h",
+            parse_source(source, context_source=context),
+            "value.h",
+        )
 
-        self.assertIn('tbx_json["id"] = tbx_value.id;', output)
-        self.assertIn('tbx_json["amount"] = tbx_value.amount;', output)
+        self.assertIn("tbx_value.id);", output)
+        self.assertIn("tbx_value.amount);", output)
 
     def test_script_asset_registration_is_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -291,13 +354,13 @@ class AttributeCodegenTests(unittest.TestCase):
             """
         )
         self.assertIn("register_script_asset_type<DoorController>", output)
-        self.assertIn("tbx_json[\"open_speed\"] = tbx_value.open_speed;", output)
+        self.assertIn("tbx_value.open_speed);", output)
         self.assertIn("bind_script_field(tbx_value.open_speed", output)
         self.assertIn("bind_script_field(tbx_value.input", output)
         self.assertNotIn("tbx_json[\"input\"]", output)
 
     def test_version_only_asset_registers_type_only(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -315,7 +378,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertNotIn("register_asset_meta_type<Value>", output)
 
     def test_text_and_meta_asset_are_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -336,7 +399,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("register_asset_meta_type<Value>", output)
 
     def test_text_and_meta_non_asset_are_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -357,7 +420,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("register_asset_meta_type<Value>", output)
 
     def test_custom_serializers_are_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -386,11 +449,92 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("Serializer<Value>::to_json", output)
-        self.assertIn("read_custom_json_asset_body<AssetValue>", output)
+        self.assertIn("Serializer<Value>::serialize", output)
+        self.assertIn("Serializer<AssetValue>::deserialize", output)
+        self.assertIn("Serializer<AssetValue>::serialize", output)
+
+    def test_custom_serialization_attribute_is_generated(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            [[tbx::custom_serialization(
+                ::tbx::Serializer<Value>::serialize,
+                ::tbx::Serializer<Value>::deserialize)]];
+            struct Value
+            {
+            };
+            }
+            """
+        )
+        self.assertIn(
+            "tbx_json = ::tbx::Json::parse(::tbx::Serializer<Value>::serialize(tbx_value));",
+            output,
+        )
+        self.assertIn(
+            "if (!::tbx::Serializer<Value>::deserialize(tbx_serialization_data, tbx_serialization_value))",
+            output,
+        )
+
+    def test_custom_serialization_attribute_supports_unqualified_method_names(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            [[tbx::custom_serialization(serialize, deserialize)]];
+            struct Value
+            {
+            };
+            }
+            """
+        )
+        self.assertIn("tbx_json = ::tbx::Json::parse(Value::serialize(tbx_value));", output)
+        self.assertIn("if (!Value::deserialize(tbx_serialization_data, tbx_serialization_value))", output)
+
+    def test_lifecycle_attributes_emit_hooks(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            [[tbx::pre_serialize(prepare_for_save)]];
+            [[tbx::post_deserialize(rebuild_runtime_state)]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        self.assertIn("void pre_serialize(const Value& tbx_value)", output)
+        self.assertIn("tbx_value.prepare_for_save();", output)
+        self.assertIn("void post_deserialize(Value& tbx_value)", output)
+        self.assertIn("tbx_value.rebuild_runtime_state();", output)
+
+    def test_struct_serialization_glue_uses_concrete_json_overloads(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+
+        self.assertNotIn("template <typename BasicJsonType>", output)
+        self.assertNotIn("template <typename TSerializable", output)
+        self.assertNotIn("Serializer<TSerializable>", output)
 
     def test_enum_and_variant_are_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -406,18 +550,18 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("NLOHMANN_JSON_SERIALIZE_ENUM(Mode", output)
+        self.assertIn("void serialize(::tbx::Json& json, const Mode& value)", output)
         self.assertIn("::tbx::Json& json", output)
-        self.assertIn("to_json_serializable_variant", output)
+        self.assertIn("serialize_serializable_variant", output)
 
     def test_indexed_alias_is_generated(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace glm
             {
             [[tbx::serializable]];
             [[tbx::name("Mat4")]];
-            [[tbx::count(4U)]];
+            [[tbx::array(4U)]];
             using TbxMat4 = tbx::Mat4;
             }
             """
@@ -426,7 +570,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("write_indexed_serialization_value", output)
 
     def test_printable_and_hash_are_generated(self) -> None:
-        output = self.generate(
+        header_output = self.generate(
             """
             namespace tbx::tests
             {
@@ -441,14 +585,127 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("struct std::formatter<tbx::tests::Value>", output)
-        self.assertIn('std::format(\n                "Value: {}",', output)
-        self.assertIn("struct std::hash<tbx::tests::Value>", output)
-        self.assertIn("seed = ::tbx::hash_combine(seed, value.name);", output)
-        self.assertIn("seed = ::tbx::hash_combine(seed, value.id);", output)
+        source_output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::printable("Value: {}", value)]];
+            [[tbx::hash(name, id)]];
+            struct Value
+            {
+                int value = 0;
+                std::string name = "";
+                int id = 0;
+            };
+            }
+            """
+        )
+        self.assertIn("struct std::formatter<tbx::tests::Value>", header_output)
+        self.assertIn("struct std::hash<tbx::tests::Value>", header_output)
+        self.assertIn("bool operator==(const Value& left, const Value& right);", header_output)
+        self.assertIn('std::format(\n            "Value: {}",', source_output)
+        self.assertIn("seed = ::tbx::hash_combine(seed, value.name);", source_output)
+        self.assertIn("seed = ::tbx::hash_combine(seed, value.id);", source_output)
+        self.assertIn(
+            "bool operator==(const Value& left, const Value& right)",
+            source_output,
+        )
+        self.assertIn("return (left.name == right.name) && (left.id == right.id);", source_output)
+
+    def test_hash_respects_existing_equality_operator(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::hash(name, id)]]
+            struct Value
+            {
+                std::string name = "";
+                int id = 0;
+
+                bool operator==(const Value& other) const = default;
+            };
+            }
+            """
+
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn("struct std::hash<tbx::tests::Value>", header_output)
+        self.assertNotIn("bool operator==(const Value& left, const Value& right);", header_output)
+        self.assertNotIn("bool operator==(const Value& left, const Value& right)", source_output)
+
+    def test_forward_declarations_are_generated_before_global_specializations(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::hash(name, id)]]
+            struct Value
+            {
+                std::string name = "";
+                int id = 0;
+            };
+            }
+            """
+        )
+
+        declaration_index = output.find("struct Value;")
+        specialization_index = output.find("struct std::hash<tbx::tests::Value>")
+
+        self.assertNotEqual(-1, declaration_index)
+        self.assertNotEqual(-1, specialization_index)
+        self.assertLess(declaration_index, specialization_index)
+        self.assertIn("::size operator()(const tbx::tests::Value& value) const", output)
+
+    def test_scoped_enum_forward_declaration_preserves_underlying_type(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::printable]]
+            enum class Mode : uint8
+            {
+                LOW [[tbx::name("low")]]
+            };
+            }
+            """
+        )
+
+        self.assertIn("enum class Mode : uint8;", output)
+        source_output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::printable]]
+            enum class Mode : uint8
+            {
+                LOW [[tbx::name("low")]]
+            };
+            }
+            """
+        )
+        self.assertIn("case tbx::tests::Mode::LOW:", source_output)
+
+    def test_alias_declaration_is_generated_before_alias_glue(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]]
+            using Variant = std::variant<int, float>;
+            }
+            """
+        )
+
+        declaration_index = output.find("using Variant = std::variant<int, float>;")
+        glue_index = output.find("void serialize(::tbx::Json& json, const Variant& value)")
+
+        self.assertNotEqual(-1, declaration_index)
+        self.assertNotEqual(-1, glue_index)
+        self.assertLess(declaration_index, glue_index)
 
     def test_printable_and_hash_can_use_value_expression(self) -> None:
-        output = self.generate(
+        output = self.generate_source(
             """
             namespace tbx::tests
             {
@@ -465,8 +722,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("return static_cast<::size>(tbx::hash(value));", output)
 
     def test_unscoped_enum_printable_is_generated(self) -> None:
-        output = self.generate(
-            """
+        source = """
             namespace tbx::tests
             {
             [[tbx::printable]];
@@ -477,10 +733,11 @@ class AttributeCodegenTests(unittest.TestCase):
             };
             }
             """
-        )
+        output = self.generate(source)
+        source_output = self.generate_source(source)
         self.assertIn("struct std::formatter<tbx::tests::Unit>", output)
-        self.assertIn("case tbx::tests::Unit::ONE:", output)
-        self.assertIn('name = "one";', output)
+        self.assertIn("case tbx::tests::ONE:", source_output)
+        self.assertIn('name = "one";', source_output)
 
     def test_asset_requires_version(self) -> None:
         with self.assertRaises(CodegenError):

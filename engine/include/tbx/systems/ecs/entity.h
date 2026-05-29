@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/ecs/entity.generated.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/transform.h"
 #include <concepts>
@@ -12,8 +13,9 @@ namespace tbx
     /// @details
     /// Ownership: Does not own the registry; caller ensures registry lifetime exceeds this
     /// instance. Thread Safety: Not thread-safe; synchronize external concurrent access.
-    [[tbx::serializable]];
-    [[tbx::printable(
+    [[serializable]];
+    [[custom_serialization(serialize, deserialize)]];
+    [[printable(
         "Entity{{id={}, name='{}', tag='{}', layer='{}', parent={}}}",
         get_id().value,
         get_name(),
@@ -70,9 +72,13 @@ namespace tbx
             requires std::derived_from<TComponent, Component>
         bool has_component() const;
 
+      public:
+        static std::string serialize(const Entity& entity);
+        static bool deserialize(std::string_view data, Entity& entity);
+        static bool deserialize(std::string_view data, EntityRegistry& registry, Entity& entity);
+
       private:
         friend class EntityRegistry;
-        friend struct Serializer<Entity>;
 
         std::shared_ptr<EntityRegistry> _owned_registry = nullptr;
         std::optional<std::reference_wrapper<EntityRegistry>> _registry = std::nullopt;
@@ -93,14 +99,6 @@ namespace tbx
         Entity entity;
     };
 
-    template <>
-    struct TBX_API Serializer<Entity>
-    {
-        static std::string to_json(const Entity& entity);
-        static bool from_json(std::string_view data, Entity& entity);
-        static bool from_json(std::string_view data, EntityRegistry& registry, Entity& entity);
-    };
-
     /// @brief
     /// Purpose: Resolves an entity transform in world space by composing parent local transforms.
     /// @details
@@ -111,5 +109,4 @@ namespace tbx
 
 }
 
-#include "tbx/systems/ecs/entity.generated.h"
 #include "tbx/systems/ecs/entity.inl"

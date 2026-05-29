@@ -1,3 +1,4 @@
+﻿#include "asset_manager_tests.generated.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
@@ -7,6 +8,7 @@
 #include <condition_variable>
 #include <future>
 #include <thread>
+
 
 namespace tbx
 {
@@ -20,32 +22,26 @@ namespace tbx
         std::filesystem::path resolved_include_path = {};
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1U)]]
-    struct MacroOnlyAsset : Asset
+    struct [[serializable]] [[version(1U)]] MacroOnlyAsset : Asset
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1U)]]
-    struct OverlayAsset : Asset
+    struct [[serializable]] [[version(1U)]] OverlayAsset : Asset
     {
         bool was_overlaid = false;
 
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1U)]]
-    struct LoaderPriorityAsset : Asset
+    struct [[serializable]] [[version(1U)]] LoaderPriorityAsset : Asset
     {
         bool loader_received_metadata = false;
         bool loader_saw_default_asset = false;
 
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 
@@ -55,20 +51,16 @@ namespace tbx
         int value = 7;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1U)]]
-    struct TextOnlyAsset : Asset
+    struct [[serializable]] [[version(1U)]] TextOnlyAsset : Asset
     {
-        [[tbx::text]]
+        [[text]]
         std::string source = "";
 
-        [[tbx::meta]]
+        [[meta]]
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1U)]]
-    struct CustomBodyAsset : Asset
+    struct [[serializable]] [[version(1U)]] CustomBodyAsset : Asset
     {
         std::string label = "";
         int value = 0;
@@ -77,7 +69,7 @@ namespace tbx
     template <>
     struct Serializer<CustomBodyAsset>
     {
-        static std::string to_json(const CustomBodyAsset& asset)
+        static std::string serialize(const CustomBodyAsset& asset)
         {
             auto json = Json::object();
             json["label"] = asset.label;
@@ -85,7 +77,7 @@ namespace tbx
             return json.dump();
         }
 
-        static bool from_json(std::string_view data, CustomBodyAsset& asset)
+        static bool deserialize(std::string_view data, CustomBodyAsset& asset)
         {
             try
             {
@@ -302,8 +294,6 @@ namespace tbx
         }
     };
 }
-
-#include "asset_manager_tests.generated.h"
 
 namespace tbx::tests::assets
 {

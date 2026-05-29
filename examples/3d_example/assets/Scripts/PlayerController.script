@@ -1,0 +1,9 @@
+{
+    "camera_entity": {
+        "value": 12582913
+    },
+    "initial_pitch": 0.0,
+    "initial_yaw": 0.0,
+    "look_sensitivity": 0.0025,
+    "move_speed": 6.0
+}

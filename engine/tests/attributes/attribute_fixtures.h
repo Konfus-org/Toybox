@@ -1,26 +1,22 @@
-#pragma once
+﻿#pragma once
+#include "generated/attribute_fixtures.generated.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/asset.h"
 
+
 namespace tbx
 {
-    [[tbx::serializable]]
-    [[tbx::name("attribute_struct")]]
+    [[serializable]] [[name("attribute_struct")]];
     struct AttributeStruct
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
 
-        [[tbx::prop]] [[tbx::name("renamed")]]
+        [[prop]] [[name("renamed")]]
         int renamed_value = 0;
     };
 
-    [[tbx::printable(
-        "[Left: {}, Right: {}, Top: {}, Bottom: {}]",
-        left,
-        right,
-        top,
-        bottom)]];
+    [[printable("[Left: {}, Right: {}, Top: {}, Bottom: {}]", left, right, top, bottom)]];
     struct AttributePrintable
     {
         float left = 0.0F;
@@ -29,23 +25,21 @@ namespace tbx
         float bottom = 0.0F;
     };
 
-    [[tbx::hash(name, id)]]
+    [[hash(name, id)]];
     struct AttributeHash
     {
         std::string name = "";
         int id = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(7)]]
+    [[serializable]] [[version(7)]];
     struct AttributeVersionedStruct
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::count(3)]]
+    [[serializable]] [[array(3)]];
     struct AttributeIndexed
     {
         using col_type = float;
@@ -63,49 +57,44 @@ namespace tbx
         }
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(1)]]
+    [[serializable]] [[version(1)]];
     struct AttributeAsset : Asset
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(2)]]
+    [[serializable]] [[version(2)]];
     struct AttributeMetaAsset : Asset
     {
-        [[tbx::meta]]
+        [[meta]]
         int import_version = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(3)]]
+    [[serializable]] [[version(3)]];
     struct AttributeBodyMetaAsset : Asset
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
 
-        [[tbx::meta]]
+        [[meta]]
         int import_version = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(4)]]
+    [[serializable]] [[version(4)]];
     struct AttributeTextAsset : Asset
     {
-        [[tbx::text]]
+        [[text]]
         std::string source = "";
     };
 
-    [[tbx::serializable]]
+    [[serializable]];
     struct AttributeCustomStruct
     {
         int value = 0;
     };
 
-    [[tbx::serializable]]
-    [[tbx::version(5)]]
+    [[serializable]] [[version(5)]];
     struct AttributeCustomAsset : Asset
     {
         int value = 0;
@@ -114,14 +103,14 @@ namespace tbx
     template <>
     struct Serializer<AttributeCustomStruct>
     {
-        static std::string to_json(const AttributeCustomStruct& value)
+        static std::string serialize(const AttributeCustomStruct& value)
         {
             auto json = Json::object();
             json["value"] = value.value;
             return json.dump();
         }
 
-        static bool from_json(std::string_view data, AttributeCustomStruct& value)
+        static bool deserialize(std::string_view data, AttributeCustomStruct& value)
         {
             auto json = JsonParser::parse(data);
             return JsonParser::try_get(json, "value", value.value);
@@ -131,29 +120,27 @@ namespace tbx
     template <>
     struct Serializer<AttributeCustomAsset>
     {
-        static std::string to_json(const AttributeCustomAsset& value)
+        static std::string serialize(const AttributeCustomAsset& value)
         {
             auto json = Json::object();
             json["value"] = value.value;
             return json.dump();
         }
 
-        static bool from_json(std::string_view data, AttributeCustomAsset& value)
+        static bool deserialize(std::string_view data, AttributeCustomAsset& value)
         {
             auto json = JsonParser::parse(data);
             return JsonParser::try_get(json, "value", value.value);
         }
     };
 
-    [[tbx::serializable]]
+    [[serializable]];
     enum class AttributeEnum
     {
-        FIRST [[tbx::name("first")]],
-        SECOND [[tbx::name("second")]]
+        FIRST [[name("first")]],
+        SECOND [[name("second")]]
     };
 
-    [[tbx::serializable]]
+    [[serializable]];
     using AttributeVariant = std::variant<int, float>;
 }
-
-#include "generated/attribute_fixtures.generated.h"

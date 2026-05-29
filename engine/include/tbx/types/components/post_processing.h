@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/material_instance.h"
+#include "tbx/types/components/post_processing.generated.h"
 #include <initializer_list>
 
 namespace tbx
@@ -10,7 +11,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning material handle reference and value settings.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API PostProcessingEffect
     {
         ~PostProcessingEffect();
@@ -20,7 +21,7 @@ namespace tbx
         /// @details
         /// Ownership: Owns parameter/texture override sets and a base material handle.
         /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         MaterialInstance material = {};
 
         /// @brief
@@ -28,7 +29,7 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         bool is_enabled = true;
 
         /// @brief
@@ -36,7 +37,7 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         float blend = 1.0f;
     };
 
@@ -45,9 +46,8 @@ namespace tbx
     /// @details
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    [[tbx::serializable]];
-    struct TBX_API PostProcessing
-        : Component
+    [[serializable]];
+    struct TBX_API PostProcessing : Component
     {
         ~PostProcessing();
 
@@ -56,7 +56,7 @@ namespace tbx
         /// @details
         /// Ownership: Owns the effect stack vector and effect settings.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         std::vector<PostProcessingEffect> effects = {};
 
         /// @brief
@@ -64,9 +64,7 @@ namespace tbx
         /// @details
         /// Ownership: Value type.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[tbx::prop]]
+        [[prop]]
         bool is_enabled = true;
     };
 }
-
-#include "tbx/types/components/post_processing.generated.h"

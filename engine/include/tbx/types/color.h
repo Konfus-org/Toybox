@@ -1,11 +1,12 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/color.generated.h"
 #include <format>
 #include <string>
 
 namespace tbx
 {
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API Color
     {
         // Default constructor, initializes the color to black (0, 0, 0, 1)
@@ -27,16 +28,16 @@ namespace tbx
         }
 
         // Amount of red in the color (0-1)
-        [[tbx::prop]]
+        [[prop]]
         float r = 0;
         // Amount of green in the color (0-1)
-        [[tbx::prop]]
+        [[prop]]
         float g = 0;
         // Amount of blue in the color (0-1)
-        [[tbx::prop]]
+        [[prop]]
         float b = 0;
         // Alpha/Transparency value (0-1)
-        [[tbx::prop]]
+        [[prop]]
         float a = 1;
 
         static const Color WHITE;
@@ -51,7 +52,4 @@ namespace tbx
         static const Color LIGHT_GREY;
         static const Color DARK_GREY;
     };
-
 }
-
-#include "tbx/types/color.generated.h"

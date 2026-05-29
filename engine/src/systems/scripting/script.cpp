@@ -9,47 +9,53 @@ namespace tbx
     ScriptContext::ScriptContext(
         Uuid world_id,
         Entity entity,
-        World* world,
-        ServiceProvider* services,
-        IScriptResolver* resolver)
+        std::weak_ptr<World> world,
+        ServiceProvider& services,
+        IScriptResolver& resolver)
         : _world_id(world_id)
         , _entity(std::move(entity))
-        , _world(world)
-        , _services(services)
-        , _resolver(resolver)
+        , _world(std::move(world))
+        , _services(std::ref(services))
+        , _resolver(std::ref(resolver))
     {
     }
 
-    Entity& ScriptContext::entity() const
+    Entity& ScriptContext::get_entity() const
     {
         TBX_ASSERT(_entity.get_id().is_valid(), "Script context does not have an entity.");
         return const_cast<Entity&>(_entity);
     }
 
-    Uuid ScriptContext::entity_id() const
+    Uuid ScriptContext::get_entity_id() const
     {
         return _entity.get_id();
     }
 
-    IScriptResolver& ScriptContext::resolver() const
+    IScriptResolver& ScriptContext::get_resolver() const
     {
-        TBX_ASSERT(_resolver != nullptr, "Script context does not have a script resolver.");
-        return *_resolver;
+        TBX_ASSERT(_resolver.has_value(), "Script context does not have a script resolver.");
+        return _resolver->get();
     }
 
-    ServiceProvider& ScriptContext::services() const
+    ServiceProvider& ScriptContext::get_services() const
     {
-        TBX_ASSERT(_services != nullptr, "Script context does not have services.");
-        return *_services;
+        TBX_ASSERT(_services.has_value(), "Script context does not have services.");
+        return _services->get();
     }
 
-    World& ScriptContext::world() const
+    World& ScriptContext::get_world() const
     {
-        TBX_ASSERT(_world != nullptr, "Script context does not have a world.");
-        return *_world;
+        auto world = _world.lock();
+        TBX_ASSERT(world != nullptr, "Script context does not have a world.");
+        return *world;
     }
 
-    Uuid ScriptContext::world_id() const
+    std::weak_ptr<World> ScriptContext::get_world_ptr() const
+    {
+        return _world;
+    }
+
+    Uuid ScriptContext::get_world_id() const
     {
         return _world_id;
     }
@@ -59,21 +65,27 @@ namespace tbx
         _context = std::move(context);
     }
 
-    Entity& Script::entity() const
+    Entity& Script::get_entity() const
     {
         TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->entity();
+        return _context->get_entity();
     }
 
-    ServiceProvider& Script::services() const
+    ServiceProvider& Script::get_services() const
     {
         TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->services();
+        return _context->get_services();
     }
 
-    World& Script::world() const
+    std::weak_ptr<World> Script::get_world_ptr() const
     {
         TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->world();
+        return _context->get_world_ptr();
+    }
+
+    World& Script::get_world() const
+    {
+        TBX_ASSERT(_context.has_value(), "Script has no bound context.");
+        return _context->get_world();
     }
 }

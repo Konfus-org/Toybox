@@ -9,11 +9,71 @@ def make_value_expression(argument: str) -> str:
     return f"value.{argument}"
 
 
+def make_equality_expression(argument: str) -> str:
+    if "$" in argument:
+        return argument.replace("$", "left") + " == " + argument.replace("$", "right")
+    return f"left.{argument} == right.{argument}"
+
+
 def emit_single_hash_return(argument: str) -> str:
     expression = make_value_expression(argument)
     if "$" in argument:
         return f"        return static_cast<::size>({expression});"
     return f"        return static_cast<::size>(std::hash<decltype({expression})>()({expression}));"
+
+
+def emit_hash_declaration(type_info: SerializableType) -> list[str]:
+    attr = find_attr(type_info.attrs, "hash")
+    if attr is None:
+        return []
+    if not attr.args:
+        raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
+
+    qualified = qualified_name(type_info)
+    source_path = type_info.source_path.replace("\\", "/")
+    api_macro = (
+        type_info.api_macro
+        or ("TBX_API" if type_info.namespace == "tbx" and "/engine/include/" in source_path else "")
+    )
+    api_prefix = f"{api_macro} " if api_macro else ""
+    return [
+        "template <>",
+        f"struct std::hash<{qualified}>",
+        "{",
+        f"    {api_prefix}::size operator()(const {qualified}& value) const;",
+        "};",
+        "",
+    ]
+
+
+def emit_hash_equality_declaration(type_info: SerializableType) -> list[str]:
+    attr = find_attr(type_info.attrs, "hash")
+    if attr is None or type_info.has_equality_operator:
+        return []
+    if not attr.args:
+        raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
+
+    return [
+        f"bool operator==(const {type_info.name}& left, const {type_info.name}& right);",
+        "",
+    ]
+
+
+def emit_hash_equality(type_info: SerializableType) -> list[str]:
+    attr = find_attr(type_info.attrs, "hash")
+    if attr is None or type_info.has_equality_operator:
+        return []
+    if not attr.args:
+        raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
+
+    comparisons = " && ".join(f"({make_equality_expression(field)})" for field in attr.args)
+    return [
+        f"bool operator==(const {type_info.name}& left, const {type_info.name}& right)",
+        "{",
+        f"    return {comparisons};",
+        "}",
+        "",
+    ]
 
 
 def emit_hash(type_info: SerializableType) -> list[str]:
@@ -24,35 +84,16 @@ def emit_hash(type_info: SerializableType) -> list[str]:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
 
     qualified = qualified_name(type_info)
-    if len(attr.args) == 1:
-        return [
-            "template <>",
-            f"struct std::hash<{qualified}>",
-            "{",
-            f"    ::size operator()(const {qualified}& value) const",
-            "    {",
-            emit_single_hash_return(attr.args[0]),
-            "    }",
-            "};",
-            "",
-        ]
-
     lines = [
-        "template <>",
-        f"struct std::hash<{qualified}>",
+        f"::size std::hash<{qualified}>::operator()(const {qualified}& value) const",
         "{",
-        f"    ::size operator()(const {qualified}& value) const",
-        "    {",
-        "        auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;",
     ]
-    for field in attr.args:
-        lines.append(f"        seed = ::tbx::hash_combine(seed, {make_value_expression(field)});")
-    lines.extend(
-        [
-            "        return static_cast<::size>(seed);",
-            "    }",
-            "};",
-            "",
-        ]
-    )
+    if len(attr.args) == 1:
+        lines.append(emit_single_hash_return(attr.args[0]))
+    else:
+        lines.append("    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;")
+        for field in attr.args:
+            lines.append(f"    seed = ::tbx::hash_combine(seed, {make_value_expression(field)});")
+        lines.append("    return static_cast<::size>(seed);")
+    lines.extend(["}", ""])
     return lines

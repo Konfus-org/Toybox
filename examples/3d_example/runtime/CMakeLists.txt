@@ -19,6 +19,13 @@ tbx_enable_release_asset_bundling(
     CONFIGS Debug Release
 )
 
+tbx_codegen_generate_attribute_headers(
+    TARGET ThreeDExampleRuntime
+    SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts"
+    OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated/scripts"
+    INCLUDE_SCOPE PRIVATE
+)
+
 tbx_codegen_generate_plugin_registration(
     TARGET ThreeDExampleRuntime
     BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"

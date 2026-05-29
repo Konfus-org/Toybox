@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/handle.generated.h"
 #include "tbx/types/uuid.h"
 #include <atomic>
 #include <memory>
@@ -13,9 +14,9 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned name strings, UUID values, and shared validity state.
     /// Thread Safety: Safe to copy between threads; invalidation is atomic.
-    [[tbx::serializable]];
-    [[tbx::printable("[Name: {}, Id: {}]", name, id)]];
-    [[tbx::hash(name, id)]];
+    [[serializable]];
+    [[printable("[Name: {}, Id: {}]", name, id)]];
+    [[hash(name, id)]];
     struct Handle
     {
         Handle() = default;
@@ -55,13 +56,10 @@ namespace tbx
 
         std::string name = {};
 
-        [[tbx::prop]]
+        [[prop]]
         Uuid id = {};
 
       private:
         std::shared_ptr<std::atomic_bool> _is_valid = std::make_shared<std::atomic_bool>(true);
     };
-
 }
-
-#include "tbx/types/handle.generated.h"

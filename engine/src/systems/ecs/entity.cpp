@@ -352,14 +352,14 @@ namespace tbx
         entity.destroy();
     }
 
-    std::string Serializer<Entity>::to_json(const Entity& entity)
+    std::string Entity::serialize(const Entity& entity)
     {
         auto json = Json::object();
-        json["id"] = entity.get_id();
+        ::tbx::serialize(json["id"], entity.get_id());
         json["name"] = entity.get_name();
         json["tag"] = entity.get_tag();
         json["layer"] = entity.get_layer();
-        json["parent"] = entity.get_parent();
+        ::tbx::serialize(json["parent"], entity.get_parent());
 
         auto components = Json::object();
         if (entity._registry.has_value())
@@ -399,11 +399,11 @@ namespace tbx
         return json.dump();
     }
 
-    bool Serializer<Entity>::from_json(std::string_view data, Entity& entity)
+    bool Entity::deserialize(std::string_view data, Entity& entity)
     {
         auto owned_registry = std::make_shared<EntityRegistry>();
         auto rebound_entity = Entity();
-        if (!from_json(data, *owned_registry, rebound_entity))
+        if (!deserialize(data, *owned_registry, rebound_entity))
             return false;
 
         rebound_entity._owned_registry = std::move(owned_registry);
@@ -411,7 +411,7 @@ namespace tbx
         return true;
     }
 
-    bool Serializer<Entity>::from_json(
+    bool Entity::deserialize(
         std::string_view data,
         EntityRegistry& registry,
         Entity& entity)

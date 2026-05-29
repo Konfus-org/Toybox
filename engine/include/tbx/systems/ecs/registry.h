@@ -75,7 +75,6 @@ namespace tbx
 
       private:
         friend class Entity;
-        friend struct Serializer<Entity>;
 
         std::string get_name(const Uuid& id) const;
         void set_name(const Uuid& id, const std::string& name);

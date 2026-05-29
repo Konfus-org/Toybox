@@ -23,7 +23,7 @@ function(tbx_codegen_register_generated_files)
 
     target_sources(CodeGenUtility PRIVATE ${TBX_CODEGEN_FILES})
     if(TBX_CODEGEN_BASE_DIR)
-        source_group(TREE "${TBX_CODEGEN_BASE_DIR}" FILES ${TBX_CODEGEN_FILES})
+        source_group(TREE "${TBX_CODEGEN_BASE_DIR}" PREFIX "util" FILES ${TBX_CODEGEN_FILES})
     endif()
 endfunction()
 
@@ -75,7 +75,8 @@ function(tbx_codegen_generate_attribute_headers)
     set(generated_headers "")
     foreach(attribute_input IN LISTS attribute_inputs)
         file(READ "${attribute_input}" attribute_input_text)
-        if(NOT attribute_input_text MATCHES "\\[\\[tbx::")
+        if(NOT attribute_input_text MATCHES "\\[\\[tbx::"
+            AND NOT attribute_input_text MATCHES "#include[ \t]+\"[^\"]+\\.generated\\.h\"")
             continue()
         endif()
 
@@ -113,12 +114,24 @@ function(tbx_codegen_generate_attribute_headers)
         return()
     endif()
 
-    string(MAKE_C_IDENTIFIER "${TBX_CODEGEN_TARGET}_AttributeHeaders" attribute_target_name)
+    # Attribute header generation can run multiple times per target (e.g. include/ and src/).
+    # Include roots in the target identity so each invocation gets a stable unique custom target.
+    string(SHA1 attribute_target_hash
+        "${TBX_CODEGEN_SOURCE_ROOT}|${TBX_CODEGEN_OUTPUT_ROOT}|${TBX_CODEGEN_TARGET}")
+    string(SUBSTRING "${attribute_target_hash}" 0 8 attribute_target_hash_short)
+    string(MAKE_C_IDENTIFIER
+        "${TBX_CODEGEN_TARGET}_AttributeHeaders_${attribute_target_hash_short}"
+        attribute_target_name)
     add_custom_target(${attribute_target_name} DEPENDS ${generated_files})
+    set_target_properties(${attribute_target_name} PROPERTIES FOLDER "utility")
     add_dependencies(${TBX_CODEGEN_TARGET} ${attribute_target_name})
 
     set_source_files_properties(${generated_headers} PROPERTIES HEADER_FILE_ONLY TRUE)
     target_sources(${TBX_CODEGEN_TARGET} PRIVATE ${generated_files})
+    target_include_directories(${TBX_CODEGEN_TARGET}
+        PRIVATE
+            $<BUILD_INTERFACE:${TBX_CODEGEN_SOURCE_ROOT}>
+    )
     target_include_directories(${TBX_CODEGEN_TARGET}
         ${include_scope}
             $<BUILD_INTERFACE:${TBX_CODEGEN_OUTPUT_ROOT}>

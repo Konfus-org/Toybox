@@ -4,8 +4,8 @@
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
+#include "tbx/types/assets/world.generated.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
 #include <concepts>
@@ -13,7 +13,6 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -23,33 +22,38 @@ namespace tbx
 
     /// @brief
     /// Purpose: References authored chunk assets for one world grid cell.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API WorldChunkRef
     {
-        [[tbx::prop]]
+        [[prop]]
         WorldChunkCoord coord = {};
 
-        [[tbx::prop]]
+        [[prop]]
         Handle full_chunk = {};
     };
 
     /// @brief
     /// Purpose: Stores serialized spatial entities for one chunk asset.
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[serializable]];
+    [[version(1U)]];
     struct TBX_API WorldChunk : Asset
     {
-        [[tbx::prop]]
+        [[prop]]
         WorldChunkCoord coord = {};
 
-        [[tbx::prop]]
+        [[prop]]
         std::vector<Entity> entities = {};
     };
 
+    // TODO: Make a WorldManager service that deals with all the actual world logic, owns the world
+    // streaming and chunk management and tracks the active world (only one allowed at a time), then
+    // make the world asset plain ol data. Also move globals into their own special asset. Globals
+    // are loaded first and are kept loaded until the game/app shuts down.
     /// @brief
     /// Purpose: Gameplay-facing entity container with a persistent layer and spatial chunk grid.
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[serializable]];
+    [[version(1U)]];
+    [[post_deserialize(rebuild_global_entities)]];
     class TBX_API World : public Asset
     {
       public:
@@ -64,27 +68,28 @@ namespace tbx
 
       public:
         Entity create_entity(const std::string& name = "");
-        Entity create_persistent_entity(const std::string& name = "");
-        Entity create_spatial_entity(const std::string& name = "");
-        Entity create_spatial_entity(const std::string& name, const Uuid& parent);
+        Entity create_entity(const std::string& name, const Uuid& parent);
+        Entity create_global_entity(const std::string& name = "");
 
         void destroy(Entity& entity);
         void clear_runtime_entities();
-        void rebuild_persistent_entities();
-        void update_chunk_membership();
 
-        bool has(const Uuid& id) const;
-        bool is_persistent(const Uuid& id) const;
+        void rebuild_global_entities();
+        void update_chunk_membership(float chunk_size = 32.0F);
+
         bool try_get_chunk(const Uuid& id, WorldChunkCoord& out_coord) const;
+        void load_chunk(const WorldChunk& chunk);
+        void unload_chunk(const WorldChunkCoord& coord);
 
-        Entity find_by_id(const Uuid& id) const;
+        bool is_global(const Uuid& id) const;
+
         Entity find_by_name(std::string_view name) const;
         Entity find_by_tag(std::string_view tag) const;
+
         Entity get(const Uuid& id) const;
         std::vector<Entity> get_all() const;
 
-        void load_chunk(const WorldChunk& chunk);
-        void unload_chunk(const WorldChunkCoord& coord);
+        bool has(const Uuid& id) const;
 
         template <typename TComponent>
             requires std::derived_from<TComponent, Component>
@@ -103,43 +108,31 @@ namespace tbx
         void for_each_with(const std::function<void(Entity&)>& callback);
 
       public:
-        // TODO: extract setting props into a WorldSettings struct that we put on the AppSettings
-        [[tbx::prop]]
+        [[prop]]
+        std::vector<Entity> globals = {};
 
-        float chunk_size = 32.0F;
-
-        [[tbx::prop]]
-        uint32 unload_radius_chunks = 6U;
-
-        [[tbx::prop]]
-        std::vector<Entity> persistent_entities = {};
-
-        [[tbx::prop]]
+        [[prop]]
         std::vector<WorldChunkRef> chunks = {};
 
       private:
-        Entity create_entity(const std::string& name, const Uuid& parent, bool is_persistent);
-        void assign_entity_to_chunk(const Entity& entity);
+        Entity create_entity(
+            const std::string& name,
+            const Uuid& parent,
+            bool is_persistent,
+            float chunk_size);
+        void assign_entity_to_chunk(const Entity& entity, float chunk_size);
+        bool has_global(const Uuid& id) const;
         void make_persistent(const Uuid& id);
+        void remove_global(const Uuid& id);
         void remove_entity_from_chunk_tracking(const Uuid& id);
 
       private:
         EntityRegistry _registry = {};
         std::unordered_map<WorldChunkCoord, std::vector<Entity>> _loaded_entities_by_chunk = {};
-        std::unordered_set<Uuid> _persistent_entities = {};
         std::unordered_map<Uuid, WorldChunkCoord> _chunk_by_entity = {};
         std::unordered_map<WorldChunkCoord, std::vector<Uuid>> _entities_by_chunk = {};
     };
 
-    // TODO: Instead of these floater after methods, implement a post_load attribute we can point
-    // towards a function, do the same for pre-load and also add custom save_override and
-    // load_override attributes
-    inline void tbx_after_deserialize(World& world)
-    {
-        world.rebuild_persistent_entities();
-    }
-
 }
 
-#include "tbx/types/assets/world.generated.h"
 #include "tbx/types/assets/world.inl"

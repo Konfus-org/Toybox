@@ -10,6 +10,7 @@ namespace tbx
         Size resolution,
         AsyncSettings async_settings)
         : graphics(dispatcher, *this, &AppSettings::graphics, std::in_place, vsync, api, resolution)
+        , world(dispatcher, *this, &AppSettings::world, std::in_place)
         , physics(dispatcher)
         , async(std::move(async_settings))
     {

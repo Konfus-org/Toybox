@@ -62,7 +62,9 @@ namespace tbx
         const ServiceProvider& get_service_provider() const;
 
       private:
-        void initialize(const std::vector<std::string>& requested_plugins);
+        void initialize(
+            const std::vector<std::string>& requested_plugins,
+            const Handle& startup_world);
         void fixed_update(const DeltaTime& dt);
         void update(DeltaTimer& timer);
         void shutdown();
@@ -83,6 +85,7 @@ namespace tbx
         std::weak_ptr<Physics> _physics = {};
         std::weak_ptr<Rendering> _rendering = {};
         std::weak_ptr<ScriptSystem> _script_system = {};
+        Handle _startup_world = {};
 
         uint64 _update_count = 0;
         double _time_running = 0;

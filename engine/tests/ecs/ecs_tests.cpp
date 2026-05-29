@@ -1,3 +1,4 @@
+﻿#include "ecs_tests.generated.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/streamer.h"
@@ -9,17 +10,15 @@
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/transform.h"
 
+
 namespace tbx::tests::ecs
 {
-    [[tbx::serializable]]
-    struct TestComponent : Component
+    [[serializable]] struct TestComponent : Component
     {
-        [[tbx::prop]]
+        [[prop]]
         int value = 0;
     };
 }
-
-#include "ecs_tests.generated.h"
 
 namespace tbx::tests::ecs
 {
@@ -170,17 +169,17 @@ namespace tbx::tests::ecs
     {
         // Arrange
         World world = {};
-        world.chunk_size = 10.0F;
+        constexpr float chunk_size = 10.0F;
         auto entity = world.create_spatial_entity("Crate");
         auto& transform = entity.add_component<Transform>();
         transform.position = Vec3(2.0F, 0.0F, 2.0F);
 
         // Act
-        world.update_chunk_membership();
+        world.update_chunk_membership(chunk_size);
         auto first_coord = WorldChunkCoord {};
         const bool has_first_coord = world.try_get_chunk(entity.get_id(), first_coord);
         transform.position = Vec3(21.0F, 0.0F, -11.0F);
-        world.update_chunk_membership();
+        world.update_chunk_membership(chunk_size);
         auto second_coord = WorldChunkCoord {};
         const bool has_second_coord = world.try_get_chunk(entity.get_id(), second_coord);
 
@@ -202,9 +201,9 @@ namespace tbx::tests::ecs
         entity.add_component<TestComponent>(component);
 
         // Act
-        const auto json = JsonParser::parse(Serializer<Entity>::to_json(entity));
+        const auto json = JsonParser::parse(Serializer<Entity>::serialize(entity));
         auto roundtripped = Entity();
-        const bool deserialized = Serializer<Entity>::from_json(json.dump(), roundtripped);
+        const bool deserialized = Serializer<Entity>::deserialize(json.dump(), roundtripped);
 
         // Assert
         EXPECT_TRUE(deserialized);
@@ -228,7 +227,7 @@ namespace tbx::tests::ecs
         entity.add_component<UnserializedComponent>(component);
 
         // Act
-        const auto json = JsonParser::parse(Serializer<Entity>::to_json(entity));
+        const auto json = JsonParser::parse(Serializer<Entity>::serialize(entity));
         const auto components = json.find("components");
         const bool has_components = components != json.end();
 
@@ -243,7 +242,7 @@ namespace tbx::tests::ecs
         auto entity = Entity();
 
         // Act
-        const bool deserialized = Serializer<Entity>::from_json(
+        const bool deserialized = Serializer<Entity>::deserialize(
             R"({
                 "id": { "value": 73 },
                 "name": "Probe",
@@ -271,8 +270,7 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "chunk_size": 16.0,
-                "persistent_entities": [
+                "globals": [
                     {
                         "id": { "value": 32 },
                         "name": "Sun",
@@ -314,8 +312,7 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "chunk_size": 16.0,
-                "persistent_entities": [
+                "globals": [
                     {
                         "id": { "value": 32 },
                         "name": "Character",
@@ -376,9 +373,7 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "chunk_size": 10.0,
-                "unload_radius_chunks": 6,
-                "persistent_entities": [
+                "globals": [
                     {
                         "id": { "value": 40 },
                         "name": "Camera",

@@ -15,6 +15,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+#include "tbx/types/assets/material.generated.h"
 
 namespace tbx
 {
@@ -31,8 +32,8 @@ namespace tbx
         return static_cast<uint32>(result);
     }
 
-    [[tbx::serializable]];
-    [[tbx::hash(tbx::hash($))]];
+    [[serializable]];
+    [[hash(tbx::hash($))]];
     using MaterialParameterData =
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
@@ -41,12 +42,12 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    [[tbx::serializable]];
+    [[serializable]];
     enum class MaterialDepthFunction : uint8_t
     {
-        LESS [[tbx::name("less")]] = 0,
-        LESS_EQUAL [[tbx::name("less_equal")]] = 1,
-        ALWAYS [[tbx::name("always")]] = 2
+        LESS [[name("less")]] = 0,
+        LESS_EQUAL [[name("less_equal")]] = 1,
+        ALWAYS [[name("always")]] = 2
     };
 
     /// @brief
@@ -54,11 +55,11 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    [[tbx::serializable]];
+    [[serializable]];
     enum class MaterialBlendMode : uint8_t
     {
-        OPAQUE [[tbx::name("opaque")]] = 0,
-        ALPHA_BLEND [[tbx::name("alpha_blend")]] = 1
+        OPAQUE [[name("opaque")]] = 0,
+        ALPHA_BLEND [[name("alpha_blend")]] = 1
     };
 
     /// @brief
@@ -67,12 +68,12 @@ namespace tbx
     /// @details
     /// Ownership: Value type.
     /// Thread Safety: Safe to copy between threads.
-    [[tbx::serializable]];
+    [[serializable]];
     enum class ShadowMode : uint8_t
     {
-        NONE [[tbx::name("none")]] = 0,
-        STANDARD [[tbx::name("standard")]] = 1,
-        ALWAYS [[tbx::name("always")]] = 2
+        NONE [[name("none")]] = 0,
+        STANDARD [[name("standard")]] = 1,
+        ALWAYS [[name("always")]] = 2
     };
 
     /// @brief
@@ -80,7 +81,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
@@ -91,11 +92,11 @@ namespace tbx
         template <typename TValue>
         MaterialParameter(const std::string& parameter_name, TValue&& parameter_data);
 
-        [[tbx::prop]]
+        [[prop]]
         std::string name = "";
         uint32 id = INVALID_MATERIAL_PARAM_ID;
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialParameterData data = 0.0f;
     };
 
@@ -104,7 +105,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns all parameter entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API MaterialParameterBindings
     {
         using iterator = std::vector<MaterialParameter>::iterator;
@@ -138,7 +139,7 @@ namespace tbx
         const_iterator end() const;
         const_iterator cend() const;
 
-        [[tbx::prop]]
+        [[prop]]
         std::vector<MaterialParameter> values = {};
     };
 
@@ -147,7 +148,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns the texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API MaterialTextureBinding
     {
         MaterialTextureBinding() = default;
@@ -155,11 +156,11 @@ namespace tbx
         MaterialTextureBinding(const std::string& binding_name, Handle texture_handle);
         MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
 
-        [[tbx::prop]]
+        [[prop]]
         std::string name = "";
         uint32 id = INVALID_MATERIAL_PARAM_ID;
 
-        [[tbx::prop]]
+        [[prop]]
         Handle texture = {};
     };
 
@@ -168,7 +169,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns all texture entries by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
+    [[serializable]];
     struct TBX_API MaterialTextureBindings
     {
         using iterator = std::vector<MaterialTextureBinding>::iterator;
@@ -202,7 +203,7 @@ namespace tbx
         const_iterator end() const;
         const_iterator cend() const;
 
-        [[tbx::prop]]
+        [[prop]]
         std::vector<MaterialTextureBinding> values = {};
     };
 
@@ -211,32 +212,32 @@ namespace tbx
     /// @details
     /// Ownership: Value type owned by the containing material asset.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
-    [[tbx::hash(tbx::hash($))]];
+    [[serializable]];
+    [[hash(tbx::hash($))]];
     struct TBX_API MaterialConfig
     {
-        [[tbx::prop]]
+        [[prop]]
         bool is_depth_test_enabled = true;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_depth_write_enabled = true;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_depth_prepass_enabled = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_two_sided = false;
 
-        [[tbx::prop]]
+        [[prop]]
         bool is_cullable = true;
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialBlendMode blend_mode = MaterialBlendMode::OPAQUE;
 
-        [[tbx::prop]]
+        [[prop]]
         ShadowMode shadow_mode = ShadowMode::STANDARD;
     };
 
@@ -246,20 +247,20 @@ namespace tbx
     /// @details
     /// Ownership: Owns shader handles, default parameter bindings, default texture bindings, and
     /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    [[tbx::serializable]];
-    [[tbx::version(1U)]];
+    [[serializable]];
+    [[version(1U)]];
     struct TBX_API Material : Asset
     {
-        [[tbx::prop]]
+        [[prop]]
         ShaderProgram shader = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialParameterBindings parameters = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialTextureBindings textures = {};
 
-        [[tbx::prop]]
+        [[prop]]
         MaterialConfig config = {};
     };
 
@@ -267,5 +268,4 @@ namespace tbx
     TBX_API uint64 hash(const MaterialConfig& config, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
-#include "tbx/types/assets/material.generated.h"
 #include "tbx/types/assets/material.inl"

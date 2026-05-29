@@ -30,11 +30,15 @@ class SerializableType:
     name: str
     declaration_kind: str
     attrs: list[Attribute]
+    api_macro: str = ""
     bases: str = ""
     fields: list[Field] = dataclasses.field(default_factory=list)
     enum_values: list[EnumValue] = dataclasses.field(default_factory=list)
+    enum_scoped: bool = False
+    enum_underlying_type: str = ""
     alias_value: str = ""
     has_serializer: bool = False
+    has_equality_operator: bool = False
     source_path: str = "<memory>"
     line: int = 0
 

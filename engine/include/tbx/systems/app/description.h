@@ -28,6 +28,9 @@ namespace tbx
         // Ordered list of plugin identifiers requested for loading.
         std::vector<std::string> requested_plugins = {};
 
+        // Optional world loaded once startup plugins have registered their asset types.
+        Handle startup_world = {};
+
         // Startup icon asset used for native window icons.
         // Defaults to the built-in box icon.
         Handle icon = ToyboxIcon::HANDLE;

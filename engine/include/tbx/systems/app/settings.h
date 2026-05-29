@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/systems/async/settings.h"
+#include "tbx/systems/ecs/settings.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/messaging/observable.h"
 #include "tbx/systems/physics/settings.h"
@@ -37,6 +38,7 @@ namespace tbx
             AsyncSettings async_settings = {});
 
         Observable<AppSettings, GraphicsSettings> graphics;
+        Observable<AppSettings, WorldSettings> world;
         PhysicsSettings physics;
         AsyncSettings async = {};
         PathSettings paths = {};

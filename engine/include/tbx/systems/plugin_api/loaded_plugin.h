@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
+#include "tbx/systems/plugin_api/loaded_plugin.generated.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/service_provider.h"
@@ -23,7 +24,7 @@ namespace tbx
     /// Ownership: Owns `instance` and `library` (if any). Movable, non-copyable
     /// by virtue of unique_ptr semantics.
     /// Thread-safety: Not thread-safe; expected to be used by the main thread.
-    [[tbx::printable("Name={}, Version={}", meta.name, meta.version)]];
+    [[printable("Name={}, Version={}", meta.name, meta.version)]];
     class TBX_API LoadedPlugin
     {
       public:
@@ -75,5 +76,3 @@ namespace tbx
         PluginInstanceId _plugin_id = PluginInstanceId {};
     };
 }
-
-#include "tbx/systems/plugin_api/loaded_plugin.generated.h"
