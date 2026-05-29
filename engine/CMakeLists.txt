@@ -44,6 +44,7 @@ list(FILTER TBX_Engine_SOURCES EXCLUDE REGEX "\\.tmp[0-9A-Za-z]*$")
 
 target_sources(Engine PRIVATE ${TBX_Engine_SOURCES} ${TBX_Engine_INCLUDES})
 
+target_compile_features(Engine PUBLIC cxx_std_23)
 target_include_directories(Engine
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

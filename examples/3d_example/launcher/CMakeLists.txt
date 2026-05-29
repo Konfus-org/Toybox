@@ -1,12 +1,4 @@
-add_executable(ThreeDExampleLauncher
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+tbx_add_example_launcher(
+    NAME ThreeDExampleLauncher
+    RUNTIME_TARGET Tbx::Examples::ThreeDExampleRuntime
 )
-target_include_directories(ThreeDExampleLauncher
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-target_link_libraries(ThreeDExampleLauncher PRIVATE
-    Tbx::DefaultPlugins
-    Tbx::Examples::ThreeDExampleRuntime
-)
-target_precompile_headers(ThreeDExampleLauncher PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")

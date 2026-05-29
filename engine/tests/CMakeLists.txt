@@ -1,13 +1,21 @@
-add_subdirectory(app)
-add_subdirectory(assets)
-add_subdirectory(async)
-add_subdirectory(files)
-add_subdirectory(math)
-add_subdirectory(messaging)
-add_subdirectory(input)
-add_subdirectory(plugin_api)
-add_subdirectory(ecs)
-add_subdirectory(graphics)
-add_subdirectory(attributes)
-add_subdirectory(time)
-add_subdirectory(utils)
+set(CMAKE_FOLDER "tests")
+
+foreach(test_dir IN ITEMS
+    app
+    assets
+    async
+    files
+    math
+    messaging
+    input
+    plugin_api
+    ecs
+    graphics
+    attributes
+    time
+    utils
+)
+    add_subdirectory(${test_dir})
+endforeach()
+
+unset(CMAKE_FOLDER)

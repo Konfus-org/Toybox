@@ -1,72 +1,53 @@
 ---
 name: toybox
-description: Use when the user says Toybox, calls the Toybox plugin, or asks for work in C:\Users\jercl\Projects\Toybox\Engine. Enforce Toybox AGENTS.md and docs policies; start every change with a plan; verify changes before completion; use all bundled C++ skills for C++ work.
+description: Activates when the user mentions "Toybox", invokes the Toybox plugin, or requests changes within C:\Users\jercl\Projects\Toybox\Engine. Enforces repository policies and initializes tasks by executing the planning skill first.
 ---
 
-# Toybox
+# Toybox Engine Rulebook
 
-Use this as the entry point for Toybox work. When the user says "Toybox" or asks for Toybox Engine work, apply the repository policies first, then route to the relevant bundled skills.
+Use this skill as the mandatory entry point for all Toybox Engine development. Always run the plan skill to validate direction before modifying code.
 
-## Always Check
+## 📁 Authoritative Reference Files
 
-For Toybox Engine work, treat these files as authoritative:
-- `C:\Users\jercl\Projects\Toybox\Engine\AGENTS.md`
-- `C:\Users\jercl\Projects\Toybox\Engine\docs\CodeStandards.md`
-- `C:\Users\jercl\Projects\Toybox\Engine\docs\Contributing.md`
-- `C:\Users\jercl\Projects\Toybox\Engine\docs\ShaderPipeline.md`
+Treat these local files as the absolute source of truth for the codebase. Read relevant sections prior to starting execution:
+* `C:\Users\jercl\Projects\Toybox\Engine\AGENTS.md`
+* `C:\Users\jercl\Projects\Toybox\Engine\docs\CodeStandards.md`
+* `C:\Users\jercl\Projects\Toybox\Engine\docs\Contributing.md`
+* `C:\Users\jercl\Projects\Toybox\Engine\docs\ShaderPipeline.md`
 
-Read the relevant file sections when they are available. The rules below are the operating baseline.
+## 🧩 Routing Matrix
 
-## Core Policies
+Dynamically bundle these precise sub-skills based on task domain:
+* **All C++ Tasks**: Mandatorily bundle `cpp-pro`, `cpp-coding-standards`, `memory-safety-patterns`, and `context-tools`.
+* **Rendering & Shaders**: Add `graphics-api-hooking` and `shader-programming-glsl`.
+* **Gameplay & Simulation**: Add `3d-games` for cameras, physics, and scene graphs.
+* **Fallback Directory**: Default to `C:\Users\jercl\Projects\Toybox\Engine` if no path is explicitly provided.
 
-- Keep changes focused and reusable; prefer existing engine utilities over new mechanisms.
-- Follow DRY, but do not create throwaway helpers for one-off logic.
-- Prefer references for guaranteed objects, smart pointers otherwise, and RAII for resource lifetime.
-- Prefer direct includes over forward declarations.
-- Remove stale declarations/definitions instead of leaving placeholders.
-- Document assumptions when they affect behavior.
-- Start every code, config, docs, build, test, or plugin change with a brief plan before editing.
-- For every change, verify the actual result before reporting completion.
-- Unit tests must use Arrange / Act / Assert and must not use filesystem or network I/O; use mocks, fakes, or stubs for those boundaries.
-- Build and test through `CMakePresets.json`: Clang uses `cmake --preset clang`, `cmake --build --preset clang-debug`, and `ctest --preset test-clang-debug`; MSVC uses `cmake --preset msvc`, `cmake --build --preset msvc-debug`, and `ctest --preset test-msvc-debug`.
-- Run clang-format and clang-tidy for C++ changes when available.
+## 🛠️ Core Engineering Policies
 
-## C++ Rule
+* **Scope**: Keep changes isolated and highly reusable.
+* **Mechanisms**: Prefer existing engine utilities over writing raw custom solutions.
+* **Duplication**: Avoid redundant code patterns without building single-use helper functions.
+* **Lifetimes**: Use references for guaranteed objects, smart pointers for optional lifespans, and RAII for resources.
+* **Includes**: Depend exclusively on direct `#include` statements; do not use forward declarations.
+* **Housekeeping**: Permanently delete stale definitions instead of leaving commented placeholders.
+* **Testing Boundary**: Enforce Arrange/Act/Assert patterns.
+* **Testing Isolation**: Ban filesystem and network I/O in tests using mocks, fakes, or stubs.
+* **Build System**: Execute exclusively via `CMakePresets.json`.
+* **Clang Toolchain**: `cmake --preset clang` -> `cmake --build --preset clang-debug` -> `ctest --preset test-clang-debug`
+* **MSVC Toolchain**: `cmake --preset msvc` -> `cmake --build --preset msvc-debug` -> `ctest --preset test-msvc-debug`
+* **Always Test Changes**: Launch the 3d Example in debug mode and ensure there are no exceptions/errors/warnings on launch and shutdown.
 
-For any C++ implementation, refactor, debug, review, build break, or test change, ALWAYS use all C++ related skills together:
-- `cpp-pro`
-- `cpp-coding-standards`
-- `memory-safety-patterns`
+## 💻 C++ Implementation Standards
 
-Do not choose only one of these for C++ work. Add domain-specific skills on top as needed.
-
-Toybox C++ standards include:
-- Target C++23.
-- Do not use C++ attributes such as `[[nodiscard]]`.
-- Do not use `explicit` on constructors.
-- Prefer `()` initialization for structs/classes; use `{}` only for simple empty initialization or designated-style readability.
-- Do not use blanket namespace imports.
-- Prefer Toybox aliases such as `size` and `uint` from `common/typedefs.h` instead of `std::size_t` or raw uint spellings when appropriate.
-- Do not use anonymous namespaces; prefer `static` functions in an internal namespace and internal implementation files.
-- Do not nest structs or classes.
-- Do not expose internal namespaces in public APIs, return types, or public documentation.
-- Keep internal declarations/definitions in matching `*_internal.h` and `*_internal.cpp` files under the owning `internal` folder when adding internal surface.
-- Use Doxygen `///` only for structs, classes, and public methods; do not add Doxygen to private members.
-- Lifecycle methods such as `attach`, `detach`, `update`, `on_attach`, `on_detach`, `on_update`, and `on_fixed_update` do not require Doxygen summaries.
-
-## Shader Rule
-
-- Follow `docs/ShaderPipeline.md` for shader shape and ownership.
-- Base shader files provide assumptions, material files provide ABI, lighting files provide algorithms, and user shaders provide `main()`.
-- Material, lighting, geometry, and other non-post-process shaders output linear scene color. Exposure, tone mapping, gamma correction, and display conversion belong in explicit post-processing passes.
-- Use Toybox shader naming conventions: PascalCase files/types, uppercase snake case constants/macros, `u_` uniforms, `a_` attributes, `v_` varyings, and `o_` outputs.
-- Keep shader bases small, avoid giant conditional compilation, split by stage/domain, and keep shadow shaders simple.
-- Put resource-backed shader assets under `resources/Shaders/...`; add matching `.meta` files for new built-in resources.
-
-## Routing
-
-- C++ work: always use `cpp-pro`, `cpp-coding-standards`, `memory-safety-patterns`, and `context-tools`.
-- OpenGL, rendering, graphics API, or shader work: add `graphics-api-hooking` and `shader-programming-glsl`.
-- 3D gameplay, camera, physics, or scene work: add `3d-games`.
-
-Work in `C:\Users\jercl\Projects\Toybox\Engine` by default when no Toybox checkout is specified.
+* **Language Target**: Standardize strictly on C++23 features.
+* **Constructors**: Never use the `explicit` keyword on constructors.
+* **Initialization**: Use `()` for objects; reserve `{}` for empty initialization or designated initializers.
+* **Namespaces**: Ban blanket `using namespace` imports.
+* **Type Aliases**: Use `size` and `uint` from `common/typedefs.h` instead of raw `std::size_t`.
+* **Anonymity**: Replace anonymous namespaces with `static` functions inside an `internal` namespace.
+* **Nesting**: Do not nest structs or classes within other types.
+* **API Leakage**: Never expose internal namespaces in public signatures, return types, or docs.
+* **Internal Layout**: Place internal code in `*_internal.h` and `*_internal.cpp` within the component's `internal/` folder.
+* **Documentation**: Apply Doxygen `///` only to public interfaces; ban them on private members.
+* **Lifecycle Exceptions**: Omit Doxygen summaries entirely for `attach`, `detach`, `update`, `on_attach`, `on_detach`, `on_update`, and `on_fixed_update`.

@@ -1,4 +1,5 @@
 add_library(TwoDExampleRuntime SHARED)
+target_compile_features(TwoDExampleRuntime PRIVATE cxx_std_23)
 
 target_link_libraries(TwoDExampleRuntime PRIVATE
     Tbx::DefaultPlugins

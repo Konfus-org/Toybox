@@ -1,23 +1,3 @@
-set(CMAKE_FOLDER "tests")
-include(test_output)
-add_executable(TbxMessagingTests)
-tbx_set_test_output(TbxMessagingTests)
+include(engine_test_targets)
 
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-)
-
-target_precompile_headers(TbxMessagingTests PRIVATE "../pch.h")
-target_sources(TbxMessagingTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxMessagingTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-
-target_link_libraries(TbxMessagingTests PRIVATE
-    Tbx::Engine
-    gtest
-    gtest_main
-    gmock
-)
-
-add_test(NAME TbxMessagingTests COMMAND $<TARGET_FILE:TbxMessagingTests>)
-unset(CMAKE_FOLDER)
+tbx_add_engine_test(NAME TbxMessagingTests)

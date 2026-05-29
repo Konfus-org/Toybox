@@ -1,28 +1,8 @@
-set(CMAKE_FOLDER "tests")
-include(test_output)
+include(engine_test_targets)
 
-add_executable(TbxPluginApiTests)
-tbx_set_test_output(TbxPluginApiTests)
-
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+tbx_add_engine_test(
+    NAME TbxPluginApiTests
+    EXTRA_INCLUDES
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
 )
-
-target_precompile_headers(TbxPluginApiTests PRIVATE "../pch.h")
-target_sources(TbxPluginApiTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxPluginApiTests PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
-)
-
-target_link_libraries(TbxPluginApiTests PRIVATE
-    Tbx::Engine
-    gtest
-    gtest_main
-    gmock
-)
-
-add_test(NAME TbxPluginApiTests COMMAND $<TARGET_FILE:TbxPluginApiTests>)
-unset(CMAKE_FOLDER)

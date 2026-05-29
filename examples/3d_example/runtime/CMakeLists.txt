@@ -1,4 +1,5 @@
 add_library(ThreeDExampleRuntime SHARED)
+target_compile_features(ThreeDExampleRuntime PRIVATE cxx_std_23)
 
 file(GLOB_RECURSE ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../assets/*.*")
 target_sources(ThreeDExampleRuntime PRIVATE ${ASSETS})

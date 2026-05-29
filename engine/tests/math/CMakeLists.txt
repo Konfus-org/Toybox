@@ -1,21 +1,3 @@
-include(test_output)
-add_executable(TbxMathTests)
-tbx_set_test_output(TbxMathTests)
+include(engine_test_targets)
 
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-)
-
-target_precompile_headers(TbxMathTests PRIVATE "../pch.h")
-target_sources(TbxMathTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxMathTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-
-target_link_libraries(TbxMathTests PRIVATE
-    Tbx::Engine
-    gtest
-    gtest_main
-    gmock
-)
-
-add_test(NAME TbxMathTests COMMAND $<TARGET_FILE:TbxMathTests>)
+tbx_add_engine_test(NAME TbxMathTests)

@@ -2,12 +2,8 @@ cmake_minimum_required(VERSION 3.28.3)
 project(Toybox LANGUAGES C CXX)
 
 # Global configs
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 
 option(TBX_ENABLE_COMPILER_CACHE "Use compiler cache launchers when available" ON)
 option(TBX_BUILD_TESTS "Build Toybox test targets" OFF)

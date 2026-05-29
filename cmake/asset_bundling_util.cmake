@@ -155,8 +155,9 @@ function(tbx_enable_release_asset_bundling)
 
     set(bundle_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bundle_assets_post_build.cmake")
 
+    string(JOIN ", " asset_bundle_config_summary ${TBX_BUNDLE_CONFIGS})
     message(STATUS
-        "Adding Toybox release asset bundling to '${TBX_BUNDLE_TARGET}' from ${asset_bundle_path_count} source paths")
+        "Adding Toybox asset bundling to '${TBX_BUNDLE_TARGET}' for configs [${asset_bundle_config_summary}] from ${asset_bundle_path_count} source paths")
 
     add_custom_command(TARGET ${TBX_BUNDLE_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND}

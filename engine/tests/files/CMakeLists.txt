@@ -1,25 +1,7 @@
-set(CMAKE_FOLDER "tests")
-include(test_output)
-add_executable(TbxFileSystemTests)
-tbx_set_test_output(TbxFileSystemTests)
+include(engine_test_targets)
 
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+tbx_add_engine_test(
+    NAME TbxFileSystemTests
+    EXTRA_INCLUDES
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-
-target_precompile_headers(TbxFileSystemTests PRIVATE "../pch.h")
-target_sources(TbxFileSystemTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxFileSystemTests PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
-)
-
-target_link_libraries(TbxFileSystemTests PRIVATE
-    Tbx::Engine
-    gtest
-    gtest_main
-    gmock
-)
-
-add_test(NAME TbxFileSystemTests COMMAND $<TARGET_FILE:TbxFileSystemTests>)

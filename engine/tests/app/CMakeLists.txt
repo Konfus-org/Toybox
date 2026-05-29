@@ -1,27 +1,7 @@
-set(CMAKE_FOLDER "tests")
-include(test_output)
-add_executable(TbxAppTests)
-tbx_set_test_output(TbxAppTests)
+include(engine_test_targets)
 
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+tbx_add_engine_test(
+    NAME TbxAppTests
+    EXTRA_INCLUDES
+        "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
 )
-
-target_precompile_headers(TbxAppTests PRIVATE "../pch.h")
-target_sources(TbxAppTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxAppTests PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/engine/tests/files/include"
-)
-set_target_properties(TbxAppTests PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-
-target_link_libraries(TbxAppTests PRIVATE
-    Tbx::Engine
-    gtest
-    gtest_main
-    gmock
-)
-
-add_test(NAME TbxAppTests COMMAND $<TARGET_FILE:TbxAppTests>)
-unset(CMAKE_FOLDER)

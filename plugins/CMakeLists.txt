@@ -1,18 +1,22 @@
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
-include(code_gen_utility)
+include(plugin_targets)
 
 set(CMAKE_FOLDER "plugins")
 
-add_subdirectory(stb_image_loader)
-add_subdirectory(tbx_shader_include_loader)
-add_subdirectory(assimp_model_loader)
-add_subdirectory(tbx_performance_monitor)
-add_subdirectory(sdl_base_systems)
-add_subdirectory(sdl_opengl_context_manager)
-add_subdirectory(sdl_windowing)
-add_subdirectory(sdl_input)
-add_subdirectory(jolt_physics)
-add_subdirectory(opengl_rendering)
+foreach(plugin_dir IN ITEMS
+    stb_image_loader
+    tbx_shader_include_loader
+    assimp_model_loader
+    tbx_performance_monitor
+    sdl_base_systems
+    sdl_opengl_context_manager
+    sdl_windowing
+    sdl_input
+    jolt_physics
+    opengl_rendering
+)
+    add_subdirectory(${plugin_dir})
+endforeach()
 
 unset(CMAKE_FOLDER)
