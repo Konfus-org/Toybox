@@ -84,6 +84,8 @@ namespace tbx
         bool operator==(const AudioLoadParameters& other) const = default;
     };
 
+    // TODO: Remove the tratis and use the params directly with some base like struct
+    // TextureLoadParams : public LoadParams<Texture> {...}
     template <typename TAsset>
     struct AssetSerializationTraits
     {

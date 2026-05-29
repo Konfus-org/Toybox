@@ -2,6 +2,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
@@ -30,7 +31,7 @@ namespace tbx
         /// @details
         /// Ownership: Does not own the service provider or dispatcher references.
         /// Thread Safety: Not thread-safe; must be called exactly once before use.
-        void attach(ServiceProvider& service_provider);
+        void attach(ServiceProvider& service_provider, PluginInstanceId plugin_id);
 
         /// @brief
         /// Purpose: Shuts the plugin down and clears dispatcher references.
@@ -58,6 +59,8 @@ namespace tbx
             requires std::derived_from<TMessage, Message>
         std::shared_future<Result> post_message(TArgs&&... args) const;
 
+        Uuid get_id() const;
+
       protected:
         // Called when the plugin is attached to the service provider.
         // The plugin must not retain references that outlive its own lifetime.
@@ -82,6 +85,7 @@ namespace tbx
         static Result dispatcher_missing_result(std::string_view action);
 
         std::weak_ptr<IMessageDispatcher> _dispatcher = {};
+        PluginInstanceId _plugin_id = PluginInstanceId{};
     };
 }
 

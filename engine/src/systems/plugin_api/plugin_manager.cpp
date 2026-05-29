@@ -3,9 +3,13 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 
 namespace tbx
@@ -105,6 +109,8 @@ namespace tbx
                 .filter =
                     [](const std::filesystem::path& path)
                 {
+                    // TODO: Do we need file watch here? Also why ignore resources? That could lead
+                    // to some sneaky buggos I think
                     if (plugin_manager_path_contains_directory_token(path, "resources"))
                         return false;
                     return is_plugin_library_path(path);
@@ -118,16 +124,23 @@ namespace tbx
         if (!loaded_plugin.is_valid())
             return;
 
+        if (!loaded_plugin.get_id().is_valid())
+            loaded_plugin.set_id(allocate_plugin_instance_id());
         unload(loaded_plugin.meta.name);
 
 #if !defined(TBX_FULL_RELEASE)
         if (!loaded_plugin.meta.resource_directory.empty())
         {
             if (auto asset_manager = _service_provider.get_service<AssetManager>().lock())
+            {
+                auto plugin_scope = ScopedPluginContext(loaded_plugin.get_id());
                 asset_manager->add_directory(loaded_plugin.meta.resource_directory);
+            }
         }
 #endif
 
+        // TODO: This is NOT a plugin responsability Physics should be registered and ready, but
+        // once the backend is loaded we attach it to the Physics
         ensure_physics_service_registered(_service_provider);
 
         _loaded.push_back(std::move(loaded_plugin));
@@ -149,6 +162,7 @@ namespace tbx
             return false;
 
         add(std::move(loaded_plugins.front()));
+
         return true;
     }
 
@@ -170,7 +184,7 @@ namespace tbx
         if (lowered_name.empty() || _loaded.empty())
             return false;
 
-        auto names_to_unload = std::unordered_set<std::string> {};
+        auto names_to_unload = std::unordered_set<std::string>();
         names_to_unload.insert(lowered_name);
 
         bool added_dependent = true;
@@ -197,8 +211,8 @@ namespace tbx
             }
         }
 
-        auto retained_plugins = std::vector<LoadedPlugin> {};
-        auto unloaded_plugins = std::vector<LoadedPlugin> {};
+        auto retained_plugins = std::vector<LoadedPlugin>();
+        auto unloaded_plugins = std::vector<LoadedPlugin>();
         retained_plugins.reserve(_loaded.size());
         unloaded_plugins.reserve(_loaded.size());
 
@@ -217,9 +231,9 @@ namespace tbx
         }
 
         _loaded = std::move(unloaded_plugins);
-        auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
-        unload_plugins(_loaded, _service_provider, msg_coordinator.get());
+        unload_plugin_group(_loaded);
         _loaded = std::move(retained_plugins);
+
         return true;
     }
 
@@ -237,11 +251,10 @@ namespace tbx
         }
 
         _watcher.reset();
-        auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
-        unload_plugins(_loaded, _service_provider, msg_coordinator.get());
+        unload_plugin_group(_loaded);
 
-        _directory = std::filesystem::path {};
-        _working_directory = std::filesystem::path {};
+        _directory = std::filesystem::path();
+        _working_directory = std::filesystem::path();
         _requested_plugins.clear();
         _file_ops = _provided_file_ops;
     }
@@ -267,9 +280,65 @@ namespace tbx
         return false;
     }
 
+    void PluginManager::clear_plugin_runtime_state(Uuid plugin_id)
+    {
+        if (!plugin_id.is_valid())
+            return;
+
+        auto tracker = _service_provider.try_get_service<PluginOwnershipTracker>().lock();
+        if (!tracker)
+            return;
+
+        const auto owned_resources = tracker->snapshot_and_clear(plugin_id);
+
+        for (const auto& component_type : owned_resources.component_types)
+            unregister_entity_component_type_entry(component_type);
+
+        for (const auto& serializable_type_name : owned_resources.serializable_type_names)
+            unregister_serializable_type_entry(serializable_type_name);
+
+        for (const auto& asset_type : owned_resources.asset_types)
+            unregister_asset_type_entry(asset_type);
+
+        if (auto asset_manager = _service_provider.try_get_service<AssetManager>().lock())
+        {
+            for (const auto& handle : owned_resources.pinned_asset_handles)
+                asset_manager->set_pinned(handle, false);
+
+            for (const auto& directory : owned_resources.asset_directories)
+                asset_manager->remove_directory(directory);
+        }
+
+        if (auto entity_registry = _service_provider.try_get_service<EntityRegistry>().lock())
+        {
+            for (const auto& entity_id : owned_resources.entity_ids)
+                entity_registry->get(entity_id).destroy();
+        }
+
+        for (const auto& service_type : owned_resources.service_types)
+            _service_provider.deregister_service(service_type);
+    }
+
+    void PluginManager::unload_plugin_group(std::vector<LoadedPlugin>& plugins)
+    {
+        auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
+        detach_plugins(plugins, _service_provider, msg_coordinator.get());
+        if (msg_coordinator)
+            msg_coordinator->flush();
+
+        for (const auto& plugin : plugins)
+        {
+            clear_plugin_runtime_state(plugin.get_id());
+            if (msg_coordinator)
+                msg_coordinator->flush();
+        }
+
+        plugins.clear();
+    }
+
     void PluginManager::process_pending_file_changes()
     {
-        auto pending_changes = std::vector<FileWatchChange> {};
+        auto pending_changes = std::vector<FileWatchChange>();
         {
             auto pending_changes_lock = std::lock_guard<std::mutex>(_pending_file_changes_mutex);
             if (_pending_file_changes.empty())
@@ -278,7 +347,7 @@ namespace tbx
             pending_changes.swap(_pending_file_changes);
         }
 
-        auto processed_plugin_names = std::unordered_set<std::string> {};
+        auto processed_plugin_names = std::unordered_set<std::string>();
         processed_plugin_names.reserve(pending_changes.size());
         for (const auto& change : pending_changes)
             process_file_change(change, processed_plugin_names);
@@ -335,7 +404,7 @@ namespace tbx
             return;
         }
 
-        auto meta = PluginMeta {};
+        auto meta = PluginMeta();
         if (!try_query_plugin_meta_from_library(changed_path, *_file_ops, meta))
         {
             if (existing_index != invalid_plugin_index)

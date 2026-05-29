@@ -41,6 +41,7 @@ namespace tbx
         std::shared_ptr<IFileOps> file_ops = nullptr;
         std::unique_ptr<AssetRegistry> registry = {};
         std::unordered_map<std::type_index, std::unique_ptr<IStore>> stores = {};
+        std::vector<std::filesystem::path> watched_directories = {};
         std::vector<std::unique_ptr<FileWatcher>> file_watchers = {};
         double unload_elapsed_seconds = 0.0;
     };
@@ -376,7 +377,6 @@ namespace tbx
             TBX_TRACE_INFO("Asset registry: {}", ensure_result.result.get_report());
         }
         const auto& entry = ensure_result.entry->get();
-
         auto store = get_asset_store<TAsset>(_state->stores, true);
         auto record =
             store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;
@@ -509,7 +509,6 @@ namespace tbx
             TBX_TRACE_INFO("Asset registry: {}", ensure_result.result.get_report());
         }
         const auto& entry = ensure_result.entry->get();
-
         auto store = get_asset_store<TAsset>(_state->stores, true);
         auto record =
             store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;

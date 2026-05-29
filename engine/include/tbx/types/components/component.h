@@ -37,6 +37,7 @@ namespace tbx
     };
 
     TBX_API std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations();
+    TBX_API void unregister_entity_component_type_entry(std::type_index component_type);
     TBX_API void register_entity_component_type_entry(EntityComponentTypeRegistration entry);
 
     template <typename TComponent>

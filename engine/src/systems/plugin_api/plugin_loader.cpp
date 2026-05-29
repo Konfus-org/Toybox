@@ -2,6 +2,7 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/utils/string_utils.h"
 #include <atomic>
 #include <chrono>
@@ -257,6 +258,8 @@ namespace tbx
             return {};
         }
 
+        const auto plugin_id = allocate_plugin_instance_id();
+        auto plugin_scope = ScopedPluginContext(plugin_id);
         Plugin* plugin_instance = create();
         if (!plugin_instance)
         {
@@ -264,8 +267,16 @@ namespace tbx
             return {};
         }
 
-        auto instance = std::unique_ptr<Plugin, PluginDeleter>(plugin_instance, destroy);
-        return LoadedPlugin(meta, std::move(lib), std::move(instance));
+        auto instance = std::unique_ptr<Plugin, PluginDeleter>(
+            plugin_instance,
+            [destroy, plugin_id](Plugin* plugin_ptr)
+            {
+                auto destroy_scope = ScopedPluginContext(plugin_id);
+                destroy(plugin_ptr);
+            });
+        auto loaded = LoadedPlugin(meta, std::move(lib), std::move(instance));
+        loaded.set_id(plugin_id);
+        return loaded;
     }
 
     static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)

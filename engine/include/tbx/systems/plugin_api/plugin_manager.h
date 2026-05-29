@@ -3,6 +3,8 @@
 #include "tbx/systems/files/messages.h"
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
 
@@ -98,6 +100,8 @@ namespace tbx
 
       private:
         bool should_load_plugin(const std::string& plugin_name) const;
+        void clear_plugin_runtime_state(Uuid plugin_id);
+        void unload_plugin_group(std::vector<LoadedPlugin>& plugins);
         void process_pending_file_changes();
         void process_file_change(
             const FileWatchChange& change,

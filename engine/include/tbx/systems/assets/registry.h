@@ -46,6 +46,7 @@ namespace tbx
 
       public:
         Result add_asset_directory(const std::filesystem::path& path);
+        Result remove_asset_directory(const std::filesystem::path& path);
         Result ensure_asset_id(const Handle& handle, Uuid& out_asset_id);
         AssetRegistryEntryResult ensure_entry(const Handle& handle);
         std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry(

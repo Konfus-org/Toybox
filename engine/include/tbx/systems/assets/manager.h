@@ -226,6 +226,7 @@ namespace tbx
         /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         void set_pinned(const Handle& handle, bool is_pinned);
+        void remove_directory(const std::filesystem::path& path);
 
       private:
         template <typename TAsset>

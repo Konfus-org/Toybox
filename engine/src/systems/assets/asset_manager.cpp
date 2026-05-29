@@ -4,6 +4,9 @@
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/messages.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include <cstddef>
 
 namespace tbx
 {
@@ -53,6 +56,8 @@ namespace tbx
         TBX_TRACE_INFO("Unloading all assets.");
         std::lock_guard lock(_state->mutex);
         _state->stores.clear();
+        _state->watched_directories.clear();
+        _state->file_watchers.clear();
     }
 
     void AssetManager::unload_unreferenced(const std::chrono::steady_clock::duration idle_grace)
@@ -120,6 +125,12 @@ namespace tbx
 
         for (auto& store : _state->stores)
             store.second->set_pinned(entry->get().asset_id, is_pinned);
+
+        if (!is_pinned || !has_active_plugin_id())
+            return;
+
+        if (auto tracker = lock_plugin_ownership_tracker())
+            tracker->track_asset_pin(get_active_plugin_id(), Handle(entry->get().normalized_path, entry->get().asset_id));
     }
 
     void AssetManager::add_directory(const std::filesystem::path& path)
@@ -147,6 +158,12 @@ namespace tbx
         if (directories.size() == directory_count)
             return;
 
+        if (has_active_plugin_id())
+        {
+            if (auto tracker = lock_plugin_ownership_tracker())
+                tracker->track_asset_directory(get_active_plugin_id(), directories.back());
+        }
+
         watch_asset_directory(directories.back());
     }
 
@@ -164,6 +181,37 @@ namespace tbx
     std::weak_ptr<const SerializationRegistry> AssetManager::get_serialization_registry() const
     {
         return _state->serialization_registry;
+    }
+
+    void AssetManager::remove_directory(const std::filesystem::path& path)
+    {
+        if (path.empty())
+            return;
+
+        std::lock_guard lock(_state->mutex);
+        const auto normalized_path = path.lexically_normal();
+        const auto remove_result = _state->registry->remove_asset_directory(normalized_path);
+        if (!remove_result.succeeded())
+        {
+            TBX_TRACE_WARNING(
+                "Failed to remove asset directory '{}': {}",
+                path.generic_string(),
+                remove_result.get_report());
+        }
+
+        for (size index = 0; index < _state->watched_directories.size();)
+        {
+            if (_state->watched_directories[index] != normalized_path)
+            {
+                ++index;
+                continue;
+            }
+
+            _state->watched_directories.erase(
+                _state->watched_directories.begin() + static_cast<std::ptrdiff_t>(index));
+            _state->file_watchers.erase(
+                _state->file_watchers.begin() + static_cast<std::ptrdiff_t>(index));
+        }
     }
 
     std::shared_ptr<SerializationRegistry> AssetManager::lock_serialization_registry() const
@@ -391,6 +439,7 @@ namespace tbx
         if (resolved_path.empty())
             return;
 
+        _state->watched_directories.push_back(resolved_path);
         _state->file_watchers.push_back(
             std::make_unique<FileWatcher>(
                 resolved_path,

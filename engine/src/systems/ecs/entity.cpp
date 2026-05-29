@@ -2,6 +2,8 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include <shared_mutex>
 
 namespace tbx
@@ -69,6 +71,23 @@ namespace tbx
         return snapshot_entity_component_type_registrations();
     }
 
+    void unregister_entity_component_type_entry(std::type_index component_type)
+    {
+        if (component_type == std::type_index(typeid(void)))
+            return;
+
+        auto guard = std::lock_guard(entity_component_type_registration_mutex());
+        auto& registrations = entity_component_type_registrations();
+        const auto iterator = std::ranges::find_if(
+            registrations,
+            [component_type](const EntityComponentTypeRegistration& registration)
+            {
+                return registration.type == component_type;
+            });
+        if (iterator != registrations.end())
+            registrations.erase(iterator);
+    }
+
     void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
     {
         if (is_plugin_meta_query_active())
@@ -76,6 +95,7 @@ namespace tbx
 
         if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
             return;
+        const auto component_type = entry.type;
 
         auto guard = std::lock_guard(entity_component_type_registration_mutex());
         auto& registrations = entity_component_type_registrations();
@@ -88,17 +108,29 @@ namespace tbx
         if (existing == registrations.end())
         {
             registrations.push_back(std::move(entry));
+        }
+        else
+        {
+            // Prevent plugin code from replacing engine-owned serializers for existing components.
+            if (has_active_plugin_id())
+                return;
+
+            if (!entry.name.empty())
+                existing->name = std::move(entry.name);
+            if (!entry.type_name.empty())
+                existing->type_name = std::move(entry.type_name);
+            if (entry.write_value)
+                existing->write_value = std::move(entry.write_value);
+            if (entry.read_value)
+                existing->read_value = std::move(entry.read_value);
             return;
         }
 
-        if (!entry.name.empty())
-            existing->name = std::move(entry.name);
-        if (!entry.type_name.empty())
-            existing->type_name = std::move(entry.type_name);
-        if (entry.write_value)
-            existing->write_value = std::move(entry.write_value);
-        if (entry.read_value)
-            existing->read_value = std::move(entry.read_value);
+        if (!has_active_plugin_id())
+            return;
+
+        if (auto tracker = lock_plugin_ownership_tracker())
+            tracker->track_component_registration(get_active_plugin_id(), component_type);
     }
 
     Entity::Entity(const std::string& name, EntityRegistry& registry)

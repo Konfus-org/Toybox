@@ -1,6 +1,6 @@
 ---
 name: toybox
-description: Activates when the user mentions "Toybox", invokes the Toybox plugin, or requests changes within C:\Users\jercl\Projects\Toybox\Engine. Enforces repository policies and initializes tasks by executing the planning skill first.
+description: Activates when the user mentions "Toybox" or requests changes within the Toybox Game Engine. Enforces repository policies and initializes tasks by executing the planning skill first.
 ---
 
 # Toybox Engine Rulebook
@@ -10,10 +10,10 @@ Use this skill as the mandatory entry point for all Toybox Engine development. A
 ## 📁 Authoritative Reference Files
 
 Treat these local files as the absolute source of truth for the codebase. Read relevant sections prior to starting execution:
-* `C:\Users\jercl\Projects\Toybox\Engine\AGENTS.md`
-* `C:\Users\jercl\Projects\Toybox\Engine\docs\CodeStandards.md`
-* `C:\Users\jercl\Projects\Toybox\Engine\docs\Contributing.md`
-* `C:\Users\jercl\Projects\Toybox\Engine\docs\ShaderPipeline.md`
+* `\AGENTS.md`
+* `\docs\CodeStandards.md`
+* `\docs\Contributing.md`
+* `\docs\ShaderPipeline.md`
 
 ## 🧩 Routing Matrix
 
@@ -21,7 +21,7 @@ Dynamically bundle these precise sub-skills based on task domain:
 * **All C++ Tasks**: Mandatorily bundle `cpp-pro`, `cpp-coding-standards`, `memory-safety-patterns`, and `context-tools`.
 * **Rendering & Shaders**: Add `graphics-api-hooking` and `shader-programming-glsl`.
 * **Gameplay & Simulation**: Add `3d-games` for cameras, physics, and scene graphs.
-* **Fallback Directory**: Default to `C:\Users\jercl\Projects\Toybox\Engine` if no path is explicitly provided.
+* **Fallback Directory**: Default to `.\` root project dir if no path is explicitly provided.
 
 ## 🛠️ Core Engineering Policies
 

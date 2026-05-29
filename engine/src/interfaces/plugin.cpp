@@ -17,35 +17,42 @@ namespace tbx
     Plugin::Plugin() = default;
     Plugin::~Plugin() noexcept = default;
 
-    void Plugin::attach(ServiceProvider& service_provider)
+    void Plugin::attach(ServiceProvider& service_provider, PluginInstanceId plugin_id)
     {
         auto dispatcher = service_provider.get_service<IMessageCoordinator>().lock();
         TBX_ASSERT(dispatcher != nullptr, "Plugin attach requires IMessageCoordinator service.");
         if (!dispatcher)
             return;
 
+        _plugin_id = plugin_id;
         _dispatcher = service_provider.get_service<IMessageCoordinator>();
+        auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_attach(service_provider);
     }
 
     void Plugin::detach(ServiceProvider& service_provider)
     {
+        auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_detach(service_provider);
         _dispatcher = {};
+        _plugin_id = PluginInstanceId{};
     }
 
     void Plugin::update(const DeltaTime& dt)
     {
+        auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_update(dt);
     }
 
     void Plugin::fixed_update(const DeltaTime& dt)
     {
+        auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_fixed_update(dt);
     }
 
     void Plugin::receive_message(Message& msg)
     {
+        auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_recieve_message(msg);
     }
 
@@ -56,6 +63,11 @@ namespace tbx
             dispatcher != nullptr,
             "Plugins must be attached before accessing the dispatcher.");
         return *dispatcher;
+    }
+
+    Uuid Plugin::get_id() const
+    {
+        return _plugin_id;
     }
 
 }

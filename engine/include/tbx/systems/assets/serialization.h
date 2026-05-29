@@ -52,8 +52,10 @@ namespace tbx
     };
 
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
+    TBX_API void unregister_asset_type_entry(std::type_index asset_type);
     TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
     TBX_API std::vector<SerializableTypeRegistration> get_serializable_type_registrations();
+    TBX_API void unregister_serializable_type_entry(std::string_view name);
     TBX_API void register_serializable_type_entry(SerializableTypeRegistration entry);
 
     template <typename TValue>
@@ -327,41 +329,41 @@ namespace tbx
     template <typename TValue, typename = void>
     struct SerializableVariantTypeName
     {
-        static constexpr std::string_view value =
+        static constexpr std::string_view VALUE =
             tbx_serialization_type_name(static_cast<const TValue*>(nullptr));
     };
 
     template <>
     struct SerializableVariantTypeName<bool>
     {
-        static constexpr std::string_view value = "bool";
+        static constexpr std::string_view VALUE = "bool";
     };
 
     template <>
     struct SerializableVariantTypeName<int>
     {
-        static constexpr std::string_view value = "int";
+        static constexpr std::string_view VALUE = "int";
     };
 
     template <>
     struct SerializableVariantTypeName<float>
     {
-        static constexpr std::string_view value = "float";
+        static constexpr std::string_view VALUE = "float";
     };
 
     template <>
     struct SerializableVariantTypeName<double>
     {
-        static constexpr std::string_view value = "double";
+        static constexpr std::string_view VALUE = "double";
     };
 
     template <typename TValue>
     static constexpr std::string_view get_serializable_variant_type_name()
     {
         static_assert(
-            SerializableVariantTypeName<TValue>::value.size() > 0U,
+            SerializableVariantTypeName<TValue>::VALUE.size() > 0U,
             "Serializable variant alternatives must be registered with a TBX serialization macro.");
-        return SerializableVariantTypeName<TValue>::value;
+        return SerializableVariantTypeName<TValue>::VALUE;
     }
 
     inline constexpr std::string_view SERIALIZABLE_VARIANT_TYPE_KEY = "type";

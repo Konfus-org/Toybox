@@ -6,6 +6,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/streamer.h"
 #include "tbx/systems/graphics/messages.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/time/delta_time.h"
 #include <chrono>
 #include <exception>
@@ -30,8 +31,11 @@ namespace tbx
         auto file_ops = std::make_shared<FileOperator>(desc.working_root);
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>(file_ops));
+        service_provider.register_service<PluginOwnershipTracker>(
+            std::make_unique<PluginOwnershipTracker>());
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
+        bind_plugin_ownership_tracker(service_provider.get_service<PluginOwnershipTracker>());
         TBX_ASSERT(
             message_coordinator != nullptr && serialization_registry != nullptr,
             "Core services must be available before registering dependent services.");

@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/plugin_api/shared_library.h"
 
@@ -60,6 +61,9 @@ namespace tbx
         /// Thread Safety: Not thread-safe; call from the main thread.
         void receive_message(Message& msg);
 
+        void set_id(Uuid plugin_id);
+        Uuid get_id() const;
+
       public:
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library;
@@ -68,6 +72,7 @@ namespace tbx
       private:
         LoadedPluginState _state = LoadedPluginState::UNATTACHED;
         ServiceProvider* _attached_service_provider = nullptr;
+        PluginInstanceId _plugin_id = PluginInstanceId{};
     };
 
 }

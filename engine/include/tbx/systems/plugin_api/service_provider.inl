@@ -35,6 +35,15 @@ namespace tbx
         std::type_index key(typeid(TService));
         auto casted_service = std::unique_ptr<TService>(std::move(service));
         _entries[key] = std::make_unique<ServiceEntry<TService>>(std::move(casted_service));
+
+        if (!has_active_plugin_id())
+            return;
+
+        const auto tracker = lock_plugin_ownership_tracker();
+        if (!tracker)
+            return;
+
+        tracker->track_service(get_active_plugin_id(), key);
     }
 
     template <typename TService>

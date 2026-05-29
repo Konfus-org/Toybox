@@ -1,5 +1,6 @@
 #pragma once
 #include "entt/entt.hpp"
+#include "tbx/types/uuid.h"
 #include "tbx/types/components/component.h"
 #include <concepts>
 #include <shared_mutex>

@@ -1,5 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <memory>
@@ -51,6 +53,7 @@ namespace tbx
         template <typename TService>
         void deregister_service();
 
+        void deregister_service(std::type_index service_type);
         void clear();
 
       private:

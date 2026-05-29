@@ -3,6 +3,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/string_utils.h"
+#include <algorithm>
 
 namespace tbx
 {
@@ -183,6 +184,44 @@ namespace tbx
 
         const auto scan_result = scan_asset_directory(resolved);
         merge_result(result, scan_result);
+        return result;
+    }
+
+    Result AssetRegistry::remove_asset_directory(const std::filesystem::path& path)
+    {
+        if (path.empty())
+            return make_failed_result("Cannot remove an empty asset directory path.");
+
+        const auto resolved = _file_ops->resolve(path).lexically_normal();
+        const auto directory_iterator = std::find(
+            _asset_directories.begin(),
+            _asset_directories.end(),
+            resolved);
+        if (directory_iterator == _asset_directories.end())
+        {
+            auto result = Result {};
+            result.flag_success("Asset directory is not tracked.");
+            return result;
+        }
+
+        _asset_directories.erase(directory_iterator);
+
+        for (auto entry_iterator = _entries_by_path.begin(); entry_iterator != _entries_by_path.end();)
+        {
+            const auto normalized = std::filesystem::path(entry_iterator->second.normalized_path).lexically_normal();
+            if (!normalized.empty() && normalized.string().starts_with(resolved.string()))
+            {
+                if (entry_iterator->second.asset_id.is_valid())
+                    _path_by_id.erase(entry_iterator->second.asset_id);
+                entry_iterator = _entries_by_path.erase(entry_iterator);
+                continue;
+            }
+
+            ++entry_iterator;
+        }
+
+        auto result = Result {};
+        result.flag_success("Stopped tracking asset directory.");
         return result;
     }
 

@@ -34,12 +34,16 @@ namespace tbx
         if (!is_valid() || _state == LoadedPluginState::ATTACHED)
             return;
 
+        TBX_ASSERT(
+            _plugin_id.is_valid(),
+            "LoadedPlugin must have a valid plugin id before attach.");
+
         TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
         _state = LoadedPluginState::ATTACHED;
         _attached_service_provider = &service_provider;
         try
         {
-            instance->attach(service_provider);
+            instance->attach(service_provider, _plugin_id);
         }
         catch (...)
         {
@@ -66,6 +70,16 @@ namespace tbx
             return;
 
         instance->receive_message(msg);
+    }
+
+    void LoadedPlugin::set_id(Uuid plugin_id)
+    {
+        _plugin_id = plugin_id;
+    }
+
+    Uuid LoadedPlugin::get_id() const
+    {
+        return _plugin_id;
     }
 
 }
