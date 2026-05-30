@@ -579,6 +579,8 @@ def emit_plugin_source(
     type_info: SerializableType,
     include_path: str,
     plugin_abi_version: str,
+    script_types: list[SerializableType] | None = None,
+    script_include_paths: list[str] | None = None,
 ) -> list[str]:
     plugin_name = attr_value(type_info.attrs, "name") or type_info.name
     plugin_version = attr_value(type_info.attrs, "version")
@@ -610,25 +612,37 @@ def emit_plugin_source(
         GENERATED_CODE_BANNER,
         f"#include {cpp_string(include_path)}",
         "#include \"tbx/interfaces/plugin.h\"",
+        "#include \"tbx/systems/assets/serialization.h\"",
         "#include \"tbx/systems/plugin_api/plugin_meta.h\"",
-        "",
-        "TBX_PLUGIN_ENTRY_EXPORT void tbx_get_plugin_meta(::tbx::PluginMeta* out_meta)",
-        "{",
-        "    if (out_meta == nullptr)",
-        "        return;",
-        "",
-        "    auto meta = ::tbx::PluginMeta();",
-        f"    meta.name = {cpp_string(plugin_name)};",
-        f"    meta.version = {cpp_string(plugin_version)};",
-        f"    meta.abi_version = {validated_plugin_abi_version}U;",
-        f"    meta.category = {category_expression};",
-        f"    meta.priority = {priority}U;",
-        "    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;",
-        f"    meta.dependencies = {dependency_initializer};",
-        "#if defined(TBX_PLUGIN_RESOURCE_DIRECTORY)",
-        "    meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;",
-        "#endif",
     ]
+    if script_types:
+        for script_include_path in sorted(set(script_include_paths or [])):
+            lines.append(f"#include {cpp_string(script_include_path)}")
+    lines.extend(
+        [
+            "",
+            "TBX_PLUGIN_ENTRY_EXPORT void tbx_get_plugin_meta(::tbx::PluginMeta* out_meta)",
+        ]
+    )
+    lines.extend(
+        [
+            "{",
+            "    if (out_meta == nullptr)",
+            "        return;",
+            "",
+            "    auto meta = ::tbx::PluginMeta();",
+            f"    meta.name = {cpp_string(plugin_name)};",
+            f"    meta.version = {cpp_string(plugin_version)};",
+            f"    meta.abi_version = {validated_plugin_abi_version}U;",
+            f"    meta.category = {category_expression};",
+            f"    meta.priority = {priority}U;",
+            "    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;",
+            f"    meta.dependencies = {dependency_initializer};",
+            "#if defined(TBX_PLUGIN_RESOURCE_DIRECTORY)",
+            "    meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;",
+            "#endif",
+        ]
+    )
     if description is not None:
         lines.append(f"    meta.description = {cpp_string(description)};")
 
@@ -637,6 +651,46 @@ def emit_plugin_source(
             "    *out_meta = meta;",
             "}",
             "",
+        ]
+    )
+
+    if script_types:
+        lines.extend(
+            [
+                "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_scripts()",
+                "{",
+            ]
+        )
+        for script_type in script_types:
+            version = type_version(script_type)
+            if version is None:
+                raise CodegenError(
+                    f"{script_type.name} is a script and requires [[tbx::version(N)]]."
+                )
+            namespace_prefix = f"{script_type.namespace}::" if script_type.namespace else ""
+            lines.extend(
+                [
+                    f"    static_cast<void>(::tbx::register_script_asset_type<{qualified_name(script_type)}>(",
+                    f"        {version},",
+                    f"        {namespace_prefix}tbx_apply_script_overrides_{script_type.name},",
+                    f"        {namespace_prefix}tbx_bind_script_runtime_{script_type.name}));",
+                ]
+            )
+        lines.extend(["}", ""])
+        lines.extend(
+            [
+                "TBX_PLUGIN_ENTRY_EXPORT void tbx_unregister_plugin_scripts()",
+                "{",
+            ]
+        )
+        for script_type in script_types:
+            lines.append(
+                f"    ::tbx::unregister_asset_type_entry(std::type_index(typeid({qualified_name(script_type)})));"
+            )
+        lines.extend(["}", ""])
+
+    lines.extend(
+        [
             "TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* tbx_create_plugin()",
             "{",
             f"    ::tbx::Plugin* plugin = new {qualified_plugin_name}();",
@@ -660,6 +714,8 @@ def generate_source(
     types: list[SerializableType] | None = None,
     include_path: str | None = None,
     plugin_abi_version: str = "1",
+    script_types: list[SerializableType] | None = None,
+    script_include_paths: list[str] | None = None,
 ) -> str:
     plugin_types = [type_info for type_info in types or [] if has_attr(type_info.attrs, "plugin")]
     if len(plugin_types) > 1:
@@ -670,14 +726,21 @@ def generate_source(
         if include_path is None:
             raise CodegenError(f"{plugin_types[0].name} plugin generation requires an include path.")
         return (
-            "\n".join(emit_plugin_source(plugin_types[0], include_path, plugin_abi_version)).rstrip()
+            "\n".join(
+                emit_plugin_source(
+                    plugin_types[0],
+                    include_path,
+                    plugin_abi_version,
+                    script_types,
+                    script_include_paths,
+                )
+            ).rstrip()
             + "\n"
         )
 
     if include_path is None:
         raise CodegenError("Attribute source generation requires an include path.")
     return generate_type_source(header_name, types or [], include_path)
-
 
 def write_if_different(output_path: Path, output: str) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -723,6 +786,8 @@ def run_codegen(
     output_source_path: Path,
     include_root: Path | None = None,
     plugin_abi_version: str = "1",
+    script_types: list[SerializableType] | None = None,
+    script_include_paths: list[str] | None = None,
 ) -> None:
     source = input_path.read_text(encoding="utf-8")
     types = parse_source(source, str(input_path), read_include_context(input_path, include_root))
@@ -730,5 +795,12 @@ def run_codegen(
     include_path = resolve_include_path(input_path, include_root)
     write_if_different(
         output_source_path,
-        generate_source(output_header_path.name, types, include_path, plugin_abi_version),
+        generate_source(
+            output_header_path.name,
+            types,
+            include_path,
+            plugin_abi_version,
+            script_types,
+            script_include_paths,
+        ),
     )

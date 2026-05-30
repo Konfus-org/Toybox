@@ -22,7 +22,5 @@ namespace three_d_example
     [[tbx::dependency("PerformanceMonitor")]];
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
-      public:
-        void on_attach(tbx::ServiceProvider& service_provider) override;
     };
 }

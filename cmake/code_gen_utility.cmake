@@ -196,6 +196,7 @@ function(tbx_codegen_generate_plugin_registration)
     list(SORT plugin_attribute_inputs)
 
     set(plugin_input "")
+    set(script_inputs "")
     foreach(attribute_input IN LISTS plugin_attribute_inputs)
         file(READ "${attribute_input}" attribute_input_text)
         if(attribute_input_text MATCHES "\\[\\[tbx::plugin")
@@ -204,6 +205,9 @@ function(tbx_codegen_generate_plugin_registration)
                     "tbx_codegen_generate_plugin_registration: target '${TBX_CODEGEN_TARGET}' has multiple [[tbx::plugin]] declarations")
             endif()
             set(plugin_input "${attribute_input}")
+        endif()
+        if(attribute_input_text MATCHES "\\[\\[(tbx::)?script")
+            list(APPEND script_inputs "${attribute_input}")
         endif()
     endforeach()
 
@@ -221,6 +225,10 @@ function(tbx_codegen_generate_plugin_registration)
     set(generated_dir "${TBX_CODEGEN_BASE_DIR}/generated")
     set(output_header "${generated_dir}/${input_stem}.generated.h")
     set(output_source "${generated_dir}/${input_stem}.generated.cpp")
+    set(script_input_args "")
+    foreach(script_input IN LISTS script_inputs)
+        list(APPEND script_input_args --script-input "${script_input}")
+    endforeach()
 
     add_custom_command(
         OUTPUT
@@ -233,8 +241,11 @@ function(tbx_codegen_generate_plugin_registration)
             --output-source "${output_source}"
             --include-root "${TBX_CODEGEN_BASE_DIR}/include"
             --plugin-abi-version "${TBX_PLUGIN_ABI_VERSION}"
+            --script-include-root "${TBX_CODEGEN_BASE_DIR}/src"
+            ${script_input_args}
         DEPENDS
             "${plugin_input}"
+            ${script_inputs}
             ${attribute_codegen_sources}
         COMMENT "Generating Toybox plugin entry points for ${TBX_CODEGEN_TARGET}"
         VERBATIM

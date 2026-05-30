@@ -257,6 +257,10 @@ namespace tbx
                 "tbx_destroy_plugin");
             return {};
         }
+        RegisterPluginScriptsFn register_scripts =
+            lib->get_symbol<RegisterPluginScriptsFn>("tbx_register_plugin_scripts");
+        UnregisterPluginScriptsFn unregister_scripts =
+            lib->get_symbol<UnregisterPluginScriptsFn>("tbx_unregister_plugin_scripts");
 
         const auto plugin_id = allocate_plugin_instance_id();
         auto plugin_scope = ScopedPluginContext(plugin_id);
@@ -269,11 +273,15 @@ namespace tbx
 
         auto instance = std::unique_ptr<Plugin, PluginDeleter>(
             plugin_instance,
-            [destroy, plugin_id](Plugin* plugin_ptr)
+            [destroy, unregister_scripts, plugin_id](Plugin* plugin_ptr)
             {
                 auto destroy_scope = ScopedPluginContext(plugin_id);
+                if (unregister_scripts)
+                    unregister_scripts();
                 destroy(plugin_ptr);
             });
+        if (register_scripts)
+            register_scripts();
         auto loaded = LoadedPlugin(meta, std::move(lib), std::move(instance));
         loaded.set_id(plugin_id);
         return loaded;

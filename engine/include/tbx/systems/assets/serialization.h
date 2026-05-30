@@ -363,9 +363,8 @@ namespace tbx
             if (!json.is_array())
                 return;
 
-            const auto value_count = std::min(
-                static_cast<size>(json.size()),
-                static_cast<size>(TValue::length()));
+            const auto value_count =
+                std::min(static_cast<size>(json.size()), static_cast<size>(TValue::length()));
             for (size index = 0U; index < value_count; ++index)
                 read_serialization_value(
                     json[index],
@@ -488,11 +487,10 @@ namespace tbx
         TValue,
         std::enable_if_t<IsStaticIndexedSerializable<TValue>::value>>
     {
-        using IndexedValue = std::remove_cvref_t<decltype(
-            std::declval<TValue&>()[std::declval<typename TValue::length_type>()])>;
+        using IndexedValue = std::remove_cvref_t<
+            decltype(std::declval<TValue&>()[std::declval<typename TValue::length_type>()])>;
 
-        static constexpr bool IS_NESTED_INDEXED =
-            IsStaticIndexedSerializable<IndexedValue>::value;
+        static constexpr bool IS_NESTED_INDEXED = IsStaticIndexedSerializable<IndexedValue>::value;
 
         static consteval std::string_view get_value()
         {
@@ -712,13 +710,11 @@ namespace tbx
         TBindRuntime bind_runtime)
     {
         auto entry = make_asset_type_registration<TScript>(version);
-        entry.read_body =
-            [](std::string_view data, void* asset)
+        entry.read_body = [](std::string_view data, void* asset)
         {
             return read_json_asset_body(data, *static_cast<TScript*>(asset));
         };
-        entry.write_body =
-            [](const void* asset, std::string& output)
+        entry.write_body = [](const void* asset, std::string& output)
         {
             return write_json_asset_body(*static_cast<const TScript*>(asset), output);
         };
@@ -734,7 +730,9 @@ namespace tbx
         {
             bind_runtime(*static_cast<TScript*>(asset), context);
         };
+
         register_asset_type_entry(std::move(entry));
+
         return true;
     }
 

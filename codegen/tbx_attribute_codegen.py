@@ -6,8 +6,9 @@ import sys
 import unittest
 from pathlib import Path
 
-from generator import run_codegen
+from generator import resolve_include_path, run_codegen
 from model import CodegenError
+from parser import parse_source
 from tests import AttributeCodegenTests
 
 
@@ -20,6 +21,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--output-source", type=Path)
     parser.add_argument("--include-root", type=Path)
     parser.add_argument("--plugin-abi-version", default="1")
+    parser.add_argument("--script-input", type=Path, action="append", default=[])
+    parser.add_argument("--script-include-root", type=Path)
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
 
@@ -49,12 +52,20 @@ def main(argv: list[str]) -> int:
         output_source = output_header.with_name(source_name)
 
     try:
+        script_types = []
+        script_include_paths = []
+        for script_input in args.script_input:
+            script_types.extend(parse_source(script_input.read_text(encoding="utf-8"), str(script_input)))
+            script_include_paths.append(resolve_include_path(script_input, args.script_include_root))
+
         run_codegen(
             args.input,
             output_header,
             output_source,
             args.include_root,
             args.plugin_abi_version,
+            script_types,
+            script_include_paths,
         )
     except CodegenError as error:
         print(f"tbx_attribute_codegen: {error}", file=sys.stderr)

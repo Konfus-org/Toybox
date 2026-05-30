@@ -1,5 +1,8 @@
 #include "tbx/systems/app/application.h"
 
+// TODO: create a launcher that does this for us, it knows how to configure the app based off a
+// launcher settings asset. This new launcher should also take in command line args and pass them
+// along to the app
 int main()
 {
     tbx::AppDescription desc = {

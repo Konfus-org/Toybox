@@ -119,6 +119,56 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("*out_meta = meta;", output)
         self.assertIn("new tbx::tests::ExamplePlugin()", output)
 
+    def test_plugin_source_generates_script_registration_method(self) -> None:
+        plugin_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin]];
+                [[tbx::name("ExamplePlugin")]];
+                [[tbx::version("1.2.3")]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                };
+                }
+                """
+            )
+        )
+        script_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::script]];
+                [[tbx::version(7U)]];
+                class DoorController final : public tbx::Script
+                {
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source(
+            "example_plugin.generated.h",
+            plugin_types,
+            "tbx/tests/example_plugin.h",
+            script_types=script_types,
+            script_include_paths=["tbx/tests/door_controller.h"],
+        )
+
+        self.assertIn('#include "tbx/tests/door_controller.h"', output)
+        self.assertIn("void tbx_register_plugin_scripts()", output)
+        self.assertIn("register_script_asset_type<tbx::tests::DoorController>", output)
+        self.assertIn("tbx::tests::tbx_apply_script_overrides_DoorController", output)
+        self.assertIn("tbx::tests::tbx_bind_script_runtime_DoorController", output)
+        self.assertIn("void tbx_unregister_plugin_scripts()", output)
+        self.assertIn(
+            "unregister_asset_type_entry(std::type_index(typeid(tbx::tests::DoorController)))",
+            output,
+        )
+
     def test_resource_codegen_generates_builtin_and_material_headers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
