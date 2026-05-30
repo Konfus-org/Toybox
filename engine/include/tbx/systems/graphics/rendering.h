@@ -11,6 +11,8 @@
 
 namespace tbx
 {
+    // TODO: make shadow cascades fully configurable from graphics settings and make shadows render
+    // really far by default, but far shadows should use a super low resolution
     /// @brief
     /// Purpose: Orchestrates the per-frame render loop and submits frame work to the render lane.
     /// @details

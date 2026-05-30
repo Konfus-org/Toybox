@@ -4,6 +4,7 @@
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/matrices.h"
+#include "tbx/types/trig.h"
 #include "tbx/types/vertex.h"
 #include "tbx/utils/string_utils.h"
 #include <assimp/Importer.hpp>
@@ -111,6 +112,152 @@ namespace assimp_model_loader
     static tbx::VertexBufferLayout get_default_mesh_layout()
     {
         return tbx::get_default_vertex_buffer_layout();
+    }
+
+    struct ModelPartQueueEntry
+    {
+        size_t part_index = 0U;
+        tbx::Mat4 parent_transform = tbx::Mat4(1.0F);
+    };
+
+    static tbx::Vec3 transform_direction(const tbx::Mat3& transform, const tbx::Vec3& direction)
+    {
+        const tbx::Vec3 transformed = transform * direction;
+        const tbx::Vec3 normalized = tbx::normalize_or_zero(transformed);
+        return tbx::dot(normalized, normalized) > 0.0F ? normalized : direction;
+    }
+
+    static tbx::Vertex transform_vertex(const tbx::Vertex& vertex, const tbx::Mat4& transform)
+    {
+        tbx::Vertex result = vertex;
+        result.position = tbx::Vec3(transform * tbx::Vec4(vertex.position, 1.0F));
+
+        const tbx::Mat3 normal_transform = tbx::inverse_transpose(tbx::Mat3(transform));
+        result.normal = transform_direction(normal_transform, vertex.normal);
+
+        const tbx::Vec3 tangent =
+            transform_direction(tbx::Mat3(transform), tbx::Vec3(vertex.tangent));
+        result.tangent = tbx::Vec4(tangent, vertex.tangent.w);
+        return result;
+    }
+
+    static tbx::Mesh make_transformed_mesh(
+        const tbx::Mesh& source,
+        const tbx::Mat4& transform,
+        const tbx::VertexBufferLayout& layout)
+    {
+        const uint32 stride = source.get_vertex_stride_float_count();
+        if (stride < 16U || source.vertices.vertices.size() % static_cast<size_t>(stride) != 0U)
+            return source;
+
+        auto vertices = std::vector<tbx::Vertex>();
+        vertices.reserve(source.vertices.vertices.size() / static_cast<size_t>(stride));
+        for (size_t vertex_offset = 0U; vertex_offset < source.vertices.vertices.size();
+             vertex_offset += static_cast<size_t>(stride))
+        {
+            tbx::Vertex vertex = {};
+            vertex.position = tbx::Vec3(
+                source.vertices.vertices[vertex_offset + 0U],
+                source.vertices.vertices[vertex_offset + 1U],
+                source.vertices.vertices[vertex_offset + 2U]);
+            vertex.color = tbx::Color(
+                source.vertices.vertices[vertex_offset + 3U],
+                source.vertices.vertices[vertex_offset + 4U],
+                source.vertices.vertices[vertex_offset + 5U],
+                source.vertices.vertices[vertex_offset + 6U]);
+            vertex.normal = tbx::Vec3(
+                source.vertices.vertices[vertex_offset + 7U],
+                source.vertices.vertices[vertex_offset + 8U],
+                source.vertices.vertices[vertex_offset + 9U]);
+            vertex.uv = tbx::Vec2(
+                source.vertices.vertices[vertex_offset + 10U],
+                source.vertices.vertices[vertex_offset + 11U]);
+            vertex.tangent = tbx::Vec4(
+                source.vertices.vertices[vertex_offset + 12U],
+                source.vertices.vertices[vertex_offset + 13U],
+                source.vertices.vertices[vertex_offset + 14U],
+                source.vertices.vertices[vertex_offset + 15U]);
+            vertices.push_back(transform_vertex(vertex, transform));
+        }
+
+        return tbx::Mesh(tbx::VertexBuffer(vertices, layout), source.indices);
+    }
+
+    static void bake_model_part_transforms(
+        const std::vector<tbx::Mesh>& source_meshes,
+        std::vector<tbx::ModelPart>& parts,
+        const tbx::VertexBufferLayout& layout,
+        std::vector<tbx::Mesh>& out_meshes)
+    {
+        out_meshes.clear();
+        if (parts.empty())
+        {
+            out_meshes = source_meshes;
+            return;
+        }
+
+        auto has_parent = std::vector<bool>(parts.size(), false);
+        for (const auto& part : parts)
+            for (const auto child_index : part.children)
+                if (child_index < has_parent.size())
+                    has_parent[child_index] = true;
+
+        auto queue = std::vector<ModelPartQueueEntry>();
+        queue.reserve(parts.size());
+        for (size_t part_index = 0U; part_index < parts.size(); ++part_index)
+        {
+            if (has_parent[part_index])
+                continue;
+
+            queue.push_back(
+                ModelPartQueueEntry {
+                    .part_index = part_index,
+                    .parent_transform = tbx::Mat4(1.0F),
+                });
+        }
+
+        if (queue.empty())
+        {
+            queue.push_back(
+                ModelPartQueueEntry {
+                    .part_index = 0U,
+                    .parent_transform = tbx::Mat4(1.0F),
+                });
+        }
+
+        auto visited_parts = std::vector<bool>(parts.size(), false);
+        while (!queue.empty())
+        {
+            const ModelPartQueueEntry current = queue.back();
+            queue.pop_back();
+            if (current.part_index >= parts.size())
+                continue;
+            if (visited_parts[current.part_index])
+                continue;
+            visited_parts[current.part_index] = true;
+
+            auto& part = parts[current.part_index];
+            const tbx::Mat4 part_transform = current.parent_transform * part.transform;
+            if (part.mesh_index < source_meshes.size())
+            {
+                const uint32 source_mesh_index = part.mesh_index;
+                part.mesh_index = static_cast<uint32>(out_meshes.size());
+                out_meshes.push_back(make_transformed_mesh(
+                    source_meshes[static_cast<size_t>(source_mesh_index)],
+                    part_transform,
+                    layout));
+            }
+            part.transform = tbx::Mat4(1.0F);
+
+            for (const auto child_index : part.children)
+            {
+                queue.push_back(
+                    ModelPartQueueEntry {
+                        .part_index = child_index,
+                        .parent_transform = part_transform,
+                    });
+            }
+        }
     }
 
     static void append_parts_from_node(
@@ -333,8 +480,11 @@ namespace assimp_model_loader
             parts.push_back(part);
         }
 
+        auto baked_meshes = std::vector<tbx::Mesh>();
+        bake_model_part_transforms(meshes, parts, layout, baked_meshes);
+
         // Assemble the final model payload.
-        model.meshes = std::move(meshes);
+        model.meshes = std::move(baked_meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
         result.flag_success();

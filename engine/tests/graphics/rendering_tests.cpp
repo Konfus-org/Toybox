@@ -1119,6 +1119,57 @@ namespace tbx::tests::graphics
         EXPECT_EQ(light_data->light_meta.x, 1);
     }
 
+    // Validates local light extraction uses the configured camera distance limit.
+    TEST(RenderingTests, Render_LocalLightsRespectConfiguredDistance)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = std::make_shared<SerializationRegistry>();
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(*serialization_registry, asset_manager);
+        auto settings = GraphicsSettings(
+            dispatcher,
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {1280U, 720U},
+            2048U,
+            90.0F,
+            1.0F,
+            4.0F);
+        auto camera = world->create_entity("Camera");
+        camera.add_component<Camera>();
+        camera.add_component<Transform>(Vec3(0.0F));
+        auto near_light = world->create_entity("NearLight");
+        near_light.add_component<PointLight>();
+        near_light.add_component<Transform>(Vec3(0.0F, 0.0F, -3.0F));
+        auto far_light = world->create_entity("FarLight");
+        far_light.add_component<PointLight>();
+        far_light.add_component<Transform>(Vec3(0.0F, 0.0F, -5.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+        const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
+
+        // Assert
+        ASSERT_TRUE(light_data.has_value());
+        EXPECT_EQ(light_data->light_meta.x, 1);
+    }
+
     // Validates Toybox pass code can own draw behavior with explicit backend commands.
     TEST(GraphicsBackendTests, ExplicitCommands_CanDescribeIndexedGeometryDraw)
     {
@@ -2483,6 +2534,133 @@ namespace tbx::tests::graphics
             DIRECTIONAL_SHADOW_CASCADE_COUNT);
     }
 
+    // Validates off-frustum shadow casters are kept when they are inside the configured distance.
+    TEST(RenderingTests, Render_ShadowCasterDistanceIncludesOffFrustumCaster)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = std::make_shared<SerializationRegistry>();
+        serialization_registry->register_loader<Model>(
+            [](const std::filesystem::path&,
+               const ModelLoadParameters&,
+               const AssetLoadMetadata&,
+               Model& model)
+            {
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(*serialization_registry, asset_manager);
+        auto settings = GraphicsSettings(
+            dispatcher,
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {1280U, 720U},
+            2048U,
+            90.0F,
+            1.0F,
+            64.0F,
+            32.0F);
+        const auto model_handle = Handle("Models/ShadowDistanceTriangle.fbx");
+        auto visible_mesh = world->create_entity("VisibleTriangle");
+        visible_mesh.add_component<StaticMesh>(StaticMesh(model_handle));
+        visible_mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto off_frustum_mesh = world->create_entity("OffFrustumTriangle");
+        off_frustum_mesh.add_component<StaticMesh>(StaticMesh(model_handle));
+        off_frustum_mesh.add_component<Transform>(Vec3(20.0F, 0.0F, -2.0F));
+        auto sun = world->create_entity("Sun");
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        ASSERT_FALSE(backend.recorded_passes.empty());
+        ASSERT_FALSE(backend.recorded_draws.empty());
+        EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Shadow Pass");
+        EXPECT_EQ(backend.recorded_draws.front().instance_count, 2U);
+    }
+
+    // Validates shadow caster distance still excludes off-frustum casters beyond the configured
+    // limit.
+    TEST(RenderingTests, Render_ShadowCasterDistanceExcludesFarOffFrustumCaster)
+    {
+        // Arrange
+        auto backend = RecordingGraphicsBackend {};
+        auto thread_manager = ThreadManager {};
+        auto window_manager = RecordingWindowManager {};
+        auto dispatcher = std::make_shared<NullMessageDispatcher>();
+        auto serialization_registry = std::make_shared<SerializationRegistry>();
+        serialization_registry->register_loader<Model>(
+            [](const std::filesystem::path&,
+               const ModelLoadParameters&,
+               const AssetLoadMetadata&,
+               Model& model)
+            {
+                model = Model(Mesh::TRIANGLE);
+                return Result {};
+            });
+        auto asset_manager =
+            AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
+        auto world = load_test_world(*serialization_registry, asset_manager);
+        auto settings = GraphicsSettings(
+            dispatcher,
+            false,
+            GraphicsApi::OPEN_GL,
+            Size {1280U, 720U},
+            2048U,
+            90.0F,
+            1.0F,
+            64.0F,
+            8.0F);
+        const auto model_handle = Handle("Models/FarShadowDistanceTriangle.fbx");
+        auto visible_mesh = world->create_entity("VisibleTriangle");
+        visible_mesh.add_component<StaticMesh>(StaticMesh(model_handle));
+        visible_mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
+        auto far_mesh = world->create_entity("FarOffFrustumTriangle");
+        far_mesh.add_component<StaticMesh>(StaticMesh(model_handle));
+        far_mesh.add_component<Transform>(Vec3(20.0F, 0.0F, -2.0F));
+        auto sun = world->create_entity("Sun");
+        sun.add_component<DirectionalLight>(DirectionalLight());
+        sun.add_component<Transform>(Vec3(0.0F));
+        auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
+        auto asset_manager_service = make_non_owning_service(asset_manager);
+        auto thread_manager_service = make_non_owning_service(thread_manager);
+        auto window_manager_service = make_non_owning_service<IWindowManager>(window_manager);
+
+        // Act
+        auto rendering = Rendering(
+            backend_service,
+            asset_manager_service,
+            thread_manager_service,
+            window_manager_service,
+            settings);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        wait_for_render_lane(thread_manager);
+
+        // Assert
+        ASSERT_FALSE(backend.recorded_passes.empty());
+        ASSERT_FALSE(backend.recorded_draws.empty());
+        EXPECT_EQ(backend.recorded_passes.front().debug_name, "Toybox Shadow Pass");
+        EXPECT_EQ(backend.recorded_draws.front().instance_count, 1U);
+    }
+
     // Validates shadow settings are passed to internal pipeline helpers in the expected order.
     TEST(RenderingTests, Render_ShadowShaderDataUsesConfiguredDirectionalDistance)
     {
@@ -2535,8 +2713,8 @@ namespace tbx::tests::graphics
         EXPECT_EQ(backend.recorded_texture_descs.front().size.height, 4096U);
     }
 
-    // Validates frustum-fitted directional cascades still cover offscreen casters on the light ray.
-    TEST(RenderingTests, Render_DirectionalShadowCascadeIncludesOffscreenCasterDepth)
+    // Validates directional cascades cover camera-distance space instead of only the view frustum.
+    TEST(RenderingTests, Render_DirectionalShadowCascadeIncludesOffscreenCasterDistance)
     {
         // Arrange
         auto backend = RecordingGraphicsBackend {};
@@ -2573,7 +2751,7 @@ namespace tbx::tests::graphics
 
         // Assert
         ASSERT_TRUE(shadow_data.has_value());
-        const Vec3 offscreen_caster_position = Vec3(0.0F, 0.0F, 20.0F);
+        const Vec3 offscreen_caster_position = Vec3(20.0F, 0.0F, 0.0F);
         const Vec3 shadow_coord =
             project_shadow_coord(shadow_data->light_view_projections[0], offscreen_caster_position);
         EXPECT_TRUE(is_shadow_coord_in_bounds(shadow_coord));

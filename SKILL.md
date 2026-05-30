@@ -62,3 +62,81 @@ Dynamically bundle these precise sub-skills based on task domain:
 - Simple properties may use `//` comments when helpful.
 - Keep Doxygen summaries directly adjacent to their declaration (no blank line between summary and declaration).
 - Plugin and example lifecycle methods (`attach`, `detach`, `update`, including `on_attach`, `on_detach`, `on_update`, `on_fixed_update`) do not require Doxygen summaries.
+
+## File Layout:
+
+Strictly follow the below file layout:
+
+``` cpp
+#pragma once // do not use old style ifdefs
+#includes... // <> for external, "" for internal, should be sorted by name. If order matters then wrap in // clang-format off ... // clang-format on comments
+
+// Header-file:
+namespace tbx
+{
+    Constants...
+    Usings...
+    Structs...
+    Classes...
+    Methods (sort by keyword: static/inline/etc, then by name)...
+}
+
+// Source-file:
+namespace tbx
+{
+    //// INTERNAL ////
+    Constants...
+    Usings...
+    Structs...
+    Classes...
+    static Methods (sort by keyword: static/inline/etc, then by name)...
+    
+    //// MY COOL CLASS IMPL //// <-- use these to break up source file by implementation
+    Mirror header file here...
+    
+    //// MY OTHER COOL CLASS IMPL ////
+    Mirror header file here...
+}
+```
+
+## Class / Struct Layout
+
+Strictly follow this for every struct/class:
+
+```cpp
+class Name :
+    InheritFromA,
+    InheritFromB
+{
+  public:
+    Usings...
+
+  public:
+    Constructor
+    Destructor
+
+  public:
+    CopyConstructors...
+    AssignmentOperators...
+
+  public:
+    Methods (sort by keyword: static/inline/etc, then by name)
+
+  public:
+    Properties (sort by keyword: static/inline/etc, then by name)
+
+  private:
+    Constructor
+    Destructor
+
+  private:
+    CopyConstructors...
+    AssignmentOperators...
+
+  private:
+    Methods (sort by keyword: static/inline/etc, then by name)
+
+  private:
+    Properties (sort by keyword: static/inline/etc, then by name)
+};
+```

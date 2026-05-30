@@ -195,36 +195,20 @@ namespace tbx
         return std::floor(value / texel_size) * texel_size;
     }
 
-    static Vec3 project_camera_frustum_corner(
-        const RenderCamera& camera,
-        const float clip_x,
-        const float clip_y,
-        const float view_depth)
-    {
-        Vec4 view_corner = camera.inverse_projection * Vec4(clip_x, clip_y, 1.0F, 1.0F);
-        view_corner /= std::abs(view_corner.w) > 0.000001F ? view_corner.w : 1.0F;
-
-        const float scale = view_depth / std::max(-view_corner.z, 0.000001F);
-        view_corner = Vec4(Vec3(view_corner) * scale, 1.0F);
-
-        const Vec4 world_corner = camera.inverse_view * view_corner;
-        return Vec3(world_corner);
-    }
-
-    static std::array<Vec3, 8U> make_camera_frustum_corners(
-        const RenderCamera& camera,
-        const float split_near,
+    static std::array<Vec3, 8U> make_camera_distance_cascade_corners(
+        const Vec3& camera_position,
         const float split_far)
     {
+        const float radius = std::max(split_far, 1.0F);
         return std::array<Vec3, 8U> {
-            project_camera_frustum_corner(camera, -1.0F, -1.0F, split_near),
-            project_camera_frustum_corner(camera, 1.0F, -1.0F, split_near),
-            project_camera_frustum_corner(camera, 1.0F, 1.0F, split_near),
-            project_camera_frustum_corner(camera, -1.0F, 1.0F, split_near),
-            project_camera_frustum_corner(camera, -1.0F, -1.0F, split_far),
-            project_camera_frustum_corner(camera, 1.0F, -1.0F, split_far),
-            project_camera_frustum_corner(camera, 1.0F, 1.0F, split_far),
-            project_camera_frustum_corner(camera, -1.0F, 1.0F, split_far),
+            camera_position + Vec3(-radius, -radius, -radius),
+            camera_position + Vec3(radius, -radius, -radius),
+            camera_position + Vec3(radius, radius, -radius),
+            camera_position + Vec3(-radius, radius, -radius),
+            camera_position + Vec3(-radius, -radius, radius),
+            camera_position + Vec3(radius, -radius, radius),
+            camera_position + Vec3(radius, radius, radius),
+            camera_position + Vec3(-radius, radius, radius),
         };
     }
 
@@ -236,7 +220,7 @@ namespace tbx
         const float shadow_caster_distance,
         const uint32 shadow_map_resolution)
     {
-        const auto corners = make_camera_frustum_corners(camera, split_near, split_far);
+        const auto corners = make_camera_distance_cascade_corners(camera.position, split_far);
         auto center = Vec3(0.0F);
         for (const Vec3& corner : corners)
             center += corner;
@@ -263,8 +247,8 @@ namespace tbx
             max_bounds = glm::max(max_bounds, light_space_corner);
         }
 
-        // X/Y stay frustum-fitted for resolution, while Z reaches back toward the light by the
-        // caster distance so offscreen casters can still shadow visible receivers.
+        // Directional cascades cover a camera-centered distance volume, not the view frustum, so
+        // off-frustum receivers and casters follow the same settings-controlled distance limits.
         min_bounds.x -= SHADOW_CASCADE_SIDE_PADDING;
         min_bounds.y -= SHADOW_CASCADE_SIDE_PADDING;
         max_bounds.x += SHADOW_CASCADE_SIDE_PADDING;
@@ -307,11 +291,10 @@ namespace tbx
         direction = normalize(direction);
         const Mat4 light_view =
             look_at(light.position, light.position + direction, get_shadow_up_vector(direction));
-        const float shadow_fov = light.type == SHADER_LIGHT_TYPE_SPOT
-                                     ? std::max(
-                                         to_radians(1.0F),
-                                         acos(clamp(light.outer_cone, -1.0F, 1.0F)) * 2.0F)
-                                     : to_radians(90.0F);
+        const float shadow_fov =
+            light.type == SHADER_LIGHT_TYPE_SPOT
+                ? std::max(to_radians(1.0F), acos(clamp(light.outer_cone, -1.0F, 1.0F)) * 2.0F)
+                : to_radians(90.0F);
         const Mat4 light_projection = perspective_projection(
             shadow_fov,
             1.0F,
@@ -360,21 +343,18 @@ namespace tbx
 
                     const DirectionalShadowProjection projection =
                         make_directional_shadow_projection(
-                        render_data.camera,
-                        light.direction,
-                        split_near,
-                        projection_far,
-                        shadow_caster_max_distance,
-                        shadow_map_resolution);
+                            render_data.camera,
+                            light.direction,
+                            split_near,
+                            projection_far,
+                            shadow_caster_max_distance,
+                            shadow_map_resolution);
                     const float depth_bias = SHADOW_DEPTH_BIAS / projection.depth_range;
                     const float slope_bias = SHADOW_SLOPE_BIAS / projection.depth_range;
                     shadow_data.light_view_projections[layer] = projection.view_projection;
                     shadow_data.light_directions[layer] = Vec4(light.direction, 0.0F);
-                    shadow_data.shadow_params[layer] = Vec4(
-                        depth_bias,
-                        SHADOW_NORMAL_BIAS,
-                        SHADOW_STRENGTH,
-                        slope_bias);
+                    shadow_data.shadow_params[layer] =
+                        Vec4(depth_bias, SHADOW_NORMAL_BIAS, SHADOW_STRENGTH, slope_bias);
                     shadow_data.shadow_extra_params[layer] = Vec4(
                         split_near,
                         split_far,

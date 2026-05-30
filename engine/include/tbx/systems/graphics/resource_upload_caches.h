@@ -31,11 +31,24 @@ namespace tbx
     /// Purpose: Caches uploaded mesh resources by source mesh handle.
     struct TBX_API MeshResourceCache
     {
-        std::unordered_map<Handle, MeshBounds> model_bounds = {};
-        std::unordered_map<Handle, std::vector<RenderingMeshUploadData>> model_meshes = {};
-        std::unordered_map<Handle, RenderingMeshUploadData> runtime_meshes = {};
-        std::unordered_map<const DynamicMeshData*, DynamicMeshResourceCacheEntry> dynamic_meshes =
-            {};
+        using ModelBounds = std::unordered_map<Handle, MeshBounds>;
+        using ModelMeshes = std::unordered_map<Handle, std::vector<RenderingMeshUploadData>>;
+        using RuntimeMeshes = std::unordered_map<Handle, RenderingMeshUploadData>;
+        using DynamicMeshes =
+            std::unordered_map<const DynamicMeshData*, DynamicMeshResourceCacheEntry>;
+
+        ModelBounds model_bounds = {};
+        ModelMeshes model_meshes = {};
+        RuntimeMeshes runtime_meshes = {};
+        DynamicMeshes dynamic_meshes = {};
+
+        /// @brief
+        /// Purpose: Caches valid static model bounds by model asset handle.
+        void cache_model_bounds(const Handle& model_handle, const MeshBounds& bounds);
+
+        /// @brief
+        /// Purpose: Looks up cached static model bounds by model asset handle.
+        bool try_get_model_bounds(const Handle& model_handle, MeshBounds& out_bounds) const;
     };
 
     /// @brief

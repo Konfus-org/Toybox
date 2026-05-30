@@ -83,14 +83,14 @@ float tbx_sample_shadow_layer(
     return mix(1.0 - saturate(shadow_strength), 1.0, visibility);
 }
 
-int tbx_select_shadow_cascade(float view_depth, int shadow_index, int shadow_layer_count)
+int tbx_select_shadow_cascade(float camera_distance, int shadow_index, int shadow_layer_count)
 {
     int selected_index = shadow_index;
     for (int cascade_offset = 0; cascade_offset < shadow_layer_count; ++cascade_offset)
     {
         int cascade_index = shadow_index + cascade_offset;
         selected_index = cascade_index;
-        if (view_depth <= u_shadow_extra_params[cascade_index].y)
+        if (camera_distance <= u_shadow_extra_params[cascade_index].y)
         {
             break;
         }
@@ -141,9 +141,9 @@ float tbx_sample_shadow(
         return tbx_sample_shadow_layer(world_position, normal, light_direction, shadow_index);
     }
 
-    float view_depth = -(u_view * vec4(world_position, 1.0)).z;
+    float camera_distance = length(u_camera_world_position.xyz - world_position);
     int selected_index =
-        tbx_select_shadow_cascade(view_depth, shadow_index, valid_layer_count);
+        tbx_select_shadow_cascade(camera_distance, shadow_index, valid_layer_count);
     selected_index = tbx_select_containing_shadow_cascade(
         world_position,
         normal,
@@ -161,7 +161,7 @@ float tbx_sample_shadow(
     {
         float blend_start = u_shadow_extra_params[selected_index].z;
         float blend_end = u_shadow_extra_params[selected_index].y;
-        float blend = smoothstep(blend_start, blend_end, view_depth);
+        float blend = smoothstep(blend_start, blend_end, camera_distance);
         if (blend > 0.0)
         {
             int next_index = selected_index + 1;

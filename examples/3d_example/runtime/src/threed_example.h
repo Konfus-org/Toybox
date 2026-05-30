@@ -9,7 +9,8 @@ namespace three_d_example
     [[tbx::name("ThreeDExampleRuntime")]];
     [[tbx::version("1.0.0")]];
     [[tbx::category("gameplay")]];
-    // TODO: Make it to where if we don't specify dependencies defaults are used
+    // TODO: Make it to where if we don't specify dependencies defaults are used (the below are the
+    // defaults)
     [[tbx::dependency("SdlBaseSystemsPlugin")]];
     [[tbx::dependency("SdlWindowingPlugin")]];
     [[tbx::dependency("SdlOpenGlContextManagerPlugin")]];
@@ -22,5 +23,7 @@ namespace three_d_example
     [[tbx::dependency("PerformanceMonitor")]];
     class ThreeDExampleRuntimePlugin final : public tbx::Plugin
     {
+      public:
+        void on_attach(tbx::ServiceProvider& service_provider) override;
     };
 }

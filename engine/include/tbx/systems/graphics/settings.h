@@ -115,8 +115,7 @@ namespace tbx
         Observable<GraphicsSettings, uint32> shadow_map_resolution;
 
         /// @brief
-        /// Purpose: Controls how far directional shadows are rendered from the camera. The OpenGL
-        /// backend uses this as the shadow far plane while keeping a fixed near plane.
+        /// Purpose: Controls the camera-distance range covered by directional shadow cascades.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.

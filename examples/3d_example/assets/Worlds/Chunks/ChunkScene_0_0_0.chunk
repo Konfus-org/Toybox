@@ -62,16 +62,16 @@
                         1
                     ],
                     "scale": [
-                        40,
+                        80,
                         0.25,
-                        40
+                        80
                     ]
                 },
                 "cube_collider": {
                     "half_extents": [
-                        20,
+                        40,
                         0.125,
-                        20
+                        40
                     ]
                 }
             }
@@ -135,25 +135,25 @@
                     "position": [
                         0,
                         5,
-                        -20.25
+                        -40
                     ],
                     "rotation": [
+                        0.707107,
                         0,
                         0,
-                        0,
-                        1
+                        0.707107
                     ],
                     "scale": [
-                        40,
-                        10,
-                        1
+                        80,
+                        1,
+                        10
                     ]
                 },
                 "cube_collider": {
                     "half_extents": [
-                        20,
-                        5,
-                        0.25
+                        40,
+                        0.5,
+                        5
                     ]
                 }
             }
@@ -215,27 +215,27 @@
                 },
                 "transform": {
                     "position": [
-                        -20.25,
+                        -40,
                         5,
                         0
                     ],
                     "rotation": [
                         0,
-                        -0.707107,
                         0,
+                        0.707107,
                         0.707107
                     ],
                     "scale": [
-                        40,
                         10,
-                        1
+                        1,
+                        80
                     ]
                 },
                 "cube_collider": {
                     "half_extents": [
-                        20,
                         5,
-                        0.25
+                        0.5,
+                        40
                     ]
                 }
             }
@@ -297,27 +297,27 @@
                 },
                 "transform": {
                     "position": [
-                        20.25,
+                        40,
                         5,
                         0
                     ],
                     "rotation": [
                         0,
-                        0.707107,
                         0,
+                        -0.707107,
                         0.707107
                     ],
                     "scale": [
-                        40,
                         10,
-                        1
+                        1,
+                        80
                     ]
                 },
                 "cube_collider": {
                     "half_extents": [
-                        20,
                         5,
-                        0.25
+                        0.5,
+                        40
                     ]
                 }
             }
@@ -381,25 +381,25 @@
                     "position": [
                         0,
                         5,
-                        20.25
+                        40
                     ],
                     "rotation": [
+                        0.707107,
                         0,
                         0,
-                        0,
-                        1
+                        0.707107
                     ],
                     "scale": [
-                        40,
-                        10,
-                        1
+                        80,
+                        1,
+                        10
                     ]
                 },
                 "cube_collider": {
                     "half_extents": [
-                        20,
-                        5,
-                        0.25
+                        40,
+                        0.5,
+                        5
                     ]
                 }
             }
@@ -687,12 +687,8 @@
                         1.4
                     ]
                 },
-                "cube_collider": {
-                    "half_extents": [
-                        1.1,
-                        1.1,
-                        1.1
-                    ]
+                "mesh_collider": {
+                    "is_convex": true
                 },
                 "rigidbody": {
                     "mass": 1.5
@@ -746,7 +742,7 @@
                 "transform": {
                     "position": [
                         16,
-                        1.8,
+                        2,
                         15
                     ],
                     "rotation": [
@@ -756,14 +752,14 @@
                         1
                     ],
                     "scale": [
-                        1.2,
-                        1.2,
-                        1.2
+                        1,
+                        1,
+                        1
                     ]
                 },
                 "capsule_collider": {
-                    "radius": 0.6,
-                    "half_height": 0.9
+                    "radius": 1,
+                    "half_height": 1
                 },
                 "rigidbody": {
                     "mass": 1.1
@@ -832,12 +828,8 @@
                         1.6
                     ]
                 },
-                "cube_collider": {
-                    "half_extents": [
-                        1.4,
-                        1.4,
-                        0.45
-                    ]
+                "mesh_collider": {
+                    "is_convex": false
                 },
                 "rigidbody": {
                     "mass": 1.0,
@@ -881,15 +873,15 @@
                         -5
                     ],
                     "rotation": [
-                        -0.707107,
                         0,
                         0,
-                        0.707107
+                        0,
+                        1
                     ],
                     "scale": [
                         4,
-                        4,
-                        1
+                        1,
+                        4
                     ]
                 }
             }
