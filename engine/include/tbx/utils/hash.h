@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace tbx
 {
@@ -74,5 +75,14 @@ namespace tbx
     inline uint64 hash_combine(const uint64 seed, const TValue& value)
     {
         return hash_combine_value(seed, static_cast<uint64>(std::hash<TValue>()(value)));
+    }
+
+    template <typename TValue>
+    inline uint64 hash_combine(uint64 seed, const std::vector<TValue>& values)
+    {
+        seed = hash_combine(seed, static_cast<uint64>(values.size()));
+        for (const auto& value : values)
+            seed = hash_combine(seed, value);
+        return seed;
     }
 }

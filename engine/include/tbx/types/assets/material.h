@@ -33,7 +33,7 @@ namespace tbx
     }
 
     [[serializable]];
-    [[hash(tbx::hash($))]];
+    [[hash($)]];
     using MaterialParameterData =
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
@@ -80,6 +80,7 @@ namespace tbx
     /// Ownership: Stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
+    [[hash(id, data)]];
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
@@ -147,6 +148,7 @@ namespace tbx
     /// Ownership: Owns the texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
+    [[hash(id, texture.id, texture.name)]];
     struct TBX_API MaterialTextureBinding
     {
         MaterialTextureBinding() = default;
@@ -211,7 +213,15 @@ namespace tbx
     /// Ownership: Value type owned by the containing material asset.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[hash(tbx::hash($))]];
+    [[hash(
+        is_depth_test_enabled,
+        is_depth_write_enabled,
+        is_depth_prepass_enabled,
+        is_two_sided,
+        is_cullable,
+        depth_function,
+        blend_mode,
+        shadow_mode)]];
     struct TBX_API MaterialConfig
     {
         [[prop]]
@@ -262,8 +272,6 @@ namespace tbx
         MaterialConfig config = {};
     };
 
-    TBX_API uint64 hash(const MaterialParameterData& data, uint64 value = TBX_FNV1A_OFFSET_BASIS);
-    TBX_API uint64 hash(const MaterialConfig& config, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
 #include "tbx/types/assets/material.inl"

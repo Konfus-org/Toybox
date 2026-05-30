@@ -451,34 +451,10 @@ namespace tbx
         const Handle& material_handle,
         const MaterialInstance* instance)
     {
-        uint64 result = hash(material_handle.id);
-        result = hash(material_handle.name, result);
         if (instance == nullptr)
-            return result == 0U ? 1U : result;
+            return static_cast<uint64>(std::hash<Handle>()(material_handle));
 
-        result =
-            hash(static_cast<uint64>(instance->has_config_override_enabled() ? 1U : 0U), result);
-        if (instance->has_config_override_enabled())
-            result = hash(instance->overrides.config, result);
-
-        result =
-            hash(static_cast<uint64>(instance->overrides.has_parameter_override ? 1U : 0U), result);
-        for (const auto& parameter : instance->overrides.parameters)
-        {
-            result = hash(parameter.id, result);
-            result = hash(parameter.data, result);
-        }
-
-        result =
-            hash(static_cast<uint64>(instance->overrides.has_texture_override ? 1U : 0U), result);
-        for (const auto& texture : instance->overrides.textures)
-        {
-            result = hash(texture.id, result);
-            result = hash(texture.texture.id, result);
-            result = hash(texture.texture.name, result);
-        }
-
-        return result == 0U ? 1U : result;
+        return static_cast<uint64>(std::hash<MaterialInstance>()(*instance));
     }
 
     static void track_material_upload_resources(

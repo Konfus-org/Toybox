@@ -7,6 +7,7 @@
 namespace tbx
 {
     [[serializable]];
+    [[hash(r, g, b, a)]];
     struct TBX_API Color
     {
         // Default constructor, initializes the color to black (0, 0, 0, 1)

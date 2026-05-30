@@ -442,7 +442,7 @@ namespace tbx
         std::unordered_map<uint64, MaterialConfig>& material_configs,
         const MaterialInstance& material)
     {
-        const uint64 cache_key = hash(material);
+        const uint64 cache_key = static_cast<uint64>(std::hash<MaterialInstance>()(material));
         if (const auto cached_config = material_configs.find(cache_key);
             cached_config != material_configs.end())
         {
@@ -814,7 +814,8 @@ namespace tbx
             const auto material_uniform = resource_manager.upload_uniform_buffer(
                 BINDING_MATERIAL_DATA,
                 "Material Shader Data",
-                std::string("Toybox/Uniforms/Material/") + std::to_string(hash(batch.material)),
+                std::string("Toybox/Uniforms/Material/")
+                    + std::to_string(std::hash<MaterialInstance>()(batch.material)),
                 frame_index,
                 material_upload.uniform_values.data(),
                 static_cast<uint64>(material_upload.uniform_values.size() * sizeof(Vec4)));
@@ -1629,7 +1630,7 @@ namespace tbx
                     render_data.g_buffer,
                     effect_material,
                     std::string("Toybox/Uniforms/Material/PostEffect/")
-                        + std::to_string(hash(effect_material)),
+                        + std::to_string(std::hash<MaterialInstance>()(effect_material)),
                     post_process_pass);
                 if (!result)
                     return fail_result("post process effect upload", result);
@@ -1929,7 +1930,8 @@ namespace tbx
                                                   : MaterialInstance();
             const MaterialConfig config =
                 resolve_draw_material_config(asset_manager, material_configs, material);
-            const uint64 material_key = hash(material);
+            const uint64 material_key =
+                static_cast<uint64>(std::hash<MaterialInstance>()(material));
             const bool is_shadow_culled = !has_shadow_targets
                                           || should_cull(
                                               config,
@@ -1989,7 +1991,8 @@ namespace tbx
                                                   : MaterialInstance();
             const MaterialConfig config =
                 resolve_draw_material_config(asset_manager, material_configs, material);
-            const uint64 material_key = hash(material);
+            const uint64 material_key =
+                static_cast<uint64>(std::hash<MaterialInstance>()(material));
             const bool is_shadow_culled = !has_shadow_targets
                                           || should_cull(
                                               config,

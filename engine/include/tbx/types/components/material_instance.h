@@ -32,11 +32,16 @@ namespace tbx
     /// @details
     /// Ownership: Owns the material handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    // TODO: replace all 'tbx::hash' methods with hash attribute fully, so we
-    // shouldn't just have the attributes call a hash method we should give the attribute what it
-    // needs to generate a hash.
     [[serializable]];
-    [[hash(tbx::hash($))]];
+    [[hash(
+        material.id,
+        material.name,
+        overrides.has_config_override,
+        $.overrides.has_config_override ? $.overrides.config : ::tbx::MaterialConfig(),
+        overrides.has_parameter_override,
+        overrides.parameters.values,
+        overrides.has_texture_override,
+        overrides.textures.values)]];
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
@@ -104,8 +109,6 @@ namespace tbx
       private:
         bool _is_dirty = true;
     };
-
-    TBX_API uint64 hash(const MaterialInstance& material, uint64 value = TBX_FNV1A_OFFSET_BASIS);
 }
 
 #include "tbx/types/components/material_instance.inl"

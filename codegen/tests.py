@@ -610,7 +610,7 @@ class AttributeCodegenTests(unittest.TestCase):
             "bool operator==(const Value& left, const Value& right)",
             source_output,
         )
-        self.assertIn("return (left.name == right.name) && (left.id == right.id);", source_output)
+        self.assertIn("return ((left.name) == (right.name)) && ((left.id) == (right.id));", source_output)
 
     def test_hash_respects_existing_equality_operator(self) -> None:
         source = """
@@ -710,7 +710,7 @@ class AttributeCodegenTests(unittest.TestCase):
             namespace tbx::tests
             {
             [[tbx::printable("{}", tbx::to_string($))]];
-            [[tbx::hash(tbx::hash($))]];
+            [[tbx::hash($.value)]];
             struct Value
             {
                 int value = 0;
@@ -719,7 +719,23 @@ class AttributeCodegenTests(unittest.TestCase):
             """
         )
         self.assertIn("tbx::to_string(value)", output)
-        self.assertIn("return static_cast<::size>(tbx::hash(value));", output)
+        self.assertIn("seed = ::tbx::hash_combine(seed, value.value);", output)
+
+    def test_variant_hash_expands_value_expression(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            [[tbx::hash($)]];
+            using Variant = std::variant<int, float>;
+            }
+            """
+        )
+
+        self.assertIn("seed = ::tbx::hash_combine(seed, value.index());", output)
+        self.assertIn("std::visit(", output)
+        self.assertIn("seed = ::tbx::hash_combine(seed, tbx_variant_value);", output)
 
     def test_unscoped_enum_printable_is_generated(self) -> None:
         source = """

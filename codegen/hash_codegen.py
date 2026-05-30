@@ -3,23 +3,41 @@ from __future__ import annotations
 from model import CodegenError, SerializableType, find_attr, qualified_name
 
 
-def make_value_expression(argument: str) -> str:
+def make_value_expression(argument: str, value_name: str = "value") -> str:
     if "$" in argument:
-        return argument.replace("$", "value")
-    return f"value.{argument}"
+        return argument.replace("$", value_name)
+    return f"{value_name}.{argument}"
 
 
 def make_equality_expression(argument: str) -> str:
-    if "$" in argument:
-        return argument.replace("$", "left") + " == " + argument.replace("$", "right")
-    return f"left.{argument} == right.{argument}"
+    return f"({make_value_expression(argument, 'left')}) == ({make_value_expression(argument, 'right')})"
 
 
 def emit_single_hash_return(argument: str) -> str:
     expression = make_value_expression(argument)
-    if "$" in argument:
-        return f"        return static_cast<::size>({expression});"
-    return f"        return static_cast<::size>(std::hash<decltype({expression})>()({expression}));"
+    return "\n".join(
+        [
+            "    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;",
+            f"    seed = ::tbx::hash_combine(seed, {expression});",
+            "    return static_cast<::size>(seed);",
+        ]
+    )
+
+
+def emit_variant_hash_return() -> str:
+    return "\n".join(
+        [
+            "    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;",
+            "    seed = ::tbx::hash_combine(seed, value.index());",
+            "    std::visit(",
+            "        [&seed](const auto& tbx_variant_value)",
+            "        {",
+            "            seed = ::tbx::hash_combine(seed, tbx_variant_value);",
+            "        },",
+            "        value);",
+            "    return static_cast<::size>(seed);",
+        ]
+    )
 
 
 def emit_hash_declaration(type_info: SerializableType) -> list[str]:
@@ -48,7 +66,7 @@ def emit_hash_declaration(type_info: SerializableType) -> list[str]:
 
 def emit_hash_equality_declaration(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
-    if attr is None or type_info.has_equality_operator:
+    if attr is None or type_info.has_equality_operator or type_info.declaration_kind == "using":
         return []
     if not attr.args:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
@@ -61,7 +79,7 @@ def emit_hash_equality_declaration(type_info: SerializableType) -> list[str]:
 
 def emit_hash_equality(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
-    if attr is None or type_info.has_equality_operator:
+    if attr is None or type_info.has_equality_operator or type_info.declaration_kind == "using":
         return []
     if not attr.args:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
@@ -89,7 +107,14 @@ def emit_hash(type_info: SerializableType) -> list[str]:
         "{",
     ]
     if len(attr.args) == 1:
-        lines.append(emit_single_hash_return(attr.args[0]))
+        if (
+            attr.args[0].strip() == "$"
+            and type_info.declaration_kind == "using"
+            and "variant" in type_info.alias_value
+        ):
+            lines.append(emit_variant_hash_return())
+        else:
+            lines.append(emit_single_hash_return(attr.args[0]))
     else:
         lines.append("    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;")
         for field in attr.args:
