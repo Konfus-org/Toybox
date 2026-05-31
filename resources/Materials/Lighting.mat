@@ -1,78 +1,36 @@
-{
+﻿{
     "shader": {
-        "vertex": {
-            "id": {
-                "value": 307
-            }
+        "vertex": 307,
+        "fragment": 306,
+        "tesselation": 0,
+        "geometry": 0,
+        "compute": 0
+    },
+    "parameters": [
+        {}
+    ],
+    "textures": [
+        {
+            "name": "gbuffer_albedo",
+            "texture": 0
         },
-        "fragment": {
-            "id": {
-                "value": 306
-            }
+        {
+            "name": "gbuffer_normal",
+            "texture": 0
         },
-        "tesselation": {
-            "id": {
-                "value": 0
-            }
+        {
+            "name": "gbuffer_material",
+            "texture": 0
         },
-        "geometry": {
-            "id": {
-                "value": 0
-            }
+        {
+            "name": "gbuffer_emissive",
+            "texture": 0
         },
-        "compute": {
-            "id": {
-                "value": 0
-            }
+        {
+            "name": "gbuffer_depth",
+            "texture": 0
         }
-    },
-    "parameters": {
-        "values": []
-    },
-    "textures": {
-        "values": [
-            {
-                "name": "gbuffer_albedo",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            },
-            {
-                "name": "gbuffer_normal",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            },
-            {
-                "name": "gbuffer_material",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            },
-            {
-                "name": "gbuffer_emissive",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            },
-            {
-                "name": "gbuffer_depth",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            }
-        ]
-    },
+    ],
     "config": {
         "is_depth_test_enabled": false,
         "is_depth_write_enabled": false,

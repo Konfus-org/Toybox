@@ -1,59 +1,31 @@
-{
+﻿{
     "shader": {
-        "vertex": {
-            "id": {
-                "value": 315
-            }
-        },
-        "fragment": {
-            "id": {
-                "value": 316
-            }
-        },
-        "tesselation": {
-            "id": {
-                "value": 0
-            }
-        },
-        "geometry": {
-            "id": {
-                "value": 0
-            }
-        },
-        "compute": {
-            "id": {
-                "value": 0
+        "vertex": 315,
+        "fragment": 316,
+        "tesselation": 0,
+        "geometry": 0,
+        "compute": 0
+    },
+    "parameters": [
+        {
+            "name": "albedo_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0,
+                    "a": 0.35
+                }
             }
         }
-    },
-    "parameters": {
-        "values": [
-            {
-                "name": "albedo_color",
-                "data": {
-                    "type": "color",
-                    "value": {
-                        "r": 1,
-                        "g": 0,
-                        "b": 0,
-                        "a": 0.35
-                    }
-                }
-            }
-        ]
-    },
-    "textures": {
-        "values": [
-            {
-                "name": "albedo_map",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            }
-        ]
-    },
+    ],
+    "textures": [
+        {
+            "name": "albedo_map",
+            "texture": 0
+        }
+    ],
     "config": {
         "is_depth_test_enabled": true,
         "is_depth_write_enabled": false,

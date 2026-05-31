@@ -13,7 +13,7 @@ namespace tbx::tests::utils
     {
         // Arrange
         auto world = World {};
-        auto entity = world.create_persistent_entity("Player");
+        auto entity = world.create_global_entity("Player");
         auto plugin = LoadedPlugin {};
         plugin.meta.name = "Renderer";
         plugin.meta.version = "1.0.0";
@@ -67,3 +67,4 @@ namespace tbx::tests::utils
         EXPECT_TRUE(copy.id.is_valid());
     }
 }
+

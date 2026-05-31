@@ -1,10 +1,13 @@
 #include "runtime.h"
+#include "material_descriptions.generated.h"
+#include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/material_instance.h"
@@ -12,7 +15,7 @@
 #include "tbx/types/components/transform.h"
 #include "tbx/types/trig.h"
 #include "tbx/utils/string_utils.h"
-#include "material_descriptions.generated.h"
+#include <memory>
 
 namespace two_d_example
 {
@@ -36,12 +39,9 @@ namespace two_d_example
 
     void TwoDExampleRuntimePlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
-        _entity_registry = service_provider.get_service<tbx::EntityRegistry>();
-        auto entity_registry = _entity_registry.lock();
-        if (!entity_registry)
-            return;
+        // TODO: fix, currently the rendering expects the world to be an asset....
+        _world = std::unique_ptr<tbx::World>();
 
-        auto& ent_registry = *entity_registry;
         const std::string greeting =
             "Welcome to the 2d example! This plugin just loads a few basic plugins and "
             "makes some entities.";
@@ -51,7 +51,7 @@ namespace two_d_example
         _elapsed_seconds = 0.0f;
 
         // Setup camera
-        auto cam_ent = tbx::Entity("Camera", ent_registry);
+        auto cam_ent = _world->create_entity("Camera");
         auto& cam = cam_ent.add_component<tbx::Camera>();
         cam.set_orthographic(20, 16.0f / 9.0f, 0.1f, 100.0f);
         cam_ent.add_component<tbx::Transform>(tbx::Vec3(0.0f, 0.0f, 10.0f));
@@ -62,7 +62,7 @@ namespace two_d_example
         constexpr auto starting_x = -((toys_to_make - 1.0f) * spacing) * 0.5f;
         for (int i = 0; i < toys_to_make; i++)
         {
-            auto ent = tbx::Entity(std::to_string(i), ent_registry);
+            auto ent = _world->create_entity(std::to_string(i));
             ent.add_component<tbx::Transform>(tbx::Vec3(
                 starting_x
                     + static_cast<float>(i)
@@ -78,22 +78,18 @@ namespace two_d_example
 
     void TwoDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
     {
-        _entity_registry = {};
+        _world = {};
         _elapsed_seconds = 0.0f;
     }
 
     void TwoDExampleRuntimePlugin::on_update(const tbx::DeltaTime& dt)
     {
-        auto entity_registry = _entity_registry.lock();
-        if (!entity_registry)
-            return;
-
         _elapsed_seconds += dt.seconds;
 
         // bob all toys in stage with transform up, then down over time
         // also change color over time...
         float offset = 0.0f;
-        for (auto& entity : entity_registry->get_with<tbx::Transform, tbx::MaterialInstance>())
+        for (auto& entity : _world->get_with<tbx::Transform, tbx::MaterialInstance>())
         {
             const auto world_transform = tbx::get_world_space_transform(entity);
             auto updated_world_transform = world_transform;

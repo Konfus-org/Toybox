@@ -44,11 +44,26 @@ def write_if_different(output_path: Path, output: str) -> None:
     output_path.write_text(output, encoding="utf-8", newline="\n")
 
 
+def read_json_file(input_path: Path) -> dict:
+    return json.loads(input_path.read_text(encoding="utf-8-sig"))
+
+
+def read_binding_list(material_data: dict, key: str) -> list:
+    value = material_data.get(key, [])
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        values = value.get("values", [])
+        if isinstance(values, list):
+            return values
+    return []
+
+
 def read_meta_id(meta_path: Path) -> int:
     if not meta_path.exists():
         raise CodegenError(f"resource_codegen: missing meta file '{meta_path}'")
 
-    data = json.loads(meta_path.read_text(encoding="utf-8"))
+    data = read_json_file(meta_path)
     value = data.get("id")
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise CodegenError(f"resource_codegen: missing id in '{meta_path}'")
@@ -210,12 +225,12 @@ def generate_material_instance_header(source_root: Path, output_file: Path, name
             raise CodegenError(f"resource_codegen: duplicate material struct '{struct_name}'")
         used_struct_names.add(struct_name)
 
-        material_data = json.loads(material_file.read_text(encoding="utf-8"))
+        material_data = read_json_file(material_file)
         binding_lines: list[str] = []
         used_binding_names: set[str] = set()
         binding_sources = []
-        binding_sources.extend(material_data.get("textures", {}).get("values", []))
-        binding_sources.extend(material_data.get("parameters", {}).get("values", []))
+        binding_sources.extend(read_binding_list(material_data, "textures"))
+        binding_sources.extend(read_binding_list(material_data, "parameters"))
         for binding in binding_sources:
             parameter_type = str(binding.get("type", binding.get("data", {}).get("type", ""))).lower()
             if parameter_type == "shader":

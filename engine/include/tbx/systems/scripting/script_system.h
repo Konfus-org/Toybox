@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script.h"
 #include "tbx/systems/time/delta_time.h"
@@ -14,7 +15,10 @@ namespace tbx
     class TBX_API ScriptSystem final : public IScriptResolver
     {
       public:
-        ScriptSystem(std::weak_ptr<AssetManager> asset_manager, ServiceProvider& services);
+        ScriptSystem(
+            std::weak_ptr<AssetManager> asset_manager,
+            ServiceProvider& services,
+            std::weak_ptr<WorldManager> world_manager = {});
         ~ScriptSystem() noexcept;
 
       public:
@@ -33,6 +37,7 @@ namespace tbx
         struct State;
         std::unique_ptr<State> _state = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
+        std::weak_ptr<WorldManager> _world_manager = {};
         std::reference_wrapper<ServiceProvider> _services;
     };
 }

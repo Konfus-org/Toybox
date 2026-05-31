@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/async/job_system.generated.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <concepts>
@@ -15,16 +16,6 @@
 namespace tbx
 {
     /// @brief
-    /// Purpose: Configures worker allocation for the job scheduler.
-    /// @details
-    /// Ownership: Value type owned by callers and copied into the job system constructor.
-    /// Thread Safety: Safe for concurrent use because it stores only plain data.
-    struct TBX_API JobSystemConfiguration
-    {
-        size worker_count = {};
-    };
-
-    /// @brief
     /// Purpose: Schedules and executes asynchronous jobs on a managed worker pool.
     /// @details
     /// Ownership: Owns worker threads and queued jobs for the lifetime of the instance.
@@ -37,7 +28,7 @@ namespace tbx
         using Job = std::move_only_function<void()>;
 
       public:
-        JobSystem(const JobSystemConfiguration& configuration = {});
+        JobSystem(size worker_count = {});
         ~JobSystem() noexcept;
 
       public:

@@ -18,12 +18,6 @@ namespace tbx
         std::shared_ptr<TService> service = nullptr;
     };
 
-    inline ServiceProvider::~ServiceProvider() noexcept = default;
-
-    inline ServiceProvider::ServiceProvider(ServiceProvider&&) noexcept = default;
-
-    inline ServiceProvider& ServiceProvider::operator=(ServiceProvider&&) noexcept = default;
-
     template <typename TService, typename TImplementation>
         requires std::derived_from<TImplementation, TService>
     void ServiceProvider::register_service(std::unique_ptr<TImplementation> service)

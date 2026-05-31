@@ -21,10 +21,10 @@ namespace tbx::tests::async
     {
         // Validates that a caller-provided worker count is respected.
         // Arrange
-        auto configuration = JobSystemConfiguration {.worker_count = 2};
+        auto worker_count = static_cast<size>(2);
 
         // Act
-        JobSystem job_system(configuration);
+        JobSystem job_system(worker_count);
 
         // Assert
         EXPECT_EQ(job_system.get_worker_count(), static_cast<size>(2));
@@ -34,7 +34,7 @@ namespace tbx::tests::async
     {
         // Validates that queued jobs run and can be waited to completion.
         // Arrange
-        JobSystem job_system(JobSystemConfiguration {.worker_count = 2});
+        JobSystem job_system(static_cast<size>(2));
         auto execution_count = std::atomic_int(0);
 
         // Act

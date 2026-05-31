@@ -12,7 +12,6 @@
       "generator": "Ninja Multi-Config",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "TBX_RESOURCES_PATH": "${sourceDir}/resources",
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_BUILD_TESTS": "OFF",
         "TBX_ENABLE_COMPILER_CACHE": "ON",

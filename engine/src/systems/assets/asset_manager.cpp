@@ -18,6 +18,11 @@ namespace tbx
         return Handle(entry.normalized_path, entry.asset_id);
     }
 
+    static std::filesystem::path get_default_asset_directory()
+    {
+        return std::filesystem::path("resources");
+    }
+
     AssetManager::AssetManager(
         std::weak_ptr<IMessageDispatcher> dispatcher,
         std::weak_ptr<SerializationRegistry> serialization_registry,
@@ -34,6 +39,7 @@ namespace tbx
             std::move(handle_source),
             _state->file_ops);
 
+        add_directory(get_default_asset_directory());
         for (const auto& directory : asset_directories)
             add_directory(directory);
     }

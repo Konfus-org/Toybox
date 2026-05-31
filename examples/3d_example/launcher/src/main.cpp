@@ -1,19 +1,14 @@
 #include "tbx/systems/app/application.h"
 
-// TODO: create a launcher that does this for us, it knows how to configure the app based off a
-// launcher settings asset. This new launcher should also take in command line args and pass them
-// along to the app
+// TODO: Make a standardized launcher and make an App hot reloadable. The launcher is Toybox owned
+// and what the App is right now. The app then becomes client owned and is a specialized thing users
+// can use to make apps or games (App is basically just a plugin, the launcher can coordinate many
+// apps and plugins).
 int main()
 {
-    tbx::AppDescription desc = {
-        .name = "3DExample",
-        .requested_plugins = {"ThreeDExampleRuntime"},
-        .startup_world = tbx::Handle("Worlds/Example.world"),
-    };
-
     TBX_TRY_CATCH_ASSERT(
         {
-            auto app = tbx::Application(desc);
+            auto app = tbx::Application();
             return app.run();
         },
         "Application error occured!");

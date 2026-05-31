@@ -1,37 +1,17 @@
-{
+﻿{
     "shader": {
-        "vertex": {
-            "id": {
-                "value": 307
-            }
-        },
-        "fragment": {
-            "id": {
-                "value": 313
-            }
-        },
-        "tesselation": {
-            "id": {
-                "value": 0
-            }
-        },
-        "geometry": {
-            "id": {
-                "value": 0
-            }
-        },
-        "compute": {
-            "id": {
-                "value": 0
-            }
-        }
+        "vertex": 307,
+        "fragment": 313,
+        "tesselation": 0,
+        "geometry": 0,
+        "compute": 0
     },
-    "parameters": {
-        "values": []
-    },
-    "textures": {
-        "values": []
-    },
+    "parameters": [
+        {}
+    ],
+    "textures": [
+        {}
+    ],
     "config": {
         "is_depth_test_enabled": false,
         "is_depth_write_enabled": false,

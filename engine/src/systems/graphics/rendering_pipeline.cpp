@@ -1713,7 +1713,7 @@ namespace tbx
         if (target_resolution.width == 0U || target_resolution.height == 0U)
             target_resolution = Size {1U, 1U};
 
-        auto render_resolution = settings.resolution.value;
+        auto render_resolution = settings.resolution;
         if (render_resolution.width == 0U || render_resolution.height == 0U)
             render_resolution = target_resolution;
 
@@ -1745,9 +1745,9 @@ namespace tbx
 
         const Vec3& camera_position = render_data.camera.position;
         const Frustum camera_frustum(render_data.camera.view_projection);
-        const uint32 shadow_map_resolution = settings.shadow_map_resolution.value;
-        const float local_light_max_distance = settings.local_light_max_distance.value;
-        const float shadow_caster_max_distance = settings.shadow_caster_max_distance.value;
+        const uint32 shadow_map_resolution = settings.shadow_map_resolution;
+        const float local_light_max_distance = settings.local_light_max_distance;
+        const float shadow_caster_max_distance = settings.shadow_caster_max_distance;
 
         // Scene-wide state: the first supported component wins for singleton-style render features.
         auto has_selected_sky = false;
@@ -2294,9 +2294,11 @@ namespace tbx
     RenderingPipeline::RenderingPipeline(
         std::weak_ptr<IGraphicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<IWindowManager> window_manager)
+        std::weak_ptr<IWindowManager> window_manager,
+        std::weak_ptr<WorldManager> world_manager)
         : _asset_manager(asset_manager)
         , _window_manager(std::move(window_manager))
+        , _world_manager(std::move(world_manager))
         , _resource_manager(std::move(backend), std::move(asset_manager))
     {
     }
@@ -2317,7 +2319,17 @@ namespace tbx
         if (!asset_manager)
             return Result(false, "Rendering pipeline setup failed: asset manager unavailable.");
 
-        const auto loaded_worlds = asset_manager->get_loaded<World>();
+        auto loaded_worlds = std::vector<std::shared_ptr<World>> {};
+        if (const auto world_manager = _world_manager.lock())
+        {
+            if (auto world = world_manager->get_active_world().lock())
+                loaded_worlds.push_back(world);
+        }
+        else
+        {
+            loaded_worlds = asset_manager->get_loaded<World>();
+        }
+
         if (loaded_worlds.empty())
             return Result(false, "Rendering pipeline setup failed: no world asset is loaded.");
 
@@ -2365,10 +2377,10 @@ namespace tbx
             result = create_passes(
                 frame_index,
                 render_data,
-                settings.shadow_map_resolution.value,
-                settings.shadow_render_distance.value,
-                settings.shadow_caster_max_distance.value,
-                settings.shadow_softness.value,
+                settings.shadow_map_resolution,
+                settings.shadow_render_distance,
+                settings.shadow_caster_max_distance,
+                settings.shadow_softness,
                 _resource_manager,
                 _passes);
             if (!result)

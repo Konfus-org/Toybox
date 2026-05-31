@@ -19,7 +19,7 @@ namespace tbx
     class TBX_API PluginManager
     {
       public:
-        PluginManager(ServiceProvider& service_provider, std::shared_ptr<IFileOps> file_ops = {});
+        PluginManager(ServiceProvider& service_provider, std::weak_ptr<IFileOps> file_ops = {});
         ~PluginManager() noexcept;
 
       public:
@@ -116,8 +116,8 @@ namespace tbx
         std::filesystem::path _directory = {};
         std::filesystem::path _working_directory = {};
 
-        std::shared_ptr<IFileOps> _provided_file_ops = nullptr;
-        std::shared_ptr<IFileOps> _file_ops = nullptr;
+        std::weak_ptr<IFileOps> _provided_file_ops = {};
+        std::weak_ptr<IFileOps> _file_ops = {};
         std::unique_ptr<FileWatcher> _watcher = {};
 
         ServiceProvider& _service_provider;

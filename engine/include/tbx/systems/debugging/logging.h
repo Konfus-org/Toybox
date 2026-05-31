@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/log_level.h"
 #include "tbx/tbx_api.h"
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -26,6 +27,10 @@ namespace tbx
             Args&&... args);
 
         static void flush();
+
+        /// @brief
+        /// Purpose: Returns the absolute directory used for runtime logs.
+        static std::filesystem::path get_logs_directory();
 
       private:
         static bool should_write_once(LogLevel level, const std::string& message);

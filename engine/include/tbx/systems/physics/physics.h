@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/interfaces/physics_backend.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
 
@@ -19,7 +20,8 @@ namespace tbx
         Physics(
             std::weak_ptr<IPhysicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
-            std::weak_ptr<AppSettings> settings);
+            const PhysicsSettings& settings,
+            std::weak_ptr<WorldManager> world_manager = {});
         ~Physics() noexcept;
 
       public:
@@ -30,11 +32,11 @@ namespace tbx
 
       public:
         RaycastResult raycast(const RaycastQuery& raycast_query) const;
-        void update(const DeltaTime& dt);
+        void update(const DeltaTime& dt, const PhysicsSettings& settings);
 
       private:
         void clear_resources();
-        PhysicsBackendSettings get_backend_settings() const;
+        static PhysicsBackendSettings get_backend_settings(const PhysicsSettings& settings);
         void process_trigger_colliders(World& world);
         void sync_entities_to_backend(World& world, float dt_seconds);
         void sync_backend_to_entities(World& world);

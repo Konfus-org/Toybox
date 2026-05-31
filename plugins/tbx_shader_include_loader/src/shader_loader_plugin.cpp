@@ -1,6 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/plugins/shader_include_loader/shader_include_loader.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/shader.h"
@@ -284,15 +283,11 @@ namespace tbx::shader_loader
     void ShaderIncludeLoader::on_attach(tbx::ServiceProvider& service_provider)
     {
         _asset_manager = service_provider.get_service<tbx::AssetManager>();
+        _file_ops = service_provider.get_service<tbx::IFileOps>();
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
-        auto settings = service_provider.get_service<tbx::AppSettings>().lock();
         auto serialization_registry = _serialization_registry.lock();
-        if (!settings || !serialization_registry)
+        if (!serialization_registry)
             return;
-
-        _working_directory = settings->paths.working_directory;
-        if (!_file_ops)
-            _file_ops = std::make_unique<tbx::FileOperator>(_working_directory);
 
         serialization_registry->register_transformer<tbx::Shader>(
             [this](
@@ -311,8 +306,8 @@ namespace tbx::shader_loader
             serialization_registry->deregister_transformer<tbx::Shader>();
 
         _asset_manager = {};
+        _file_ops = {};
         _serialization_registry = {};
-        _working_directory = std::filesystem::path();
     }
 
     tbx::Result ShaderIncludeLoader::transform_shader(
@@ -322,7 +317,8 @@ namespace tbx::shader_loader
         tbx::Shader& shader)
     {
         auto result = tbx::Result {};
-        if (!_file_ops)
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
         {
             result.flag_failure("tbx::Shader loader: file services unavailable.");
             return result;
@@ -350,7 +346,7 @@ namespace tbx::shader_loader
         std::vector include_stack = {asset_path};
         std::unordered_set<std::string> included_files = {};
         ShaderLoadResult expanded = try_expand_includes(
-            *_file_ops,
+            *file_ops,
             *asset_manager,
             asset_path,
             shader.source,

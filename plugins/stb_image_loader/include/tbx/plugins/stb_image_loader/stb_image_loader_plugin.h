@@ -27,7 +27,7 @@ namespace stb_image_loader
             const tbx::AssetLoadMetadata& metadata,
             tbx::Texture& texture) const;
 
-        std::unique_ptr<tbx::IFileOps> _file_ops = {};
+        std::weak_ptr<tbx::IFileOps> _file_ops = {};
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
     };
 }

@@ -12,7 +12,6 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/types/assets/builtin_assets.h"
 
-
 namespace tbx::tests::app
 {
     struct TestPluginState
@@ -181,6 +180,8 @@ namespace tbx::tests::app
 
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<MessageCoordinator>());
+        service_provider.register_service<IFileOps>(
+            std::make_unique<tbx::tests::InMemoryFileOps>(working_directory));
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
@@ -194,15 +195,11 @@ namespace tbx::tests::app
             service_provider.get_service<SerializationRegistry>(),
             working_directory,
             std::vector<std::filesystem::path> {}));
-        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
-            message_coordinator,
-            true,
-            GraphicsApi::OPEN_GL,
-            Size {1280, 720}));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>());
         if (auto settings = service_provider.get_service<AppSettings>().lock())
         {
-            settings->paths.working_directory = working_directory;
-            settings->paths.logs_directory = working_directory / "logs";
+            settings->graphics.graphics_api = GraphicsApi::OPEN_GL;
+            settings->graphics.resolution = Size {1280, 720};
             settings->icon = ToyboxIcon::HANDLE;
         }
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());

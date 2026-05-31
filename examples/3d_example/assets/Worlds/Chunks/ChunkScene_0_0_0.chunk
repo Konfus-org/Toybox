@@ -1,4 +1,4 @@
-{
+﻿{
     "coord": [
         0,
         0,
@@ -6,48 +6,34 @@
     ],
     "entities": [
         {
-            "id": {
-                "value": 12583168
-            },
+            "id": 12583168,
             "name": "Ground",
             "tag": "room",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.22,
-                                            "g": 0.38,
-                                            "b": 0.24,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.22,
+                                        "g": 0.38,
+                                        "b": 0.24,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 514
-                        }
-                    }
+                    "handle": 514
                 },
                 "transform": {
                     "position": [
@@ -77,39 +63,29 @@
             }
         },
         {
-            "id": {
-                "value": 12583169
-            },
+            "id": 12583169,
             "name": "Wall_F",
             "tag": "room",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.46,
-                                            "g": 0.46,
-                                            "b": 0.48,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.46,
+                                        "g": 0.46,
+                                        "b": 0.48,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true,
                         "config": {
                             "is_depth_test_enabled": true,
@@ -125,11 +101,7 @@
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 519
-                        }
-                    }
+                    "handle": 519
                 },
                 "transform": {
                     "position": [
@@ -159,39 +131,29 @@
             }
         },
         {
-            "id": {
-                "value": 12583170
-            },
+            "id": 12583170,
             "name": "Wall_L",
             "tag": "room",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.46,
-                                            "g": 0.46,
-                                            "b": 0.48,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.46,
+                                        "g": 0.46,
+                                        "b": 0.48,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true,
                         "config": {
                             "is_depth_test_enabled": true,
@@ -207,11 +169,7 @@
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 519
-                        }
-                    }
+                    "handle": 519
                 },
                 "transform": {
                     "position": [
@@ -241,39 +199,29 @@
             }
         },
         {
-            "id": {
-                "value": 12583171
-            },
+            "id": 12583171,
             "name": "Wall_R",
             "tag": "room",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.46,
-                                            "g": 0.46,
-                                            "b": 0.48,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.46,
+                                        "g": 0.46,
+                                        "b": 0.48,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true,
                         "config": {
                             "is_depth_test_enabled": true,
@@ -289,11 +237,7 @@
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 519
-                        }
-                    }
+                    "handle": 519
                 },
                 "transform": {
                     "position": [
@@ -323,39 +267,29 @@
             }
         },
         {
-            "id": {
-                "value": 12583172
-            },
+            "id": 12583172,
             "name": "Wall_B",
             "tag": "room",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.46,
-                                            "g": 0.46,
-                                            "b": 0.48,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.46,
+                                        "g": 0.46,
+                                        "b": 0.48,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true,
                         "config": {
                             "is_depth_test_enabled": true,
@@ -371,11 +305,7 @@
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 519
-                        }
-                    }
+                    "handle": 519
                 },
                 "transform": {
                     "position": [
@@ -405,48 +335,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583173
-            },
+            "id": 12583173,
             "name": "TriggerZone",
             "tag": "trigger",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 32
-                        }
-                    },
+                    "material": 32,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 1.0,
-                                            "g": 0.08,
-                                            "b": 0.04,
-                                            "a": 0.35
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.08,
+                                        "b": 0.04,
+                                        "a": 0.35
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 514
-                        }
-                    }
+                    "handle": 514
                 },
                 "transform": {
                     "position": [
@@ -480,48 +396,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583174
-            },
+            "id": 12583174,
             "name": "FallingSphere",
             "tag": "physics",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.05,
-                                            "g": 0.32,
-                                            "b": 1.0,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.05,
+                                        "g": 0.32,
+                                        "b": 1.0,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 517
-                        }
-                    }
+                    "handle": 517
                 },
                 "transform": {
                     "position": [
@@ -551,48 +453,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583175
-            },
+            "id": 12583175,
             "name": "FallingBox",
             "tag": "physics",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 1.0,
-                                            "g": 0.48,
-                                            "b": 0.08,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.48,
+                                        "b": 0.08,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 514
-                        }
-                    }
+                    "handle": 514
                 },
                 "transform": {
                     "position": [
@@ -626,48 +514,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583176
-            },
+            "id": 12583176,
             "name": "MonkeyDisplay",
             "tag": "prop",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.7,
-                                            "g": 0.22,
-                                            "b": 0.9,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.7,
+                                        "g": 0.22,
+                                        "b": 0.9,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 516
-                        }
-                    }
+                    "handle": 516
                 },
                 "transform": {
                     "position": [
@@ -696,48 +570,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583177
-            },
+            "id": 12583177,
             "name": "CapsulePillar",
             "tag": "prop",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.0,
-                                            "g": 0.72,
-                                            "b": 0.68,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.0,
+                                        "g": 0.72,
+                                        "b": 0.68,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 512
-                        }
-                    }
+                    "handle": 512
                 },
                 "transform": {
                     "position": [
@@ -767,48 +627,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583178
-            },
+            "id": 12583178,
             "name": "TorusRing",
             "tag": "prop",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 1.0,
-                                            "g": 0.84,
-                                            "b": 0.12,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.84,
+                                        "b": 0.12,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 518
-                        }
-                    }
+                    "handle": 518
                 },
                 "transform": {
                     "position": [
@@ -842,29 +688,17 @@
             }
         },
         {
-            "id": {
-                "value": 12583179
-            },
+            "id": 12583179,
             "name": "SmilyCarpet",
             "tag": "decor",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 270544964
-                        }
-                    }
+                    "material": 270544964
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 519
-                        }
-                    }
+                    "handle": 519
                 },
                 "transform": {
                     "position": [

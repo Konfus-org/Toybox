@@ -15,9 +15,9 @@ namespace tbx
         return detected_worker_count;
     }
 
-    JobSystem::JobSystem(const JobSystemConfiguration& configuration)
+    JobSystem::JobSystem(size configured_worker_count)
     {
-        auto worker_count = resolve_worker_count(configuration.worker_count);
+        auto worker_count = resolve_worker_count(configured_worker_count);
         _workers.reserve(worker_count);
 
         for (size index = 0; index < worker_count; ++index)

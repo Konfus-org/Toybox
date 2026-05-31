@@ -80,6 +80,35 @@ def emit_json_function_definitions(type_info: SerializableType, fields: list[Fie
         f"void serialize(::tbx::Json& tbx_json, const {type_info.name}& tbx_value)",
         "{",
     ]
+    if len(fields) == 1:
+        field = fields[0]
+        lines.extend(
+            [
+                "    tbx_json = ::tbx::write_serialization_value<::tbx::Json>(",
+                f"        tbx_value.{field.name});",
+                "}",
+                f"void deserialize(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value)",
+                "{",
+                f"    const {type_info.name} tbx_default_value {{}};",
+                "    if (tbx_json.is_object() || tbx_json.is_null())",
+                "    {",
+                "        ::tbx::read_serialization_field(",
+                "            tbx_json,",
+                f"            {cpp_string(json_key(field))},",
+                f"            tbx_value.{field.name},",
+                f"            tbx_default_value.{field.name});",
+                "        return;",
+                "    }",
+                "",
+                "    ::tbx::read_serialization_value(",
+                "        tbx_json,",
+                f"        tbx_value.{field.name});",
+                "}",
+                "",
+            ]
+        )
+        return lines
+
     for field in fields:
         lines.extend(
             [

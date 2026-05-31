@@ -18,7 +18,7 @@ Treat these local files as the absolute source of truth for the codebase. Read r
 ## Routing Matrix
 
 Dynamically bundle these precise sub-skills based on task domain:
-- **All Tasks**: Mandatorily bundle `context-tools`.
+- **All Tasks**: Mandatorily bundle `context-tools` and `computer-use`.
 - **C++**: Mandatorily bundle `cpp-pro`, `cpp-coding-standards`, and `memory-safety-patterns`.
 - **Rendering & Shaders**: Add `graphics-api-hooking` and `shader-programming-glsl`.
 - **Gameplay & Simulation**: Add `3d-games` for cameras, physics, and scene graphs.
@@ -46,6 +46,7 @@ Dynamically bundle these precise sub-skills based on task domain:
 - **Lifetimes**: Enforce strict resource safety and intent: use local values or standard references for guaranteed objects, smart pointers exclusively for heap ownership, and RAII for all resources. Replace all non-owning raw pointers with std::reference_wrapper or std::optional to explicitly communicate optionality and reassignability.
 - **Includes**: Depend exclusively on direct `#include` statements; do not use forward declarations, never use blanket namespace imports.
 - **Namespaces**: Ban blanket `using namespace` imports.
+- **Static Globals**: Prefix mutable static global variables with `g_`; static `const` and `constexpr` constants are not globals for this rule and must use `ALL_CAPS`.
 - **Type Aliases**: Use `size` and `uint` from `common/typedefs.h` instead of raw `std::size_t`.
 - **Nesting**: Do not nest structs or classes within other types.
 - **API Leakage**: Never expose internal namespaces in public signatures, return types, or docs.

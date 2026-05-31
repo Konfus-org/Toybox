@@ -1,85 +1,57 @@
-{
+﻿{
     "shader": {
-        "vertex": {
-            "id": {
-                "value": 539243888
+        "vertex": 539243888,
+        "fragment": 539243889,
+        "tesselation": 0,
+        "geometry": 0,
+        "compute": 0
+    },
+    "parameters": [
+        {
+            "name": "lut_tint",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                }
             }
         },
-        "fragment": {
-            "id": {
-                "value": 539243889
+        {
+            "name": "lut_emissive",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                }
             }
         },
-        "tesselation": {
-            "id": {
-                "value": 0
+        {
+            "name": "lut_strength",
+            "data": {
+                "type": "float",
+                "value": 1
             }
         },
-        "geometry": {
-            "id": {
-                "value": 0
-            }
-        },
-        "compute": {
-            "id": {
-                "value": 0
+        {
+            "name": "blend",
+            "data": {
+                "type": "float",
+                "value": 1
             }
         }
-    },
-    "parameters": {
-        "values": [
-            {
-                "name": "lut_tint",
-                "data": {
-                    "type": "color",
-                    "value": {
-                        "r": 1,
-                        "g": 1,
-                        "b": 1,
-                        "a": 1
-                    }
-                }
-            },
-            {
-                "name": "lut_emissive",
-                "data": {
-                    "type": "color",
-                    "value": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
-                    }
-                }
-            },
-            {
-                "name": "lut_strength",
-                "data": {
-                    "type": "float",
-                    "value": 1
-                }
-            },
-            {
-                "name": "blend",
-                "data": {
-                    "type": "float",
-                    "value": 1
-                }
-            }
-        ]
-    },
-    "textures": {
-        "values": [
-            {
-                "name": "lut",
-                "texture": {
-                    "id": {
-                        "value": 623207780
-                    }
-                }
-            }
-        ]
-    },
+    ],
+    "textures": [
+        {
+            "name": "lut",
+            "texture": 623207780
+        }
+    ],
     "config": {
         "is_depth_test_enabled": false,
         "is_depth_write_enabled": false,

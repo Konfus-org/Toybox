@@ -1,4 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
+#include <array>
 #include <fstream>
 #include <system_error>
 
@@ -90,6 +91,12 @@ namespace tbx
 
     static std::filesystem::path get_default_working_directory()
     {
+#if defined(TBX_WORKING_DIRECTORY)
+        const auto configured = std::filesystem::path(TBX_WORKING_DIRECTORY).lexically_normal();
+        if (!configured.empty())
+            return configured;
+#endif
+
         const auto executable_directory = get_executable_directory();
         if (!executable_directory.empty())
         {

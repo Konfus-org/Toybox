@@ -39,6 +39,8 @@ namespace tbx::tests::plugin_api
 
         service_provider.register_service<IMessageCoordinator>(
             std::make_unique<MessageCoordinator>());
+        service_provider.register_service<IFileOps>(
+            std::make_unique<InMemoryFileOps>(working_directory));
         service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_unique<SerializationRegistry>());
@@ -51,15 +53,11 @@ namespace tbx::tests::plugin_api
             service_provider.get_service<IMessageCoordinator>(),
             service_provider.get_service<SerializationRegistry>(),
             working_directory));
-        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>(
-            message_coordinator,
-            true,
-            GraphicsApi::OPEN_GL,
-            Size {640, 480}));
+        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>());
         if (auto settings = service_provider.get_service<AppSettings>().lock())
         {
-            settings->paths.working_directory = working_directory;
-            settings->paths.logs_directory = working_directory / "logs";
+            settings->graphics.graphics_api = GraphicsApi::OPEN_GL;
+            settings->graphics.resolution = Size {640, 480};
             settings->icon = BoxIcon::HANDLE;
         }
         service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());

@@ -1,0 +1,7 @@
+{
+    "name": "3DExample",
+    "requested_plugins": [
+        "ThreeDExampleRuntime"
+    ],
+    "startup_world": 822083584
+}

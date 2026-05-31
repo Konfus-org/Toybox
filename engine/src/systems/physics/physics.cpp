@@ -1,5 +1,4 @@
 #include "tbx/systems/physics/physics.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
@@ -427,16 +426,16 @@ namespace tbx
         State(
             std::weak_ptr<IPhysicsBackend> physics_backend,
             std::weak_ptr<AssetManager> assets,
-            std::weak_ptr<AppSettings> app_settings)
+            std::weak_ptr<WorldManager> worlds)
             : backend(std::move(physics_backend))
             , asset_manager(std::move(assets))
-            , settings(std::move(app_settings))
+            , world_manager(std::move(worlds))
         {
         }
 
         std::weak_ptr<IPhysicsBackend> backend = {};
         std::weak_ptr<AssetManager> asset_manager = {};
-        std::weak_ptr<AppSettings> settings = {};
+        std::weak_ptr<WorldManager> world_manager = {};
         std::unordered_map<Uuid, EntityRecord> records_by_entity = {};
         std::unordered_map<uint64, Uuid> entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> overlap_entities_by_trigger = {};
@@ -445,15 +444,16 @@ namespace tbx
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<AppSettings> settings)
+        const PhysicsSettings& settings,
+        std::weak_ptr<WorldManager> world_manager)
         : _state(
               std::make_unique<State>(
                   std::move(backend),
                   std::move(asset_manager),
-                  std::move(settings)))
+                  std::move(world_manager)))
     {
         if (auto backend_strong = _state->backend.lock())
-            backend_strong->initialize(get_backend_settings());
+            backend_strong->initialize(get_backend_settings(settings));
     }
 
     Physics::~Physics() noexcept
@@ -490,7 +490,7 @@ namespace tbx
         };
     }
 
-    void Physics::update(const DeltaTime& dt)
+    void Physics::update(const DeltaTime& dt, const PhysicsSettings& settings)
     {
         if (_state->backend.expired())
             return;
@@ -499,7 +499,18 @@ namespace tbx
         if (!asset_manager)
             return;
 
-        for (const auto& world : asset_manager->get_loaded<World>())
+        auto worlds = std::vector<std::shared_ptr<World>> {};
+        if (const auto world_manager = _state->world_manager.lock())
+        {
+            if (auto world = world_manager->get_active_world().lock())
+                worlds.push_back(world);
+        }
+        else
+        {
+            worlds = asset_manager->get_loaded<World>();
+        }
+
+        for (const auto& world : worlds)
         {
             if (!world)
                 continue;
@@ -507,8 +518,8 @@ namespace tbx
             sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
         }
         if (auto backend = _state->backend.lock())
-            backend->update(get_backend_settings(), dt);
-        for (const auto& world : asset_manager->get_loaded<World>())
+            backend->update(get_backend_settings(settings), dt);
+        for (const auto& world : worlds)
         {
             if (!world)
                 continue;
@@ -543,22 +554,17 @@ namespace tbx
         record = {};
     }
 
-    PhysicsBackendSettings Physics::get_backend_settings() const
+    PhysicsBackendSettings Physics::get_backend_settings(const PhysicsSettings& settings)
     {
-        auto settings = _state->settings.lock();
-        if (!settings)
-            return {};
-
-        const auto& physics_settings = settings->physics;
         return PhysicsBackendSettings {
-            .gravity = physics_settings.gravity.value,
-            .max_body_count = physics_settings.max_body_count.value,
-            .max_contact_constraints = physics_settings.max_contact_constraints.value,
-            .max_body_pairs = physics_settings.max_body_pairs.value,
-            .solver_velocity_iterations = physics_settings.solver_velocity_iterations.value,
-            .solver_position_iterations = physics_settings.solver_position_iterations.value,
-            .max_linear_velocity = physics_settings.max_linear_velocity.value,
-            .max_angular_velocity = physics_settings.max_angular_velocity.value,
+            .gravity = settings.gravity,
+            .max_body_count = settings.max_body_count,
+            .max_contact_constraints = settings.max_contact_constraints,
+            .max_body_pairs = settings.max_body_pairs,
+            .solver_velocity_iterations = settings.solver_velocity_iterations,
+            .solver_position_iterations = settings.solver_position_iterations,
+            .max_linear_velocity = settings.max_linear_velocity,
+            .max_angular_velocity = settings.max_angular_velocity,
         };
     }
 

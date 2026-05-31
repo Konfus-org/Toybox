@@ -44,6 +44,28 @@ namespace tbx
         EXPECT_EQ(version, 7U);
     }
 
+    TEST(AttributeTests, SingleFieldStructSerializesFlatAndReadsLegacyObject)
+    {
+        // Arrange
+        auto value = AttributeVersionedStruct();
+        value.value = 17;
+        auto flat_roundtripped = AttributeVersionedStruct();
+        auto legacy_roundtripped = AttributeVersionedStruct();
+        const auto legacy_json = Json {{"value", 23}};
+
+        // Act
+        auto json = Json();
+        serialize(json, value);
+        deserialize(json, flat_roundtripped);
+        deserialize(legacy_json, legacy_roundtripped);
+
+        // Assert
+        ASSERT_TRUE(json.is_number_integer());
+        EXPECT_EQ(json.get<int>(), 17);
+        EXPECT_EQ(flat_roundtripped.value, 17);
+        EXPECT_EQ(legacy_roundtripped.value, 23);
+    }
+
     TEST(AttributeTests, PrintableAttributeGeneratesFormatter)
     {
         // Arrange

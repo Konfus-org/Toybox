@@ -156,7 +156,14 @@ namespace tbx::tests::scripting
         file_ops->set_text(
             "main.world",
             R"({
-                "globals": [
+                "globals": { "name": "main.globals", "id": { "value": 33 } },
+                "chunks": []
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": { "value": 33 }, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
                     {
                         "id": { "value": 40 },
                         "name": "Door",
@@ -177,8 +184,7 @@ namespace tbx::tests::scripting
                             }
                         }
                     }
-                ],
-                "chunks": []
+                ]
             })");
         file_ops->set_text(
             "Scripts/Door.script.meta",
@@ -197,7 +203,10 @@ namespace tbx::tests::scripting
         auto services = ServiceProvider();
         auto script_system = ScriptSystem(asset_manager, services);
         const auto world = asset_manager->load<World>(Handle("main.world", Uuid(32U)));
+        const auto globals = asset_manager->load<WorldGlobals>(Handle("main.globals", Uuid(33U)));
         ASSERT_NE(world, nullptr);
+        ASSERT_NE(globals, nullptr);
+        world->load_globals(*globals);
 
         // Act
         script_system.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});

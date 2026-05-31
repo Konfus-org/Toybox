@@ -35,6 +35,8 @@ namespace tbx
 {
     struct Asset;
     class ScriptContext;
+    template <typename TOwner, typename TProp>
+    class Observable;
 
     struct SerializableTypeRegistration
     {
@@ -292,6 +294,16 @@ namespace tbx
     {
     };
 
+    template <typename TValue>
+    struct IsObservable : std::false_type
+    {
+    };
+
+    template <typename TOwner, typename TProp>
+    struct IsObservable<Observable<TOwner, TProp>> : std::true_type
+    {
+    };
+
     template <typename TValue, typename = void>
     struct IsStaticIndexedSerializable : std::false_type
     {
@@ -323,6 +335,10 @@ namespace tbx
             for (const auto& entry : value)
                 json.push_back(write_serialization_value<TJson>(entry));
             return json;
+        }
+        else if constexpr (IsObservable<TValue>::value)
+        {
+            return write_serialization_value<TJson>(value.value);
         }
         else if constexpr (IsStaticIndexedSerializable<TValue>::value)
         {
@@ -356,6 +372,19 @@ namespace tbx
                 auto item = typename TValue::value_type();
                 read_serialization_value(entry, item);
                 value.push_back(std::move(item));
+            }
+        }
+        else if constexpr (IsObservable<TValue>::value)
+        {
+            if constexpr (requires { deserialize(json, value.value); })
+            {
+                read_serialization_value(json, value.value);
+            }
+            else
+            {
+                auto next_value = value.value;
+                read_serialization_value(json, next_value);
+                value = std::move(next_value);
             }
         }
         else if constexpr (IsStaticIndexedSerializable<TValue>::value)

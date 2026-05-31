@@ -545,6 +545,28 @@ namespace tbx::tests::graphics
             });
     }
 
+    static GraphicsSettings make_graphics_settings(
+        bool vsync = false,
+        GraphicsApi api = GraphicsApi::OPEN_GL,
+        Size resolution = Size {1280U, 720U},
+        uint32 shadow_map_resolution = 2048U,
+        float shadow_render_distance = 90.0F,
+        float shadow_softness = 1.0F,
+        float local_light_max_distance = 64.0F,
+        float shadow_caster_max_distance = 96.0F)
+    {
+        return GraphicsSettings {
+            .vsync_enabled = vsync ? VsyncMode::ON : VsyncMode::OFF,
+            .graphics_api = api,
+            .resolution = resolution,
+            .shadow_map_resolution = shadow_map_resolution,
+            .shadow_render_distance = shadow_render_distance,
+            .shadow_softness = shadow_softness,
+            .local_light_max_distance = local_light_max_distance,
+            .shadow_caster_max_distance = shadow_caster_max_distance,
+        };
+    }
+
     static std::shared_ptr<World> load_test_world(
         SerializationRegistry& serialization_registry,
         AssetManager& asset_manager)
@@ -801,7 +823,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = world->create_entity("Triangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -815,9 +837,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -859,7 +880,7 @@ namespace tbx::tests::graphics
         auto first_world = load_test_world(*serialization_registry, asset_manager);
         auto second_world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto first_entity = first_world->create_entity("FirstWorldTriangle");
         first_entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         first_entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -876,9 +897,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -909,7 +929,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto first = world->create_entity("FirstTriangle");
         first.add_component<DynamicMesh>(Mesh::TRIANGLE);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -926,9 +946,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -956,7 +975,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = world->create_entity("Triangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -968,11 +987,10 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
+            window_manager_service);
 
         // Act
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         ASSERT_EQ(begin_frame_started.wait_for(std::chrono::seconds(1)), std::future_status::ready);
         auto lane_drain = thread_manager.post_with_future(
             "render",
@@ -1001,7 +1019,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto caller_thread_id = std::this_thread::get_id();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
@@ -1014,9 +1032,8 @@ namespace tbx::tests::graphics
                 backend_service,
                 asset_manager_service,
                 thread_manager_service,
-                window_manager_service,
-                settings);
-            rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+                window_manager_service);
+            rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
             wait_for_render_lane(thread_manager);
         }
 
@@ -1041,7 +1058,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
         auto asset_manager_service = make_non_owning_service(asset_manager);
         auto thread_manager_service = make_non_owning_service(thread_manager);
@@ -1050,12 +1067,11 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
+            window_manager_service);
 
         // Act
         const bool closed = window_manager.close(window_manager.window);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1080,8 +1096,9 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
-        auto settings = AppSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
-        settings.graphics->local_light_max_distance = 1.0F;
+        auto settings = AppSettings {};
+        settings.graphics = make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+        settings.graphics.local_light_max_distance = 1.0F;
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F));
@@ -1096,19 +1113,12 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings.graphics);
-        dispatcher->register_handler(
-            [&rendering](Message& msg)
-            {
-                rendering.receive_message(msg);
-            });
-
+            window_manager_service);
         // Act
-        settings.graphics->vsync_enabled = VsyncMode::ON;
-        settings.graphics->local_light_max_distance = 64.0F;
+        settings.graphics.vsync_enabled = VsyncMode::ON;
+        settings.graphics.local_light_max_distance = 64.0F;
         wait_for_render_lane(thread_manager);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings.graphics);
         wait_for_render_lane(thread_manager);
         const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1131,9 +1141,7 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
-        auto settings = GraphicsSettings(
-            dispatcher,
-            false,
+        auto settings = make_graphics_settings(false,
             GraphicsApi::OPEN_GL,
             Size {1280U, 720U},
             2048U,
@@ -1159,9 +1167,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1229,7 +1236,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto entity = world->create_entity("Cube");
         entity.add_component<DynamicMesh>(Mesh::CUBE);
         entity.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
@@ -1243,9 +1250,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1278,7 +1284,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto root = world->create_entity("Root");
         root.add_component<Transform>(Vec3(10.0F, 0.0F, 0.0F));
         auto camera = world->create_entity("Camera", root.get_id());
@@ -1297,9 +1303,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto camera_shader_data = find_camera_shader_data(backend.recorded_buffer_uploads);
         const auto object_shader_data = find_object_shader_data(backend.recorded_buffer_uploads);
@@ -1328,7 +1333,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
@@ -1345,9 +1350,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto light_shader_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1381,7 +1385,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(0.0F, 0.0F, 5.0F));
@@ -1401,9 +1405,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto light_shader_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -1459,7 +1462,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         camera.add_component<Transform>(Vec3(3.0F, 4.0F, 5.0F));
@@ -1487,9 +1490,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto object_shader_data_uploads =
             find_object_shader_data_uploads(backend.recorded_buffer_uploads);
@@ -1586,7 +1588,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         auto mesh_entity = world->create_entity("Triangle");
@@ -1604,9 +1606,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1639,7 +1640,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         auto mesh_entity = world->create_entity("Triangle");
@@ -1655,9 +1656,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1695,7 +1695,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         auto post_entity = world->create_entity("PostProcessing");
@@ -1718,9 +1718,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1745,7 +1744,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto camera = world->create_entity("Camera");
         camera.add_component<Camera>();
         auto backend_service = make_non_owning_service<IGraphicsBackend>(backend);
@@ -1758,9 +1757,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1799,7 +1797,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto material_handle = Handle("Materials/Transient.mat");
         auto entity = world->create_entity("MaterialTriangle");
         entity.add_component<DynamicMesh>(Mesh::TRIANGLE);
@@ -1813,16 +1811,15 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
+            window_manager_service);
 
         // Act
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         asset_manager.update(DeltaTime {.seconds = 1.0, .milliseconds = 1000.0});
         const AssetUsage material_usage_after_scheduled_cleanup =
             asset_manager.get_usage<Material>(material_handle);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1857,7 +1854,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/Triangle.fbx");
         auto entity = world->create_entity("StaticTriangle");
         auto static_mesh = StaticMesh {};
@@ -1872,21 +1869,20 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
+            window_manager_service);
 
         // Act
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         asset_manager.unload_unreferenced();
         const AssetUsage usage_after_asset_cleanup = asset_manager.get_usage<Model>(model_handle);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const uint uploaded_buffer_count_after_ring_warmup = backend.uploaded_buffer_count;
         const uint updated_buffer_count_after_ring_warmup = backend.updated_buffer_count;
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1911,7 +1907,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
         auto first = world->create_entity("First");
         first.add_component<DynamicMesh>(mesh_data);
@@ -1929,9 +1925,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1954,7 +1949,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto first = world->create_entity("First");
         first.add_component<DynamicMesh>(Mesh::TRIANGLE);
         first.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -1971,9 +1966,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -1995,7 +1989,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
         auto entity = world->create_entity("DynamicTriangle");
         entity.add_component<DynamicMesh>(mesh_data);
@@ -2008,9 +2002,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
             count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs);
@@ -2018,7 +2011,7 @@ namespace tbx::tests::graphics
 
         // Act
         mesh_data->edit_mesh().vertices.vertices[0U] += 0.25F;
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2042,7 +2035,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh_data = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
         auto entity = world->create_entity("DynamicTriangle");
         entity.add_component<DynamicMesh>(mesh_data);
@@ -2055,16 +2048,15 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const uint dynamic_upload_count =
             count_dynamic_mesh_vertex_uploads(backend.recorded_buffer_descs);
 
         // Act
         mesh_data->edit_mesh().indices.push_back(0U);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2096,7 +2088,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/BatchedTriangle.fbx");
         auto first = world->create_entity("FirstStatic");
         auto first_mesh = StaticMesh {};
@@ -2118,9 +2110,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2157,7 +2148,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto opaque = world->create_entity("OpaqueCube");
         opaque.add_component<DynamicMesh>(Mesh::CUBE);
         opaque.add_component<Transform>(Vec3(0.0F, 0.0F, -4.0F));
@@ -2176,9 +2167,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2227,7 +2217,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto transparent = world->create_entity("TransparentCube");
         transparent.add_component<DynamicMesh>(Mesh::CUBE);
         transparent.add_component<Transform>(Vec3(0.0F, 0.0F, -5.0F));
@@ -2246,9 +2236,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2289,7 +2278,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/SplitTriangle.fbx");
         auto first_material = MaterialInstance(PbrMaterial::HANDLE);
         first_material.set_parameter("test_value", 1.0F);
@@ -2317,9 +2306,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2350,7 +2338,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         const auto model_handle = Handle("Models/ShadowTriangle.fbx");
         auto light = world->create_entity("Sun");
         light.add_component<DirectionalLight>(DirectionalLight());
@@ -2385,9 +2373,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2412,7 +2399,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -2434,9 +2421,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto light_data = find_light_shader_data(backend.recorded_buffer_uploads);
 
@@ -2492,7 +2478,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -2509,9 +2495,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2555,9 +2540,7 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
-        auto settings = GraphicsSettings(
-            dispatcher,
-            false,
+        auto settings = make_graphics_settings(false,
             GraphicsApi::OPEN_GL,
             Size {1280U, 720U},
             2048U,
@@ -2585,9 +2568,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2619,9 +2601,7 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
-        auto settings = GraphicsSettings(
-            dispatcher,
-            false,
+        auto settings = make_graphics_settings(false,
             GraphicsApi::OPEN_GL,
             Size {1280U, 720U},
             2048U,
@@ -2649,9 +2629,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2673,9 +2652,7 @@ namespace tbx::tests::graphics
         auto asset_manager =
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
-        auto settings = GraphicsSettings(
-            dispatcher,
-            false,
+        auto settings = make_graphics_settings(false,
             GraphicsApi::OPEN_GL,
             Size {1280U, 720U},
             4096U,
@@ -2697,9 +2674,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto shadow_data = find_shadow_shader_data(backend.recorded_buffer_uploads);
 
@@ -2726,7 +2702,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -2743,9 +2719,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const auto shadow_data = find_shadow_shader_data(backend.recorded_buffer_uploads);
 
@@ -2770,7 +2745,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -2789,9 +2764,8 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert
@@ -2824,7 +2798,7 @@ namespace tbx::tests::graphics
             AssetManager(dispatcher, serialization_registry, std::filesystem::path {});
         auto world = load_test_world(*serialization_registry, asset_manager);
         auto settings =
-            GraphicsSettings(dispatcher, false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
+            make_graphics_settings(false, GraphicsApi::OPEN_GL, Size {1280U, 720U});
         auto mesh = world->create_entity("Triangle");
         mesh.add_component<DynamicMesh>(Mesh::TRIANGLE);
         mesh.add_component<Transform>(Vec3(0.0F, 0.0F, -2.0F));
@@ -2839,15 +2813,14 @@ namespace tbx::tests::graphics
             backend_service,
             asset_manager_service,
             thread_manager_service,
-            window_manager_service,
-            settings);
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+            window_manager_service);
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
         const uint shadow_upload_count =
             count_texture_uploads_named(backend.recorded_texture_descs, "Toybox Shadow Map");
 
         // Act
-        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668});
+        rendering.render(DeltaTime {1.0 / 60.0, 16.666666666666668}, settings);
         wait_for_render_lane(thread_manager);
 
         // Assert

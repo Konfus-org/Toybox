@@ -22,7 +22,7 @@ namespace tbx
     {
       public:
         ServiceProvider() = default;
-        ~ServiceProvider() noexcept;
+        ~ServiceProvider() noexcept = default;
 
       public:
         ServiceProvider(const ServiceProvider&) = delete;
@@ -66,6 +66,9 @@ namespace tbx
         Entries _entries = {};
     };
 
+    /// @brief
+    /// Purpose: Creates the default Toybox runtime service graph.
+    TBX_API ServiceProvider create_default_service_provider();
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

@@ -1,88 +1,56 @@
-{
+﻿{
     "shader": {
-        "vertex": {
-            "id": {
-                "value": 317
+        "vertex": 317,
+        "fragment": 318,
+        "tesselation": 0,
+        "geometry": 0,
+        "compute": 0
+    },
+    "parameters": [
+        {
+            "name": "color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                }
             }
         },
-        "fragment": {
-            "id": {
-                "value": 318
+        {
+            "name": "brightness",
+            "data": {
+                "type": "float",
+                "value": 1
             }
         },
-        "tesselation": {
-            "id": {
+        {
+            "name": "ambient_multiplier",
+            "data": {
+                "type": "float",
                 "value": 0
             }
         },
-        "geometry": {
-            "id": {
-                "value": 0
-            }
-        },
-        "compute": {
-            "id": {
+        {
+            "name": "blend_factor",
+            "data": {
+                "type": "float",
                 "value": 0
             }
         }
-    },
-    "parameters": {
-        "values": [
-            {
-                "name": "color",
-                "data": {
-                    "type": "color",
-                    "value": {
-                        "r": 1,
-                        "g": 1,
-                        "b": 1,
-                        "a": 1
-                    }
-                }
-            },
-            {
-                "name": "brightness",
-                "data": {
-                    "type": "float",
-                    "value": 1
-                }
-            },
-            {
-                "name": "ambient_multiplier",
-                "data": {
-                    "type": "float",
-                    "value": 0
-                }
-            },
-            {
-                "name": "blend_factor",
-                "data": {
-                    "type": "float",
-                    "value": 0
-                }
-            }
-        ]
-    },
-    "textures": {
-        "values": [
-            {
-                "name": "skybox_texture",
-                "texture": {
-                    "id": {
-                        "value": 271855685
-                    }
-                }
-            },
-            {
-                "name": "secondary_skybox_texture",
-                "texture": {
-                    "id": {
-                        "value": 0
-                    }
-                }
-            }
-        ]
-    },
+    ],
+    "textures": [
+        {
+            "name": "skybox_texture",
+            "texture": 271855685
+        },
+        {
+            "name": "secondary_skybox_texture",
+            "texture": 0
+        }
+    ],
     "config": {
         "is_depth_test_enabled": false,
         "is_depth_write_enabled": false,

@@ -1,4 +1,4 @@
-{
+﻿{
     "coord": [
         3,
         0,
@@ -6,48 +6,34 @@
     ],
     "entities": [
         {
-            "id": {
-                "value": 12583424
-            },
+            "id": 12583424,
             "name": "FarColumn",
             "tag": "prop",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 0.15,
-                                            "g": 0.75,
-                                            "b": 1.0,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.15,
+                                        "g": 0.75,
+                                        "b": 1.0,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 515
-                        }
-                    }
+                    "handle": 515
                 },
                 "transform": {
                     "position": [
@@ -80,48 +66,34 @@
             }
         },
         {
-            "id": {
-                "value": 12583425
-            },
+            "id": 12583425,
             "name": "FarCone",
             "tag": "prop",
             "layer": "",
-            "parent": {
-                "value": 0
-            },
+            "parent": 0,
             "components": {
                 "material_instance": {
-                    "material": {
-                        "id": {
-                            "value": 2
-                        }
-                    },
+                    "material": 2,
                     "overrides": {
-                        "parameters": {
-                            "values": [
-                                {
-                                    "name": "albedo_color",
-                                    "data": {
-                                        "type": "color",
-                                        "value": {
-                                            "r": 1.0,
-                                            "g": 0.2,
-                                            "b": 0.55,
-                                            "a": 1
-                                        }
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.2,
+                                        "b": 0.55,
+                                        "a": 1
                                     }
                                 }
-                            ]
-                        },
+                            }
+                        ],
                         "has_parameter_override": true
                     }
                 },
                 "static_mesh": {
-                    "handle": {
-                        "id": {
-                            "value": 513
-                        }
-                    }
+                    "handle": 513
                 },
                 "transform": {
                     "position": [

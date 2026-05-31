@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/systems/assets/serialization.h"
+#include "tbx/types/size.generated.h"
 
 namespace tbx
 {
@@ -8,6 +9,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own their copies of sizes.
     /// Thread Safety: Not inherently thread-safe; synchronize shared mutable access.
+    [[serializable]];
     struct TBX_API Size
     {
         /// @brief
@@ -25,7 +27,10 @@ namespace tbx
             return static_cast<float>(width) / static_cast<float>(height);
         }
 
+        [[prop]]
         uint32 width = 0;
+
+        [[prop]]
         uint32 height = 0;
     };
 }

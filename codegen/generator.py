@@ -66,6 +66,19 @@ PLUGIN_CATEGORY_EXPRESSIONS = {
     "gameplay": "::tbx::PluginCategory::GAMEPLAY",
 }
 
+GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES = [
+    "SdlBaseSystemsPlugin",
+    "SdlWindowingPlugin",
+    "SdlOpenGlContextManagerPlugin",
+    "OpenGlRenderingPlugin",
+    "SdlInputPlugin",
+    "JoltPhysicsPlugin",
+    "AssimpModelLoaderPlugin",
+    "StbImageLoaderPlugin",
+    "ShaderIncludeLoader",
+    "PerformanceMonitor",
+]
+
 
 def attr_values(attrs: list, name: str) -> list[str]:
     values: list[str] = []
@@ -602,6 +615,8 @@ def emit_plugin_source(
 
     description = attr_value(type_info.attrs, "description")
     dependencies = attr_values(type_info.attrs, "dependency")
+    if not dependencies and raw_category == "gameplay":
+        dependencies = GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES
     qualified_plugin_name = qualified_name(type_info)
 
     dependency_entries = ", ".join(cpp_string(dependency) for dependency in dependencies)

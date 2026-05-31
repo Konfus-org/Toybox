@@ -1,6 +1,5 @@
 #include "tbx/plugins/stb_image_loader/stb_image_loader_plugin.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/texture.h"
 #include <stb_image.h>
@@ -24,19 +23,11 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
     {
+        _file_ops = service_provider.get_service<tbx::IFileOps>();
         _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
         auto serialization_registry = _serialization_registry.lock();
         if (!serialization_registry)
             return;
-
-        if (!_file_ops)
-        {
-            auto settings = service_provider.get_service<tbx::AppSettings>().lock();
-            if (!settings)
-                return;
-
-            _file_ops = std::make_unique<tbx::FileOperator>(settings->paths.working_directory);
-        }
 
         serialization_registry->register_loader<tbx::Texture>(
             [this](
@@ -56,6 +47,7 @@ namespace stb_image_loader
             serialization_registry->deregister_loader<tbx::Texture>();
         }
 
+        _file_ops = {};
         _serialization_registry = {};
     }
 
@@ -66,7 +58,8 @@ namespace stb_image_loader
         tbx::Texture& texture) const
     {
         auto result = tbx::Result {};
-        if (!_file_ops)
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
         {
             result.flag_failure("Stb image loader: file services unavailable.");
             return result;
@@ -75,10 +68,10 @@ namespace stb_image_loader
         tbx::Texture load_texture = parameters.texture;
         auto meta_path = asset_path;
         meta_path += ".meta";
-        if (_file_ops->exists(meta_path))
+        if (file_ops->exists(meta_path))
         {
             auto meta_data = std::string {};
-            if (!_file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
+            if (!file_ops->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
             {
                 result.flag_failure(
                     build_load_failure_message(asset_path, "texture metadata could not be read"));
@@ -94,7 +87,7 @@ namespace stb_image_loader
         }
 
         std::string encoded_image;
-        if (!_file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
+        if (!file_ops->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
         {
             result.flag_failure(build_load_failure_message(asset_path, "file could not be read"));
             return result;

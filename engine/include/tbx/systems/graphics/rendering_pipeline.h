@@ -2,6 +2,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
@@ -22,7 +23,8 @@ namespace tbx
         RenderingPipeline(
             std::weak_ptr<IGraphicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
-            std::weak_ptr<IWindowManager> window_manager);
+            std::weak_ptr<IWindowManager> window_manager,
+            std::weak_ptr<WorldManager> world_manager = {});
         ~RenderingPipeline() = default;
 
       public:
@@ -42,6 +44,7 @@ namespace tbx
       private:
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
+        std::weak_ptr<WorldManager> _world_manager = {};
         RenderingResourceManager _resource_manager;
         std::vector<RenderPass> _passes = {};
         float _elapsed_time = 0;

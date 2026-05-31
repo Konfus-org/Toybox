@@ -6,6 +6,9 @@
 
 namespace tbx
 {
+    static std::weak_ptr<PluginOwnershipTracker> g_plugin_ownership_tracker = {};
+    static std::mutex g_plugin_ownership_tracker_mutex = {};
+
     struct PluginOwnershipRecord
     {
         std::unordered_set<Uuid> entity_ids = {};
@@ -22,12 +25,6 @@ namespace tbx
         std::mutex mutex = {};
         std::unordered_map<Uuid, PluginOwnershipRecord> records_by_plugin_id = {};
     };
-
-    namespace detail
-    {
-        static std::weak_ptr<PluginOwnershipTracker> g_plugin_ownership_tracker = {};
-        static std::mutex g_plugin_ownership_tracker_mutex = {};
-    }
 
     static bool is_valid_plugin_instance_id(Uuid plugin_id)
     {
@@ -69,7 +66,9 @@ namespace tbx
         _state->records_by_plugin_id[plugin_id].pinned_asset_handles.insert(handle);
     }
 
-    void PluginOwnershipTracker::track_asset_directory(Uuid plugin_id, const std::filesystem::path& path)
+    void PluginOwnershipTracker::track_asset_directory(
+        Uuid plugin_id,
+        const std::filesystem::path& path)
     {
         if (!is_valid_plugin_instance_id(plugin_id) || path.empty())
             return;
@@ -95,7 +94,8 @@ namespace tbx
             return;
 
         auto guard = std::lock_guard(_state->mutex);
-        _state->records_by_plugin_id[plugin_id].component_types.insert(type_index_key(component_type));
+        _state->records_by_plugin_id[plugin_id].component_types.insert(
+            type_index_key(component_type));
     }
 
     void PluginOwnershipTracker::track_serializable_registration(
@@ -202,13 +202,13 @@ namespace tbx
 
     void bind_plugin_ownership_tracker(std::weak_ptr<PluginOwnershipTracker> tracker)
     {
-        auto guard = std::lock_guard(detail::g_plugin_ownership_tracker_mutex);
-        detail::g_plugin_ownership_tracker = std::move(tracker);
+        auto guard = std::lock_guard(g_plugin_ownership_tracker_mutex);
+        g_plugin_ownership_tracker = std::move(tracker);
     }
 
     std::shared_ptr<PluginOwnershipTracker> lock_plugin_ownership_tracker()
     {
-        auto guard = std::lock_guard(detail::g_plugin_ownership_tracker_mutex);
-        return detail::g_plugin_ownership_tracker.lock();
+        auto guard = std::lock_guard(g_plugin_ownership_tracker_mutex);
+        return g_plugin_ownership_tracker.lock();
     }
 }

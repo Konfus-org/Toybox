@@ -12,26 +12,11 @@
 #include <functional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
 {
-    /// @brief Identifies a chunk cell in a world's 3D spatial grid.
-    using WorldChunkCoord = IVec3;
-
-    /// @brief
-    /// Purpose: References authored chunk assets for one world grid cell.
-    [[serializable]];
-    struct TBX_API WorldChunkRef
-    {
-        [[prop]]
-        WorldChunkCoord coord = {};
-
-        [[prop]]
-        Handle full_chunk = {};
-    };
-
     /// @brief
     /// Purpose: Stores serialized spatial entities for one chunk asset.
     [[serializable]];
@@ -39,21 +24,26 @@ namespace tbx
     struct TBX_API WorldChunk : Asset
     {
         [[prop]]
-        WorldChunkCoord coord = {};
+        IVec3 coord = {};
 
         [[prop]]
         std::vector<Entity> entities = {};
     };
 
-    // TODO: Make a WorldManager service that deals with all the actual world logic, owns the world
-    // streaming and chunk management and tracks the active world (only one allowed at a time), then
-    // make the world asset plain ol data. Also move globals into their own special asset. Globals
-    // are loaded first and are kept loaded until the game/app shuts down.
     /// @brief
-    /// Purpose: Gameplay-facing entity container with a persistent layer and spatial chunk grid.
+    /// Purpose: Stores global entities that stay resident for the full application lifetime.
     [[serializable]];
     [[version(1U)]];
-    [[post_deserialize(rebuild_global_entities)]];
+    struct TBX_API WorldGlobals : Asset
+    {
+        [[prop]]
+        std::vector<Entity> entities = {};
+    };
+
+    /// @brief
+    /// Purpose: Gameplay-facing entity container backed by a plain world asset description.
+    [[serializable]];
+    [[version(1U)]];
     class TBX_API World : public Asset
     {
       public:
@@ -74,12 +64,9 @@ namespace tbx
         void destroy(Entity& entity);
         void clear_runtime_entities();
 
-        void rebuild_global_entities();
-        void update_chunk_membership(float chunk_size = 32.0F);
-
-        bool try_get_chunk(const Uuid& id, WorldChunkCoord& out_coord) const;
-        void load_chunk(const WorldChunk& chunk);
-        void unload_chunk(const WorldChunkCoord& coord);
+        void add_entities(const std::vector<Entity>& entities);
+        void load_globals(const WorldGlobals& globals);
+        void remove_entities(const std::vector<Uuid>& ids);
 
         bool is_global(const Uuid& id) const;
 
@@ -109,30 +96,20 @@ namespace tbx
 
       public:
         [[prop]]
-        std::vector<Entity> globals = {};
+        Handle globals = {};
 
         [[prop]]
-        std::vector<WorldChunkRef> chunks = {};
+        std::vector<Handle> chunks = {};
 
       private:
-        Entity create_entity(
-            const std::string& name,
-            const Uuid& parent,
-            bool is_persistent,
-            float chunk_size);
-        void assign_entity_to_chunk(const Entity& entity, float chunk_size);
         bool has_global(const Uuid& id) const;
         void make_persistent(const Uuid& id);
         void remove_global(const Uuid& id);
-        void remove_entity_from_chunk_tracking(const Uuid& id);
 
       private:
         EntityRegistry _registry = {};
-        std::unordered_map<WorldChunkCoord, std::vector<Entity>> _loaded_entities_by_chunk = {};
-        std::unordered_map<Uuid, WorldChunkCoord> _chunk_by_entity = {};
-        std::unordered_map<WorldChunkCoord, std::vector<Uuid>> _entities_by_chunk = {};
+        std::unordered_set<Uuid> _global_entities = {};
     };
-
 }
 
 #include "tbx/types/assets/world.inl"

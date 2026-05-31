@@ -1,5 +1,4 @@
 #include "tbx/systems/graphics/rendering.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/debugging/macros.h"
 
 namespace tbx
@@ -11,12 +10,15 @@ namespace tbx
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<ThreadManager> thread_manager,
         std::weak_ptr<IWindowManager> window_manager,
-        const GraphicsSettings& settings)
+        std::weak_ptr<WorldManager> world_manager)
         : _thread_manager(std::move(thread_manager))
         , _backend(std::move(backend))
         , _window_manager(window_manager)
-        , _settings(settings)
-        , _pipeline(_backend, std::move(asset_manager), std::move(window_manager))
+        , _pipeline(
+              _backend,
+              std::move(asset_manager),
+              std::move(window_manager),
+              std::move(world_manager))
     {
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
@@ -59,7 +61,7 @@ namespace tbx
             "Toybox renderer shutdown failed.");
     }
 
-    void Rendering::render(const DeltaTime& delta_time)
+    void Rendering::render(const DeltaTime& delta_time, const GraphicsSettings& settings)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -78,9 +80,9 @@ namespace tbx
             {
                 _render_future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
-                    [this, delta_time]()
+                    [this, delta_time, settings]()
                     {
-                        render_frame(delta_time);
+                        render_frame(delta_time, settings);
                     });
             },
             "Toybox renderer dispatch failed");
@@ -91,20 +93,7 @@ namespace tbx
         wait_for_render_frame();
     }
 
-    void Rendering::receive_message(Message& msg)
-    {
-        const auto graphics_settings_event = handle_property_changed<&AppSettings::graphics>(msg);
-        if (!graphics_settings_event)
-            return;
-
-        auto updated_settings = graphics_settings_event->get().current;
-        {
-            std::lock_guard lock(_settings_mutex);
-            _settings = updated_settings;
-        }
-    }
-
-    void Rendering::render_frame(const DeltaTime& delta_time)
+    void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)
     {
         const auto backend = _backend.lock();
         if (!backend)
@@ -113,13 +102,7 @@ namespace tbx
             return;
         }
 
-        const auto settings = [this]()
-        {
-            std::lock_guard lock(_settings_mutex);
-            return _settings;
-        }();
-
-        const auto vsync_mode = settings.vsync_enabled.value;
+        const auto vsync_mode = settings.vsync_enabled;
         if (backend->get_vsync() != vsync_mode)
         {
             const auto vsync_result = backend->set_vsync(vsync_mode);

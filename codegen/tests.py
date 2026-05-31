@@ -44,9 +44,51 @@ class AttributeCodegenTests(unittest.TestCase):
             output,
         )
         self.assertNotIn("tbx_value.amount", output)
-        self.assertIn("::tbx::write_serialization_field(", source_output)
+        self.assertIn("::tbx::write_serialization_value<::tbx::Json>(", source_output)
         self.assertIn("tbx_value.amount);", source_output)
         self.assertTrue(output.startswith(GENERATED_CODE_BANNER))
+
+    def test_single_field_struct_serialization_is_flattened(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+
+        output = self.generate_source(source)
+
+        self.assertIn("tbx_json = ::tbx::write_serialization_value<::tbx::Json>(", output)
+        self.assertIn("if (tbx_json.is_object() || tbx_json.is_null())", output)
+        self.assertIn("::tbx::read_serialization_field(", output)
+        self.assertIn("::tbx::read_serialization_value(", output)
+
+    def test_multi_field_struct_serialization_remains_object_shaped(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+
+                [[tbx::prop]]
+                int count = 0;
+            };
+            }
+            """
+
+        output = self.generate_source(source)
+
+        self.assertIn("::tbx::write_serialization_field(", output)
+        self.assertIn('"amount"', output)
+        self.assertIn('"count"', output)
 
     def test_generated_header_is_declaration_safe(self) -> None:
         output = self.generate(
@@ -118,6 +160,34 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;", output)
         self.assertIn("*out_meta = meta;", output)
         self.assertIn("new tbx::tests::ExamplePlugin()", output)
+
+    def test_gameplay_plugin_source_uses_default_dependencies(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin]];
+                [[tbx::name("ExamplePlugin")]];
+                [[tbx::version("1.2.3")]];
+                [[tbx::category("gameplay")]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
+
+        self.assertIn(
+            'meta.dependencies = {"SdlBaseSystemsPlugin", "SdlWindowingPlugin", '
+            '"SdlOpenGlContextManagerPlugin", "OpenGlRenderingPlugin", "SdlInputPlugin", '
+            '"JoltPhysicsPlugin", "AssimpModelLoaderPlugin", "StbImageLoaderPlugin", '
+            '"ShaderIncludeLoader", "PerformanceMonitor"};',
+            output,
+        )
 
     def test_plugin_source_generates_script_registration_method(self) -> None:
         plugin_types = parse_source(

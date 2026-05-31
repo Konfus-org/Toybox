@@ -42,9 +42,13 @@ namespace tbx
         };
     }
 
-    ScriptSystem::ScriptSystem(std::weak_ptr<AssetManager> asset_manager, ServiceProvider& services)
+    ScriptSystem::ScriptSystem(
+        std::weak_ptr<AssetManager> asset_manager,
+        ServiceProvider& services,
+        std::weak_ptr<WorldManager> world_manager)
         : _state(std::make_unique<State>())
         , _asset_manager(std::move(asset_manager))
+        , _world_manager(std::move(world_manager))
         , _services(services)
     {
     }
@@ -128,6 +132,21 @@ namespace tbx
         return instance;
     }
 
+    static std::vector<std::shared_ptr<World>> get_script_worlds(
+        AssetManager& asset_manager,
+        const std::weak_ptr<WorldManager>& world_manager)
+    {
+        if (const auto manager = world_manager.lock())
+        {
+            if (auto world = manager->get_active_world().lock())
+                return {world};
+
+            return {};
+        }
+
+        return asset_manager.get_loaded<World>();
+    }
+
     void ScriptSystem::fixed_update(const DeltaTime& dt)
     {
         auto asset_manager = _asset_manager.lock();
@@ -137,7 +156,7 @@ namespace tbx
         for (auto& entry : _state->instances)
             entry.second.touched = false;
 
-        const auto worlds = asset_manager->get_loaded<World>();
+        const auto worlds = get_script_worlds(*asset_manager, _world_manager);
         for (const auto& world : worlds)
         {
             if (!world)
@@ -215,7 +234,7 @@ namespace tbx
         for (auto& entry : _state->instances)
             entry.second.touched = false;
 
-        const auto worlds = asset_manager->get_loaded<World>();
+        const auto worlds = get_script_worlds(*asset_manager, _world_manager);
         for (const auto& world : worlds)
         {
             if (!world)

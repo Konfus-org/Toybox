@@ -1,7 +1,9 @@
 #pragma once
+#include "tbx/systems/graphics/api.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/render_target.h"
 #include "tbx/types/size.h"
+#include <filesystem>
 #include <string>
 
 namespace tbx
@@ -41,5 +43,7 @@ namespace tbx
         std::string title = "Toybox";
         Size size = {1280, 720};
         WindowMode mode = WindowMode::WINDOWED;
+        GraphicsApi api = GraphicsApi::OPEN_GL;
+        std::filesystem::path icon_path = {};
     };
 }

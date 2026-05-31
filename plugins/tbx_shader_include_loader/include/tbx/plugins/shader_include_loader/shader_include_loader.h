@@ -23,8 +23,7 @@ namespace tbx::shader_loader
             tbx::Shader& shader);
 
         std::weak_ptr<tbx::AssetManager> _asset_manager = {};
+        std::weak_ptr<tbx::IFileOps> _file_ops = {};
         std::weak_ptr<tbx::SerializationRegistry> _serialization_registry = {};
-        std::filesystem::path _working_directory = {};
-        std::unique_ptr<tbx::IFileOps> _file_ops = {};
     };
 }

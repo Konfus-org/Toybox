@@ -20,5 +20,10 @@ namespace tbx
 
         [[meta]]
         uint32 version = 1U;
+
+        operator Handle()
+        {
+            return Handle(id);
+        }
     };
 }

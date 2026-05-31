@@ -1,7 +1,7 @@
-﻿#include "ecs_tests.generated.h"
+#include "ecs_tests.generated.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/streamer.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/types/assets/world.h"
@@ -9,7 +9,6 @@
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/light.h"
 #include "tbx/types/components/transform.h"
-
 
 namespace tbx::tests::ecs
 {
@@ -56,7 +55,7 @@ namespace tbx::tests::ecs
         World world = {};
 
         // Act
-        auto entity = world.create_persistent_entity("Player");
+        auto entity = world.create_global_entity("Player");
         entity.set_tag("Hero");
         entity.set_layer("Gameplay");
 
@@ -75,8 +74,8 @@ namespace tbx::tests::ecs
     {
         // Arrange
         World world = {};
-        auto parent = world.create_persistent_entity("PlayerRoot");
-        auto child = world.create_spatial_entity("PlayerVisual", parent.get_id());
+        auto parent = world.create_global_entity("PlayerRoot");
+        auto child = world.create_entity("PlayerVisual", parent.get_id());
 
         // Act
         auto resolved_parent = Entity {};
@@ -93,7 +92,7 @@ namespace tbx::tests::ecs
     {
         // Arrange
         World world = {};
-        const auto entity = world.create_persistent_entity("LifetimeProbe");
+        const auto entity = world.create_global_entity("LifetimeProbe");
         const auto entity_id = entity.get_id();
 
         // Act
@@ -113,9 +112,9 @@ namespace tbx::tests::ecs
     {
         // Arrange
         World world = {};
-        auto player = world.create_persistent_entity("Character");
+        auto player = world.create_global_entity("Character");
         player.set_tag("player");
-        auto camera = world.create_spatial_entity("Camera", player.get_id());
+        auto camera = world.create_entity("Camera", player.get_id());
         camera.set_tag("camera");
 
         // Act
@@ -135,7 +134,7 @@ namespace tbx::tests::ecs
     {
         // Arrange
         World world = {};
-        auto entity = world.create_persistent_entity("ComponentIdentity");
+        auto entity = world.create_global_entity("ComponentIdentity");
         auto component = TestComponent {};
         component.value = 42;
         const auto component_id = component.id;
@@ -149,45 +148,39 @@ namespace tbx::tests::ecs
         EXPECT_EQ(stored.value, 42);
     }
 
-    TEST(ECSTests, PersistentEntities_DoNotEnterChunkMembership)
+    TEST(ECSTests, WorldRuntime_AddsAndRemovesStreamedEntities)
     {
         // Arrange
         World world = {};
-        auto entity = world.create_persistent_entity("Sun");
-        entity.add_component<Transform>();
+        auto registry = EntityRegistry();
+        const auto id = registry.add(Uuid(48U), "Crate");
+        const auto source = registry.get(id);
 
         // Act
-        world.update_chunk_membership();
-        auto coord = WorldChunkCoord {};
+        world.add_entities({source});
+        const bool has_loaded_entity = world.has(Uuid(48U));
+        world.remove_entities({Uuid(48U)});
 
         // Assert
-        EXPECT_TRUE(world.is_persistent(entity.get_id()));
-        EXPECT_FALSE(world.try_get_chunk(entity.get_id(), coord));
+        EXPECT_TRUE(has_loaded_entity);
+        EXPECT_FALSE(world.has(Uuid(48U)));
     }
 
-    TEST(ECSTests, SpatialEntities_MoveBetweenChunksWhenTransformChanges)
+    TEST(ECSTests, WorldRuntime_LoadsGlobalsAsResidentEntities)
     {
         // Arrange
+        auto registry = EntityRegistry();
+        const auto id = registry.add(Uuid(49U), "Sun");
+        auto globals = WorldGlobals {};
+        globals.entities.push_back(registry.get(id));
         World world = {};
-        constexpr float chunk_size = 10.0F;
-        auto entity = world.create_spatial_entity("Crate");
-        auto& transform = entity.add_component<Transform>();
-        transform.position = Vec3(2.0F, 0.0F, 2.0F);
 
         // Act
-        world.update_chunk_membership(chunk_size);
-        auto first_coord = WorldChunkCoord {};
-        const bool has_first_coord = world.try_get_chunk(entity.get_id(), first_coord);
-        transform.position = Vec3(21.0F, 0.0F, -11.0F);
-        world.update_chunk_membership(chunk_size);
-        auto second_coord = WorldChunkCoord {};
-        const bool has_second_coord = world.try_get_chunk(entity.get_id(), second_coord);
+        world.load_globals(globals);
 
         // Assert
-        EXPECT_TRUE(has_first_coord);
-        EXPECT_EQ(first_coord, WorldChunkCoord(0, 0, 0));
-        EXPECT_TRUE(has_second_coord);
-        EXPECT_EQ(second_coord, WorldChunkCoord(2, 0, -2));
+        EXPECT_TRUE(world.has(Uuid(49U)));
+        EXPECT_TRUE(world.is_global(Uuid(49U)));
     }
 
     TEST(ECSTests, EntitySerialization_RoundtripsMetadataAndRegisteredComponents)
@@ -270,7 +263,14 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "globals": [
+                "globals": { "name": "main.globals", "id": { "value": 18 } },
+                "chunks": []
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": 18, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
                     {
                         "id": { "value": 32 },
                         "name": "Sun",
@@ -287,19 +287,21 @@ namespace tbx::tests::ecs
                             }
                         }
                     }
-                ],
-                "chunks": []
+                ]
             })");
         auto serialization_registry = SerializationRegistry(file_ops);
 
         // Act
         const auto world = serialization_registry.read<World>("main.world");
+        const auto globals = serialization_registry.read<WorldGlobals>("main.globals");
 
         // Assert
         ASSERT_NE(world, nullptr);
+        ASSERT_NE(globals, nullptr);
+        world->load_globals(*globals);
         const auto entity = world->get(Uuid(32U));
         EXPECT_TRUE(entity.get_id().is_valid());
-        EXPECT_TRUE(world->is_persistent(entity.get_id()));
+        EXPECT_TRUE(world->is_global(entity.get_id()));
         ASSERT_TRUE(entity.has_component<DirectionalLight>());
         EXPECT_FLOAT_EQ(entity.get_component<DirectionalLight>().ambient, 0.25F);
     }
@@ -312,7 +314,14 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "globals": [
+                "globals": { "name": "main.globals", "id": { "value": 19 } },
+                "chunks": []
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": 19, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
                     {
                         "id": { "value": 32 },
                         "name": "Character",
@@ -346,16 +355,18 @@ namespace tbx::tests::ecs
                             }
                         }
                     }
-                ],
-                "chunks": []
+                ]
             })");
         auto serialization_registry = SerializationRegistry(file_ops);
 
         // Act
         const auto world = serialization_registry.read<World>("main.world");
+        const auto globals = serialization_registry.read<WorldGlobals>("main.globals");
 
         // Assert
         ASSERT_NE(world, nullptr);
+        ASSERT_NE(globals, nullptr);
+        world->load_globals(*globals);
         const auto player = world->find_by_tag("player");
         const auto camera = world->find_by_name("Camera");
         auto parent = Entity();
@@ -365,7 +376,7 @@ namespace tbx::tests::ecs
         EXPECT_FLOAT_EQ(get_world_space_transform(camera).position.y, 10.0F);
     }
 
-    TEST(ECSTests, EntityStreamer_LoadsFullChunkWithinUnloadRadius)
+    TEST(ECSTests, WorldManager_LoadsFullChunkWithinUnloadRadius)
     {
         // Arrange
         auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
@@ -373,7 +384,16 @@ namespace tbx::tests::ecs
         file_ops->set_text(
             "main.world",
             R"({
-                "globals": [
+                "globals": { "name": "main.globals", "id": { "value": 51 } },
+                "chunks": [
+                    { "name": "chunks/full.chunk", "id": { "value": 50 } }
+                ]
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": 51, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
                     {
                         "id": { "value": 40 },
                         "name": "Camera",
@@ -391,12 +411,6 @@ namespace tbx::tests::ecs
                                 "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
                             }
                         }
-                    }
-                ],
-                "chunks": [
-                    {
-                        "coord": { "x": 3, "y": 0, "z": 0 },
-                        "full_chunk": { "name": "chunks/full.chunk", "id": { "value": 50 } }
                     }
                 ]
             })");
@@ -424,16 +438,171 @@ namespace tbx::tests::ecs
             std::vector<std::filesystem::path>(),
             HandleSource(),
             file_ops);
-        auto streamer = EntityStreamer(asset_manager);
-        auto world = asset_manager->load<World>(Handle("main.world", Uuid(0x20U)));
+        auto manager = WorldManager(asset_manager);
 
         // Act
-        streamer.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
+        const bool activated = manager.set_active_world(Handle("main.world", Uuid(0x20U)));
+        manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0}, WorldSettings {});
 
         // Assert
+        EXPECT_TRUE(activated);
+        auto world = manager.get_active_world().lock();
         ASSERT_NE(world, nullptr);
         auto streamed_entity = world->get(Uuid(60U));
         ASSERT_TRUE(streamed_entity.get_id().is_valid());
         EXPECT_EQ(streamed_entity.get_name(), "FullTile");
+    }
+
+    TEST(ECSTests, WorldManager_SetActiveWorldFromHandle_StreamsActiveWorld)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
+        file_ops->set_text("main.world.meta", R"({ "id": 32, "version": 1 })");
+        file_ops->set_text(
+            "main.world",
+            R"({
+                "globals": { "name": "main.globals", "id": { "value": 51 } },
+                "chunks": [
+                    { "name": "chunks/full.chunk", "id": { "value": 50 } }
+                ]
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": 51, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
+                    {
+                        "id": { "value": 40 },
+                        "name": "Camera",
+                        "tag": "",
+                        "layer": "",
+                        "parent": { "value": 0 },
+                        "components": {
+                            "camera": {
+                                "id": { "value": 41 }
+                            },
+                            "transform": {
+                                "id": { "value": 42 },
+                                "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+                                "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
+                                "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
+                            }
+                        }
+                    }
+                ]
+            })");
+        file_ops->set_text("chunks/full.chunk.meta", R"({ "id": 80, "version": 1 })");
+        file_ops->set_text(
+            "chunks/full.chunk",
+            R"({
+                "coord": { "x": 3, "y": 0, "z": 0 },
+                "entities": [
+                    {
+                        "id": { "value": 60 },
+                        "name": "FullTile",
+                        "tag": "",
+                        "layer": "",
+                        "parent": { "value": 0 },
+                        "components": {}
+                    }
+                ]
+            })");
+        auto serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
+        auto asset_manager = std::make_shared<AssetManager>(
+            get_null_dispatcher(),
+            serialization_registry,
+            "/virtual/worlds",
+            std::vector<std::filesystem::path>(),
+            HandleSource(),
+            file_ops);
+        auto manager = WorldManager(asset_manager);
+
+        // Act
+        const bool activated = manager.set_active_world(Handle("main.world", Uuid(0x20U)));
+        manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0}, WorldSettings {});
+
+        // Assert
+        EXPECT_TRUE(activated);
+        auto world = manager.get_active_world().lock();
+        ASSERT_NE(world, nullptr);
+        auto streamed_entity = world->get(Uuid(60U));
+        ASSERT_TRUE(streamed_entity.get_id().is_valid());
+        EXPECT_EQ(streamed_entity.get_name(), "FullTile");
+    }
+
+    TEST(ECSTests, WorldManager_SetActiveWorldFromSharedPtr_OwnsProvidedWorld)
+    {
+        // Arrange
+        auto serialization_registry = std::make_shared<SerializationRegistry>(
+            std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds"));
+        auto asset_manager = std::make_shared<AssetManager>(
+            get_null_dispatcher(),
+            serialization_registry,
+            "/virtual/worlds");
+        auto manager = WorldManager(asset_manager);
+        auto world = std::make_shared<World>();
+        world->id = Uuid(90U);
+        world->create_global_entity("RuntimeWorldEntity");
+
+        // Act
+        const bool activated = manager.set_active_world(world);
+        auto weak_world = manager.get_active_world();
+        world.reset();
+
+        // Assert
+        EXPECT_TRUE(activated);
+        auto active_world = weak_world.lock();
+        ASSERT_NE(active_world, nullptr);
+        EXPECT_TRUE(active_world->find_by_name("RuntimeWorldEntity").get_id().is_valid());
+
+        active_world.reset();
+        manager.clear_active_world();
+        EXPECT_TRUE(weak_world.expired());
+    }
+
+    TEST(ECSTests, WorldManager_SetActiveWorldFromMissingHandle_PreservesCurrentWorld)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<::tbx::tests::InMemoryFileOps>("/virtual/worlds");
+        file_ops->set_text("main.world.meta", R"({ "id": 32, "version": 1 })");
+        file_ops->set_text(
+            "main.world",
+            R"({
+                "globals": { "name": "main.globals", "id": { "value": 51 } },
+                "chunks": []
+            })");
+        file_ops->set_text("main.globals.meta", R"({ "id": 51, "version": 1 })");
+        file_ops->set_text(
+            "main.globals",
+            R"({
+                "entities": [
+                    {
+                        "id": { "value": 40 },
+                        "name": "Existing",
+                        "tag": "",
+                        "layer": "",
+                        "parent": { "value": 0 },
+                        "components": {}
+                    }
+                ]
+            })");
+        auto serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
+        auto asset_manager = std::make_shared<AssetManager>(
+            get_null_dispatcher(),
+            serialization_registry,
+            "/virtual/worlds",
+            std::vector<std::filesystem::path>(),
+            HandleSource(),
+            file_ops);
+        auto manager = WorldManager(asset_manager);
+        ASSERT_TRUE(manager.set_active_world(Handle("main.world", Uuid(0x20U))));
+        const auto original_world = manager.get_active_world().lock();
+
+        // Act
+        const bool activated = manager.set_active_world(Handle("missing.world", Uuid(0x21U)));
+
+        // Assert
+        EXPECT_FALSE(activated);
+        EXPECT_EQ(manager.get_active_world().lock(), original_world);
     }
 }

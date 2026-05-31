@@ -1,7 +1,8 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/physics_backend.h"
-#include "tbx/systems/app/settings.h"
+#include "tbx/interfaces/window_backend.h"
+#include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/registry.h"
@@ -9,12 +10,13 @@
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/windowing/manager.h"
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 
 namespace tbx
 {
-    static constexpr size invalid_plugin_index = std::numeric_limits<size>::max();
+    static constexpr size INVALID_PLUGIN_INDEX = std::numeric_limits<size>::max();
 
     static bool plugin_manager_path_contains_directory_token(
         const std::filesystem::path& path,
@@ -50,21 +52,34 @@ namespace tbx
 
         auto physics_backend = service_provider.try_get_service<IPhysicsBackend>().lock();
         auto asset_manager = service_provider.get_service<AssetManager>().lock();
-        auto settings = service_provider.get_service<AppSettings>().lock();
-        if (!physics_backend || !asset_manager || !settings)
+        if (!physics_backend || !asset_manager)
             return;
 
         service_provider.register_service<Physics>(std::make_unique<Physics>(
             service_provider.try_get_service<IPhysicsBackend>(),
             service_provider.try_get_service<AssetManager>(),
-            service_provider.try_get_service<AppSettings>()));
+            PhysicsSettings {}));
+    }
+
+    static void ensure_window_manager_service_registered(ServiceProvider& service_provider)
+    {
+        if (service_provider.has_service<IWindowManager>())
+            return;
+
+        auto window_backend = service_provider.try_get_service<IWindowBackend>();
+        if (window_backend.expired())
+            return;
+
+        service_provider.register_service<IWindowManager>(std::make_unique<WindowManager>(
+            service_provider.get_service<IMessageCoordinator>(),
+            window_backend));
     }
 
     PluginManager::PluginManager(
         ServiceProvider& service_provider,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : _provided_file_ops(file_ops)
-        , _file_ops(std::move(file_ops))
+        , _file_ops(file_ops)
         , _service_provider(service_provider)
     {
     }
@@ -84,13 +99,17 @@ namespace tbx
         _directory = directory.lexically_normal();
         _working_directory = working_directory.lexically_normal();
         _requested_plugins = requested_plugins;
-        _file_ops = _provided_file_ops ? _provided_file_ops
-                                       : std::make_shared<FileOperator>(_working_directory);
+        if (_provided_file_ops.expired() && !_service_provider.has_service<IFileOps>())
+            _service_provider.register_service<IFileOps>(
+                std::make_unique<FileOperator>(_working_directory));
 
-        if (!_file_ops)
+        _file_ops = _provided_file_ops.expired() ? _service_provider.get_service<IFileOps>()
+                                                 : _provided_file_ops;
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
             return;
 
-        for (auto& loaded_plugin : load_plugins(_directory, _requested_plugins, *_file_ops))
+        for (auto& loaded_plugin : load_plugins(_directory, _requested_plugins, *file_ops))
             add(std::move(loaded_plugin));
 
         _watcher.reset();
@@ -116,7 +135,7 @@ namespace tbx
                     return is_plugin_library_path(path);
                 },
             },
-            _file_ops);
+            file_ops);
     }
 
     void PluginManager::add(LoadedPlugin loaded_plugin)
@@ -139,25 +158,28 @@ namespace tbx
         }
 #endif
 
-        // TODO: This is NOT a plugin responsability Physics should be registered and ready, but
-        // once the backend is loaded we attach it to the Physics
+        // TODO: This is NOT a plugin responsability, the app should add physics later should be
+        // registered and ready, but once the backend is loaded we attach it to the Physics
         ensure_physics_service_registered(_service_provider);
+        ensure_window_manager_service_registered(_service_provider);
 
         _loaded.push_back(std::move(loaded_plugin));
         _loaded.back().attach(_service_provider);
 
         ensure_physics_service_registered(_service_provider);
+        ensure_window_manager_service_registered(_service_provider);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
     {
-        if (!_file_ops)
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
             return false;
 
         // Ensure prior instances are fully detached/destroyed before creating a replacement.
         unload(meta.name);
 
-        auto loaded_plugins = load_plugins(std::vector<PluginMeta> {meta}, *_file_ops);
+        auto loaded_plugins = load_plugins(std::vector<PluginMeta> {meta}, *file_ops);
         if (loaded_plugins.empty())
             return false;
 
@@ -357,7 +379,8 @@ namespace tbx
         const FileWatchChange& change,
         std::unordered_set<std::string>& processed_plugin_names)
     {
-        if (!_file_ops)
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
             return;
 
         const auto mark_processed_or_skip =
@@ -373,18 +396,18 @@ namespace tbx
             return false;
         };
 
-        const auto changed_path = _file_ops->resolve(change.path).lexically_normal();
+        const auto changed_path = file_ops->resolve(change.path).lexically_normal();
         if (plugin_manager_path_contains_directory_token(changed_path, "resources"))
             return;
 
         if (!is_plugin_library_path(changed_path))
             return;
 
-        size existing_index = invalid_plugin_index;
+        size existing_index = INVALID_PLUGIN_INDEX;
         for (size index = 0; index < static_cast<size>(_loaded.size()); ++index)
         {
             const auto library_path =
-                _file_ops->resolve(resolve_plugin_library_path(_loaded[index].meta, *_file_ops))
+                file_ops->resolve(resolve_plugin_library_path(_loaded[index].meta, *file_ops))
                     .lexically_normal();
             if (library_path == changed_path)
             {
@@ -395,7 +418,7 @@ namespace tbx
 
         if (change.type == FileWatchChangeType::REMOVED)
         {
-            if (existing_index != invalid_plugin_index)
+            if (existing_index != INVALID_PLUGIN_INDEX)
             {
                 if (mark_processed_or_skip(_loaded[existing_index].meta.name))
                     return;
@@ -405,9 +428,9 @@ namespace tbx
         }
 
         auto meta = PluginMeta();
-        if (!try_query_plugin_meta_from_library(changed_path, *_file_ops, meta))
+        if (!try_query_plugin_meta_from_library(changed_path, *file_ops, meta))
         {
-            if (existing_index != invalid_plugin_index)
+            if (existing_index != INVALID_PLUGIN_INDEX)
             {
                 if (mark_processed_or_skip(_loaded[existing_index].meta.name))
                     return;
@@ -416,7 +439,7 @@ namespace tbx
             return;
         }
 
-        if (existing_index != invalid_plugin_index
+        if (existing_index != INVALID_PLUGIN_INDEX
             && to_lower(_loaded[existing_index].meta.name) != to_lower(meta.name))
         {
             if (mark_processed_or_skip(_loaded[existing_index].meta.name))

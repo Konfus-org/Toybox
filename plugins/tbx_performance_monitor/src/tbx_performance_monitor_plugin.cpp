@@ -160,7 +160,7 @@ namespace tbx::performance_monitor
         auto next_title = std::format(
             "{} [{}, FPS: {}]",
             _main_window_base_title,
-            settings->graphics->graphics_api.value,
+            settings->graphics.graphics_api,
             static_cast<int>(average_fps));
 
         if (_debug_main_window_title != next_title)

@@ -1,11 +1,10 @@
 #pragma once
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/window_manager.h"
-#include "tbx/systems/app/description.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/streamer.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
@@ -15,14 +14,13 @@
 #include "tbx/systems/time/delta_time.h"
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace tbx
 {
     class TBX_API Application
     {
       public:
-        Application(const AppDescription& desc);
+        Application();
         ~Application() noexcept;
 
       public:
@@ -62,30 +60,27 @@ namespace tbx
         const ServiceProvider& get_service_provider() const;
 
       private:
-        void initialize(
-            const std::vector<std::string>& requested_plugins,
-            const Handle& startup_world);
-        void fixed_update(const DeltaTime& dt);
+        void initialize();
         void update(DeltaTimer& timer);
+        void fixed_update(const DeltaTime& dt, const PhysicsSettings& settings);
         void shutdown();
 
       private:
         bool _should_exit = false;
-        std::string _name = "App";
+        std::string _name = "Toybox App";
 
         ServiceProvider _service_provider = {};
         PluginManager _plugin_manager;
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
-        std::weak_ptr<AppSettings> _settings = {};
+        std::shared_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
-        std::weak_ptr<EntityStreamer> _entity_streamer = {};
+        std::weak_ptr<WorldManager> _world_manager = {};
         std::weak_ptr<ThreadManager> _thread_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<IInputManager> _input_manager = {};
         std::weak_ptr<Physics> _physics = {};
         std::weak_ptr<Rendering> _rendering = {};
         std::weak_ptr<ScriptSystem> _script_system = {};
-        Handle _startup_world = {};
 
         uint64 _update_count = 0;
         double _time_running = 0;
