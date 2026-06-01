@@ -282,7 +282,7 @@ namespace tbx::shader_loader
 
     void ShaderIncludeLoader::on_attach()
     {
-        auto* registry = serialization_registry.try_get();
+        auto registry = serialization_registry.lock();
         if (!registry)
             return;
 
@@ -299,7 +299,7 @@ namespace tbx::shader_loader
 
     void ShaderIncludeLoader::on_detach()
     {
-        if (auto* registry = serialization_registry.try_get())
+        if (auto registry = serialization_registry.lock())
             registry->deregister_transformer<tbx::Shader>();
 
         asset_manager = {};
@@ -314,14 +314,14 @@ namespace tbx::shader_loader
         tbx::Shader& shader)
     {
         auto result = tbx::Result {};
-        auto* files = file_ops.try_get();
+        auto files = file_ops.lock();
         if (!files)
         {
             result.flag_failure("tbx::Shader loader: file services unavailable.");
             return result;
         }
 
-        auto* assets = asset_manager.try_get();
+        auto assets = asset_manager.lock();
         if (!assets)
         {
             result.flag_failure("tbx::Shader loader: asset manager unavailable.");

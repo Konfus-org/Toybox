@@ -421,51 +421,29 @@ namespace tbx
         bool is_trigger_only = false;
     };
 
-    struct Physics::State
-    {
-        State(
-            std::weak_ptr<IPhysicsBackend> physics_backend,
-            std::weak_ptr<AssetManager> assets,
-            std::weak_ptr<WorldManager> worlds)
-            : backend(std::move(physics_backend))
-            , asset_manager(std::move(assets))
-            , world_manager(std::move(worlds))
-        {
-        }
-
-        std::weak_ptr<IPhysicsBackend> backend = {};
-        std::weak_ptr<AssetManager> asset_manager = {};
-        std::weak_ptr<WorldManager> world_manager = {};
-        std::unordered_map<Uuid, EntityRecord> records_by_entity = {};
-        std::unordered_map<uint64, Uuid> entity_by_rigidbody_handle = {};
-        std::unordered_map<Uuid, std::unordered_set<Uuid>> overlap_entities_by_trigger = {};
-    };
-
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
-        const PhysicsSettings& settings,
-        std::weak_ptr<WorldManager> world_manager)
-        : _state(
-              std::make_unique<State>(
-                  std::move(backend),
-                  std::move(asset_manager),
-                  std::move(world_manager)))
+        std::weak_ptr<WorldManager> world_manager,
+        const PhysicsSettings& settings)
+        : _backend(std::move(backend))
+        , _asset_manager(std::move(asset_manager))
+        , _world_manager(std::move(world_manager))
     {
-        if (auto backend_strong = _state->backend.lock())
+        if (auto backend_strong = _backend.lock())
             backend_strong->initialize(get_backend_settings(settings));
     }
 
     Physics::~Physics() noexcept
     {
         clear_resources();
-        if (auto backend = _state->backend.lock())
+        if (auto backend = _backend.lock())
             backend->shutdown();
     }
 
     RaycastResult Physics::raycast(const RaycastQuery& raycast_query) const
     {
-        auto backend = _state->backend.lock();
+        auto backend = _backend.lock();
         if (!backend)
             return {};
 
@@ -473,8 +451,8 @@ namespace tbx
         if (raycast_query.ignore_entity && raycast_query.ignored_entity_id.is_valid())
         {
             if (const auto record_it =
-                    _state->records_by_entity.find(raycast_query.ignored_entity_id);
-                record_it != _state->records_by_entity.end())
+                    _records_by_entity.find(raycast_query.ignored_entity_id);
+                record_it != _records_by_entity.end())
                 ignored_rigidbody = record_it->second.rigidbody;
         }
 
@@ -492,15 +470,15 @@ namespace tbx
 
     void Physics::update(const DeltaTime& dt, const PhysicsSettings& settings)
     {
-        if (_state->backend.expired())
+        if (_backend.expired())
             return;
 
-        auto asset_manager = _state->asset_manager.lock();
+        auto asset_manager = _asset_manager.lock();
         if (!asset_manager)
             return;
 
         auto worlds = std::vector<std::shared_ptr<World>> {};
-        if (const auto world_manager = _state->world_manager.lock())
+        if (const auto world_manager = _world_manager.lock())
         {
             if (auto world = world_manager->get_active_world().lock())
                 worlds.push_back(world);
@@ -517,7 +495,7 @@ namespace tbx
 
             sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
         }
-        if (auto backend = _state->backend.lock())
+        if (auto backend = _backend.lock())
             backend->update(get_backend_settings(settings), dt);
         for (const auto& world : worlds)
         {
@@ -531,17 +509,17 @@ namespace tbx
 
     void Physics::clear_resources()
     {
-        for (auto& record_entry : _state->records_by_entity)
+        for (auto& record_entry : _records_by_entity)
             destroy_record(record_entry.second);
 
-        _state->records_by_entity.clear();
-        _state->entity_by_rigidbody_handle.clear();
-        _state->overlap_entities_by_trigger.clear();
+        _records_by_entity.clear();
+        _entity_by_rigidbody_handle.clear();
+        _overlap_entities_by_trigger.clear();
     }
 
     void Physics::destroy_record(EntityRecord& record)
     {
-        if (auto backend = _state->backend.lock())
+        if (auto backend = _backend.lock())
         {
             if (record.rigidbody.is_valid())
                 backend->destroy_rigidbody(record.rigidbody);
@@ -550,7 +528,7 @@ namespace tbx
                 backend->destroy_collider(record.collider);
         }
 
-        _state->entity_by_rigidbody_handle.erase(record.rigidbody.value);
+        _entity_by_rigidbody_handle.erase(record.rigidbody.value);
         record = {};
     }
 
@@ -570,7 +548,7 @@ namespace tbx
 
     void Physics::process_trigger_colliders(World& world)
     {
-        auto backend = _state->backend.lock();
+        auto backend = _backend.lock();
         if (!backend)
             return;
 
@@ -587,7 +565,7 @@ namespace tbx
             if (!trigger_collider->is_overlap_enabled)
             {
                 trigger_collider->is_manual_scan_requested = false;
-                _state->overlap_entities_by_trigger.erase(trigger_entity_id);
+                _overlap_entities_by_trigger.erase(trigger_entity_id);
                 continue;
             }
 
@@ -601,8 +579,8 @@ namespace tbx
             trigger_collider->is_manual_scan_requested = false;
 
             auto current_overlaps = std::unordered_set<Uuid>();
-            if (const auto record_it = _state->records_by_entity.find(trigger_entity_id);
-                record_it != _state->records_by_entity.end())
+            if (const auto record_it = _records_by_entity.find(trigger_entity_id);
+                record_it != _records_by_entity.end())
             {
                 auto overlapped_rigidbodies = std::vector<PhysicsRigidbodyHandle> {};
                 backend->get_rigidbody_overlaps(
@@ -621,7 +599,7 @@ namespace tbx
                 }
             }
 
-            auto& previous_overlaps = _state->overlap_entities_by_trigger[trigger_entity_id];
+            auto& previous_overlaps = _overlap_entities_by_trigger[trigger_entity_id];
             for (const Uuid& overlapped_entity_id : current_overlaps)
             {
                 const ColliderOverlapEvent event = ColliderOverlapEvent {
@@ -656,7 +634,7 @@ namespace tbx
 
             if (current_overlaps.empty())
             {
-                _state->overlap_entities_by_trigger.erase(trigger_entity_id);
+                _overlap_entities_by_trigger.erase(trigger_entity_id);
                 continue;
             }
 
@@ -664,8 +642,8 @@ namespace tbx
         }
 
         auto stale_trigger_entities = std::vector<Uuid>();
-        stale_trigger_entities.reserve(_state->overlap_entities_by_trigger.size());
-        for (const auto& overlap_entry : _state->overlap_entities_by_trigger)
+        stale_trigger_entities.reserve(_overlap_entities_by_trigger.size());
+        for (const auto& overlap_entry : _overlap_entities_by_trigger)
         {
             if (active_trigger_entities.contains(overlap_entry.first))
                 continue;
@@ -674,13 +652,13 @@ namespace tbx
         }
 
         for (const Uuid& stale_trigger_entity : stale_trigger_entities)
-            _state->overlap_entities_by_trigger.erase(stale_trigger_entity);
+            _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 
     void Physics::sync_entities_to_backend(World& world, float dt_seconds)
     {
-        auto asset_manager = _state->asset_manager.lock();
-        auto backend = _state->backend.lock();
+        auto asset_manager = _asset_manager.lock();
+        auto backend = _backend.lock();
         if (!asset_manager || !backend)
             return;
 
@@ -705,19 +683,19 @@ namespace tbx
 
             active_entities.insert(entity_id);
 
-            auto record_it = _state->records_by_entity.find(entity_id);
-            if (record_it != _state->records_by_entity.end()
+            auto record_it = _records_by_entity.find(entity_id);
+            if (record_it != _records_by_entity.end()
                 && (record_it->second.is_physics_driven != is_physics_driven
                     || record_it->second.is_trigger_only != is_trigger_only
                     || (entity.has_component<MeshCollider>() && record_it->second.has_last_transform
                         && has_scale_changed(world_transform.scale, record_it->second.last_scale))))
             {
                 destroy_record(record_it->second);
-                _state->records_by_entity.erase(record_it);
-                record_it = _state->records_by_entity.end();
+                _records_by_entity.erase(record_it);
+                record_it = _records_by_entity.end();
             }
 
-            if (record_it == _state->records_by_entity.end())
+            if (record_it == _records_by_entity.end())
             {
                 const PhysicsColliderCreateInfo collider_info = create_collider_info_for_entity(
                     *asset_manager,
@@ -742,7 +720,7 @@ namespace tbx
                     continue;
                 }
 
-                auto& record = _state->records_by_entity[entity_id];
+                auto& record = _records_by_entity[entity_id];
                 record.collider = collider;
                 record.rigidbody = rigidbody_handle;
                 record.last_position = world_transform.position;
@@ -751,7 +729,7 @@ namespace tbx
                 record.has_last_transform = true;
                 record.is_physics_driven = is_physics_driven;
                 record.is_trigger_only = is_trigger_only;
-                _state->entity_by_rigidbody_handle[rigidbody_handle.value] = entity_id;
+                _entity_by_rigidbody_handle[rigidbody_handle.value] = entity_id;
                 continue;
             }
 
@@ -801,8 +779,8 @@ namespace tbx
         }
 
         auto stale_entities = std::vector<Uuid>();
-        stale_entities.reserve(_state->records_by_entity.size());
-        for (const auto& record_entry : _state->records_by_entity)
+        stale_entities.reserve(_records_by_entity.size());
+        for (const auto& record_entry : _records_by_entity)
         {
             if (active_entities.contains(record_entry.first))
                 continue;
@@ -812,22 +790,22 @@ namespace tbx
 
         for (const Uuid& stale_entity : stale_entities)
         {
-            auto record_it = _state->records_by_entity.find(stale_entity);
-            if (record_it == _state->records_by_entity.end())
+            auto record_it = _records_by_entity.find(stale_entity);
+            if (record_it == _records_by_entity.end())
                 continue;
 
             destroy_record(record_it->second);
-            _state->records_by_entity.erase(record_it);
+            _records_by_entity.erase(record_it);
         }
     }
 
     void Physics::sync_backend_to_entities(World& world)
     {
-        auto backend = _state->backend.lock();
+        auto backend = _backend.lock();
         if (!backend)
             return;
 
-        for (auto& record_entry : _state->records_by_entity)
+        for (auto& record_entry : _records_by_entity)
         {
             const Uuid& entity_id = record_entry.first;
             auto& record = record_entry.second;
@@ -894,8 +872,8 @@ namespace tbx
 
     Uuid Physics::try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const
     {
-        auto entity_it = _state->entity_by_rigidbody_handle.find(rigidbody.value);
-        if (entity_it == _state->entity_by_rigidbody_handle.end())
+        auto entity_it = _entity_by_rigidbody_handle.find(rigidbody.value);
+        if (entity_it == _entity_by_rigidbody_handle.end())
             return {};
 
         return entity_it->second;

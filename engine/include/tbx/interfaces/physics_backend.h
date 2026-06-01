@@ -127,7 +127,9 @@ namespace tbx
       public:
         virtual void initialize(const PhysicsBackendSettings& settings) = 0;
         virtual void shutdown() = 0;
+
         virtual void update(const PhysicsBackendSettings& settings, const DeltaTime& dt) = 0;
+
         virtual bool raycast(
             const RaycastQuery& raycast_query,
             PhysicsRigidbodyHandle ignored_rigidbody,

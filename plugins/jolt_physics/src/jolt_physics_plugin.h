@@ -18,6 +18,6 @@ namespace jolt_physics
 
       public:
         [[tbx::register(tbx::IPhysicsBackend)]]
-        std::shared_ptr<JoltPhysicsBackend> physics_backend = {};
+        std::weak_ptr<JoltPhysicsBackend> physics_backend = {};
     };
 }

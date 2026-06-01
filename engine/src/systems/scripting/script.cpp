@@ -65,6 +65,25 @@ namespace tbx
         _context = std::move(context);
     }
 
+    void Script::bind(ScriptBinding binding)
+    {
+        _binding = binding;
+    }
+
+    std::optional<ScriptBinding> Script::get_script_binding() const
+    {
+        return _binding;
+    }
+
+    std::optional<ScriptBinding> Script::get_script_reference(std::string_view field_name) const
+    {
+        const auto iterator = _script_references.find(std::string(field_name));
+        if (iterator == _script_references.end())
+            return std::nullopt;
+
+        return iterator->second;
+    }
+
     Entity& Script::get_entity() const
     {
         TBX_ASSERT(_context.has_value(), "Script has no bound context.");
@@ -87,5 +106,10 @@ namespace tbx
     {
         TBX_ASSERT(_context.has_value(), "Script has no bound context.");
         return _context->get_world();
+    }
+
+    void Script::set_script_reference(std::string_view field_name, ScriptBinding binding)
+    {
+        _script_references[std::string(field_name)] = binding;
     }
 }

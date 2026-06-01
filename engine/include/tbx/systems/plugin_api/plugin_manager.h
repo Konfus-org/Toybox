@@ -7,6 +7,7 @@
 #include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
+#include <memory>
 
 namespace tbx
 {
@@ -19,7 +20,9 @@ namespace tbx
     class TBX_API PluginManager
     {
       public:
-        PluginManager(ServiceProvider& service_provider, std::weak_ptr<IFileOps> file_ops = {});
+        PluginManager(
+            std::shared_ptr<ServiceProvider> service_provider,
+            std::weak_ptr<IFileOps> file_ops = {});
         ~PluginManager() noexcept;
 
       public:
@@ -49,11 +52,11 @@ namespace tbx
         bool load(const PluginMeta& meta);
 
         /// @brief
-        /// Purpose: Adds, attaches, and begins routing messages to a specific loaded plugin.
+        /// Purpose: Adds, attaches, and begins routing messages to loaded plugin nodes.
         /// @details
-        /// Ownership: Takes ownership of the provided loaded plugin container.
+        /// Ownership: Takes ownership of the provided loaded plugin list by splicing its nodes.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        void add(LoadedPlugin loaded_plugin);
+        void add(LoadedPlugins loaded_plugins);
 
         /// @brief
         /// Purpose: Updates all managed plugins using variable-timestep ordering.
@@ -101,13 +104,14 @@ namespace tbx
         void receive_message(Message& msg);
 
       private:
-        void add_loaded(LoadedPlugin loaded_plugin);
+        void add_loaded(LoadedPlugins& loaded_plugins);
         void attach_all_unattached();
         void bind_all_runtime();
+        std::shared_ptr<ServiceProvider> get_service_provider() const;
         bool should_load_plugin(const std::string& plugin_name) const;
         void clear_plugin_runtime_state(Uuid plugin_id);
         void register_all_services();
-        void unload_plugin_group(std::vector<LoadedPlugin>& plugins);
+        void unload_plugin_group(LoadedPlugins& plugins);
         void process_pending_file_changes();
         void process_file_change(
             const FileWatchChange& change,
@@ -116,7 +120,7 @@ namespace tbx
       private:
         std::mutex _pending_file_changes_mutex = {};
         std::vector<FileWatchChange> _pending_file_changes = {};
-        std::vector<LoadedPlugin> _loaded = {};
+        LoadedPlugins _loaded = {};
         std::vector<std::string> _requested_plugins = {};
 
         std::filesystem::path _directory = {};
@@ -126,7 +130,7 @@ namespace tbx
         std::weak_ptr<IFileOps> _file_ops = {};
         std::unique_ptr<FileWatcher> _watcher = {};
 
-        ServiceProvider& _service_provider;
+        std::weak_ptr<ServiceProvider> _service_provider = {};
         bool _attached = false;
     };
 }

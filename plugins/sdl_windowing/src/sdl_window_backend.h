@@ -21,6 +21,10 @@ namespace sdl_windowing
         ~SdlWindowBackend() noexcept override;
 
       public:
+        void initialize() override;
+        void shutdown() override;
+        void pump_events(std::vector<tbx::WindowBackendEvent>& out_events) override;
+
         bool create_window(
             const tbx::Window& window,
             const tbx::WindowCreateInfo& create_info,
@@ -29,8 +33,6 @@ namespace sdl_windowing
         bool set_window_mode(const tbx::Window& window, tbx::WindowMode mode) override;
         bool set_window_title(const tbx::Window& window, const std::string& title) override;
         bool set_window_size(const tbx::Window& window, const tbx::Size& size) override;
-        void pump_events(std::vector<tbx::WindowBackendEvent>& out_events) override;
-        void shutdown() override;
 
       private:
         SDL_Window* create_sdl_window(
@@ -45,5 +47,6 @@ namespace sdl_windowing
       private:
         std::unordered_map<tbx::Window, SDL_Window*> _windows = {};
         std::unordered_map<tbx::Window, SdlSurfacePtr> _icon_surfaces = {};
+        bool _is_initialized = false;
     };
 }

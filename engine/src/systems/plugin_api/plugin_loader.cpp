@@ -221,7 +221,10 @@ namespace tbx
         return true;
     }
 
-    static LoadedPlugin load_plugin_internal(const PluginMeta& meta, IFileOps& file_ops)
+    static bool try_emplace_loaded_plugin(
+        LoadedPlugins& out_plugins,
+        const PluginMeta& meta,
+        IFileOps& file_ops)
     {
         if (meta.abi_version != PluginAbiVersion)
         {
@@ -230,13 +233,13 @@ namespace tbx
                 meta.name,
                 PluginAbiVersion,
                 meta.abi_version);
-            return {};
+            return false;
         }
 
         const std::filesystem::path library_path = resolve_plugin_library_path(meta, file_ops);
         auto lib = load_plugin_library(library_path, file_ops);
         if (!lib || !lib->is_valid())
-            return {};
+            return false;
 
         CreatePluginFn create = lib->get_symbol<CreatePluginFn>("tbx_create_plugin");
         if (!create)
@@ -245,7 +248,7 @@ namespace tbx
                 "Entry point not found in plugin module '{}': {}",
                 lib->get_path().string(),
                 "tbx_create_plugin");
-            return {};
+            return false;
         }
 
         DestroyPluginFn destroy = lib->get_symbol<DestroyPluginFn>("tbx_destroy_plugin");
@@ -255,8 +258,9 @@ namespace tbx
                 "Destroy entry point not found in plugin module '{}': {}",
                 lib->get_path().string(),
                 "tbx_destroy_plugin");
-            return {};
+            return false;
         }
+
         RegisterPluginScriptsFn register_scripts =
             lib->get_symbol<RegisterPluginScriptsFn>("tbx_register_plugin_scripts");
         UnregisterPluginScriptsFn unregister_scripts =
@@ -272,7 +276,7 @@ namespace tbx
         if (!plugin_instance)
         {
             TBX_TRACE_WARNING("Plugin factory returned null for: {}", meta.name);
-            return {};
+            return false;
         }
 
         auto instance = std::unique_ptr<Plugin, PluginDeleter>(
@@ -284,12 +288,18 @@ namespace tbx
                     unregister_scripts();
                 destroy(plugin_ptr);
             });
+
         if (register_scripts)
             register_scripts();
-        auto loaded =
-            LoadedPlugin(meta, std::move(lib), std::move(instance), register_services, bind_runtime);
+
+        auto& loaded = out_plugins.emplace_back(
+            meta,
+            std::move(lib),
+            std::move(instance),
+            register_services,
+            bind_runtime);
         loaded.set_id(plugin_id);
-        return loaded;
+        return true;
     }
 
     static std::vector<PluginMeta> resolve_plugin_load_order(const std::vector<PluginMeta>& plugins)
@@ -442,20 +452,22 @@ namespace tbx
         }
     }
 
-    static std::vector<size> build_update_order(
-        const std::vector<LoadedPlugin>& loaded_plugins,
+    static std::vector<LoadedPlugin*> build_update_order(
+        LoadedPlugins& loaded_plugins,
         bool is_fixed_update)
     {
-        auto ordered_indices = std::vector<size>(loaded_plugins.size(), size {0});
-        std::iota(ordered_indices.begin(), ordered_indices.end(), size {0});
+        auto ordered_plugins = std::vector<LoadedPlugin*>();
+        ordered_plugins.reserve(loaded_plugins.size());
+        for (auto& plugin : loaded_plugins)
+            ordered_plugins.push_back(&plugin);
 
         std::stable_sort(
-            ordered_indices.begin(),
-            ordered_indices.end(),
-            [&loaded_plugins, is_fixed_update](size left_index, size right_index)
+            ordered_plugins.begin(),
+            ordered_plugins.end(),
+            [is_fixed_update](const LoadedPlugin* left_plugin, const LoadedPlugin* right_plugin)
             {
-                const auto& left = loaded_plugins[left_index].meta;
-                const auto& right = loaded_plugins[right_index].meta;
+                const auto& left = left_plugin->meta;
+                const auto& right = right_plugin->meta;
 
                 uint32 left_rank = get_update_category_rank(left.category, is_fixed_update);
                 uint32 right_rank = get_update_category_rank(right.category, is_fixed_update);
@@ -468,7 +480,7 @@ namespace tbx
                 return to_lower(left.name) < to_lower(right.name);
             });
 
-        return ordered_indices;
+        return ordered_plugins;
     }
 
     bool is_plugin_library_path(const std::filesystem::path& path)
@@ -520,12 +532,12 @@ namespace tbx
         return library_path;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
+    LoadedPlugins load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
         IFileOps& file_ops)
     {
-        std::vector<LoadedPlugin> loaded;
+        auto loaded = LoadedPlugins();
 
         std::vector<PluginMeta> discovered;
         if (file_ops.exists(directory))
@@ -623,17 +635,14 @@ namespace tbx
             return loaded;
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
-            if (plug.is_valid())
-                loaded.push_back(std::move(plug));
-            else
+            if (!try_emplace_loaded_plugin(loaded, meta, file_ops))
                 TBX_TRACE_WARNING("Failed to load plugin: {}", meta.name);
         }
 
         return loaded;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
+    LoadedPlugins load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
         const std::filesystem::path& working_directory)
@@ -642,21 +651,19 @@ namespace tbx
         return load_plugins(directory, requested_ids, file_ops);
     }
 
-    std::vector<LoadedPlugin> load_plugins(const std::vector<PluginMeta>& metas, IFileOps& file_ops)
+    LoadedPlugins load_plugins(const std::vector<PluginMeta>& metas, IFileOps& file_ops)
     {
-        std::vector<LoadedPlugin> loaded;
+        auto loaded = LoadedPlugins {};
 
         for (const PluginMeta& meta : metas)
         {
-            LoadedPlugin plug = load_plugin_internal(meta, file_ops);
-            if (plug.is_valid())
-                loaded.push_back(std::move(plug));
+            static_cast<void>(try_emplace_loaded_plugin(loaded, meta, file_ops));
         }
 
         return loaded;
     }
 
-    std::vector<LoadedPlugin> load_plugins(
+    LoadedPlugins load_plugins(
         const std::vector<PluginMeta>& metas,
         const std::filesystem::path& working_directory)
     {
@@ -664,58 +671,41 @@ namespace tbx
         return load_plugins(metas, file_ops);
     }
 
-    void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
+    void update_plugins(LoadedPlugins& loaded_plugins, const DeltaTime& dt)
     {
-        auto ordered_indices = build_update_order(loaded_plugins, false);
-        for (size index : ordered_indices)
-        {
-            auto& plugin = loaded_plugins[index];
-            if (!plugin.instance)
-                continue;
-
-            plugin.instance->update(dt);
-        }
+        auto ordered_plugins = build_update_order(loaded_plugins, false);
+        for (auto* plugin : ordered_plugins)
+            plugin->update(dt);
     }
 
-    void update_plugins_fixed(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt)
+    void update_plugins_fixed(LoadedPlugins& loaded_plugins, const DeltaTime& dt)
     {
-        auto ordered_indices = build_update_order(loaded_plugins, true);
-        for (size index : ordered_indices)
-        {
-            auto& plugin = loaded_plugins[index];
-            if (!plugin.instance)
-                continue;
-
-            plugin.instance->fixed_update(dt);
-        }
+        auto ordered_plugins = build_update_order(loaded_plugins, true);
+        for (auto* plugin : ordered_plugins)
+            plugin->fixed_update(dt);
     }
 
     void detach_plugins(
-        std::vector<LoadedPlugin>& loaded_plugins,
+        LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
         IMessageCoordinator* coordinator)
     {
-        const size plugin_count = static_cast<size>(loaded_plugins.size());
-        auto detached = std::vector<bool>(plugin_count, false);
-        size detached_count = 0U;
+        auto remaining_plugins = std::vector<LoadedPlugin*>();
+        remaining_plugins.reserve(loaded_plugins.size());
+        for (auto& plugin : loaded_plugins)
+            remaining_plugins.push_back(&plugin);
 
-        while (detached_count < plugin_count)
+        while (!remaining_plugins.empty())
         {
             auto name_to_index = std::unordered_map<std::string, size> {};
-            name_to_index.reserve(plugin_count - detached_count);
-            for (size index = 0; index < plugin_count; ++index)
-            {
-                if (!detached[index])
-                    name_to_index.emplace(to_lower(loaded_plugins[index].meta.name), index);
-            }
+            name_to_index.reserve(remaining_plugins.size());
+            for (size index = 0; index < static_cast<size>(remaining_plugins.size()); ++index)
+                name_to_index.emplace(to_lower(remaining_plugins[index]->meta.name), index);
 
-            auto dependents_count = std::vector<size>(plugin_count, size {0});
-            for (size index = 0; index < plugin_count; ++index)
+            auto dependents_count = std::vector<size>(remaining_plugins.size(), size {0});
+            for (size index = 0; index < static_cast<size>(remaining_plugins.size()); ++index)
             {
-                if (detached[index])
-                    continue;
-
-                for (const std::string& dependency : loaded_plugins[index].meta.dependencies)
+                for (const std::string& dependency : remaining_plugins[index]->meta.dependencies)
                 {
                     const std::string lowered = to_lower(trim(dependency));
                     auto dependency_it = name_to_index.find(lowered);
@@ -727,10 +717,10 @@ namespace tbx
             }
 
             auto candidates = std::vector<size> {};
-            candidates.reserve(plugin_count - detached_count);
-            for (size index = 0; index < plugin_count; ++index)
+            candidates.reserve(remaining_plugins.size());
+            for (size index = 0; index < static_cast<size>(remaining_plugins.size()); ++index)
             {
-                if (!detached[index] && dependents_count[index] == 0U)
+                if (dependents_count[index] == 0U)
                     candidates.push_back(index);
             }
 
@@ -738,39 +728,31 @@ namespace tbx
             {
                 TBX_TRACE_WARNING(
                     "Plugin unload dependency cycle detected. Falling back to stack order.");
-                for (size index = plugin_count; index > 0U; --index)
-                {
-                    const size selected_index = index - 1U;
-                    if (detached[selected_index])
-                        continue;
-
-                    candidates.push_back(selected_index);
-                    break;
-                }
+                candidates.push_back(static_cast<size>(remaining_plugins.size() - 1U));
             }
 
             std::sort(
                 candidates.begin(),
                 candidates.end(),
-                [&loaded_plugins](size left_index, size right_index)
+                [&remaining_plugins](size left_index, size right_index)
                 {
-                    const PluginMeta& left = loaded_plugins[left_index].meta;
-                    const PluginMeta& right = loaded_plugins[right_index].meta;
+                    const PluginMeta& left = remaining_plugins[left_index]->meta;
+                    const PluginMeta& right = remaining_plugins[right_index]->meta;
                     return should_unload_before(left, right);
                 });
 
             const size selected_index = candidates.front();
-            loaded_plugins[selected_index].detach(service_provider);
+            remaining_plugins[selected_index]->detach(service_provider);
             if (coordinator)
                 coordinator->flush();
 
-            detached[selected_index] = true;
-            ++detached_count;
+            remaining_plugins.erase(
+                remaining_plugins.begin() + static_cast<std::ptrdiff_t>(selected_index));
         }
     }
 
     void unload_plugins(
-        std::vector<LoadedPlugin>& loaded_plugins,
+        LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
         IMessageCoordinator* coordinator)
     {

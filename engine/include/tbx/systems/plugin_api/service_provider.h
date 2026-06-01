@@ -67,6 +67,7 @@ namespace tbx
         };
         ServiceProvider(DefaultServicesTag);
         friend TBX_API ServiceProvider create_default_service_provider();
+        friend TBX_API std::shared_ptr<ServiceProvider> create_default_service_provider_shared();
 
       private:
         void erase_service(std::type_index service_type);
@@ -81,6 +82,10 @@ namespace tbx
     /// @brief
     /// Purpose: Creates the default Toybox runtime service graph.
     TBX_API ServiceProvider create_default_service_provider();
+
+    /// @brief
+    /// Purpose: Creates the default Toybox runtime service graph with shared ownership.
+    TBX_API std::shared_ptr<ServiceProvider> create_default_service_provider_shared();
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

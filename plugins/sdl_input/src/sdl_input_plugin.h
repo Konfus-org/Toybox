@@ -27,7 +27,7 @@ namespace sdl_input
 
       public:
         [[tbx::register(tbx::IInputManager)]]
-        std::shared_ptr<SdlInputManager> input_manager = {};
+        std::weak_ptr<SdlInputManager> input_manager = {};
 
       private:
         static bool accumulate_wheel_delta(void* userdata, SDL_Event* event);

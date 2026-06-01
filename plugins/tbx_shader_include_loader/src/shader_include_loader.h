@@ -4,7 +4,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-#include "tbx/systems/scripting/service_ref.h"
+#include <memory>
 
 namespace tbx::shader_loader
 {
@@ -20,11 +20,11 @@ namespace tbx::shader_loader
 
       public:
         [[tbx::inject]]
-        tbx::ServiceRef<tbx::AssetManager> asset_manager = {};
+        std::weak_ptr<tbx::AssetManager> asset_manager = {};
         [[tbx::inject]]
-        tbx::ServiceRef<tbx::IFileOps> file_ops = {};
+        std::weak_ptr<tbx::IFileOps> file_ops = {};
         [[tbx::inject]]
-        tbx::ServiceRef<tbx::SerializationRegistry> serialization_registry = {};
+        std::weak_ptr<tbx::SerializationRegistry> serialization_registry = {};
 
       private:
         tbx::Result transform_shader(

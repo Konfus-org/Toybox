@@ -19,6 +19,6 @@ namespace sdl_windowing
 
       public:
         [[tbx::register(tbx::IWindowBackend)]]
-        std::shared_ptr<SdlWindowBackend> window_backend = {};
+        std::weak_ptr<SdlWindowBackend> window_backend = {};
     };
 }

@@ -5,10 +5,12 @@
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/plugin_api/shared_library.h"
+#include <list>
 
 namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
+    using LoadedPlugins = std::list<LoadedPlugin>;
 
     enum class LoadedPluginState
     {
@@ -21,8 +23,8 @@ namespace tbx
     /// Represents an owned plugin instance along with its loading metadata
     /// and (optionally) the dynamic library used to load it.
     /// @details
-    /// Ownership: Owns `instance` and `library` (if any). Movable, non-copyable
-    /// by virtue of unique_ptr semantics.
+    /// Ownership: Owns `instance` and `library` (if any). Non-copyable and non-movable; once
+    /// placed in a plugin container, the loaded plugin must stay in place until destruction.
     /// Thread-safety: Not thread-safe; expected to be used by the main thread.
     [[printable("Name={}, Version={}", meta.name, meta.version)]];
     class TBX_API LoadedPlugin
@@ -40,14 +42,17 @@ namespace tbx
         LoadedPlugin() = default;
         LoadedPlugin(const LoadedPlugin&) = delete;
         LoadedPlugin& operator=(const LoadedPlugin&) = delete;
-        LoadedPlugin(LoadedPlugin&&) noexcept = default;
-        LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
+        LoadedPlugin(LoadedPlugin&&) noexcept = delete;
+        LoadedPlugin& operator=(LoadedPlugin&&) noexcept = delete;
 
       public:
         bool is_valid() const;
-        void attach(ServiceProvider& service_provider);
+        bool is_attached() const;
+        void attach(std::shared_ptr<ServiceProvider> service_provider);
         void detach(ServiceProvider& service_provider);
+        void fixed_update(const DeltaTime& dt);
         void receive_message(Message& msg);
+        void update(const DeltaTime& dt);
 
         void bind_runtime(ServiceProvider& service_provider);
         void register_services(ServiceProvider& service_provider);
@@ -61,13 +66,11 @@ namespace tbx
         std::unique_ptr<Plugin, PluginDeleter> instance;
 
       private:
+        PluginInstanceId _plugin_id = PluginInstanceId {};
+        std::weak_ptr<ServiceProvider> _attached_service_provider = {};
         RegisterPluginServicesFn _register_services = nullptr;
         BindPluginRuntimeFn _bind_runtime = nullptr;
         LoadedPluginState _state = LoadedPluginState::UNATTACHED;
-        ServiceProvider* _attached_service_provider =
-            nullptr; // TODO: update to be weak pointer ref, main service provider instance in app
-                     // should be shared pointer
-        PluginInstanceId _plugin_id = PluginInstanceId {};
         bool _services_registered = false;
     };
 }

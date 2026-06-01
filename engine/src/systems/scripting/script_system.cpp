@@ -24,7 +24,7 @@ namespace tbx
         static ScriptSystemStateKey make_key(
             const World& world,
             const Entity& entity,
-            const ScriptBinding& binding);
+            const ScriptContainerBinding& binding);
 
         std::unordered_map<ScriptSystemStateKey, ScriptSystemStateRecord> instances = {};
     };
@@ -32,7 +32,7 @@ namespace tbx
     ScriptSystemStateKey ScriptSystem::State::make_key(
         const World& world,
         const Entity& entity,
-        const ScriptBinding& binding)
+        const ScriptContainerBinding& binding)
     {
         return ScriptSystemStateKey {
             .world = world.id,
@@ -96,7 +96,7 @@ namespace tbx
 
     static std::shared_ptr<Script> create_script_instance(
         AssetManager& asset_manager,
-        const ScriptBinding& binding)
+        const ScriptContainerBinding& binding)
     {
         auto prototype_asset = asset_manager.load(Handle(binding.script));
         auto prototype = std::dynamic_pointer_cast<Script>(prototype_asset);
@@ -179,6 +179,12 @@ namespace tbx
                         if (!record.script)
                             continue;
 
+                        record.script->bind(
+                            ScriptBinding {
+                                .entity = entity.get_id(),
+                                .script = binding.script,
+                                .binding_id = binding.binding_id,
+                            });
                         auto context =
                             ScriptContext(world->id, entity, world, _services.get(), *this);
                         record.script->bind_context(context);
@@ -201,7 +207,7 @@ namespace tbx
         }
     }
 
-    Script* ScriptSystem::try_get_script(const ScriptLookup& lookup)
+    std::weak_ptr<Script> ScriptSystem::try_get_script(const ScriptLookup& lookup)
     {
         if (lookup.binding_id.is_valid())
         {
@@ -212,7 +218,8 @@ namespace tbx
                     .script = lookup.script,
                     .binding_id = lookup.binding_id,
                 });
-            return iterator == _state->instances.end() ? nullptr : iterator->second.script.get();
+            return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
+                                                       : iterator->second.script;
         }
 
         const auto iterator = std::ranges::find_if(
@@ -222,7 +229,8 @@ namespace tbx
                 return entry.first.world == lookup.world && entry.first.entity == lookup.entity
                        && entry.first.script == lookup.script;
             });
-        return iterator == _state->instances.end() ? nullptr : iterator->second.script.get();
+        return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
+                                                   : iterator->second.script;
     }
 
     void ScriptSystem::update(const DeltaTime& dt)
@@ -257,6 +265,12 @@ namespace tbx
                         if (!record.script)
                             continue;
 
+                        record.script->bind(
+                            ScriptBinding {
+                                .entity = entity.get_id(),
+                                .script = binding.script,
+                                .binding_id = binding.binding_id,
+                            });
                         auto context =
                             ScriptContext(world->id, entity, world, _services.get(), *this);
                         record.script->bind_context(context);

@@ -27,48 +27,48 @@ namespace tbx
     // Scans 'directory' for plugin libraries (e.g. `*.dll`, `*.so`),
     // skips any `resources/` subtree, filters by requested IDs,
     // resolves load order, loads plugins, and returns owned plugin containers.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
+    // Ownership: The caller owns the returned LoadedPlugin nodes.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    TBX_API LoadedPlugins load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
         IFileOps& file_ops);
 
     // Scans 'directory' for plugin manifests using a working directory-backed file operator.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
+    // Ownership: The caller owns the returned LoadedPlugin nodes.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    TBX_API LoadedPlugins load_plugins(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_ids,
         const std::filesystem::path& working_directory);
 
     // Loads plugins from already-parsed metadata, without any file IO.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
+    // Ownership: The caller owns the returned LoadedPlugin nodes.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    TBX_API LoadedPlugins load_plugins(
         const std::vector<PluginMeta>& metas,
         IFileOps& file_ops);
 
     // Loads plugins from already-parsed metadata using a working directory-backed file operator.
-    // Ownership: The caller owns the returned LoadedPlugin objects.
+    // Ownership: The caller owns the returned LoadedPlugin nodes.
     // Thread-safety: Not thread-safe; call from the main thread.
-    TBX_API std::vector<LoadedPlugin> load_plugins(
+    TBX_API LoadedPlugins load_plugins(
         const std::vector<PluginMeta>& metas,
         const std::filesystem::path& working_directory);
 
     // Detaches plugins in a deterministic dependency-aware order without unloading libraries.
-    // Ownership: Retains LoadedPlugin instances in the provided vector.
+    // Ownership: Retains LoadedPlugin instances in the provided list.
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void detach_plugins(
-        std::vector<LoadedPlugin>& loaded_plugins,
+        LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
         IMessageCoordinator* coordinator = nullptr);
 
     // Unloads plugins in a deterministic dependency-aware order.
-    // Ownership: Consumes and destroys LoadedPlugin instances in the provided vector.
+    // Ownership: Consumes and destroys LoadedPlugin instances in the provided list.
     // Thread-safety: Not thread-safe; call from the main thread.
     TBX_API void unload_plugins(
-        std::vector<LoadedPlugin>& loaded_plugins,
+        LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
         IMessageCoordinator* coordinator = nullptr);
 
@@ -78,7 +78,7 @@ namespace tbx
     /// @details
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
-    TBX_API void update_plugins(std::vector<LoadedPlugin>& loaded_plugins, const DeltaTime& dt);
+    TBX_API void update_plugins(LoadedPlugins& loaded_plugins, const DeltaTime& dt);
 
     /// @brief
     /// Purpose: Updates loaded plugins in deterministic category/priority order for fixed-timestep
@@ -87,6 +87,6 @@ namespace tbx
     /// Ownership: Does not take ownership of plugin instances.
     /// Thread Safety: Not thread-safe; call from the main thread.
     TBX_API void update_plugins_fixed(
-        std::vector<LoadedPlugin>& loaded_plugins,
+        LoadedPlugins& loaded_plugins,
         const DeltaTime& dt);
 }

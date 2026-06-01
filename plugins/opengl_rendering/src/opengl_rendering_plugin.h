@@ -29,6 +29,6 @@ namespace opengl_rendering
             tbx::ServiceProvider& service_provider);
 
       private:
-        std::shared_ptr<OpenGlGraphicsBackend> _backend = {};
+        std::weak_ptr<OpenGlGraphicsBackend> _backend = {};
     };
 }

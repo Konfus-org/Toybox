@@ -1,3 +1,10 @@
+"""Toybox attribute code generator.
+
+The parser produces neutral metadata. This module owns code emission by running
+that metadata through independent processors for serialization, services,
+formatting, hashing, and plugins.
+"""
+
 from __future__ import annotations
 
 import re
@@ -17,20 +24,15 @@ from asset_codegen import (
 )
 from common_codegen import emit_type_name, emit_version
 from enum_codegen import emit_enum, emit_enum_declarations
-from formatter_codegen import emit_formatter, emit_formatter_declaration
-from hash_codegen import (
-    emit_hash,
-    emit_hash_declaration,
-    emit_hash_equality,
-    emit_hash_equality_declaration,
-)
 from model import (
+    Attribute,
     CodegenError,
     Field,
     SerializableType,
     attr_arg,
     attr_list_arg,
     attr_value,
+    attrs_named,
     cpp_string,
     fields_of,
     find_attr,
@@ -41,6 +43,15 @@ from model import (
     type_version,
 )
 from parser import parse_source
+from processors import (
+    CodegenContext,
+    CodegenRegistry,
+    FormatterProcessor,
+    HashProcessor,
+    PluginProcessor,
+    SerializationProcessor,
+    ServiceBindingProcessor,
+)
 from struct_codegen import (
     emit_custom_serializable_registration,
     emit_indexed,
@@ -82,29 +93,12 @@ GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES = [
 ]
 
 
-def attr_values(attrs: list, name: str) -> list[str]:
-    values: list[str] = []
-    for attr in attrs:
-        if attr.name == name:
-            values.extend(attr.args)
-            values.extend(attr_list_arg(attr, "values"))
-    return values
-
-
-def attrs_by_name(attrs: list, name: str) -> list:
-    return [attr for attr in attrs if attr.name == name]
-
-
-def service_attrs(type_info: SerializableType) -> list:
-    return type_info.attrs
-
-
 def service_register_fields(type_info: SerializableType) -> list[Field]:
     return fields_of(type_info, "register")
 
 
-def service_register_attrs(type_info: SerializableType) -> list:
-    return attrs_by_name(service_attrs(type_info), "register")
+def service_register_attrs(type_info: SerializableType) -> list[Attribute]:
+    return attrs_named(type_info.attrs, "register")
 
 
 def plugin_metadata_arg(type_info: SerializableType, index: int, default: str | None = None) -> str | None:
@@ -169,14 +163,63 @@ def resolve_service_factory_call(factory_method: str) -> str:
     return f"tbx_value.{normalized}(tbx_services)"
 
 
-def shared_ptr_value_type(field: Field) -> str:
-    match = re.match(r"(?:std::)?shared_ptr\s*<\s*(.+)\s*>$", field.type_name.strip())
+def smart_ptr_value_type(field: Field, pointer_type: str) -> str:
+    match = re.match(
+        rf"(?:std::)?{pointer_type}\s*<\s*(.+)\s*>$",
+        field.type_name.strip(),
+    )
     if match is None:
         raise CodegenError(
             f"{field.name} uses [[tbx::register]] on an unsupported field type. "
-            "Expected std::shared_ptr<T>."
+            "Expected std::shared_ptr<T> or std::weak_ptr<T>."
         )
     return match.group(1).strip()
+
+
+def shared_ptr_value_type(field: Field) -> str:
+    return smart_ptr_value_type(field, "shared_ptr")
+
+
+def weak_ptr_value_type(field: Field) -> str:
+    return smart_ptr_value_type(field, "weak_ptr")
+
+
+def is_shared_ptr_field(field: Field) -> bool:
+    return re.match(r"(?:std::)?shared_ptr\s*<", field.type_name.strip()) is not None
+
+
+def is_weak_ptr_field(field: Field) -> bool:
+    return re.match(r"(?:std::)?weak_ptr\s*<", field.type_name.strip()) is not None
+
+
+def registered_field_implementation_type(field: Field) -> str:
+    if is_weak_ptr_field(field):
+        return weak_ptr_value_type(field)
+    if is_shared_ptr_field(field):
+        return shared_ptr_value_type(field)
+    raise CodegenError(
+        f"{field.name} uses [[tbx::register]] on an unsupported field type. "
+        "Expected std::shared_ptr<T> or std::weak_ptr<T>."
+    )
+
+
+def validate_inject_field(field: Field) -> None:
+    if is_shared_ptr_field(field):
+        raise CodegenError(
+            "[[tbx::inject]] cannot target std::shared_ptr<T>; injected services must be "
+            "weak/non-owning because strong refs can outlive plugin teardown."
+        )
+    if is_weak_ptr_field(field):
+        return
+    raise CodegenError(
+        f"{field.name} uses [[tbx::inject]] on an unsupported field type. "
+        "Expected std::weak_ptr<T>."
+    )
+
+
+def validate_inject_fields(type_info: SerializableType) -> None:
+    for field in fields_of(type_info, "inject"):
+        validate_inject_field(field)
 
 
 def registered_field_service_type(type_info: SerializableType, field: Field) -> str:
@@ -193,10 +236,11 @@ def registered_field_service_type(type_info: SerializableType, field: Field) -> 
         )
     if service_type is not None:
         return service_type
-    return shared_ptr_value_type(field)
+    return registered_field_implementation_type(field)
 
 
 def emit_runtime_service_declarations(type_info: SerializableType) -> list[str]:
+    validate_inject_fields(type_info)
     lines: list[str] = []
     if fields_of(type_info, "inject"):
         lines.append(
@@ -212,6 +256,7 @@ def emit_runtime_service_declarations(type_info: SerializableType) -> list[str]:
 
 
 def emit_runtime_service_definitions(type_info: SerializableType) -> list[str]:
+    validate_inject_fields(type_info)
     lines: list[str] = []
     inject_fields = fields_of(type_info, "inject")
     if inject_fields:
@@ -236,17 +281,32 @@ def emit_runtime_service_definitions(type_info: SerializableType) -> list[str]:
         )
         service_index = 0
         for field in register_fields:
-            implementation_type = shared_ptr_value_type(field)
+            implementation_type = registered_field_implementation_type(field)
             service_type = registered_field_service_type(type_info, field)
-            lines.extend(
-                [
-                    f"    if (!tbx_value.{field.name})",
-                    f"        tbx_value.{field.name} = std::make_shared<{implementation_type}>();",
-                    f"    if (tbx_value.{field.name})",
-                    f"        tbx_services.register_service<{service_type}>(tbx_value.{field.name});",
-                    "",
-                ]
-            )
+            if is_weak_ptr_field(field):
+                lines.extend(
+                    [
+                        f"    auto tbx_service_{service_index} = tbx_value.{field.name}.lock();",
+                        f"    if (!tbx_service_{service_index})",
+                        "    {",
+                        f"        tbx_service_{service_index} = std::make_shared<{implementation_type}>();",
+                        f"        tbx_value.{field.name} = tbx_service_{service_index};",
+                        "    }",
+                        f"    if (tbx_service_{service_index})",
+                        f"        tbx_services.register_service<{service_type}>(tbx_service_{service_index});",
+                        "",
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        f"    if (!tbx_value.{field.name})",
+                        f"        tbx_value.{field.name} = std::make_shared<{implementation_type}>();",
+                        f"    if (tbx_value.{field.name})",
+                        f"        tbx_services.register_service<{service_type}>(tbx_value.{field.name});",
+                        "",
+                    ]
+                )
             service_index += 1
         for attr in register_attrs:
             service_type = attr_arg(attr, 0, "service")
@@ -313,9 +373,75 @@ def emit_script_asset_declarations(type_info: SerializableType, prop_fields: lis
     ]
 
 
+def emit_script_json_function_definitions(type_info: SerializableType, fields: list[Field]) -> list[str]:
+    if not any(is_weak_ptr_field(field) for field in fields):
+        return emit_json_function_definitions(type_info, fields)
+
+    lines = [
+        f"void serialize(::tbx::Json& tbx_json, const {type_info.name}& tbx_value)",
+        "{",
+    ]
+    for field in fields:
+        if is_weak_ptr_field(field):
+            lines.extend(
+                [
+                    "    ::tbx::write_script_reference_field(",
+                    "        tbx_json,",
+                    f"        {cpp_string(json_key(field))},",
+                    "        tbx_value,",
+                    f"        tbx_value.{field.name});",
+                ]
+            )
+            continue
+
+        lines.extend(
+            [
+                "    ::tbx::write_serialization_field(",
+                "        tbx_json,",
+                f"        {cpp_string(json_key(field))},",
+                f"        tbx_value.{field.name});",
+            ]
+        )
+
+    lines.extend(
+        [
+            "}",
+            f"void deserialize(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value)",
+            "{",
+        ]
+    )
+    if any(not is_weak_ptr_field(field) for field in fields):
+        lines.append(f"    const {type_info.name} tbx_default_value {{}};")
+    for field in fields:
+        if is_weak_ptr_field(field):
+            lines.extend(
+                [
+                    "    ::tbx::read_script_reference_field(",
+                    "        tbx_json,",
+                    f"        {cpp_string(json_key(field))},",
+                    "        tbx_value,",
+                    f"        tbx_value.{field.name});",
+                ]
+            )
+            continue
+
+        lines.extend(
+            [
+                "    ::tbx::read_serialization_field(",
+                "        tbx_json,",
+                f"        {cpp_string(json_key(field))},",
+                f"        tbx_value.{field.name},",
+                f"        tbx_default_value.{field.name});",
+            ]
+        )
+    lines.extend(["}", ""])
+    return lines
+
+
 def emit_script_asset(type_info: SerializableType, version: str, prop_fields: list[Field]) -> list[str]:
     if "Script" not in type_info.bases:
         raise CodegenError(f"{type_info.name} uses [[tbx::script]] but does not derive from tbx::Script.")
+    validate_inject_fields(type_info)
 
     bind_fields = prop_fields + fields_of(type_info, "inject")
     override_helper = f"tbx_apply_script_overrides_{type_info.name}"
@@ -326,7 +452,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         "    return {};",
         "}",
     ]
-    lines.extend(emit_json_function_definitions(type_info, prop_fields))
+    lines.extend(emit_script_json_function_definitions(type_info, prop_fields))
     lines.extend(
         [
             f"::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value)",
@@ -338,6 +464,20 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         ]
     )
     for field in prop_fields:
+        if is_weak_ptr_field(field):
+            lines.extend(
+                [
+                    f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
+                    "        {",
+                    "            auto tbx_binding = ::tbx::ScriptBinding {};",
+                    "            ::tbx::read_serialization_value(*tbx_value_it, tbx_binding);",
+                    f"            tbx_value.set_script_reference({cpp_string(json_key(field))}, tbx_binding);",
+                    f"            tbx_value.{field.name} = {{}};",
+                    "        }",
+                ]
+            )
+            continue
+
         lines.extend(
             [
                 f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
@@ -364,6 +504,18 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         ]
     )
     for field in bind_fields:
+        if field in prop_fields and is_weak_ptr_field(field):
+            lines.extend(
+                [
+                    "    ::tbx::bind_script_reference_field(",
+                    "        tbx_value,",
+                    f"        {cpp_string(json_key(field))},",
+                    f"        tbx_value.{field.name},",
+                    "        tbx_context);",
+                ]
+            )
+            continue
+
         lines.append(f"    ::tbx::bind_script_field(tbx_value.{field.name}, tbx_context);")
     lines.extend(
         [
@@ -380,7 +532,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
     return lines
 
 
-def emit_type(type_info: SerializableType, target: str) -> list[str]:
+def emit_serialization_type(type_info: SerializableType, target: str) -> list[str]:
     version = type_version(type_info)
     prop_fields = fields_of(type_info, "prop")
     type_prop_attr = find_attr(type_info.attrs, "prop")
@@ -422,11 +574,6 @@ def emit_type(type_info: SerializableType, target: str) -> list[str]:
             custom_read_raw,
         )
 
-    if target == "header":
-        lines.extend(emit_runtime_service_declarations(type_info))
-    else:
-        lines.extend(emit_runtime_service_definitions(type_info))
-
     if has_attr(type_info.attrs, "script"):
         if version is None:
             raise CodegenError(f"{type_info.name} is a script and requires [[tbx::version(N)]].")
@@ -435,11 +582,9 @@ def emit_type(type_info: SerializableType, target: str) -> list[str]:
             lines.extend(emit_version(type_info))
             lines.extend(emit_lifecycle_hook_declarations(type_info))
             lines.extend(emit_script_asset_declarations(type_info, prop_fields))
-            lines.extend(emit_hash_equality_declaration(type_info))
         else:
             lines.extend(emit_lifecycle_hook_definitions(type_info))
             lines.extend(emit_script_asset(type_info, version, prop_fields))
-            lines.extend(emit_hash_equality(type_info))
         return lines
 
     if has_attr(type_info.attrs, "serializable"):
@@ -592,10 +737,6 @@ def emit_type(type_info: SerializableType, target: str) -> list[str]:
                             if target == "header"
                             else emit_asset_meta(type_info, version, meta_fields)
                         )
-                    if target == "header":
-                        lines.extend(emit_hash_equality_declaration(type_info))
-                    else:
-                        lines.extend(emit_hash_equality(type_info))
                     return lines
                 if meta_fields:
                     raise CodegenError(f"{type_info.name} has [[tbx::meta]] fields but is not an Asset.")
@@ -628,12 +769,23 @@ def emit_type(type_info: SerializableType, target: str) -> list[str]:
                         f"{type_info.name} has no serializable fields or Serializer specialization."
                     )
 
-    if target == "header":
-        lines.extend(emit_hash_equality_declaration(type_info))
-    else:
-        lines.extend(emit_hash_equality(type_info))
-
     return lines
+
+
+def default_codegen_registry() -> CodegenRegistry:
+    return CodegenRegistry(
+        [
+            ServiceBindingProcessor(
+                has_runtime_service_glue,
+                emit_runtime_service_declarations,
+                emit_runtime_service_definitions,
+            ),
+            SerializationProcessor(emit_serialization_type),
+            FormatterProcessor(),
+            HashProcessor(),
+            PluginProcessor(),
+        ]
+    )
 
 
 def emit_forward_declaration(type_info: SerializableType) -> list[str]:
@@ -685,12 +837,15 @@ def emit_forward_declarations(types: list[SerializableType]) -> list[str]:
 
 
 def generate_header(types: list[SerializableType]) -> str:
+    registry = default_codegen_registry()
+    types = registry.active_types(types)
+    registry.validate(types)
+    context = CodegenContext(target="header")
     grouped: dict[str, list[SerializableType]] = {}
     global_lines: list[str] = []
     for type_info in types:
         grouped.setdefault(type_info.namespace, []).append(type_info)
-        global_lines.extend(emit_formatter_declaration(type_info))
-        global_lines.extend(emit_hash_declaration(type_info))
+        global_lines.extend(registry.global_header(type_info))
 
     lines = [
         GENERATED_CODE_BANNER,
@@ -709,15 +864,15 @@ def generate_header(types: list[SerializableType]) -> str:
         "#include <vector>",
         "",
     ]
-    if any(has_runtime_service_glue(type_info) for type_info in types):
-        lines.insert(3, "#include \"tbx/systems/scripting/service_ref.h\"")
+    for include in registry.header_includes(types):
+        lines.insert(3, include)
     lines.extend(emit_forward_declarations(types))
     for namespace, namespace_types in grouped.items():
         namespace_lines: list[str] = []
         for type_info in namespace_types:
-            emitted = emit_type(type_info, "header")
+            emitted = registry.emit_header(context, type_info)
             if emitted:
-                namespace_lines.append(f"// Generated serialization glue for {type_info.name}.")
+                namespace_lines.append(f"// Generated Toybox metadata glue for {type_info.name}.")
                 namespace_lines.extend(emitted)
 
         if not namespace_lines:
@@ -740,6 +895,9 @@ def generate_type_source(
     types: list[SerializableType],
     include_path: str,
 ) -> str:
+    registry = default_codegen_registry()
+    types = registry.active_types(types)
+    registry.validate(types)
     if not types:
         lines = [
             GENERATED_CODE_BANNER,
@@ -748,27 +906,26 @@ def generate_type_source(
         ]
         return "\n".join(lines).rstrip() + "\n"
 
+    context = CodegenContext(target="source")
     grouped: dict[str, list[SerializableType]] = {}
     global_lines: list[str] = []
     for type_info in types:
         grouped.setdefault(type_info.namespace, []).append(type_info)
-        global_lines.extend(emit_formatter(type_info))
-        global_lines.extend(emit_hash(type_info))
+        global_lines.extend(registry.global_source(type_info))
 
     lines = [
         GENERATED_CODE_BANNER,
         f"#include {cpp_string(include_path)}",
         f"#include {cpp_string(header_name)}",
     ]
-    if global_lines:
-        lines.append("#include \"tbx/utils/hash.h\"")
+    lines.extend(registry.source_includes(types))
     lines.append("")
     for namespace, namespace_types in grouped.items():
         namespace_lines: list[str] = []
         for type_info in namespace_types:
-            emitted = emit_type(type_info, "source")
+            emitted = registry.emit_source(context, type_info)
             if emitted:
-                namespace_lines.append(f"// Generated serialization glue for {type_info.name}.")
+                namespace_lines.append(f"// Generated Toybox metadata glue for {type_info.name}.")
                 namespace_lines.extend(emitted)
 
         if not namespace_lines:
@@ -976,7 +1133,11 @@ def generate_source(
     script_types: list[SerializableType] | None = None,
     script_include_paths: list[str] | None = None,
 ) -> str:
-    plugin_types = [type_info for type_info in types or [] if has_attr(type_info.attrs, "plugin")]
+    registry = default_codegen_registry()
+    plugin_processor = PluginProcessor()
+    active_types = registry.active_types(types or [])
+    registry.validate(active_types)
+    plugin_types = [type_info for type_info in active_types if plugin_processor.interested(type_info)]
     if len(plugin_types) > 1:
         names = ", ".join(type_info.name for type_info in plugin_types)
         raise CodegenError(f"Only one [[tbx::plugin]] declaration is supported per generated source: {names}.")
@@ -999,7 +1160,8 @@ def generate_source(
 
     if include_path is None:
         raise CodegenError("Attribute source generation requires an include path.")
-    return generate_type_source(header_name, types or [], include_path)
+    return generate_type_source(header_name, active_types, include_path)
+
 
 def write_if_different(output_path: Path, output: str) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)

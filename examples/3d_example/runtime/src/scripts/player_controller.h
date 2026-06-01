@@ -62,10 +62,10 @@ namespace three_d_example
         float move_speed = 6.0F;
 
         [[inject]]
-        tbx::ServiceRef<tbx::IInputManager> input = {};
+        std::weak_ptr<tbx::IInputManager> input = {};
 
         [[inject]]
-        tbx::ServiceRef<tbx::Physics> physics = {};
+        std::weak_ptr<tbx::Physics> physics = {};
 
       private:
         tbx::InputAction create_look_action();

@@ -2,11 +2,11 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/systems/scripting/script_ref.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/script_container.h"
 #include <filesystem>
+#include <memory>
 
 namespace tbx::tests::scripting
 {
@@ -87,13 +87,13 @@ namespace tbx::tests::scripting
     class FakeResolver final : public IScriptResolver
     {
       public:
-        Script* try_get_script(const ScriptLookup& lookup) override
+        std::weak_ptr<Script> try_get_script(const ScriptLookup& lookup) override
         {
             last_lookup = lookup;
             return script;
         }
 
-        DoorScript* script = nullptr;
+        std::shared_ptr<DoorScript> script = {};
         ScriptLookup last_lookup = {};
     };
 
@@ -102,7 +102,7 @@ namespace tbx::tests::scripting
         // Arrange
         ensure_door_script_registered();
         auto container = ScriptContainer();
-        auto binding = ScriptBinding();
+        auto binding = ScriptContainerBinding();
         binding.script = Uuid(0x41000001U);
         binding.binding_id = Uuid(7U);
         binding.overrides["open_speed"] = 12.0F;
@@ -122,26 +122,33 @@ namespace tbx::tests::scripting
         EXPECT_FLOAT_EQ(roundtripped.scripts[0].overrides["open_speed"].get<float>(), 12.0F);
     }
 
-    TEST(ScriptingTests, ScriptRefTryGetReturnsPointer)
+    TEST(ScriptingTests, WeakScriptReferenceBindingResolvesPointer)
     {
         // Arrange
         ensure_door_script_registered();
-        auto target = DoorScript();
         auto resolver = FakeResolver();
-        resolver.script = &target;
+        resolver.script = std::make_shared<DoorScript>();
         auto services = ServiceProvider();
         auto owner = Entity();
         auto context = ScriptContext(Uuid(1U), owner, {}, services, resolver);
-        auto reference = ScriptRef<DoorScript>(Uuid(70U), Uuid(0x41000001U), Uuid(9U));
-        bind_script_field(reference, context);
+        auto owner_script = DoorScript();
+        owner_script.set_script_reference(
+            "linked_door",
+            ScriptBinding {
+                .entity = Uuid(70U),
+                .script = Uuid(0x41000001U),
+                .binding_id = Uuid(9U),
+            });
+        auto reference = std::weak_ptr<DoorScript>();
+        bind_script_reference_field(owner_script, "linked_door", reference, context);
 
         // Act
-        auto* resolved = reference.try_get();
+        auto resolved = reference.lock();
 
         // Assert
         ASSERT_NE(resolved, nullptr);
         resolved->open();
-        EXPECT_FLOAT_EQ(target.open_speed, 2.0F);
+        EXPECT_FLOAT_EQ(resolver.script->open_speed, 2.0F);
         EXPECT_EQ(resolver.last_lookup.entity, Uuid(70U));
         EXPECT_EQ(resolver.last_lookup.script, Uuid(0x41000001U));
         EXPECT_EQ(resolver.last_lookup.binding_id, Uuid(9U));
@@ -210,14 +217,16 @@ namespace tbx::tests::scripting
 
         // Act
         script_system.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
-        auto* script = dynamic_cast<DoorScript*>(
-            script_system.try_get_script(
-                ScriptLookup {
-                    .world = Uuid(32U),
-                    .entity = Uuid(40U),
-                    .script = Uuid(1090519041U),
-                    .binding_id = Uuid(1U),
-                }));
+        auto script = std::dynamic_pointer_cast<DoorScript>(
+            script_system
+                .try_get_script(
+                    ScriptLookup {
+                        .world = Uuid(32U),
+                        .entity = Uuid(40U),
+                        .script = Uuid(1090519041U),
+                        .binding_id = Uuid(1U),
+                    })
+                .lock());
 
         // Assert
         ASSERT_NE(script, nullptr);

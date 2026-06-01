@@ -324,13 +324,13 @@ namespace assimp_model_loader
 
     void AssimpModelLoaderPlugin::on_attach()
     {
-        if (auto* registry = serialization_registry.try_get())
+        if (auto registry = serialization_registry.lock())
             registry->register_loader<tbx::Model>(read_model);
     }
 
     void AssimpModelLoaderPlugin::on_detach()
     {
-        if (auto* registry = serialization_registry.try_get())
+        if (auto registry = serialization_registry.lock())
             registry->deregister_loader<tbx::Model>();
 
         serialization_registry = {};

@@ -1,11 +1,12 @@
 #include "sdl_window_backend.h"
 #include "SDL3/SDL_error.h"
 #include "SDL3/SDL_events.h"
+#include "SDL3/SDL_init.h"
 #include "SDL3/SDL_surface.h"
 #include "SDL3/SDL_video.h"
 #include "tbx/interfaces/window_backend.h"
-#include "tbx/systems/graphics/api.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/api.h"
 #include "tbx/types/size.h"
 #include "tbx/types/window.h"
 #include <ranges>
@@ -68,12 +69,52 @@ namespace sdl_windowing
         shutdown();
     }
 
+    void SdlWindowBackend::initialize()
+    {
+        if (_is_initialized)
+            return;
+
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+        {
+            TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. Error: {}", SDL_GetError());
+            SDL_ClearError();
+            return;
+        }
+
+        _is_initialized = true;
+        TBX_TRACE_INFO("Initialized SDL video subsystem.");
+        TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
+    }
+
+    void SdlWindowBackend::shutdown()
+    {
+        for (const auto& [window_id, native_window] : _windows)
+        {
+            (void)window_id;
+            if (native_window)
+                SDL_DestroyWindow(native_window);
+        }
+        _windows.clear();
+        _icon_surfaces.clear();
+
+        if (_is_initialized)
+        {
+            SDL_QuitSubSystem(SDL_INIT_VIDEO);
+            _is_initialized = false;
+        }
+    }
+
     bool SdlWindowBackend::create_window(
         const tbx::Window& window,
         const tbx::WindowCreateInfo& create_info,
         tbx::NativeWindowHandle& out_native_handle)
     {
         out_native_handle = nullptr;
+        if (!_is_initialized)
+            initialize();
+        if (!_is_initialized)
+            return false;
+
         const auto existing_window = _windows.find(window);
         if (existing_window != _windows.end() && existing_window->second)
         {
@@ -160,6 +201,9 @@ namespace sdl_windowing
 
     void SdlWindowBackend::pump_events(std::vector<tbx::WindowBackendEvent>& out_events)
     {
+        if (!_is_initialized)
+            return;
+
         SDL_Event event = {};
         while (SDL_PollEvent(&event))
         {
@@ -239,19 +283,6 @@ namespace sdl_windowing
                     break;
             }
         }
-    }
-
-    void SdlWindowBackend::shutdown()
-    {
-        for (const auto& [window_id, native_window] : _windows)
-        {
-            (void)window_id;
-            if (native_window)
-                SDL_DestroyWindow(native_window);
-        }
-
-        _windows.clear();
-        _icon_surfaces.clear();
     }
 
     SDL_Window* SdlWindowBackend::create_sdl_window(

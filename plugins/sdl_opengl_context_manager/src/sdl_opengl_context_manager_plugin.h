@@ -28,6 +28,6 @@ namespace sdl_opengl_context_manager
             tbx::ServiceProvider& service_provider);
 
       private:
-        std::shared_ptr<SdlOpenGlContextManager> _context_backend = {};
+        std::weak_ptr<SdlOpenGlContextManager> _context_backend = {};
     };
 }

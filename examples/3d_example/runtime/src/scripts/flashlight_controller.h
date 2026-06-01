@@ -4,6 +4,7 @@
 #include "tbx/systems/scripting/script.h"
 #include "tbx/types/uuid.h"
 #include "flashlight_controller.generated.h"
+#include <memory>
 #include <string>
 
 namespace three_d_example
@@ -40,7 +41,7 @@ namespace three_d_example
         float intensity = 180.0F;
 
         [[inject]]
-        tbx::ServiceRef<tbx::IInputManager> input = {};
+        std::weak_ptr<tbx::IInputManager> input = {};
 
       private:
         tbx::InputAction create_toggle_action();

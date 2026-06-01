@@ -22,8 +22,9 @@ namespace sdl_input
         {
             _owns_gamepad_subsystem = true;
         }
-        TBX_ASSERT(input_manager != nullptr, "SDL input manager service has unexpected type.");
-        if (!input_manager)
+        auto manager = input_manager.lock();
+        TBX_ASSERT(manager != nullptr, "SDL input manager service has unexpected type.");
+        if (!manager)
             return;
         SDL_AddEventWatch(accumulate_wheel_delta, this);
     }
@@ -39,8 +40,8 @@ namespace sdl_input
 
     void SdlInputPlugin::on_update(const tbx::DeltaTime&)
     {
-        if (input_manager)
-            input_manager->update_backend_state();
+        if (auto manager = input_manager.lock())
+            manager->update_backend_state();
     }
 
     bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
@@ -49,8 +50,8 @@ namespace sdl_input
             return true;
 
         auto* plugin = static_cast<SdlInputPlugin*>(userdata);
-        if (plugin->input_manager)
-            plugin->input_manager->add_wheel_delta(event->wheel.y);
+        if (auto manager = plugin->input_manager.lock())
+            manager->add_wheel_delta(event->wheel.y);
         return true;
     }
 }

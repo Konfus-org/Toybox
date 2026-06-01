@@ -14,7 +14,7 @@ namespace tbx
     /// Ownership: Holds serialized binding data only; runtime script instances live in
     /// ScriptSystem.
     [[serializable]];
-    struct TBX_API ScriptBinding
+    struct TBX_API ScriptContainerBinding
     {
         [[prop]]
         Uuid script = {};
@@ -35,6 +35,6 @@ namespace tbx
     struct TBX_API ScriptContainer : Component
     {
         [[prop]]
-        std::vector<ScriptBinding> scripts = {};
+        std::vector<ScriptContainerBinding> scripts = {};
     };
 }

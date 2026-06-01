@@ -22,7 +22,7 @@ namespace three_d_example
 
     void PlayerController::on_destroy()
     {
-        if (auto* input_manager = input.try_get())
+        if (auto input_manager = input.lock())
         {
             if (auto scheme = input_manager->get_scheme(_scheme_name); scheme.has_value())
                 remove_player_input_actions(scheme->get());
@@ -45,8 +45,8 @@ namespace three_d_example
     {
         _world = get_world_ptr();
         auto world = _world.lock();
-        auto* input_manager = input.try_get();
-        if (!world || input_manager == nullptr)
+        auto input_manager = input.lock();
+        if (!world || !input_manager)
         {
             TBX_TRACE_WARNING(
                 "PlayerController could not start because the world or input service is missing.");
@@ -268,8 +268,8 @@ namespace three_d_example
     void PlayerController::cast_raycast() const
     {
         auto world = _world.lock();
-        auto* physics_system = physics.try_get();
-        if (!world || physics_system == nullptr || !_camera_entity.get_id().is_valid())
+        auto physics_system = physics.lock();
+        if (!world || !physics_system || !_camera_entity.get_id().is_valid())
             return;
 
         const auto camera_world_transform = tbx::get_world_space_transform(_camera_entity);
@@ -323,8 +323,8 @@ namespace three_d_example
 
     void PlayerController::setup_input()
     {
-        auto* input_manager = input.try_get();
-        if (input_manager == nullptr)
+        auto input_manager = input.lock();
+        if (!input_manager)
             return;
 
         if (!input_manager->get_scheme(_scheme_name).has_value())

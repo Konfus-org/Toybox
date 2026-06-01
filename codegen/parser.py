@@ -1,3 +1,9 @@
+"""Small C++ metadata parser for Toybox code generation.
+
+This parser is intentionally shallow: it recognizes declarations and attributes
+well enough to build metadata, then leaves all behavior decisions to processors.
+"""
+
 from __future__ import annotations
 
 import re
@@ -9,7 +15,6 @@ from model import (
     Field,
     SerializableType,
     attr_value,
-    has_attr,
     split_attribute_values,
 )
 
@@ -37,11 +42,18 @@ ENUM_VALUE_PATTERN = re.compile(r"^\s*([A-Za-z_]\w*)\s*(.*?)(?:,|$)")
 EQUALITY_OPERATOR_PATTERN = re.compile(r"\boperator\s*==")
 
 
-def parse_arguments(raw: str | None) -> list[str]:
+def parse_arguments(raw: str | None, preserve_string_literals: bool = False) -> list[str]:
     if raw is None or not raw.strip():
         return []
 
-    return split_attribute_values(raw)
+    return split_attribute_values(raw, preserve_string_literals=preserve_string_literals)
+
+
+def normalize_attribute_argument(argument: str) -> str:
+    stripped = argument.strip()
+    if len(stripped) >= 2 and stripped[0] == '"' and stripped[-1] == '"':
+        return stripped[1:-1]
+    return stripped
 
 
 def split_named_argument(argument: str) -> tuple[str, str] | None:
@@ -56,14 +68,14 @@ def split_named_argument(argument: str) -> tuple[str, str] | None:
 def parse_attribute_arguments(raw: str | None) -> tuple[list[str], dict[str, str]]:
     positional_args: list[str] = []
     named_args: dict[str, str] = {}
-    for argument in parse_arguments(raw):
+    for argument in parse_arguments(raw, preserve_string_literals=True):
         named_argument = split_named_argument(argument)
         if named_argument is None:
-            positional_args.append(argument)
+            positional_args.append(normalize_attribute_argument(argument))
             continue
 
         name, value = named_argument
-        named_args[name] = value
+        named_args[name] = normalize_attribute_argument(value)
     return positional_args, named_args
 
 
@@ -80,6 +92,8 @@ def remove_attributes(text: str) -> str:
 
 
 def collapse_multiline_attributes(source: str) -> str:
+    """Keep attribute blocks on one line before running the lightweight parser."""
+
     output: list[str] = []
     index = 0
     while index < len(source):
@@ -142,6 +156,8 @@ def current_namespace(lines: list[str], upto: int) -> str:
 
 
 def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
+    """Parse every attributed field without assigning subsystem ownership."""
+
     fields: list[Field] = []
     pending: list[Attribute] = []
 
@@ -158,19 +174,7 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
 
         active_attrs = pending + attrs
         pending = []
-        kind = ""
-        if has_attr(active_attrs, "prop"):
-            kind = "prop"
-        elif has_attr(active_attrs, "meta"):
-            kind = "meta"
-        elif has_attr(active_attrs, "text"):
-            kind = "text"
-        elif has_attr(active_attrs, "inject"):
-            kind = "inject"
-        elif has_attr(active_attrs, "register"):
-            kind = "register"
-
-        if not kind:
+        if not active_attrs:
             continue
 
         match = FIELD_PATTERN.match(without_attrs)
@@ -180,8 +184,6 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
         fields.append(
             Field(
                 name=match.group(2),
-                kind=kind,
-                json_name=attr_value(active_attrs, "name"),
                 type_name=match.group(1).strip(),
                 attrs=active_attrs,
             )
@@ -225,23 +227,6 @@ def base_type_names(bases: str) -> list[str]:
     return names
 
 
-def generation_attrs(attrs: list[Attribute]) -> bool:
-    return (
-        has_attr(attrs, "serializable")
-        or has_attr(attrs, "script")
-        or has_attr(attrs, "printable")
-        or has_attr(attrs, "hash")
-        or has_attr(attrs, "plugin")
-        or has_attr(attrs, "register")
-    )
-
-
-def requires_generation(type_info: SerializableType) -> bool:
-    return generation_attrs(type_info.attrs) or any(
-        field.kind in {"inject", "register"} for field in type_info.fields
-    )
-
-
 def append_inherited_fields(types: list[SerializableType]) -> None:
     type_by_name = {type_info.name: type_info for type_info in types}
 
@@ -270,11 +255,17 @@ def append_inherited_fields(types: list[SerializableType]) -> None:
 
 
 def parse_type_declarations(source: str, source_path: str) -> list[SerializableType]:
+    """Return declarations carrying passive Toybox metadata.
+
+    The parser deliberately stops at discovery. It does not decide whether
+    serialization, hashing, plugins, or another subsystem owns an attribute.
+    """
+
     normalized_source = collapse_multiline_using_declarations(collapse_multiline_attributes(source))
     lines = normalized_source.splitlines()
     serializer_types = {match.group(1) for match in SERIALIZER_PATTERN.finditer(source)}
     pending_attrs: list[Attribute] = []
-    serializable_types: list[SerializableType] = []
+    metadata_types: list[SerializableType] = []
 
     index = 0
     while index < len(lines):
@@ -298,8 +289,8 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
             end = find_matching_type_end(lines, index)
             type_name = type_match.group(3)
             fields = parse_fields(lines, index, end)
-            if generation_attrs(active_attrs) or fields:
-                serializable_types.append(
+            if active_attrs or fields:
+                metadata_types.append(
                     SerializableType(
                         namespace=current_namespace(lines, index),
                         name=type_name,
@@ -320,12 +311,8 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
         enum_match = ENUM_PATTERN.match(without_attrs)
         if enum_match:
             end = find_matching_type_end(lines, index)
-            if (
-                has_attr(active_attrs, "serializable")
-                or has_attr(active_attrs, "printable")
-                or has_attr(active_attrs, "hash")
-            ):
-                serializable_types.append(
+            if active_attrs:
+                metadata_types.append(
                     SerializableType(
                         namespace=current_namespace(lines, index),
                         name=enum_match.group(2),
@@ -342,8 +329,8 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
             continue
 
         using_match = USING_PATTERN.match(without_attrs)
-        if using_match and has_attr(active_attrs, "serializable"):
-            serializable_types.append(
+        if using_match and active_attrs:
+            metadata_types.append(
                 SerializableType(
                     namespace=current_namespace(lines, index),
                     name=using_match.group(1),
@@ -357,7 +344,7 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
 
         index += 1
 
-    return serializable_types
+    return metadata_types
 
 
 def parse_source(
@@ -365,8 +352,10 @@ def parse_source(
     source_path: str = "<memory>",
     context_source: str = "",
 ) -> list[SerializableType]:
+    """Parse source plus include context into the neutral codegen IR."""
+
     context_types = parse_type_declarations(context_source, source_path) if context_source else []
     source_types = parse_type_declarations(source, source_path)
     all_types = context_types + source_types
     append_inherited_fields(all_types)
-    return [type_info for type_info in source_types if requires_generation(type_info)]
+    return source_types

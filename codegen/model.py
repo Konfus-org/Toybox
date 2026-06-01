@@ -1,3 +1,5 @@
+"""Neutral metadata model shared by Toybox codegen processors."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -6,6 +8,8 @@ import re
 
 @dataclasses.dataclass
 class Attribute:
+    """A parsed C++ attribute with no behavior attached to it."""
+
     name: str
     args: list[str]
     named_args: dict[str, str] = dataclasses.field(default_factory=dict)
@@ -13,21 +17,25 @@ class Attribute:
 
 @dataclasses.dataclass
 class Field:
+    """Neutral field metadata discovered by the parser."""
+
     name: str
-    kind: str
-    json_name: str | None = None
     type_name: str = ""
     attrs: list[Attribute] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
 class EnumValue:
+    """Enum value metadata, including the external name chosen by attributes."""
+
     name: str
     json_name: str
 
 
 @dataclasses.dataclass
 class SerializableType:
+    """Neutral type metadata consumed by independent codegen processors."""
+
     namespace: str
     name: str
     declaration_kind: str
@@ -49,7 +57,7 @@ class CodegenError(RuntimeError):
     pass
 
 
-def split_attribute_values(raw: str) -> list[str]:
+def split_attribute_values(raw: str, preserve_string_literals: bool = False) -> list[str]:
     if not raw.strip():
         return []
 
@@ -71,6 +79,8 @@ def split_attribute_values(raw: str) -> list[str]:
             continue
         if character == '"':
             in_string = not in_string
+            if preserve_string_literals:
+                current.append(character)
             continue
         if not in_string and character == "(":
             paren_depth += 1
@@ -135,6 +145,10 @@ def attr_value(attrs: list[Attribute], name: str) -> str | None:
     return None
 
 
+def attrs_named(attrs: list[Attribute], name: str) -> list[Attribute]:
+    return [attr for attr in attrs if attr.name == name]
+
+
 def find_attr(attrs: list[Attribute], name: str) -> Attribute | None:
     for attr in attrs:
         if attr.name == name:
@@ -151,7 +165,7 @@ def cpp_string(value: str) -> str:
 
 
 def fields_of(type_info: SerializableType, kind: str) -> list[Field]:
-    return [field for field in type_info.fields if field.kind == kind]
+    return [field for field in type_info.fields if has_attr(field.attrs, kind)]
 
 
 def is_asset(type_info: SerializableType) -> bool:
@@ -159,9 +173,21 @@ def is_asset(type_info: SerializableType) -> bool:
 
 
 def json_key(field: Field) -> str:
-    if field.json_name:
-        return field.json_name
-    return field.name[1:] if field.name.startswith("_") else field.name
+    return external_name(field)
+
+
+def external_name(metadata: Field | SerializableType | EnumValue) -> str:
+    if isinstance(metadata, Field):
+        value = attr_value(metadata.attrs, "name")
+        if value:
+            return value
+        return metadata.name[1:] if metadata.name.startswith("_") else metadata.name
+    if isinstance(metadata, SerializableType):
+        value = attr_value(metadata.attrs, "name")
+        if value:
+            return value
+        return metadata.name
+    return metadata.json_name
 
 
 def qualified_name(type_info: SerializableType) -> str:
@@ -175,7 +201,7 @@ def sanitized_name(name: str) -> str:
 
 
 def type_name(type_info: SerializableType) -> str:
-    return attr_value(type_info.attrs, "name") or type_info.name
+    return external_name(type_info)
 
 
 def type_version(type_info: SerializableType) -> str | None:

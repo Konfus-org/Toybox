@@ -56,6 +56,12 @@ namespace tbx
         return ServiceProvider(ServiceProvider::DefaultServicesTag {});
     }
 
+    std::shared_ptr<ServiceProvider> create_default_service_provider_shared()
+    {
+        return std::shared_ptr<ServiceProvider>(
+            new ServiceProvider(ServiceProvider::DefaultServicesTag {}));
+    }
+
     void ServiceProvider::deregister_service(std::type_index service_type)
     {
         erase_service(service_type);

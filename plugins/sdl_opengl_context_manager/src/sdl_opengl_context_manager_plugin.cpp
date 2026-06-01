@@ -6,14 +6,15 @@ namespace sdl_opengl_context_manager
     std::shared_ptr<tbx::IOpenGlContextBackend> SdlOpenGlContextManagerPlugin::
         create_context_backend(tbx::ServiceProvider&)
     {
-        _context_backend = std::make_shared<SdlOpenGlContextManager>();
-        return _context_backend;
+        auto context_backend = std::make_shared<SdlOpenGlContextManager>();
+        _context_backend = context_backend;
+        return context_backend;
     }
 
     void SdlOpenGlContextManagerPlugin::on_detach()
     {
-        if (_context_backend)
-            _context_backend->shutdown();
+        if (auto context_backend = _context_backend.lock())
+            context_backend->shutdown();
         _context_backend = {};
     }
 }

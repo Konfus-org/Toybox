@@ -22,9 +22,12 @@ namespace tbx
 
     LoadedPlugin::~LoadedPlugin() noexcept
     {
-        if (_state == LoadedPluginState::ATTACHED && _attached_service_provider != nullptr)
+        if (_state == LoadedPluginState::ATTACHED)
         {
-            detach(*_attached_service_provider);
+            if (auto service_provider = _attached_service_provider.lock())
+                detach(*service_provider);
+            else
+                TBX_ASSERT(false, "Attached plugin destroyed after its service provider expired.");
         }
     }
 
@@ -33,9 +36,14 @@ namespace tbx
         return instance != nullptr;
     }
 
-    void LoadedPlugin::attach(ServiceProvider& service_provider)
+    bool LoadedPlugin::is_attached() const
     {
-        if (!is_valid() || _state == LoadedPluginState::ATTACHED)
+        return _state == LoadedPluginState::ATTACHED;
+    }
+
+    void LoadedPlugin::attach(std::shared_ptr<ServiceProvider> service_provider)
+    {
+        if (!is_valid() || _state == LoadedPluginState::ATTACHED || !service_provider)
             return;
 
         TBX_ASSERT(
@@ -44,15 +52,15 @@ namespace tbx
 
         TBX_TRACE_INFO("Loading plugin: {} v{}", meta.name, meta.version);
         _state = LoadedPluginState::ATTACHED;
-        _attached_service_provider = &service_provider;
+        _attached_service_provider = service_provider;
         try
         {
-            instance->attach(service_provider, _plugin_id);
+            instance->attach(*service_provider, _plugin_id);
         }
         catch (...)
         {
             _state = LoadedPluginState::UNATTACHED;
-            _attached_service_provider = nullptr;
+            _attached_service_provider = {};
             throw;
         }
     }
@@ -78,6 +86,14 @@ namespace tbx
         _services_registered = true;
     }
 
+    void LoadedPlugin::fixed_update(const DeltaTime& dt)
+    {
+        if (!is_valid() || !is_attached())
+            return;
+
+        instance->fixed_update(dt);
+    }
+
     void LoadedPlugin::detach(ServiceProvider& service_provider)
     {
         if (!is_valid() || _state != LoadedPluginState::ATTACHED)
@@ -87,7 +103,7 @@ namespace tbx
         instance->detach(service_provider);
         _services_registered = false;
         _state = LoadedPluginState::DETACHED;
-        _attached_service_provider = nullptr;
+        _attached_service_provider = {};
     }
 
     void LoadedPlugin::receive_message(Message& msg)
@@ -97,6 +113,14 @@ namespace tbx
             return;
 
         instance->receive_message(msg);
+    }
+
+    void LoadedPlugin::update(const DeltaTime& dt)
+    {
+        if (!is_valid() || !is_attached())
+            return;
+
+        instance->update(dt);
     }
 
     void LoadedPlugin::set_id(Uuid plugin_id)

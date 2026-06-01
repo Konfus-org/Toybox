@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from generator import GENERATED_CODE_BANNER, generate_header, generate_source
-from model import CodegenError
+from model import CodegenError, external_name, fields_of, find_attr
 from parser import parse_source
 from resource_codegen import generate_builtin_asset_headers, generate_material_instance_header
 
@@ -215,6 +215,54 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("std::integral_constant<uint32, 3U>", header_output)
         self.assertIn("tbx_value.amount);", source_output)
 
+    def test_parser_keeps_fields_as_neutral_metadata(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                [[tbx::inject]]
+                [[tbx::name("display_value")]]
+                int amount = 0;
+            };
+            }
+            """
+
+        types = parse_source(textwrap.dedent(source))
+        field = types[0].fields[0]
+
+        self.assertIsNotNone(find_attr(field.attrs, "prop"))
+        self.assertIsNotNone(find_attr(field.attrs, "inject"))
+        self.assertEqual(external_name(field), "display_value")
+        self.assertEqual(fields_of(types[0], "prop"), [field])
+        self.assertEqual(fields_of(types[0], "inject"), [field])
+
+    def test_name_attribute_can_feed_independent_metadata_consumers(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                [[tbx::name("display_value")]]
+                int amount = 0;
+            };
+            }
+            """
+
+        field = parse_source(textwrap.dedent(source))[0].fields[0]
+
+        serialization_key = external_name(field)
+        editor_label = external_name(field)
+        database_column = external_name(field)
+
+        self.assertEqual(serialization_key, "display_value")
+        self.assertEqual(editor_label, "display_value")
+        self.assertEqual(database_column, "display_value")
+
     def test_gameplay_plugin_source_uses_default_dependencies(self) -> None:
         types = parse_source(
             textwrap.dedent(
@@ -397,6 +445,28 @@ class AttributeCodegenTests(unittest.TestCase):
             output,
         )
 
+    def test_field_service_registration_supports_weak_ptr_observer(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            struct RuntimeServices
+            {
+                [[tbx::register]]
+                std::weak_ptr<WindowManager> window_manager = {};
+            };
+            }
+            """
+        )
+
+        self.assertIn("auto tbx_service_0 = tbx_value.window_manager.lock();", output)
+        self.assertIn("tbx_service_0 = std::make_shared<WindowManager>();", output)
+        self.assertIn("tbx_value.window_manager = tbx_service_0;", output)
+        self.assertIn(
+            "tbx_services.register_service<WindowManager>(tbx_service_0);",
+            output,
+        )
+
     def test_plugin_source_generates_inject_binding_method(self) -> None:
         types = parse_source(
             textwrap.dedent(
@@ -408,7 +478,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 {
                   public:
                     [[tbx::inject]]
-                    tbx::ServiceRef<tbx::IWindowManager> window_manager = {};
+                    std::weak_ptr<tbx::IWindowManager> window_manager = {};
                 };
                 }
                 """
@@ -457,7 +527,7 @@ class AttributeCodegenTests(unittest.TestCase):
             struct RuntimeConsumer
             {
                 [[tbx::inject]]
-                tbx::ServiceRef<tbx::IWindowManager> window_manager = {};
+                std::weak_ptr<tbx::IWindowManager> window_manager = {};
             };
             }
             """
@@ -471,6 +541,44 @@ class AttributeCodegenTests(unittest.TestCase):
         )
         self.assertIn("void tbx_bind_runtime(RuntimeConsumer& tbx_value", source_output)
         self.assertIn("::tbx::bind_service_field(tbx_value.window_manager, tbx_services);", source_output)
+
+    def test_runtime_injection_accepts_weak_ptr(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            struct RuntimeConsumer
+            {
+                [[tbx::inject]]
+                std::weak_ptr<tbx::IWindowManager> window_manager = {};
+            };
+            }
+            """
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn(
+            "void tbx_bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            header_output,
+        )
+        self.assertIn("::tbx::bind_service_field(tbx_value.window_manager, tbx_services);", source_output)
+
+    def test_runtime_injection_rejects_shared_ptr(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            struct RuntimeConsumer
+            {
+                [[tbx::inject]]
+                std::shared_ptr<tbx::IWindowManager> window_manager = {};
+            };
+            }
+            """
+
+        with self.assertRaisesRegex(
+            CodegenError,
+            r"\[\[tbx::inject\]\] cannot target std::shared_ptr<T>",
+        ):
+            self.generate(source)
 
     def test_resource_codegen_generates_builtin_and_material_headers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -701,7 +809,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 float open_speed = 1.0F;
 
                 [[tbx::inject]]
-                tbx::ServiceRef<tbx::IInputManager> input = {};
+                std::weak_ptr<tbx::IInputManager> input = {};
             };
             }
             """
@@ -711,6 +819,29 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("bind_script_field(tbx_value.open_speed", output)
         self.assertIn("bind_script_field(tbx_value.input", output)
         self.assertNotIn("tbx_json[\"input\"]", output)
+
+    def test_script_weak_ptr_props_generate_script_reference_glue(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::script]]
+            [[tbx::version(1)]]
+            class DoorController : public tbx::Script
+            {
+              public:
+                [[tbx::prop]]
+                std::weak_ptr<DoorController> linked_door = {};
+            };
+            }
+            """
+        )
+
+        self.assertIn("write_script_reference_field(", output)
+        self.assertIn("read_script_reference_field(", output)
+        self.assertIn("ScriptBinding", output)
+        self.assertIn('set_script_reference("linked_door"', output)
+        self.assertIn("bind_script_reference_field(", output)
 
     def test_version_only_asset_registers_type_only(self) -> None:
         output = self.generate_source(
@@ -1089,6 +1220,29 @@ class AttributeCodegenTests(unittest.TestCase):
         )
         self.assertIn("tbx::to_string(value)", output)
         self.assertIn("seed = ::tbx::hash_combine(seed, value.value);", output)
+
+    def test_printable_positional_format_with_equals_uses_member_expressions(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            struct Meta
+            {
+                std::string name = "";
+                std::string version = "";
+            };
+
+            [[tbx::printable("Name={}, Version={}", meta.name, meta.version)]];
+            struct Value
+            {
+                Meta meta = {};
+            };
+            }
+            """
+        )
+
+        self.assertIn('std::format(\n            "Name={}, Version={}",', output)
+        self.assertIn("value.meta.name,\n            value.meta.version", output)
 
     def test_variant_hash_expands_value_expression(self) -> None:
         output = self.generate_source(

@@ -55,14 +55,14 @@ namespace tbx
         /// @brief
         /// Purpose: Returns the service provider.
         /// @details
-        /// Ownership: Returns a value owned by the application.
+        /// Ownership: Returns a reference to the provider owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         ServiceProvider& get_service_provider();
 
         /// @brief
         /// Purpose: Returns the const service provider.
         /// @details
-        /// Ownership: Returns a value owned by the application.
+        /// Ownership: Returns a reference to the provider owned by the application.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         const ServiceProvider& get_service_provider() const;
 
@@ -76,7 +76,7 @@ namespace tbx
         bool _should_exit = false;
         std::string _name = "Toybox App";
 
-        ServiceProvider _service_provider = {};
+        std::shared_ptr<ServiceProvider> _service_provider = {};
         PluginManager _plugin_manager;
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
         std::shared_ptr<AppSettings> _settings = {};

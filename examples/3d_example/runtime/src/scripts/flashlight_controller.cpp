@@ -11,7 +11,7 @@ namespace three_d_example
 {
     void FlashlightController::on_destroy()
     {
-        if (auto* input_manager = input.try_get())
+        if (auto input_manager = input.lock())
         {
             if (auto scheme = input_manager->get_scheme(_scheme_name); scheme.has_value())
                 scheme->get().remove_action("ToggleFlashlight");
@@ -25,8 +25,8 @@ namespace three_d_example
     void FlashlightController::on_start()
     {
         auto world = get_world_ptr().lock();
-        auto* input_manager = input.try_get();
-        if (!world || input_manager == nullptr)
+        auto input_manager = input.lock();
+        if (!world || !input_manager)
         {
             TBX_TRACE_WARNING(
                 "FlashlightController could not start because the world or input service is missing.");
@@ -84,8 +84,8 @@ namespace three_d_example
 
     void FlashlightController::setup_input()
     {
-        auto* input_manager = input.try_get();
-        if (input_manager == nullptr)
+        auto input_manager = input.lock();
+        if (!input_manager)
             return;
 
         if (!input_manager->get_scheme(_scheme_name).has_value())

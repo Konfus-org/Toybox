@@ -31,7 +31,7 @@ namespace tbx
         void fixed_update(const DeltaTime& dt);
         void update(const DeltaTime& dt);
 
-        Script* try_get_script(const ScriptLookup& lookup) override;
+        std::weak_ptr<Script> try_get_script(const ScriptLookup& lookup) override;
 
       private:
         struct State;

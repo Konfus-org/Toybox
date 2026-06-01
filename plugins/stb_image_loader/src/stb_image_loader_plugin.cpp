@@ -23,7 +23,7 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_attach()
     {
-        auto* registry = serialization_registry.try_get();
+        auto registry = serialization_registry.lock();
         if (!registry)
             return;
 
@@ -40,7 +40,7 @@ namespace stb_image_loader
 
     void StbImageLoaderPlugin::on_detach()
     {
-        if (auto* registry = serialization_registry.try_get())
+        if (auto registry = serialization_registry.lock())
         {
             registry->deregister_loader<tbx::Texture>();
         }
@@ -56,7 +56,7 @@ namespace stb_image_loader
         tbx::Texture& texture) const
     {
         auto result = tbx::Result {};
-        auto* files = file_ops.try_get();
+        auto files = file_ops.lock();
         if (!files)
         {
             result.flag_failure("Stb image loader: file services unavailable.");

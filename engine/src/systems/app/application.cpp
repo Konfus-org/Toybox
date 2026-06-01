@@ -60,8 +60,8 @@ namespace tbx
         service_provider.register_service<Physics>(std::make_shared<Physics>(
             service_provider.try_get_service<IPhysicsBackend>(),
             service_provider.try_get_service<AssetManager>(),
-            settings,
-            service_provider.try_get_service<WorldManager>()));
+            service_provider.try_get_service<WorldManager>(),
+            settings));
     }
 
     static void register_app_rendering(ServiceProvider& service_provider)
@@ -102,14 +102,14 @@ namespace tbx
     }
 
     Application::Application()
-        : _service_provider(create_default_service_provider())
+        : _service_provider(create_default_service_provider_shared())
         , _plugin_manager(_service_provider)
     {
-        _msg_coordinator = _service_provider.get_service<IMessageCoordinator>();
-        _asset_manager = _service_provider.get_service<AssetManager>();
-        _world_manager = _service_provider.get_service<WorldManager>();
-        _script_system = _service_provider.get_service<ScriptSystem>();
-        _thread_manager = _service_provider.get_service<ThreadManager>();
+        _msg_coordinator = _service_provider->get_service<IMessageCoordinator>();
+        _asset_manager = _service_provider->get_service<AssetManager>();
+        _world_manager = _service_provider->get_service<WorldManager>();
+        _script_system = _service_provider->get_service<ScriptSystem>();
+        _thread_manager = _service_provider->get_service<ThreadManager>();
 
         initialize();
     }
@@ -188,12 +188,12 @@ namespace tbx
 
     ServiceProvider& Application::get_service_provider()
     {
-        return _service_provider;
+        return *_service_provider;
     }
 
     const ServiceProvider& Application::get_service_provider() const
     {
-        return _service_provider;
+        return *_service_provider;
     }
 
     void Application::initialize()
@@ -202,7 +202,7 @@ namespace tbx
         auto msg_coordinator = _msg_coordinator.lock();
         auto asset_manager = _asset_manager.lock();
         auto world_manager = _world_manager.lock();
-        auto file_ops = _service_provider.get_service<IFileOps>().lock();
+        auto file_ops = _service_provider->get_service<IFileOps>().lock();
 
         if (!msg_coordinator || !asset_manager || !world_manager || !file_ops)
         {
@@ -258,12 +258,12 @@ namespace tbx
                 file_ops->get_working_directory(),
                 settings->requested_plugins,
                 file_ops->get_working_directory());
-            register_app_window_manager(_service_provider);
-            register_app_physics(_service_provider, settings->physics);
-            register_app_rendering(_service_provider);
-            _input_manager = _service_provider.try_get_service<IInputManager>();
-            _physics = _service_provider.try_get_service<Physics>();
-            _rendering = _service_provider.try_get_service<Rendering>();
+            register_app_window_manager(*_service_provider);
+            register_app_physics(*_service_provider, settings->physics);
+            register_app_rendering(*_service_provider);
+            _input_manager = _service_provider->try_get_service<IInputManager>();
+            _physics = _service_provider->try_get_service<Physics>();
+            _rendering = _service_provider->try_get_service<Rendering>();
             _plugin_manager.attach_all();
 
             if (settings->startup_world.is_valid())
@@ -280,7 +280,7 @@ namespace tbx
 
             // Open main window
             {
-                auto window_manager = _service_provider.try_get_service<IWindowManager>();
+                auto window_manager = _service_provider->try_get_service<IWindowManager>();
                 auto window_manager_strong = window_manager.lock();
                 if (!window_manager_strong)
                 {
@@ -472,8 +472,8 @@ namespace tbx
             // 2. Release renderer-owned graphics resources while the window/context services
             // live.
             _rendering = {};
-            if (_service_provider.has_service<Rendering>())
-                _service_provider.deregister_service<Rendering>();
+            if (_service_provider->has_service<Rendering>())
+                _service_provider->deregister_service<Rendering>();
 
             // 3. Close all managed windows.
             if (auto window_manager = _window_manager.lock())
@@ -486,23 +486,23 @@ namespace tbx
 
             // 5. Destroy runtime script instances before their worlds are released.
             _script_system = {};
-            if (_service_provider.has_service<ScriptSystem>())
-                _service_provider.deregister_service<ScriptSystem>();
+            if (_service_provider->has_service<ScriptSystem>())
+                _service_provider->deregister_service<ScriptSystem>();
 
             // 6. Detach plugins while their libraries are still loaded.
             _plugin_manager.detach_all();
             _input_manager = {};
-            if (_service_provider.has_service<Physics>())
-                _service_provider.deregister_service<Physics>();
-            if (_service_provider.has_service<IWindowManager>())
-                _service_provider.deregister_service<IWindowManager>();
+            if (_service_provider->has_service<Physics>())
+                _service_provider->deregister_service<Physics>();
+            if (_service_provider->has_service<IWindowManager>())
+                _service_provider->deregister_service<IWindowManager>();
 
             // 7. Unload world/entity assets after plugin teardown.
             if (auto world_manager = _world_manager.lock())
                 world_manager->clear_active_world();
             _world_manager = {};
-            if (_service_provider.has_service<WorldManager>())
-                _service_provider.deregister_service<WorldManager>();
+            if (_service_provider->has_service<WorldManager>())
+                _service_provider->deregister_service<WorldManager>();
             _settings = {};
             asset_manager->unload_all();
 

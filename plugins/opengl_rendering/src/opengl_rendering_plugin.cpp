@@ -31,8 +31,9 @@ namespace opengl_rendering
 #endif
         );
 
-        _backend = std::make_shared<OpenGlGraphicsBackend>(context_backend);
-        return _backend;
+        auto backend = std::make_shared<OpenGlGraphicsBackend>(context_backend);
+        _backend = backend;
+        return backend;
     }
 
     void OpenGlRenderingPlugin::on_detach()
@@ -43,9 +44,10 @@ namespace opengl_rendering
     void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
     {
         if (const auto closed_event = tbx::handle_message<tbx::WindowClosedEvent>(msg);
-            closed_event.has_value() && _backend)
+            closed_event.has_value())
         {
-            _backend->destroy_context(closed_event->get().window);
+            if (auto backend = _backend.lock())
+                backend->destroy_context(closed_event->get().window);
         }
     }
 }

@@ -2,7 +2,7 @@
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
-#include "tbx/systems/scripting/service_ref.h"
+#include <memory>
 
 namespace assimp_model_loader
 {
@@ -18,7 +18,7 @@ namespace assimp_model_loader
 
       public:
         [[tbx::inject]]
-        tbx::ServiceRef<tbx::SerializationRegistry> serialization_registry = {};
+        std::weak_ptr<tbx::SerializationRegistry> serialization_registry = {};
 
       private:
         static tbx::Result read_model(

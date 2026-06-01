@@ -20,8 +20,8 @@ namespace tbx
         Physics(
             std::weak_ptr<IPhysicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
-            const PhysicsSettings& settings,
-            std::weak_ptr<WorldManager> world_manager = {});
+            std::weak_ptr<WorldManager> world_manager,
+            const PhysicsSettings& settings);
         ~Physics() noexcept;
 
       public:
@@ -44,11 +44,14 @@ namespace tbx
 
       private:
         struct EntityRecord;
-        struct State;
-
         void destroy_record(EntityRecord& record);
 
       private:
-        std::unique_ptr<State> _state = {};
+        std::weak_ptr<IPhysicsBackend> _backend = {};
+        std::weak_ptr<AssetManager> _asset_manager = {};
+        std::weak_ptr<WorldManager> _world_manager = {};
+        std::unordered_map<Uuid, EntityRecord> _records_by_entity = {};
+        std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
+        std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
     };
 }

@@ -8,6 +8,11 @@ namespace tbx::tests::app
     class RecordingWindowBackend final : public IWindowBackend
     {
       public:
+        void initialize() override
+        {
+            initialized = true;
+        }
+
         bool create_window(
             const Window& window,
             const WindowCreateInfo&,
@@ -51,11 +56,13 @@ namespace tbx::tests::app
         {
             open_windows.clear();
             pending_events.clear();
+            initialized = false;
         }
 
       public:
         std::vector<Window> open_windows = {};
         std::vector<WindowBackendEvent> pending_events = {};
+        bool initialized = false;
     };
 
     TEST(window_manager, close_main_window_clears_main_before_closed_event)
