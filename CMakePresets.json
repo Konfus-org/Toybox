@@ -15,9 +15,10 @@
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_BUILD_TESTS": "OFF",
         "TBX_ENABLE_COMPILER_CACHE": "ON",
+        "TBX_ENABLE_DEBUG_SANITIZERS": "ON",
         "TBX_ENABLE_VERBOSE": "OFF",
         "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
-        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake;${sourceDir}/cmake/preset_sanitizers.cmake",
         "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
         "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
         "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
@@ -132,6 +133,10 @@
       "hidden": true,
       "output": {
         "outputOnFailure": true
+      },
+      "environment": {
+        "ASAN_OPTIONS": "abort_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       },
       "execution": {
         "timeout": 120

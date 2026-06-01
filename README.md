@@ -75,7 +75,7 @@ ctest --preset test-clang-debug
 ctest --preset test-clang-release
 ```
 
-#### MSVC (Ninja + MSVC toolchain)
+#### MSVC
 ```bash
 # Configure; output goes under build/msvc
 cmake --preset msvc
