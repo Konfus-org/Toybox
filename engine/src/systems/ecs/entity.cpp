@@ -1,7 +1,6 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include <shared_mutex>
@@ -20,22 +19,47 @@ namespace tbx
         Json components = {};
     };
 
-    static std::vector<EntityComponentTypeRegistration>& entity_component_type_registrations()
+    class EntityComponentRegistrationStore final
     {
-        static auto registrations = std::vector<EntityComponentTypeRegistration> {};
-        return registrations;
-    }
+      public:
+        static EntityComponentRegistrationStore& get_instance()
+        {
+            static EntityComponentRegistrationStore store = {};
+            return store;
+        }
 
-    static std::mutex& entity_component_type_registration_mutex()
-    {
-        static auto mutex = std::mutex();
-        return mutex;
-    }
+      public:
+        EntityComponentRegistrationStore(const EntityComponentRegistrationStore&) = delete;
+        EntityComponentRegistrationStore& operator=(const EntityComponentRegistrationStore&) =
+            delete;
+        EntityComponentRegistrationStore(EntityComponentRegistrationStore&&) = delete;
+        EntityComponentRegistrationStore& operator=(EntityComponentRegistrationStore&&) = delete;
+
+      public:
+        std::mutex& mutex()
+        {
+            return _mutex;
+        }
+
+        std::vector<EntityComponentTypeRegistration>& registrations()
+        {
+            return _registrations;
+        }
+
+      private:
+        EntityComponentRegistrationStore() = default;
+        ~EntityComponentRegistrationStore() noexcept = default;
+
+      private:
+        std::mutex _mutex = {};
+        std::vector<EntityComponentTypeRegistration> _registrations = {};
+    };
 
     static std::vector<EntityComponentTypeRegistration> snapshot_entity_component_type_registrations()
     {
-        auto guard = std::lock_guard(entity_component_type_registration_mutex());
-        return entity_component_type_registrations();
+        auto& store = EntityComponentRegistrationStore::get_instance();
+        auto guard = std::lock_guard(store.mutex());
+        return store.registrations();
     }
 
     static bool read_entity_payload(std::string_view data, SerializedEntityPayload& payload)
@@ -76,8 +100,9 @@ namespace tbx
         if (component_type == std::type_index(typeid(void)))
             return;
 
-        auto guard = std::lock_guard(entity_component_type_registration_mutex());
-        auto& registrations = entity_component_type_registrations();
+        auto& store = EntityComponentRegistrationStore::get_instance();
+        auto guard = std::lock_guard(store.mutex());
+        auto& registrations = store.registrations();
         const auto iterator = std::ranges::find_if(
             registrations,
             [component_type](const EntityComponentTypeRegistration& registration)
@@ -90,15 +115,13 @@ namespace tbx
 
     void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
     {
-        if (is_plugin_meta_query_active())
-            return;
-
         if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
             return;
         const auto component_type = entry.type;
 
-        auto guard = std::lock_guard(entity_component_type_registration_mutex());
-        auto& registrations = entity_component_type_registrations();
+        auto& store = EntityComponentRegistrationStore::get_instance();
+        auto guard = std::lock_guard(store.mutex());
+        auto& registrations = store.registrations();
         const auto existing = std::ranges::find_if(
             registrations,
             [&entry](const EntityComponentTypeRegistration& registered)

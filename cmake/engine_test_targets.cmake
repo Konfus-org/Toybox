@@ -29,6 +29,18 @@ function(tbx_add_engine_test)
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     )
     list(FILTER test_sources EXCLUDE REGEX "[/\\\\]generated[/\\\\]")
+    if(TBX_TEST_ATTRIBUTE_CODEGEN)
+        foreach(test_source IN LISTS test_sources)
+            if(NOT test_source MATCHES "\\.cpp$")
+                continue()
+            endif()
+
+            file(READ "${test_source}" test_source_text)
+            if(test_source_text MATCHES "#include[ \t]+\"[^\"]+\\.generated\\.h\"")
+                list(REMOVE_ITEM test_sources "${test_source}")
+            endif()
+        endforeach()
+    endif()
 
     target_compile_features(${TBX_TEST_NAME} PRIVATE cxx_std_23)
     target_precompile_headers(${TBX_TEST_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/engine/tests/pch.h")
@@ -36,6 +48,7 @@ function(tbx_add_engine_test)
     target_include_directories(${TBX_TEST_NAME}
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${PROJECT_SOURCE_DIR}/engine/tests/shared"
             ${TBX_TEST_EXTRA_INCLUDES}
     )
     target_link_libraries(${TBX_TEST_NAME}

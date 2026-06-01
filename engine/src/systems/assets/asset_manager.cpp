@@ -80,8 +80,8 @@ namespace tbx
         if (!serialization_registry)
             return {};
 
-        const auto read_result =
-            serialization_registry->read_registered_asset_result(ensure_result.entry->get().resolved_path);
+        const auto read_result = serialization_registry->read_registered_asset_result(
+            ensure_result.entry->get().resolved_path);
         if (!read_result.result.succeeded())
         {
             TBX_TRACE_WARNING(
@@ -173,7 +173,9 @@ namespace tbx
             return;
 
         if (auto tracker = lock_plugin_ownership_tracker())
-            tracker->track_asset_pin(get_active_plugin_id(), Handle(entry->get().normalized_path, entry->get().asset_id));
+            tracker->track_asset_pin(
+                get_active_plugin_id(),
+                Handle(entry->get().normalized_path, entry->get().asset_id));
     }
 
     void AssetManager::add_directory(const std::filesystem::path& path)
@@ -232,14 +234,23 @@ namespace tbx
             return;
 
         std::lock_guard lock(_state->mutex);
-        const auto normalized_path = path.lexically_normal();
+        const auto normalized_path = _state->file_ops->resolve(path).lexically_normal();
         const auto remove_result = _state->registry->remove_asset_directory(normalized_path);
-        if (!remove_result.succeeded())
+        if (!remove_result.result.succeeded())
         {
             TBX_TRACE_WARNING(
                 "Failed to remove asset directory '{}': {}",
                 path.generic_string(),
-                remove_result.get_report());
+                remove_result.result.get_report());
+        }
+
+        for (const auto& entry : remove_result.entries)
+        {
+            if (!entry.asset_id.is_valid())
+                continue;
+
+            for (auto& store : _state->stores)
+                store.second->erase(entry.asset_id);
         }
 
         for (size index = 0; index < _state->watched_directories.size();)
@@ -337,7 +348,7 @@ namespace tbx
                     affected_asset = build_asset_handle(registry_entry);
                     pending_event_type = PendingAssetEventType::MODIFIED;
 
-                    auto reload_result = StoreReloadResult {};
+                    auto reload_result = StoreReloadResult();
                     if (registry_entry.asset_id.is_valid())
                     {
                         for (auto& store : _state->stores)

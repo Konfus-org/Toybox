@@ -1,12 +1,12 @@
 #pragma once
 #include "tbx/systems/debugging/logging.h"
 
-#define TBX_TRACE_FLUSH() ::tbx::Log::flush()
+#define TBX_TRACE_FLUSH() ::tbx::Log::get_instance().flush()
 
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write(                                                                         \
+        ::tbx::Log::get_instance().write(                                                         \
             ::tbx::LogLevel::INFO,                                                                 \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -16,7 +16,7 @@
 #define TBX_TRACE_INFO_ONCE(msg, ...)                                                              \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write_once(                                                                    \
+        ::tbx::Log::get_instance().write_once(                                                     \
             ::tbx::LogLevel::INFO,                                                                 \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -27,7 +27,7 @@
     #define TBX_TRACE_VERBOSE(msg, ...)                                                            \
         do                                                                                         \
         {                                                                                          \
-            ::tbx::Log::write(                                                                     \
+            ::tbx::Log::get_instance().write(                                                      \
                 ::tbx::LogLevel::INFO,                                                             \
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
@@ -43,7 +43,7 @@
 #define TBX_TRACE_WARNING(msg, ...)                                                                \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write(                                                                         \
+        ::tbx::Log::get_instance().write(                                                          \
             ::tbx::LogLevel::WARNING,                                                              \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -53,7 +53,7 @@
 #define TBX_TRACE_WARNING_ONCE(msg, ...)                                                           \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write_once(                                                                    \
+        ::tbx::Log::get_instance().write_once(                                                     \
             ::tbx::LogLevel::WARNING,                                                              \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -63,7 +63,7 @@
 #define TBX_TRACE_ERROR(msg, ...)                                                                  \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write(                                                                         \
+        ::tbx::Log::get_instance().write(                                                          \
             ::tbx::LogLevel::ERROR,                                                                \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -73,7 +73,7 @@
 #define TBX_TRACE_ERROR_ONCE(msg, ...)                                                             \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write_once(                                                                    \
+        ::tbx::Log::get_instance().write_once(                                                     \
             ::tbx::LogLevel::ERROR,                                                                \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -83,7 +83,7 @@
 #define TBX_TRACE_CRITICAL(msg, ...)                                                               \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write(                                                                         \
+        ::tbx::Log::get_instance().write(                                                          \
             ::tbx::LogLevel::CRITICAL,                                                             \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -93,7 +93,7 @@
 #define TBX_TRACE_CRITICAL_ONCE(msg, ...)                                                          \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::write_once(                                                                    \
+        ::tbx::Log::get_instance().write_once(                                                     \
             ::tbx::LogLevel::CRITICAL,                                                             \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -123,7 +123,11 @@
     {                                                                                              \
         if (!(cond))                                                                               \
         {                                                                                          \
-            ::tbx::Log::write(::tbx::LogLevel::CRITICAL, __FILE__, __LINE__, __VA_ARGS__);         \
+            ::tbx::Log::get_instance().write(                                                      \
+                ::tbx::LogLevel::CRITICAL,                                                         \
+                __FILE__,                                                                          \
+                __LINE__,                                                                          \
+                __VA_ARGS__);                                                                      \
             TBX_DEBUG_BREAK();                                                                     \
         }                                                                                          \
     } while (0)

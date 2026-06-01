@@ -1,70 +1,67 @@
-#include "tbx/systems/plugin_api/plugin_loader.h"
+#include "tbx/systems/assets/serialization.h"
+#include "tbx/systems/messaging/message_coordinator.h"
+#include "tbx/systems/plugin_api/plugin_manager.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 
 namespace tbx::tests::plugin_loader
 {
-    static ::tbx::PluginMeta make_dynamic_meta()
+    struct DummyPlugin final : Plugin
     {
-        ::tbx::PluginMeta meta;
-        meta.name = "TestDynamicPlugin";
+    };
+
+    struct DummyScriptAsset
+    {
+    };
+
+    static void register_dummy_script_asset(Plugin*, ServiceProvider*)
+    {
+        register_asset_type_entry(
+            AssetTypeRegistration {
+                .type_name = "dummy_script_asset",
+                .type = std::type_index(typeid(DummyScriptAsset)),
+            });
+    }
+
+    TEST(plugin_manager, unload_removes_plugin_owned_script_asset_registrations)
+    {
+        // Arrange
+        auto service_provider = std::make_shared<ServiceProvider>();
+        service_provider->register_service<IMessageCoordinator>(
+            std::make_shared<MessageCoordinator>());
+        service_provider->register_service<PluginOwnershipTracker>(
+            std::make_shared<PluginOwnershipTracker>());
+        bind_plugin_ownership_tracker(service_provider->get_service<PluginOwnershipTracker>());
+        auto manager = PluginManager(service_provider);
+
+        auto meta = PluginMeta {};
+        meta.name = "DummyPlugin";
         meta.version = "1.0.0";
-        meta.abi_version = ::tbx::PluginAbiVersion;
-        meta.linkage = ::tbx::PluginLinkage::DYNAMIC;
-        meta.library_path = "/virtual/plugin_loader/TestDynamicPlugin.dll";
-        return meta;
-    }
+        auto plugin = std::unique_ptr<Plugin, PluginDeleter>(
+            new DummyPlugin(),
+            [](Plugin* plugin)
+            {
+                delete plugin;
+            });
 
-    TEST(plugin_loader, returns_empty_when_no_metadata_is_provided)
-    {
-        // Arrange
-        const std::filesystem::path working_directory = "/virtual/plugin_loader";
-        const auto metas = std::vector<PluginMeta> {};
+        auto loaded_plugins = LoadedPlugins {};
+        auto& loaded_plugin = loaded_plugins.emplace_back(
+            meta,
+            nullptr,
+            std::move(plugin),
+            register_dummy_script_asset);
+        loaded_plugin.set_id(Uuid(123U));
 
-        // Act
-        auto loaded = ::tbx::load_plugins(metas, working_directory);
+        manager.add(std::move(loaded_plugins));
 
-        // Assert
-        ASSERT_TRUE(loaded.empty());
-    }
-
-    TEST(plugin_loader, recognizes_platform_library_paths)
-    {
-        // Arrange / Act / Assert
-#if defined(TBX_PLATFORM_WINDOWS)
-        EXPECT_TRUE(::tbx::is_plugin_library_path("ExamplePlugin.dll"));
-        EXPECT_FALSE(::tbx::is_plugin_library_path("ExamplePlugin.dll.meta"));
-#elif defined(TBX_PLATFORM_MACOS)
-        EXPECT_TRUE(::tbx::is_plugin_library_path("libExamplePlugin.dylib"));
-        EXPECT_FALSE(::tbx::is_plugin_library_path("libExamplePlugin.dylib.meta"));
-#else
-        EXPECT_TRUE(::tbx::is_plugin_library_path("libExamplePlugin.so"));
-        EXPECT_FALSE(::tbx::is_plugin_library_path("libExamplePlugin.so.meta"));
-#endif
-    }
-
-    TEST(plugin_loader, rejects_plugin_with_mismatched_abi_version)
-    {
-        // Arrange
-        const std::filesystem::path working_directory = "/virtual/plugin_loader";
-        auto mismatched = make_dynamic_meta();
-        mismatched.abi_version = 77;
-        const auto metas = std::vector<PluginMeta> {mismatched};
+        ASSERT_TRUE(
+            get_asset_type_registration(std::type_index(typeid(DummyScriptAsset))).has_value());
 
         // Act
-        auto loaded = ::tbx::load_plugins(metas, working_directory);
+        manager.unload("DummyPlugin");
+        bind_plugin_ownership_tracker({});
 
         // Assert
-        ASSERT_TRUE(loaded.empty());
-    }
-    TEST(plugin_loader, returns_empty_when_dynamic_module_cannot_be_loaded)
-    {
-        // Arrange
-        const std::filesystem::path working_directory = "/virtual/plugin_loader";
-        const auto metas = std::vector<PluginMeta> {make_dynamic_meta()};
-
-        // Act
-        auto loaded = ::tbx::load_plugins(metas, working_directory);
-
-        // Assert
-        ASSERT_TRUE(loaded.empty());
+        EXPECT_FALSE(
+            get_asset_type_registration(std::type_index(typeid(DummyScriptAsset))).has_value());
     }
 }

@@ -1,8 +1,8 @@
 #include "ecs_tests.generated.h"
+#include "in_memory_file_ops.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/world/manager.h"
-#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/camera.h"
@@ -12,7 +12,8 @@
 
 namespace tbx::tests::ecs
 {
-    [[serializable]] struct TestComponent : Component
+    [[serializable]];
+    struct TestComponent : Component
     {
         [[prop]]
         int value = 0;
@@ -37,7 +38,7 @@ namespace tbx::tests::ecs
         std::shared_future<Result> post(std::unique_ptr<Message>) const override
         {
             auto promise = std::promise<Result> {};
-            promise.set_value(Result {});
+            promise.set_value(Result());
             return promise.get_future().share();
         }
     };
@@ -118,7 +119,7 @@ namespace tbx::tests::ecs
         camera.set_tag("camera");
 
         // Act
-        const auto found_by_id = world.find_by_id(player.get_id());
+        const auto found_by_id = world.get(player.get_id());
         const auto found_by_name = world.find_by_name("Camera");
         const auto found_by_tag = world.find_by_tag("player");
         const auto missing_entity = world.find_by_tag("missing");
@@ -194,9 +195,9 @@ namespace tbx::tests::ecs
         entity.add_component<TestComponent>(component);
 
         // Act
-        const auto json = JsonParser::parse(Serializer<Entity>::serialize(entity));
+        const auto json = JsonParser::parse(Entity::serialize(entity));
         auto roundtripped = Entity();
-        const bool deserialized = Serializer<Entity>::deserialize(json.dump(), roundtripped);
+        const bool deserialized = Entity::deserialize(json.dump(), roundtripped);
 
         // Assert
         EXPECT_TRUE(deserialized);
@@ -220,7 +221,7 @@ namespace tbx::tests::ecs
         entity.add_component<UnserializedComponent>(component);
 
         // Act
-        const auto json = JsonParser::parse(Serializer<Entity>::serialize(entity));
+        const auto json = JsonParser::parse(Entity::serialize(entity));
         const auto components = json.find("components");
         const bool has_components = components != json.end();
 
@@ -235,7 +236,7 @@ namespace tbx::tests::ecs
         auto entity = Entity();
 
         // Act
-        const bool deserialized = Serializer<Entity>::deserialize(
+        const bool deserialized = Entity::deserialize(
             R"({
                 "id": { "value": 73 },
                 "name": "Probe",
@@ -331,9 +332,9 @@ namespace tbx::tests::ecs
                         "components": {
                             "transform": {
                                 "id": { "value": 33 },
-                                "position": { "x": 0.0, "y": 10.0, "z": 0.0 },
-                                "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
-                                "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
+                                "position": [0.0, 10.0, 0.0],
+                                "rotation": [0.0, 0.0, 0.0, 1.0],
+                                "scale": [1.0, 1.0, 1.0]
                             }
                         }
                     },
@@ -349,9 +350,9 @@ namespace tbx::tests::ecs
                             },
                             "transform": {
                                 "id": { "value": 36 },
-                                "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
-                                "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
-                                "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
+                                "position": [0.0, 0.0, 0.0],
+                                "rotation": [0.0, 0.0, 0.0, 1.0],
+                                "scale": [1.0, 1.0, 1.0]
                             }
                         }
                     }
@@ -386,7 +387,7 @@ namespace tbx::tests::ecs
             R"({
                 "globals": { "name": "main.globals", "id": { "value": 51 } },
                 "chunks": [
-                    { "name": "chunks/full.chunk", "id": { "value": 50 } }
+                    { "name": "chunks/full.chunk", "id": { "value": 80 } }
                 ]
             })");
         file_ops->set_text("main.globals.meta", R"({ "id": 51, "version": 1 })");
@@ -406,9 +407,9 @@ namespace tbx::tests::ecs
                             },
                             "transform": {
                                 "id": { "value": 42 },
-                                "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
-                                "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
-                                "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
+                                "position": [0.0, 0.0, 0.0],
+                                "rotation": [0.0, 0.0, 0.0, 1.0],
+                                "scale": [1.0, 1.0, 1.0]
                             }
                         }
                     }
@@ -435,10 +436,12 @@ namespace tbx::tests::ecs
             get_null_dispatcher(),
             serialization_registry,
             "/virtual/worlds",
-            std::vector<std::filesystem::path>(),
+            std::vector<std::filesystem::path> {"."},
             HandleSource(),
             file_ops);
         auto manager = WorldManager(asset_manager);
+        ASSERT_EQ(asset_manager->ensure(Handle("main.globals", Uuid(51U))), Uuid(51U));
+        ASSERT_EQ(asset_manager->ensure(Handle("chunks/full.chunk", Uuid(80U))), Uuid(80U));
 
         // Act
         const bool activated = manager.set_active_world(Handle("main.world", Uuid(0x20U)));
@@ -463,7 +466,7 @@ namespace tbx::tests::ecs
             R"({
                 "globals": { "name": "main.globals", "id": { "value": 51 } },
                 "chunks": [
-                    { "name": "chunks/full.chunk", "id": { "value": 50 } }
+                    { "name": "chunks/full.chunk", "id": { "value": 80 } }
                 ]
             })");
         file_ops->set_text("main.globals.meta", R"({ "id": 51, "version": 1 })");
@@ -483,9 +486,9 @@ namespace tbx::tests::ecs
                             },
                             "transform": {
                                 "id": { "value": 42 },
-                                "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
-                                "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
-                                "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
+                                "position": [0.0, 0.0, 0.0],
+                                "rotation": [0.0, 0.0, 0.0, 1.0],
+                                "scale": [1.0, 1.0, 1.0]
                             }
                         }
                     }
@@ -512,10 +515,12 @@ namespace tbx::tests::ecs
             get_null_dispatcher(),
             serialization_registry,
             "/virtual/worlds",
-            std::vector<std::filesystem::path>(),
+            std::vector<std::filesystem::path> {"."},
             HandleSource(),
             file_ops);
         auto manager = WorldManager(asset_manager);
+        ASSERT_EQ(asset_manager->ensure(Handle("main.globals", Uuid(51U))), Uuid(51U));
+        ASSERT_EQ(asset_manager->ensure(Handle("chunks/full.chunk", Uuid(80U))), Uuid(80U));
 
         // Act
         const bool activated = manager.set_active_world(Handle("main.world", Uuid(0x20U)));
@@ -591,10 +596,11 @@ namespace tbx::tests::ecs
             get_null_dispatcher(),
             serialization_registry,
             "/virtual/worlds",
-            std::vector<std::filesystem::path>(),
+            std::vector<std::filesystem::path> {"."},
             HandleSource(),
             file_ops);
         auto manager = WorldManager(asset_manager);
+        ASSERT_EQ(asset_manager->ensure(Handle("main.globals", Uuid(51U))), Uuid(51U));
         ASSERT_TRUE(manager.set_active_world(Handle("main.world", Uuid(0x20U))));
         const auto original_world = manager.get_active_world().lock();
 

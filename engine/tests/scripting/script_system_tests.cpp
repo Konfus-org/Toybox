@@ -1,6 +1,6 @@
-﻿#include "tbx/interfaces/message_dispatcher.h"
+﻿#include "in_memory_file_ops.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/types/assets/world.h"
@@ -21,7 +21,7 @@ namespace tbx::tests::scripting
         std::shared_future<Result> post(std::unique_ptr<Message>) const override
         {
             auto promise = std::promise<Result> {};
-            promise.set_value(Result {});
+            promise.set_value(Result());
             return promise.get_future().share();
         }
     };
@@ -77,10 +77,8 @@ namespace tbx::tests::scripting
 
     static void ensure_door_script_registered()
     {
-        static const bool registered = register_script_asset_type<DoorScript>(
-            1U,
-            apply_door_overrides,
-            bind_door_runtime);
+        static const bool registered =
+            register_script_asset_type<DoorScript>(1U, apply_door_overrides, bind_door_runtime);
         static_cast<void>(registered);
     }
 
@@ -115,8 +113,7 @@ namespace tbx::tests::scripting
         deserialize(json, roundtripped);
 
         // Assert
-        ASSERT_TRUE(json["scripts"][0]["script"].contains("value"));
-        EXPECT_FALSE(json["scripts"][0]["script"].contains("name"));
+        EXPECT_EQ(json["scripts"][0]["script"].get<uint32>(), 0x41000001U);
         ASSERT_EQ(roundtripped.scripts.size(), 1U);
         EXPECT_EQ(roundtripped.scripts[0].script, Uuid(0x41000001U));
         EXPECT_FLOAT_EQ(roundtripped.scripts[0].overrides["open_speed"].get<float>(), 12.0F);
@@ -209,6 +206,9 @@ namespace tbx::tests::scripting
             file_ops);
         auto services = ServiceProvider();
         auto script_system = ScriptSystem(asset_manager, services);
+        ASSERT_EQ(
+            asset_manager->ensure(Handle("Scripts/Door.script", Uuid(1090519041U))),
+            Uuid(1090519041U));
         const auto world = asset_manager->load<World>(Handle("main.world", Uuid(32U)));
         const auto globals = asset_manager->load<WorldGlobals>(Handle("main.globals", Uuid(33U)));
         ASSERT_NE(world, nullptr);
@@ -217,16 +217,15 @@ namespace tbx::tests::scripting
 
         // Act
         script_system.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
-        auto script = std::dynamic_pointer_cast<DoorScript>(
-            script_system
-                .try_get_script(
-                    ScriptLookup {
-                        .world = Uuid(32U),
-                        .entity = Uuid(40U),
-                        .script = Uuid(1090519041U),
-                        .binding_id = Uuid(1U),
-                    })
-                .lock());
+        auto script = std::dynamic_pointer_cast<DoorScript>(script_system
+                                                                .try_get_script(
+                                                                    ScriptLookup {
+                                                                        .world = Uuid(32U),
+                                                                        .entity = Uuid(40U),
+                                                                        .script = Uuid(1090519041U),
+                                                                        .binding_id = Uuid(1U),
+                                                                    })
+                                                                .lock());
 
         // Assert
         ASSERT_NE(script, nullptr);

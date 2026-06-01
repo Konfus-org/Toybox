@@ -11,7 +11,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <deque>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <functional>

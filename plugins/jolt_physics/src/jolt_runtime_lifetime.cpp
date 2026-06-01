@@ -9,12 +9,10 @@
 // clang-format on
 #include <cstdarg>
 #include <cstdio>
+#include <mutex>
 
 namespace jolt_physics
 {
-    static std::size_t g_runtime_reference_count = 0U;
-    static std::mutex g_runtime_mutex = {};
-
     static std::string format_jolt_trace_message(const char* fmt, std::va_list args)
     {
         if (fmt == nullptr || *fmt == '\0')
@@ -77,37 +75,72 @@ namespace jolt_physics
     }
 #endif
 
-    bool JoltRuntimeLifetime::acquire()
+    class JoltRuntimeState final
     {
-        const auto lock = std::scoped_lock(g_runtime_mutex);
-        if (g_runtime_reference_count == 0U)
+      public:
+        static JoltRuntimeState& get_instance()
         {
-            JPH::RegisterDefaultAllocator();
-            JPH::Trace = tbx_jolt_trace_callback;
-#ifdef JPH_ENABLE_ASSERTS
-            JPH::AssertFailed = tbx_jolt_assert_failed_callback;
-#endif
-
-            JPH::Factory::sInstance = new JPH::Factory();
-            JPH::RegisterTypes();
+            static JoltRuntimeState state = {};
+            return state;
         }
 
-        ++g_runtime_reference_count;
-        return true;
+      public:
+        JoltRuntimeState(const JoltRuntimeState&) = delete;
+        JoltRuntimeState& operator=(const JoltRuntimeState&) = delete;
+        JoltRuntimeState(JoltRuntimeState&&) = delete;
+        JoltRuntimeState& operator=(JoltRuntimeState&&) = delete;
+
+      public:
+        bool acquire()
+        {
+            const auto lock = std::scoped_lock(_runtime_mutex);
+            if (_runtime_reference_count == 0U)
+            {
+                JPH::RegisterDefaultAllocator();
+                JPH::Trace = tbx_jolt_trace_callback;
+#ifdef JPH_ENABLE_ASSERTS
+                JPH::AssertFailed = tbx_jolt_assert_failed_callback;
+#endif
+
+                JPH::Factory::sInstance = new JPH::Factory();
+                JPH::RegisterTypes();
+            }
+
+            ++_runtime_reference_count;
+            return true;
+        }
+
+        void release()
+        {
+            const auto lock = std::scoped_lock(_runtime_mutex);
+            if (_runtime_reference_count == 0U)
+                return;
+
+            --_runtime_reference_count;
+            if (_runtime_reference_count > 0U)
+                return;
+
+            JPH::UnregisterTypes();
+            delete JPH::Factory::sInstance;
+            JPH::Factory::sInstance = nullptr;
+        }
+
+      private:
+        JoltRuntimeState() = default;
+        ~JoltRuntimeState() noexcept = default;
+
+      private:
+        std::mutex _runtime_mutex = {};
+        std::size_t _runtime_reference_count = 0U;
+    };
+
+    bool JoltRuntimeLifetime::acquire()
+    {
+        return JoltRuntimeState::get_instance().acquire();
     }
 
     void JoltRuntimeLifetime::release()
     {
-        const auto lock = std::scoped_lock(g_runtime_mutex);
-        if (g_runtime_reference_count == 0U)
-            return;
-
-        --g_runtime_reference_count;
-        if (g_runtime_reference_count > 0U)
-            return;
-
-        JPH::UnregisterTypes();
-        delete JPH::Factory::sInstance;
-        JPH::Factory::sInstance = nullptr;
+        JoltRuntimeState::get_instance().release();
     }
 }

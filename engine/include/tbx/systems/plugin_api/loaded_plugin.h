@@ -10,6 +10,8 @@
 namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
+
+    // TODO: replace with inline vector usages and remove the using
     using LoadedPlugins = std::list<LoadedPlugin>;
 
     enum class LoadedPluginState

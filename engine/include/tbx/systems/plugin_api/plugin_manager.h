@@ -45,13 +45,6 @@ namespace tbx
             const std::filesystem::path& working_directory);
 
         /// @brief
-        /// Purpose: Loads and adds a specific plugin from parsed metadata.
-        /// @details
-        /// Ownership: Uses the bound file-ops instance to load plugin artifacts.
-        /// Thread Safety: Not thread-safe; call from the main thread.
-        bool load(const PluginMeta& meta);
-
-        /// @brief
         /// Purpose: Adds, attaches, and begins routing messages to loaded plugin nodes.
         /// @details
         /// Ownership: Takes ownership of the provided loaded plugin list by splicing its nodes.
@@ -109,7 +102,6 @@ namespace tbx
         void bind_all_runtime();
         std::shared_ptr<ServiceProvider> get_service_provider() const;
         bool should_load_plugin(const std::string& plugin_name) const;
-        void clear_plugin_runtime_state(Uuid plugin_id);
         void register_all_services();
         void unload_plugin_group(LoadedPlugins& plugins);
         void process_pending_file_changes();

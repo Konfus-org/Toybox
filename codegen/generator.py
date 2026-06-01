@@ -1032,14 +1032,23 @@ def emit_plugin_source(
         ]
     )
 
-    if script_types:
+    if script_types or register_attrs or register_fields:
         lines.extend(
             [
-                "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_scripts()",
+                "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_services(",
+                "    ::tbx::Plugin* plugin,",
+                "    ::tbx::ServiceProvider* service_provider)",
                 "{",
+                "    if (plugin == nullptr || service_provider == nullptr)",
+                "        return;",
+                "",
+                f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
+                "    if (typed_plugin == nullptr)",
+                "        return;",
+                "",
             ]
         )
-        for script_type in script_types:
+        for script_type in script_types or []:
             version = type_version(script_type)
             if version is None:
                 raise CodegenError(
@@ -1054,36 +1063,10 @@ def emit_plugin_source(
                     f"        {namespace_prefix}tbx_bind_script_runtime_{script_type.name}));",
                 ]
             )
-        lines.extend(["}", ""])
-        lines.extend(
-            [
-                "TBX_PLUGIN_ENTRY_EXPORT void tbx_unregister_plugin_scripts()",
-                "{",
-            ]
-        )
-        for script_type in script_types:
-            lines.append(
-                f"    ::tbx::unregister_asset_type_entry(std::type_index(typeid({qualified_name(script_type)})));"
-            )
-        lines.extend(["}", ""])
-
-    if register_attrs or register_fields:
-        lines.extend(
-            [
-                "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_services(",
-                "    ::tbx::Plugin* plugin,",
-                "    ::tbx::ServiceProvider* service_provider)",
-                "{",
-                "    if (plugin == nullptr || service_provider == nullptr)",
-                "        return;",
-                "",
-                f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
-                "    if (typed_plugin == nullptr)",
-                "        return;",
-                "",
-                "    ::tbx::register_runtime_services(*typed_plugin, *service_provider);",
-            ]
-        )
+        if script_types and (register_attrs or register_fields):
+            lines.append("")
+        if register_attrs or register_fields:
+            lines.append("    ::tbx::register_runtime_services(*typed_plugin, *service_provider);")
         lines.extend(["}", ""])
 
     if inject_fields:

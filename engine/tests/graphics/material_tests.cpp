@@ -111,18 +111,18 @@ namespace tbx::tests::graphics
         auto vector_json = nlohmann::json();
         auto matrix3_json = nlohmann::json();
         auto matrix_json = nlohmann::json();
-        serialize(color_json, color_data);
-        serialize(vector_json, vector_data);
-        serialize(matrix3_json, matrix3_data);
-        serialize(matrix_json, matrix_data);
+        serialize_serializable_variant(color_json, color_data);
+        serialize_serializable_variant(vector_json, vector_data);
+        serialize_serializable_variant(matrix3_json, matrix3_data);
+        serialize_serializable_variant(matrix_json, matrix_data);
         auto color_result = MaterialParameterData();
         auto vector_result = MaterialParameterData();
         auto matrix3_result = MaterialParameterData();
         auto matrix_result = MaterialParameterData();
-        deserialize(color_json, color_result);
-        deserialize(vector_json, vector_result);
-        deserialize(matrix3_json, matrix3_result);
-        deserialize(matrix_json, matrix_result);
+        deserialize_serializable_variant(color_json, color_result);
+        deserialize_serializable_variant(vector_json, vector_result);
+        deserialize_serializable_variant(matrix3_json, matrix3_result);
+        deserialize_serializable_variant(matrix_json, matrix_result);
 
         // Assert
         EXPECT_EQ(color_json.at("type").get<std::string>(), "color");
@@ -177,7 +177,8 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(std::holds_alternative<Color>(parameter_result.data));
         EXPECT_EQ(texture_result.name, "albedo_map");
         EXPECT_EQ(texture_result.id, INVALID_MATERIAL_PARAM_ID);
-        EXPECT_EQ(texture_result.texture.name, "Textures/Smily.png");
+        EXPECT_TRUE(texture_result.texture.name.empty());
+        EXPECT_EQ(texture_result.texture.id, texture.texture.id);
         EXPECT_TRUE(parameters.has("albedo_color"));
         EXPECT_TRUE(textures.has("albedo_map"));
     }

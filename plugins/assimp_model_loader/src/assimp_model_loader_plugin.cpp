@@ -342,7 +342,7 @@ namespace assimp_model_loader
         const tbx::AssetLoadMetadata&,
         tbx::Model& model)
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         Assimp::Importer importer;
         // Configure Assimp post-processing for engine-friendly meshes.
         unsigned int flags = aiProcess_Triangulate | aiProcess_GenNormals

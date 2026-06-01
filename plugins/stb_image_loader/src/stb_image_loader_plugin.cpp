@@ -55,7 +55,7 @@ namespace stb_image_loader
         const tbx::AssetLoadMetadata&,
         tbx::Texture& texture) const
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         auto files = file_ops.lock();
         if (!files)
         {

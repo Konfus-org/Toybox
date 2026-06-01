@@ -1,9 +1,10 @@
-#include "tbx/interfaces/file_ops.h"
 #include "shader_include_loader.h"
+#include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/shader.h"
 #include <sstream>
+
 
 namespace tbx::shader_loader
 {
@@ -313,7 +314,7 @@ namespace tbx::shader_loader
         const tbx::AssetLoadMetadata&,
         tbx::Shader& shader)
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         auto files = file_ops.lock();
         if (!files)
         {

@@ -11,7 +11,11 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 
 target_precompile_headers(TbxScriptingTests PRIVATE "../pch.h")
 target_sources(TbxScriptingTests PRIVATE ${TEST_SOURCES})
-target_include_directories(TbxScriptingTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(TbxScriptingTests
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/engine/tests/shared"
+)
 
 target_link_libraries(TbxScriptingTests PRIVATE
     Tbx::Engine

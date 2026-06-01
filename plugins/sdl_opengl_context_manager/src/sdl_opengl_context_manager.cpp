@@ -42,6 +42,11 @@ namespace sdl_opengl_context_manager
         }
     }
 
+    static bool is_sdl_video_initialized()
+    {
+        return (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != 0U;
+    }
+
     SdlOpenGlContextManager::~SdlOpenGlContextManager() noexcept
     {
         shutdown();
@@ -64,7 +69,8 @@ namespace sdl_opengl_context_manager
         _settings.is_debug_context_enabled = debug_context_enabled;
         _settings.vsync_mode = vsync_enabled ? tbx::VsyncMode::ON : tbx::VsyncMode::OFF;
 
-        apply_default_attributes();
+        if (is_sdl_video_initialized())
+            apply_default_attributes();
         apply_vsync_setting();
     }
 
@@ -82,7 +88,7 @@ namespace sdl_opengl_context_manager
         if (!try_create_context(window, sdl_window, label))
             return make_failure("SDL OpenGL context manager: failed to create context.");
 
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }
@@ -95,7 +101,7 @@ namespace sdl_opengl_context_manager
 
         destroy_native_context(window);
 
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }
@@ -118,7 +124,7 @@ namespace sdl_opengl_context_manager
         if (!try_make_current(sdl_window, context_it->second, label))
             return make_failure(SDL_GetError());
 
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }
@@ -136,7 +142,7 @@ namespace sdl_opengl_context_manager
         if (!try_present(window, sdl_window))
             return make_failure("SDL OpenGL context manager: present failed.");
 
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }
@@ -146,7 +152,7 @@ namespace sdl_opengl_context_manager
         _settings.vsync_mode = mode;
         apply_vsync_setting();
 
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }
@@ -199,7 +205,7 @@ namespace sdl_opengl_context_manager
 
     tbx::Result SdlOpenGlContextManager::make_failure(std::string message) const
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_failure(std::move(message));
         return result;
     }
@@ -221,6 +227,7 @@ namespace sdl_opengl_context_manager
         if (existing_context != _contexts.end())
             return try_make_current(sdl_window, existing_context->second, window_title);
 
+        apply_default_attributes();
         SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
         if (!context)
         {

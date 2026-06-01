@@ -9,7 +9,7 @@ namespace tbx
 {
     static Result make_failed_result(std::string report)
     {
-        auto result = Result {};
+        auto result = Result();
         result.flag_failure(std::move(report));
         return result;
     }
@@ -65,6 +65,28 @@ namespace tbx
         }
 
         return false;
+    }
+
+    static bool path_is_same_or_inside_directory(
+        const std::filesystem::path& path,
+        const std::filesystem::path& directory)
+    {
+        if (path.empty() || directory.empty())
+            return false;
+
+        const auto normalized_path = path.lexically_normal();
+        const auto normalized_directory = directory.lexically_normal();
+        auto path_iterator = normalized_path.begin();
+
+        for (auto directory_iterator = normalized_directory.begin();
+             directory_iterator != normalized_directory.end();
+             ++directory_iterator, ++path_iterator)
+        {
+            if (path_iterator == normalized_path.end() || *path_iterator != *directory_iterator)
+                return false;
+        }
+
+        return true;
     }
 
     static bool is_non_asset_file(const std::filesystem::path& path)
@@ -177,14 +199,14 @@ namespace tbx
             });
         if (is_duplicate)
         {
-            auto result = Result {};
+            auto result = Result();
             result.flag_success("Asset directory is already tracked.");
             return result;
         }
 
         _asset_directories.push_back(resolved);
 
-        auto result = Result {};
+        auto result = Result();
         result.flag_success("Tracking asset directory.");
 
         const auto scan_result = scan_asset_directory(resolved);
@@ -192,30 +214,35 @@ namespace tbx
         return result;
     }
 
-    Result AssetRegistry::remove_asset_directory(const std::filesystem::path& path)
+    AssetRegistryDirectoryRemovalResult AssetRegistry::remove_asset_directory(
+        const std::filesystem::path& path)
     {
+        auto result = AssetRegistryDirectoryRemovalResult();
         if (path.empty())
-            return make_failed_result("Cannot remove an empty asset directory path.");
+        {
+            result.result = make_failed_result("Cannot remove an empty asset directory path.");
+            return result;
+        }
 
         const auto resolved = _file_ops->resolve(path).lexically_normal();
-        const auto directory_iterator = std::find(
-            _asset_directories.begin(),
-            _asset_directories.end(),
-            resolved);
+        const auto directory_iterator =
+            std::find(_asset_directories.begin(), _asset_directories.end(), resolved);
         if (directory_iterator == _asset_directories.end())
         {
-            auto result = Result {};
-            result.flag_success("Asset directory is not tracked.");
+            result.result.flag_success("Asset directory is not tracked.");
             return result;
         }
 
         _asset_directories.erase(directory_iterator);
 
-        for (auto entry_iterator = _entries_by_path.begin(); entry_iterator != _entries_by_path.end();)
+        for (auto entry_iterator = _entries_by_path.begin();
+             entry_iterator != _entries_by_path.end();)
         {
-            const auto normalized = std::filesystem::path(entry_iterator->second.normalized_path).lexically_normal();
-            if (!normalized.empty() && normalized.string().starts_with(resolved.string()))
+            const auto normalized =
+                std::filesystem::path(entry_iterator->second.normalized_path).lexically_normal();
+            if (path_is_same_or_inside_directory(normalized, resolved))
             {
+                result.entries.push_back(entry_iterator->second);
                 if (entry_iterator->second.asset_id.is_valid())
                     _path_by_id.erase(entry_iterator->second.asset_id);
                 entry_iterator = _entries_by_path.erase(entry_iterator);
@@ -225,8 +252,7 @@ namespace tbx
             ++entry_iterator;
         }
 
-        auto result = Result {};
-        result.flag_success("Stopped tracking asset directory.");
+        result.result.flag_success("Stopped tracking asset directory.");
         return result;
     }
 
@@ -265,7 +291,7 @@ namespace tbx
 
     AssetRegistryEntryResult AssetRegistry::ensure_entry(const Handle& handle)
     {
-        auto result = AssetRegistryEntryResult {};
+        auto result = AssetRegistryEntryResult();
 
         if (!handle.name.empty())
         {
@@ -276,7 +302,7 @@ namespace tbx
                 return result;
             }
 
-            auto asset_id = Uuid {};
+            auto asset_id = Uuid();
             const auto resolve_result = resolve_or_repair_asset_id(entry, asset_id);
             merge_result(result.result, resolve_result);
             if (!resolve_result.succeeded())
@@ -352,7 +378,7 @@ namespace tbx
     AssetRegistryMutationResult AssetRegistry::register_discovered_asset(
         const std::filesystem::path& asset_path)
     {
-        auto result = AssetRegistryMutationResult {};
+        auto result = AssetRegistryMutationResult();
         if (!should_track_asset_path(asset_path))
         {
             result.result = make_failed_result("Path is not a tracked asset.");
@@ -389,7 +415,7 @@ namespace tbx
     AssetRegistryMutationResult AssetRegistry::unregister_asset(
         const std::filesystem::path& asset_path)
     {
-        auto result = AssetRegistryMutationResult {};
+        auto result = AssetRegistryMutationResult();
         const auto normalized_path = normalize_path_string(asset_path);
         auto iterator = _entries_by_path.find(normalized_path);
         if (iterator == _entries_by_path.end())
@@ -455,7 +481,7 @@ namespace tbx
             return make_failed_result("Cannot scan an empty asset directory root.");
         }
 
-        auto result = Result {};
+        auto result = Result();
         auto entries = _file_ops->read_directory(root);
         auto asset_entries = std::vector<std::filesystem::path>();
         for (const auto& entry : entries)
@@ -628,7 +654,7 @@ namespace tbx
         const AssetRegistryEntry& entry,
         Uuid& out_asset_id) const
     {
-        auto result = Result {};
+        auto result = Result();
 
         if (_handle_source)
         {
@@ -755,7 +781,7 @@ namespace tbx
                     .append("'."));
         }
 
-        auto result = Result {};
+        auto result = Result();
         if (entry.asset_id.is_valid())
         {
             append_report(

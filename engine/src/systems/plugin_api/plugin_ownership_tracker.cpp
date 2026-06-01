@@ -6,9 +6,6 @@
 
 namespace tbx
 {
-    static std::weak_ptr<PluginOwnershipTracker> g_plugin_ownership_tracker = {};
-    static std::mutex g_plugin_ownership_tracker_mutex = {};
-
     struct PluginOwnershipRecord
     {
         std::unordered_set<Uuid> entity_ids = {};
@@ -24,6 +21,43 @@ namespace tbx
     {
         std::mutex mutex = {};
         std::unordered_map<Uuid, PluginOwnershipRecord> records_by_plugin_id = {};
+    };
+
+    class PluginOwnershipTrackerBinding final
+    {
+      public:
+        static PluginOwnershipTrackerBinding& get_instance()
+        {
+            static PluginOwnershipTrackerBinding binding = {};
+            return binding;
+        }
+
+      public:
+        PluginOwnershipTrackerBinding(const PluginOwnershipTrackerBinding&) = delete;
+        PluginOwnershipTrackerBinding& operator=(const PluginOwnershipTrackerBinding&) = delete;
+        PluginOwnershipTrackerBinding(PluginOwnershipTrackerBinding&&) = delete;
+        PluginOwnershipTrackerBinding& operator=(PluginOwnershipTrackerBinding&&) = delete;
+
+      public:
+        void bind(std::weak_ptr<PluginOwnershipTracker> tracker)
+        {
+            auto guard = std::lock_guard(_mutex);
+            _tracker = std::move(tracker);
+        }
+
+        std::shared_ptr<PluginOwnershipTracker> lock()
+        {
+            auto guard = std::lock_guard(_mutex);
+            return _tracker.lock();
+        }
+
+      private:
+        PluginOwnershipTrackerBinding() = default;
+        ~PluginOwnershipTrackerBinding() noexcept = default;
+
+      private:
+        std::mutex _mutex = {};
+        std::weak_ptr<PluginOwnershipTracker> _tracker = {};
     };
 
     static bool is_valid_plugin_instance_id(Uuid plugin_id)
@@ -199,13 +233,11 @@ namespace tbx
 
     void bind_plugin_ownership_tracker(std::weak_ptr<PluginOwnershipTracker> tracker)
     {
-        auto guard = std::lock_guard(g_plugin_ownership_tracker_mutex);
-        g_plugin_ownership_tracker = std::move(tracker);
+        PluginOwnershipTrackerBinding::get_instance().bind(std::move(tracker));
     }
 
     std::shared_ptr<PluginOwnershipTracker> lock_plugin_ownership_tracker()
     {
-        auto guard = std::lock_guard(g_plugin_ownership_tracker_mutex);
-        return g_plugin_ownership_tracker.lock();
+        return PluginOwnershipTrackerBinding::get_instance().lock();
     }
 }

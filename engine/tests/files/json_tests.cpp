@@ -105,7 +105,6 @@ namespace tbx::tests::file_system
         serialize(json, handle);
 
         // Assert
-        EXPECT_EQ(json.find("name"), json.end());
-        EXPECT_EQ(json.at("id").at("value"), 88U);
+        EXPECT_EQ(json.get<uint32>(), 88U);
     }
 }

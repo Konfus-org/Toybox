@@ -1,14 +1,12 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
+#include "plugin_loader.h"
+#include "plugin_unloader.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/serialization.h"
-#include "tbx/systems/ecs/registry.h"
-#include "tbx/systems/plugin_api/plugin_loader.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
-#include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
+#include <algorithm>
 
 namespace tbx
 {
@@ -37,6 +35,83 @@ namespace tbx
         }
 
         return false;
+    }
+
+    static uint32 get_update_category_rank(PluginCategory category, bool is_fixed_update)
+    {
+        static_cast<void>(is_fixed_update);
+        switch (category)
+        {
+            case PluginCategory::LOGGING:
+                return 0U;
+            case PluginCategory::DEFAULT:
+                return 1U;
+            case PluginCategory::INPUT:
+                return 2U;
+            case PluginCategory::AUDIO:
+                return 3U;
+            case PluginCategory::GAMEPLAY:
+                return 4U;
+            case PluginCategory::PHYSICS:
+                return 5U;
+            case PluginCategory::RENDERING:
+                return 6U;
+            default:
+                return 7U;
+        }
+    }
+
+    static bool is_plugin_library_path(const std::filesystem::path& path)
+    {
+        const std::string lowered_name = to_lower(path.filename().string());
+#if defined(TBX_PLATFORM_WINDOWS)
+        return lowered_name.ends_with(".dll");
+#elif defined(TBX_PLATFORM_MACOS)
+        return lowered_name.ends_with(".dylib");
+#else
+        return lowered_name.ends_with(".so");
+#endif
+    }
+
+    static std::vector<LoadedPlugin*> build_update_order(
+        LoadedPlugins& loaded_plugins,
+        bool is_fixed_update)
+    {
+        auto ordered_plugins = std::vector<LoadedPlugin*>();
+        ordered_plugins.reserve(loaded_plugins.size());
+        for (auto& plugin : loaded_plugins)
+            ordered_plugins.push_back(&plugin);
+
+        std::stable_sort(
+            ordered_plugins.begin(),
+            ordered_plugins.end(),
+            [is_fixed_update](const LoadedPlugin* left_plugin, const LoadedPlugin* right_plugin)
+            {
+                const auto& left = left_plugin->meta;
+                const auto& right = right_plugin->meta;
+
+                uint32 left_rank = get_update_category_rank(left.category, is_fixed_update);
+                uint32 right_rank = get_update_category_rank(right.category, is_fixed_update);
+                if (left_rank != right_rank)
+                    return left_rank < right_rank;
+
+                if (left.priority != right.priority)
+                    return left.priority < right.priority;
+
+                return to_lower(left.name) < to_lower(right.name);
+            });
+
+        return ordered_plugins;
+    }
+
+    static std::filesystem::path resolve_loaded_library_path(
+        const PluginMeta& meta,
+        IFileOps& file_ops)
+    {
+        if (meta.library_path.empty())
+            return {};
+
+        return file_ops.resolve(meta.library_path).lexically_normal();
     }
 
     PluginManager::PluginManager(
@@ -85,7 +160,8 @@ namespace tbx
         if (!file_ops)
             return;
 
-        auto loaded_plugins = load_plugins(_directory, _requested_plugins, *file_ops);
+        auto plugin_loader = PluginLoader();
+        auto loaded_plugins = plugin_loader.load(_directory, _requested_plugins, file_ops.get());
         add_loaded(loaded_plugins);
 
         register_all_services();
@@ -191,34 +267,20 @@ namespace tbx
         return service_provider;
     }
 
-    bool PluginManager::load(const PluginMeta& meta)
-    {
-        auto file_ops = _file_ops.lock();
-        if (!file_ops)
-            return false;
-
-        // Ensure prior instances are fully detached/destroyed before creating a replacement.
-        unload(meta.name);
-
-        auto loaded_plugins = load_plugins(std::vector<PluginMeta> {meta}, *file_ops);
-        if (loaded_plugins.empty())
-            return false;
-
-        add(std::move(loaded_plugins));
-
-        return true;
-    }
-
     void PluginManager::update(const DeltaTime& dt)
     {
         process_pending_file_changes();
-        update_plugins(_loaded, dt);
+        auto ordered_plugins = build_update_order(_loaded, false);
+        for (auto* plugin : ordered_plugins)
+            plugin->update(dt);
     }
 
     void PluginManager::fixed_update(const DeltaTime& dt)
     {
         process_pending_file_changes();
-        update_plugins_fixed(_loaded, dt);
+        auto ordered_plugins = build_update_order(_loaded, true);
+        for (auto* plugin : ordered_plugins)
+            plugin->fixed_update(dt);
     }
 
     void PluginManager::attach_all()
@@ -289,7 +351,8 @@ namespace tbx
             return;
 
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
-        detach_plugins(_loaded, *service_provider, msg_coordinator.get());
+        auto plugin_unloader = PluginUnloader();
+        plugin_unloader.detach(_loaded, *service_provider, msg_coordinator.get());
         _attached = false;
     }
 
@@ -341,49 +404,6 @@ namespace tbx
             plugin.register_services(*service_provider);
     }
 
-    void PluginManager::clear_plugin_runtime_state(Uuid plugin_id)
-    {
-        if (!plugin_id.is_valid())
-            return;
-
-        auto service_provider = get_service_provider();
-        if (!service_provider)
-            return;
-
-        auto tracker = service_provider->try_get_service<PluginOwnershipTracker>().lock();
-        if (!tracker)
-            return;
-
-        const auto owned_resources = tracker->snapshot_and_clear(plugin_id);
-
-        for (const auto& component_type : owned_resources.component_types)
-            unregister_entity_component_type_entry(component_type);
-
-        for (const auto& serializable_type_name : owned_resources.serializable_type_names)
-            unregister_serializable_type_entry(serializable_type_name);
-
-        for (const auto& asset_type : owned_resources.asset_types)
-            unregister_asset_type_entry(asset_type);
-
-        if (auto asset_manager = service_provider->try_get_service<AssetManager>().lock())
-        {
-            for (const auto& handle : owned_resources.pinned_asset_handles)
-                asset_manager->set_pinned(handle, false);
-
-            for (const auto& directory : owned_resources.asset_directories)
-                asset_manager->remove_directory(directory);
-        }
-
-        if (auto entity_registry = service_provider->try_get_service<EntityRegistry>().lock())
-        {
-            for (const auto& entity_id : owned_resources.entity_ids)
-                entity_registry->get(entity_id).destroy();
-        }
-
-        for (const auto& service_type : owned_resources.service_types)
-            service_provider->deregister_service(service_type);
-    }
-
     void PluginManager::unload_plugin_group(LoadedPlugins& plugins)
     {
         auto service_provider = get_service_provider();
@@ -391,18 +411,8 @@ namespace tbx
             return;
 
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
-        detach_plugins(plugins, *service_provider, msg_coordinator.get());
-        if (msg_coordinator)
-            msg_coordinator->flush();
-
-        for (const auto& plugin : plugins)
-        {
-            clear_plugin_runtime_state(plugin.get_id());
-            if (msg_coordinator)
-                msg_coordinator->flush();
-        }
-
-        plugins.clear();
+        auto plugin_unloader = PluginUnloader();
+        plugin_unloader.unload(plugins, *service_provider, msg_coordinator.get());
     }
 
     void PluginManager::process_pending_file_changes()
@@ -453,9 +463,7 @@ namespace tbx
         LoadedPlugin* existing_plugin = nullptr;
         for (auto& loaded_plugin : _loaded)
         {
-            const auto library_path =
-                file_ops->resolve(resolve_plugin_library_path(loaded_plugin.meta, *file_ops))
-                    .lexically_normal();
+            const auto library_path = resolve_loaded_library_path(loaded_plugin.meta, *file_ops);
             if (library_path == changed_path)
             {
                 existing_plugin = &loaded_plugin;
@@ -474,8 +482,9 @@ namespace tbx
             return;
         }
 
-        auto meta = PluginMeta();
-        if (!try_query_plugin_meta_from_library(changed_path, *file_ops, meta))
+        auto plugin_loader = PluginLoader();
+        auto loaded_plugins = plugin_loader.load(changed_path, _requested_plugins, file_ops.get());
+        if (loaded_plugins.empty())
         {
             if (existing_plugin != nullptr)
             {
@@ -486,24 +495,36 @@ namespace tbx
             return;
         }
 
-        if (existing_plugin != nullptr && to_lower(existing_plugin->meta.name) != to_lower(meta.name))
+        const auto loaded_plugin_name = loaded_plugins.front().meta.name;
+        if (existing_plugin != nullptr
+            && to_lower(existing_plugin->meta.name) != to_lower(loaded_plugin_name))
         {
             if (mark_processed_or_skip(existing_plugin->meta.name))
+            {
+                unload_plugin_group(loaded_plugins);
                 return;
+            }
             unload(existing_plugin->meta.name);
         }
 
-        if (!should_load_plugin(meta.name))
+        if (!should_load_plugin(loaded_plugin_name))
         {
-            if (mark_processed_or_skip(meta.name))
+            if (mark_processed_or_skip(loaded_plugin_name))
+            {
+                unload_plugin_group(loaded_plugins);
                 return;
-            unload(meta.name);
+            }
+            unload(loaded_plugin_name);
+            unload_plugin_group(loaded_plugins);
             return;
         }
 
-        if (mark_processed_or_skip(meta.name))
+        if (mark_processed_or_skip(loaded_plugin_name))
+        {
+            unload_plugin_group(loaded_plugins);
             return;
+        }
 
-        load(meta);
+        add(std::move(loaded_plugins));
     }
 }

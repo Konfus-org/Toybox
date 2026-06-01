@@ -1,5 +1,5 @@
 #include "attribute_fixtures.h"
-#include "tbx/systems/files/in_memory_file_ops.h"
+#include "in_memory_file_ops.h"
 
 namespace tbx
 {

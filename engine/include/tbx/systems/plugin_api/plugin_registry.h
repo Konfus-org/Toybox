@@ -1,4 +1,8 @@
 #pragma once
+#include "tbx/tbx_api.h"
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace tbx
 {
@@ -12,6 +16,13 @@ namespace tbx
       public:
         static PluginRegistry& get_instance();
 
+      public:
+        PluginRegistry(const PluginRegistry&) = delete;
+        PluginRegistry& operator=(const PluginRegistry&) = delete;
+        PluginRegistry(PluginRegistry&&) = delete;
+        PluginRegistry& operator=(PluginRegistry&&) = delete;
+
+      public:
         // Registers a plugin instance. Must be called from the main thread. The
         // registry does not take ownership of the pointer and expects the
         // caller to manage its lifetime.
@@ -36,6 +47,11 @@ namespace tbx
         std::string get_registered_name(const Plugin* plugin) const;
 
       private:
+        PluginRegistry() = default;
+        ~PluginRegistry() noexcept = default;
+
+      private:
+        // TODO: weak pointer?
         std::vector<Plugin*> _plugins;
         std::unordered_map<std::string, Plugin*> _plugins_by_name;
     };

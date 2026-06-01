@@ -6,7 +6,6 @@ foreach(test_dir IN ITEMS
     async
     files
     math
-    messaging
     input
     plugin_api
     ecs

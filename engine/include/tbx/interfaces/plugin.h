@@ -15,8 +15,6 @@ namespace tbx
     using DestroyPluginFn = void (*)(Plugin*);
     using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);
     using RegisterPluginServicesFn = void (*)(Plugin*, ServiceProvider*);
-    using RegisterPluginScriptsFn = void (*)();
-    using UnregisterPluginScriptsFn = void (*)();
 
     // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.

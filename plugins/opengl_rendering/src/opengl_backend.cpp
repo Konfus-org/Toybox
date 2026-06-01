@@ -35,14 +35,14 @@ namespace opengl_rendering
 
     tbx::Result make_failure(std::string message)
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_failure(std::move(message));
         return result;
     }
 
     tbx::Result make_success()
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         result.flag_success();
         return result;
     }

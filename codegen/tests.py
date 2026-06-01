@@ -326,15 +326,13 @@ class AttributeCodegenTests(unittest.TestCase):
         )
 
         self.assertIn('#include "tbx/tests/door_controller.h"', output)
-        self.assertIn("void tbx_register_plugin_scripts()", output)
+        self.assertIn("void tbx_register_plugin_services(", output)
         self.assertIn("register_script_asset_type<tbx::tests::DoorController>", output)
         self.assertIn("tbx::tests::tbx_apply_script_overrides_DoorController", output)
         self.assertIn("tbx::tests::tbx_bind_script_runtime_DoorController", output)
-        self.assertIn("void tbx_unregister_plugin_scripts()", output)
-        self.assertIn(
-            "unregister_asset_type_entry(std::type_index(typeid(tbx::tests::DoorController)))",
-            output,
-        )
+        self.assertNotIn("tbx_register_plugin_scripts", output)
+        self.assertNotIn("tbx_unregister_plugin_scripts", output)
+        self.assertNotIn("unregister_asset_type_entry", output)
 
     def test_plugin_source_generates_service_registration_method(self) -> None:
         types = parse_source(

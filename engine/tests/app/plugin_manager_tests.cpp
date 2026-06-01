@@ -1,3 +1,4 @@
+#include "in_memory_file_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/assets/manager.h"
@@ -5,7 +6,6 @@
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/ecs/world/manager.h"
-#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
@@ -143,8 +143,7 @@ namespace tbx::tests::app
         if (service_provider == nullptr)
             return;
 
-        service_provider->register_service<IPhysicsBackend>(
-            std::make_shared<FakePhysicsBackend>());
+        service_provider->register_service<IPhysicsBackend>(std::make_shared<FakePhysicsBackend>());
     }
 
     static void register_app_physics_service(ServiceProvider& service_provider)
@@ -287,7 +286,12 @@ namespace tbx::tests::app
                 delete plugin;
             });
         auto plugins = LoadedPlugins {};
-        plugins.emplace_back(meta, nullptr, std::move(instance), nullptr, bind_physics_consumer_runtime);
+        plugins.emplace_back(
+            meta,
+            nullptr,
+            std::move(instance),
+            nullptr,
+            bind_physics_consumer_runtime);
         return plugins;
     }
 
@@ -459,11 +463,7 @@ namespace tbx::tests::app
         ASSERT_NE(retained_backend, nullptr);
 
         // Act / Assert
-        EXPECT_DEATH_IF_SUPPORTED(
-            {
-                static_cast<void>(manager.unload("FakePhysicsBackend"));
-            },
-            "");
+        EXPECT_DEATH_IF_SUPPORTED({ static_cast<void>(manager.unload("FakePhysicsBackend")); }, "");
 
         retained_backend.reset();
         EXPECT_TRUE(manager.unload("FakePhysicsBackend"));

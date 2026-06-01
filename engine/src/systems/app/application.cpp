@@ -7,12 +7,10 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
-#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <chrono>
-#include <exception>
 #include <memory>
 
 namespace tbx
@@ -316,7 +314,9 @@ namespace tbx
 
             // Log filesystem directories
             TBX_TRACE_INFO("Working Directory: '{}'", file_ops->get_working_directory().string());
-            TBX_TRACE_INFO("Logs Directory: '{}'", Log::get_logs_directory().string());
+            TBX_TRACE_INFO(
+                "Logs Directory: '{}'",
+                Log::get_instance().get_logs_directory().string());
             auto asset_roots = asset_manager->get_directories();
             if (asset_roots.size() > 1)
             {

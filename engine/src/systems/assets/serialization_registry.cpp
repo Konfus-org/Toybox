@@ -21,7 +21,7 @@ namespace tbx
 
     Result SerializationRegistry::make_failed_result(std::string report)
     {
-        auto result = Result {};
+        auto result = Result();
         result.flag_failure(std::move(report));
         return result;
     }

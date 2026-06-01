@@ -59,7 +59,7 @@ namespace opengl_rendering
         const std::vector<tbx::Shader>& shader_desc,
         std::vector<std::shared_ptr<OpenGlShader>>& out_shaders)
     {
-        auto result = tbx::Result {};
+        auto result = tbx::Result();
         if (shader_desc.empty())
         {
             result.flag_failure("OpenGL backend: pipeline has no shader sources.");

@@ -4,7 +4,9 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog-inl.h>
+#include <mutex>
 #include <system_error>
+#include <unordered_set>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <spdlog/sinks/msvc_sink.h>
@@ -12,10 +14,28 @@
 
 namespace tbx
 {
-    static std::mutex g_logger_mutex = {};
-    static std::mutex g_once_mutex = {};
-    static std::shared_ptr<spdlog::logger> g_logger = {};
-    static std::unordered_set<size_t> g_once_message_hashes = {};
+    struct Log::State
+    {
+        std::shared_ptr<spdlog::logger> get_or_create_default_logger();
+
+        std::mutex logger_mutex = {};
+        std::mutex once_mutex = {};
+        std::shared_ptr<spdlog::logger> logger = {};
+        std::unordered_set<size_t> once_message_hashes = {};
+    };
+
+    Log::Log()
+        : _state(std::make_unique<State>())
+    {
+    }
+
+    Log::~Log() noexcept = default;
+
+    Log& Log::get_instance()
+    {
+        static Log log = {};
+        return log;
+    }
 
     std::filesystem::path Log::get_logs_directory()
     {
@@ -40,7 +60,7 @@ namespace tbx
     static std::shared_ptr<spdlog::logger> create_default_logger()
     {
         auto file_operator = FileOperator();
-        auto logs_directory = Log::get_logs_directory();
+        auto logs_directory = Log::get_instance().get_logs_directory();
         auto path = file_operator.rotate(logs_directory, "TbxDebug", ".log", 10);
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -63,22 +83,22 @@ namespace tbx
 #endif
     }
 
-    static std::shared_ptr<spdlog::logger> get_or_create_default_logger()
+    std::shared_ptr<spdlog::logger> Log::State::get_or_create_default_logger()
     {
-        std::lock_guard<std::mutex> lock(g_logger_mutex);
-        if (g_logger)
-            return g_logger;
+        std::lock_guard<std::mutex> lock(logger_mutex);
+        if (logger)
+            return logger;
 
-        g_logger = create_default_logger();
-        return g_logger;
+        logger = create_default_logger();
+        return logger;
     }
 
     void Log::flush()
     {
         auto active_logger = std::shared_ptr<spdlog::logger> {};
         {
-            std::lock_guard<std::mutex> lock(g_logger_mutex);
-            active_logger = g_logger;
+            std::lock_guard<std::mutex> lock(_state->logger_mutex);
+            active_logger = _state->logger;
         }
 
         if (active_logger)
@@ -112,14 +132,18 @@ namespace tbx
         const auto hash =
             message_hash ^ (level_hash + 0x9E3779B9U + (message_hash << 6U) + (message_hash >> 2U));
 
-        std::lock_guard<std::mutex> lock(g_once_mutex);
-        const auto insert_result = g_once_message_hashes.insert(hash);
+        std::lock_guard<std::mutex> lock(_state->once_mutex);
+        const auto insert_result = _state->once_message_hashes.insert(hash);
         return insert_result.second;
     }
 
-    void Log::write_internal(LogLevel level, const char* file, int line, const std::string& message)
+    void Log::write_internal(
+        LogLevel level,
+        const char* file,
+        int line,
+        const std::string& message)
     {
-        auto active_logger = get_or_create_default_logger();
+        auto active_logger = _state->get_or_create_default_logger();
         std::string filename = std::filesystem::path(file).filename().string();
         const auto* filename_cstr = filename.c_str();
         switch (level)
@@ -138,4 +162,5 @@ namespace tbx
                 break;
         }
     }
+
 }

@@ -334,7 +334,7 @@ namespace tbx
                                          return transform_result;
                                  }
 
-                                 auto result = Result {};
+                                 auto result = Result();
                                  result.flag_success();
                                  return result;
                              })

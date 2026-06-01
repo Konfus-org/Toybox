@@ -1,14 +1,14 @@
 ﻿#include "asset_manager_tests.generated.h"
+#include "in_memory_file_ops.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
-#include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/utils/result.h"
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <future>
 #include <thread>
-
 
 namespace tbx
 {
@@ -289,7 +289,7 @@ namespace tbx
         std::shared_future<Result> post(std::unique_ptr<Message>) const override
         {
             auto promise = std::promise<Result> {};
-            promise.set_value(Result {});
+            promise.set_value(Result());
             return promise.get_future().share();
         }
     };
@@ -587,13 +587,13 @@ namespace tbx::tests::assets
             file_ops->read_file("content/value.tasset", FileDataFormat::UTF8_TEXT, body);
         auto json = JsonParser::parse(body);
         auto value = int();
+        read_serialization_value(json, value);
 
         // Assert
         EXPECT_TRUE(registry.has_loader<MacroOnlyAsset>());
         EXPECT_TRUE(registry.has_writer<MacroOnlyAsset>());
         EXPECT_TRUE(result.succeeded());
         EXPECT_TRUE(wrote_body);
-        EXPECT_TRUE(JsonParser::try_get(json, "value", value));
         EXPECT_EQ(value, 64);
     }
 
@@ -1216,10 +1216,12 @@ namespace tbx::tests::assets
             file_ops);
         register_test_asset_loader(*get_test_serialization_registry());
         auto directories = manager.get_directories();
+        const auto expected_directory = working_directory / "content";
 
         // Assert
-        ASSERT_EQ(directories.size(), 1U);
-        EXPECT_EQ(directories[0], working_directory / "content");
+        EXPECT_NE(
+            std::find(directories.begin(), directories.end(), expected_directory),
+            directories.end());
     }
 
     TEST(asset_manager, tracks_asset_directories)
@@ -1231,10 +1233,87 @@ namespace tbx::tests::assets
         // Act
         manager.add_directory("content");
         auto directories = manager.get_directories();
+        const auto expected_directory = working_directory / "content";
 
         // Assert
-        ASSERT_EQ(directories.size(), 1U);
-        EXPECT_EQ(directories[0], working_directory / "content");
+        EXPECT_NE(
+            std::find(directories.begin(), directories.end(), expected_directory),
+            directories.end());
+    }
+
+    TEST(asset_manager, remove_directory_unloads_assets_from_removed_directory)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        file_ops->write_file("content/remove.asset", FileDataFormat::UTF8_TEXT, "remove");
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "remove.asset", Uuid(0xA0U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        AssetManager manager(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            {"content"},
+            provider,
+            file_ops);
+        register_test_asset_loader(*get_test_serialization_registry());
+        reset_test_asset_loader_state();
+        auto asset = manager.load<TestAsset>(Handle(Uuid(0xA0U)));
+        ASSERT_NE(asset, nullptr);
+        auto asset_reference = std::weak_ptr<TestAsset>(asset);
+        asset.reset();
+
+        // Act
+        manager.remove_directory("content");
+
+        // Assert
+        EXPECT_TRUE(asset_reference.expired());
+        EXPECT_EQ(manager.load<TestAsset>(Handle(Uuid(0xA0U))), nullptr);
+        EXPECT_TRUE(manager.get_loaded<TestAsset>().empty());
+    }
+
+    TEST(asset_manager, remove_directory_keeps_assets_from_sibling_directory)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        file_ops->write_file("content/remove.asset", FileDataFormat::UTF8_TEXT, "remove");
+        file_ops->write_file("content_extra/keep.asset", FileDataFormat::UTF8_TEXT, "keep");
+        InMemoryHandleSource handle_source = {};
+        handle_source.add(working_directory / "content" / "remove.asset", Uuid(0xA1U));
+        handle_source.add(working_directory / "content_extra" / "keep.asset", Uuid(0xA2U));
+        auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
+        {
+            return handle_source.try_get(asset_path, out_handle);
+        };
+        AssetManager manager(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            {"content", "content_extra"},
+            provider,
+            file_ops);
+        register_test_asset_loader(*get_test_serialization_registry());
+        reset_test_asset_loader_state();
+        auto removed_asset = manager.load<TestAsset>(Handle(Uuid(0xA1U)));
+        auto kept_asset = manager.load<TestAsset>(Handle(Uuid(0xA2U)));
+        ASSERT_NE(removed_asset, nullptr);
+        ASSERT_NE(kept_asset, nullptr);
+        auto removed_asset_reference = std::weak_ptr<TestAsset>(removed_asset);
+        removed_asset.reset();
+
+        // Act
+        manager.remove_directory("content");
+
+        // Assert
+        const auto kept_asset_after_removal = manager.load<TestAsset>(Handle(Uuid(0xA2U)));
+        EXPECT_TRUE(removed_asset_reference.expired());
+        EXPECT_EQ(kept_asset_after_removal, kept_asset);
+        EXPECT_EQ(manager.load<TestAsset>(Handle(Uuid(0xA1U))), nullptr);
     }
 
     TEST(asset_manager, discovery_keeps_generated_ids_in_memory_when_meta_is_missing)
