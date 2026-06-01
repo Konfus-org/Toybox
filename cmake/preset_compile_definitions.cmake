@@ -7,7 +7,11 @@ if(NOT DEFINED TBX_LOGS_DIRECTORY_PATH)
 endif()
 
 if(NOT DEFINED TBX_RESOURCES_PATH)
-  set(TBX_RESOURCES_PATH "")
+  if(NOT TBX_FULL_RELEASE AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/resources")
+    set(TBX_RESOURCES_PATH "${CMAKE_SOURCE_DIR}/resources")
+  else()
+    set(TBX_RESOURCES_PATH "")
+  endif()
 endif()
 
 add_compile_definitions(

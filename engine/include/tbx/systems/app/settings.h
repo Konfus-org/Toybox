@@ -9,7 +9,6 @@
 #include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/handle.h"
 #include <string>
-#include <vector>
 
 namespace tbx
 {
@@ -39,11 +38,5 @@ namespace tbx
 
         [[prop]]
         std::string name = "Toybox App";
-
-        [[prop]]
-        std::vector<std::string> requested_plugins = {};
-
-        [[prop]]
-        Handle startup_world = {};
     };
 }

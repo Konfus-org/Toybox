@@ -25,5 +25,15 @@ function(tbx_add_example_launcher)
             Tbx::DefaultPlugins
             ${TBX_EXAMPLE_RUNTIME_TARGET}
     )
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LaunchConfig.json")
+        add_custom_command(
+            TARGET ${TBX_EXAMPLE_NAME}
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_CURRENT_SOURCE_DIR}/LaunchConfig.json"
+                "$<TARGET_FILE_DIR:${TBX_EXAMPLE_NAME}>/LaunchConfig.json"
+            VERBATIM
+        )
+    endif()
     target_precompile_headers(${TBX_EXAMPLE_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")
 endfunction()

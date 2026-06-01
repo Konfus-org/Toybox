@@ -3,6 +3,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/interfaces/window_backend.h"
+#include "tbx/systems/app/launch_config.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
@@ -12,18 +13,19 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <string>
 
 namespace tbx
 {
-    static constexpr auto DEFAULT_SETTINGS_ASSET = "Settings.json";
-
-    static std::shared_ptr<AppSettings> load_app_settings(AssetManager& asset_manager)
+    static std::shared_ptr<AppSettings> load_app_settings(
+        AssetManager& asset_manager,
+        const std::string& settings_asset)
     {
         auto settings = std::make_shared<AppSettings>();
-        const auto settings_handle = Handle(DEFAULT_SETTINGS_ASSET);
+        const auto settings_handle = Handle(settings_asset);
         auto asset_settings = asset_manager.load<AppSettings>(settings_handle);
         if (!asset_settings)
-            TBX_TRACE_WARNING("Failed to load application settings '{}'.", DEFAULT_SETTINGS_ASSET);
+            TBX_TRACE_WARNING("Failed to load application settings '{}'.", settings_asset);
         else
             settings = asset_settings;
 
@@ -225,10 +227,6 @@ namespace tbx
             TBX_TRACE_INFO("Build Configuration: Debug");
 #endif
 
-            _settings = load_app_settings(*asset_manager);
-            auto settings = _settings;
-            _name = settings->name;
-
             // Register app message handler
             msg_coordinator->register_handler(
                 [this](Message& msg)
@@ -251,11 +249,28 @@ namespace tbx
                     _plugin_manager.receive_message(msg);
                 });
 
-            // Load requested plugins
+            const auto launch_config_result = read_launch_config(*file_ops);
+            if (launch_config_result.used_default_config)
+                TBX_TRACE_WARNING("{}", launch_config_result.result.get_report());
+            if (!launch_config_result.result)
+            {
+                TBX_TRACE_CRITICAL("{}", launch_config_result.result.get_report());
+                _should_exit = true;
+                TBX_ASSERT(false, "{}", launch_config_result.result.get_report());
+                return;
+            }
+
+            const auto& launch_config = launch_config_result.config;
+
             _plugin_manager.load(
                 file_ops->get_working_directory(),
-                settings->requested_plugins,
+                launch_config.plugins,
                 file_ops->get_working_directory());
+
+            _settings = load_app_settings(*asset_manager, launch_config.settings_asset);
+            auto settings = _settings;
+            _name = settings->name;
+
             register_app_window_manager(*_service_provider);
             register_app_physics(*_service_provider, settings->physics);
             register_app_rendering(*_service_provider);
@@ -264,13 +279,13 @@ namespace tbx
             _rendering = _service_provider->try_get_service<Rendering>();
             _plugin_manager.attach_all();
 
-            if (settings->startup_world.is_valid())
+            if (launch_config.startup_world.is_valid())
             {
-                if (!world_manager->set_active_world(settings->startup_world))
+                if (!world_manager->set_active_world(launch_config.startup_world))
                 {
                     TBX_TRACE_ERROR(
                         "Failed to load startup world '{}'.",
-                        settings->startup_world.name);
+                        launch_config.startup_world);
                     _should_exit = true;
                     return;
                 }

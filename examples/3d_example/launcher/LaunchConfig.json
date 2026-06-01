@@ -1,0 +1,7 @@
+{
+    "plugins": [
+        "ThreeDExampleRuntime"
+    ],
+    "settings_asset": "Settings.json",
+    "startup_world": 822083584
+}

@@ -1,12 +1,14 @@
 #pragma once
 #include "tbx/systems/debugging/logging.h"
+#include <cstdlib>
+#include <exception>
 
 #define TBX_TRACE_FLUSH() ::tbx::Log::get_instance().flush()
 
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \
-        ::tbx::Log::get_instance().write(                                                         \
+        ::tbx::Log::get_instance().write(                                                          \
             ::tbx::LogLevel::INFO,                                                                 \
             __FILE__,                                                                              \
             __LINE__,                                                                              \
@@ -118,6 +120,22 @@
     #define TBX_DEBUG_BREAK()
 #endif
 
+#ifdef TBX_ASSERTS_ENABLED
+    #define TBX_ASSERT_FAILURE_TERMINATE()                                                         \
+        do                                                                                         \
+        {                                                                                          \
+            TBX_TRACE_FLUSH();                                                                     \
+            TBX_DEBUG_BREAK();                                                                     \
+            std::abort();                                                                          \
+        } while (0)
+#else
+    #define TBX_ASSERT_FAILURE_TERMINATE()                                                         \
+        do                                                                                         \
+        {                                                                                          \
+            TBX_TRACE_FLUSH();                                                                     \
+        } while (0)
+#endif
+
 #define TBX_ASSERT(cond, ...)                                                                      \
     do                                                                                             \
     {                                                                                              \
@@ -128,7 +146,7 @@
                 __FILE__,                                                                          \
                 __LINE__,                                                                          \
                 __VA_ARGS__);                                                                      \
-            TBX_DEBUG_BREAK();                                                                     \
+            TBX_ASSERT_FAILURE_TERMINATE();                                                        \
         }                                                                                          \
     } while (0)
 
@@ -139,12 +157,12 @@
         {                                                                                          \
             to_try                                                                                 \
         }                                                                                          \
-        catch (std::exception ex)                                                                  \
+        catch (const std::exception& ex)                                                           \
         {                                                                                          \
             TBX_ASSERT(false, "{}\nException:\n{}", failure_msg, ex.what());                       \
         }                                                                                          \
         catch (...)                                                                                \
         {                                                                                          \
-            TBX_ASSERT(false, "{}\nUnkown Exception...");                                          \
+            TBX_ASSERT(false, "{}\nUnknown exception...", failure_msg);                            \
         }                                                                                          \
     } while (0)
