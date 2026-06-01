@@ -25,7 +25,6 @@ namespace tbx
         WindowMode mode = WindowMode::WINDOWED;
         WindowMode mode_to_restore = WindowMode::WINDOWED;
         bool is_open = false;
-        NativeWindowHandle native_handle = nullptr;
     };
 
     struct WindowManager::State
@@ -54,11 +53,11 @@ namespace tbx
         const auto base_name = sanitize_window_handle_name(create_info.title);
         auto handle_name = base_name;
         auto duplicate_index = uint32 {2U};
-        auto window = Handle(handle_name);
+        auto window = Window(handle_name);
         while (_state->windows.contains(window))
         {
             handle_name = base_name + " (" + std::to_string(duplicate_index) + ")";
-            window = Handle(handle_name);
+            window = Window(handle_name);
             ++duplicate_index;
         }
 
@@ -88,7 +87,8 @@ namespace tbx
             return {};
         }
 
-        record.native_handle = native_handle;
+        window.native_handle = native_handle;
+        record.id = window;
         _state->windows[window] = std::move(record);
         if (!_state->main_window.id.is_valid())
             _state->main_window = window;
@@ -179,7 +179,7 @@ namespace tbx
     NativeWindowHandle WindowManager::get_native_handle(const Window& window) const
     {
         const auto* record = try_get_record(window);
-        return record ? record->native_handle : nullptr;
+        return record ? record->id.native_handle : nullptr;
     }
 
     Size WindowManager::get_size(const Window& window) const

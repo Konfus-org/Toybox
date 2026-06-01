@@ -64,7 +64,7 @@ namespace tbx
     template <typename TService>
     inline void bind_script_field(ServiceRef<TService>& service, ScriptContext& context)
     {
-        service = ServiceRef<TService>(context.get_services().try_get_service<TService>());
+        bind_service_field(service, context.get_services());
     }
 
     /// @brief

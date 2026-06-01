@@ -14,7 +14,7 @@ namespace tbx
         std::unordered_set<Uuid> entity_ids = {};
         std::unordered_set<Handle> pinned_asset_handles = {};
         std::unordered_set<std::filesystem::path> asset_directories = {};
-        std::unordered_set<std::type_index> service_types = {};
+        std::vector<std::type_index> service_types = {};
         std::unordered_set<std::type_index> component_types = {};
         std::unordered_set<std::string> serializable_type_names = {};
         std::unordered_set<std::type_index> asset_types = {};
@@ -83,7 +83,10 @@ namespace tbx
             return;
 
         auto guard = std::lock_guard(_state->mutex);
-        _state->records_by_plugin_id[plugin_id].service_types.insert(type_index_key(service_type));
+        auto& service_types = _state->records_by_plugin_id[plugin_id].service_types;
+        const auto key = type_index_key(service_type);
+        if (std::ranges::find(service_types, key) == service_types.end())
+            service_types.push_back(key);
     }
 
     void PluginOwnershipTracker::track_component_registration(
@@ -167,13 +170,7 @@ namespace tbx
             {
                 return left.generic_string() < right.generic_string();
             });
-        std::sort(
-            resources.service_types.begin(),
-            resources.service_types.end(),
-            [](std::type_index left, std::type_index right)
-            {
-                return type_index_name(left) < type_index_name(right);
-            });
+        std::reverse(resources.service_types.begin(), resources.service_types.end());
         std::sort(
             resources.component_types.begin(),
             resources.component_types.end(),

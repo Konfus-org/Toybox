@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import re
 
-from model import Attribute, CodegenError, EnumValue, Field, SerializableType, attr_value, has_attr
+from model import (
+    Attribute,
+    CodegenError,
+    EnumValue,
+    Field,
+    SerializableType,
+    attr_value,
+    has_attr,
+    split_attribute_values,
+)
 
 
 ATTRIBUTE_PATTERN = re.compile(
@@ -32,37 +41,38 @@ def parse_arguments(raw: str | None) -> list[str]:
     if raw is None or not raw.strip():
         return []
 
-    args: list[str] = []
-    current: list[str] = []
-    in_string = False
-    escape = False
-    for character in raw:
-        if escape:
-            current.append(character)
-            escape = False
-            continue
-        if character == "\\" and in_string:
-            current.append(character)
-            escape = True
-            continue
-        if character == '"':
-            in_string = not in_string
-            continue
-        if character == "," and not in_string:
-            args.append("".join(current).strip())
-            current = []
-            continue
-        current.append(character)
+    return split_attribute_values(raw)
 
-    args.append("".join(current).strip())
-    return args
+
+def split_named_argument(argument: str) -> tuple[str, str] | None:
+    match = re.match(r"^\s*([A-Za-z_]\w*)\s*=\s*(.+?)\s*$", argument)
+    if match is None:
+        return None
+    if match.group(2).lstrip().startswith("="):
+        return None
+    return match.group(1), match.group(2)
+
+
+def parse_attribute_arguments(raw: str | None) -> tuple[list[str], dict[str, str]]:
+    positional_args: list[str] = []
+    named_args: dict[str, str] = {}
+    for argument in parse_arguments(raw):
+        named_argument = split_named_argument(argument)
+        if named_argument is None:
+            positional_args.append(argument)
+            continue
+
+        name, value = named_argument
+        named_args[name] = value
+    return positional_args, named_args
 
 
 def parse_attributes(text: str) -> list[Attribute]:
-    return [
-        Attribute(name=match.group(1), args=parse_arguments(match.group(2)))
-        for match in ATTRIBUTE_PATTERN.finditer(text)
-    ]
+    attrs: list[Attribute] = []
+    for match in ATTRIBUTE_PATTERN.finditer(text):
+        args, named_args = parse_attribute_arguments(match.group(2))
+        attrs.append(Attribute(name=match.group(1), args=args, named_args=named_args))
+    return attrs
 
 
 def remove_attributes(text: str) -> str:
@@ -157,6 +167,8 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
             kind = "text"
         elif has_attr(active_attrs, "inject"):
             kind = "inject"
+        elif has_attr(active_attrs, "register"):
+            kind = "register"
 
         if not kind:
             continue
@@ -171,6 +183,7 @@ def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
                 kind=kind,
                 json_name=attr_value(active_attrs, "name"),
                 type_name=match.group(1).strip(),
+                attrs=active_attrs,
             )
         )
 
@@ -219,6 +232,13 @@ def generation_attrs(attrs: list[Attribute]) -> bool:
         or has_attr(attrs, "printable")
         or has_attr(attrs, "hash")
         or has_attr(attrs, "plugin")
+        or has_attr(attrs, "register")
+    )
+
+
+def requires_generation(type_info: SerializableType) -> bool:
+    return generation_attrs(type_info.attrs) or any(
+        field.kind in {"inject", "register"} for field in type_info.fields
     )
 
 
@@ -349,4 +369,4 @@ def parse_source(
     source_types = parse_type_declarations(source, source_path)
     all_types = context_types + source_types
     append_inherited_fields(all_types)
-    return [type_info for type_info in source_types if generation_attrs(type_info.attrs)]
+    return [type_info for type_info in source_types if requires_generation(type_info)]

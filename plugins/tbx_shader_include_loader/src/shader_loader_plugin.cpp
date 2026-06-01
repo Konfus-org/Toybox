@@ -1,5 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/plugins/shader_include_loader/shader_include_loader.h"
+#include "shader_include_loader.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/shader.h"
@@ -280,16 +280,13 @@ namespace tbx::shader_loader
         return make_shader_load_success(std::move(expanded));
     }
 
-    void ShaderIncludeLoader::on_attach(tbx::ServiceProvider& service_provider)
+    void ShaderIncludeLoader::on_attach()
     {
-        _asset_manager = service_provider.get_service<tbx::AssetManager>();
-        _file_ops = service_provider.get_service<tbx::IFileOps>();
-        _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
-        auto serialization_registry = _serialization_registry.lock();
-        if (!serialization_registry)
+        auto* registry = serialization_registry.try_get();
+        if (!registry)
             return;
 
-        serialization_registry->register_transformer<tbx::Shader>(
+        registry->register_transformer<tbx::Shader>(
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::ShaderLoadParameters& parameters,
@@ -300,14 +297,14 @@ namespace tbx::shader_loader
             });
     }
 
-    void ShaderIncludeLoader::on_detach(tbx::ServiceProvider&)
+    void ShaderIncludeLoader::on_detach()
     {
-        if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->deregister_transformer<tbx::Shader>();
+        if (auto* registry = serialization_registry.try_get())
+            registry->deregister_transformer<tbx::Shader>();
 
-        _asset_manager = {};
-        _file_ops = {};
-        _serialization_registry = {};
+        asset_manager = {};
+        file_ops = {};
+        serialization_registry = {};
     }
 
     tbx::Result ShaderIncludeLoader::transform_shader(
@@ -317,15 +314,15 @@ namespace tbx::shader_loader
         tbx::Shader& shader)
     {
         auto result = tbx::Result {};
-        auto file_ops = _file_ops.lock();
-        if (!file_ops)
+        auto* files = file_ops.try_get();
+        if (!files)
         {
             result.flag_failure("tbx::Shader loader: file services unavailable.");
             return result;
         }
 
-        auto asset_manager = _asset_manager.lock();
-        if (!asset_manager)
+        auto* assets = asset_manager.try_get();
+        if (!assets)
         {
             result.flag_failure("tbx::Shader loader: asset manager unavailable.");
             return result;
@@ -346,8 +343,8 @@ namespace tbx::shader_loader
         std::vector include_stack = {asset_path};
         std::unordered_set<std::string> included_files = {};
         ShaderLoadResult expanded = try_expand_includes(
-            *file_ops,
-            *asset_manager,
+            *files,
+            *assets,
             asset_path,
             shader.source,
             include_stack,

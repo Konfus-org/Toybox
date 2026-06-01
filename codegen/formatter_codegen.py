@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from model import CodegenError, SerializableType, cpp_string, find_attr, qualified_name
+from model import CodegenError, SerializableType, attr_arg, attr_list_arg, cpp_string, find_attr, qualified_name
 
 
 def make_value_expression(argument: str) -> str:
@@ -13,9 +13,11 @@ def emit_formatter_declaration(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "printable")
     if attr is None:
         return []
-    if type_info.declaration_kind != "enum" and len(attr.args) < 1:
+    format_text = attr_arg(attr, 0, "format")
+    fields = attr_list_arg(attr, "fields") or attr.args[1:]
+    if type_info.declaration_kind != "enum" and format_text is None:
         raise CodegenError(f"{type_info.name} requires a format string for [[tbx::printable]].")
-    if type_info.declaration_kind != "enum" and not attr.args[1:]:
+    if type_info.declaration_kind != "enum" and not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::printable]].")
 
     qualified = qualified_name(type_info)
@@ -85,13 +87,13 @@ def emit_formatter(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "printable")
     if attr is None:
         return []
-    if type_info.declaration_kind == "enum" and not attr.args:
+    if type_info.declaration_kind == "enum" and not attr.args and not attr.named_args:
         return emit_enum_name_formatter(type_info)
-    if len(attr.args) < 1:
+    format_text = attr_arg(attr, 0, "format")
+    if format_text is None:
         raise CodegenError(f"{type_info.name} requires a format string for [[tbx::printable]].")
 
-    format_text = attr.args[0]
-    fields = attr.args[1:]
+    fields = attr_list_arg(attr, "fields") or attr.args[1:]
     if not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::printable]].")
 

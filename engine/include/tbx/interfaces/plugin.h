@@ -13,6 +13,8 @@ namespace tbx
     using GetPluginMetaFn = void (*)(PluginMeta*);
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
+    using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);
+    using RegisterPluginServicesFn = void (*)(Plugin*, ServiceProvider*);
     using RegisterPluginScriptsFn = void (*)();
     using UnregisterPluginScriptsFn = void (*)();
 
@@ -23,23 +25,18 @@ namespace tbx
       public:
         Plugin();
         virtual ~Plugin() noexcept;
+
+      public:
         Plugin(const Plugin&) = delete;
         Plugin& operator=(const Plugin&) = delete;
         Plugin(Plugin&&) noexcept = default;
         Plugin& operator=(Plugin&&) = default;
 
-        /// @brief
-        /// Purpose: Initializes the plugin, wiring it to the given service provider.
-        /// @details
-        /// Ownership: Does not own the service provider or dispatcher references.
-        /// Thread Safety: Not thread-safe; must be called exactly once before use.
+      public:
+        // Initializes the plugin, wiring it to the given service provider.
         void attach(ServiceProvider& service_provider, PluginInstanceId plugin_id);
 
-        /// @brief
-        /// Purpose: Shuts the plugin down and clears dispatcher references.
-        /// @details
-        /// Ownership: Does not own the provider or dispatcher references.
-        /// Thread Safety: Not thread-safe; call from the main thread.
+        // Shuts the plugin down and clears dispatcher references.
         void detach(ServiceProvider& service_provider);
 
         // Ticks the plugin for the given frame delta.
@@ -66,10 +63,10 @@ namespace tbx
       protected:
         // Called when the plugin is attached to the service provider.
         // The plugin must not retain references that outlive its own lifetime.
-        virtual void on_attach(ServiceProvider& service_provider) = 0;
+        virtual void on_attach() {}
 
         // Called before the plugin is detached from the service provider.
-        virtual void on_detach(ServiceProvider& service_provider) {}
+        virtual void on_detach() {}
 
         // Per-frame update with delta timing.
         virtual void on_update(const DeltaTime& dt) {}
@@ -87,7 +84,7 @@ namespace tbx
         static Result dispatcher_missing_result(std::string_view action);
 
         std::weak_ptr<IMessageDispatcher> _dispatcher = {};
-        PluginInstanceId _plugin_id = PluginInstanceId{};
+        PluginInstanceId _plugin_id = PluginInstanceId {};
     };
 }
 

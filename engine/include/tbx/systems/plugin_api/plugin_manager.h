@@ -69,6 +69,8 @@ namespace tbx
         /// Thread Safety: Not thread-safe; call from the main thread.
         void fixed_update(const DeltaTime& dt);
 
+        void attach_all();
+
         /// @brief
         /// Purpose: Detaches and unloads a specific plugin and any loaded dependents.
         /// @details
@@ -99,8 +101,12 @@ namespace tbx
         void receive_message(Message& msg);
 
       private:
+        void add_loaded(LoadedPlugin loaded_plugin);
+        void attach_all_unattached();
+        void bind_all_runtime();
         bool should_load_plugin(const std::string& plugin_name) const;
         void clear_plugin_runtime_state(Uuid plugin_id);
+        void register_all_services();
         void unload_plugin_group(std::vector<LoadedPlugin>& plugins);
         void process_pending_file_changes();
         void process_file_change(
@@ -121,5 +127,6 @@ namespace tbx
         std::unique_ptr<FileWatcher> _watcher = {};
 
         ServiceProvider& _service_provider;
+        bool _attached = false;
     };
 }

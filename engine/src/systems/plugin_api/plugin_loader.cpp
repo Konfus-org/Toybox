@@ -261,6 +261,10 @@ namespace tbx
             lib->get_symbol<RegisterPluginScriptsFn>("tbx_register_plugin_scripts");
         UnregisterPluginScriptsFn unregister_scripts =
             lib->get_symbol<UnregisterPluginScriptsFn>("tbx_unregister_plugin_scripts");
+        RegisterPluginServicesFn register_services =
+            lib->get_symbol<RegisterPluginServicesFn>("tbx_register_plugin_services");
+        BindPluginRuntimeFn bind_runtime =
+            lib->get_symbol<BindPluginRuntimeFn>("tbx_bind_plugin_runtime");
 
         const auto plugin_id = allocate_plugin_instance_id();
         auto plugin_scope = ScopedPluginContext(plugin_id);
@@ -282,7 +286,8 @@ namespace tbx
             });
         if (register_scripts)
             register_scripts();
-        auto loaded = LoadedPlugin(meta, std::move(lib), std::move(instance));
+        auto loaded =
+            LoadedPlugin(meta, std::move(lib), std::move(instance), register_services, bind_runtime);
         loaded.set_id(plugin_id);
         return loaded;
     }

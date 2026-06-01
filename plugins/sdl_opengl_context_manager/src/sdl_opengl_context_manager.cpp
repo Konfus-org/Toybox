@@ -1,4 +1,4 @@
-#include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
+#include "sdl_opengl_context_manager.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
 
@@ -40,12 +40,6 @@ namespace sdl_opengl_context_manager
                 static_cast<int>(attribute),
                 SDL_GetError());
         }
-    }
-
-    SdlOpenGlContextManager::SdlOpenGlContextManager(
-        std::weak_ptr<tbx::IWindowManager> window_manager)
-        : _window_manager(std::move(window_manager))
-    {
     }
 
     SdlOpenGlContextManager::~SdlOpenGlContextManager() noexcept
@@ -212,11 +206,7 @@ namespace sdl_opengl_context_manager
 
     SDL_Window* SdlOpenGlContextManager::get_sdl_window(const tbx::Window& window) const
     {
-        const auto window_manager = _window_manager.lock();
-        if (!window_manager)
-            return nullptr;
-
-        return static_cast<SDL_Window*>(window_manager->get_native_handle(window));
+        return static_cast<SDL_Window*>(window.native_handle);
     }
 
     bool SdlOpenGlContextManager::try_create_context(

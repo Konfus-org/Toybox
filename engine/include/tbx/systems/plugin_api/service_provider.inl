@@ -5,14 +5,27 @@ namespace tbx
     struct ServiceProvider::ServiceEntryBase
     {
         virtual ~ServiceEntryBase() noexcept = default;
+
+        virtual long service_use_count() const = 0;
+        virtual std::type_index service_type() const = 0;
     };
 
     template <typename TService>
     struct ServiceProvider::ServiceEntry final : ServiceEntryBase
     {
-        ServiceEntry(std::unique_ptr<TService> value)
+        ServiceEntry(std::shared_ptr<TService> value)
             : service(std::move(value))
         {
+        }
+
+        long service_use_count() const override
+        {
+            return service.use_count();
+        }
+
+        std::type_index service_type() const override
+        {
+            return std::type_index(typeid(TService));
         }
 
         std::shared_ptr<TService> service = nullptr;
@@ -20,14 +33,16 @@ namespace tbx
 
     template <typename TService, typename TImplementation>
         requires std::derived_from<TImplementation, TService>
-    void ServiceProvider::register_service(std::unique_ptr<TImplementation> service)
+    void ServiceProvider::register_service(std::shared_ptr<TImplementation> service)
     {
         TBX_ASSERT(service != nullptr, "Cannot register a null service instance.");
         if (!service)
             return;
 
         std::type_index key(typeid(TService));
-        auto casted_service = std::unique_ptr<TService>(std::move(service));
+        erase_service(key);
+        remember_registration_order(key);
+        std::shared_ptr<TService> casted_service = std::move(service);
         _entries[key] = std::make_unique<ServiceEntry<TService>>(std::move(casted_service));
 
         if (!has_active_plugin_id())
@@ -98,6 +113,6 @@ namespace tbx
     void ServiceProvider::deregister_service()
     {
         std::type_index key(typeid(TService));
-        _entries.erase(key);
+        erase_service(key);
     }
 }

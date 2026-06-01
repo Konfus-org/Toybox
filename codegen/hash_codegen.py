@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from model import CodegenError, SerializableType, find_attr, qualified_name
+from model import CodegenError, SerializableType, attr_list_arg, find_attr, qualified_name
 
 
 def make_value_expression(argument: str, value_name: str = "value") -> str:
@@ -44,7 +44,8 @@ def emit_hash_declaration(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
     if attr is None:
         return []
-    if not attr.args:
+    fields = attr_list_arg(attr, "fields") or attr.args
+    if not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
 
     qualified = qualified_name(type_info)
@@ -68,11 +69,13 @@ def emit_hash_equality_declaration(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
     if attr is None or type_info.has_equality_operator or type_info.declaration_kind == "using":
         return []
-    if not attr.args:
+    fields = attr_list_arg(attr, "fields") or attr.args
+    if not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
 
+    api_prefix = f"{type_info.api_macro} " if type_info.api_macro else ""
     return [
-        f"bool operator==(const {type_info.name}& left, const {type_info.name}& right);",
+        f"{api_prefix}bool operator==(const {type_info.name}& left, const {type_info.name}& right);",
         "",
     ]
 
@@ -81,10 +84,11 @@ def emit_hash_equality(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
     if attr is None or type_info.has_equality_operator or type_info.declaration_kind == "using":
         return []
-    if not attr.args:
+    fields = attr_list_arg(attr, "fields") or attr.args
+    if not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
 
-    comparisons = " && ".join(f"({make_equality_expression(field)})" for field in attr.args)
+    comparisons = " && ".join(f"({make_equality_expression(field)})" for field in fields)
     return [
         f"bool operator==(const {type_info.name}& left, const {type_info.name}& right)",
         "{",
@@ -98,7 +102,8 @@ def emit_hash(type_info: SerializableType) -> list[str]:
     attr = find_attr(type_info.attrs, "hash")
     if attr is None:
         return []
-    if not attr.args:
+    fields = attr_list_arg(attr, "fields") or attr.args
+    if not fields:
         raise CodegenError(f"{type_info.name} requires at least one field for [[tbx::hash]].")
 
     qualified = qualified_name(type_info)
@@ -106,18 +111,18 @@ def emit_hash(type_info: SerializableType) -> list[str]:
         f"::size std::hash<{qualified}>::operator()(const {qualified}& value) const",
         "{",
     ]
-    if len(attr.args) == 1:
+    if len(fields) == 1:
         if (
-            attr.args[0].strip() == "$"
+            fields[0].strip() == "$"
             and type_info.declaration_kind == "using"
             and "variant" in type_info.alias_value
         ):
             lines.append(emit_variant_hash_return())
         else:
-            lines.append(emit_single_hash_return(attr.args[0]))
+            lines.append(emit_single_hash_return(fields[0]))
     else:
         lines.append("    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;")
-        for field in attr.args:
+        for field in fields:
             lines.append(f"    seed = ::tbx::hash_combine(seed, {make_value_expression(field)});")
         lines.append("    return static_cast<::size>(seed);")
     lines.extend(["}", ""])

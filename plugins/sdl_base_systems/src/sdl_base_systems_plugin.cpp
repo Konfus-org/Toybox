@@ -1,4 +1,4 @@
-#include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
+#include "sdl_base_systems_plugin.h"
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_init.h"
 #include "SDL3/SDL_log.h"
@@ -30,37 +30,9 @@ namespace sdl_base_systems
                 (message && *message) ? message : "SDL reported a warning without details.";
             TBX_TRACE_WARNING("SDL warning (category {}): {}", category, text);
         }
-        // We don't really care about infos and debug messages from SDL
-        /*else if (priority == SDL_LOG_PRIORITY_INFO)
-        {
-            const char* text =
-
-
-
-         * * * (message && *message) ? message : "SDL reported an info message without details.";
-
-
-
-         * * * TBX_TRACE_INFO("SDL info (category {}): {}", category, text);
-        }
- else
-
- * {
-
-
-         * * const char* text =
-                (message && *message) ? message : "SDL
-         *
-         * reported a
-         * debug message without details.";
-            TBX_TRACE_INFO("SDL
-
-         * * debug (category {}):
-         * {}", category, text);
-        }*/
     }
 
-    void SdlBaseSystemsPlugin::on_attach(tbx::ServiceProvider&)
+    void SdlBaseSystemsPlugin::on_attach()
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
@@ -70,18 +42,8 @@ namespace sdl_base_systems
             this);
 
         const Uint32 mask = SDL_INIT_EVENTS;
-        if ((SDL_WasInit(mask) & mask) == mask)
-        {
-            _owns_sdl = false;
-            TBX_TRACE_WARNING(
-                "SDL events subsystem already initialized; adapter will not manage shutdown.");
-            return;
-        }
-
         if (!SDL_InitSubSystem(mask))
         {
-            _owns_sdl = false;
-            TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
                 "SDL base systems failed to initialize events subsystem. See SDL logs for "
@@ -92,11 +54,9 @@ namespace sdl_base_systems
         TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
-    void SdlBaseSystemsPlugin::on_detach(tbx::ServiceProvider&)
+    void SdlBaseSystemsPlugin::on_detach()
     {
-        if (_owns_sdl)
-            SDL_QuitSubSystem(SDL_INIT_EVENTS);
-        _owns_sdl = false;
+        SDL_QuitSubSystem(SDL_INIT_EVENTS);
     }
 
     void SdlBaseSystemsPlugin::on_update(const tbx::DeltaTime&)

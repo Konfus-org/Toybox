@@ -20,6 +20,12 @@ namespace tbx
 
     static std::filesystem::path get_default_asset_directory()
     {
+#if defined(TBX_RESOURCES_PATH)
+        const auto configured = std::filesystem::path(TBX_RESOURCES_PATH).lexically_normal();
+        if (!configured.empty())
+            return configured;
+#endif
+
         return std::filesystem::path("resources");
     }
 

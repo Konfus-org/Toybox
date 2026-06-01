@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
 

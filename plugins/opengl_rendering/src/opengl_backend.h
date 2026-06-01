@@ -4,9 +4,13 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/types/window.h"
+#include <memory>
 
 namespace opengl_rendering
 {
+    inline constexpr int OPENGL_MAJOR_VERSION = 4;
+    inline constexpr int OPENGL_MINOR_VERSION = 5;
+
     /// @brief
     /// Purpose: Implements the Toybox explicit graphics backend using OpenGL.
     /// @details
@@ -15,7 +19,7 @@ namespace opengl_rendering
     class OpenGlGraphicsBackend final : public tbx::IGraphicsBackend
     {
       public:
-        OpenGlGraphicsBackend(tbx::IOpenGlContextBackend& context_backend);
+        OpenGlGraphicsBackend(std::weak_ptr<tbx::IOpenGlContextBackend> context_backend);
         ~OpenGlGraphicsBackend() noexcept override;
 
       public:
@@ -104,10 +108,11 @@ namespace opengl_rendering
         void destroy_resources();
         tbx::Result ensure_frame_context(const tbx::Window& window);
         tbx::Result ensure_gl_loaded();
+        std::shared_ptr<tbx::IOpenGlContextBackend> lock_context_backend() const;
         tbx::Result require_gl_ready_for_resource_ops() const;
 
       private:
-        tbx::IOpenGlContextBackend& _context_backend;
+        std::weak_ptr<tbx::IOpenGlContextBackend> _context_backend = {};
         std::vector<tbx::Window> _contexts = {};
 
         OpenGlResourceCache _cache = {};

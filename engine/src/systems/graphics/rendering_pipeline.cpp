@@ -1653,7 +1653,7 @@ namespace tbx
 
     //// SCENE DATA EXTRACTION ////
 
-    static RenderTarget extract_render_target_from_world(
+    static Window extract_render_target_from_world(
         const World& world,
         const IWindowManager& window_manager)
     {
@@ -1661,7 +1661,7 @@ namespace tbx
         {
             const auto render_target = entity.get_component<Camera>().get_render_target();
             if (render_target.id.is_valid())
-                return render_target;
+                return Window(render_target);
 
             break;
         }
@@ -1669,7 +1669,7 @@ namespace tbx
         return window_manager.get_main_window();
     }
 
-    static RenderTarget extract_render_target(
+    static Window extract_render_target(
         const World& world,
         const IWindowManager& window_manager)
     {

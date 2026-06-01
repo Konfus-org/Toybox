@@ -10,16 +10,15 @@ namespace sdl_base_systems
     /// @details
     /// Ownership: Owns the SDL subsystems it initializes and shuts them down on detach.
     /// Thread Safety: Expected to be used on the main thread.
-    [[tbx::plugin]] [[tbx::name("SdlBaseSystemsPlugin")]] [[tbx::version("1.0.0")]] [[tbx::category(
-        "input")]];
+    [[tbx::plugin(
+        name = "SdlBaseSystemsPlugin",
+        version = "1.0.0",
+        category = tbx::PluginCategory::INPUT)]];
     class TBX_PLUGIN_API SdlBaseSystemsPlugin final : public tbx::Plugin
     {
-      public:
-        void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach(tbx::ServiceProvider& service_provider) override;
+      protected:
+        void on_attach() override;
+        void on_detach() override;
         void on_update(const tbx::DeltaTime& dt) override;
-
-      private:
-        bool _owns_sdl = false;
     };
 }

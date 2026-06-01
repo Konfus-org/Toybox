@@ -311,6 +311,8 @@ namespace sdl_windowing
         if (window_it == _windows.end())
             return std::nullopt;
 
-        return window_it->first;
+        auto window = window_it->first;
+        window.native_handle = static_cast<tbx::NativeWindowHandle>(window_it->second);
+        return window;
     }
 }

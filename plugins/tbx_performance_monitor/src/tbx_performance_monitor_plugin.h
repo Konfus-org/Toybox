@@ -1,13 +1,13 @@
 #pragma once
 #include "tbx/interfaces/plugin.h"
 #include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/graphics/api.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/time/delta_time.h"
 
 namespace tbx
 {
     class Application;
-    class AppSettings;
 }
 
 namespace tbx::performance_monitor
@@ -23,10 +23,10 @@ namespace tbx::performance_monitor
     /// @details
     /// Ownership: Does not own application services; samples frame timing from app lifecycle
     /// events. Thread Safety: Not thread-safe; expected to run on the main thread.
-    [[tbx::plugin]];
-    [[tbx::name("PerformanceMonitor")]];
-    [[tbx::version("1.0.0")]];
-    [[tbx::category("logging")]];
+    [[tbx::plugin(
+        name = "PerformanceMonitor",
+        version = "1.0.0",
+        category = tbx::PluginCategory::LOGGING)]];
     class TBX_PLUGIN_API PerformanceMonitor final : public tbx::Plugin
     {
       public:
@@ -40,9 +40,8 @@ namespace tbx::performance_monitor
         PerformanceMonitor& operator=(PerformanceMonitor&&) noexcept = default;
 
       public:
-        void on_attach(tbx::ServiceProvider& service_provider) override;
-        void on_detach(tbx::ServiceProvider& service_provider) override;
-        void on_update(const tbx::DeltaTime& dt) override;
+        void on_attach() override;
+        void on_detach() override;
         void on_recieve_message(tbx::Message& msg) override;
 
       private:
@@ -53,13 +52,10 @@ namespace tbx::performance_monitor
         FpsInfo calculate_fps_averages();
 
 #if !defined(TBX_FULL_RELEASE)
-        void update_debug_main_window_title(const tbx::DeltaTime& dt);
+        void update_debug_main_window_title(tbx::Application& application, const tbx::DeltaTime& dt);
 #endif
 
       private:
-        tbx::ServiceProvider* _service_provider = nullptr;
-        std::weak_ptr<tbx::IWindowManager> _window_manager = {};
-        std::weak_ptr<tbx::AppSettings> _settings = {};
         tbx::Window _main_window = {};
         std::string _main_window_base_title = {};
 

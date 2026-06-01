@@ -1,4 +1,4 @@
-#include "tbx/plugins/assimp_model_loader/assimp_model_loader_plugin.h"
+#include "assimp_model_loader_plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
@@ -322,19 +322,18 @@ namespace assimp_model_loader
         }
     }
 
-    void AssimpModelLoaderPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void AssimpModelLoaderPlugin::on_attach()
     {
-        _serialization_registry = service_provider.get_service<tbx::SerializationRegistry>();
-        if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->register_loader<tbx::Model>(read_model);
+        if (auto* registry = serialization_registry.try_get())
+            registry->register_loader<tbx::Model>(read_model);
     }
 
-    void AssimpModelLoaderPlugin::on_detach(tbx::ServiceProvider&)
+    void AssimpModelLoaderPlugin::on_detach()
     {
-        if (auto serialization_registry = _serialization_registry.lock())
-            serialization_registry->deregister_loader<tbx::Model>();
+        if (auto* registry = serialization_registry.try_get())
+            registry->deregister_loader<tbx::Model>();
 
-        _serialization_registry = {};
+        serialization_registry = {};
     }
 
     tbx::Result AssimpModelLoaderPlugin::read_model(

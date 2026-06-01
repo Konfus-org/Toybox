@@ -28,6 +28,8 @@ from model import (
     CodegenError,
     Field,
     SerializableType,
+    attr_arg,
+    attr_list_arg,
     attr_value,
     cpp_string,
     fields_of,
@@ -85,7 +87,195 @@ def attr_values(attrs: list, name: str) -> list[str]:
     for attr in attrs:
         if attr.name == name:
             values.extend(attr.args)
+            values.extend(attr_list_arg(attr, "values"))
     return values
+
+
+def attrs_by_name(attrs: list, name: str) -> list:
+    return [attr for attr in attrs if attr.name == name]
+
+
+def service_attrs(type_info: SerializableType) -> list:
+    return type_info.attrs
+
+
+def service_register_fields(type_info: SerializableType) -> list[Field]:
+    return fields_of(type_info, "register")
+
+
+def service_register_attrs(type_info: SerializableType) -> list:
+    return attrs_by_name(service_attrs(type_info), "register")
+
+
+def plugin_metadata_arg(type_info: SerializableType, index: int, default: str | None = None) -> str | None:
+    plugin_attr = find_attr(type_info.attrs, "plugin")
+    if plugin_attr is None:
+        return default
+    names = ["name", "version", "category", "priority"]
+    return attr_arg(plugin_attr, index, names[index], default)
+
+
+def plugin_category_expression(type_info: SerializableType) -> tuple[str, str]:
+    raw_category = plugin_metadata_arg(type_info, 2, "default") or "default"
+    if "PluginCategory::" in raw_category:
+        category_key = raw_category.rsplit("::", 1)[-1].lower()
+        return raw_category, category_key
+
+    category_key = raw_category.lower()
+    category_expression = PLUGIN_CATEGORY_EXPRESSIONS.get(category_key)
+    if category_expression is None:
+        valid_categories = ", ".join(sorted(PLUGIN_CATEGORY_EXPRESSIONS))
+        raise CodegenError(
+            f"{type_info.name} uses unsupported plugin category '{raw_category}'. "
+            f"Expected one of: {valid_categories}, or a PluginCategory enum expression."
+        )
+
+    return category_expression, category_key
+
+
+def plugin_dependencies(type_info: SerializableType) -> list[str]:
+    plugin_attr = find_attr(type_info.attrs, "plugin")
+    if plugin_attr is None:
+        return []
+
+    dependencies: list[str] = []
+    dependencies.extend(attr_list_arg(plugin_attr, "dependencies"))
+    for raw_arg in plugin_attr.args[4:]:
+        arg = raw_arg.strip()
+        if not arg:
+            continue
+        if arg.startswith("dependency("):
+            raise CodegenError(
+                f"{type_info.name} uses unsupported dependency(...) plugin metadata. "
+                "Pass dependency plugin names as string arguments instead."
+            )
+
+        dependencies.append(arg)
+    return dependencies
+
+
+def has_runtime_service_glue(type_info: SerializableType) -> bool:
+    return bool(
+        service_register_attrs(type_info)
+        or service_register_fields(type_info)
+        or fields_of(type_info, "inject")
+    )
+
+
+def resolve_service_factory_call(factory_method: str) -> str:
+    normalized = factory_method.strip()
+    if "::" in normalized or "(" in normalized:
+        return normalized
+    return f"tbx_value.{normalized}(tbx_services)"
+
+
+def shared_ptr_value_type(field: Field) -> str:
+    match = re.match(r"(?:std::)?shared_ptr\s*<\s*(.+)\s*>$", field.type_name.strip())
+    if match is None:
+        raise CodegenError(
+            f"{field.name} uses [[tbx::register]] on an unsupported field type. "
+            "Expected std::shared_ptr<T>."
+        )
+    return match.group(1).strip()
+
+
+def registered_field_service_type(type_info: SerializableType, field: Field) -> str:
+    attr = find_attr(field.attrs, "register")
+    if attr is None:
+        raise CodegenError(
+            f"{field.name} has register field kind without a [[tbx::register]] attribute."
+        )
+    service_type = attr_arg(attr, 0, "service")
+    if len(attr.args) > 1 or (attr.named_args and service_type is None):
+        raise CodegenError(
+            f"{field.name} uses [[tbx::register]] with an invalid argument list. "
+            "Expected [[tbx::register]] or [[tbx::register(ServiceType)]]."
+        )
+    if service_type is not None:
+        return service_type
+    return shared_ptr_value_type(field)
+
+
+def emit_runtime_service_declarations(type_info: SerializableType) -> list[str]:
+    lines: list[str] = []
+    if fields_of(type_info, "inject"):
+        lines.append(
+            f"void tbx_bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
+        )
+    if service_register_attrs(type_info) or service_register_fields(type_info):
+        lines.append(
+            f"void tbx_register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
+        )
+    if lines:
+        lines.append("")
+    return lines
+
+
+def emit_runtime_service_definitions(type_info: SerializableType) -> list[str]:
+    lines: list[str] = []
+    inject_fields = fields_of(type_info, "inject")
+    if inject_fields:
+        lines.extend(
+            [
+                f"void tbx_bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
+                "{",
+            ]
+        )
+        for field in inject_fields:
+            lines.append(f"    ::tbx::bind_service_field(tbx_value.{field.name}, tbx_services);")
+        lines.extend(["}", ""])
+
+    register_attrs = service_register_attrs(type_info)
+    register_fields = service_register_fields(type_info)
+    if register_attrs or register_fields:
+        lines.extend(
+            [
+                f"void tbx_register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
+                "{",
+            ]
+        )
+        service_index = 0
+        for field in register_fields:
+            implementation_type = shared_ptr_value_type(field)
+            service_type = registered_field_service_type(type_info, field)
+            lines.extend(
+                [
+                    f"    if (!tbx_value.{field.name})",
+                    f"        tbx_value.{field.name} = std::make_shared<{implementation_type}>();",
+                    f"    if (tbx_value.{field.name})",
+                    f"        tbx_services.register_service<{service_type}>(tbx_value.{field.name});",
+                    "",
+                ]
+            )
+            service_index += 1
+        for attr in register_attrs:
+            service_type = attr_arg(attr, 0, "service")
+            factory_method = attr_arg(attr, 1, "factory")
+            if service_type is None or factory_method is None or len(attr.args) > 2:
+                raise CodegenError(
+                    f"{type_info.name} uses [[tbx::register]] with an invalid argument list. "
+                    "Expected [[tbx::register(ServiceType, factory_method)]]."
+                )
+            factory_call = resolve_service_factory_call(factory_method)
+            lines.extend(
+                [
+                    f"    auto tbx_service_{service_index} = {factory_call};",
+                    f"    if (tbx_service_{service_index})",
+                    f"        tbx_services.register_service<{service_type}>(std::move(tbx_service_{service_index}));",
+                    "",
+                ]
+            )
+            service_index += 1
+        lines.extend(["}", ""])
+    return lines
+
+
+def emit_namespaced_runtime_service_definitions(type_info: SerializableType) -> list[str]:
+    definitions = emit_runtime_service_definitions(type_info)
+    if not definitions or not type_info.namespace:
+        return definitions
+
+    return [f"namespace {type_info.namespace}", "{", *definitions, "}", ""]
 
 
 def resolve_custom_serialization_callable(type_info: SerializableType, callable_name: str) -> str:
@@ -99,10 +289,10 @@ def resolve_custom_serialization_callable(type_info: SerializableType, callable_
 
 def serializable_mode(type_info: SerializableType) -> str:
     attr = find_attr(type_info.attrs, "serializable")
-    if attr is None or not attr.args:
+    if attr is None:
         return "json"
 
-    mode = attr.args[0]
+    mode = attr_arg(attr, 0, "mode", "json") or "json"
     if mode not in {"json", "text"}:
         raise CodegenError(
             f"{type_info.name} uses unsupported serializable mode '{mode}'. "
@@ -212,19 +402,30 @@ def emit_type(type_info: SerializableType, target: str) -> list[str]:
     custom_write_callable: str | None = None
     custom_read_callable: str | None = None
     if custom_serialization_attr is not None:
-        if len(custom_serialization_attr.args) != 2:
+        custom_write_raw = attr_arg(custom_serialization_attr, 0, "write")
+        custom_read_raw = attr_arg(custom_serialization_attr, 1, "read")
+        if (
+            custom_write_raw is None
+            or custom_read_raw is None
+            or len(custom_serialization_attr.args) > 2
+        ):
             raise CodegenError(
                 f"{type_info.name} uses [[tbx::custom_serialization]] with an invalid argument list. "
                 "Expected [[tbx::custom_serialization(write_fn, read_fn)]]."
             )
         custom_write_callable = resolve_custom_serialization_callable(
             type_info,
-            custom_serialization_attr.args[0],
+            custom_write_raw,
         )
         custom_read_callable = resolve_custom_serialization_callable(
             type_info,
-            custom_serialization_attr.args[1],
+            custom_read_raw,
         )
+
+    if target == "header":
+        lines.extend(emit_runtime_service_declarations(type_info))
+    else:
+        lines.extend(emit_runtime_service_definitions(type_info))
 
     if has_attr(type_info.attrs, "script"):
         if version is None:
@@ -499,6 +700,7 @@ def generate_header(types: list[SerializableType]) -> str:
         "#include <cstdint>",
         "#include <format>",
         "#include <functional>",
+        "#include <memory>",
         "#include <stdexcept>",
         "#include <string>",
         "#include <string_view>",
@@ -507,6 +709,8 @@ def generate_header(types: list[SerializableType]) -> str:
         "#include <vector>",
         "",
     ]
+    if any(has_runtime_service_glue(type_info) for type_info in types):
+        lines.insert(3, "#include \"tbx/systems/scripting/service_ref.h\"")
     lines.extend(emit_forward_declarations(types))
     for namespace, namespace_types in grouped.items():
         namespace_lines: list[str] = []
@@ -595,33 +799,32 @@ def emit_plugin_source(
     script_types: list[SerializableType] | None = None,
     script_include_paths: list[str] | None = None,
 ) -> list[str]:
-    plugin_name = attr_value(type_info.attrs, "name") or type_info.name
-    plugin_version = attr_value(type_info.attrs, "version")
+    plugin_name = plugin_metadata_arg(type_info, 0, type_info.name) or type_info.name
+    plugin_version = plugin_metadata_arg(type_info, 1)
     if plugin_version is None:
-        raise CodegenError(f"{type_info.name} is a plugin and requires [[tbx::version(\"...\")]].")
-
-    raw_category = (attr_value(type_info.attrs, "category") or "default").lower()
-    category_expression = PLUGIN_CATEGORY_EXPRESSIONS.get(raw_category)
-    if category_expression is None:
-        valid_categories = ", ".join(sorted(PLUGIN_CATEGORY_EXPRESSIONS))
         raise CodegenError(
-            f"{type_info.name} uses unsupported plugin category '{raw_category}'. "
-            f"Expected one of: {valid_categories}."
+            f"{type_info.name} is a plugin and requires [[tbx::plugin(\"name\", \"version\", ...)]]"
         )
 
-    priority = attr_value(type_info.attrs, "priority") or "0"
+    category_expression, category_key = plugin_category_expression(type_info)
+
+    priority = plugin_metadata_arg(type_info, 3, "0") or "0"
+    priority = priority.removesuffix("U").removesuffix("u")
     if not priority.isdigit():
         raise CodegenError(f"{type_info.name} plugin priority must be a non-negative integer.")
 
     description = attr_value(type_info.attrs, "description")
-    dependencies = attr_values(type_info.attrs, "dependency")
-    if not dependencies and raw_category == "gameplay":
+    dependencies = plugin_dependencies(type_info)
+    if not dependencies and category_key == "gameplay":
         dependencies = GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES
     qualified_plugin_name = qualified_name(type_info)
 
     dependency_entries = ", ".join(cpp_string(dependency) for dependency in dependencies)
     dependency_initializer = "{" + dependency_entries + "}"
     validated_plugin_abi_version = validate_plugin_abi_version(plugin_abi_version)
+    register_attrs = service_register_attrs(type_info)
+    register_fields = service_register_fields(type_info)
+    inject_fields = fields_of(type_info, "inject")
 
     lines = [
         GENERATED_CODE_BANNER,
@@ -630,15 +833,18 @@ def emit_plugin_source(
         "#include \"tbx/systems/assets/serialization.h\"",
         "#include \"tbx/systems/plugin_api/plugin_meta.h\"",
     ]
+    if inject_fields or register_attrs or register_fields:
+        lines.append("#include \"tbx/systems/scripting/service_ref.h\"")
     if script_types:
         for script_include_path in sorted(set(script_include_paths or [])):
             lines.append(f"#include {cpp_string(script_include_path)}")
-    lines.extend(
-        [
-            "",
-            "TBX_PLUGIN_ENTRY_EXPORT void tbx_get_plugin_meta(::tbx::PluginMeta* out_meta)",
-        ]
-    )
+    if register_fields:
+        lines.append("#include <memory>")
+    if register_attrs:
+        lines.append("#include <utility>")
+    lines.append("")
+    lines.extend(emit_namespaced_runtime_service_definitions(type_info))
+    lines.append("TBX_PLUGIN_ENTRY_EXPORT void tbx_get_plugin_meta(::tbx::PluginMeta* out_meta)")
     lines.extend(
         [
             "{",
@@ -702,6 +908,44 @@ def emit_plugin_source(
             lines.append(
                 f"    ::tbx::unregister_asset_type_entry(std::type_index(typeid({qualified_name(script_type)})));"
             )
+        lines.extend(["}", ""])
+
+    if register_attrs or register_fields:
+        lines.extend(
+            [
+                "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_services(",
+                "    ::tbx::Plugin* plugin,",
+                "    ::tbx::ServiceProvider* service_provider)",
+                "{",
+                "    if (plugin == nullptr || service_provider == nullptr)",
+                "        return;",
+                "",
+                f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
+                "    if (typed_plugin == nullptr)",
+                "        return;",
+                "",
+                "    ::tbx::register_runtime_services(*typed_plugin, *service_provider);",
+            ]
+        )
+        lines.extend(["}", ""])
+
+    if inject_fields:
+        lines.extend(
+            [
+                "TBX_PLUGIN_ENTRY_EXPORT void tbx_bind_plugin_runtime(",
+                "    ::tbx::Plugin* plugin,",
+                "    ::tbx::ServiceProvider* service_provider)",
+                "{",
+                "    if (plugin == nullptr || service_provider == nullptr)",
+                "        return;",
+                "",
+                f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
+                "    if (typed_plugin == nullptr)",
+                "        return;",
+                "",
+                "    ::tbx::bind_runtime_fields(*typed_plugin, *service_provider);",
+            ]
+        )
         lines.extend(["}", ""])
 
     lines.extend(

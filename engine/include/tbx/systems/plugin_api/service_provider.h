@@ -5,10 +5,9 @@
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <memory>
-#include <type_traits>
 #include <typeindex>
 #include <unordered_map>
-#include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -22,18 +21,18 @@ namespace tbx
     {
       public:
         ServiceProvider() = default;
-        ~ServiceProvider() noexcept = default;
+        ~ServiceProvider() noexcept;
 
       public:
         ServiceProvider(const ServiceProvider&) = delete;
         ServiceProvider& operator=(const ServiceProvider&) = delete;
-        ServiceProvider(ServiceProvider&&) noexcept;
-        ServiceProvider& operator=(ServiceProvider&&) noexcept;
+        ServiceProvider(ServiceProvider&&) = delete;
+        ServiceProvider& operator=(ServiceProvider&&) = delete;
 
       public:
         template <typename TService, typename TImplementation = TService>
             requires std::derived_from<TImplementation, TService>
-        void register_service(std::unique_ptr<TImplementation> service);
+        void register_service(std::shared_ptr<TImplementation> service);
 
         template <typename TService>
         bool has_service() const;
@@ -63,7 +62,20 @@ namespace tbx
         using Entries = std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>>;
 
       private:
+        struct DefaultServicesTag
+        {
+        };
+        ServiceProvider(DefaultServicesTag);
+        friend TBX_API ServiceProvider create_default_service_provider();
+
+      private:
+        void erase_service(std::type_index service_type);
+        void forget_registration_order(std::type_index service_type);
+        void remember_registration_order(std::type_index service_type);
+
+      private:
         Entries _entries = {};
+        std::vector<std::type_index> _registration_order = {};
     };
 
     /// @brief

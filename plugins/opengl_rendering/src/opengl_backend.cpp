@@ -299,7 +299,7 @@ namespace opengl_rendering
         glBindBufferBase(target, slot, buffer.get_buffer_id());
     }
 
-    tbx::Result require_opengl_4_5_direct_state_access()
+    tbx::Result require_supported_opengl_direct_state_access()
     {
         if (GLAD_GL_VERSION_4_5 && glCreateBuffers && glNamedBufferData && glNamedBufferSubData
             && glCreateVertexArrays && glVertexArrayVertexBuffer && glVertexArrayElementBuffer
@@ -307,7 +307,11 @@ namespace opengl_rendering
             && glCreateTextures)
             return make_success();
 
-        auto message = std::string("OpenGL backend requires OpenGL 4.5 direct state access. ");
+        auto message = std::string("OpenGL backend requires OpenGL ");
+        message += std::to_string(OPENGL_MAJOR_VERSION);
+        message += ".";
+        message += std::to_string(OPENGL_MINOR_VERSION);
+        message += " direct state access. ";
         message += "Driver reported version '";
         message += get_gl_string(GL_VERSION);
         message += "', renderer '";
@@ -316,7 +320,8 @@ namespace opengl_rendering
         return make_failure(std::move(message));
     }
 
-    OpenGlGraphicsBackend::OpenGlGraphicsBackend(tbx::IOpenGlContextBackend& context_backend)
+    OpenGlGraphicsBackend::OpenGlGraphicsBackend(
+        std::weak_ptr<tbx::IOpenGlContextBackend> context_backend)
         : _context_backend(context_backend)
     {
     }
@@ -335,15 +340,18 @@ namespace opengl_rendering
 
     void OpenGlGraphicsBackend::cleanup()
     {
-        if (_state.is_loaded)
+        const auto context_backend = lock_context_backend();
+
+        if (_state.is_loaded && context_backend)
             destroy_resources();
 
-        while (!_contexts.empty())
+        while (context_backend && !_contexts.empty())
         {
             const auto window = _contexts.back();
-            _context_backend.destroy_context(window);
+            context_backend->destroy_context(window);
             _contexts.pop_back();
         }
+        _contexts.clear();
 
         _state.current_target = {};
         _state.is_loaded = false;
@@ -363,7 +371,11 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::set_vsync(const tbx::VsyncMode mode)
     {
-        auto result = _context_backend.set_vsync(mode);
+        const auto context_backend = lock_context_backend();
+        if (!context_backend)
+            return make_failure("OpenGL backend: context backend service is unavailable.");
+
+        auto result = context_backend->set_vsync(mode);
         if (result)
             _state.vsync_mode = mode;
 
@@ -1429,7 +1441,14 @@ namespace opengl_rendering
             _state.current_pipeline_state = {};
         }
 
-        _context_backend.destroy_context(window);
+        const auto context_backend = lock_context_backend();
+        if (!context_backend)
+        {
+            _contexts.erase(context_it);
+            return;
+        }
+
+        context_backend->destroy_context(window);
         _contexts.erase(context_it);
     }
 
@@ -1438,7 +1457,11 @@ namespace opengl_rendering
         if (!window.id.is_valid())
             return make_failure("OpenGL backend: context window is invalid.");
 
-        return _context_backend.make_context_current(window);
+        const auto context_backend = lock_context_backend();
+        if (!context_backend)
+            return make_failure("OpenGL backend: context backend service is unavailable.");
+
+        return context_backend->make_context_current(window);
     }
 
     tbx::Result OpenGlGraphicsBackend::present(const tbx::Window window) const
@@ -1446,7 +1469,11 @@ namespace opengl_rendering
         if (!window.id.is_valid())
             return make_failure("OpenGL backend: context window is invalid.");
 
-        return _context_backend.swap_buffers(window);
+        const auto context_backend = lock_context_backend();
+        if (!context_backend)
+            return make_failure("OpenGL backend: context backend service is unavailable.");
+
+        return context_backend->swap_buffers(window);
     }
 
     void OpenGlGraphicsBackend::clear_bound_state()
@@ -1543,13 +1570,17 @@ namespace opengl_rendering
         const auto context_it = std::ranges::find(_contexts, window);
         if (context_it == _contexts.end())
         {
-            if (auto result = _context_backend.create_context(window); !result)
+            const auto context_backend = lock_context_backend();
+            if (!context_backend)
+                return make_failure("OpenGL backend: context backend service is unavailable.");
+
+            if (auto result = context_backend->create_context(window); !result)
                 return result;
 
             _contexts.push_back(window);
             if (auto result = make_current(window); !result)
             {
-                _context_backend.destroy_context(window);
+                context_backend->destroy_context(window);
                 _contexts.pop_back();
                 return result;
             }
@@ -1568,11 +1599,15 @@ namespace opengl_rendering
         if (_state.is_loaded)
             return make_success();
 
-        const auto loader = reinterpret_cast<GLADloadproc>(_context_backend.get_proc_address());
+        const auto context_backend = lock_context_backend();
+        if (!context_backend)
+            return make_failure("OpenGL backend: context backend service is unavailable.");
+
+        const auto loader = reinterpret_cast<GLADloadproc>(context_backend->get_proc_address());
         if (!loader || gladLoadGLLoader(loader) == 0)
             return make_failure("OpenGL backend: failed to load OpenGL functions.");
 
-        if (auto result = require_opengl_4_5_direct_state_access(); !result)
+        if (auto result = require_supported_opengl_direct_state_access(); !result)
             return result;
 
         glEnable(GL_DEPTH_TEST);
@@ -1580,6 +1615,11 @@ namespace opengl_rendering
         glCullFace(GL_BACK);
         _state.is_loaded = true;
         return make_success();
+    }
+
+    std::shared_ptr<tbx::IOpenGlContextBackend> OpenGlGraphicsBackend::lock_context_backend() const
+    {
+        return _context_backend.lock();
     }
 
     tbx::Result OpenGlGraphicsBackend::require_gl_ready_for_resource_ops() const

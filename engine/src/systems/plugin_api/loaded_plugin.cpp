@@ -6,10 +6,14 @@ namespace tbx
     LoadedPlugin::LoadedPlugin(
         PluginMeta meta_data,
         std::unique_ptr<SharedLibrary> plugin_library,
-        std::unique_ptr<Plugin, PluginDeleter> plugin_instance)
+        std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
+        RegisterPluginServicesFn register_services,
+        BindPluginRuntimeFn bind_runtime)
         : meta(std::move(meta_data))
         , library(std::move(plugin_library))
         , instance(std::move(plugin_instance))
+        , _register_services(register_services)
+        , _bind_runtime(bind_runtime)
     {
         TBX_ASSERT(!meta.name.empty(), "LoadedPlugin requires a name.");
         TBX_ASSERT(!meta.version.empty(), "LoadedPlugin requires a version.");
@@ -53,6 +57,27 @@ namespace tbx
         }
     }
 
+    void LoadedPlugin::bind_runtime(ServiceProvider& service_provider)
+    {
+        if (!is_valid() || !_bind_runtime)
+            return;
+
+        _bind_runtime(instance.get(), &service_provider);
+    }
+
+    void LoadedPlugin::register_services(ServiceProvider& service_provider)
+    {
+        if (!is_valid() || _services_registered)
+            return;
+
+        if (_register_services)
+        {
+            auto plugin_scope = ScopedPluginContext(_plugin_id);
+            _register_services(instance.get(), &service_provider);
+        }
+        _services_registered = true;
+    }
+
     void LoadedPlugin::detach(ServiceProvider& service_provider)
     {
         if (!is_valid() || _state != LoadedPluginState::ATTACHED)
@@ -60,13 +85,15 @@ namespace tbx
 
         TBX_TRACE_INFO("Unloading plugin: {}", meta.name);
         instance->detach(service_provider);
+        _services_registered = false;
         _state = LoadedPluginState::DETACHED;
         _attached_service_provider = nullptr;
     }
 
     void LoadedPlugin::receive_message(Message& msg)
     {
-        if (!is_valid() || _state != LoadedPluginState::ATTACHED)
+        if (!is_valid()
+            || _state != LoadedPluginState::ATTACHED)
             return;
 
         instance->receive_message(msg);

@@ -20,7 +20,7 @@ namespace tbx
     /// @brief
     /// Represents an owned plugin instance along with its loading metadata
     /// and (optionally) the dynamic library used to load it.
-    /// @details description
+    /// @details
     /// Ownership: Owns `instance` and `library` (if any). Movable, non-copyable
     /// by virtue of unique_ptr semantics.
     /// Thread-safety: Not thread-safe; expected to be used by the main thread.
@@ -31,7 +31,9 @@ namespace tbx
         LoadedPlugin(
             PluginMeta meta_data,
             std::unique_ptr<SharedLibrary> plugin_library,
-            std::unique_ptr<Plugin, PluginDeleter> plugin_instance);
+            std::unique_ptr<Plugin, PluginDeleter> plugin_instance,
+            RegisterPluginServicesFn register_services = nullptr,
+            BindPluginRuntimeFn bind_runtime = nullptr);
         ~LoadedPlugin() noexcept;
 
       public:
@@ -42,25 +44,13 @@ namespace tbx
         LoadedPlugin& operator=(LoadedPlugin&&) noexcept = default;
 
       public:
-        /// @brief Purpose: Reports whether the loaded plugin contains a valid instance.
-        /// @details Ownership: Does not transfer ownership.
-        /// Thread Safety: Not thread-safe.
         bool is_valid() const;
-
-        /// @brief Purpose: Attaches the loaded plugin instance to a service provider.
-        /// @details Ownership: Does not take ownership of the provider reference.
-        /// Thread Safety: Not thread-safe; call from the main thread.
         void attach(ServiceProvider& service_provider);
-
-        /// @brief Purpose: Detaches the loaded plugin instance from its current service provider.
-        /// @details Ownership: Does not transfer ownership.
-        /// Thread Safety: Not thread-safe; call from the main thread.
         void detach(ServiceProvider& service_provider);
-
-        /// @brief Purpose: Forwards a dispatched message to the loaded plugin instance.
-        /// @details Ownership: Does not take ownership of the message.
-        /// Thread Safety: Not thread-safe; call from the main thread.
         void receive_message(Message& msg);
+
+        void bind_runtime(ServiceProvider& service_provider);
+        void register_services(ServiceProvider& service_provider);
 
         void set_id(Uuid plugin_id);
         Uuid get_id() const;
@@ -71,8 +61,13 @@ namespace tbx
         std::unique_ptr<Plugin, PluginDeleter> instance;
 
       private:
+        RegisterPluginServicesFn _register_services = nullptr;
+        BindPluginRuntimeFn _bind_runtime = nullptr;
         LoadedPluginState _state = LoadedPluginState::UNATTACHED;
-        ServiceProvider* _attached_service_provider = nullptr;
+        ServiceProvider* _attached_service_provider =
+            nullptr; // TODO: update to be weak pointer ref, main service provider instance in app
+                     // should be shared pointer
         PluginInstanceId _plugin_id = PluginInstanceId {};
+        bool _services_registered = false;
     };
 }

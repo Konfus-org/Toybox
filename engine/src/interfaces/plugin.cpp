@@ -27,13 +27,14 @@ namespace tbx
         _plugin_id = plugin_id;
         _dispatcher = service_provider.get_service<IMessageCoordinator>();
         auto plugin_scope = ScopedPluginContext(_plugin_id);
-        on_attach(service_provider);
+        on_attach();
     }
 
     void Plugin::detach(ServiceProvider& service_provider)
     {
+        static_cast<void>(service_provider);
         auto plugin_scope = ScopedPluginContext(_plugin_id);
-        on_detach(service_provider);
+        on_detach();
         _dispatcher = {};
         _plugin_id = PluginInstanceId{};
     }

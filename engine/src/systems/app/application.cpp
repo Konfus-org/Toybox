@@ -2,12 +2,14 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/physics_backend.h"
+#include "tbx/interfaces/window_backend.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <chrono>
 #include <exception>
@@ -40,6 +42,63 @@ namespace tbx
         static_cast<void>(asset_manager.resolve(icon));
         const auto& const_asset_manager = static_cast<const AssetManager&>(asset_manager);
         return const_asset_manager.resolve(icon);
+    }
+
+    // TODO: need to make a specialized app service provider that has 2 setup stages startup
+    // services and standard services then make early do the default service provider stuff and
+    // standard setup the physics and rendering and window manager.
+    static void register_app_physics(
+        ServiceProvider& service_provider,
+        const PhysicsSettings& settings)
+    {
+        if (service_provider.has_service<Physics>())
+            return;
+
+        if (service_provider.try_get_service<IPhysicsBackend>().expired())
+            return;
+
+        service_provider.register_service<Physics>(std::make_shared<Physics>(
+            service_provider.try_get_service<IPhysicsBackend>(),
+            service_provider.try_get_service<AssetManager>(),
+            settings,
+            service_provider.try_get_service<WorldManager>()));
+    }
+
+    static void register_app_rendering(ServiceProvider& service_provider)
+    {
+        if (service_provider.has_service<Rendering>())
+            return;
+
+        if (service_provider.try_get_service<IGraphicsBackend>().expired())
+            return;
+
+        if (service_provider.try_get_service<IWindowManager>().expired()
+            || service_provider.try_get_service<ThreadManager>().expired())
+        {
+            TBX_TRACE_ERROR("Application requires window and thread services for rendering.");
+            TBX_ASSERT(false, "Application requires window and thread services for rendering.");
+            return;
+        }
+
+        service_provider.register_service<Rendering>(std::make_shared<Rendering>(
+            service_provider.try_get_service<IGraphicsBackend>(),
+            service_provider.try_get_service<AssetManager>(),
+            service_provider.try_get_service<ThreadManager>(),
+            service_provider.try_get_service<IWindowManager>(),
+            service_provider.try_get_service<WorldManager>()));
+    }
+
+    static void register_app_window_manager(ServiceProvider& service_provider)
+    {
+        if (service_provider.has_service<IWindowManager>())
+            return;
+
+        if (service_provider.try_get_service<IWindowBackend>().expired())
+            return;
+
+        service_provider.register_service<IWindowManager>(std::make_shared<WindowManager>(
+            service_provider.get_service<IMessageCoordinator>(),
+            service_provider.try_get_service<IWindowBackend>()));
     }
 
     Application::Application()
@@ -121,6 +180,12 @@ namespace tbx
         return window_manager->get_main_window();
     }
 
+    const AppSettings& Application::get_settings() const
+    {
+        static const auto DEFAULT_SETTINGS = AppSettings();
+        return _settings ? *_settings : DEFAULT_SETTINGS;
+    }
+
     ServiceProvider& Application::get_service_provider()
     {
         return _service_provider;
@@ -193,7 +258,13 @@ namespace tbx
                 file_ops->get_working_directory(),
                 settings->requested_plugins,
                 file_ops->get_working_directory());
+            register_app_window_manager(_service_provider);
+            register_app_physics(_service_provider, settings->physics);
+            register_app_rendering(_service_provider);
             _input_manager = _service_provider.try_get_service<IInputManager>();
+            _physics = _service_provider.try_get_service<Physics>();
+            _rendering = _service_provider.try_get_service<Rendering>();
+            _plugin_manager.attach_all();
 
             if (settings->startup_world.is_valid())
             {
@@ -205,24 +276,6 @@ namespace tbx
                     _should_exit = true;
                     return;
                 }
-            }
-
-            // Setup physics
-            {
-                if (!_service_provider.has_service<Physics>())
-                {
-                    auto physics_backend = _service_provider.try_get_service<IPhysicsBackend>();
-                    if (physics_backend.lock())
-                    {
-                        _service_provider.register_service<Physics>(std::make_unique<Physics>(
-                            physics_backend,
-                            _asset_manager,
-                            settings->physics,
-                            _world_manager));
-                    }
-                }
-
-                _physics = _service_provider.try_get_service<Physics>();
             }
 
             // Open main window
@@ -247,7 +300,8 @@ namespace tbx
                 if (settings->icon.is_valid() && icon_path.empty())
                 {
                     TBX_TRACE_WARNING(
-                        "Failed to resolve app icon handle to a path. Window icon will not be set.");
+                        "Failed to resolve app icon handle to a path. Window icon will not be "
+                        "set.");
                 }
 
                 (void)window_manager_strong->open(
@@ -258,32 +312,6 @@ namespace tbx
                         .api = settings->graphics.graphics_api,
                         .icon_path = icon_path,
                     });
-            }
-
-            // Setup rendering
-            auto graphics_backend = _service_provider.try_get_service<IGraphicsBackend>();
-            if (graphics_backend.lock())
-            {
-                auto window_manager = _window_manager.lock();
-                auto thread_manager = _thread_manager.lock();
-                if (!window_manager || !thread_manager)
-                {
-                    TBX_TRACE_ERROR(
-                        "Application requires window and thread services for rendering.");
-                    _should_exit = true;
-                    TBX_ASSERT(
-                        window_manager != nullptr && thread_manager != nullptr,
-                        "Application requires window and thread services for rendering.");
-                    return;
-                }
-
-                _service_provider.register_service<Rendering>(std::make_unique<Rendering>(
-                    graphics_backend,
-                    _asset_manager,
-                    _thread_manager,
-                    _window_manager,
-                    _world_manager));
-                _rendering = _service_provider.try_get_service<Rendering>();
             }
 
             // Log filesystem directories
@@ -453,12 +481,8 @@ namespace tbx
             _window_manager = {};
             _should_exit = true;
 
-            // 4. Release physics resources while the backend plugin is still attached.
-            if (_service_provider.has_service<Physics>())
-            {
-                _physics = {};
-                _service_provider.deregister_service<Physics>();
-            }
+            // 4. Stop using physics before scripts and plugin-owned services begin teardown.
+            _physics = {};
 
             // 5. Destroy runtime script instances before their worlds are released.
             _script_system = {};
@@ -468,6 +492,10 @@ namespace tbx
             // 6. Detach plugins while their libraries are still loaded.
             _plugin_manager.detach_all();
             _input_manager = {};
+            if (_service_provider.has_service<Physics>())
+                _service_provider.deregister_service<Physics>();
+            if (_service_provider.has_service<IWindowManager>())
+                _service_provider.deregister_service<IWindowManager>();
 
             // 7. Unload world/entity assets after plugin teardown.
             if (auto world_manager = _world_manager.lock())

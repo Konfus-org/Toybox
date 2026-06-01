@@ -3,8 +3,10 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/render_target.h"
 #include "tbx/types/size.h"
+#include "tbx/types/window.generated.h"
 #include <filesystem>
 #include <string>
+#include <utility>
 
 namespace tbx
 {
@@ -14,13 +16,6 @@ namespace tbx
     /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
     /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
     using NativeWindowHandle = void*;
-
-    /// @brief
-    /// Purpose: Identifies a managed window within the active window manager service.
-    /// @details
-    /// Ownership: Value type copied by callers; the window manager owns the underlying state.
-    /// Thread Safety: Safe to copy and compare across threads.
-    using Window = RenderTarget;
 
     // Enumerates the presentation modes that a window can be configured for.
     // Ownership: Represents value semantics only; no ownership concerns.
@@ -45,5 +40,28 @@ namespace tbx
         WindowMode mode = WindowMode::WINDOWED;
         GraphicsApi api = GraphicsApi::OPEN_GL;
         std::filesystem::path icon_path = {};
+    };
+
+    /// @brief
+    /// Purpose: Identifies a managed window within the active window manager service.
+    /// @details
+    /// Ownership: Value type copied by callers; the window manager owns the underlying state.
+    /// Thread Safety: Safe to copy and compare across threads.
+    [[printable("[Name: {}, Id: {}]", name, id)]];
+    [[hash(name, id)]];
+    struct TBX_API Window : public RenderTarget
+    {
+      public:
+        using RenderTarget::RenderTarget;
+
+      public:
+        Window() = default;
+        Window(RenderTarget render_target)
+            : RenderTarget(std::move(render_target))
+        {
+        }
+
+      public:
+        NativeWindowHandle native_handle = nullptr;
     };
 }

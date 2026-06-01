@@ -1,16 +1,12 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/interfaces/physics_backend.h"
-#include "tbx/interfaces/window_backend.h"
-#include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/registry.h"
-#include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_loader.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
-#include "tbx/systems/windowing/manager.h"
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 
@@ -45,36 +41,6 @@ namespace tbx
         return false;
     }
 
-    static void ensure_physics_service_registered(ServiceProvider& service_provider)
-    {
-        if (service_provider.has_service<Physics>())
-            return;
-
-        auto physics_backend = service_provider.try_get_service<IPhysicsBackend>().lock();
-        auto asset_manager = service_provider.get_service<AssetManager>().lock();
-        if (!physics_backend || !asset_manager)
-            return;
-
-        service_provider.register_service<Physics>(std::make_unique<Physics>(
-            service_provider.try_get_service<IPhysicsBackend>(),
-            service_provider.try_get_service<AssetManager>(),
-            PhysicsSettings {}));
-    }
-
-    static void ensure_window_manager_service_registered(ServiceProvider& service_provider)
-    {
-        if (service_provider.has_service<IWindowManager>())
-            return;
-
-        auto window_backend = service_provider.try_get_service<IWindowBackend>();
-        if (window_backend.expired())
-            return;
-
-        service_provider.register_service<IWindowManager>(std::make_unique<WindowManager>(
-            service_provider.get_service<IMessageCoordinator>(),
-            window_backend));
-    }
-
     PluginManager::PluginManager(
         ServiceProvider& service_provider,
         std::weak_ptr<IFileOps> file_ops)
@@ -87,6 +53,13 @@ namespace tbx
     PluginManager::~PluginManager() noexcept
     {
         unload_all();
+        TBX_ASSERT(_loaded.empty(), "Plugin manager destroyed with loaded plugin containers.");
+        TBX_ASSERT(_watcher == nullptr, "Plugin manager destroyed with an active file watcher.");
+
+        auto pending_changes_lock = std::lock_guard<std::mutex>(_pending_file_changes_mutex);
+        TBX_ASSERT(
+            _pending_file_changes.empty(),
+            "Plugin manager destroyed with pending plugin file changes.");
     }
 
     void PluginManager::load(
@@ -101,7 +74,7 @@ namespace tbx
         _requested_plugins = requested_plugins;
         if (_provided_file_ops.expired() && !_service_provider.has_service<IFileOps>())
             _service_provider.register_service<IFileOps>(
-                std::make_unique<FileOperator>(_working_directory));
+                std::make_shared<FileOperator>(_working_directory));
 
         _file_ops = _provided_file_ops.expired() ? _service_provider.get_service<IFileOps>()
                                                  : _provided_file_ops;
@@ -110,7 +83,9 @@ namespace tbx
             return;
 
         for (auto& loaded_plugin : load_plugins(_directory, _requested_plugins, *file_ops))
-            add(std::move(loaded_plugin));
+            add_loaded(std::move(loaded_plugin));
+
+        register_all_services();
 
         _watcher.reset();
         if (_directory.empty())
@@ -140,6 +115,17 @@ namespace tbx
 
     void PluginManager::add(LoadedPlugin loaded_plugin)
     {
+        add_loaded(std::move(loaded_plugin));
+        register_all_services();
+        if (_attached)
+        {
+            bind_all_runtime();
+            attach_all_unattached();
+        }
+    }
+
+    void PluginManager::add_loaded(LoadedPlugin loaded_plugin)
+    {
         if (!loaded_plugin.is_valid())
             return;
 
@@ -158,16 +144,19 @@ namespace tbx
         }
 #endif
 
-        // TODO: This is NOT a plugin responsability, the app should add physics later should be
-        // registered and ready, but once the backend is loaded we attach it to the Physics
-        ensure_physics_service_registered(_service_provider);
-        ensure_window_manager_service_registered(_service_provider);
-
         _loaded.push_back(std::move(loaded_plugin));
-        _loaded.back().attach(_service_provider);
+    }
 
-        ensure_physics_service_registered(_service_provider);
-        ensure_window_manager_service_registered(_service_provider);
+    void PluginManager::attach_all_unattached()
+    {
+        for (auto& plugin : _loaded)
+            plugin.attach(_service_provider);
+    }
+
+    void PluginManager::bind_all_runtime()
+    {
+        for (auto& plugin : _loaded)
+            plugin.bind_runtime(_service_provider);
     }
 
     bool PluginManager::load(const PluginMeta& meta)
@@ -198,6 +187,13 @@ namespace tbx
     {
         process_pending_file_changes();
         update_plugins_fixed(_loaded, dt);
+    }
+
+    void PluginManager::attach_all()
+    {
+        bind_all_runtime();
+        attach_all_unattached();
+        _attached = true;
     }
 
     bool PluginManager::unload(const std::string& plugin_name)
@@ -263,6 +259,7 @@ namespace tbx
     {
         auto msg_coordinator = _service_provider.get_service<IMessageCoordinator>().lock();
         detach_plugins(_loaded, _service_provider, msg_coordinator.get());
+        _attached = false;
     }
 
     void PluginManager::unload_all()
@@ -279,6 +276,7 @@ namespace tbx
         _working_directory = std::filesystem::path();
         _requested_plugins.clear();
         _file_ops = _provided_file_ops;
+        _attached = false;
     }
 
     void PluginManager::receive_message(Message& msg)
@@ -300,6 +298,12 @@ namespace tbx
         }
 
         return false;
+    }
+
+    void PluginManager::register_all_services()
+    {
+        for (auto& plugin : _loaded)
+            plugin.register_services(_service_provider);
     }
 
     void PluginManager::clear_plugin_runtime_state(Uuid plugin_id)

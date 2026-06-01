@@ -46,6 +46,11 @@ namespace tbx
         }
     }
 
+    static bool is_duplicate_asset_id_result(const Result& result)
+    {
+        return !result.succeeded() && result.get_report().starts_with("Duplicate asset id=");
+    }
+
     static bool path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
@@ -484,6 +489,15 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(registry_entry, discovered_id);
+                if (is_duplicate_asset_id_result(assign_result))
+                {
+                    append_report(
+                        result,
+                        std::string("Skipped discovered duplicate asset: ")
+                            .append(assign_result.get_report()));
+                    continue;
+                }
+
                 merge_result(result, assign_result);
             }
         }

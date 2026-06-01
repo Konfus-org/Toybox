@@ -1,4 +1,4 @@
-#include "tbx/plugins/tbx_performance_monitor/tbx_performance_monitor_plugin.h"
+#include "tbx_performance_monitor_plugin.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"
@@ -7,19 +7,13 @@
 namespace tbx::performance_monitor
 {
 
-    void PerformanceMonitor::on_attach(tbx::ServiceProvider& service_provider)
+    void PerformanceMonitor::on_attach()
     {
-        _service_provider = &service_provider;
-        _window_manager = service_provider.try_get_service<tbx::IWindowManager>();
-        _settings = service_provider.try_get_service<tbx::AppSettings>();
         reset_performance_sample();
     }
 
-    void PerformanceMonitor::on_detach(tbx::ServiceProvider&)
+    void PerformanceMonitor::on_detach()
     {
-        _service_provider = nullptr;
-        _window_manager = {};
-        _settings = {};
         _main_window = {};
         _main_window_base_title.clear();
 
@@ -30,13 +24,6 @@ namespace tbx::performance_monitor
         _debug_main_window_title.clear();
         _debug_window_title_elapsed_seconds = 0.0;
         _debug_window_title_frame_count = 0U;
-#endif
-    }
-
-    void PerformanceMonitor::on_update(const tbx::DeltaTime& dt)
-    {
-#if !defined(TBX_FULL_RELEASE)
-        update_debug_main_window_title(dt);
 #endif
     }
 
@@ -52,17 +39,14 @@ namespace tbx::performance_monitor
         {
             const auto& dt = update_end_event->get().delta_time;
             record_frame(dt);
+#if !defined(TBX_FULL_RELEASE)
+            update_debug_main_window_title(update_end_event->get().application, dt);
+#endif
         }
     }
 
     void PerformanceMonitor::initialize_main_window(tbx::Application& application)
     {
-        if (!_service_provider)
-            _service_provider = &application.get_service_provider();
-
-        if (_window_manager.expired() && _service_provider)
-            _window_manager = _service_provider->try_get_service<tbx::IWindowManager>();
-
         _main_window = application.get_main_window();
         _main_window_base_title = application.get_name().empty() ? std::string("Toybox Application")
                                                                  : application.get_name();
@@ -70,7 +54,8 @@ namespace tbx::performance_monitor
         if (!_main_window.id.is_valid())
             return;
 
-        auto window_manager = _window_manager.lock();
+        auto window_manager =
+            application.get_service_provider().try_get_service<tbx::IWindowManager>().lock();
         if (window_manager && window_manager->has(_main_window))
             _main_window_base_title = window_manager->get_title(_main_window);
     }
@@ -133,15 +118,15 @@ namespace tbx::performance_monitor
     }
 
 #if !defined(TBX_FULL_RELEASE)
-    void PerformanceMonitor::update_debug_main_window_title(const tbx::DeltaTime& dt)
+    void PerformanceMonitor::update_debug_main_window_title(
+        tbx::Application& application,
+        const tbx::DeltaTime& dt)
     {
         if (!_main_window.id.is_valid())
             return;
 
-        if (_window_manager.expired() && _service_provider)
-            _window_manager = _service_provider->try_get_service<tbx::IWindowManager>();
-
-        auto window_manager = _window_manager.lock();
+        auto window_manager =
+            application.get_service_provider().try_get_service<tbx::IWindowManager>().lock();
         if (!window_manager || !window_manager->is_open(_main_window))
             return;
 
@@ -152,15 +137,13 @@ namespace tbx::performance_monitor
         if (_debug_window_title_elapsed_seconds < debug_window_title_interval_seconds)
             return;
 
-        auto average_fps = calculate_fps_averages().average_fps;
-        auto settings = _settings.lock();
-        if (!settings)
-            return;
+        const auto average_fps = calculate_fps_averages().average_fps;
+        const auto& settings = application.get_settings();
 
         auto next_title = std::format(
             "{} [{}, FPS: {}]",
             _main_window_base_title,
-            settings->graphics.graphics_api,
+            settings.graphics.graphics_api,
             static_cast<int>(average_fps));
 
         if (_debug_main_window_title != next_title)

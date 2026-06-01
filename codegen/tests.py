@@ -124,12 +124,12 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[tbx::plugin]];
-                [[tbx::name("ExamplePlugin")]];
-                [[tbx::version("1.2.3")]];
-                [[tbx::category("rendering")]];
-                [[tbx::priority(25)]];
-                [[tbx::dependency("WindowPlugin")]];
+                [[tbx::plugin(
+                    "ExamplePlugin",
+                    "1.2.3",
+                    tbx::PluginCategory::RENDERING,
+                    25,
+                    "WindowPlugin")]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                 };
@@ -154,12 +154,66 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn('meta.version = "1.2.3";', output)
         self.assertIn("meta.abi_version = 37U;", output)
         self.assertNotIn("::tbx::PluginAbiVersion", output)
-        self.assertIn("::tbx::PluginCategory::RENDERING", output)
+        self.assertIn("tbx::PluginCategory::RENDERING", output)
         self.assertIn('meta.dependencies = {"WindowPlugin"};', output)
         self.assertIn("#if defined(TBX_PLUGIN_RESOURCE_DIRECTORY)", output)
         self.assertIn("meta.resource_directory = TBX_PLUGIN_RESOURCE_DIRECTORY;", output)
         self.assertIn("*out_meta = meta;", output)
         self.assertIn("new tbx::tests::ExamplePlugin()", output)
+
+    def test_plugin_source_supports_named_arguments(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin(
+                    name = "ExamplePlugin",
+                    version = "1.2.3",
+                    category = tbx::PluginCategory::RENDERING,
+                    priority = 25,
+                    dependencies = {"WindowPlugin", "InputPlugin"})]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source(
+            "example_plugin.generated.h",
+            types,
+            "tbx/tests/example_plugin.h",
+        )
+
+        self.assertIn('meta.name = "ExamplePlugin";', output)
+        self.assertIn('meta.version = "1.2.3";', output)
+        self.assertIn("meta.category = tbx::PluginCategory::RENDERING;", output)
+        self.assertIn("meta.priority = 25U;", output)
+        self.assertIn('meta.dependencies = {"WindowPlugin", "InputPlugin"};', output)
+
+    def test_named_attribute_arguments_are_generated(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable(mode = "json")]];
+            [[tbx::name(value = "renamed")]];
+            [[tbx::version(value = 3U)]];
+            struct Value
+            {
+                [[tbx::prop]]
+                int amount = 0;
+            };
+            }
+            """
+
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn('return "renamed";', header_output)
+        self.assertIn("std::integral_constant<uint32, 3U>", header_output)
+        self.assertIn("tbx_value.amount);", source_output)
 
     def test_gameplay_plugin_source_uses_default_dependencies(self) -> None:
         types = parse_source(
@@ -167,10 +221,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[tbx::plugin]];
-                [[tbx::name("ExamplePlugin")]];
-                [[tbx::version("1.2.3")]];
-                [[tbx::category("gameplay")]];
+                [[tbx::plugin("ExamplePlugin", "1.2.3", tbx::PluginCategory::GAMEPLAY)]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                 };
@@ -195,9 +246,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[tbx::plugin]];
-                [[tbx::name("ExamplePlugin")]];
-                [[tbx::version("1.2.3")]];
+                [[tbx::plugin("ExamplePlugin", "1.2.3")]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                 };
@@ -238,6 +287,190 @@ class AttributeCodegenTests(unittest.TestCase):
             "unregister_asset_type_entry(std::type_index(typeid(tbx::tests::DoorController)))",
             output,
         )
+
+    def test_plugin_source_generates_service_registration_method(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin("ExamplePlugin", "1.2.3")]];
+                [[tbx::register(tbx::IWindowManager, create_window_manager)]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                  public:
+                    std::shared_ptr<tbx::IWindowManager> create_window_manager(
+                        tbx::ServiceProvider& service_provider);
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
+
+        self.assertIn("void tbx_register_plugin_services(", output)
+        self.assertIn("void tbx_register_services(ExamplePlugin& tbx_value", output)
+        self.assertIn("dynamic_cast<tbx::tests::ExamplePlugin*>", output)
+        self.assertIn("tbx_value.create_window_manager(tbx_services)", output)
+        self.assertIn(
+            "tbx_services.register_service<tbx::IWindowManager>(std::move(tbx_service_0));",
+            output,
+        )
+        self.assertIn("::tbx::register_runtime_services(*typed_plugin, *service_provider);", output)
+
+    def test_plugin_source_supports_named_register_arguments(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin("ExamplePlugin", "1.2.3")]];
+                [[tbx::register(service = tbx::IWindowManager, factory = create_window_manager)]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                  public:
+                    std::shared_ptr<tbx::IWindowManager> create_window_manager(
+                        tbx::ServiceProvider& service_provider);
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
+
+        self.assertIn("tbx_value.create_window_manager(tbx_services)", output)
+        self.assertIn(
+            "tbx_services.register_service<tbx::IWindowManager>(std::move(tbx_service_0));",
+            output,
+        )
+
+    def test_plugin_source_generates_field_service_registration(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin("ExamplePlugin", "1.2.3")]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                  public:
+                    [[tbx::register(tbx::IWindowManager)]]
+                    std::shared_ptr<WindowManager> window_manager = {};
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source("example.generated.h", types, "example.h")
+
+        self.assertIn("if (!tbx_value.window_manager)", output)
+        self.assertIn(
+            "tbx_value.window_manager = std::make_shared<WindowManager>();",
+            output,
+        )
+        self.assertIn(
+            "tbx_services.register_service<tbx::IWindowManager>(tbx_value.window_manager);",
+            output,
+        )
+        self.assertIn("void tbx_register_plugin_services(", output)
+
+    def test_field_service_registration_defaults_to_shared_ptr_value_type(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            struct RuntimeServices
+            {
+                [[tbx::register]]
+                std::shared_ptr<WindowManager> window_manager = {};
+            };
+            }
+            """
+        )
+
+        self.assertIn("tbx_value.window_manager = std::make_shared<WindowManager>();", output)
+        self.assertIn(
+            "tbx_services.register_service<WindowManager>(tbx_value.window_manager);",
+            output,
+        )
+
+    def test_plugin_source_generates_inject_binding_method(self) -> None:
+        types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[tbx::plugin("ExamplePlugin", "1.2.3")]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                  public:
+                    [[tbx::inject]]
+                    tbx::ServiceRef<tbx::IWindowManager> window_manager = {};
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
+
+        self.assertIn('#include "tbx/systems/scripting/service_ref.h"', output)
+        self.assertIn("void tbx_bind_plugin_runtime(", output)
+        self.assertIn("void tbx_bind_runtime(ExamplePlugin& tbx_value", output)
+        self.assertIn("bind_service_field(tbx_value.window_manager", output)
+        self.assertIn("::tbx::bind_runtime_fields(*typed_plugin, *service_provider);", output)
+
+    def test_runtime_service_registration_is_generated_for_regular_types(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::register(tbx::IWindowManager, create_window_manager)]];
+            struct RuntimeServices
+            {
+                std::shared_ptr<tbx::IWindowManager> create_window_manager(
+                    tbx::ServiceProvider& service_provider);
+            };
+            }
+            """
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn('#include "tbx/systems/scripting/service_ref.h"', header_output)
+        self.assertIn(
+            "void tbx_register_services(RuntimeServices& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            header_output,
+        )
+        self.assertIn("void tbx_register_services(RuntimeServices& tbx_value", source_output)
+        self.assertIn("tbx_value.create_window_manager(tbx_services)", source_output)
+        self.assertIn(
+            "tbx_services.register_service<tbx::IWindowManager>(std::move(tbx_service_0));",
+            source_output,
+        )
+
+    def test_runtime_injection_is_generated_for_regular_types(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            struct RuntimeConsumer
+            {
+                [[tbx::inject]]
+                tbx::ServiceRef<tbx::IWindowManager> window_manager = {};
+            };
+            }
+            """
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn('#include "tbx/systems/scripting/service_ref.h"', header_output)
+        self.assertIn(
+            "void tbx_bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            header_output,
+        )
+        self.assertIn("void tbx_bind_runtime(RuntimeConsumer& tbx_value", source_output)
+        self.assertIn("::tbx::bind_service_field(tbx_value.window_manager, tbx_services);", source_output)
 
     def test_resource_codegen_generates_builtin_and_material_headers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -753,6 +986,22 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("struct std::hash<tbx::tests::Value>", header_output)
         self.assertNotIn("bool operator==(const Value& left, const Value& right);", header_output)
         self.assertNotIn("bool operator==(const Value& left, const Value& right)", source_output)
+
+    def test_hash_equality_uses_type_api_macro(self) -> None:
+        output = self.generate(
+            """
+            namespace tbx::tests
+            {
+            [[tbx::hash(id)]]
+            struct TBX_API Value
+            {
+                int id = 0;
+            };
+            }
+            """
+        )
+
+        self.assertIn("TBX_API bool operator==(const Value& left, const Value& right);", output)
 
     def test_forward_declarations_are_generated_before_global_specializations(self) -> None:
         output = self.generate(

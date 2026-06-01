@@ -239,7 +239,7 @@ function(tbx_codegen_generate_plugin_registration)
             --input "${plugin_input}"
             --output-header "${output_header}"
             --output-source "${output_source}"
-            --include-root "${TBX_CODEGEN_BASE_DIR}/include"
+            --include-root "${TBX_CODEGEN_BASE_DIR}/src"
             --plugin-abi-version "${TBX_PLUGIN_ABI_VERSION}"
             --script-include-root "${TBX_CODEGEN_BASE_DIR}/src"
             ${script_input_args}

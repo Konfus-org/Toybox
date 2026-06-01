@@ -1,15 +1,17 @@
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
-#include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/registry.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/files/in_memory_file_ops.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/scripting/service_ref.h"
 #include "tbx/types/assets/builtin_assets.h"
 
 namespace tbx::tests::app
@@ -49,14 +51,14 @@ namespace tbx::tests::app
         }
 
       protected:
-        void on_attach(ServiceProvider&) override
+        void on_attach() override
         {
             ++_state->attach_count;
             if (_state->emit_attach_message)
                 send_message<PluginPingMessage>(_state->name);
         }
 
-        void on_detach(ServiceProvider&) override
+        void on_detach() override
         {
             ++_state->detach_count;
             if (_state->emit_detach_message)
@@ -132,22 +134,25 @@ namespace tbx::tests::app
 
     class FakePhysicsBackendPlugin final : public Plugin
     {
-      protected:
-        void on_attach(ServiceProvider& service_provider) override
-        {
-            service_provider.register_service<IPhysicsBackend>(
-                std::make_unique<FakePhysicsBackend>());
-        }
-
-        void on_detach(ServiceProvider& service_provider) override
-        {
-            if (service_provider.has_service<Physics>())
-                service_provider.deregister_service<Physics>();
-
-            if (service_provider.has_service<IPhysicsBackend>())
-                service_provider.deregister_service<IPhysicsBackend>();
-        }
     };
+
+    static void register_fake_physics_services(Plugin*, ServiceProvider* service_provider)
+    {
+        if (service_provider == nullptr)
+            return;
+
+        service_provider->register_service<IPhysicsBackend>(
+            std::make_shared<FakePhysicsBackend>());
+    }
+
+    static void register_app_physics_service(ServiceProvider& service_provider)
+    {
+        service_provider.register_service<Physics>(std::make_shared<Physics>(
+            service_provider.try_get_service<IPhysicsBackend>(),
+            service_provider.try_get_service<AssetManager>(),
+            PhysicsSettings {},
+            service_provider.try_get_service<WorldManager>()));
+    }
 
     class PhysicsConsumerPlugin final : public Plugin
     {
@@ -158,54 +163,62 @@ namespace tbx::tests::app
         }
 
       protected:
-        void on_attach(ServiceProvider& service_provider) override
+        void on_attach() override
         {
             ++_state->attach_count;
-            _state->had_physics_on_attach = !service_provider.try_get_service<Physics>().expired();
+            _state->had_physics_on_attach = static_cast<bool>(physics);
         }
 
-        void on_detach(ServiceProvider&) override
+        void on_detach() override
         {
             ++_state->detach_count;
         }
+
+      public:
+        ServiceRef<Physics> physics = {};
 
       private:
         std::shared_ptr<TestPluginState> _state = {};
     };
 
-    static ServiceProvider make_test_service_provider(
+    static void bind_physics_consumer_runtime(Plugin* plugin, ServiceProvider* service_provider)
+    {
+        if (plugin == nullptr || service_provider == nullptr)
+            return;
+
+        auto* typed_plugin = dynamic_cast<PhysicsConsumerPlugin*>(plugin);
+        if (typed_plugin == nullptr)
+            return;
+
+        bind_service_field(typed_plugin->physics, *service_provider);
+    }
+
+    static void populate_test_service_provider(
+        ServiceProvider& service_provider,
         const std::filesystem::path& working_directory)
     {
-        auto service_provider = ServiceProvider {};
-
         service_provider.register_service<IMessageCoordinator>(
-            std::make_unique<MessageCoordinator>());
+            std::make_shared<MessageCoordinator>());
         service_provider.register_service<IFileOps>(
-            std::make_unique<tbx::tests::InMemoryFileOps>(working_directory));
-        service_provider.register_service<EntityRegistry>(std::make_unique<EntityRegistry>());
+            std::make_shared<tbx::tests::InMemoryFileOps>(working_directory));
+        service_provider.register_service<EntityRegistry>(std::make_shared<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
-            std::make_unique<SerializationRegistry>());
+            std::make_shared<SerializationRegistry>());
+        service_provider.register_service<PluginOwnershipTracker>(
+            std::make_shared<PluginOwnershipTracker>());
+        bind_plugin_ownership_tracker(service_provider.get_service<PluginOwnershipTracker>());
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
         if (!message_coordinator || !serialization_registry)
-            return service_provider;
+            return;
 
-        service_provider.register_service<AssetManager>(std::make_unique<AssetManager>(
+        service_provider.register_service<AssetManager>(std::make_shared<AssetManager>(
             service_provider.get_service<IMessageCoordinator>(),
             service_provider.get_service<SerializationRegistry>(),
             working_directory,
             std::vector<std::filesystem::path> {}));
-        service_provider.register_service<AppSettings>(std::make_unique<AppSettings>());
-        if (auto settings = service_provider.get_service<AppSettings>().lock())
-        {
-            settings->graphics.graphics_api = GraphicsApi::OPEN_GL;
-            settings->graphics.resolution = Size {1280, 720};
-            settings->icon = ToyboxIcon::HANDLE;
-        }
-        service_provider.register_service<JobSystem>(std::make_unique<JobSystem>());
-        service_provider.register_service<ThreadManager>(std::make_unique<ThreadManager>());
-
-        return service_provider;
+        service_provider.register_service<JobSystem>(std::make_shared<JobSystem>());
+        service_provider.register_service<ThreadManager>(std::make_shared<ThreadManager>());
     }
 
     static LoadedPlugin make_loaded_plugin(
@@ -246,7 +259,7 @@ namespace tbx::tests::app
             {
                 delete plugin;
             });
-        return LoadedPlugin(meta, {}, std::move(instance));
+        return LoadedPlugin(meta, {}, std::move(instance), register_fake_physics_services);
     }
 
     static LoadedPlugin make_physics_consumer_plugin(std::shared_ptr<TestPluginState>& out_state)
@@ -267,14 +280,15 @@ namespace tbx::tests::app
             {
                 delete plugin;
             });
-        return LoadedPlugin(meta, {}, std::move(instance));
+        return LoadedPlugin(meta, {}, std::move(instance), nullptr, bind_physics_consumer_runtime);
     }
 
     TEST(plugin_manager, routes_messages_during_plugin_attach)
     {
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
-        auto service_provider = make_test_service_provider(working_directory);
+        auto service_provider = ServiceProvider {};
+        populate_test_service_provider(service_provider, working_directory);
         auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
@@ -290,6 +304,7 @@ namespace tbx::tests::app
         // Act
         manager.add(make_loaded_plugin("Alpha", first, true));
         manager.add(make_loaded_plugin("Beta", second, true));
+        manager.attach_all();
 
         // Assert
         ASSERT_NE(first, nullptr);
@@ -307,7 +322,8 @@ namespace tbx::tests::app
     {
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
-        auto service_provider = make_test_service_provider(working_directory);
+        auto service_provider = ServiceProvider {};
+        populate_test_service_provider(service_provider, working_directory);
         auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         std::shared_ptr<TestPluginState> consumer = {};
@@ -315,6 +331,8 @@ namespace tbx::tests::app
         // Act
         manager.add(make_fake_physics_backend_plugin());
         manager.add(make_physics_consumer_plugin(consumer));
+        register_app_physics_service(service_provider);
+        manager.attach_all();
 
         // Assert
         ASSERT_NE(consumer, nullptr);
@@ -327,7 +345,8 @@ namespace tbx::tests::app
     {
         // Arrange
         const std::filesystem::path working_directory = "/virtual/plugin_manager";
-        auto service_provider = make_test_service_provider(working_directory);
+        auto service_provider = ServiceProvider {};
+        populate_test_service_provider(service_provider, working_directory);
         auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
         PluginManager manager = PluginManager(service_provider, file_ops);
         auto msg_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
@@ -339,6 +358,7 @@ namespace tbx::tests::app
             });
         std::shared_ptr<TestPluginState> plugin = {};
         manager.add(make_loaded_plugin("Solo", plugin, false, true));
+        manager.attach_all();
 
         // Act
         manager.update(DeltaTime {.seconds = 0.016, .milliseconds = 16.0});
@@ -356,4 +376,49 @@ namespace tbx::tests::app
         EXPECT_EQ(plugin->received_sources[1], "Solo_detach");
         EXPECT_EQ(plugin->detach_count, 1);
     }
+
+    TEST(plugin_manager, deregisters_plugin_owned_services_after_unload)
+    {
+        // Arrange
+        const std::filesystem::path working_directory = "/virtual/plugin_manager";
+        auto service_provider = ServiceProvider {};
+        populate_test_service_provider(service_provider, working_directory);
+        auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
+        PluginManager manager = PluginManager(service_provider, file_ops);
+
+        // Act
+        manager.add(make_fake_physics_backend_plugin());
+        manager.attach_all();
+        EXPECT_TRUE(service_provider.has_service<IPhysicsBackend>());
+        EXPECT_TRUE(manager.unload("FakePhysicsBackend"));
+
+        // Assert
+        EXPECT_FALSE(service_provider.has_service<IPhysicsBackend>());
+    }
+
+#if defined(TBX_ASSERTS_ENABLED)
+    TEST(plugin_manager, unload_asserts_when_plugin_owned_service_has_external_strong_reference)
+    {
+        // Arrange
+        const std::filesystem::path working_directory = "/virtual/plugin_manager";
+        auto service_provider = ServiceProvider {};
+        populate_test_service_provider(service_provider, working_directory);
+        auto file_ops = std::make_shared<tbx::tests::InMemoryFileOps>(working_directory);
+        PluginManager manager = PluginManager(service_provider, file_ops);
+        manager.add(make_fake_physics_backend_plugin());
+        manager.attach_all();
+        auto retained_backend = service_provider.get_service<IPhysicsBackend>().lock();
+        ASSERT_NE(retained_backend, nullptr);
+
+        // Act / Assert
+        EXPECT_DEATH_IF_SUPPORTED(
+            {
+                static_cast<void>(manager.unload("FakePhysicsBackend"));
+            },
+            "");
+
+        retained_backend.reset();
+        EXPECT_TRUE(manager.unload("FakePhysicsBackend"));
+    }
+#endif
 }

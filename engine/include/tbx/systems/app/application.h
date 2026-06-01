@@ -46,6 +46,13 @@ namespace tbx
         const Window& get_main_window() const;
 
         /// @brief
+        /// Purpose: Returns the active application settings asset.
+        /// @details
+        /// Ownership: Returns a reference owned by the application.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        const AppSettings& get_settings() const;
+
+        /// @brief
         /// Purpose: Returns the service provider.
         /// @details
         /// Ownership: Returns a value owned by the application.

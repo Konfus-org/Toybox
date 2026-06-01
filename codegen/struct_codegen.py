@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from model import CodegenError, Field, SerializableType, cpp_string, find_attr, json_key
+from model import CodegenError, Field, SerializableType, attr_arg, cpp_string, find_attr, json_key
 
 
 def emit_lifecycle_hook_declarations(type_info: SerializableType) -> list[str]:
@@ -16,7 +16,8 @@ def emit_lifecycle_hook_declarations(type_info: SerializableType) -> list[str]:
         attribute = find_attr(type_info.attrs, attribute_name)
         if attribute is None:
             continue
-        if len(attribute.args) != 1:
+        callable_name = attr_arg(attribute, 0, "method")
+        if callable_name is None or len(attribute.args) > 1:
             raise CodegenError(
                 f"{type_info.name} uses [[tbx::{attribute_name}]] with an invalid argument list."
             )
@@ -42,12 +43,13 @@ def emit_lifecycle_hook_definitions(type_info: SerializableType) -> list[str]:
         attribute = find_attr(type_info.attrs, attribute_name)
         if attribute is None:
             continue
-        if len(attribute.args) != 1:
+        callable_name = attr_arg(attribute, 0, "method")
+        if callable_name is None or len(attribute.args) > 1:
             raise CodegenError(
                 f"{type_info.name} uses [[tbx::{attribute_name}]] with an invalid argument list."
             )
 
-        callable_name = attribute.args[0].strip()
+        callable_name = callable_name.strip()
         qualifier = "const " if is_const else ""
         lines.extend([f"void {hook_name}({qualifier}{type_info.name}& tbx_value)", "{"])
         if "::" in callable_name or "(" in callable_name:

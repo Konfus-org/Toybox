@@ -18,10 +18,6 @@ function(tbx_add_plugin)
     add_library(Tbx::Plugins::${TBX_PLUGIN_NAME} ALIAS ${TBX_PLUGIN_NAME})
 
     target_compile_features(${TBX_PLUGIN_NAME} PUBLIC cxx_std_23)
-    target_include_directories(${TBX_PLUGIN_NAME}
-        PUBLIC
-            $<BUILD_INTERFACE:${TBX_PLUGIN_BASE_DIR}/include>
-    )
     if(TBX_PLUGIN_PUBLIC_LINKS)
         target_link_libraries(${TBX_PLUGIN_NAME} PUBLIC ${TBX_PLUGIN_PUBLIC_LINKS})
     endif()

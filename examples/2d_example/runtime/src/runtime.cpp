@@ -37,7 +37,7 @@ namespace two_d_example
         entity.get_component<tbx::Transform>() = local_transform;
     }
 
-    void TwoDExampleRuntimePlugin::on_attach(tbx::ServiceProvider& service_provider)
+    void TwoDExampleRuntimePlugin::on_attach()
     {
         // TODO: fix, currently the rendering expects the world to be an asset....
         _world = std::unique_ptr<tbx::World>();
@@ -76,7 +76,7 @@ namespace two_d_example
         }
     }
 
-    void TwoDExampleRuntimePlugin::on_detach(tbx::ServiceProvider& service_provider)
+    void TwoDExampleRuntimePlugin::on_detach()
     {
         _world = {};
         _elapsed_seconds = 0.0f;

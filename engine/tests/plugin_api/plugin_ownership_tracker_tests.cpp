@@ -65,7 +65,7 @@ namespace tbx::tests::plugin_api
         {
             auto plugin_scope = ScopedPluginContext(plugin_id);
             service_provider.register_service<DummyTrackedService>(
-                std::make_unique<DummyTrackedServiceImpl>());
+                std::make_shared<DummyTrackedServiceImpl>());
         }
         const auto snapshot = tracker->snapshot_and_clear(plugin_id);
         bind_plugin_ownership_tracker({});
