@@ -38,6 +38,7 @@ namespace tbx
     {
         Result result = {};
         LaunchConfig config = {};
+        bool used_default_config = false;
     };
 
     /// @brief
