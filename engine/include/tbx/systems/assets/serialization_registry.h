@@ -133,6 +133,7 @@ namespace tbx
     struct AssetLoadMetadata
     {
         Uuid id = {};
+        bool polymorphic = false;
         uint32 version = 0U;
     };
 
