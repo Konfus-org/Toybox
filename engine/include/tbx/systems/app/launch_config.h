@@ -30,7 +30,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Carries launch config parsing status and the parsed or default config.
+    /// Purpose: Carries launch config parsing status and the parsed config.
     /// @details
     /// Ownership: Owns the config and status report values.
     /// Thread Safety: Not thread-safe; intended for single-threaded startup.
