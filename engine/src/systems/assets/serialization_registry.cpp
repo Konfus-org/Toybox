@@ -69,14 +69,19 @@ namespace tbx
         }
 
         // Rename-hardened references resolve by UUID, but construction needs the registered C++
-        // asset type. A meta "type" field is preferred; the filename fallback preserves existing
-        // asset conventions for simple cases.
+        // asset type. Only explicitly polymorphic meta files use "type" as that discriminator so
+        // asset-specific metadata, such as shader stages, can keep their existing key names.
         auto type_name = std::string();
         if (meta_data.has_value())
         {
             auto meta_json = Json();
-            if (JsonParser::try_parse(*meta_data, meta_json))
+            auto is_polymorphic = false;
+            if (JsonParser::try_parse(*meta_data, meta_json)
+                && JsonParser::try_get(meta_json, "polymorphic", is_polymorphic)
+                && is_polymorphic)
+            {
                 static_cast<void>(JsonParser::try_get(meta_json, "type", type_name));
+            }
         }
         if (type_name.empty())
             type_name = make_serializable_type_name(asset_path.stem().string());

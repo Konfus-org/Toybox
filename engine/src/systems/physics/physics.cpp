@@ -409,18 +409,6 @@ namespace tbx
         return create_info;
     }
 
-    struct Physics::EntityRecord
-    {
-        PhysicsColliderHandle collider = {};
-        PhysicsRigidbodyHandle rigidbody = {};
-        Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
-        Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
-        Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
-        bool has_last_transform = false;
-        bool is_physics_driven = false;
-        bool is_trigger_only = false;
-    };
-
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
@@ -545,7 +533,7 @@ namespace tbx
         _overlap_entities_by_trigger.clear();
     }
 
-    void Physics::destroy_record(EntityRecord& record)
+    void Physics::destroy_record(PhysicsEntityRecord& record)
     {
         if (auto backend = _backend.lock())
         {

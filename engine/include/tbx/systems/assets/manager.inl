@@ -36,6 +36,7 @@ namespace tbx
         std::chrono::steady_clock::time_point last_access = {};
         Uuid asset_id = {};
         std::shared_future<Result> pending_load = {};
+        std::shared_ptr<TAsset> pending_reload_asset = {};
         AssetLoadParameters<TAsset> load_parameters = {};
         bool has_load_parameters = false;
         uint64 revision = 0U;
@@ -73,7 +74,16 @@ namespace tbx
                                                          : AssetLoadParameters<TAsset> {};
             auto promise =
                 serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
-            auto result = Result(promise.asset != nullptr, "Asset reload failed.");
+            auto result = Result(promise.asset != nullptr, promise.asset ? "" : "Asset reload failed.");
+            if (!result.succeeded())
+            {
+                return {
+                    .attempted = true,
+                    .result = result,
+                    .revision = record.revision,
+                };
+            }
+
             if (promise.promise.valid()
                 && promise.promise.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
             {
@@ -84,34 +94,38 @@ namespace tbx
                         false,
                         read_result.get_report().empty() ? std::string("Asset reload failed.")
                                                          : read_result.get_report());
+                    return {
+                        .attempted = true,
+                        .result = result,
+                        .revision = record.revision,
+                    };
                 }
-                else if (promise.asset)
-                {
-                    result = Result(true, read_result.get_report());
-                }
-            }
-            // Keep the existing record intact when a hot reload fails.
-            if (!result.succeeded())
-            {
+
+                populate_loaded_asset_data<TAsset>(promise.asset);
+                promise.asset->id = entry.asset_id;
+                record.asset = std::move(promise.asset);
+                record.pending_load = {};
+                record.pending_reload_asset = {};
+                record.load_parameters = parameters;
+                record.has_load_parameters = true;
+                record.stream_state = AssetStreamState::LOADED;
+                record.last_access = timestamp;
+                record.revision += 1U;
+
                 return {
                     .attempted = true,
-                    .result = result,
+                    .result = Result(true, read_result.get_report()),
                     .revision = record.revision,
                 };
             }
 
-            populate_loaded_asset_data<TAsset>(promise.asset);
-            if (promise.asset)
-                promise.asset->id = entry.asset_id;
-            record.asset = std::move(promise.asset);
+            // The current asset stays visible until async reload proves the replacement is valid.
             record.pending_load = promise.promise;
+            record.pending_reload_asset = std::move(promise.asset);
             record.load_parameters = parameters;
             record.has_load_parameters = true;
-            record.stream_state =
-                record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
+            record.stream_state = AssetStreamState::LOADING;
             record.last_access = timestamp;
-            update_asset_stream_state(record);
-            record.revision += 1U;
 
             return {
                 .attempted = true,
@@ -136,6 +150,8 @@ namespace tbx
                     continue;
 
                 record.asset.reset();
+                record.pending_reload_asset.reset();
+                record.pending_load = {};
                 record.stream_state = AssetStreamState::UNLOADED;
                 unloaded_count += 1U;
             }
@@ -219,9 +235,30 @@ namespace tbx
         using namespace std::chrono_literals;
         if (record.pending_load.wait_for(0s) == std::future_status::ready)
         {
+            const Result load_result = record.pending_load.get();
+            record.pending_load = {};
+
+            if (record.pending_reload_asset)
+            {
+                if (load_result.succeeded())
+                {
+                    populate_loaded_asset_data<TAsset>(record.pending_reload_asset);
+                    record.pending_reload_asset->id = record.asset_id;
+                    record.asset = std::move(record.pending_reload_asset);
+                    record.revision += 1U;
+                }
+                else
+                {
+                    record.pending_reload_asset.reset();
+                }
+            }
+            else if (!load_result.succeeded())
+            {
+                record.asset.reset();
+            }
+
             record.stream_state =
                 record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
-            record.pending_load = {};
         }
     }
 
@@ -593,6 +630,8 @@ namespace tbx
             asset_record.asset_id,
             typeid(TAsset).name());
         asset_record.asset.reset();
+        asset_record.pending_reload_asset.reset();
+        asset_record.pending_load = {};
         asset_record.stream_state = AssetStreamState::UNLOADED;
         return true;
     }
