@@ -243,6 +243,7 @@ namespace tbx
         struct IStore;
 
       private:
+        void dispatch_reload_events(const std::vector<StoreReloadResult>& reload_results) const;
         void on_asset_changed(
             const std::filesystem::path& watched_path,
             const FileWatchChange& change);
@@ -307,7 +308,7 @@ namespace tbx
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        static void update_asset_stream_state(Record<TAsset>& record);
+        static std::optional<Result> update_asset_stream_state(Record<TAsset>& record);
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>

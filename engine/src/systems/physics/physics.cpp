@@ -421,6 +421,11 @@ namespace tbx
         bool is_trigger_only = false;
     };
 
+    void Physics::EntityRecordDeleter::operator()(EntityRecord* record) const noexcept
+    {
+        delete record;
+    }
+
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
@@ -480,7 +485,7 @@ namespace tbx
         {
             if (const auto record_it = _records_by_entity.find(raycast_query.ignored_entity_id);
                 record_it != _records_by_entity.end())
-                ignored_rigidbody = record_it->second.rigidbody;
+                ignored_rigidbody = record_it->second->rigidbody;
         }
 
         auto backend_hit = PhysicsRaycastHit {};
@@ -538,7 +543,7 @@ namespace tbx
     void Physics::clear_resources()
     {
         for (auto& record_entry : _records_by_entity)
-            destroy_record(record_entry.second);
+            destroy_record(*record_entry.second);
 
         _records_by_entity.clear();
         _entity_by_rigidbody_handle.clear();
@@ -612,7 +617,7 @@ namespace tbx
             {
                 auto overlapped_rigidbodies = std::vector<PhysicsRigidbodyHandle> {};
                 backend->get_rigidbody_overlaps(
-                    record_it->second.rigidbody,
+                    record_it->second->rigidbody,
                     overlapped_rigidbodies);
                 current_overlaps.reserve(overlapped_rigidbodies.size());
                 for (const PhysicsRigidbodyHandle overlapped_rigidbody : overlapped_rigidbodies)
@@ -713,15 +718,15 @@ namespace tbx
 
             auto record_it = _records_by_entity.find(entity_id);
             if (record_it != _records_by_entity.end()
-                && (record_it->second.is_physics_driven != is_physics_driven
-                    || record_it->second.is_trigger_only != is_trigger_only
+                && (record_it->second->is_physics_driven != is_physics_driven
+                    || record_it->second->is_trigger_only != is_trigger_only
                     || (entity.has_component<StaticMesh>()
                         && _pending_model_reloads.contains(
                             entity.get_component<StaticMesh>().handle.id))
-                    || (entity.has_component<MeshCollider>() && record_it->second.has_last_transform
-                        && has_scale_changed(world_transform.scale, record_it->second.last_scale))))
+                    || (entity.has_component<MeshCollider>() && record_it->second->has_last_transform
+                        && has_scale_changed(world_transform.scale, record_it->second->last_scale))))
             {
-                destroy_record(record_it->second);
+                destroy_record(*record_it->second);
                 _records_by_entity.erase(record_it);
                 record_it = _records_by_entity.end();
             }
@@ -751,7 +756,8 @@ namespace tbx
                     continue;
                 }
 
-                auto& record = _records_by_entity[entity_id];
+                auto record_ptr = EntityRecordPtr(new EntityRecord());
+                auto& record = *record_ptr;
                 record.collider = collider;
                 record.rigidbody = rigidbody_handle;
                 record.last_position = world_transform.position;
@@ -760,11 +766,12 @@ namespace tbx
                 record.has_last_transform = true;
                 record.is_physics_driven = is_physics_driven;
                 record.is_trigger_only = is_trigger_only;
+                _records_by_entity[entity_id] = std::move(record_ptr);
                 _entity_by_rigidbody_handle[rigidbody_handle.value] = entity_id;
                 continue;
             }
 
-            auto& record = record_it->second;
+            auto& record = *record_it->second;
             const bool transform_is_dirty = record.has_last_transform
                                             && has_transform_changed(
                                                 world_transform,
@@ -825,7 +832,7 @@ namespace tbx
             if (record_it == _records_by_entity.end())
                 continue;
 
-            destroy_record(record_it->second);
+            destroy_record(*record_it->second);
             _records_by_entity.erase(record_it);
         }
     }
@@ -839,7 +846,7 @@ namespace tbx
         for (auto& record_entry : _records_by_entity)
         {
             const Uuid& entity_id = record_entry.first;
-            auto& record = record_entry.second;
+            auto& record = *record_entry.second;
 
             if (!world.has<Transform>(entity_id))
                 continue;

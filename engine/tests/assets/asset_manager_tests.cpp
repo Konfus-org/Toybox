@@ -22,6 +22,10 @@ namespace tbx
         std::filesystem::path resolved_include_path = {};
     };
 
+    struct PolymorphicFallbackAsset : Asset
+    {
+    };
+
     struct [[serializable]] [[version(1U)]] MacroOnlyAsset : Asset
     {
         [[prop]]
@@ -340,6 +344,9 @@ namespace tbx::tests::assets
         std::filesystem::path watched_path = {};
         std::filesystem::path asset_path = {};
         Handle affected_asset = {};
+        bool reload_succeeded = false;
+        uint64 reload_revision = 0U;
+        std::string reload_report = {};
     };
 
     class CapturingAssetEventDispatcher final : public IMessageDispatcher
@@ -457,6 +464,9 @@ namespace tbx::tests::assets
                             .watched_path = {},
                             .asset_path = {},
                             .affected_asset = reloaded->get().affected_asset,
+                            .reload_succeeded = reloaded->get().succeeded,
+                            .reload_revision = reloaded->get().revision,
+                            .reload_report = reloaded->get().report,
                         });
                 }
             }
@@ -742,6 +752,63 @@ namespace tbx::tests::assets
         EXPECT_TRUE(JsonParser::try_get(written_json, "value", written_value));
         EXPECT_EQ(written_label, "written");
         EXPECT_EQ(written_value, 77);
+    }
+
+
+    TEST(serialization_registry, polymorphic_meta_type_selects_registered_asset_type_when_flagged)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/not_matching.custom", R"({ "label": "source", "value": 42 })");
+        file_ops->set_text(
+            "content/not_matching.custom.meta",
+            R"({ "id": { "value": 50 }, "version": 1, "polymorphic": true, "type": "CustomBodyAsset" })");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto read = registry.read_registered_asset_result("content/not_matching.custom");
+
+        // Assert
+        ASSERT_TRUE(read.result.succeeded());
+        ASSERT_NE(read.asset, nullptr);
+        const auto asset = std::dynamic_pointer_cast<CustomBodyAsset>(read.asset);
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->id, Uuid(0x32U));
+        EXPECT_EQ(asset->version, 1U);
+        EXPECT_EQ(asset->label, "source");
+        EXPECT_EQ(asset->value, 42);
+    }
+
+    TEST(serialization_registry, non_polymorphic_meta_ignores_asset_specific_type_field)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text("content/StageNamedAsset.asset", "");
+        file_ops->set_text(
+            "content/StageNamedAsset.asset.meta",
+            R"({ "id": { "value": 51 }, "version": 1, "type": "fragment" })");
+        register_asset_type_entry(
+            AssetTypeRegistration {
+                .type_name = "stage_named_asset",
+                .type = std::type_index(typeid(PolymorphicFallbackAsset)),
+                .version = 1U,
+                .create_asset = []()
+                {
+                    return std::make_unique<PolymorphicFallbackAsset>();
+                },
+            });
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        const auto read = registry.read_registered_asset_result("content/StageNamedAsset.asset");
+
+        // Assert
+        ASSERT_TRUE(read.result.succeeded());
+        ASSERT_NE(read.asset, nullptr);
+        const auto asset = std::dynamic_pointer_cast<PolymorphicFallbackAsset>(read.asset);
+        ASSERT_NE(asset, nullptr);
+        EXPECT_EQ(asset->id, Uuid(0x33U));
+        EXPECT_EQ(asset->version, 1U);
     }
 
     TEST(serialization_registry, registered_loader_and_writer_override_custom_asset_defaults)
@@ -1045,6 +1112,83 @@ namespace tbx::tests::assets
         AssetUsage usage = manager.get_usage<TestAsset>(handle);
         EXPECT_EQ(usage.stream_state, AssetStreamState::LOADED);
         EXPECT_EQ(streamed_in.asset->value, 99);
+    }
+
+
+    TEST(asset_manager, async_reload_swaps_asset_after_success)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
+        AssetManager manager(
+            dispatcher,
+            get_test_serialization_registry(),
+            working_directory);
+        register_test_asset_loader(*get_test_serialization_registry());
+        Handle handle("async_reload_success.asset");
+        TestAssetLoadParameters parameters = {.value = 5};
+        reset_test_asset_loader_state();
+        auto original_asset = manager.load<TestAsset>(handle, parameters);
+        ASSERT_NE(original_asset, nullptr);
+        const auto before_usage = manager.get_usage<TestAsset>(handle);
+
+        // Act
+        auto& loader_state = get_test_asset_loader_state();
+        loader_state.use_async = true;
+        const bool completed_reload = manager.reload<TestAsset>(handle);
+        ASSERT_FALSE(completed_reload);
+        EXPECT_TRUE(dispatcher->get_reloaded_events().empty());
+        ASSERT_NE(loader_state.asset, nullptr);
+        loader_state.asset->value = 99;
+        auto success = Result();
+        success.flag_success();
+        loader_state.completion->set_value(success);
+        manager.update(DeltaTime());
+        const auto loading_usage = manager.get_usage<TestAsset>(handle);
+        auto reloaded_asset = manager.load<TestAsset>(handle, parameters);
+        const auto reloaded_events = dispatcher->get_reloaded_events();
+
+        // Assert
+        ASSERT_NE(reloaded_asset, nullptr);
+        EXPECT_NE(reloaded_asset, original_asset);
+        EXPECT_EQ(reloaded_asset->value, 99);
+        EXPECT_EQ(loading_usage.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(loading_usage.revision, before_usage.revision + 1U);
+        ASSERT_EQ(reloaded_events.size(), 1U);
+        EXPECT_TRUE(reloaded_events[0].reload_succeeded);
+        EXPECT_EQ(reloaded_events[0].reload_revision, before_usage.revision + 1U);
+    }
+
+    TEST(asset_manager, async_reload_failure_preserves_existing_asset)
+    {
+        // Arrange
+        std::filesystem::path working_directory = "/virtual/asset_manager";
+        AssetManager manager = make_manager(working_directory);
+        Handle handle("async_reload_failure.asset");
+        TestAssetLoadParameters parameters = {.value = 7};
+        reset_test_asset_loader_state();
+        auto original_asset = manager.load<TestAsset>(handle, parameters);
+        ASSERT_NE(original_asset, nullptr);
+        const auto before_usage = manager.get_usage<TestAsset>(handle);
+
+        // Act
+        auto& loader_state = get_test_asset_loader_state();
+        loader_state.use_async = true;
+        const bool completed_reload = manager.reload<TestAsset>(handle);
+        ASSERT_FALSE(completed_reload);
+        ASSERT_NE(loader_state.asset, nullptr);
+        loader_state.asset->value = 99;
+        auto failure = Result();
+        failure.flag_failure("reload failed");
+        loader_state.completion->set_value(failure);
+        const auto after_usage = manager.get_usage<TestAsset>(handle);
+        auto loaded_asset = manager.load<TestAsset>(handle, parameters);
+
+        // Assert
+        EXPECT_EQ(loaded_asset, original_asset);
+        EXPECT_EQ(loaded_asset->value, 7);
+        EXPECT_EQ(after_usage.stream_state, AssetStreamState::LOADED);
+        EXPECT_EQ(after_usage.revision, before_usage.revision);
     }
 
     TEST(asset_manager, unloads_unreferenced_assets)

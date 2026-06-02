@@ -6,6 +6,7 @@
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
+#include <memory>
 
 namespace tbx
 {
@@ -52,6 +53,12 @@ namespace tbx
 
       private:
         struct EntityRecord;
+        struct EntityRecordDeleter
+        {
+            void operator()(EntityRecord* record) const noexcept;
+        };
+        using EntityRecordPtr = std::unique_ptr<EntityRecord, EntityRecordDeleter>;
+
         void destroy_record(EntityRecord& record);
 
       private:
@@ -59,7 +66,7 @@ namespace tbx
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<AssetReloadQueue> _reload_queue = {};
         std::weak_ptr<WorldManager> _world_manager = {};
-        std::unordered_map<Uuid, EntityRecord> _records_by_entity = {};
+        std::unordered_map<Uuid, EntityRecordPtr> _records_by_entity = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
         std::unordered_set<Uuid> _pending_model_reloads = {};

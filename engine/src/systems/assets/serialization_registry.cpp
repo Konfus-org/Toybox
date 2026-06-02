@@ -74,8 +74,13 @@ namespace tbx
         if (metadata.polymorphic && meta_data.has_value())
         {
             auto meta_json = Json();
-            if (JsonParser::try_parse(*meta_data, meta_json))
+            auto is_polymorphic = false;
+            if (JsonParser::try_parse(*meta_data, meta_json)
+                && JsonParser::try_get(meta_json, "polymorphic", is_polymorphic)
+                && is_polymorphic)
+            {
                 static_cast<void>(JsonParser::try_get(meta_json, "type", type_name));
+            }
         }
         if (type_name.empty())
             type_name = make_serializable_type_name(asset_path.stem().string());
