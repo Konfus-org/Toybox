@@ -21,7 +21,6 @@ namespace tbx::tests::app
 
         // Assert
         ASSERT_TRUE(read_result.result);
-        EXPECT_FALSE(read_result.used_default_config);
         ASSERT_EQ(read_result.config.plugins.size(), 2U);
         EXPECT_EQ(read_result.config.plugins[0], "ThreeDExampleRuntime");
         EXPECT_EQ(read_result.config.plugins[1], "PerformanceMonitor");
@@ -29,7 +28,7 @@ namespace tbx::tests::app
         EXPECT_EQ(read_result.config.startup_world.id, Uuid(822083584U));
     }
 
-    TEST(launch_config, uses_defaults_when_config_is_missing)
+    TEST(launch_config, rejects_missing_config)
     {
         // Arrange
         const auto file_ops = InMemoryFileOps("game");
@@ -38,11 +37,8 @@ namespace tbx::tests::app
         const auto read_result = read_launch_config(file_ops);
 
         // Assert
-        ASSERT_TRUE(read_result.result);
-        EXPECT_TRUE(read_result.used_default_config);
-        EXPECT_TRUE(read_result.config.plugins.empty());
-        EXPECT_EQ(read_result.config.settings_asset, "Settings.json");
-        EXPECT_FALSE(read_result.config.startup_world.is_valid());
+        EXPECT_FALSE(read_result.result);
+        EXPECT_FALSE(read_result.result.get_report().empty());
     }
 
     TEST(launch_config, rejects_malformed_json)
@@ -56,7 +52,6 @@ namespace tbx::tests::app
 
         // Assert
         EXPECT_FALSE(read_result.result);
-        EXPECT_FALSE(read_result.used_default_config);
         EXPECT_FALSE(read_result.result.get_report().empty());
     }
 
@@ -76,7 +71,6 @@ namespace tbx::tests::app
 
         // Assert
         EXPECT_FALSE(read_result.result);
-        EXPECT_FALSE(read_result.used_default_config);
         EXPECT_FALSE(read_result.result.get_report().empty());
     }
 
@@ -97,7 +91,6 @@ namespace tbx::tests::app
 
         // Assert
         EXPECT_FALSE(read_result.result);
-        EXPECT_FALSE(read_result.used_default_config);
         EXPECT_FALSE(read_result.result.get_report().empty());
     }
 }
