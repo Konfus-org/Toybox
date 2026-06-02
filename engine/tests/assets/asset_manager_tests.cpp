@@ -70,6 +70,14 @@ namespace tbx
         int value = 0;
     };
 
+    struct NonPolymorphicMetaAsset : Asset
+    {
+    };
+
+    struct PolymorphicMetaAsset : Asset
+    {
+    };
+
     template <>
     struct Serializer<CustomBodyAsset>
     {
@@ -280,6 +288,22 @@ namespace tbx
         asset.loader_observed_default = asset.value == 7;
         asset.value = 11;
         return {};
+    }
+
+    template <typename TAsset>
+    static void register_named_asset_type(std::string type_name)
+    {
+        register_asset_type_entry(
+            AssetTypeRegistration {
+                .type_name = std::move(type_name),
+                .type = std::type_index(typeid(TAsset)),
+                .version = 1U,
+                .create_asset =
+                    []
+                {
+                    return std::make_unique<TAsset>();
+                },
+            });
     }
 
     class NullMessageDispatcher final : public IMessageDispatcher
@@ -548,6 +572,50 @@ namespace tbx::tests::assets
         EXPECT_EQ(asset->id, Uuid(0x2AU));
         EXPECT_EQ(asset->version, 1U);
         EXPECT_EQ(asset->value, 42);
+    }
+
+    TEST(serialization_registry, registered_asset_ignores_type_key_without_polymorphic_flag)
+    {
+        // Arrange
+        unregister_asset_type_entry(std::type_index(typeid(NonPolymorphicMetaAsset)));
+        register_named_asset_type<NonPolymorphicMetaAsset>("non_polymorphic_meta_asset");
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text(
+            "content/non_polymorphic_meta_asset.asset.meta",
+            R"({ "id": { "value": 52 }, "version": 1, "type": "fragment" })");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        auto read =
+            registry.read_registered_asset_result("content/non_polymorphic_meta_asset.asset");
+
+        // Assert
+        ASSERT_TRUE(read.result.succeeded()) << read.result.get_report();
+        EXPECT_NE(std::dynamic_pointer_cast<NonPolymorphicMetaAsset>(read.asset), nullptr);
+        EXPECT_EQ(read.metadata.id, Uuid(0x34U));
+        EXPECT_FALSE(read.metadata.polymorphic);
+    }
+
+    TEST(serialization_registry, registered_asset_uses_type_key_when_polymorphic_flag_is_set)
+    {
+        // Arrange
+        unregister_asset_type_entry(std::type_index(typeid(PolymorphicMetaAsset)));
+        register_named_asset_type<PolymorphicMetaAsset>("polymorphic_meta_asset");
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text(
+            "content/renamed.asset.meta",
+            "{ \"id\": { \"value\": 53 }, \"version\": 1, "
+            "\"polymorphic\": true, \"type\": \"polymorphic_meta_asset\" }");
+        auto registry = SerializationRegistry {file_ops};
+
+        // Act
+        auto read = registry.read_registered_asset_result("content/renamed.asset");
+
+        // Assert
+        ASSERT_TRUE(read.result.succeeded()) << read.result.get_report();
+        EXPECT_NE(std::dynamic_pointer_cast<PolymorphicMetaAsset>(read.asset), nullptr);
+        EXPECT_EQ(read.metadata.id, Uuid(0x35U));
+        EXPECT_TRUE(read.metadata.polymorphic);
     }
 
     TEST(serialization_registry, asset_meta_rejects_missing_version)

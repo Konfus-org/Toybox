@@ -192,7 +192,8 @@ namespace tbx::tests::scripting
             })");
         file_ops->set_text(
             "Scripts/Door.script.meta",
-            R"({ "id": { "value": 1090519041 }, "version": 1, "type": "door_controller" })");
+            "{ \"id\": { \"value\": 1090519041 }, \"version\": 1, "
+            "\"polymorphic\": true, \"type\": \"door_controller\" }");
         file_ops->set_text("Scripts/Door.script", R"({ "open_speed": 2.0 })");
 
         auto dispatcher = std::make_shared<NullMessageDispatcher>();

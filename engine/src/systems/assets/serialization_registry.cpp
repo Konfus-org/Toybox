@@ -68,11 +68,10 @@ namespace tbx
             return read;
         }
 
-        // Rename-hardened references resolve by UUID, but construction needs the registered C++
-        // asset type. Only explicitly polymorphic meta files use "type" as that discriminator so
-        // asset-specific metadata, such as shader stages, can keep their existing key names.
+        // Only polymorphic metas may use "type" as the registered C++ discriminator because
+        // legacy metas such as shaders already use that key for asset-specific settings.
         auto type_name = std::string();
-        if (meta_data.has_value())
+        if (metadata.polymorphic && meta_data.has_value())
         {
             auto meta_json = Json();
             auto is_polymorphic = false;
@@ -157,6 +156,8 @@ namespace tbx
                 out_metadata.id = Uuid(numeric_id);
             }
         }
+
+        static_cast<void>(JsonParser::try_get(data, "polymorphic", out_metadata.polymorphic));
 
         auto version = uint32();
         if (!JsonParser::try_get(data, "version", version))
