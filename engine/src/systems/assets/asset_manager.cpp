@@ -66,13 +66,19 @@ namespace tbx
     void AssetManager::update(const DeltaTime& dt)
     {
         auto should_unload = false;
+        auto completed_reloads = std::vector<StoreReloadResult>();
         {
             std::lock_guard lock(_mutex);
             _unload_elapsed_seconds += dt.seconds;
             should_unload = _unload_elapsed_seconds >= ASSET_UNLOAD_INTERVAL_SECONDS;
             if (should_unload)
                 _unload_elapsed_seconds = 0.0;
+
+            for (auto& store : _stores)
+                store.second->collect_completed_reloads(completed_reloads);
         }
+
+        dispatch_reload_events(completed_reloads);
 
         if (!should_unload)
             return;
@@ -250,6 +256,26 @@ namespace tbx
         return _serialization_registry;
     }
 
+    void AssetManager::dispatch_reload_events(
+        const std::vector<StoreReloadResult>& reload_results) const
+    {
+        const auto dispatcher = _dispatcher.lock();
+        if (!dispatcher)
+            return;
+
+        for (const auto& reload_result : reload_results)
+        {
+            if (!reload_result.attempted || reload_result.pending)
+                continue;
+
+            dispatcher->post<AssetReloadedEvent>(
+                Handle(reload_result.normalized_path, reload_result.asset_id),
+                reload_result.result.succeeded(),
+                reload_result.revision,
+                reload_result.result.get_report());
+        }
+    }
+
     void AssetManager::remove_directory(const std::filesystem::path& path)
     {
         if (path.empty())
@@ -373,6 +399,7 @@ namespace tbx
                     pending_event_type = PendingAssetEventType::MODIFIED;
 
                     auto reload_result = StoreReloadResult();
+                    auto has_pending_reload = false;
                     if (registry_entry.asset_id.is_valid())
                     {
                         const auto serialization_registry = lock_serialization_registry();
@@ -394,6 +421,12 @@ namespace tbx
                                 registry_entry.normalized_path,
                                 registry_entry.asset_id,
                                 type_name);
+                            if (store_reload_result.pending)
+                            {
+                                has_pending_reload = true;
+                                continue;
+                            }
+
                             if (!store_reload_result.result.succeeded())
                             {
                                 TBX_TRACE_WARNING(
@@ -417,7 +450,7 @@ namespace tbx
                                 reload_result.result = store_reload_result.result;
                         }
 
-                        if (!reload_result.attempted)
+                        if (!reload_result.attempted && !has_pending_reload)
                         {
                             auto polymorphic_revision =
                                 _polymorphic_asset_revisions.find(registry_entry.asset_id);
