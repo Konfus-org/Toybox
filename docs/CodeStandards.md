@@ -12,7 +12,8 @@
 - **Build System**: Execute exclusively via `CMakePresets.json`.
 - **Clang Toolchain**: `cmake --preset clang` -> `cmake --build --preset clang-debug` -> `ctest --preset test-clang-debug`
 - **MSVC Toolchain**: `cmake --preset msvc` -> `cmake --build --preset msvc-debug` -> `ctest --preset test-msvc-debug`
-- **Always Test Changes**: Launch the 3d Example in debug mode and ensure there are no exceptions/errors/warnings on launch and shutdown.
+- **Sanitizer Mode**: Normal Debug presets are intentionally unsanitized for framerate. For ASan+UBSan startup/testing validation, use `cmake --preset clang-sanitize-tests` -> `cmake --build --preset clang-sanitize-debug-tests` -> `ctest --preset test-clang-sanitize-debug`.
+- **Always Test Changes**: Launch the 3d Example in normal debug mode for interactive startup/shutdown. Also use the Clang sanitizer mode when validating memory safety, undefined behavior, or agent startup/test confidence.
 
 ## C++ Implementation Standards
 

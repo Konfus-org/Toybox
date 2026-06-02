@@ -18,6 +18,10 @@ function(tbx_set_test_output target_name)
         LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/testbin"
     )
 
+    if(TARGET TbxSanitizerRuntimeDependencies)
+        add_dependencies(${target_name} TbxSanitizerRuntimeDependencies)
+    endif()
+
     if(WIN32)
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND}

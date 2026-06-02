@@ -15,7 +15,7 @@
         "TBX_PLUGIN_ABI_VERSION": "1",
         "TBX_BUILD_TESTS": "OFF",
         "TBX_ENABLE_COMPILER_CACHE": "ON",
-        "TBX_ENABLE_DEBUG_SANITIZERS": "ON",
+        "TBX_ENABLE_DEBUG_SANITIZERS": "OFF",
         "TBX_ENABLE_VERBOSE": "OFF",
         "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
         "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake;${sourceDir}/cmake/preset_sanitizers.cmake",
@@ -68,6 +68,24 @@
       "name": "clang-tests",
       "displayName": "Toybox (Clang, tests)",
       "inherits": "clang",
+      "cacheVariables": {
+        "TBX_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "clang-sanitize",
+      "displayName": "Toybox (Clang ASan+UBSan)",
+      "description": "Targeting Windows x64 with Clang and Debug ASan+UBSan instrumentation",
+      "inherits": "clang",
+      "cacheVariables": {
+        "TBX_ENABLE_DEBUG_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "clang-sanitize-tests",
+      "displayName": "Toybox (Clang ASan+UBSan, tests)",
+      "description": "Targeting Windows x64 with Clang, test targets, and Debug ASan+UBSan instrumentation",
+      "inherits": "clang-sanitize",
       "cacheVariables": {
         "TBX_BUILD_TESTS": "ON"
       }
@@ -125,6 +143,18 @@
       "inherits": "build-base",
       "configurePreset": "clang-tests",
       "configuration": "Debug"
+    },
+    {
+      "name": "clang-sanitize-debug",
+      "inherits": "build-base",
+      "configurePreset": "clang-sanitize",
+      "configuration": "Debug"
+    },
+    {
+      "name": "clang-sanitize-debug-tests",
+      "inherits": "build-base",
+      "configurePreset": "clang-sanitize-tests",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -133,10 +163,6 @@
       "hidden": true,
       "output": {
         "outputOnFailure": true
-      },
-      "environment": {
-        "ASAN_OPTIONS": "abort_on_error=1",
-        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       },
       "execution": {
         "timeout": 120
@@ -165,6 +191,16 @@
       "inherits": "test-base",
       "configurePreset": "clang-tests",
       "configuration": "Debug"
+    },
+    {
+      "name": "test-clang-sanitize-debug",
+      "inherits": "test-base",
+      "configurePreset": "clang-sanitize-tests",
+      "configuration": "Debug",
+      "environment": {
+        "ASAN_OPTIONS": "abort_on_error=1:detect_leaks=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
     }
   ]
 }

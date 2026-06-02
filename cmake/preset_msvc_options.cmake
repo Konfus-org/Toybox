@@ -15,5 +15,5 @@ add_compile_options(
 
 add_link_options(
   $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/DEBUG:FULL>
-  $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>,$<NOT:$<BOOL:${TBX_ENABLE_DEBUG_SANITIZERS}>>>:/INCREMENTAL>
+  $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/INCREMENTAL>
 )

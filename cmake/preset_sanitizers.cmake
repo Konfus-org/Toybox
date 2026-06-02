@@ -1,4 +1,4 @@
-option(TBX_ENABLE_DEBUG_SANITIZERS "Enable supported sanitizers for Debug preset builds" ON)
+option(TBX_ENABLE_DEBUG_SANITIZERS "Enable Clang ASan+UBSan for Debug sanitizer preset builds" OFF)
 
 if(NOT TBX_ENABLE_DEBUG_SANITIZERS)
     return()
@@ -11,20 +11,12 @@ add_compile_options(
     $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,Clang>>:-fno-omit-frame-pointer>
     $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:C,Clang>>:-fno-sanitize-recover=all>
     $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,Clang>>:-fno-sanitize-recover=all>
-    $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:C,MSVC>>:/fsanitize=address>
-    $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANG_AND_ID:CXX,MSVC>>:/fsanitize=address>
 )
 
 add_link_options(
     $<$<AND:$<CONFIG:Debug>,$<LINK_LANG_AND_ID:C,Clang>>:-fsanitize=address,undefined>
     $<$<AND:$<CONFIG:Debug>,$<LINK_LANG_AND_ID:CXX,Clang>>:-fsanitize=address,undefined>
-    $<$<AND:$<CONFIG:Debug>,$<LINK_LANG_AND_ID:C,MSVC>>:/INCREMENTAL:NO>
-    $<$<AND:$<CONFIG:Debug>,$<LINK_LANG_AND_ID:CXX,MSVC>>:/INCREMENTAL:NO>
 )
-
-if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_CHECKS "" CACHE STRING "MSVC runtime checks are incompatible with AddressSanitizer" FORCE)
-endif()
 
 if(WIN32 AND CMAKE_CXX_COMPILER MATCHES "clang")
     execute_process(

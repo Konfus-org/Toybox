@@ -15,6 +15,10 @@ function(tbx_add_example_launcher)
     add_executable(${TBX_EXAMPLE_NAME}
         "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     )
+    if(TARGET TbxSanitizerRuntimeDependencies)
+        add_dependencies(${TBX_EXAMPLE_NAME} TbxSanitizerRuntimeDependencies)
+    endif()
+
     target_compile_features(${TBX_EXAMPLE_NAME} PRIVATE cxx_std_23)
     target_include_directories(${TBX_EXAMPLE_NAME}
         PRIVATE
