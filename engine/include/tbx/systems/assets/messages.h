@@ -1,5 +1,7 @@
 #pragma once
 #include "tbx/systems/messaging/message.h"
+#include "tbx/types/typedefs.h"
+#include <string>
 
 namespace tbx
 {
@@ -37,13 +39,21 @@ namespace tbx
 
     struct TBX_API AssetReloadedEvent : public Event
     {
-        AssetReloadedEvent(Handle handle = {}, bool was_successful = false)
+        AssetReloadedEvent(
+            Handle handle = {},
+            bool was_successful = false,
+            uint64 asset_revision = 0U,
+            std::string reload_report = {})
             : affected_asset(std::move(handle))
             , succeeded(was_successful)
+            , revision(asset_revision)
+            , report(std::move(reload_report))
         {
         }
 
         Handle affected_asset = {};
         bool succeeded = false;
+        uint64 revision = 0U;
+        std::string report = {};
     };
 }

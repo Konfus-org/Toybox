@@ -6,6 +6,7 @@
 #include "tbx/systems/app/launch_config.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/time/delta_time.h"
@@ -61,6 +62,7 @@ namespace tbx
             service_provider.try_get_service<IPhysicsBackend>(),
             service_provider.try_get_service<AssetManager>(),
             service_provider.try_get_service<WorldManager>(),
+            service_provider.try_get_service<AssetReloadQueue>(),
             settings));
     }
 
@@ -85,7 +87,8 @@ namespace tbx
             service_provider.try_get_service<AssetManager>(),
             service_provider.try_get_service<ThreadManager>(),
             service_provider.try_get_service<IWindowManager>(),
-            service_provider.try_get_service<WorldManager>()));
+            service_provider.try_get_service<WorldManager>(),
+            service_provider.try_get_service<AssetReloadQueue>()));
     }
 
     static void register_app_window_manager(ServiceProvider& service_provider)
@@ -106,6 +109,7 @@ namespace tbx
         , _plugin_manager(_service_provider)
     {
         _msg_coordinator = _service_provider->get_service<IMessageCoordinator>();
+        _asset_reload_queue = _service_provider->get_service<AssetReloadQueue>();
         _asset_manager = _service_provider->get_service<AssetManager>();
         _world_manager = _service_provider->get_service<WorldManager>();
         _script_system = _service_provider->get_service<ScriptSystem>();
@@ -250,24 +254,42 @@ namespace tbx
                 });
 
             const auto launch_config_result = read_launch_config(*file_ops);
-            if (launch_config_result.used_default_config)
-                TBX_TRACE_WARNING("{}", launch_config_result.result.get_report());
             if (!launch_config_result.result)
             {
-                TBX_TRACE_CRITICAL("{}", launch_config_result.result.get_report());
                 _should_exit = true;
                 TBX_ASSERT(false, "{}", launch_config_result.result.get_report());
                 return;
             }
 
             const auto& launch_config = launch_config_result.config;
-
             _plugin_manager.load(
                 file_ops->get_working_directory(),
                 launch_config.plugins,
                 file_ops->get_working_directory());
-
             _settings = load_app_settings(*asset_manager, launch_config.settings_asset);
+            const auto settings_handle = _settings && _settings->id.is_valid()
+                                             ? Handle(launch_config.settings_asset, _settings->id)
+                                             : Handle(launch_config.settings_asset);
+            if (auto reload_queue = _asset_reload_queue.lock())
+            {
+                reload_queue->register_handler(
+                    [this, settings_handle](const AssetReloadContext& context)
+                    {
+                        if (!context.succeeded || context.affected_asset.id != settings_handle.id)
+                        {
+                            return;
+                        }
+
+                        if (const auto asset_manager = _asset_manager.lock())
+                        {
+                            if (auto settings = asset_manager->load<AppSettings>(settings_handle))
+                            {
+                                _settings = std::move(settings);
+                                _name = _settings->name;
+                            }
+                        }
+                    });
+            }
             auto settings = _settings;
             _name = settings->name;
 
@@ -395,6 +417,8 @@ namespace tbx
 
         // Process messages posted in the previous frame.
         msg_coordinator->flush();
+        if (auto reload_queue = _asset_reload_queue.lock())
+            reload_queue->flush();
 
         // Update delta time
         DeltaTime dt = timer.tick();
@@ -518,6 +542,8 @@ namespace tbx
             _world_manager = {};
             if (_service_provider->has_service<WorldManager>())
                 _service_provider->deregister_service<WorldManager>();
+            if (_service_provider->has_service<AssetReloadQueue>())
+                _service_provider->deregister_service<AssetReloadQueue>();
             _settings = {};
             asset_manager->unload_all();
 

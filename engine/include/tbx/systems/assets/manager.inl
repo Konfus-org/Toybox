@@ -6,7 +6,8 @@ namespace tbx
     struct AssetManager::StoreReloadResult
     {
         bool attempted = false;
-        bool succeeded = true;
+        Result result = {};
+        uint64 revision = 0U;
     };
 
     struct AssetManager::IStore
@@ -24,28 +25,6 @@ namespace tbx
         virtual void set_pinned(Uuid asset_id, bool is_pinned) = 0;
     };
 
-    struct AssetManager::State
-    {
-        State(
-            std::weak_ptr<IMessageDispatcher> message_dispatcher,
-            std::weak_ptr<SerializationRegistry> registry)
-            : dispatcher(std::move(message_dispatcher))
-            , serialization_registry(std::move(registry))
-        {
-        }
-
-        // Asset loaders can synchronously re-enter AssetManager APIs on the same thread.
-        mutable std::recursive_mutex mutex = {};
-        std::weak_ptr<IMessageDispatcher> dispatcher = {};
-        std::weak_ptr<SerializationRegistry> serialization_registry = {};
-        std::shared_ptr<IFileOps> file_ops = nullptr;
-        std::unique_ptr<AssetRegistry> registry = {};
-        std::unordered_map<std::type_index, std::unique_ptr<IStore>> stores = {};
-        std::vector<std::filesystem::path> watched_directories = {};
-        std::vector<std::unique_ptr<FileWatcher>> file_watchers = {};
-        double unload_elapsed_seconds = 0.0;
-    };
-
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
     struct AssetManager::Record
@@ -59,6 +38,7 @@ namespace tbx
         std::shared_future<Result> pending_load = {};
         AssetLoadParameters<TAsset> load_parameters = {};
         bool has_load_parameters = false;
+        uint64 revision = 0U;
     };
 
     template <typename TAsset>
@@ -93,6 +73,33 @@ namespace tbx
                                                          : AssetLoadParameters<TAsset> {};
             auto promise =
                 serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
+            auto result = Result(promise.asset != nullptr, "Asset reload failed.");
+            if (promise.promise.valid()
+                && promise.promise.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            {
+                const Result read_result = promise.promise.get();
+                if (!read_result.succeeded())
+                {
+                    result = Result(
+                        false,
+                        read_result.get_report().empty() ? std::string("Asset reload failed.")
+                                                         : read_result.get_report());
+                }
+                else if (promise.asset)
+                {
+                    result = Result(true, read_result.get_report());
+                }
+            }
+            // Keep the existing record intact when a hot reload fails.
+            if (!result.succeeded())
+            {
+                return {
+                    .attempted = true,
+                    .result = result,
+                    .revision = record.revision,
+                };
+            }
+
             populate_loaded_asset_data<TAsset>(promise.asset);
             if (promise.asset)
                 promise.asset->id = entry.asset_id;
@@ -103,20 +110,13 @@ namespace tbx
             record.stream_state =
                 record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
             record.last_access = timestamp;
-            if (record.stream_state == AssetStreamState::LOADING && record.pending_load.valid())
-            {
-                if (record.pending_load.wait_for(std::chrono::seconds(0))
-                    == std::future_status::ready)
-                {
-                    record.stream_state =
-                        record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
-                    record.pending_load = {};
-                }
-            }
+            update_asset_stream_state(record);
+            record.revision += 1U;
 
             return {
                 .attempted = true,
-                .succeeded = record.asset != nullptr,
+                .result = result,
+                .revision = record.revision,
             };
         }
 
@@ -200,6 +200,7 @@ namespace tbx
         usage.is_pinned = record.is_pinned;
         usage.stream_state = record.stream_state;
         usage.last_access = record.last_access;
+        usage.revision = record.revision;
         return usage;
     }
 
@@ -361,8 +362,8 @@ namespace tbx
         const AssetLoadParameters<TAsset>& parameters)
     {
         auto now = std::chrono::steady_clock::now();
-        std::lock_guard lock(_state->mutex);
-        const auto ensure_result = _state->registry->ensure_entry(handle);
+        std::lock_guard lock(_mutex);
+        const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -377,7 +378,7 @@ namespace tbx
             TBX_TRACE_INFO("Asset registry: {}", ensure_result.result.get_report());
         }
         const auto& entry = ensure_result.entry->get();
-        auto store = get_asset_store<TAsset>(_state->stores, true);
+        auto store = get_asset_store<TAsset>(_stores, true);
         auto record =
             store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;
         if (!record.has_value())
@@ -440,14 +441,14 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     AssetUsage AssetManager::get_usage(const Handle& handle) const
     {
-        std::lock_guard lock(_state->mutex);
-        auto store = get_asset_store<TAsset>(_state->stores);
+        std::lock_guard lock(_mutex);
+        auto store = get_asset_store<TAsset>(_stores);
         if (!store.has_value())
         {
             return {};
         }
 
-        auto record = get_asset_record<TAsset>(*_state->registry, store->get(), handle);
+        auto record = get_asset_record<TAsset>(*_registry, store->get(), handle);
         if (!record.has_value())
         {
             return {};
@@ -462,8 +463,8 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     std::vector<std::shared_ptr<TAsset>> AssetManager::get_loaded() const
     {
-        std::lock_guard lock(_state->mutex);
-        auto store = get_asset_store<TAsset>(_state->stores);
+        std::lock_guard lock(_mutex);
+        auto store = get_asset_store<TAsset>(_stores);
         if (!store.has_value())
             return {};
 
@@ -492,9 +493,9 @@ namespace tbx
         const AssetLoadParameters<TAsset>& parameters)
     {
         auto now = std::chrono::steady_clock::now();
-        std::lock_guard lock(_state->mutex);
+        std::lock_guard lock(_mutex);
         AssetPromise<TAsset> result = {};
-        const auto ensure_result = _state->registry->ensure_entry(handle);
+        const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -509,7 +510,7 @@ namespace tbx
             TBX_TRACE_INFO("Asset registry: {}", ensure_result.result.get_report());
         }
         const auto& entry = ensure_result.entry->get();
-        auto store = get_asset_store<TAsset>(_state->stores, true);
+        auto store = get_asset_store<TAsset>(_stores, true);
         auto record =
             store.has_value() ? get_asset_record<TAsset>(store->get(), entry, true) : std::nullopt;
         if (!record.has_value())
@@ -566,14 +567,14 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     bool AssetManager::unload(const Handle& handle, bool force)
     {
-        std::lock_guard lock(_state->mutex);
-        auto store = get_asset_store<TAsset>(_state->stores);
+        std::lock_guard lock(_mutex);
+        auto store = get_asset_store<TAsset>(_stores);
         if (!store.has_value())
         {
             return false;
         }
 
-        auto record = get_asset_record<TAsset>(*_state->registry, store->get(), handle);
+        auto record = get_asset_record<TAsset>(*_registry, store->get(), handle);
         if (!record.has_value())
         {
             return false;
@@ -600,8 +601,8 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     bool AssetManager::reload(const Handle& handle)
     {
-        std::lock_guard lock(_state->mutex);
-        const auto ensure_result = _state->registry->ensure_entry(handle);
+        std::lock_guard lock(_mutex);
+        const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
             TBX_TRACE_WARNING(
@@ -617,7 +618,7 @@ namespace tbx
         }
         const auto& entry = ensure_result.entry->get();
 
-        auto store = get_asset_store<TAsset>(_state->stores, true);
+        auto store = get_asset_store<TAsset>(_stores, true);
         if (!store.has_value())
         {
             return false;
@@ -636,7 +637,7 @@ namespace tbx
                 entry.normalized_path,
                 entry.asset_id,
                 typeid(TAsset).name());
-            if (!reload_result.succeeded)
+            if (!reload_result.result.succeeded())
             {
                 TBX_TRACE_WARNING(
                     "Failed to reload asset: '{}' (id={}, type={})",
@@ -645,6 +646,6 @@ namespace tbx
                     typeid(TAsset).name());
             }
         }
-        return reload_result.attempted && reload_result.succeeded;
+        return reload_result.attempted && reload_result.result.succeeded();
     }
 }

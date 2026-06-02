@@ -575,6 +575,28 @@ namespace tbx
         return handle.id.is_valid() || !handle.name.empty();
     }
 
+    static bool is_matching_asset_handle(const Handle& cached, const Handle& reloaded)
+    {
+        if (reloaded.id.is_valid() && cached.id == reloaded.id)
+            return true;
+
+        return !reloaded.name.empty() && cached.name == reloaded.name;
+    }
+
+    template <typename TValue>
+    static void erase_asset_cache_entry(
+        std::unordered_map<Handle, TValue>& cache,
+        const Handle& asset)
+    {
+        for (auto iterator = cache.begin(); iterator != cache.end();)
+        {
+            if (is_matching_asset_handle(iterator->first, asset))
+                iterator = cache.erase(iterator);
+            else
+                ++iterator;
+        }
+    }
+
     static Handle resolve_material_handle(const MaterialInstance& instance)
     {
         auto material_handle = instance.get_handle();
@@ -1315,6 +1337,23 @@ namespace tbx
             erase_uuid_cache_entry(_caches.textures.render_targets, resource);
             discard_cached_uniform_resource(_caches.uniforms, resource);
             discard_cached_uniform_resource(_caches.instances, resource);
+        }
+
+        void discard_cached_asset(const Handle& asset) const
+        {
+            if (!has_asset_reference(asset))
+                return;
+
+            erase_asset_cache_entry(_caches.meshes.model_bounds, asset);
+            erase_asset_cache_entry(_caches.meshes.model_meshes, asset);
+            erase_asset_cache_entry(_caches.meshes.runtime_meshes, asset);
+            erase_asset_cache_entry(_caches.textures.textures, asset);
+
+            // Materials and shaders compile into shared pipelines/bind groups, so the cheap and
+            // reliable V1 behavior is to rebuild material-derived GPU state after any asset fanout.
+            _caches.materials.materials.clear();
+            _caches.pipelines.pipelines.clear();
+            _caches.bind_groups.bind_groups.clear();
         }
 
         bool try_get_model_bounds(const Handle& model_handle, MeshBounds& out_bounds) const

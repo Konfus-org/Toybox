@@ -85,9 +85,8 @@ namespace tbx
         auto contents = std::string();
         if (!file_ops.read_file(path, FileDataFormat::UTF8_TEXT, contents))
         {
-            read_result.used_default_config = true;
-            read_result.result.flag_success(
-                std::format("Launch config '{}' was not found. Using defaults.", path.string()));
+            read_result.result.flag_failure(
+                std::format("Launch config '{}' was not found.", path.string()));
             return read_result;
         }
 

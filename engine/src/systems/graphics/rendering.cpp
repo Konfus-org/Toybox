@@ -10,8 +10,10 @@ namespace tbx
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<ThreadManager> thread_manager,
         std::weak_ptr<IWindowManager> window_manager,
-        std::weak_ptr<WorldManager> world_manager)
+        std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<AssetReloadQueue> reload_queue)
         : _thread_manager(std::move(thread_manager))
+        , _reload_queue(std::move(reload_queue))
         , _backend(std::move(backend))
         , _window_manager(window_manager)
         , _pipeline(
@@ -20,6 +22,15 @@ namespace tbx
               std::move(window_manager),
               std::move(world_manager))
     {
+        if (auto queue = _reload_queue.lock())
+        {
+            _asset_reload_handler = queue->register_handler(
+                [this](const AssetReloadContext& context)
+                {
+                    on_asset_reload(context);
+                });
+        }
+
         auto thread_manager_service = _thread_manager.lock();
         if (!thread_manager_service)
         {
@@ -41,6 +52,8 @@ namespace tbx
         TBX_TRY_CATCH_ASSERT(
             {
                 wait_for_render_frame();
+                if (auto queue = _reload_queue.lock())
+                    queue->deregister_handler(_asset_reload_handler);
 
                 if (auto thread_manager = _thread_manager.lock())
                 {
@@ -91,6 +104,14 @@ namespace tbx
     void Rendering::wait_for_pending_frame() noexcept
     {
         wait_for_render_frame();
+    }
+
+    void Rendering::on_asset_reload(const AssetReloadContext& context)
+    {
+        if (!context.succeeded || !context.affected_asset.id.is_valid())
+            return;
+
+        _pipeline.invalidate_asset(context.affected_asset);
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)

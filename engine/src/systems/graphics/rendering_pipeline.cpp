@@ -1381,8 +1381,8 @@ namespace tbx
                 PARAM_SECONDARY_SKYBOX_TEXTURE,
                 sky_material_upload.textures);
 
-            const auto sky_model_matrix = build_transform_matrix(
-                Transform(Vec3(0.0F), render_data.sky_rotation, Vec3(1.0F)));
+            const auto sky_model_matrix =
+                build_transform_matrix(Transform(Vec3(0.0F), render_data.sky_rotation, Vec3(1.0F)));
             const auto sky_instance = RenderMeshInstance {};
             const auto sky_instance_buffer = resource_manager.upload_instance_buffer(
                 "Toybox/Instances/Sky",
@@ -1669,9 +1669,7 @@ namespace tbx
         return window_manager.get_main_window();
     }
 
-    static Window extract_render_target(
-        const World& world,
-        const IWindowManager& window_manager)
+    static Window extract_render_target(const World& world, const IWindowManager& window_manager)
     {
         return extract_render_target_from_world(world, window_manager);
     }
@@ -2299,8 +2297,13 @@ namespace tbx
         : _asset_manager(asset_manager)
         , _window_manager(std::move(window_manager))
         , _world_manager(std::move(world_manager))
-        , _resource_manager(std::move(backend), std::move(asset_manager))
+        , _resource_manager(std::move(backend), std::move(asset_manager), 3.0F)
     {
+    }
+
+    void RenderingPipeline::invalidate_asset(const Handle& asset)
+    {
+        _resource_manager.invalidate_asset(asset);
     }
 
     Result RenderingPipeline::execute(

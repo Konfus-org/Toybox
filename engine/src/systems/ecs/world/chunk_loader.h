@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/world/manager.h"
+#include <ranges>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -37,6 +38,14 @@ namespace tbx
         }
 
         return ids;
+    }
+
+    static bool handles_match(const Handle& left, const Handle& right)
+    {
+        if (left.id.is_valid() && right.id.is_valid())
+            return left.id == right.id;
+
+        return !left.name.empty() && left.name == right.name;
     }
 
     class ChunkLoader final
@@ -82,6 +91,40 @@ namespace tbx
             return coords;
         }
 
+        std::vector<Uuid> get_loaded_chunk_entity_ids(const World& world) const
+        {
+            auto ids = std::vector<Uuid> {};
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return ids;
+
+            for (const auto& chunk_entry : world_it->second.chunks)
+            {
+                ids.insert(
+                    ids.end(),
+                    chunk_entry.second.entities.begin(),
+                    chunk_entry.second.entities.end());
+            }
+
+            return ids;
+        }
+
+        std::vector<Handle> get_loaded_chunk_handles(const World& world) const
+        {
+            auto handles = std::vector<Handle> {};
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return handles;
+
+            for (const auto& chunk_entry : world_it->second.chunks)
+            {
+                if (chunk_entry.second.is_loaded)
+                    handles.push_back(chunk_entry.second.full_chunk);
+            }
+
+            return handles;
+        }
+
         bool set_chunks(World& world)
         {
             const auto asset_manager = _asset_manager.lock();
@@ -100,6 +143,63 @@ namespace tbx
 
             clear(world);
             _worlds[world.id] = std::move(world_record);
+            return true;
+        }
+
+        bool load_chunks(World& world, const std::vector<Handle>& chunk_handles)
+        {
+            bool loaded_any = false;
+            for (const auto& handle : chunk_handles)
+                loaded_any = refresh_loaded_chunk(world, handle, true) || loaded_any;
+
+            return loaded_any;
+        }
+
+        bool refresh_loaded_chunk(
+            World& world,
+            const Handle& chunk_handle,
+            bool load_when_unloaded = false)
+        {
+            const auto asset_manager = _asset_manager.lock();
+            if (!asset_manager)
+                return false;
+
+            auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return false;
+
+            auto chunk_it = std::ranges::find_if(
+                world_it->second.chunks,
+                [&chunk_handle](const auto& entry)
+                {
+                    return handles_match(entry.second.full_chunk, chunk_handle);
+                });
+            if (chunk_it == world_it->second.chunks.end())
+                return false;
+
+            auto chunk_record = chunk_it->second;
+            if (!chunk_record.is_loaded && !load_when_unloaded)
+                return false;
+
+            auto chunk = asset_manager->load<WorldChunk>(chunk_record.full_chunk);
+            if (!chunk)
+                return false;
+
+            world.remove_entities(chunk_record.entities);
+            chunk_record.entities.clear();
+            chunk_record.is_loaded = false;
+            world.add_entities(chunk->entities);
+            chunk_record.entities = collect_entity_ids(chunk->entities);
+            chunk_record.is_loaded = true;
+
+            if (chunk->coord == chunk_it->first)
+            {
+                chunk_it->second = std::move(chunk_record);
+                return true;
+            }
+
+            world_it->second.chunks.erase(chunk_it);
+            world_it->second.chunks[chunk->coord] = std::move(chunk_record);
             return true;
         }
 
@@ -154,7 +254,8 @@ namespace tbx
                 TBX_TRACE_INFO("Unloading world chunk ({}, {}, {})", coord.x, coord.y, coord.z);
 
                 world.remove_entities(chunk_it->second.entities);
-                world_state.chunks.erase(chunk_it);
+                chunk_it->second.entities.clear();
+                chunk_it->second.is_loaded = false;
             }
         }
 

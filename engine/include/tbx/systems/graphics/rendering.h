@@ -2,6 +2,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
@@ -27,7 +28,8 @@ namespace tbx
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,
-            std::weak_ptr<WorldManager> world_manager = {});
+            std::weak_ptr<WorldManager> world_manager = {},
+            std::weak_ptr<AssetReloadQueue> reload_queue = {});
         ~Rendering() noexcept;
 
       public:
@@ -51,15 +53,18 @@ namespace tbx
         void wait_for_pending_frame() noexcept;
 
       private:
+        void on_asset_reload(const AssetReloadContext& context);
         void render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings);
         void wait_for_render_frame() noexcept;
 
       private:
         std::weak_ptr<ThreadManager> _thread_manager;
+        std::weak_ptr<AssetReloadQueue> _reload_queue;
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;
         RenderingPipeline _pipeline;
 
         std::future<void> _render_future = {};
+        Uuid _asset_reload_handler = {};
     };
 }

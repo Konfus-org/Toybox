@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/systems/app/launch_config.generated.h"
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/app/launch_config.generated.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include "tbx/utils/result.h"
@@ -38,7 +38,6 @@ namespace tbx
     {
         Result result = {};
         LaunchConfig config = {};
-        bool used_default_config = false;
     };
 
     /// @brief

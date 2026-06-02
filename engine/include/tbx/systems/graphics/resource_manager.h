@@ -64,6 +64,10 @@ namespace tbx
         bool is_managed(const Uuid& resource) const;
 
         /// @brief
+        /// Purpose: Removes cached upload records affected by a reloaded asset.
+        void invalidate_asset(const Handle& asset) const;
+
+        /// @brief
         /// Purpose: Caches static model bounds used by frame extraction culling.
         void cache_model_bounds(const Handle& model_handle, const MeshBounds& bounds) const;
 

@@ -28,10 +28,6 @@
 
 namespace tbx
 {
-    // TODO: Just include these directly
-    struct FileWatchChange;
-    class IMessageDispatcher;
-
     /// @brief
     /// Purpose: Describes the streaming state for an asset record.
     /// @details
@@ -55,9 +51,9 @@ namespace tbx
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::UNLOADED;
         std::chrono::steady_clock::time_point last_access = {};
+        uint64 revision = 0U;
     };
 
-    // TODO: Cleanup, simplify and optimize
     /// @brief
     /// Purpose: Tracks streamed assets by canonical asset id and maintains usage metadata.
     /// @details
@@ -223,12 +219,18 @@ namespace tbx
         bool reload(const Handle& handle);
 
         /// @brief
+        /// Purpose: Removes an asset directory and drops assets registered from that directory.
+        /// @details
+        /// Ownership: Releases manager-owned records for assets found under the removed directory.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        void remove_directory(const std::filesystem::path& path);
+
+        /// @brief
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
         /// @details
         /// Ownership: Retains manager ownership of the asset instance while pinned.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         void set_pinned(const Handle& handle, bool is_pinned);
-        void remove_directory(const std::filesystem::path& path);
 
       private:
         template <typename TAsset>
@@ -239,7 +241,6 @@ namespace tbx
         struct Store;
         struct StoreReloadResult;
         struct IStore;
-        struct State;
 
       private:
         void on_asset_changed(
@@ -315,7 +316,20 @@ namespace tbx
             const AssetLoadMetadata& metadata);
 
       private:
-        std::unique_ptr<State> _state;
+        // Loaders can resolve/load related assets while the manager is already locked.
+        mutable std::recursive_mutex _mutex = {};
+
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
+        std::weak_ptr<SerializationRegistry> _serialization_registry = {};
+        std::shared_ptr<IFileOps> _file_ops = nullptr;
+
+        std::unique_ptr<AssetRegistry> _registry = {};
+        std::vector<std::filesystem::path> _watched_directories = {};
+        std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
+        std::unordered_map<Uuid, uint64> _polymorphic_asset_revisions = {};
+        std::unordered_map<std::type_index, std::unique_ptr<IStore>> _stores = {};
+
+        double _unload_elapsed_seconds = 0.0;
     };
 
 }

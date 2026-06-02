@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,8 @@ namespace tbx
             const ScriptContainerBinding& binding);
 
         std::unordered_map<ScriptSystemStateKey, ScriptSystemStateRecord> instances = {};
+        std::unordered_set<Uuid> pending_script_reloads = {};
+        Uuid reload_handler = {};
     };
 
     ScriptSystemStateKey ScriptSystem::State::make_key(
@@ -45,16 +48,29 @@ namespace tbx
     ScriptSystem::ScriptSystem(
         std::weak_ptr<AssetManager> asset_manager,
         ServiceProvider& services,
-        std::weak_ptr<WorldManager> world_manager)
+        std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<AssetReloadQueue> reload_queue)
         : _state(std::make_unique<State>())
         , _asset_manager(std::move(asset_manager))
+        , _reload_queue(std::move(reload_queue))
         , _world_manager(std::move(world_manager))
         , _services(services)
     {
+        if (auto queue = _reload_queue.lock())
+        {
+            _state->reload_handler = queue->register_handler(
+                [this](const AssetReloadContext& context)
+                {
+                    on_asset_reload(context);
+                });
+        }
     }
 
     ScriptSystem::~ScriptSystem() noexcept
     {
+        if (auto queue = _reload_queue.lock())
+            queue->deregister_handler(_state->reload_handler);
+
         for (auto& entry : _state->instances)
         {
             if (entry.second.script)
@@ -153,6 +169,8 @@ namespace tbx
         if (!asset_manager)
             return;
 
+        consume_script_reloads();
+
         for (auto& entry : _state->instances)
             entry.second.touched = false;
 
@@ -239,6 +257,8 @@ namespace tbx
         if (!asset_manager)
             return;
 
+        consume_script_reloads();
+
         for (auto& entry : _state->instances)
             entry.second.touched = false;
 
@@ -308,5 +328,32 @@ namespace tbx
                 _state->instances.erase(iterator);
             }
         }
+    }
+
+    void ScriptSystem::consume_script_reloads()
+    {
+        if (_state->pending_script_reloads.empty())
+            return;
+
+        for (auto& entry : _state->instances)
+        {
+            if (!_state->pending_script_reloads.contains(entry.first.script))
+                continue;
+
+            if (entry.second.script)
+                entry.second.script->on_destroy();
+
+            entry.second.script = {};
+            entry.second.started = false;
+        }
+        _state->pending_script_reloads.clear();
+    }
+
+    void ScriptSystem::on_asset_reload(const AssetReloadContext& context)
+    {
+        if (!context.succeeded || !context.affected_asset.id.is_valid())
+            return;
+
+        _state->pending_script_reloads.insert(context.affected_asset.id);
     }
 }

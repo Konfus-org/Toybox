@@ -1,7 +1,5 @@
 {
-    "camera_entity": {
-        "value": 12582913
-    },
+    "camera_entity": 12582913,
     "follow_speed": 12.0,
     "intensity": 180.0
 }

@@ -1,6 +1,7 @@
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
@@ -34,13 +35,18 @@ namespace tbx
             HandleSource(),
             file_ops));
 
-        register_service<WorldManager>(
-            std::make_shared<WorldManager>(try_get_service<AssetManager>()));
+        register_service<AssetReloadQueue>(
+            std::make_shared<AssetReloadQueue>(get_service<IMessageCoordinator>()));
+
+        register_service<WorldManager>(std::make_shared<WorldManager>(
+            try_get_service<AssetManager>(),
+            try_get_service<AssetReloadQueue>()));
 
         register_service<ScriptSystem>(std::make_shared<ScriptSystem>(
             try_get_service<AssetManager>(),
             *this,
-            try_get_service<WorldManager>()));
+            try_get_service<WorldManager>(),
+            try_get_service<AssetReloadQueue>()));
 
         register_service<JobSystem>(std::make_shared<JobSystem>());
         register_service<ThreadManager>(std::make_shared<ThreadManager>());

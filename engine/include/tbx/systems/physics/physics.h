@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
@@ -22,6 +23,12 @@ namespace tbx
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<WorldManager> world_manager,
             const PhysicsSettings& settings);
+        Physics(
+            std::weak_ptr<IPhysicsBackend> backend,
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<WorldManager> world_manager,
+            std::weak_ptr<AssetReloadQueue> reload_queue,
+            const PhysicsSettings& settings);
         ~Physics() noexcept;
 
       public:
@@ -41,6 +48,7 @@ namespace tbx
         void sync_entities_to_backend(World& world, float dt_seconds);
         void sync_backend_to_entities(World& world);
         Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
+        void on_asset_reload(const AssetReloadContext& context);
 
       private:
         struct EntityRecord;
@@ -49,9 +57,12 @@ namespace tbx
       private:
         std::weak_ptr<IPhysicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
+        std::weak_ptr<AssetReloadQueue> _reload_queue = {};
         std::weak_ptr<WorldManager> _world_manager = {};
         std::unordered_map<Uuid, EntityRecord> _records_by_entity = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
+        std::unordered_set<Uuid> _pending_model_reloads = {};
+        Uuid _asset_reload_handler = {};
     };
 }

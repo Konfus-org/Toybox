@@ -41,6 +41,10 @@ namespace tbx
             const GraphicsSettings& settings,
             const DeltaTime& delta_time);
 
+        /// @brief
+        /// Purpose: Invalidates upload caches affected by a reloaded asset.
+        void invalidate_asset(const Handle& asset);
+
       private:
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};

@@ -3,6 +3,7 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/rendering.h"
@@ -79,6 +80,7 @@ namespace tbx
         std::shared_ptr<ServiceProvider> _service_provider = {};
         PluginManager _plugin_manager;
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
+        std::weak_ptr<AssetReloadQueue> _asset_reload_queue = {};
         std::shared_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<WorldManager> _world_manager = {};

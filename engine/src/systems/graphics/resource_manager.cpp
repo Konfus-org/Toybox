@@ -18,7 +18,6 @@
 #include <memory>
 #include <vector>
 
-
 namespace tbx
 {
     //// RESOURCE CACHES ////
@@ -93,6 +92,11 @@ namespace tbx
     bool RenderingResourceManager::is_managed(const Uuid& resource) const
     {
         return resource.is_valid() && _state->tracker->is_tracked(resource);
+    }
+
+    void RenderingResourceManager::invalidate_asset(const Handle& asset) const
+    {
+        _state->uploader->discard_cached_asset(asset);
     }
 
     void RenderingResourceManager::set_resource_unload_time_seconds(const float seconds)

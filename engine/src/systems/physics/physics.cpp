@@ -426,16 +426,44 @@ namespace tbx
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
         const PhysicsSettings& settings)
+        : Physics(
+              std::move(backend),
+              std::move(asset_manager),
+              std::move(world_manager),
+              std::weak_ptr<AssetReloadQueue>(),
+              settings)
+    {
+    }
+
+    Physics::Physics(
+        std::weak_ptr<IPhysicsBackend> backend,
+        std::weak_ptr<AssetManager> asset_manager,
+        std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<AssetReloadQueue> reload_queue,
+        const PhysicsSettings& settings)
         : _backend(std::move(backend))
         , _asset_manager(std::move(asset_manager))
+        , _reload_queue(std::move(reload_queue))
         , _world_manager(std::move(world_manager))
     {
+        if (auto queue = _reload_queue.lock())
+        {
+            _asset_reload_handler = queue->register_handler(
+                [this](const AssetReloadContext& context)
+                {
+                    on_asset_reload(context);
+                });
+        }
+
         if (auto backend_strong = _backend.lock())
             backend_strong->initialize(get_backend_settings(settings));
     }
 
     Physics::~Physics() noexcept
     {
+        if (auto queue = _reload_queue.lock())
+            queue->deregister_handler(_asset_reload_handler);
+
         clear_resources();
         if (auto backend = _backend.lock())
             backend->shutdown();
@@ -450,8 +478,7 @@ namespace tbx
         auto ignored_rigidbody = PhysicsRigidbodyHandle {};
         if (raycast_query.ignore_entity && raycast_query.ignored_entity_id.is_valid())
         {
-            if (const auto record_it =
-                    _records_by_entity.find(raycast_query.ignored_entity_id);
+            if (const auto record_it = _records_by_entity.find(raycast_query.ignored_entity_id);
                 record_it != _records_by_entity.end())
                 ignored_rigidbody = record_it->second.rigidbody;
         }
@@ -505,6 +532,7 @@ namespace tbx
             sync_backend_to_entities(*world);
             process_trigger_colliders(*world);
         }
+        _pending_model_reloads.clear();
     }
 
     void Physics::clear_resources()
@@ -687,6 +715,9 @@ namespace tbx
             if (record_it != _records_by_entity.end()
                 && (record_it->second.is_physics_driven != is_physics_driven
                     || record_it->second.is_trigger_only != is_trigger_only
+                    || (entity.has_component<StaticMesh>()
+                        && _pending_model_reloads.contains(
+                            entity.get_component<StaticMesh>().handle.id))
                     || (entity.has_component<MeshCollider>() && record_it->second.has_last_transform
                         && has_scale_changed(world_transform.scale, record_it->second.last_scale))))
             {
@@ -877,5 +908,13 @@ namespace tbx
             return {};
 
         return entity_it->second;
+    }
+
+    void Physics::on_asset_reload(const AssetReloadContext& context)
+    {
+        if (!context.succeeded || !context.affected_asset.id.is_valid())
+            return;
+
+        _pending_model_reloads.insert(context.affected_asset.id);
     }
 }
