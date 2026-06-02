@@ -5,28 +5,11 @@
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
-#include "tbx/types/quaternions.h"
 #include "tbx/types/raycast.h"
+#include <memory>
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Tracks backend physics resources and transform state for one ECS entity.
-    /// @details
-    /// Ownership: Stores non-owning backend handles; Physics owns record lifetime.
-    /// Thread Safety: Not thread-safe; owned by the main-thread Physics service.
-    struct PhysicsEntityRecord
-    {
-        PhysicsColliderHandle collider = {};
-        PhysicsRigidbodyHandle rigidbody = {};
-        Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
-        Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
-        Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
-        bool has_last_transform = false;
-        bool is_physics_driven = false;
-        bool is_trigger_only = false;
-    };
-
     /// @brief
     /// Purpose: Application-owned physics service that synchronizes ECS components with the
     /// registered physics backend.
@@ -69,14 +52,21 @@ namespace tbx
         void on_asset_reload(const AssetReloadContext& context);
 
       private:
-        void destroy_record(PhysicsEntityRecord& record);
+        struct EntityRecord;
+        struct EntityRecordDeleter
+        {
+            void operator()(EntityRecord* record) const noexcept;
+        };
+        using EntityRecordPtr = std::unique_ptr<EntityRecord, EntityRecordDeleter>;
+
+        void destroy_record(EntityRecord& record);
 
       private:
         std::weak_ptr<IPhysicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<AssetReloadQueue> _reload_queue = {};
         std::weak_ptr<WorldManager> _world_manager = {};
-        std::unordered_map<Uuid, PhysicsEntityRecord> _records_by_entity = {};
+        std::unordered_map<Uuid, EntityRecordPtr> _records_by_entity = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
         std::unordered_set<Uuid> _pending_model_reloads = {};
