@@ -1,14 +1,15 @@
 ### Contributing
 
 ### Code of Conduct
-Read the [code of conduct](docs/CodeOfConduct.md)
+Read the [Code of Conduct](docs/CodeOfConduct.md)
 
 ### Coding Guidelines
-Follow [Code Standard](docs/CodeStandards.md)
+Follow [Code Standards](docs/CodeStandards.md)
 
 ### Build & Test Prerequisites
 Follow [README](README.md)
 
+### AI
 See `AGENTS.md` for the AI contributor standards used by AI agents which are allowed and used in this project.
 However, AI code is used with GREAT care and scrutiny. All AI-generated code must be reviewed and approved by a human before being merged and any AI-generated code must follow the same standards as human-written code.
 
