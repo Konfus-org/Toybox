@@ -1,6 +1,7 @@
 #include "player_controller.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/builtin_assets.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/rigidbody.h"
@@ -64,6 +65,7 @@ namespace three_d_example
         _pitch = initial_pitch;
         _projectile_material = create_projectile_material();
         _projectile_model = tbx::SphereModel::HANDLE;
+        _active_projectiles.reserve(_max_active_projectiles);
 
         if (auto& character = get_entity(); character.has_component<tbx::Transform>())
             character.get_component<tbx::Transform>().rotation =
@@ -247,6 +249,9 @@ namespace three_d_example
     tbx::MaterialInstance PlayerController::create_projectile_material() const
     {
         auto material = tbx::MaterialInstance(tbx::PbrMaterial::HANDLE);
+        auto config = tbx::MaterialConfig();
+        config.shadow_mode = tbx::ShadowMode::OFF;
+        material.set_config(config);
         material.set_parameter(
             tbx::PbrMaterial::ALBEDO_COLOR,
             tbx::Color(1.0F, 0.92F, 0.15F, 1.0F));
@@ -367,7 +372,7 @@ namespace three_d_example
         while (_active_projectiles.size() >= _max_active_projectiles)
         {
             destroy_projectile(_active_projectiles.front().entity);
-            _active_projectiles.erase(_active_projectiles.begin());
+            remove_projectile_at(0U);
         }
 
         constexpr auto projectile_visual_scale = 0.35F;

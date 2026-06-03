@@ -9,7 +9,7 @@
 namespace opengl_rendering
 {
     inline constexpr int OPENGL_MAJOR_VERSION = 4;
-    inline constexpr int OPENGL_MINOR_VERSION = 5;
+    inline constexpr int OPENGL_MINOR_VERSION = 6;
 
     /// @brief
     /// Purpose: Implements the Toybox explicit graphics backend using OpenGL.

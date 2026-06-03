@@ -1,5 +1,6 @@
 #include "opengl_backend.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
 
 namespace opengl_rendering
@@ -154,6 +155,27 @@ namespace opengl_rendering
         return binding.resource == resource && binding.offset == offset && binding.range == range;
     }
 
+    template <typename TSlotBinding>
+    const TSlotBinding* find_bound_slot(
+        const std::vector<TSlotBinding>& bindings,
+        const uint32 slot)
+    {
+        const auto index = static_cast<size>(slot);
+        return index < bindings.size() ? &bindings[index] : nullptr;
+    }
+
+    template <typename TSlotBinding>
+    void set_bound_slot(
+        std::vector<TSlotBinding>& bindings,
+        const uint32 slot,
+        TSlotBinding binding)
+    {
+        const auto index = static_cast<size>(slot);
+        if (bindings.size() <= index)
+            bindings.resize(index + 1U);
+        bindings[index] = std::move(binding);
+    }
+
     tbx::Result configure_vertex_array(
         const GLuint vertex_array,
         const tbx::RasterPipelineDesc& desc,
@@ -274,6 +296,8 @@ namespace opengl_rendering
             .is_depth_write_enabled = desc.is_depth_write_enabled,
             .is_blending_enabled = desc.is_blending_enabled,
             .is_culling_enabled = desc.is_culling_enabled,
+            .depth_bias_constant = desc.depth_bias_constant,
+            .depth_bias_slope = desc.depth_bias_slope,
             .cull_mode = desc.cull_mode,
         };
     }
@@ -301,7 +325,7 @@ namespace opengl_rendering
 
     tbx::Result require_supported_opengl_direct_state_access()
     {
-        if (GLAD_GL_VERSION_4_5 && glCreateBuffers && glNamedBufferData && glNamedBufferSubData
+        if (GLAD_GL_VERSION_4_6 && glCreateBuffers && glNamedBufferData && glNamedBufferSubData
             && glCreateVertexArrays && glVertexArrayVertexBuffer && glVertexArrayElementBuffer
             && glCreateFramebuffers && glNamedFramebufferTexture && glNamedFramebufferDrawBuffers
             && glCreateTextures)
@@ -620,9 +644,9 @@ namespace opengl_rendering
                         return result;
                     }
 
-                    if (const auto cached = _state.bound_vertex_buffers.find(binding.slot);
-                        cached != _state.bound_vertex_buffers.end()
-                        && cached->second == binding.resource)
+                    if (const auto* cached =
+                            find_bound_slot(_state.bound_vertex_buffers, binding.slot);
+                        cached != nullptr && *cached == binding.resource)
                     {
                         break;
                     }
@@ -642,7 +666,7 @@ namespace opengl_rendering
                         buffer_it->second.buffer.get_buffer_id(),
                         0,
                         layout->stride);
-                    _state.bound_vertex_buffers[binding.slot] = binding.resource;
+                    set_bound_slot(_state.bound_vertex_buffers, binding.slot, binding.resource);
                     break;
                 }
                 case OpenGlBindEntryType::INDEX_BUFFER:
@@ -707,10 +731,11 @@ namespace opengl_rendering
                             + std::to_string(_state.max_uniform_buffer_bindings) + ".");
                     }
 
-                    if (const auto cached = _state.bound_uniform_buffers.find(binding.slot);
-                        cached != _state.bound_uniform_buffers.end()
+                    if (const auto* cached =
+                            find_bound_slot(_state.bound_uniform_buffers, binding.slot);
+                        cached != nullptr
                         && is_same_buffer_slot_binding(
-                            cached->second,
+                            *cached,
                             binding.resource,
                             binding.offset,
                             binding.range))
@@ -724,10 +749,13 @@ namespace opengl_rendering
                         buffer_it->second.buffer,
                         binding.offset,
                         binding.range);
-                    _state.bound_uniform_buffers[binding.slot] = OpenGlBufferSlotBinding {
-                        .resource = binding.resource,
-                        .offset = binding.offset,
-                        .range = binding.range};
+                    set_bound_slot(
+                        _state.bound_uniform_buffers,
+                        binding.slot,
+                        OpenGlBufferSlotBinding {
+                            .resource = binding.resource,
+                            .offset = binding.offset,
+                            .range = binding.range});
                     break;
                 }
                 case OpenGlBindEntryType::STORAGE_BUFFER:
@@ -744,10 +772,11 @@ namespace opengl_rendering
                         return result;
                     }
 
-                    if (const auto cached = _state.bound_storage_buffers.find(binding.slot);
-                        cached != _state.bound_storage_buffers.end()
+                    if (const auto* cached =
+                            find_bound_slot(_state.bound_storage_buffers, binding.slot);
+                        cached != nullptr
                         && is_same_buffer_slot_binding(
-                            cached->second,
+                            *cached,
                             binding.resource,
                             binding.offset,
                             binding.range))
@@ -761,10 +790,13 @@ namespace opengl_rendering
                         buffer_it->second.buffer,
                         binding.offset,
                         binding.range);
-                    _state.bound_storage_buffers[binding.slot] = OpenGlBufferSlotBinding {
-                        .resource = binding.resource,
-                        .offset = binding.offset,
-                        .range = binding.range};
+                    set_bound_slot(
+                        _state.bound_storage_buffers,
+                        binding.slot,
+                        OpenGlBufferSlotBinding {
+                            .resource = binding.resource,
+                            .offset = binding.offset,
+                            .range = binding.range});
                     break;
                 }
                 case OpenGlBindEntryType::SAMPLED_TEXTURE:
@@ -773,15 +805,15 @@ namespace opengl_rendering
                     if (texture_it == _cache.textures.end())
                         return make_failure("OpenGL backend: texture was not found.");
 
-                    if (const auto cached = _state.bound_sampled_textures.find(binding.slot);
-                        cached != _state.bound_sampled_textures.end()
-                        && cached->second == binding.resource)
+                    if (const auto* cached =
+                            find_bound_slot(_state.bound_sampled_textures, binding.slot);
+                        cached != nullptr && *cached == binding.resource)
                     {
                         break;
                     }
 
                     texture_it->second.texture.bind_slot(binding.slot);
-                    _state.bound_sampled_textures[binding.slot] = binding.resource;
+                    set_bound_slot(_state.bound_sampled_textures, binding.slot, binding.resource);
                     break;
                 }
                 case OpenGlBindEntryType::STORAGE_TEXTURE:
@@ -790,9 +822,9 @@ namespace opengl_rendering
                     if (texture_it == _cache.textures.end())
                         return make_failure("OpenGL backend: storage texture was not found.");
 
-                    if (const auto cached = _state.bound_image_textures.find(binding.slot);
-                        cached != _state.bound_image_textures.end()
-                        && cached->second == binding.resource)
+                    if (const auto* cached =
+                            find_bound_slot(_state.bound_image_textures, binding.slot);
+                        cached != nullptr && *cached == binding.resource)
                     {
                         break;
                     }
@@ -805,7 +837,7 @@ namespace opengl_rendering
                         0,
                         GL_READ_WRITE,
                         texture_it->second.internal_format);
-                    _state.bound_image_textures[binding.slot] = binding.resource;
+                    set_bound_slot(_state.bound_image_textures, binding.slot, binding.resource);
                     break;
                 }
                 case OpenGlBindEntryType::SAMPLER:
@@ -814,14 +846,14 @@ namespace opengl_rendering
                     if (sampler_it == _cache.samplers.end())
                         return make_failure("OpenGL backend: sampler was not found.");
 
-                    if (const auto cached = _state.bound_samplers.find(binding.slot);
-                        cached != _state.bound_samplers.end() && cached->second == binding.resource)
+                    if (const auto* cached = find_bound_slot(_state.bound_samplers, binding.slot);
+                        cached != nullptr && *cached == binding.resource)
                     {
                         break;
                     }
 
                     sampler_it->second.bind_slot(binding.slot);
-                    _state.bound_samplers[binding.slot] = binding.resource;
+                    set_bound_slot(_state.bound_samplers, binding.slot, binding.resource);
                     break;
                 }
                 default:
@@ -948,6 +980,8 @@ namespace opengl_rendering
         {
             return make_failure("OpenGL backend: no compute pipeline is currently bound.");
         }
+        if (group_count_x == 0U || group_count_y == 0U || group_count_z == 0U)
+            return make_failure("OpenGL backend: compute dispatch group counts must be non-zero.");
 
         glDispatchCompute(group_count_x, group_count_y, group_count_z);
         return make_success();
@@ -1050,7 +1084,8 @@ namespace opengl_rendering
                     barrier_bits |= GL_FRAMEBUFFER_BARRIER_BIT;
                     break;
                 case tbx::ResourceState::SHADER_READ_ONLY:
-                    barrier_bits |= GL_TEXTURE_FETCH_BARRIER_BIT;
+                    barrier_bits |= GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT
+                                    | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
                     break;
                 case tbx::ResourceState::UNORDERED_ACCESS:
                     barrier_bits |=
@@ -1088,17 +1123,6 @@ namespace opengl_rendering
 
             auto entry_type = OpenGlBindEntryType::UNIFORM_BUFFER;
             auto has_type = false;
-            if (layout != nullptr)
-            {
-                if (const auto* layout_entry =
-                        find_bind_group_layout_entry(*layout, binding.binding_slot))
-                {
-                    entry_type = layout_entry->type;
-                    has_type = true;
-                }
-            }
-
-            if (!has_type)
             {
                 const auto buffer_it = _cache.buffers.find(binding.resource_handle);
                 if (buffer_it != _cache.buffers.end())
@@ -1116,6 +1140,16 @@ namespace opengl_rendering
                         return make_failure(
                             "OpenGL backend: bind group buffer usage was not recognized.");
                     }
+                    has_type = true;
+                }
+            }
+
+            if (!has_type && layout != nullptr)
+            {
+                if (const auto* layout_entry =
+                        find_bind_group_layout_entry(*layout, binding.binding_slot))
+                {
+                    entry_type = layout_entry->type;
                     has_type = true;
                 }
             }
@@ -1493,6 +1527,7 @@ namespace opengl_rendering
         glBindBuffer(GL_ARRAY_BUFFER, 0U);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0U);
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDisable(GL_POLYGON_OFFSET_FILL);
     }
 
     void OpenGlGraphicsBackend::destroy_resources()
@@ -1521,6 +1556,8 @@ namespace opengl_rendering
             && _state.current_pipeline_state.is_depth_write_enabled == state.is_depth_write_enabled
             && _state.current_pipeline_state.is_blending_enabled == state.is_blending_enabled
             && _state.current_pipeline_state.is_culling_enabled == state.is_culling_enabled
+            && _state.current_pipeline_state.depth_bias_constant == state.depth_bias_constant
+            && _state.current_pipeline_state.depth_bias_slope == state.depth_bias_slope
             && _state.current_pipeline_state.cull_mode == state.cull_mode)
         {
             _state.current_pipeline_state = state;
@@ -1552,6 +1589,17 @@ namespace opengl_rendering
                 || _state.current_pipeline_state.cull_mode != state.cull_mode))
         {
             glCullFace(state.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
+        }
+        if (!_state.has_current_pipeline_state
+            || _state.current_pipeline_state.depth_bias_constant != state.depth_bias_constant
+            || _state.current_pipeline_state.depth_bias_slope != state.depth_bias_slope)
+        {
+            const bool is_depth_bias_enabled =
+                state.depth_bias_constant != 0.0F || state.depth_bias_slope != 0.0F;
+            is_depth_bias_enabled ? glEnable(GL_POLYGON_OFFSET_FILL)
+                                  : glDisable(GL_POLYGON_OFFSET_FILL);
+            if (is_depth_bias_enabled)
+                glPolygonOffset(state.depth_bias_slope, state.depth_bias_constant);
         }
 
         if (state.is_blending_enabled

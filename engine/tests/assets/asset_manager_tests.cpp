@@ -1182,7 +1182,7 @@ namespace tbx::tests::assets
 
         Handle handle("Materials/Reentrant.mat");
         ReentrantResolveAssetLoadParameters parameters = {
-            .include_path = "Shaders/Toybox/ShaderBase.glsl",
+            .include_path = "Shaders/Toybox/Base/ShaderBase.glsl",
         };
 
         // Act
@@ -1194,10 +1194,10 @@ namespace tbx::tests::assets
         EXPECT_EQ(loader_state.sync_load_count, 1);
         EXPECT_EQ(
             loaded_asset->resolved_include_path,
-            working_directory / "Shaders/Toybox/ShaderBase.glsl");
+            working_directory / "Shaders/Toybox/Base/ShaderBase.glsl");
         EXPECT_EQ(
             loader_state.last_resolved_include_path,
-            working_directory / "Shaders/Toybox/ShaderBase.glsl");
+            working_directory / "Shaders/Toybox/Base/ShaderBase.glsl");
     }
 
     TEST(asset_manager, constructor_keeps_explicit_directories)

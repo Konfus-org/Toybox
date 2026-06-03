@@ -1,6 +1,6 @@
-#version 450
+#version 460
 
-#include "Toybox/ShaderBase.glsl"
+#include "Toybox/Base/ShaderBase.glsl"
 
 layout(location = 0) out vec2 v_tex_coord;
 

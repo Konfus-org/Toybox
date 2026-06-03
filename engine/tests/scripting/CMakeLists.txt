@@ -1,4 +1,5 @@
 set(CMAKE_FOLDER "tests")
+include(test_registration)
 include(test_output)
 
 add_executable(TbxScriptingTests)
@@ -25,5 +26,6 @@ target_link_libraries(TbxScriptingTests PRIVATE
 )
 
 add_test(NAME TbxScriptingTests COMMAND $<TARGET_FILE:TbxScriptingTests>)
+tbx_require_sanitizer_test_build(TbxScriptingTests)
 
 unset(CMAKE_FOLDER)

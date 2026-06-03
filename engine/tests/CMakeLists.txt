@@ -7,6 +7,7 @@ foreach(test_dir IN ITEMS
     files
     math
     input
+    messaging
     plugin_api
     ecs
     graphics

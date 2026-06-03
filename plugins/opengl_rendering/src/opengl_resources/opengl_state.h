@@ -2,6 +2,7 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/types/viewport.h"
 #include "tbx/types/window.h"
+#include <vector>
 
 namespace opengl_rendering
 {
@@ -23,6 +24,8 @@ namespace opengl_rendering
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
         bool is_culling_enabled = true;
+        float depth_bias_constant = 0.0F;
+        float depth_bias_slope = 0.0F;
         tbx::GraphicsCullMode cull_mode = tbx::GraphicsCullMode::BACK;
     };
 
@@ -37,12 +40,12 @@ namespace opengl_rendering
         tbx::VsyncMode vsync_mode = tbx::VsyncMode::OFF;
         int32 max_uniform_buffer_bindings = -1;
 
-        std::unordered_map<uint32, tbx::Uuid> bound_samplers = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_sampled_textures = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_image_textures = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_vertex_buffers = {};
-        std::unordered_map<uint32, OpenGlBufferSlotBinding> bound_storage_buffers = {};
-        std::unordered_map<uint32, OpenGlBufferSlotBinding> bound_uniform_buffers = {};
+        std::vector<tbx::Uuid> bound_samplers = {};
+        std::vector<tbx::Uuid> bound_sampled_textures = {};
+        std::vector<tbx::Uuid> bound_image_textures = {};
+        std::vector<tbx::Uuid> bound_vertex_buffers = {};
+        std::vector<OpenGlBufferSlotBinding> bound_storage_buffers = {};
+        std::vector<OpenGlBufferSlotBinding> bound_uniform_buffers = {};
         tbx::Uuid bound_index_buffer = {};
 
         bool is_loaded = false;

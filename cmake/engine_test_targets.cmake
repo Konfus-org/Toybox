@@ -1,5 +1,6 @@
 include_guard(GLOBAL)
 include(test_output)
+include(test_registration)
 
 function(tbx_add_engine_test)
     set(options ATTRIBUTE_CODEGEN)
@@ -61,6 +62,8 @@ function(tbx_add_engine_test)
     )
 
     add_test(NAME ${TBX_TEST_NAME} COMMAND $<TARGET_FILE:${TBX_TEST_NAME}>)
+    tbx_require_sanitizer_test_build(${TBX_TEST_NAME})
+
     if(TBX_TEST_WORKING_DIRECTORY)
         set_tests_properties(${TBX_TEST_NAME}
             PROPERTIES

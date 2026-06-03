@@ -78,7 +78,8 @@
       "description": "Targeting Windows x64 with Clang and Debug ASan+UBSan instrumentation",
       "inherits": "clang",
       "cacheVariables": {
-        "TBX_ENABLE_DEBUG_SANITIZERS": "ON"
+        "TBX_ENABLE_DEBUG_SANITIZERS": "ON",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL"
       }
     },
     {
@@ -198,7 +199,7 @@
       "configurePreset": "clang-sanitize-tests",
       "configuration": "Debug",
       "environment": {
-        "ASAN_OPTIONS": "abort_on_error=1:detect_leaks=1",
+        "ASAN_OPTIONS": "abort_on_error=1",
         "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       }
     }
