@@ -6,7 +6,10 @@ namespace tbx
     struct AssetManager::StoreReloadResult
     {
         bool attempted = false;
+        bool pending = false;
         Result result = {};
+        std::string normalized_path = {};
+        Uuid asset_id = {};
         uint64 revision = 0U;
     };
 
@@ -14,6 +17,7 @@ namespace tbx
     {
         virtual ~IStore() = default;
         virtual std::string_view get_asset_type_name() const = 0;
+        virtual void collect_completed_reloads(std::vector<StoreReloadResult>& reload_results) = 0;
         virtual void erase(Uuid asset_id) = 0;
         virtual StoreReloadResult reload(
             const AssetRegistryEntry& entry,
@@ -36,6 +40,8 @@ namespace tbx
         std::chrono::steady_clock::time_point last_access = {};
         Uuid asset_id = {};
         std::shared_future<Result> pending_load = {};
+        std::shared_ptr<TAsset> pending_reload_asset = {};
+        std::optional<Result> completed_reload_result = std::nullopt;
         AssetLoadParameters<TAsset> load_parameters = {};
         bool has_load_parameters = false;
         uint64 revision = 0U;
@@ -57,6 +63,28 @@ namespace tbx
             return typeid(TAsset).name();
         }
 
+        void collect_completed_reloads(std::vector<StoreReloadResult>& reload_results) override
+        {
+            for (auto& entry : records)
+            {
+                auto& record = entry.second;
+                static_cast<void>(update_asset_stream_state(record));
+                if (!record.completed_reload_result.has_value())
+                    continue;
+
+                reload_results.push_back(
+                    StoreReloadResult {
+                        .attempted = true,
+                        .pending = false,
+                        .result = std::move(*record.completed_reload_result),
+                        .normalized_path = record.normalized_path,
+                        .asset_id = record.asset_id,
+                        .revision = record.revision,
+                    });
+                record.completed_reload_result = std::nullopt;
+            }
+        }
+
         StoreReloadResult reload(
             const AssetRegistryEntry& entry,
             const std::chrono::steady_clock::time_point timestamp,
@@ -73,7 +101,19 @@ namespace tbx
                                                          : AssetLoadParameters<TAsset> {};
             auto promise =
                 serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
-            auto result = Result(promise.asset != nullptr, "Asset reload failed.");
+            auto result = Result(promise.asset != nullptr, promise.asset ? "" : "Asset reload failed.");
+            if (!result.succeeded())
+            {
+                return {
+                    .attempted = true,
+                    .pending = false,
+                    .result = result,
+                    .normalized_path = record.normalized_path,
+                    .asset_id = record.asset_id,
+                    .revision = record.revision,
+                };
+            }
+
             if (promise.promise.valid()
                 && promise.promise.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
             {
@@ -84,38 +124,51 @@ namespace tbx
                         false,
                         read_result.get_report().empty() ? std::string("Asset reload failed.")
                                                          : read_result.get_report());
+                    return {
+                        .attempted = true,
+                        .pending = false,
+                        .result = result,
+                        .normalized_path = record.normalized_path,
+                        .asset_id = record.asset_id,
+                        .revision = record.revision,
+                    };
                 }
-                else if (promise.asset)
-                {
-                    result = Result(true, read_result.get_report());
-                }
-            }
-            // Keep the existing record intact when a hot reload fails.
-            if (!result.succeeded())
-            {
+
+                populate_loaded_asset_data<TAsset>(promise.asset);
+                promise.asset->id = entry.asset_id;
+                record.asset = std::move(promise.asset);
+                record.pending_load = {};
+                record.pending_reload_asset = {};
+                record.load_parameters = parameters;
+                record.has_load_parameters = true;
+                record.stream_state = AssetStreamState::LOADED;
+                record.last_access = timestamp;
+                record.revision += 1U;
+
                 return {
                     .attempted = true,
-                    .result = result,
+                    .pending = false,
+                    .result = Result(true, read_result.get_report()),
+                    .normalized_path = record.normalized_path,
+                    .asset_id = record.asset_id,
                     .revision = record.revision,
                 };
             }
 
-            populate_loaded_asset_data<TAsset>(promise.asset);
-            if (promise.asset)
-                promise.asset->id = entry.asset_id;
-            record.asset = std::move(promise.asset);
+            // The current asset stays visible until async reload proves the replacement is valid.
             record.pending_load = promise.promise;
+            record.pending_reload_asset = std::move(promise.asset);
             record.load_parameters = parameters;
             record.has_load_parameters = true;
-            record.stream_state =
-                record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
+            record.stream_state = AssetStreamState::LOADING;
             record.last_access = timestamp;
-            update_asset_stream_state(record);
-            record.revision += 1U;
 
             return {
                 .attempted = true,
-                .result = result,
+                .pending = true,
+                .result = Result(false, "Asset reload is pending."),
+                .normalized_path = record.normalized_path,
+                .asset_id = record.asset_id,
                 .revision = record.revision,
             };
         }
@@ -136,6 +189,9 @@ namespace tbx
                     continue;
 
                 record.asset.reset();
+                record.pending_reload_asset.reset();
+                record.completed_reload_result = std::nullopt;
+                record.pending_load = {};
                 record.stream_state = AssetStreamState::UNLOADED;
                 unloaded_count += 1U;
             }
@@ -206,23 +262,48 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    void AssetManager::update_asset_stream_state(Record<TAsset>& record)
+    std::optional<Result> AssetManager::update_asset_stream_state(Record<TAsset>& record)
     {
         if (record.stream_state != AssetStreamState::LOADING)
         {
-            return;
+            return std::nullopt;
         }
         if (!record.pending_load.valid())
         {
-            return;
+            return std::nullopt;
         }
         using namespace std::chrono_literals;
         if (record.pending_load.wait_for(0s) == std::future_status::ready)
         {
+            const Result load_result = record.pending_load.get();
+            record.pending_load = {};
+
+            const bool was_reload = record.pending_reload_asset != nullptr;
+            if (was_reload)
+            {
+                if (load_result.succeeded())
+                {
+                    populate_loaded_asset_data<TAsset>(record.pending_reload_asset);
+                    record.pending_reload_asset->id = record.asset_id;
+                    record.asset = std::move(record.pending_reload_asset);
+                    record.revision += 1U;
+                }
+                else
+                {
+                    record.pending_reload_asset.reset();
+                }
+                record.completed_reload_result = load_result;
+            }
+            else if (!load_result.succeeded())
+            {
+                record.asset.reset();
+            }
+
             record.stream_state =
                 record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
-            record.pending_load = {};
+            return load_result;
         }
+        return std::nullopt;
     }
 
     template <typename TAsset>
@@ -593,6 +674,9 @@ namespace tbx
             asset_record.asset_id,
             typeid(TAsset).name());
         asset_record.asset.reset();
+        asset_record.pending_reload_asset.reset();
+        asset_record.completed_reload_result = std::nullopt;
+        asset_record.pending_load = {};
         asset_record.stream_state = AssetStreamState::UNLOADED;
         return true;
     }
@@ -637,7 +721,7 @@ namespace tbx
                 entry.normalized_path,
                 entry.asset_id,
                 typeid(TAsset).name());
-            if (!reload_result.result.succeeded())
+            if (!reload_result.pending && !reload_result.result.succeeded())
             {
                 TBX_TRACE_WARNING(
                     "Failed to reload asset: '{}' (id={}, type={})",
@@ -646,6 +730,6 @@ namespace tbx
                     typeid(TAsset).name());
             }
         }
-        return reload_result.attempted && reload_result.result.succeeded();
+        return reload_result.attempted && !reload_result.pending && reload_result.result.succeeded();
     }
 }

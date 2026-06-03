@@ -1,5 +1,6 @@
 ﻿{
     "id": 822100005,
     "version": 1,
+    "polymorphic": true,
     "type": "SunRotator"
 }
