@@ -1,5 +1,6 @@
 #pragma once
-#include "tbx/systems/graphics/resource_manager.h"
+#include "tbx/systems/time/delta_time.h"
+#include "tbx/common/typedefs.h"
 #include <algorithm>
 #include <unordered_map>
 #include <vector>

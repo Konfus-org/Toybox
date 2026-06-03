@@ -5,49 +5,18 @@ namespace tbx
 {
     // IMPORTANT: KEEP THESE BINDINGS AND SHADER STRUCTS IN SYNC WITH SHADERS!
 
-    constexpr uint32 BINDING_FRAME_DATA = 0U;
-    constexpr uint32 BINDING_CAMERA_DATA = 1U;
-    constexpr uint32 BINDING_OBJECT_DATA = 2U;
-    constexpr uint32 BINDING_MATERIAL_DATA = 3U;
+    constexpr uint32 SHADER_BINDING_GLOBAL_ENTITIES = 0U;
+    constexpr uint32 SHADER_BINDING_GLOBAL_MATERIALS = 1U;
+    constexpr uint32 SHADER_BINDING_DRAW_COMMAND_LOOKUP = 2U;
+    constexpr uint32 SHADER_BINDING_INDIRECT_COMMANDS = 3U;
+    constexpr uint32 SHADER_BINDING_VISIBLE_ENTITY_IDS = 4U;
+    constexpr uint32 SHADER_BINDING_SCENE_UNIFORMS = 5U;
+    constexpr uint32 SHADER_BINDING_GLOBAL_TEXTURES = 6U;
+    constexpr uint32 SHADER_MATERIAL_LOOKUP_STRIDE = 1024U;
 
-    constexpr uint32 BINDING_ALBEDO_MAP = 10U;
-    constexpr uint32 BINDING_NORMAL_MAP = 11U;
-    constexpr uint32 BINDING_METALLIC_ROUGHNESS_MAP = 12U;
-    constexpr uint32 BINDING_AO_MAP = 13U;
-    constexpr uint32 BINDING_EMISSIVE_MAP = 14U;
-    constexpr uint32 BINDING_SKYBOX_TEXTURE = 15U;
-    constexpr uint32 BINDING_SECONDARY_SKYBOX_TEXTURE = 16U;
-
-    constexpr uint32 BINDING_LIGHT_DATA = 20U;
-    constexpr uint32 BINDING_SHADOW_MAP = 30U;
-    constexpr uint32 BINDING_SHADOW_MASK = 31U;
-    constexpr uint32 BINDING_SHADOW_PASS_DATA = 32U;
-
-    constexpr uint32 BINDING_GBUFFER_ALBEDO = 50U;
-    constexpr uint32 BINDING_GBUFFER_NORMAL = 51U;
-    constexpr uint32 BINDING_GBUFFER_MATERIAL = 52U;
-    constexpr uint32 BINDING_GBUFFER_EMISSIVE = 53U;
-    constexpr uint32 BINDING_GBUFFER_DEPTH = 54U;
-    constexpr uint32 BINDING_GBUFFER_FINAL_COLOR = 55U;
-
-    constexpr uint32 BINDING_POST_EFFECT_TEXTURE0 = 60U;
-
-    constexpr uint32 PARAM_ALBEDO_MAP = make_param_id("albedo_map");
-    constexpr uint32 PARAM_NORMAL_MAP = make_param_id("normal_map");
-    constexpr uint32 PARAM_METALLIC_ROUGHNESS_MAP = make_param_id("metallic_roughness_map");
-    constexpr uint32 PARAM_AO_MAP = make_param_id("ao_map");
-    constexpr uint32 PARAM_EMISSIVE_MAP = make_param_id("emissive_map");
-    constexpr uint32 PARAM_SKYBOX_TEXTURE = make_param_id("skybox_texture");
-    constexpr uint32 PARAM_SECONDARY_SKYBOX_TEXTURE = make_param_id("secondary_skybox_texture");
-    constexpr uint32 PARAM_GBUFFER_ALBEDO = make_param_id("gbuffer_albedo");
-    constexpr uint32 PARAM_GBUFFER_NORMAL = make_param_id("gbuffer_normal");
-    constexpr uint32 PARAM_GBUFFER_MATERIAL = make_param_id("gbuffer_material");
-    constexpr uint32 PARAM_GBUFFER_EMISSIVE = make_param_id("gbuffer_emissive");
-    constexpr uint32 PARAM_GBUFFER_DEPTH = make_param_id("gbuffer_depth");
-    constexpr uint32 PARAM_GBUFFER_FINAL_COLOR = make_param_id("gbuffer_final_color");
-    constexpr uint32 PARAM_SHADOW_MASK = make_param_id("shadow_mask");
-    constexpr uint32 PARAM_LUT = make_param_id("lut");
-    constexpr uint32 PARAM_BLEND = make_param_id("blend");
+    constexpr uint32 SHADER_PIPELINE_FLAG_OPAQUE = 1U << 0U;
+    constexpr uint32 SHADER_PIPELINE_FLAG_TRANSPARENT = 1U << 1U;
+    constexpr uint32 SHADER_PIPELINE_FLAG_SHADOW = 1U << 2U;
 
     constexpr uint32 VERTEX_BUFFER_SLOT_MESH = 0U;
     constexpr uint32 VERTEX_BUFFER_SLOT_INSTANCE = 1U;
@@ -60,114 +29,41 @@ namespace tbx
     constexpr uint32 VERTEX_ATTRIBUTE_INSTANCE_MODEL = 5U;
     constexpr uint32 VERTEX_ATTRIBUTE_INSTANCE_NORMAL = 9U;
 
-    constexpr uint32 MAX_LIGHTS = 128U;
-    constexpr uint32 DIRECTIONAL_SHADOW_CASCADE_COUNT = 4U;
-    constexpr uint32 SHADER_LIGHT_TYPE_DIRECTIONAL = 0U;
-    constexpr uint32 SHADER_LIGHT_TYPE_POINT = 1U;
-    constexpr uint32 SHADER_LIGHT_TYPE_SPOT = 2U;
-
-    struct alignas(16) FrameShaderData
+    struct alignas(16) ShaderEntityData
     {
-        float time = 0.0F;
-        float delta_time = 0.0F;
-        Vec2 viewport_size = Vec2(1.0F, 1.0F);
+        Mat4 model_matrix = Mat4(1.0F);
+        Vec4 bounding_sphere = Vec4(0.0F, 0.0F, 0.0F, 1.0F);
+        uint32 mesh_id = 0U;
+        uint32 material_id = 0U;
+        uint32 padding0 = 0U;
+        uint32 padding1 = 0U;
     };
 
-    struct alignas(16) CameraShaderData
+    struct alignas(16) ShaderMaterialData
     {
-        Mat4 view = Mat4(1.0F);
-        Mat4 projection = Mat4(1.0F);
+        uint32 pipeline_flags = SHADER_PIPELINE_FLAG_OPAQUE;
+        uint32 texture_index = 0U;
+        uint32 padding0 = 0U;
+        uint32 padding1 = 0U;
+        Vec4 base_color = Vec4(1.0F);
+    };
+
+    struct ShaderDrawIndexedIndirectCommand
+    {
+        uint32 count = 0U;
+        uint32 instance_count = 0U;
+        uint32 first_index = 0U;
+        uint32 base_vertex = 0U;
+        uint32 base_instance = 0U;
+    };
+
+    struct alignas(16) ShaderSceneUniforms
+    {
         Mat4 view_projection = Mat4(1.0F);
-        Mat4 inverse_view = Mat4(1.0F);
-        Mat4 inverse_projection = Mat4(1.0F);
-        Vec4 world_position = Vec4(0.0F, 0.0F, 0.0F, 1.0F);
+        std::array<Vec4, 6U> frustum_planes = {};
+        uint32 current_pass_filter = SHADER_PIPELINE_FLAG_OPAQUE;
+        uint32 total_entity_count = 0U;
+        uint32 padding0 = 0U;
+        uint32 padding1 = 0U;
     };
-
-    struct alignas(16) ModelShaderData
-    {
-        Mat4 model = Mat4(1.0F);
-        Mat4 normal = Mat4(1.0F);
-    };
-
-    struct alignas(16) ShaderLightData
-    {
-        Vec4 position_type = Vec4(0.0F);
-        Vec4 direction_range = Vec4(0.0F);
-        Vec4 color_intensity = Vec4(0.0F);
-        Vec4 params = Vec4(0.0F);
-    };
-
-    struct alignas(16) LightingShaderData
-    {
-        Vec4 ambient_color = Vec4(0.2F, 0.2F, 0.2F, 1.0F);
-        IVec4 light_meta = IVec4(0, 0, 0, 0);
-        Vec4 light_padding = Vec4(0.0F);
-        std::array<ShaderLightData, MAX_LIGHTS> lights = {};
-    };
-
-    struct alignas(16) ShadowShaderData
-    {
-        std::array<Mat4, MAX_LIGHTS> light_view_projections = {};
-        std::array<Vec4, MAX_LIGHTS> light_directions = {};
-        std::array<Vec4, MAX_LIGHTS> shadow_params = {};
-        std::array<Vec4, MAX_LIGHTS> shadow_extra_params = {};
-        IVec4 shadow_meta = IVec4(0, 0, 0, 0);
-    };
-
-    inline std::optional<uint32> resolve_shader_texture_slot(uint32 binding_id);
-
-    inline std::optional<uint32> resolve_shader_texture_slot(const std::string_view binding_name)
-    {
-        return resolve_shader_texture_slot(make_param_id(binding_name));
-    }
-
-    inline std::optional<uint32> resolve_shader_texture_slot(const uint32 binding_id)
-    {
-        if (binding_id == PARAM_ALBEDO_MAP)
-            return BINDING_ALBEDO_MAP;
-
-        if (binding_id == PARAM_NORMAL_MAP)
-            return BINDING_NORMAL_MAP;
-
-        if (binding_id == PARAM_METALLIC_ROUGHNESS_MAP)
-            return BINDING_METALLIC_ROUGHNESS_MAP;
-
-        if (binding_id == PARAM_AO_MAP)
-            return BINDING_AO_MAP;
-
-        if (binding_id == PARAM_EMISSIVE_MAP)
-            return BINDING_EMISSIVE_MAP;
-
-        if (binding_id == PARAM_SKYBOX_TEXTURE)
-            return BINDING_SKYBOX_TEXTURE;
-
-        if (binding_id == PARAM_SECONDARY_SKYBOX_TEXTURE)
-            return BINDING_SECONDARY_SKYBOX_TEXTURE;
-
-        if (binding_id == PARAM_GBUFFER_ALBEDO)
-            return BINDING_GBUFFER_ALBEDO;
-
-        if (binding_id == PARAM_GBUFFER_NORMAL)
-            return BINDING_GBUFFER_NORMAL;
-
-        if (binding_id == PARAM_GBUFFER_MATERIAL)
-            return BINDING_GBUFFER_MATERIAL;
-
-        if (binding_id == PARAM_GBUFFER_EMISSIVE)
-            return BINDING_GBUFFER_EMISSIVE;
-
-        if (binding_id == PARAM_GBUFFER_DEPTH)
-            return BINDING_GBUFFER_DEPTH;
-
-        if (binding_id == PARAM_GBUFFER_FINAL_COLOR)
-            return BINDING_GBUFFER_FINAL_COLOR;
-
-        if (binding_id == PARAM_SHADOW_MASK)
-            return BINDING_SHADOW_MASK;
-
-        if (binding_id == PARAM_LUT)
-            return BINDING_POST_EFFECT_TEXTURE0;
-
-        return std::nullopt;
-    }
 }

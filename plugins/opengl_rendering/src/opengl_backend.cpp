@@ -598,6 +598,7 @@ namespace opengl_rendering
         glBindVertexArray(pipeline.vertex_array);
         apply_raster_pipeline_state(pipeline.state);
 
+        _state.current_pipeline_state.id = pipeline_resource_uuid;
         _state.bound_vertex_buffers.clear();
         _state.bound_index_buffer = {};
         return make_success();
@@ -967,7 +968,7 @@ namespace opengl_rendering
                 static_cast<GLsizei>(draw_count),
                 static_cast<GLsizei>(stride));
         }
-        return make_success();
+        return consume_gl_errors("draw_indirect");
     }
 
     tbx::Result OpenGlGraphicsBackend::dispatch_compute(
@@ -984,7 +985,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: compute dispatch group counts must be non-zero.");
 
         glDispatchCompute(group_count_x, group_count_y, group_count_z);
-        return make_success();
+        return consume_gl_errors("dispatch_compute");
     }
 
     tbx::Result OpenGlGraphicsBackend::begin_compute_pass(const tbx::GraphicsComputePassDesc& pass)

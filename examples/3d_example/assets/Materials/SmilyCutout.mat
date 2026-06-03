@@ -4,7 +4,7 @@
         "fragment": 270544963,
         "tesselation": 0,
         "geometry": 0,
-        "compute": 0
+        "computes": []
     },
     "parameters": [
         {

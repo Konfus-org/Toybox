@@ -1,17 +1,13 @@
-﻿{
+{
     "shader": {
-        "vertex": 307,
-        "fragment": 313,
+        "vertex": 0,
+        "fragment": 0,
         "tesselation": 0,
         "geometry": 0,
-        "computes": []
+        "computes": [319]
     },
-    "parameters": [
-        {}
-    ],
-    "textures": [
-        {}
-    ],
+    "parameters": [],
+    "textures": [],
     "config": {
         "is_depth_test_enabled": false,
         "is_depth_write_enabled": false,

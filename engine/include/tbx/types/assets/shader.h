@@ -1,11 +1,13 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
-#include "tbx/types/assets/shader.generated.h"
 #include "tbx/types/handle.h"
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
+
+#include "tbx/types/assets/shader.generated.h"
 
 namespace tbx
 {
@@ -105,7 +107,7 @@ namespace tbx
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         [[prop]]
-        Handle compute = {};
+        std::vector<Handle> computes = {};
 
         /// @brief
         /// Purpose: Returns whether any stage handle is set.
@@ -114,7 +116,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently.
         bool is_valid() const
         {
-            const bool has_compute = compute.id.is_valid();
+            const bool has_compute = !computes.empty();
             const bool has_graphics_stages = vertex.id.is_valid() || fragment.id.is_valid()
                                              || tesselation.id.is_valid() || geometry.id.is_valid();
 

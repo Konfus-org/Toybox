@@ -1,0 +1,36 @@
+#include "Base/PipelineShaderBase.glsl"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    uint entityId = gl_GlobalInvocationID.x;
+    if (entityId >= totalEntityCount)
+    {
+        return;
+    }
+
+    EntityData entity = entities[entityId];
+    if (!tbx_is_sphere_visible(entity.boundingSphere))
+    {
+        return;
+    }
+
+    MaterialData material = materials[entity.materialId];
+    if ((material.pipelineFlags & currentPassFilter) == 0u)
+    {
+        return;
+    }
+
+    uint lookupIndex = entity.meshId * TBX_SHADER_MATERIAL_LOOKUP_STRIDE + entity.materialId;
+    uint targetDrawSlot = drawCommandIndices[lookupIndex];
+    if (targetDrawSlot == TBX_INVALID_DRAW_SLOT)
+    {
+        return;
+    }
+
+    // baseInstance points at this draw's compact region inside visibleEntityIds.
+    uint localInstanceOffset = atomicAdd(commands[targetDrawSlot].instanceCount, 1u);
+    uint visibleIndex = commands[targetDrawSlot].baseInstance + localInstanceOffset;
+    visibleEntityIds[visibleIndex] = entityId;
+}

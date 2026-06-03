@@ -28,7 +28,7 @@ namespace tbx::tests::app
         EXPECT_EQ(read_result.config.startup_world.id, Uuid(822083584U));
     }
 
-    TEST(launch_config, rejects_missing_config)
+    TEST(launch_config, uses_defaults_when_config_is_missing)
     {
         // Arrange
         const auto file_ops = InMemoryFileOps("game");
@@ -37,8 +37,9 @@ namespace tbx::tests::app
         const auto read_result = read_launch_config(file_ops);
 
         // Assert
-        EXPECT_FALSE(read_result.result);
-        EXPECT_FALSE(read_result.result.get_report().empty());
+        EXPECT_TRUE(read_result.result);
+        EXPECT_TRUE(read_result.used_default_config);
+        EXPECT_EQ(read_result.config.settings_asset, "Settings.json");
     }
 
     TEST(launch_config, rejects_malformed_json)

@@ -67,6 +67,7 @@ namespace tbx
 namespace tbx
 {
     //// INTERNAL //// <-- use these to break up source files and make them easy to find things
+
     Constants...
     Usings...
     Structs...
@@ -74,9 +75,11 @@ namespace tbx
     static Methods (sort by keyword: static/inline/etc, then by name)...
     
     //// MY COOL CLASS ////
+
     Mirror header file here...
     
     //// MY OTHER COOL CLASS ////
+    
     Mirror header file here...
 }
 ```

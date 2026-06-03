@@ -8,11 +8,5 @@ layout(location = 0) out vec4 o_color;
 
 void main()
 {
-    vec4 color = tbx_sample_material_color(v_material_id, v_tex_coord, v_color);
-    if (color.a < 0.5)
-    {
-        discard;
-    }
-
-    o_color = vec4(color.rgb, 1.0);
+    o_color = tbx_sample_material_color(v_material_id, v_tex_coord, v_color);
 }

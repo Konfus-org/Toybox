@@ -342,6 +342,8 @@ namespace tbx
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
         bool is_culling_enabled = true;
+        float depth_bias_constant = 0.0F;
+        float depth_bias_slope = 0.0F;
         GraphicsCullMode cull_mode = GraphicsCullMode::BACK;
         std::string debug_name = {};
     };

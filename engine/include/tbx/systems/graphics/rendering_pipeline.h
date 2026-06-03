@@ -4,10 +4,10 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/render_pass.h"
-#include "tbx/systems/graphics/resource_manager.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/utils/result.h"
+#include <memory>
 
 namespace tbx
 {
@@ -24,8 +24,8 @@ namespace tbx
             std::weak_ptr<IGraphicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<IWindowManager> window_manager,
-            std::weak_ptr<WorldManager> world_manager = {});
-        ~RenderingPipeline() = default;
+            std::weak_ptr<WorldManager> world_manager = {}); // TODO: world manager is NOT optional
+        ~RenderingPipeline();
 
       public:
         RenderingPipeline(const RenderingPipeline&) = delete;
@@ -43,13 +43,16 @@ namespace tbx
 
         /// @brief
         /// Purpose: Invalidates upload caches affected by a reloaded asset.
-        void invalidate_asset(const Handle& asset);
+        void reload();
+
+      private:
+        struct State;
 
       private:
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<WorldManager> _world_manager = {};
-        RenderingResourceManager _resource_manager;
+        std::unique_ptr<State> _state;
         std::vector<RenderPass> _passes = {};
         float _elapsed_time = 0;
         uint _frame_index = 0U;

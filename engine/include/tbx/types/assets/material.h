@@ -15,6 +15,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+
 #include "tbx/types/assets/material.generated.h"
 
 namespace tbx
@@ -59,7 +60,8 @@ namespace tbx
     enum class MaterialBlendMode : uint8_t
     {
         OPAQUE [[name("opaque")]] = 0,
-        ALPHA_BLEND [[name("alpha_blend")]] = 1
+        ALPHA_BLEND [[name("alpha_blend")]] = 1,
+        TRANSPARENT [[name("transparent")]] = 2,
     };
 
     /// @brief

@@ -111,7 +111,7 @@ namespace tbx
         if (!context.succeeded || !context.affected_asset.id.is_valid())
             return;
 
-        _pipeline.invalidate_asset(context.affected_asset);
+        _pipeline.reload();
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)
