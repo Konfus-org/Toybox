@@ -7,10 +7,10 @@
 namespace assimp_model_loader
 {
     [[tbx::plugin(
-        name = "AssimpModelLoaderPlugin",
+        name = "AssimpModelLoader",
         version = "1.0.0",
         category = tbx::PluginCategory::DEFAULT)]];
-    class TBX_PLUGIN_API AssimpModelLoaderPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API AssimpModelLoader final : public tbx::Plugin
     {
       public:
         void on_attach() override;

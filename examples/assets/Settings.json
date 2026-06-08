@@ -1,0 +1,14 @@
+{
+    "name": "3DExample",
+    "plugins": [
+        "PerformanceMonitor",
+        "SdlInput",
+        "JoltPhysics",
+        "SdlWindowing",
+        "SdlOpenGlContextManager",
+        "OpenGlRendering",
+        "StbImageLoader",
+        "AssimpModelLoader",
+        "ShaderIncludeLoader"
+    ]
+}

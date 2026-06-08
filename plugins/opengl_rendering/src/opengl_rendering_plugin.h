@@ -13,12 +13,12 @@ namespace opengl_rendering
     /// Ownership: Shares the registered backend with the service provider.
     /// Thread Safety: Plugin lifecycle methods are expected to run on the host thread.
     [[tbx::plugin(
-        name = "OpenGlRenderingPlugin",
+        name = "OpenGlRendering",
         version = "1.0.0",
         category = tbx::PluginCategory::RENDERING,
-        dependencies = {"SdlOpenGlContextManagerPlugin"})]];
+        dependencies = {"SdlOpenGlContextManager"})]];
     [[tbx::register(tbx::IGraphicsBackend, create_graphics_backend)]];
-    class TBX_PLUGIN_API OpenGlRenderingPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API OpenGlRendering final : public tbx::Plugin
     {
       public:
         void on_detach() override;

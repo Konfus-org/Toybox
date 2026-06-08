@@ -37,14 +37,14 @@ namespace opengl_rendering
         tbx::Result present() override;
         void wait_for_idle() override;
 
-        tbx::Result begin_render_pass(const tbx::GraphicsRenderPassDesc& pass) override;
+        tbx::Result begin_render_pass(const tbx::RenderPassDesc& pass) override;
         tbx::Result end_render_pass() override;
         tbx::Result begin_compute_pass(const tbx::GraphicsComputePassDesc& pass) override;
         tbx::Result end_compute_pass() override;
 
-        tbx::Result bind_group(uint32 set_index, const tbx::Uuid& group_resource_uuid) override;
-        tbx::Result bind_compute_pipeline(const tbx::Uuid& pipeline_resource_uuid) override;
-        tbx::Result bind_raster_pipeline(const tbx::Uuid& pipeline_resource_uuid) override;
+        tbx::Result bind_group(uint32 set_index, const tbx::GpuId& group_resource_uuid) override;
+        tbx::Result bind_compute_pipeline(const tbx::GpuId& pipeline_resource_uuid) override;
+        tbx::Result bind_raster_pipeline(const tbx::GpuId& pipeline_resource_uuid) override;
 
         tbx::Result pipeline_barrier(
             const std::vector<tbx::PipelineBarrierDesc>& barriers) override;
@@ -56,47 +56,54 @@ namespace opengl_rendering
             int32 vertex_offset,
             uint32 first_instance) override;
         tbx::Result draw_indirect(
-            const tbx::Uuid& argument_buffer,
+            const tbx::GpuId& argument_buffer,
             uint64 offset,
             uint32 draw_count,
+            uint32 stride) override;
+        tbx::Result draw_indirect_count(
+            const tbx::GpuId& argument_buffer,
+            uint64 offset,
+            const tbx::GpuId& count_buffer,
+            uint64 count_offset,
+            uint32 max_draw_count,
             uint32 stride) override;
         tbx::Result dispatch_compute(
             uint32 group_count_x,
             uint32 group_count_y,
             uint32 group_count_z) override;
 
-        tbx::Result create_bind_group(const tbx::BindGroupDesc& desc, tbx::Uuid& out_resource_uuid)
+        tbx::Result create_bind_group(const tbx::BindGroupDesc& desc, tbx::GpuId& out_resource_uuid)
             override;
         tbx::Result create_bind_group_layout(
             const tbx::BindGroupLayoutDesc& desc,
-            tbx::Uuid& out_resource_uuid) override;
-        tbx::Result create_buffer(const tbx::GraphicsBufferDesc& desc, tbx::Uuid& out_resource_uuid)
+            tbx::GpuId& out_resource_uuid) override;
+        tbx::Result create_buffer(const tbx::GraphicsBufferDesc& desc, tbx::GpuId& out_resource_uuid)
             override;
         tbx::Result create_compute_pipeline(
             const tbx::ComputePipelineDesc& desc,
-            tbx::Uuid& out_resource_uuid) override;
+            tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_raster_pipeline(
             const tbx::RasterPipelineDesc& desc,
-            tbx::Uuid& out_resource_uuid) override;
+            tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_sampler(
             const tbx::GraphicsSamplerDesc& desc,
-            tbx::Uuid& out_resource_uuid) override;
+            tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_texture(
             const tbx::GraphicsTextureDesc& desc,
-            tbx::Uuid& out_resource_uuid) override;
+            tbx::GpuId& out_resource_uuid) override;
 
         tbx::Result write_buffer(
-            const tbx::Uuid& resource_uuid,
+            const tbx::GpuId& resource_uuid,
             const void* data,
             uint64 data_size,
             uint64 offset) override;
         tbx::Result write_texture(
-            const tbx::Uuid& resource_uuid,
+            const tbx::GpuId& resource_uuid,
             const tbx::GraphicsTextureUpdateDesc& desc,
             const void* data,
             uint64 data_size) override;
 
-        tbx::Result destroy_resource(const tbx::Uuid& resource_uuid) override;
+        tbx::Result destroy_resource(const tbx::GpuId& resource_uuid) override;
         void destroy_context(const tbx::Window& window);
 
       private:
@@ -108,6 +115,7 @@ namespace opengl_rendering
         void destroy_resources();
         tbx::Result ensure_frame_context(const tbx::Window& window);
         tbx::Result ensure_gl_loaded();
+        tbx::GpuId next_resource_id();
         std::shared_ptr<tbx::IOpenGlContextBackend> lock_context_backend() const;
         tbx::Result require_gl_ready_for_resource_ops() const;
 
@@ -117,5 +125,6 @@ namespace opengl_rendering
 
         OpenGlResourceCache _cache = {};
         OpenGlState _state = {};
+        tbx::GpuId _next_resource_id = 1U;
     };
 }

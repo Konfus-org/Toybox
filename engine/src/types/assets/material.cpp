@@ -4,13 +4,25 @@
 
 namespace tbx
 {
+    static bool matches_material_binding_id(
+        const uint32 binding_id,
+        const std::string& binding_name,
+        const uint32 requested_id)
+    {
+        if (binding_id == requested_id)
+            return true;
+
+        return binding_id == INVALID_MATERIAL_PARAM_ID && !binding_name.empty()
+               && make_param_id(binding_name) == requested_id;
+    }
+
     static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_id(
         std::vector<MaterialParameter>& values,
         const uint32 id)
     {
         for (auto& value : values)
         {
-            if (value.id == id)
+            if (matches_material_binding_id(value.id, value.name, id))
                 return std::ref(value);
         }
 
@@ -23,7 +35,7 @@ namespace tbx
     {
         for (const auto& value : values)
         {
-            if (value.id == id)
+            if (matches_material_binding_id(value.id, value.name, id))
                 return std::cref(value);
         }
 
@@ -36,7 +48,7 @@ namespace tbx
     {
         for (auto& texture : values)
         {
-            if (texture.id == id)
+            if (matches_material_binding_id(texture.id, texture.name, id))
                 return std::ref(texture);
         }
 
@@ -49,7 +61,7 @@ namespace tbx
     {
         for (const auto& texture : values)
         {
-            if (texture.id == id)
+            if (matches_material_binding_id(texture.id, texture.name, id))
                 return std::cref(texture);
         }
 
@@ -65,6 +77,11 @@ namespace tbx
     MaterialTextureBinding::MaterialTextureBinding(uint32 binding_id, Handle texture_handle)
         : id(binding_id)
         , texture(std::move(texture_handle))
+    {
+    }
+
+    MaterialTextureBinding::MaterialTextureBinding(const char* binding_name, Handle texture_handle)
+        : MaterialTextureBinding(std::string_view(binding_name), std::move(texture_handle))
     {
     }
 
@@ -111,6 +128,7 @@ namespace tbx
         {
             existing_parameter->get().name = std::move(parameter.name);
             existing_parameter->get().data = std::move(parameter.data);
+            existing_parameter->get().target = parameter.target;
             return;
         }
 
@@ -241,6 +259,7 @@ namespace tbx
         {
             existing_texture->get().name = std::move(texture_binding.name);
             existing_texture->get().texture = std::move(texture_binding.texture);
+            existing_texture->get().target = texture_binding.target;
             return;
         }
 

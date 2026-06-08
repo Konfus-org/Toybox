@@ -3,27 +3,21 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/mesh_bounds.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
 #include <concepts>
 #include <filesystem>
 #include <functional>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <string>
-#include <string_view>
 #include <typeindex>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace tbx
@@ -129,6 +123,13 @@ namespace tbx
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        Uuid resolve_id(const Handle& handle);
+
+        /// @brief
+        /// Purpose: Resolves a handle to the registered asset UUID for legacy callers.
+        /// @details
+        /// Ownership: Returns a UUID value; no ownership transfer.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         Uuid resolve(const Handle& handle);
 
         /// @brief
@@ -136,14 +137,14 @@ namespace tbx
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve(const std::filesystem::path& asset_path) const;
+        std::filesystem::path resolve_path(const std::filesystem::path& asset_path) const;
 
         /// @brief
         /// Purpose: Resolves a handle to its registered absolute asset path when available.
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve(const Handle& handle) const;
+        std::filesystem::path resolve_path(const Handle& handle) const;
 
         /// @brief
         /// Purpose: Adds an asset directory to the search list.

@@ -1,7 +1,7 @@
-#include "tbx/systems/assets/serialization.h"
+#include "plugin_loader_discovery.h"
+#include "in_memory_file_ops.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 
 namespace tbx::tests::plugin_loader
 {
@@ -22,16 +22,97 @@ namespace tbx::tests::plugin_loader
             });
     }
 
+    TEST(plugin_loader, resolves_requested_plugin_to_debug_library_without_scanning_siblings)
+    {
+        // Arrange
+        const auto working_directory = std::filesystem::path("C:/virtual/plugins");
+        auto file_ops = InMemoryFileOps(working_directory);
+        file_ops.set_binary("ThreeDExampleAppd.dll", {0x01});
+        file_ops.set_binary("TwoDExampleAppd.dll", {0x02});
+
+        // Act
+        const auto library_path = resolve_requested_plugin_library_path(
+            working_directory,
+            "ThreeDExampleApp",
+            file_ops);
+
+        // Assert
+        EXPECT_EQ(
+            library_path,
+            (working_directory / "ThreeDExampleAppd.dll").lexically_normal());
+    }
+
+    TEST(plugin_loader, returns_empty_path_when_requested_plugin_library_is_missing)
+    {
+        // Arrange
+        const auto working_directory = std::filesystem::path("C:/virtual/plugins");
+        auto file_ops = InMemoryFileOps(working_directory);
+        file_ops.set_binary("TwoDExampleAppd.dll", {0x02});
+
+        // Act
+        const auto library_path = resolve_requested_plugin_library_path(
+            working_directory,
+            "ThreeDExampleApp",
+            file_ops);
+
+        // Assert
+        EXPECT_TRUE(library_path.empty());
+    }
+
+    TEST(plugin_loader, resolves_requested_plugin_to_meta_file_without_scanning_sibling_libraries)
+    {
+        // Arrange
+        const auto working_directory = std::filesystem::path("C:/virtual/plugins");
+        auto file_ops = InMemoryFileOps(working_directory);
+        file_ops.set_binary("MetaOnlyPlugind.dll", {0x01});
+        file_ops.set_binary("NeighborPlugind.dll", {0x02});
+        file_ops.set_text("MetaOnlyPlugind.dll.meta", "{ \"name\": \"MetaOnlyPlugin\" }");
+
+        // Act
+        const auto meta_path =
+            resolve_requested_plugin_meta_path(working_directory, "MetaOnlyPlugin", file_ops);
+
+        // Assert
+        EXPECT_EQ(
+            meta_path,
+            (working_directory / "MetaOnlyPlugind.dll.meta").lexically_normal());
+    }
+
+    TEST(plugin_loader, reads_plugin_meta_with_serialized_enum_names)
+    {
+        // Arrange
+        constexpr auto meta_json = R"({
+            "name": "SdlWindowing",
+            "version": "1.0.0",
+            "description": "",
+            "dependencies": [],
+            "resource_directory": "",
+            "abi_version": 1,
+            "category": "input",
+            "linkage": "dynamic",
+            "priority": 0
+        })";
+        auto meta = PluginMeta {};
+
+        // Act
+        const auto read = read_json_serializable_value(meta_json, meta);
+
+        // Assert
+        ASSERT_TRUE(read);
+        EXPECT_EQ(meta.name, "SdlWindowing");
+        EXPECT_EQ(meta.category, PluginCategory::INPUT);
+        EXPECT_EQ(meta.linkage, PluginLinkage::DYNAMIC);
+    }
+
     TEST(plugin_manager, unload_removes_plugin_owned_script_asset_registrations)
     {
         // Arrange
         auto service_provider = std::make_shared<ServiceProvider>();
         service_provider->register_service<IMessageCoordinator>(
             std::make_shared<MessageCoordinator>());
-        service_provider->register_service<PluginOwnershipTracker>(
-            std::make_shared<PluginOwnershipTracker>());
-        bind_plugin_ownership_tracker(service_provider->get_service<PluginOwnershipTracker>());
-        auto manager = PluginManager(service_provider);
+        auto file_ops = std::make_shared<InMemoryFileOps>(
+            std::filesystem::path("C:/virtual/plugins"));
+        auto manager = PluginManager(service_provider, file_ops);
 
         auto meta = PluginMeta {};
         meta.name = "DummyPlugin";
@@ -58,7 +139,6 @@ namespace tbx::tests::plugin_loader
 
         // Act
         manager.unload("DummyPlugin");
-        bind_plugin_ownership_tracker({});
 
         // Assert
         EXPECT_FALSE(

@@ -1,0 +1,49 @@
+﻿{
+    "shader": {
+        "vertex": 304,
+        "fragment": 305,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        {
+            "name": "albedo_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                }
+            },
+            "target": "base_color"
+        },
+        {
+            "name": "alpha_cutoff",
+            "data": {
+                "type": "float",
+                "value": 0.5
+            },
+            "target": "alpha_cutoff"
+        }
+    ],
+    "textures": [
+        {
+            "name": "albedo_map",
+            "texture": 270544962,
+            "target": "albedo_texture"
+        }
+    ],
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "less_equal",
+        "blend_mode": "opaque",
+        "shadow_mode": "off"
+    }
+}

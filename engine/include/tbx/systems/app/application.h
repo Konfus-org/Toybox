@@ -1,20 +1,28 @@
 #pragma once
+#include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/app/command_list.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/rendering.h"
-#include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/tbx_api.h"
+#include <filesystem>
 #include <memory>
 #include <string>
+
+#if defined(TBX_PLATFORM_WINDOWS)
+    #define TBX_APP_ENTRY_EXPORT extern "C" __declspec(dllexport)
+#else
+    #define TBX_APP_ENTRY_EXPORT extern "C"
+#endif
 
 namespace tbx
 {
@@ -22,65 +30,48 @@ namespace tbx
     {
       public:
         Application();
-        ~Application() noexcept;
+        virtual ~Application() noexcept;
 
       public:
-        /// @brief
-        /// Purpose: Runs the application main loop and returns the process exit code.
-        /// @details
-        /// Ownership: Does not transfer ownership of application resources.
-        /// Thread Safety: Not thread-safe; call from the main thread.
-        int run();
+        Application(const Application&) = delete;
+        Application& operator=(const Application&) = delete;
+        Application(Application&&) = delete;
+        Application& operator=(Application&&) = delete;
 
-        /// @brief
-        /// Purpose: Returns the application name.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        const std::string& get_name() const;
-
-        /// @brief
-        /// Purpose: Returns the primary application window handle.
-        /// @details
-        /// Ownership: Returns a value owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        const Window& get_main_window() const;
-
-        /// @brief
-        /// Purpose: Returns the active application settings asset.
-        /// @details
-        /// Ownership: Returns a reference owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
-        const AppSettings& get_settings() const;
-
-        /// @brief
-        /// Purpose: Returns the service provider.
-        /// @details
-        /// Ownership: Returns a reference to the provider owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
+      public:
+        int run(const CommandList& command_list, const std::filesystem::path& root_directory);
         ServiceProvider& get_service_provider();
-
-        /// @brief
-        /// Purpose: Returns the const service provider.
-        /// @details
-        /// Ownership: Returns a reference to the provider owned by the application.
-        /// Thread Safety: Not thread-safe; synchronize access externally.
         const ServiceProvider& get_service_provider() const;
+        PluginManager& get_plugin_manager();
+        const PluginManager& get_plugin_manager() const;
+        const AppSettings& get_settings() const;
+        const std::string& get_name() const;
+        const Window& get_main_window() const;
+        bool should_exit() const;
+        void request_exit();
+
+      protected:
+        virtual int initialize(
+            const CommandList& command_list,
+            const std::filesystem::path& root_directory);
+        virtual void shutdown();
+        virtual void update(const DeltaTime& delta_time);
+        virtual void fixed_update(const DeltaTime& delta_time);
 
       private:
-        void initialize();
-        void update(DeltaTimer& timer);
-        void fixed_update(const DeltaTime& dt, const PhysicsSettings& settings);
-        void shutdown();
+        std::shared_ptr<AppSettings> load_app_settings(const Handle& settings_handle);
+        std::vector<std::string> resolve_plugins(
+            const std::vector<std::string>& settings_plugins,
+            const std::vector<std::string>& command_plugins);
 
       private:
         bool _should_exit = false;
         std::string _name = "Toybox App";
 
         std::shared_ptr<ServiceProvider> _service_provider = {};
-        PluginManager _plugin_manager;
+        std::unique_ptr<PluginManager> _plugin_manager = {};
+        std::weak_ptr<IFileOps> _file_ops = {};
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
-        std::weak_ptr<AssetReloadQueue> _asset_reload_queue = {};
         std::shared_ptr<AppSettings> _settings = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<WorldManager> _world_manager = {};
@@ -93,7 +84,9 @@ namespace tbx
 
         uint64 _update_count = 0;
         double _time_running = 0;
-
         double _fixed_update_accumulator_seconds = 0.0;
     };
+
+    using CreateAppFn = Application* (*)();
+    using DestroyAppFn = void (*)(Application*);
 }

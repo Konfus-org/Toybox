@@ -10,7 +10,6 @@
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/scripting/service_ref.h"
 #include "tbx/types/assets/builtin_assets.h"
 #include <memory>
@@ -205,9 +204,6 @@ namespace tbx::tests::app
         service_provider.register_service<EntityRegistry>(std::make_shared<EntityRegistry>());
         service_provider.register_service<SerializationRegistry>(
             std::make_shared<SerializationRegistry>());
-        service_provider.register_service<PluginOwnershipTracker>(
-            std::make_shared<PluginOwnershipTracker>());
-        bind_plugin_ownership_tracker(service_provider.get_service<PluginOwnershipTracker>());
         auto message_coordinator = service_provider.get_service<IMessageCoordinator>().lock();
         auto serialization_registry = service_provider.get_service<SerializationRegistry>().lock();
         if (!message_coordinator || !serialization_registry)

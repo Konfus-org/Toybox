@@ -28,10 +28,10 @@ namespace sdl_opengl_context_manager
     /// Ownership: Owns one SDL_GLContext per tracked SDL window and releases them on destruction.
     /// Thread Safety: Not thread-safe; expected to be used from the render/main thread that owns
     /// the SDL contexts.
-    class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::IOpenGlContextBackend
+    class TBX_PLUGIN_API SdlOpenGlContextBackend final : public tbx::IOpenGlContextBackend
     {
       public:
-        ~SdlOpenGlContextManager() noexcept override;
+        ~SdlOpenGlContextBackend() noexcept override;
 
         void initialize(
             int major_version,

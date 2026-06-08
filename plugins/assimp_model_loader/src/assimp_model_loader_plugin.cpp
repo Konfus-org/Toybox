@@ -322,13 +322,13 @@ namespace assimp_model_loader
         }
     }
 
-    void AssimpModelLoaderPlugin::on_attach()
+    void AssimpModelLoader::on_attach()
     {
         if (auto registry = serialization_registry.lock())
             registry->register_loader<tbx::Model>(read_model);
     }
 
-    void AssimpModelLoaderPlugin::on_detach()
+    void AssimpModelLoader::on_detach()
     {
         if (auto registry = serialization_registry.lock())
             registry->deregister_loader<tbx::Model>();
@@ -336,7 +336,7 @@ namespace assimp_model_loader
         serialization_registry = {};
     }
 
-    tbx::Result AssimpModelLoaderPlugin::read_model(
+    tbx::Result AssimpModelLoader::read_model(
         const std::filesystem::path& asset_path,
         const tbx::ModelLoadParameters&,
         const tbx::AssetLoadMetadata&,

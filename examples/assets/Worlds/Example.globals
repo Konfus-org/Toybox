@@ -1,0 +1,275 @@
+﻿[
+    {
+        "id": 12582918,
+        "name": "Character",
+        "tag": "player",
+        "layer": "",
+        "parent": 0,
+        "components": {
+            "transform": {
+                "position": [
+                    0,
+                    2.01,
+                    10
+                ],
+                "rotation": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "script_container": {
+                "scripts": [
+                    {
+                        "script": 822100001,
+                        "enabled": true,
+                        "binding_id": 12584001,
+                        "overrides": {
+                            "camera_entity": 12582913,
+                            "initial_pitch": -0.12,
+                            "initial_yaw": 0.785398
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582913,
+        "name": "Camera",
+        "tag": "camera",
+        "layer": "",
+        "parent": 12582918,
+        "components": {
+            "camera": {},
+            "transform": {
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "rotation": [
+                    -0.174108,
+                    0,
+                    0,
+                    0.984727
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582919,
+        "name": "PlayerFlashlight",
+        "tag": "lighting",
+        "layer": "",
+        "parent": 0,
+        "components": {
+            "script_container": {
+                "scripts": [
+                    {
+                        "script": 822100003,
+                        "enabled": true,
+                        "binding_id": 12584003,
+                        "overrides": {
+                            "camera_entity": 12582913
+                        }
+                    }
+                ]
+            },
+            "spot_light": {
+                "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                },
+                "intensity": 0.1,
+                "cast_shadows": true,
+                "range": 25,
+                "inner_angle": 10,
+                "outer_angle": 45
+            },
+            "transform": {
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "rotation": [
+                    -0.069756,
+                    0,
+                    0,
+                    0.997564
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582914,
+        "name": "Sun",
+        "tag": "lighting",
+        "layer": "",
+        "parent": 0,
+        "components": {
+            "directional_light": {
+                "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                },
+                "intensity": 1,
+                "cast_shadows": true,
+                "ambient": 0.15
+            },
+            "transform": {
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "rotation": [
+                    -0.353553,
+                    0.353553,
+                    -0.146447,
+                    0.853553
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "script_container": {
+                "scripts": [
+                    {
+                        "script": 822100005,
+                        "enabled": true,
+                        "binding_id": 12584005
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582915,
+        "name": "AreaLight",
+        "tag": "lighting",
+        "layer": "",
+        "parent": 12582918,
+        "components": {
+            "area_light": {
+                "color": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                },
+                "intensity": 1,
+                "cast_shadows": false,
+                "range": 20,
+                "area_size": [
+                    1,
+                    1
+                ]
+            },
+            "transform": {
+                "position": [
+                    0,
+                    5,
+                    0
+                ],
+                "rotation": [
+                    -1,
+                    0,
+                    0,
+                    0
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582916,
+        "name": "Sky",
+        "tag": "environment",
+        "layer": "",
+        "parent": 0,
+        "components": {
+            "sky": {
+                "material": {
+                    "material": 271593556
+                },
+                "type": 1
+            },
+            "transform": {
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "rotation": [
+                    0,
+                    1,
+                    0,
+                    0
+                ],
+                "scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "script_container": {
+                "scripts": [
+                    {
+                        "script": 822100002,
+                        "enabled": true,
+                        "binding_id": 12584002
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "id": 12582917,
+        "name": "PostProcessing",
+        "tag": "rendering",
+        "layer": "",
+        "parent": 0,
+        "components": {
+            "post_processing": {
+                "effects": [
+                    {
+                        "material": {
+                            "material": 539243890
+                        },
+                        "is_enabled": false,
+                        "blend": 1
+                    }
+                ],
+                "is_enabled": false
+            }
+        }
+    }
+]

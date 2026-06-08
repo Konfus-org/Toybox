@@ -1,5 +1,6 @@
 #include "tbx/systems/scripting/script_system.h"
 #include "script_system_state_key.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/script_container.h"
@@ -13,9 +14,20 @@
 
 namespace tbx
 {
+    static std::shared_ptr<ServiceProvider> make_non_owning_service_provider(
+        ServiceProvider& services)
+    {
+        return std::shared_ptr<ServiceProvider>(
+            &services,
+            [](ServiceProvider*)
+            {
+            });
+    }
+
     struct ScriptSystemStateRecord
     {
         std::shared_ptr<Script> script = {};
+        std::shared_ptr<GameplayScript> gameplay_script = {};
         bool started = false;
         bool touched = false;
     };
@@ -45,36 +57,46 @@ namespace tbx
         };
     }
 
+    ScriptSystem::ScriptSystem(std::shared_ptr<AssetManager> asset_manager, ServiceProvider& services)
+        : ScriptSystem(
+              make_non_owning_service_provider(services),
+              std::move(asset_manager),
+              std::weak_ptr<WorldManager> {},
+              std::weak_ptr<IMessageCoordinator> {})
+    {
+    }
+
     ScriptSystem::ScriptSystem(
+        std::weak_ptr<ServiceProvider> services,
         std::weak_ptr<AssetManager> asset_manager,
-        ServiceProvider& services,
         std::weak_ptr<WorldManager> world_manager,
-        std::weak_ptr<AssetReloadQueue> reload_queue)
+        std::weak_ptr<IMessageCoordinator> message_coordinator)
         : _state(std::make_unique<State>())
         , _asset_manager(std::move(asset_manager))
-        , _reload_queue(std::move(reload_queue))
+        , _message_coordinator(message_coordinator)
         , _world_manager(std::move(world_manager))
         , _services(services)
     {
-        if (auto queue = _reload_queue.lock())
+        if (auto coordinator = _message_coordinator.lock())
         {
-            _state->reload_handler = queue->register_handler(
-                [this](const AssetReloadContext& context)
+            _state->reload_handler = coordinator->register_handler(
+                [this](Message& message)
                 {
-                    on_asset_reload(context);
+                    if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
+                        on_asset_reloaded(reloaded->get());
                 });
         }
     }
 
     ScriptSystem::~ScriptSystem() noexcept
     {
-        if (auto queue = _reload_queue.lock())
-            queue->deregister_handler(_state->reload_handler);
+        if (auto coordinator = _message_coordinator.lock())
+            coordinator->deregister_handler(_state->reload_handler);
 
         for (auto& entry : _state->instances)
         {
-            if (entry.second.script)
-                entry.second.script->on_destroy();
+            if (entry.second.gameplay_script)
+                entry.second.gameplay_script->on_destroy();
         }
         _state->instances.clear();
     }
@@ -166,7 +188,8 @@ namespace tbx
     void ScriptSystem::fixed_update(const DeltaTime& dt)
     {
         auto asset_manager = _asset_manager.lock();
-        if (!asset_manager)
+        auto services = _services.lock();
+        if (!asset_manager || !services)
             return;
 
         consume_script_reloads();
@@ -181,7 +204,7 @@ namespace tbx
                 continue;
 
             world->for_each_with<ScriptContainer>(
-                [this, &asset_manager, &dt, &world](Entity& entity)
+                [this, &asset_manager, &dt, &world, &services](Entity& entity)
                 {
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
@@ -193,19 +216,27 @@ namespace tbx
                         auto& record = _state->instances[key];
                         record.touched = true;
                         if (!record.script)
+                        {
                             record.script = create_script_instance(*asset_manager, binding);
+                            record.gameplay_script =
+                                std::dynamic_pointer_cast<GameplayScript>(record.script);
+                        }
                         if (!record.script)
                             continue;
 
-                        record.script->bind(
-                            ScriptBinding {
-                                .entity = entity.get_id(),
-                                .script = binding.script,
-                                .binding_id = binding.binding_id,
-                            });
-                        auto context =
-                            ScriptContext(world->id, entity, world, _services.get(), *this);
-                        record.script->bind_context(context);
+                        const auto script_binding = ScriptBinding {
+                            .entity = entity.get_id(),
+                            .script = binding.script,
+                            .binding_id = binding.binding_id,
+                        };
+                        auto context = ScriptContext(
+                            world->id,
+                            script_binding,
+                            entity,
+                            world,
+                            *services,
+                            *this);
+                        record.script->bind(context);
                         auto* script_ptr = record.script.get();
                         if (auto registration =
                                 get_asset_type_registration(std::type_index(typeid(*script_ptr)));
@@ -214,12 +245,13 @@ namespace tbx
                             registration->bind_runtime(record.script.get(), context);
                         }
 
-                        if (!record.started)
+                        if (record.gameplay_script && !record.started)
                         {
-                            record.script->on_start();
+                            record.gameplay_script->on_start();
                             record.started = true;
                         }
-                        record.script->on_fixed_update(dt);
+                        if (record.gameplay_script)
+                            record.gameplay_script->on_fixed_update(dt);
                     }
                 });
         }
@@ -254,7 +286,8 @@ namespace tbx
     void ScriptSystem::update(const DeltaTime& dt)
     {
         auto asset_manager = _asset_manager.lock();
-        if (!asset_manager)
+        auto services = _services.lock();
+        if (!asset_manager || !services)
             return;
 
         consume_script_reloads();
@@ -269,7 +302,7 @@ namespace tbx
                 continue;
 
             world->for_each_with<ScriptContainer>(
-                [this, &asset_manager, &dt, &world](Entity& entity)
+                [this, &asset_manager, &dt, &world, &services](Entity& entity)
                 {
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
@@ -281,19 +314,27 @@ namespace tbx
                         auto& record = _state->instances[key];
                         record.touched = true;
                         if (!record.script)
+                        {
                             record.script = create_script_instance(*asset_manager, binding);
+                            record.gameplay_script =
+                                std::dynamic_pointer_cast<GameplayScript>(record.script);
+                        }
                         if (!record.script)
                             continue;
 
-                        record.script->bind(
-                            ScriptBinding {
-                                .entity = entity.get_id(),
-                                .script = binding.script,
-                                .binding_id = binding.binding_id,
-                            });
-                        auto context =
-                            ScriptContext(world->id, entity, world, _services.get(), *this);
-                        record.script->bind_context(context);
+                        const auto script_binding = ScriptBinding {
+                            .entity = entity.get_id(),
+                            .script = binding.script,
+                            .binding_id = binding.binding_id,
+                        };
+                        auto context = ScriptContext(
+                            world->id,
+                            script_binding,
+                            entity,
+                            world,
+                            *services,
+                            *this);
+                        record.script->bind(context);
                         auto* script_ptr = record.script.get();
                         if (auto registration =
                                 get_asset_type_registration(std::type_index(typeid(*script_ptr)));
@@ -302,12 +343,13 @@ namespace tbx
                             registration->bind_runtime(record.script.get(), context);
                         }
 
-                        if (!record.started)
+                        if (record.gameplay_script && !record.started)
                         {
-                            record.script->on_start();
+                            record.gameplay_script->on_start();
                             record.started = true;
                         }
-                        record.script->on_update(dt);
+                        if (record.gameplay_script)
+                            record.gameplay_script->on_update(dt);
                     }
                 });
         }
@@ -323,8 +365,8 @@ namespace tbx
         {
             if (auto iterator = _state->instances.find(key); iterator != _state->instances.end())
             {
-                if (iterator->second.script)
-                    iterator->second.script->on_destroy();
+                if (iterator->second.gameplay_script)
+                    iterator->second.gameplay_script->on_destroy();
                 _state->instances.erase(iterator);
             }
         }
@@ -340,20 +382,21 @@ namespace tbx
             if (!_state->pending_script_reloads.contains(entry.first.script))
                 continue;
 
-            if (entry.second.script)
-                entry.second.script->on_destroy();
+            if (entry.second.gameplay_script)
+                entry.second.gameplay_script->on_destroy();
 
             entry.second.script = {};
+            entry.second.gameplay_script = {};
             entry.second.started = false;
         }
         _state->pending_script_reloads.clear();
     }
 
-    void ScriptSystem::on_asset_reload(const AssetReloadContext& context)
+    void ScriptSystem::on_asset_reloaded(const AssetReloadedEvent& event)
     {
-        if (!context.succeeded || !context.affected_asset.id.is_valid())
+        if (!event.succeeded || !event.affected_asset.id.is_valid())
             return;
 
-        _state->pending_script_reloads.insert(context.affected_asset.id);
+        _state->pending_script_reloads.insert(event.affected_asset.id);
     }
 }

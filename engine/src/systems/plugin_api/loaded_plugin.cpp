@@ -108,8 +108,7 @@ namespace tbx
 
     void LoadedPlugin::receive_message(Message& msg)
     {
-        if (!is_valid()
-            || _state != LoadedPluginState::ATTACHED)
+        if (!is_valid() || _state != LoadedPluginState::ATTACHED)
             return;
 
         instance->receive_message(msg);

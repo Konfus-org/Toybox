@@ -1,0 +1,67 @@
+﻿{
+    "shader": {
+        "vertex": 317,
+        "fragment": 318,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        {
+            "name": "color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                }
+            },
+            "target": "sky_color"
+        },
+        {
+            "name": "brightness",
+            "data": {
+                "type": "float",
+                "value": 1
+            },
+            "target": "sky_brightness"
+        },
+        {
+            "name": "ambient_multiplier",
+            "data": {
+                "type": "float",
+                "value": 0
+            }
+        },
+        {
+            "name": "blend_factor",
+            "data": {
+                "type": "float",
+                "value": 0
+            }
+        }
+    ],
+    "textures": [
+        {
+            "name": "skybox_texture",
+            "texture": 271855685,
+            "target": "sky_texture"
+        },
+        {
+            "name": "secondary_skybox_texture",
+            "texture": 231853635
+        }
+    ],
+    "config": {
+        "is_depth_test_enabled": false,
+        "is_depth_write_enabled": false,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "off"
+    }
+}

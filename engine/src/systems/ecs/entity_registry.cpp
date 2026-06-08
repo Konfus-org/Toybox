@@ -1,8 +1,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <vector>
 
 namespace tbx
@@ -121,11 +120,7 @@ namespace tbx
         _registry->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
         _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
 
-        if (has_active_plugin_id())
-        {
-            if (auto tracker = lock_plugin_ownership_tracker())
-                tracker->track_entity(get_active_plugin_id(), id);
-        }
+        track_plugin_owned_entity(id);
 
         return id;
     }
@@ -162,11 +157,7 @@ namespace tbx
             handle,
             EntityParentComponent {.value = parent});
 
-        if (has_active_plugin_id())
-        {
-            if (auto tracker = lock_plugin_ownership_tracker())
-                tracker->track_entity(get_active_plugin_id(), id);
-        }
+        track_plugin_owned_entity(id);
 
         return id;
     }

@@ -1,12 +1,12 @@
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/interfaces/file_ops.h"
+#include <mutex>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog-inl.h>
-#include <mutex>
-#include <system_error>
 #include <unordered_set>
+#include <vector>
 
 #ifdef TBX_PLATFORM_WINDOWS
     #include <spdlog/sinks/msvc_sink.h>
@@ -14,54 +14,30 @@
 
 namespace tbx
 {
-    struct Log::State
+    static std::filesystem::path get_default_logs_directory()
     {
-        std::shared_ptr<spdlog::logger> get_or_create_default_logger();
+        return (get_process_executable_directory() / "logs").lexically_normal();
+    }
 
-        std::mutex logger_mutex = {};
-        std::mutex once_mutex = {};
-        std::shared_ptr<spdlog::logger> logger = {};
-        std::unordered_set<size_t> once_message_hashes = {};
+    struct PendingLogEntry
+    {
+        LogLevel level = LogLevel::INFO;
+        std::string file = {};
+        int line = 0;
+        std::string message = {};
     };
 
-    Log::Log()
-        : _state(std::make_unique<State>())
+    static std::shared_ptr<spdlog::logger> create_default_logger(
+        const std::filesystem::path& logs_directory)
     {
-    }
+        if (logs_directory.empty())
+            return {};
 
-    Log::~Log() noexcept = default;
-
-    Log& Log::get_instance()
-    {
-        static Log log = {};
-        return log;
-    }
-
-    std::filesystem::path Log::get_logs_directory()
-    {
-#if defined(TBX_LOGS_DIRECTORY)
-        const auto configured = std::filesystem::path(TBX_LOGS_DIRECTORY).lexically_normal();
-        if (!configured.empty())
-        {
-            if (configured.is_absolute())
-                return configured;
-
-            std::error_code ec = {};
-            auto absolute = std::filesystem::absolute(configured, ec);
-            if (!ec)
-                return absolute.lexically_normal();
-        }
-#endif
-
-        auto file_operator = FileOperator();
-        return file_operator.resolve("logs");
-    }
-
-    static std::shared_ptr<spdlog::logger> create_default_logger()
-    {
-        auto file_operator = FileOperator();
-        auto logs_directory = Log::get_instance().get_logs_directory();
+        auto file_operator = FileOperator(logs_directory);
         auto path = file_operator.rotate(logs_directory, "TbxDebug", ".log", 10);
+        if (path.empty())
+            return {};
+
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 #ifdef TBX_PLATFORM_WINDOWS
@@ -83,29 +59,70 @@ namespace tbx
 #endif
     }
 
-    std::shared_ptr<spdlog::logger> Log::State::get_or_create_default_logger()
+    static void write_entry(
+        spdlog::logger& logger,
+        LogLevel level,
+        const std::string& file,
+        int line,
+        const std::string& message)
     {
-        std::lock_guard<std::mutex> lock(logger_mutex);
-        if (logger)
-            return logger;
+        auto filename = std::filesystem::path(file).filename().string();
+        const auto* filename_cstr = filename.c_str();
+        switch (level)
+        {
+            case LogLevel::INFO:
+                logger.info("[{}:{}] {}", filename_cstr, line, message);
+                break;
+            case LogLevel::WARNING:
+                logger.warn("[{}:{}] {}", filename_cstr, line, message);
+                break;
+            case LogLevel::ERROR:
+                logger.error("[{}:{}] {}", filename_cstr, line, message);
+                break;
+            case LogLevel::CRITICAL:
+                logger.critical("[{}:{}] {}", filename_cstr, line, message);
+                break;
+        }
+    }
 
-        logger = create_default_logger();
-        return logger;
+    struct Log::Logger
+    {
+        std::shared_ptr<spdlog::logger> impl = {};
+        std::vector<PendingLogEntry> pending_entries = {};
+    };
+
+    Log::Log()
+        : _logger(std::make_unique<Logger>())
+    {
+    }
+
+    Log::~Log() noexcept = default;
+
+    Log& Log::get_instance()
+    {
+        static Log log = {};
+        return log;
+    }
+
+    std::filesystem::path Log::get_logs_directory()
+    {
+        auto lock = std::lock_guard(_logger_mutex);
+        if (_logs_directory.empty())
+            _logs_directory = get_default_logs_directory();
+
+        return _logs_directory;
     }
 
     void Log::flush()
     {
         auto active_logger = std::shared_ptr<spdlog::logger> {};
         {
-            std::lock_guard<std::mutex> lock(_state->logger_mutex);
-            active_logger = _state->logger;
+            auto lock = std::lock_guard(_logger_mutex);
+            active_logger = std::move(_logger->impl);
         }
 
         if (active_logger)
-        {
             active_logger->flush();
-            active_logger.reset();
-        }
 
         spdlog::shutdown();
     }
@@ -132,35 +149,50 @@ namespace tbx
         const auto hash =
             message_hash ^ (level_hash + 0x9E3779B9U + (message_hash << 6U) + (message_hash >> 2U));
 
-        std::lock_guard<std::mutex> lock(_state->once_mutex);
-        const auto insert_result = _state->once_message_hashes.insert(hash);
+        auto lock = std::lock_guard(_once_mutex);
+        const auto insert_result = _once_message_hashes.insert(hash);
         return insert_result.second;
     }
 
-    void Log::write_internal(
-        LogLevel level,
-        const char* file,
-        int line,
-        const std::string& message)
+    void Log::write_internal(LogLevel level, const char* file, int line, const std::string& message)
     {
-        auto active_logger = _state->get_or_create_default_logger();
-        std::string filename = std::filesystem::path(file).filename().string();
-        const auto* filename_cstr = filename.c_str();
-        switch (level)
+        auto active_logger = std::shared_ptr<spdlog::logger> {};
+        auto pending_entries = std::vector<PendingLogEntry> {};
+
         {
-            case LogLevel::INFO:
-                active_logger->info("[{}:{}] {}", filename_cstr, line, message);
-                break;
-            case LogLevel::WARNING:
-                active_logger->warn("[{}:{}] {}", filename_cstr, line, message);
-                break;
-            case LogLevel::ERROR:
-                active_logger->error("[{}:{}] {}", filename_cstr, line, message);
-                break;
-            case LogLevel::CRITICAL:
-                active_logger->critical("[{}:{}] {}", filename_cstr, line, message);
-                break;
+            auto lock = std::lock_guard(_logger_mutex);
+
+            if (_logs_directory.empty())
+                _logs_directory = get_default_logs_directory();
+
+            if (!_logger->impl && !_logs_directory.empty())
+                _logger->impl = create_default_logger(_logs_directory);
+
+            active_logger = _logger->impl;
+            if (!active_logger)
+            {
+                _logger->pending_entries.push_back(
+                    PendingLogEntry {
+                        .level = level,
+                        .file = file != nullptr ? std::string(file) : std::string(),
+                        .line = line,
+                        .message = message,
+                    });
+                return;
+            }
+
+            pending_entries.swap(_logger->pending_entries);
         }
+
+        for (const auto& entry : pending_entries)
+            write_entry(*active_logger, entry.level, entry.file, entry.line, entry.message);
+
+        write_entry(
+            *active_logger,
+            level,
+            file != nullptr ? std::string(file) : std::string(),
+            line,
+            message);
     }
 
 }

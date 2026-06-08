@@ -72,7 +72,7 @@ namespace tbx
     struct TBX_API StaticMesh : Component
     {
         StaticMesh() = default;
-        StaticMesh(Handle handle);
+        explicit StaticMesh(Handle handle);
 
         /// @brief
         /// Purpose: Model asset handle that provides mesh geometry (and optional part materials).
@@ -92,8 +92,8 @@ namespace tbx
     struct TBX_API DynamicMesh : Component
     {
         DynamicMesh() = default;
-        DynamicMesh(Mesh mesh);
-        DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data);
+        explicit DynamicMesh(const Mesh& mesh);
+        explicit DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data);
 
         const Mesh& get_mesh() const;
         Mesh& edit_mesh();

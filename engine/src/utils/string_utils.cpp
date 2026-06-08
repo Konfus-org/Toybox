@@ -52,6 +52,11 @@ namespace tbx
         return result;
     }
 
+    bool contains(std::string_view value, std::string_view token)
+    {
+        return value.find(token) != std::string_view::npos;
+    }
+
     bool contains_case_insensitive(std::string_view value, std::string_view token)
     {
         const auto normalized_value = to_lower(value);

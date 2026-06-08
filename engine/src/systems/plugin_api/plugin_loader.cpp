@@ -1,6 +1,8 @@
 #include "plugin_loader.h"
+#include "plugin_loader_discovery.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/plugin.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/utils/string_utils.h"
@@ -15,11 +17,16 @@ namespace tbx
     inline constexpr std::string_view PluginShadowCopyMarker = ".load_copy";
 
     static bool is_plugin_library_path(const std::filesystem::path& path);
+    static bool is_plugin_meta_path(const std::filesystem::path& path);
+    static std::filesystem::path get_plugin_library_path_from_meta_path(
+        const std::filesystem::path& meta_path);
+    static std::filesystem::path get_plugin_meta_path_from_library_path(
+        const std::filesystem::path& library_path);
     static std::filesystem::path resolve_plugin_library_path(
         const PluginMeta& meta,
         IFileOps& file_ops);
-    static bool try_query_plugin_meta_from_library(
-        const std::filesystem::path& library_path,
+    static bool try_query_plugin_meta_from_file(
+        const std::filesystem::path& meta_path,
         IFileOps& file_ops,
         PluginMeta& out_meta);
 
@@ -37,20 +44,6 @@ namespace tbx
         }
 
         return false;
-    }
-
-    static std::filesystem::path append_debug_postfix(const std::filesystem::path& library_path)
-    {
-        const std::string extension = library_path.extension().string();
-        if (extension.empty())
-            return {};
-
-        const std::string stem = library_path.stem().string();
-        if (stem.ends_with("d"))
-            return {};
-
-        const std::string debug_name = stem + "d" + extension;
-        return library_path.parent_path() / debug_name;
     }
 
     static std::filesystem::path make_plugin_shadow_copy_path(
@@ -134,7 +127,7 @@ namespace tbx
         }
 #endif
 
-        auto lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+        auto lib = load_shared_lib(load_path, cleanup_path);
         if (!lib->is_valid() && load_path != library_path)
         {
             auto shadow_copy_error_message = std::string {};
@@ -160,7 +153,7 @@ namespace tbx
 
             load_path = library_path;
             cleanup_path.clear();
-            lib = std::make_unique<SharedLibrary>(load_path, cleanup_path);
+            lib = load_shared_lib(load_path, cleanup_path);
         }
 
         if (!lib->is_valid())
@@ -183,22 +176,24 @@ namespace tbx
         return lib;
     }
 
-    static bool try_query_plugin_meta_from_library(
-        const std::filesystem::path& library_path,
+    static bool try_query_plugin_meta_from_file(
+        const std::filesystem::path& meta_path,
         IFileOps& file_ops,
         PluginMeta& out_meta)
     {
-        auto lib = load_plugin_library(library_path, file_ops);
-        if (!lib || !lib->is_valid())
+        if (file_ops.get_type(meta_path) != FileType::FILE)
             return false;
 
-        GetPluginMetaFn get_meta = lib->get_symbol<GetPluginMetaFn>("tbx_get_plugin_meta");
-        if (!get_meta)
+        auto contents = std::string {};
+        if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
             return false;
 
         auto meta = PluginMeta {};
-        get_meta(&meta);
-        if (meta.name.empty() || meta.version.empty())
+        if (!read_json_serializable_value(contents, meta))
+            return false;
+
+        const auto library_path = get_plugin_library_path_from_meta_path(meta_path);
+        if (meta.name.empty() || meta.version.empty() || library_path.empty())
             return false;
 
         meta.root_directory = library_path.parent_path();
@@ -405,31 +400,35 @@ namespace tbx
         if (file_ops.get_type(library_path) == FileType::DIRECTORY)
             library_path /= meta.name;
 
-        if (library_path.extension().string().empty())
-        {
-#if defined(TBX_PLATFORM_WINDOWS)
-            library_path.replace_extension(".dll");
-#elif defined(TBX_PLATFORM_MACOS)
-            const std::string file_name = library_path.filename().string();
-            if (!file_name.starts_with("lib"))
-                library_path = library_path.parent_path() / ("lib" + file_name);
-            library_path.replace_extension(".dylib");
-#else
-            const std::string file_name = library_path.filename().string();
-            if (!file_name.starts_with("lib"))
-                library_path = library_path.parent_path() / ("lib" + file_name);
-            library_path.replace_extension(".so");
-#endif
-        }
+        return resolve_shared_library_path(file_ops.resolve(library_path));
+    }
 
-        if (!file_ops.exists(library_path))
-        {
-            const std::filesystem::path debug_candidate = append_debug_postfix(library_path);
-            if (!debug_candidate.empty() && file_ops.exists(debug_candidate))
-                return debug_candidate;
-        }
+    static bool is_plugin_meta_path(const std::filesystem::path& path)
+    {
+        if (to_lower(path.extension().string()) != ".meta")
+            return false;
 
-        return library_path;
+        return is_plugin_library_path(get_plugin_library_path_from_meta_path(path));
+    }
+
+    static std::filesystem::path get_plugin_library_path_from_meta_path(
+        const std::filesystem::path& meta_path)
+    {
+        if (to_lower(meta_path.extension().string()) != ".meta")
+            return {};
+
+        return meta_path.parent_path() / meta_path.stem();
+    }
+
+    static std::filesystem::path get_plugin_meta_path_from_library_path(
+        const std::filesystem::path& library_path)
+    {
+        if (!is_plugin_library_path(library_path))
+            return {};
+
+        auto meta_path = library_path;
+        meta_path += ".meta";
+        return meta_path;
     }
 
     LoadedPlugins PluginLoader::load(
@@ -445,13 +444,75 @@ namespace tbx
         std::vector<PluginMeta> discovered;
         const auto path_type = file_ops.get_type(resolved_path);
         const bool is_single_library_load = path_type == FileType::FILE;
+        const bool has_requested_ids = !requested_ids.empty();
         if (path_type == FileType::FILE)
         {
-            if (!is_plugin_shadow_copy_path(resolved_path) && is_plugin_library_path(resolved_path))
+            auto meta = PluginMeta {};
+            if (!is_plugin_shadow_copy_path(resolved_path) && is_plugin_meta_path(resolved_path))
             {
-                auto meta = PluginMeta {};
-                if (try_query_plugin_meta_from_library(resolved_path, file_ops, meta))
+                if (try_query_plugin_meta_from_file(resolved_path, file_ops, meta))
                     discovered.push_back(std::move(meta));
+            }
+            else if (
+                !is_plugin_shadow_copy_path(resolved_path) && is_plugin_library_path(resolved_path))
+            {
+                if (try_query_plugin_meta_from_file(
+                        get_plugin_meta_path_from_library_path(resolved_path),
+                        file_ops,
+                        meta))
+                    discovered.push_back(std::move(meta));
+            }
+        }
+        else if (path_type == FileType::DIRECTORY && has_requested_ids)
+        {
+            auto queued_names = std::deque<std::string> {};
+            auto queued_lookup = std::unordered_set<std::string> {};
+            auto discovered_lookup = std::unordered_set<std::string> {};
+
+            const auto enqueue_plugin_name =
+                [&queued_names, &queued_lookup](const std::string& plugin_name)
+            {
+                const auto trimmed_name = trim(plugin_name);
+                const auto lowered_name = to_lower(trimmed_name);
+                if (lowered_name.empty() || queued_lookup.contains(lowered_name))
+                    return;
+
+                queued_names.push_back(trimmed_name);
+                queued_lookup.insert(lowered_name);
+            };
+
+            for (const auto& requested_id : requested_ids)
+                enqueue_plugin_name(requested_id);
+
+            while (!queued_names.empty())
+            {
+                const auto plugin_name = queued_names.front();
+                queued_names.pop_front();
+
+                const auto library_path =
+                    resolve_requested_plugin_library_path(resolved_path, plugin_name, file_ops);
+                if (library_path.empty())
+                {
+                    TBX_TRACE_WARNING("Requested plugin not found: {}", trim(plugin_name));
+                    continue;
+                }
+
+                auto meta = PluginMeta {};
+                if (!try_query_plugin_meta_from_file(
+                        get_plugin_meta_path_from_library_path(library_path),
+                        file_ops,
+                        meta))
+                    continue;
+
+                const auto lowered_name = to_lower(meta.name);
+                if (discovered_lookup.contains(lowered_name))
+                    continue;
+
+                discovered_lookup.insert(lowered_name);
+                for (const auto& dependency : meta.dependencies)
+                    enqueue_plugin_name(dependency);
+
+                discovered.push_back(std::move(meta));
             }
         }
         else if (path_type == FileType::DIRECTORY)
@@ -470,11 +531,11 @@ namespace tbx
                 if (file_ops.get_type(entry) != FileType::FILE)
                     continue;
 
-                if (!is_plugin_library_path(entry))
+                if (!is_plugin_meta_path(entry))
                     continue;
 
                 auto meta = PluginMeta();
-                if (try_query_plugin_meta_from_library(entry, file_ops, meta))
+                if (try_query_plugin_meta_from_file(entry, file_ops, meta))
                     discovered.push_back(std::move(meta));
             }
         }
@@ -486,8 +547,10 @@ namespace tbx
         }
 
         std::vector<PluginMeta> metas;
-        if (requested_ids.empty())
+        if (!has_requested_ids)
+        {
             metas = discovered;
+        }
         else if (is_single_library_load)
         {
             const auto requested_match = std::ranges::any_of(

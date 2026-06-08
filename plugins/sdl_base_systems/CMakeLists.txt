@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME SdlBaseSystemsPlugin
+    NAME SdlBaseSystems
     PRIVATE_LINKS
         EnTT::EnTT
         SDL3::SDL3-shared

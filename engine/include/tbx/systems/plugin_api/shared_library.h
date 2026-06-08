@@ -1,7 +1,19 @@
 #pragma once
+#include "tbx/tbx_api.h"
+#include <filesystem>
+#include <memory>
+#include <string>
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: Resolves a shared-library path for the current platform and prefers a debug-postfix
+    /// variant when the release-named file is absent.
+    /// @details
+    /// Ownership: Returns a caller-owned normalized path value.
+    /// Thread Safety: Safe to call concurrently.
+    TBX_API std::filesystem::path resolve_shared_library_path(const std::filesystem::path& path);
+
     // RAII wrapper that loads a shared library on construction
     // and unloads it on destruction. Non-copyable, movable.
     // Ownership: Owns the OS library handle while alive.
@@ -55,6 +67,15 @@ namespace tbx
         std::filesystem::path _cleanup_path;
         std::string _load_error_message = {};
     };
+
+    /// @brief
+    /// Purpose: Resolves and loads a shared library using the current platform naming rules.
+    /// @details
+    /// Ownership: Returns an owned library instance.
+    /// Thread Safety: Safe to call concurrently when each returned library is used independently.
+    TBX_API std::unique_ptr<SharedLibrary> load_shared_lib(
+        const std::filesystem::path& path,
+        const std::filesystem::path& cleanup_path = {});
 }
 
 #include "tbx/systems/plugin_api/shared_library.inl"

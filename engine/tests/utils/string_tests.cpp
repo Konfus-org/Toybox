@@ -35,6 +35,24 @@ namespace tbx::tests::utils
         EXPECT_EQ(upper, "MIXED");
     }
 
+    TEST(StringUtilsTests, ContainsTokenWhenSubstringExists)
+    {
+        const std::string value = "deferred_lighting";
+
+        const bool result = contains(value, "lighting");
+
+        EXPECT_TRUE(result);
+    }
+
+    TEST(StringUtilsTests, DoesNotContainTokenWhenSubstringIsMissing)
+    {
+        const std::string value = "transparent_composite";
+
+        const bool result = contains(value, "shadow");
+
+        EXPECT_FALSE(result);
+    }
+
     TEST(StringUtilsTests, ContainsCaseInsensitiveToken)
     {
         EXPECT_TRUE(contains_case_insensitive("Integrated Graphics", "integrated"));

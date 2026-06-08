@@ -11,14 +11,14 @@ namespace opengl_rendering
     /// Purpose: Owns all backend resource caches.
     struct OpenGlResourceCache
     {
-        std::unordered_map<tbx::Uuid, std::vector<OpenGlBindEntry>> bind_groups = {};
-        std::unordered_map<tbx::Uuid, std::vector<OpenGlBindGroupLayoutEntry>> bind_group_layouts =
+        std::unordered_map<tbx::GpuId, std::vector<OpenGlBindEntry>> bind_groups = {};
+        std::unordered_map<tbx::GpuId, std::vector<OpenGlBindGroupLayoutEntry>> bind_group_layouts =
             {};
-        std::unordered_map<tbx::Uuid, OpenGlBufferResource> buffers = {};
-        std::unordered_map<tbx::Uuid, OpenGlComputePipelineResource> compute_pipelines = {};
-        std::unordered_map<tbx::Uuid, OpenGlRasterPipelineResource> raster_pipelines = {};
-        std::unordered_map<tbx::Uuid, OpenGlSampler> samplers = {};
-        std::unordered_map<tbx::Uuid, OpenGlTextureResource> textures = {};
+        std::unordered_map<tbx::GpuId, OpenGlBufferResource> buffers = {};
+        std::unordered_map<tbx::GpuId, OpenGlComputePipelineResource> compute_pipelines = {};
+        std::unordered_map<tbx::GpuId, OpenGlRasterPipelineResource> raster_pipelines = {};
+        std::unordered_map<tbx::GpuId, OpenGlSampler> samplers = {};
+        std::unordered_map<tbx::GpuId, OpenGlTextureResource> textures = {};
         std::unique_ptr<OpenGlFramebuffer> pass_framebuffer = {};
     };
 }

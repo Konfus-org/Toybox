@@ -21,7 +21,7 @@ namespace stb_image_loader
         return message;
     }
 
-    void StbImageLoaderPlugin::on_attach()
+    void StbImageLoader::on_attach()
     {
         auto registry = serialization_registry.lock();
         if (!registry)
@@ -38,7 +38,7 @@ namespace stb_image_loader
             });
     }
 
-    void StbImageLoaderPlugin::on_detach()
+    void StbImageLoader::on_detach()
     {
         if (auto registry = serialization_registry.lock())
         {
@@ -49,7 +49,7 @@ namespace stb_image_loader
         serialization_registry = {};
     }
 
-    tbx::Result StbImageLoaderPlugin::read_texture(
+    tbx::Result StbImageLoader::read_texture(
         const std::filesystem::path& asset_path,
         const tbx::TextureLoadParameters& parameters,
         const tbx::AssetLoadMetadata&,

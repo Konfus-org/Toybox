@@ -1,6 +1,6 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <mutex>
 
 namespace tbx
@@ -152,11 +152,7 @@ namespace tbx
             return;
         }
 
-        if (!has_active_plugin_id())
-            return;
-
-        if (auto tracker = lock_plugin_ownership_tracker())
-            tracker->track_asset_type_registration(get_active_plugin_id(), registration_type);
+        track_plugin_owned_asset_type(registration_type);
     }
 
     std::vector<SerializableTypeRegistration> get_serializable_type_registrations()
@@ -205,10 +201,6 @@ namespace tbx
 
         registrations.push_back(std::move(entry));
 
-        if (!has_active_plugin_id())
-            return;
-
-        if (auto tracker = lock_plugin_ownership_tracker())
-            tracker->track_serializable_registration(get_active_plugin_id(), registration_name);
+        track_plugin_owned_serializable_registration(registration_name);
     }
 }

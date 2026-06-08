@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME AssimpModelLoaderPlugin
+    NAME AssimpModelLoader
     PRIVATE_LINKS
         Tbx::Resources
         assimp::assimp

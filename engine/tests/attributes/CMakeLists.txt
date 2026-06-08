@@ -8,5 +8,5 @@ tbx_add_engine_test(
 
 add_test(
     NAME TbxAttributeCodegenPythonTests
-    COMMAND ${Python3_EXECUTABLE} "${PROJECT_SOURCE_DIR}/codegen/tbx_attribute_codegen.py" --self-test
+    COMMAND ${Python3_EXECUTABLE} "${TBX_CODEGEN_ROOT}/tbx_attribute_codegen.py" --self-test
 )

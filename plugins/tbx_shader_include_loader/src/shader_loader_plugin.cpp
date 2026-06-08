@@ -5,7 +5,6 @@
 #include "tbx/types/assets/shader.h"
 #include <sstream>
 
-
 namespace tbx::shader_loader
 {
     struct ShaderLoadResult
@@ -175,7 +174,7 @@ namespace tbx::shader_loader
         }
 
         const std::filesystem::path asset_candidate =
-            asset_manager.resolve(include_path).lexically_normal();
+            asset_manager.resolve_path(include_path).lexically_normal();
         if (ShaderLoadResult result = {};
             try_read_include_candidate(file_operator, asset_candidate, result))
             return result;

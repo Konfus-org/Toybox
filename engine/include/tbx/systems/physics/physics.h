@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/reload_queue.h"
+#include "tbx/systems/assets/messages.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
@@ -10,6 +10,8 @@
 
 namespace tbx
 {
+    class IMessageCoordinator;
+
     /// @brief
     /// Purpose: Application-owned physics service that synchronizes ECS components with the
     /// registered physics backend.
@@ -28,7 +30,7 @@ namespace tbx
             std::weak_ptr<IPhysicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<WorldManager> world_manager,
-            std::weak_ptr<AssetReloadQueue> reload_queue,
+            std::weak_ptr<IMessageCoordinator> message_coordinator,
             const PhysicsSettings& settings);
         ~Physics() noexcept;
 
@@ -49,7 +51,7 @@ namespace tbx
         void sync_entities_to_backend(World& world, float dt_seconds);
         void sync_backend_to_entities(World& world);
         Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
-        void on_asset_reload(const AssetReloadContext& context);
+        void on_asset_reloaded(const AssetReloadedEvent& event);
 
       private:
         struct EntityRecord;
@@ -64,7 +66,7 @@ namespace tbx
       private:
         std::weak_ptr<IPhysicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
-        std::weak_ptr<AssetReloadQueue> _reload_queue = {};
+        std::weak_ptr<IMessageCoordinator> _message_coordinator = {};
         std::weak_ptr<WorldManager> _world_manager = {};
         std::unordered_map<Uuid, EntityRecordPtr> _records_by_entity = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};

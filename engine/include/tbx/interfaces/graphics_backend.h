@@ -2,18 +2,23 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/graphics/api.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/assets/shader.h"
+#include "tbx/types/assets/texture.h"
 #include "tbx/types/color.h"
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
 #include "tbx/types/viewport.h"
 #include "tbx/utils/result.h"
+#include <limits>
 #include <string>
 #include <vector>
 
 namespace tbx
 {
+    using GpuId = uint64;
+    inline constexpr GpuId INVALID_GPU_ID = std::numeric_limits<GpuId>::max();
+
     /// @brief
     /// Purpose: Defines how a GPU buffer will be bound by a graphics backend.
     /// @details
@@ -143,35 +148,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Defines how a texture resource can be used by a graphics backend.
-    /// @details
-    /// Ownership: Enum values are copied by value by resource systems.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsTextureUsage : uint8
-    {
-        SAMPLED = 1U << 0U,
-        RENDER_TARGET = 1U << 1U,
-        DEPTH_STENCIL = 1U << 2U,
-        STORAGE = 1U << 3U,
-        SAMPLED_RENDER_TARGET = (1U << 0U) | (1U << 1U),
-        SAMPLED_DEPTH_STENCIL = (1U << 0U) | (1U << 2U),
-    };
-
-    /// @brief
-    /// Purpose: Defines a backend-neutral texture pixel format.
-    /// @details
-    /// Ownership: Enum values are copied by value by resource systems.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsTextureFormat
-    {
-        RGBA8,
-        RGBA16_FLOAT,
-        RGBA32_FLOAT,
-        DEPTH24_STENCIL8,
-        DEPTH32_FLOAT,
-    };
-
-    /// @brief
     /// Purpose: Defines color, depth, and stencil buffers cleared at pass start.
     /// @details
     /// Ownership: Enum values are copied by value by pass submissions.
@@ -205,8 +181,8 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API GraphicsTextureDesc
     {
-        GraphicsTextureUsage usage = GraphicsTextureUsage::SAMPLED;
-        GraphicsTextureFormat format = GraphicsTextureFormat::RGBA8;
+        TextureUsage usage = TextureUsage::SAMPLED;
+        TextureFormat format = TextureFormat::RGBA8;
         Size size = {1U, 1U};
         uint32 mip_count = 1U;
         uint32 array_layer_count = 1U;
@@ -250,7 +226,7 @@ namespace tbx
     struct TBX_API GraphicsResourceBinding
     {
         uint32 slot = 0U;
-        Uuid resource = {};
+        GpuId resource = INVALID_GPU_ID;
     };
 
     /// @brief
@@ -284,7 +260,7 @@ namespace tbx
     struct TBX_API ResourceBinding
     {
         uint32 binding_slot = 0U;
-        Uuid resource_handle = {};
+        GpuId resource_handle = INVALID_GPU_ID;
         uint64 offset = 0U;
         uint64 range = 0U;
     };
@@ -296,7 +272,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API BindGroupDesc
     {
-        Uuid layout_handle = {};
+        GpuId layout_handle = INVALID_GPU_ID;
         std::vector<ResourceBinding> bindings = {};
         std::string debug_name = {};
     };
@@ -338,6 +314,7 @@ namespace tbx
         std::vector<GraphicsVertexBufferLayoutDesc> vertex_buffers = {};
         std::vector<GraphicsVertexAttributeDesc> vertex_attributes = {};
         GraphicsPrimitiveType primitive_type = GraphicsPrimitiveType::TRIANGLES;
+        MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
         bool is_depth_test_enabled = true;
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
@@ -366,10 +343,10 @@ namespace tbx
     /// Ownership: Stores resource identifiers and clear values by copy. An empty color target list
     /// means the backend should render to the active frame output when supported.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsRenderPassDesc
+    struct TBX_API RenderPassDesc
     {
-        std::vector<Uuid> color_targets = {};
-        Uuid depth_stencil_target = {};
+        std::vector<GpuId> color_targets = {};
+        GpuId depth_stencil_target = INVALID_GPU_ID;
         int32 depth_stencil_layer = -1;
         Viewport viewport = {};
         Color clear_color = Color::BLACK;
@@ -379,8 +356,6 @@ namespace tbx
         bool is_color_write_enabled = true;
         std::string debug_name = {};
     };
-
-    using GraphicsPassDesc = GraphicsRenderPassDesc;
 
     /// @brief
     /// Purpose: Describes a compute pass scope.
@@ -415,7 +390,7 @@ namespace tbx
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     struct TBX_API PipelineBarrierDesc
     {
-        Uuid resource_handle = {};
+        GpuId resource_handle = INVALID_GPU_ID;
         ResourceState state_before = ResourceState::UNDEFINED;
         ResourceState state_after = ResourceState::UNDEFINED;
     };
@@ -440,22 +415,22 @@ namespace tbx
         virtual Result begin_frame(const Window& output_target) = 0;
         virtual Result end_frame() = 0;
 
-        virtual Result create_bind_group(const BindGroupDesc& desc, Uuid& out_resource_uuid) = 0;
+        virtual Result create_bind_group(const BindGroupDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_bind_group_layout(
             const BindGroupLayoutDesc& desc,
-            Uuid& out_resource_uuid) = 0;
-        virtual Result create_buffer(const GraphicsBufferDesc& desc, Uuid& out_resource_uuid) = 0;
+            GpuId& out_resource_uuid) = 0;
+        virtual Result create_buffer(const GraphicsBufferDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_compute_pipeline(
             const ComputePipelineDesc& desc,
-            Uuid& out_resource_uuid) = 0;
+            GpuId& out_resource_uuid) = 0;
         virtual Result create_raster_pipeline(
             const RasterPipelineDesc& desc,
-            Uuid& out_resource_uuid) = 0;
-        virtual Result create_sampler(const GraphicsSamplerDesc& desc, Uuid& out_resource_uuid) = 0;
-        virtual Result create_texture(const GraphicsTextureDesc& desc, Uuid& out_resource_uuid) = 0;
-        virtual Result destroy_resource(const Uuid& resource_uuid) = 0;
+            GpuId& out_resource_uuid) = 0;
+        virtual Result create_sampler(const GraphicsSamplerDesc& desc, GpuId& out_resource_uuid) = 0;
+        virtual Result create_texture(const GraphicsTextureDesc& desc, GpuId& out_resource_uuid) = 0;
+        virtual Result destroy_resource(const GpuId& resource_uuid) = 0;
 
-        virtual Result begin_render_pass(const GraphicsRenderPassDesc& pass) = 0;
+        virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
         virtual Result end_render_pass() = 0;
         virtual Result begin_compute_pass(const GraphicsComputePassDesc& pass) = 0;
         virtual Result end_compute_pass() = 0;
@@ -463,9 +438,9 @@ namespace tbx
         virtual Result present() = 0;
         virtual void wait_for_idle() = 0;
 
-        virtual Result bind_group(uint32 set_index, const Uuid& group_resource_uuid) = 0;
-        virtual Result bind_compute_pipeline(const Uuid& pipeline_resource_uuid) = 0;
-        virtual Result bind_raster_pipeline(const Uuid& pipeline_resource_uuid) = 0;
+        virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
+        virtual Result bind_compute_pipeline(const GpuId& pipeline_resource_uuid) = 0;
+        virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;
 
         virtual Result draw(
             uint32 index_count,
@@ -474,9 +449,18 @@ namespace tbx
             int32 vertex_offset,
             uint32 first_instance) = 0;
         virtual Result draw_indirect(
-            const Uuid& argument_buffer,
+            const GpuId& argument_buffer,
             uint64 offset,
             uint32 draw_count,
+            uint32 stride) = 0;
+        /// @brief
+        /// Purpose: Draws indirect commands using a GPU-written draw count when supported.
+        virtual Result draw_indirect_count(
+            const GpuId& argument_buffer,
+            uint64 offset,
+            const GpuId& count_buffer,
+            uint64 count_offset,
+            uint32 max_draw_count,
             uint32 stride) = 0;
         virtual Result dispatch_compute(
             uint32 group_count_x,
@@ -484,12 +468,12 @@ namespace tbx
             uint32 group_count_z) = 0;
         virtual Result pipeline_barrier(const std::vector<PipelineBarrierDesc>& barriers) = 0;
         virtual Result write_buffer(
-            const Uuid& resource_uuid,
+            const GpuId& resource_uuid,
             const void* data,
             uint64 data_size,
             uint64 offset) = 0;
         virtual Result write_texture(
-            const Uuid& resource_uuid,
+            const GpuId& resource_uuid,
             const GraphicsTextureUpdateDesc& desc,
             const void* data,
             uint64 data_size) = 0;

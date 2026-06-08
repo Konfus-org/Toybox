@@ -45,14 +45,7 @@ namespace tbx
         std::shared_ptr<TService> casted_service = std::move(service);
         _entries[key] = std::make_unique<ServiceEntry<TService>>(std::move(casted_service));
 
-        if (!has_active_plugin_id())
-            return;
-
-        const auto tracker = lock_plugin_ownership_tracker();
-        if (!tracker)
-            return;
-
-        tracker->track_service(get_active_plugin_id(), key);
+        track_plugin_owned_service_registration(key);
     }
 
     template <typename TService>

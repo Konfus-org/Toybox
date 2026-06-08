@@ -1,0 +1,194 @@
+#include "ShaderBase.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(rgba16f, binding = TBX_SHADER_BINDING_FINAL_HDR_IMAGE) uniform image2D tbx_final_hdr_image;
+
+float tbx_light_attenuation(LightData light, vec3 world_position)
+{
+    uint light_type = uint(light.directionType.w);
+    if (light_type == TBX_SHADER_LIGHT_TYPE_DIRECTIONAL)
+    {
+        return 1.0;
+    }
+
+    float range = max(light.positionRange.w, TBX_EPSILON);
+    float distance_to_light = length(light.positionRange.xyz - world_position);
+    float normalized = tbx_saturate(1.0 - (distance_to_light / range));
+    return normalized * normalized;
+}
+
+float tbx_spotlight_visibility(LightData light, vec3 world_position)
+{
+    if (uint(light.directionType.w) != TBX_SHADER_LIGHT_TYPE_SPOT)
+    {
+        return 1.0;
+    }
+
+    vec3 to_fragment = normalize(world_position - light.positionRange.xyz);
+    vec3 spot_forward = normalize(light.directionType.xyz);
+    float cos_theta = dot(spot_forward, to_fragment);
+    float inner_cos = cos(radians(light.spotAnglesArea.x));
+    float outer_cos = cos(radians(light.spotAnglesArea.y));
+    float cone_width = max(inner_cos - outer_cos, TBX_EPSILON);
+    return tbx_saturate((cos_theta - outer_cos) / cone_width);
+}
+
+vec3 tbx_light_direction(LightData light, vec3 world_position)
+{
+    uint light_type = uint(light.directionType.w);
+    if (light_type == TBX_SHADER_LIGHT_TYPE_DIRECTIONAL)
+    {
+        return normalize(-light.directionType.xyz);
+    }
+
+    return normalize(light.positionRange.xyz - world_position);
+}
+
+float tbx_distribution_ggx(vec3 normal, vec3 half_vector, float roughness)
+{
+    float alpha = roughness * roughness;
+    float alpha2 = alpha * alpha;
+    float ndoth = max(dot(normal, half_vector), 0.0);
+    float ndoth2 = ndoth * ndoth;
+    float denominator = (ndoth2 * (alpha2 - 1.0)) + 1.0;
+    return alpha2 / max(TBX_PI * denominator * denominator, TBX_EPSILON);
+}
+
+float tbx_geometry_schlick_ggx(float ndotv, float roughness)
+{
+    float r = roughness + 1.0;
+    float k = (r * r) * 0.125;
+    return ndotv / max((ndotv * (1.0 - k)) + k, TBX_EPSILON);
+}
+
+float tbx_geometry_smith(vec3 normal, vec3 view_direction, vec3 light_direction, float roughness)
+{
+    float ndotv = max(dot(normal, view_direction), 0.0);
+    float ndotl = max(dot(normal, light_direction), 0.0);
+    return tbx_geometry_schlick_ggx(ndotv, roughness)
+           * tbx_geometry_schlick_ggx(ndotl, roughness);
+}
+
+vec3 tbx_fresnel_schlick(float cos_theta, vec3 f0)
+{
+    return f0 + (vec3(1.0) - f0) * pow(1.0 - clamp(cos_theta, 0.0, 1.0), 5.0);
+}
+
+float tbx_sample_shadow_depth(vec2 shadow_uv, float layer, vec2 texel_offset)
+{
+    return texture(tbx_shadow_depth_atlas, vec3(shadow_uv + texel_offset, layer)).r;
+}
+
+float tbx_shadow_visibility(LightData light, vec3 world_position, vec3 surface_normal)
+{
+    float layer = light.shadowData.x;
+    if (layer < 0.0 || layer >= float(shadowCount))
+    {
+        return 1.0;
+    }
+
+    vec4 shadow_clip = tbx_make_light_view_projection(light) * vec4(world_position, 1.0);
+    vec3 shadow_ndc = shadow_clip.xyz / max(abs(shadow_clip.w), TBX_EPSILON);
+    vec2 shadow_uv = shadow_ndc.xy * 0.5 + vec2(0.5);
+    if (any(lessThan(shadow_uv, vec2(0.0))) || any(greaterThan(shadow_uv, vec2(1.0))))
+    {
+        return 1.0;
+    }
+
+    float receiver_depth = shadow_ndc.z * 0.5 + 0.5;
+    float base_bias = max(0.0005, light.shadowData.z);
+    float ndotl = max(dot(normalize(surface_normal), tbx_light_direction(light, world_position)), 0.0);
+    float normal_bias = base_bias * (1.0 + ((1.0 - ndotl) * 3.0));
+    float softness = max(light.shadowData.y, 0.0);
+    vec2 texel_size = 1.0 / vec2(textureSize(tbx_shadow_depth_atlas, 0).xy);
+    if (softness <= TBX_EPSILON)
+    {
+        float atlas_depth = tbx_sample_shadow_depth(shadow_uv, layer, vec2(0.0));
+        return mix(0.18, 1.0, step(receiver_depth - normal_bias, atlas_depth));
+    }
+
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            vec2 offset = vec2(float(x), float(y)) * texel_size * softness;
+            float atlas_depth = tbx_sample_shadow_depth(shadow_uv, layer, offset);
+            visibility += step(receiver_depth - normal_bias, atlas_depth);
+        }
+    }
+
+    return mix(0.18, 1.0, visibility / 9.0);
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 output_size = imageSize(tbx_final_hdr_image);
+    if (pixel.x >= output_size.x || pixel.y >= output_size.y)
+    {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(output_size);
+    float depth = texture(tbx_scene_depth, uv).r;
+    if (depth >= 1.0 - TBX_EPSILON)
+    {
+        imageStore(tbx_final_hdr_image, pixel, vec4(skyColor.rgb, 1.0));
+        return;
+    }
+
+    vec3 albedo = texture(tbx_gbuffer_albedo, uv).rgb;
+    float roughness = texture(tbx_gbuffer_roughness, uv).r;
+    vec3 normal = normalize((texture(tbx_gbuffer_normal, uv).xyz * 2.0) - vec3(1.0));
+    float metallic = texture(tbx_gbuffer_metallic, uv).r;
+    vec3 world_position = tbx_reconstruct_world_position(uv, depth);
+    vec3 view_direction = normalize(cameraPositionTime.xyz - world_position);
+
+    uvec3 cluster_dims = uvec3(clusterDimensions.xyz);
+    uvec3 cluster = uvec3(
+        min(uint(floor(uv.x * float(cluster_dims.x))), cluster_dims.x - 1u),
+        min(uint(floor(uv.y * float(cluster_dims.y))), cluster_dims.y - 1u),
+        min(uint(floor(depth * float(cluster_dims.z))), cluster_dims.z - 1u));
+    uint cluster_id =
+        cluster.x + (cluster.y * cluster_dims.x) + (cluster.z * cluster_dims.x * cluster_dims.y);
+    ClusterGridData cluster_data = clusters[cluster_id];
+
+    vec3 f0 = mix(vec3(0.04), albedo, metallic);
+    vec3 color = albedo * ambientLight.rgb * (1.0 - metallic);
+    for (uint index = 0u; index < cluster_data.lightCount; ++index)
+    {
+        uint light_id = lightIndexPool[cluster_data.lightOffset + index];
+        if (light_id >= lightCount)
+        {
+            continue;
+        }
+
+        LightData light = lights[light_id];
+        vec3 light_direction = tbx_light_direction(light, world_position);
+        float ndotl = max(dot(normal, light_direction), 0.0);
+        if (ndotl <= 0.0)
+        {
+            continue;
+        }
+
+        float attenuation = tbx_light_attenuation(light, world_position);
+        float spotlight = tbx_spotlight_visibility(light, world_position);
+        float visibility = tbx_shadow_visibility(light, world_position, normal);
+        vec3 half_vector = normalize(view_direction + light_direction);
+        float ndotv = max(dot(normal, view_direction), 0.0);
+        float hdotv = max(dot(half_vector, view_direction), 0.0);
+        float normal_distribution = tbx_distribution_ggx(normal, half_vector, roughness);
+        float geometry = tbx_geometry_smith(normal, view_direction, light_direction, roughness);
+        vec3 fresnel = tbx_fresnel_schlick(hdotv, f0);
+        vec3 specular = (normal_distribution * geometry * fresnel)
+                        / max(4.0 * ndotv * ndotl, TBX_EPSILON);
+        vec3 diffuse = (vec3(1.0) - fresnel) * (1.0 - metallic) * albedo * TBX_INV_PI;
+        vec3 radiance =
+            light.colorIntensity.rgb * light.colorIntensity.a * attenuation * spotlight
+            * visibility;
+        color += (diffuse + specular) * radiance * ndotl;
+    }
+
+    imageStore(tbx_final_hdr_image, pixel, vec4(color, 1.0));
+}

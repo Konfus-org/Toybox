@@ -1,6 +1,7 @@
 #include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/components/material_instance.h"
+#include <utility>
 
 namespace tbx::tests::graphics
 {
@@ -183,6 +184,56 @@ namespace tbx::tests::graphics
         EXPECT_TRUE(textures.has("albedo_map"));
     }
 
+    TEST(MaterialTests, MaterialBindings_GetByIdResolvesDeserializedNames)
+    {
+        // Arrange
+        auto parameters = MaterialParameterBindings {};
+        auto textures = MaterialTextureBindings {};
+        auto parameter_value = MaterialParameter();
+        parameter_value.name = "albedo_color";
+        parameter_value.data = Color(0.25F, 0.5F, 0.75F, 1.0F);
+        auto texture_value = MaterialTextureBinding();
+        texture_value.name = "albedo_map";
+        texture_value.texture = Handle("Textures/Smily.png");
+        parameters.values.push_back(std::move(parameter_value));
+        textures.values.push_back(std::move(texture_value));
+
+        // Act
+        const auto parameter = parameters.get(PbrMaterial::ALBEDO_COLOR);
+        const auto texture = textures.get(PbrMaterial::ALBEDO_MAP);
+
+        // Assert
+        ASSERT_TRUE(parameter.has_value());
+        ASSERT_TRUE(texture.has_value());
+        EXPECT_EQ(parameter->get().id, INVALID_MATERIAL_PARAM_ID);
+        EXPECT_EQ(texture->get().id, INVALID_MATERIAL_PARAM_ID);
+        EXPECT_EQ(std::get<Color>(parameter->get().data).b, 0.75F);
+        EXPECT_EQ(texture->get().texture.name, "Textures/Smily.png");
+    }
+
+    TEST(MaterialTests, MaterialBindings_GetByIdRejectsMismatchedDeserializedNames)
+    {
+        // Arrange
+        auto parameters = MaterialParameterBindings {};
+        auto textures = MaterialTextureBindings {};
+        auto parameter_value = MaterialParameter();
+        parameter_value.name = "emissive_color";
+        parameter_value.data = Color(0.25F, 0.5F, 0.75F, 1.0F);
+        auto texture_value = MaterialTextureBinding();
+        texture_value.name = "normal_map";
+        texture_value.texture = Handle("Textures/Normal.png");
+        parameters.values.push_back(std::move(parameter_value));
+        textures.values.push_back(std::move(texture_value));
+
+        // Act
+        const auto parameter = parameters.get(PbrMaterial::ALBEDO_COLOR);
+        const auto texture = textures.get(PbrMaterial::ALBEDO_MAP);
+
+        // Assert
+        EXPECT_FALSE(parameter.has_value());
+        EXPECT_FALSE(texture.has_value());
+    }
+
     // Validates that Material config owns material render state.
     TEST(MaterialTests, MaterialConfig_Constructor_InitializesWithDefaults)
     {
@@ -236,5 +287,33 @@ namespace tbx::tests::graphics
         EXPECT_NE(first_config_hash, second_config_hash);
         EXPECT_NE(first_parameter_hash, second_parameter_hash);
         EXPECT_NE(first_material_hash, second_material_hash);
+    }
+
+    TEST(MaterialTests, MaterialParameter_StoresDeclaredUploadTarget)
+    {
+        // Arrange
+        auto parameter = MaterialParameter("albedo_color", Color::WHITE);
+
+        // Act
+        parameter.target = MaterialBindingTarget::BASE_COLOR;
+
+        // Assert
+        EXPECT_EQ(parameter.name, "albedo_color");
+        EXPECT_EQ(parameter.target, MaterialBindingTarget::BASE_COLOR);
+        EXPECT_TRUE(std::holds_alternative<Color>(parameter.data));
+    }
+
+    TEST(MaterialTests, MaterialTextureBinding_StoresDeclaredUploadTarget)
+    {
+        // Arrange
+        auto texture = MaterialTextureBinding("albedo_map", Handle("Textures/Smily.png"));
+
+        // Act
+        texture.target = MaterialBindingTarget::ALBEDO_TEXTURE;
+
+        // Assert
+        EXPECT_EQ(texture.name, "albedo_map");
+        EXPECT_EQ(texture.target, MaterialBindingTarget::ALBEDO_TEXTURE);
+        EXPECT_EQ(texture.texture.name, "Textures/Smily.png");
     }
 }

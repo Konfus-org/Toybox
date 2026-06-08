@@ -1,4 +1,5 @@
 #include "opengl_backend.h"
+#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
@@ -148,7 +149,7 @@ namespace opengl_rendering
 
     bool is_same_buffer_slot_binding(
         const OpenGlBufferSlotBinding& binding,
-        const tbx::Uuid& resource,
+        const tbx::GpuId& resource,
         const uint64 offset,
         const uint64 range)
     {
@@ -287,11 +288,12 @@ namespace opengl_rendering
     }
 
     OpenGlPipelineState make_pipeline_state(
-        const tbx::Uuid& pipeline_resource_uuid,
+        const tbx::GpuId& pipeline_resource_uuid,
         const tbx::RasterPipelineDesc& desc)
     {
         return OpenGlPipelineState {
             .id = pipeline_resource_uuid,
+            .depth_function = desc.depth_function,
             .is_depth_test_enabled = desc.is_depth_test_enabled,
             .is_depth_write_enabled = desc.is_depth_write_enabled,
             .is_blending_enabled = desc.is_blending_enabled,
@@ -300,6 +302,29 @@ namespace opengl_rendering
             .depth_bias_slope = desc.depth_bias_slope,
             .cull_mode = desc.cull_mode,
         };
+    }
+
+    GLenum to_gl_depth_function(const tbx::MaterialDepthFunction function)
+    {
+        switch (function)
+        {
+            case tbx::MaterialDepthFunction::LESS:
+                return GL_LESS;
+            case tbx::MaterialDepthFunction::LESS_EQUAL:
+                return GL_LEQUAL;
+            case tbx::MaterialDepthFunction::ALWAYS:
+                return GL_ALWAYS;
+            default:
+                return GL_LESS;
+        }
+    }
+
+    uint32 to_gl_image_unit(const uint32 binding_slot)
+    {
+        if (binding_slot == tbx::SHADER_BINDING_FINAL_HDR)
+            return tbx::SHADER_BINDING_FINAL_HDR_IMAGE;
+
+        return binding_slot;
     }
 
     void bind_buffer_slot(
@@ -445,7 +470,7 @@ namespace opengl_rendering
         glFinish();
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_render_pass(const tbx::GraphicsRenderPassDesc& pass)
+    tbx::Result OpenGlGraphicsBackend::begin_render_pass(const tbx::RenderPassDesc& pass)
     {
         if (_state.is_render_pass_active)
             return make_failure("OpenGL backend: a render pass is already active.");
@@ -463,7 +488,7 @@ namespace opengl_rendering
                 static_cast<GLsizei>(viewport.dimensions.height));
         }
 
-        if (!pass.color_targets.empty() || pass.depth_stencil_target.is_valid())
+        if (!pass.color_targets.empty() || pass.depth_stencil_target != tbx::INVALID_GPU_ID)
         {
             _cache.pass_framebuffer = std::make_unique<OpenGlFramebuffer>();
 
@@ -476,7 +501,7 @@ namespace opengl_rendering
                 _cache.pass_framebuffer->attach_color(index, texture_it->second.texture);
             }
 
-            if (pass.depth_stencil_target.is_valid())
+            if (pass.depth_stencil_target != tbx::INVALID_GPU_ID)
             {
                 const auto texture_it = _cache.textures.find(pass.depth_stencil_target);
                 if (texture_it == _cache.textures.end())
@@ -506,7 +531,7 @@ namespace opengl_rendering
                 if (texture_it != _cache.textures.end())
                     target_size = texture_it->second.size;
             }
-            else if (pass.depth_stencil_target.is_valid())
+            else if (pass.depth_stencil_target != tbx::INVALID_GPU_ID)
             {
                 const auto texture_it = _cache.textures.find(pass.depth_stencil_target);
                 if (texture_it != _cache.textures.end())
@@ -581,7 +606,7 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::bind_raster_pipeline(const tbx::Uuid& pipeline_resource_uuid)
+    tbx::Result OpenGlGraphicsBackend::bind_raster_pipeline(const tbx::GpuId& pipeline_resource_uuid)
     {
         const auto pipeline_it = _cache.raster_pipelines.find(pipeline_resource_uuid);
         if (pipeline_it == _cache.raster_pipelines.end())
@@ -600,13 +625,13 @@ namespace opengl_rendering
 
         _state.current_pipeline_state.id = pipeline_resource_uuid;
         _state.bound_vertex_buffers.clear();
-        _state.bound_index_buffer = {};
+        _state.bound_index_buffer = tbx::INVALID_GPU_ID;
         return make_success();
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_group(
         const uint32 set_index,
-        const tbx::Uuid& group_resource_uuid)
+        const tbx::GpuId& group_resource_uuid)
     {
         // The current renderer flattens vertex, index, uniform, texture, and sampler resources
         // into one OpenGL binding group. The set index is reserved for future shader-reflection
@@ -619,14 +644,14 @@ namespace opengl_rendering
 
         for (const auto& binding : group_it->second)
         {
-            if (!binding.resource.is_valid())
+            if (binding.resource == tbx::INVALID_GPU_ID)
                 continue;
 
             switch (binding.type)
             {
                 case OpenGlBindEntryType::VERTEX_BUFFER:
                 {
-                    if (!_state.current_pipeline_state.id.is_valid()
+                    if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
                         || !_cache.raster_pipelines.contains(_state.current_pipeline_state.id))
                     {
                         return make_failure(
@@ -672,7 +697,7 @@ namespace opengl_rendering
                 }
                 case OpenGlBindEntryType::INDEX_BUFFER:
                 {
-                    if (!_state.current_pipeline_state.id.is_valid()
+                    if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
                         || !_cache.raster_pipelines.contains(_state.current_pipeline_state.id))
                     {
                         return make_failure(
@@ -831,7 +856,7 @@ namespace opengl_rendering
                     }
 
                     glBindImageTexture(
-                        binding.slot,
+                        to_gl_image_unit(binding.slot),
                         texture_it->second.texture.get_texture_id(),
                         0,
                         texture_it->second.array_layer_count > 1U ? GL_TRUE : GL_FALSE,
@@ -867,7 +892,7 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::bind_compute_pipeline(
-        const tbx::Uuid& pipeline_resource_uuid)
+        const tbx::GpuId& pipeline_resource_uuid)
     {
         if (_state.current_pipeline_state.id == pipeline_resource_uuid
             && _cache.compute_pipelines.contains(pipeline_resource_uuid))
@@ -884,7 +909,7 @@ namespace opengl_rendering
 
         _state.current_pipeline_state.id = pipeline_resource_uuid;
         _state.bound_vertex_buffers.clear();
-        _state.bound_index_buffer = {};
+        _state.bound_index_buffer = tbx::INVALID_GPU_ID;
         return make_success();
     }
 
@@ -896,14 +921,14 @@ namespace opengl_rendering
         const uint32 first_instance)
     {
         const auto pipeline_it = _cache.raster_pipelines.find(_state.current_pipeline_state.id);
-        if (!_state.current_pipeline_state.id.is_valid()
+        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
             || pipeline_it == _cache.raster_pipelines.end())
         {
             return make_failure("OpenGL backend: no raster pipeline is currently bound.");
         }
 
         const auto& pipeline = pipeline_it->second;
-        if (_state.bound_index_buffer.is_valid())
+        if (_state.bound_index_buffer != tbx::INVALID_GPU_ID)
         {
             const uint64 index_byte_offset = static_cast<uint64>(first_index) * 4U;
             const auto* index_offset =
@@ -929,13 +954,13 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::draw_indirect(
-        const tbx::Uuid& argument_buffer,
+        const tbx::GpuId& argument_buffer,
         const uint64 offset,
         const uint32 draw_count,
         const uint32 stride)
     {
         const auto pipeline_it = _cache.raster_pipelines.find(_state.current_pipeline_state.id);
-        if (!_state.current_pipeline_state.id.is_valid()
+        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
             || pipeline_it == _cache.raster_pipelines.end())
         {
             return make_failure("OpenGL backend: no raster pipeline is currently bound.");
@@ -951,7 +976,7 @@ namespace opengl_rendering
         const auto* indirect_offset =
             reinterpret_cast<const void*>(static_cast<std::uintptr_t>(offset));
         const auto& pipeline = pipeline_it->second;
-        if (_state.bound_index_buffer.is_valid())
+        if (_state.bound_index_buffer != tbx::INVALID_GPU_ID)
         {
             glMultiDrawElementsIndirect(
                 pipeline.primitive_type,
@@ -971,12 +996,73 @@ namespace opengl_rendering
         return consume_gl_errors("draw_indirect");
     }
 
+    tbx::Result OpenGlGraphicsBackend::draw_indirect_count(
+        const tbx::GpuId& argument_buffer,
+        const uint64 offset,
+        const tbx::GpuId& count_buffer,
+        const uint64 count_offset,
+        const uint32 max_draw_count,
+        const uint32 stride)
+    {
+        const auto pipeline_it = _cache.raster_pipelines.find(_state.current_pipeline_state.id);
+        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
+            || pipeline_it == _cache.raster_pipelines.end())
+        {
+            return make_failure("OpenGL backend: no raster pipeline is currently bound.");
+        }
+
+        const auto argument_it = _cache.buffers.find(argument_buffer);
+        if (argument_it == _cache.buffers.end())
+            return make_failure("OpenGL backend: indirect argument buffer was not found.");
+        if (!argument_it->second.is_indirect_argument_buffer)
+            return make_failure("OpenGL backend: buffer is not an indirect argument buffer.");
+
+        const auto count_it = _cache.buffers.find(count_buffer);
+        if (count_it == _cache.buffers.end())
+            return draw_indirect(argument_buffer, offset, max_draw_count, stride);
+        if (!count_it->second.is_indirect_argument_buffer)
+            return make_failure("OpenGL backend: count buffer is not an indirect argument buffer.");
+
+        if (!GLAD_GL_VERSION_4_6 || !glMultiDrawElementsIndirectCount
+            || !glMultiDrawArraysIndirectCount)
+        {
+            return draw_indirect(argument_buffer, offset, max_draw_count, stride);
+        }
+
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, argument_it->second.buffer.get_buffer_id());
+        glBindBuffer(GL_PARAMETER_BUFFER, count_it->second.buffer.get_buffer_id());
+        const auto* indirect_offset =
+            reinterpret_cast<const void*>(static_cast<std::uintptr_t>(offset));
+        const auto draw_count_offset = static_cast<GLintptr>(count_offset);
+        const auto& pipeline = pipeline_it->second;
+        if (_state.bound_index_buffer != tbx::INVALID_GPU_ID)
+        {
+            glMultiDrawElementsIndirectCount(
+                pipeline.primitive_type,
+                GL_UNSIGNED_INT,
+                indirect_offset,
+                draw_count_offset,
+                static_cast<GLsizei>(max_draw_count),
+                static_cast<GLsizei>(stride));
+        }
+        else
+        {
+            glMultiDrawArraysIndirectCount(
+                pipeline.primitive_type,
+                indirect_offset,
+                draw_count_offset,
+                static_cast<GLsizei>(max_draw_count),
+                static_cast<GLsizei>(stride));
+        }
+        return consume_gl_errors("draw_indirect_count");
+    }
+
     tbx::Result OpenGlGraphicsBackend::dispatch_compute(
         const uint32 group_count_x,
         const uint32 group_count_y,
         const uint32 group_count_z)
     {
-        if (!_state.current_pipeline_state.id.is_valid()
+        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
             || !_cache.compute_pipelines.contains(_state.current_pipeline_state.id))
         {
             return make_failure("OpenGL backend: no compute pipeline is currently bound.");
@@ -1000,7 +1086,7 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::destroy_resource(const tbx::Uuid& resource_uuid)
+    tbx::Result OpenGlGraphicsBackend::destroy_resource(const tbx::GpuId& resource_uuid)
     {
         if (auto group_it = _cache.bind_groups.find(resource_uuid);
             group_it != _cache.bind_groups.end())
@@ -1109,7 +1195,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::create_bind_group(
         const tbx::BindGroupDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         const auto layout_it = _cache.bind_group_layouts.find(desc.layout_handle);
         const std::vector<OpenGlBindGroupLayoutEntry>* layout =
@@ -1119,14 +1205,24 @@ namespace opengl_rendering
 
         for (const auto& binding : desc.bindings)
         {
-            if (!binding.resource_handle.is_valid())
+            if (binding.resource_handle == tbx::INVALID_GPU_ID)
                 continue;
 
             auto entry_type = OpenGlBindEntryType::UNIFORM_BUFFER;
             auto has_type = false;
+            if (layout != nullptr)
+            {
+                if (const auto* layout_entry =
+                        find_bind_group_layout_entry(*layout, binding.binding_slot))
+                {
+                    entry_type = layout_entry->type;
+                    has_type = true;
+                }
+            }
+
             {
                 const auto buffer_it = _cache.buffers.find(binding.resource_handle);
-                if (buffer_it != _cache.buffers.end())
+                if (!has_type && buffer_it != _cache.buffers.end())
                 {
                     if (buffer_it->second.is_vertex_buffer)
                         entry_type = OpenGlBindEntryType::VERTEX_BUFFER;
@@ -1141,16 +1237,6 @@ namespace opengl_rendering
                         return make_failure(
                             "OpenGL backend: bind group buffer usage was not recognized.");
                     }
-                    has_type = true;
-                }
-            }
-
-            if (!has_type && layout != nullptr)
-            {
-                if (const auto* layout_entry =
-                        find_bind_group_layout_entry(*layout, binding.binding_slot))
-                {
-                    entry_type = layout_entry->type;
                     has_type = true;
                 }
             }
@@ -1186,14 +1272,14 @@ namespace opengl_rendering
                 });
         }
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.bind_groups.emplace(out_resource_uuid, std::move(bind_entries));
         return make_success();
     }
 
     tbx::Result OpenGlGraphicsBackend::create_bind_group_layout(
         const tbx::BindGroupLayoutDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         auto layout = std::vector<OpenGlBindGroupLayoutEntry> {};
         layout.reserve(desc.entries.size());
@@ -1221,14 +1307,14 @@ namespace opengl_rendering
                 });
         }
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.bind_group_layouts.emplace(out_resource_uuid, std::move(layout));
         return make_success();
     }
 
     tbx::Result OpenGlGraphicsBackend::create_buffer(
         const tbx::GraphicsBufferDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1236,7 +1322,7 @@ namespace opengl_rendering
         if (desc.size == 0U)
             return make_failure("OpenGL backend: buffer size must be greater than zero.");
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.buffers.emplace(
             out_resource_uuid,
             OpenGlBufferResource {
@@ -1254,7 +1340,7 @@ namespace opengl_rendering
         if (auto result = consume_gl_errors("create_buffer"); !result)
         {
             _cache.buffers.erase(out_resource_uuid);
-            out_resource_uuid = {};
+            out_resource_uuid = tbx::INVALID_GPU_ID;
             return result;
         }
 
@@ -1263,7 +1349,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::create_compute_pipeline(
         const tbx::ComputePipelineDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1291,7 +1377,7 @@ namespace opengl_rendering
             return make_failure(std::move(message));
         }
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.compute_pipelines.emplace(
             out_resource_uuid,
             OpenGlComputePipelineResource {.program = std::move(program)});
@@ -1300,7 +1386,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::create_raster_pipeline(
         const tbx::RasterPipelineDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1342,7 +1428,7 @@ namespace opengl_rendering
             return result;
         }
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.raster_pipelines.emplace(
             out_resource_uuid,
             OpenGlRasterPipelineResource {
@@ -1357,17 +1443,17 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::create_sampler(
         const tbx::GraphicsSamplerDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.samplers.emplace(out_resource_uuid, desc);
         if (auto result = consume_gl_errors("create_sampler"); !result)
         {
             _cache.samplers.erase(out_resource_uuid);
-            out_resource_uuid = {};
+            out_resource_uuid = tbx::INVALID_GPU_ID;
             return result;
         }
 
@@ -1376,7 +1462,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::create_texture(
         const tbx::GraphicsTextureDesc& desc,
-        tbx::Uuid& out_resource_uuid)
+        tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1384,7 +1470,7 @@ namespace opengl_rendering
         if (desc.size.width == 0U || desc.size.height == 0U)
             return make_failure("OpenGL backend: texture size must be greater than zero.");
 
-        out_resource_uuid = tbx::Uuid::generate();
+        out_resource_uuid = next_resource_id();
         _cache.textures.emplace(
             out_resource_uuid,
             OpenGlTextureResource {
@@ -1396,13 +1482,12 @@ namespace opengl_rendering
                 .internal_format = get_texture_internal_format(desc.format),
                 .upload_format = get_texture_upload_format(desc.format),
                 .upload_type = get_texture_upload_type(desc.format),
-                .is_storage_capable =
-                    has_texture_usage(desc.usage, tbx::GraphicsTextureUsage::STORAGE),
+                .is_storage_capable = has_texture_usage(desc.usage, tbx::TextureUsage::STORAGE),
             });
         if (auto result = consume_gl_errors("create_texture"); !result)
         {
             _cache.textures.erase(out_resource_uuid);
-            out_resource_uuid = {};
+            out_resource_uuid = tbx::INVALID_GPU_ID;
             return result;
         }
 
@@ -1410,7 +1495,7 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::write_buffer(
-        const tbx::Uuid& resource_uuid,
+        const tbx::GpuId& resource_uuid,
         const void* data,
         const uint64 data_size,
         const uint64 offset)
@@ -1433,7 +1518,7 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::write_texture(
-        const tbx::Uuid& resource_uuid,
+        const tbx::GpuId& resource_uuid,
         const tbx::GraphicsTextureUpdateDesc& desc,
         const void* data,
         const uint64 data_size)
@@ -1511,11 +1596,28 @@ namespace opengl_rendering
         return context_backend->swap_buffers(window);
     }
 
+    tbx::GpuId OpenGlGraphicsBackend::next_resource_id()
+    {
+        while (_next_resource_id == tbx::INVALID_GPU_ID
+               || _cache.bind_groups.contains(_next_resource_id)
+               || _cache.bind_group_layouts.contains(_next_resource_id)
+               || _cache.buffers.contains(_next_resource_id)
+               || _cache.compute_pipelines.contains(_next_resource_id)
+               || _cache.raster_pipelines.contains(_next_resource_id)
+               || _cache.samplers.contains(_next_resource_id)
+               || _cache.textures.contains(_next_resource_id))
+        {
+            ++_next_resource_id;
+        }
+
+        return _next_resource_id++;
+    }
+
     void OpenGlGraphicsBackend::clear_bound_state()
     {
         _state.current_pipeline_state = {};
         _state.is_compute_pass_active = false;
-        _state.bound_index_buffer = {};
+        _state.bound_index_buffer = tbx::INVALID_GPU_ID;
         _state.bound_image_textures.clear();
         _state.bound_samplers.clear();
         _state.bound_storage_buffers.clear();
@@ -1553,6 +1655,7 @@ namespace opengl_rendering
     void OpenGlGraphicsBackend::apply_raster_pipeline_state(const OpenGlPipelineState& state)
     {
         if (_state.has_current_pipeline_state
+            && _state.current_pipeline_state.depth_function == state.depth_function
             && _state.current_pipeline_state.is_depth_test_enabled == state.is_depth_test_enabled
             && _state.current_pipeline_state.is_depth_write_enabled == state.is_depth_write_enabled
             && _state.current_pipeline_state.is_blending_enabled == state.is_blending_enabled
@@ -1569,6 +1672,11 @@ namespace opengl_rendering
             || _state.current_pipeline_state.is_depth_test_enabled != state.is_depth_test_enabled)
         {
             state.is_depth_test_enabled ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+        }
+        if (!_state.has_current_pipeline_state
+            || _state.current_pipeline_state.depth_function != state.depth_function)
+        {
+            glDepthFunc(to_gl_depth_function(state.depth_function));
         }
         if (!_state.has_current_pipeline_state
             || _state.current_pipeline_state.is_depth_write_enabled != state.is_depth_write_enabled)

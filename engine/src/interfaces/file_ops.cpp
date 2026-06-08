@@ -19,7 +19,7 @@
 
 namespace tbx
 {
-    static std::filesystem::path get_executable_directory()
+    std::filesystem::path get_process_executable_directory()
     {
 #if defined(TBX_PLATFORM_WINDOWS)
         std::wstring buffer = {};
@@ -91,13 +91,7 @@ namespace tbx
 
     static std::filesystem::path get_default_working_directory()
     {
-#if defined(TBX_WORKING_DIRECTORY)
-        const auto configured = std::filesystem::path(TBX_WORKING_DIRECTORY).lexically_normal();
-        if (!configured.empty())
-            return configured;
-#endif
-
-        const auto executable_directory = get_executable_directory();
+        const auto executable_directory = get_process_executable_directory();
         if (!executable_directory.empty())
         {
             return executable_directory;

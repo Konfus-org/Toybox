@@ -25,7 +25,7 @@ set(resources_material_descriptions_generated_header
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 file(GLOB resource_codegen_sources CONFIGURE_DEPENDS
-    "${PROJECT_SOURCE_DIR}/codegen/*.py"
+    "${TBX_CODEGEN_ROOT}/*.py"
 )
 list(SORT resource_codegen_sources)
 
@@ -88,14 +88,14 @@ endforeach()
 
 set(builtin_assets_codegen_command
     ${Python3_EXECUTABLE}
-    "${PROJECT_SOURCE_DIR}/codegen/tbx_resource_codegen.py"
+    "${TBX_CODEGEN_ROOT}/tbx_resource_codegen.py"
     --mode builtin-assets
     --source-root "${CMAKE_CURRENT_SOURCE_DIR}"
     --output "${builtin_assets_generated_header}"
 )
 set(material_descriptions_codegen_command
     ${Python3_EXECUTABLE}
-    "${PROJECT_SOURCE_DIR}/codegen/tbx_resource_codegen.py"
+    "${TBX_CODEGEN_ROOT}/tbx_resource_codegen.py"
     --mode material-instances
     --source-root "${CMAKE_CURRENT_SOURCE_DIR}"
     --output "${resources_material_descriptions_generated_header}"

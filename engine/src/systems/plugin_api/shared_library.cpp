@@ -11,6 +11,16 @@
 
 namespace tbx
 {
+    static std::filesystem::path append_debug_postfix(const std::filesystem::path& path)
+    {
+        if (path.empty() || !path.has_extension())
+            return {};
+
+        auto debug_path = path;
+        debug_path.replace_filename(path.stem().string() + "d" + path.extension().string());
+        return debug_path;
+    }
+
     static std::string get_load_error_message()
     {
 #if defined(TBX_PLATFORM_WINDOWS)
@@ -71,6 +81,39 @@ namespace tbx
 #endif
     }
 
+    std::filesystem::path resolve_shared_library_path(const std::filesystem::path& path)
+    {
+        if (path.empty())
+            return {};
+
+        auto library_path = path.lexically_normal();
+        if (!library_path.has_extension())
+        {
+#if defined(TBX_PLATFORM_WINDOWS)
+            library_path.replace_extension(".dll");
+#elif defined(TBX_PLATFORM_MACOS)
+            const auto file_name = library_path.filename().string();
+            if (!file_name.starts_with("lib"))
+                library_path = library_path.parent_path() / ("lib" + file_name);
+            library_path.replace_extension(".dylib");
+#else
+            const auto file_name = library_path.filename().string();
+            if (!file_name.starts_with("lib"))
+                library_path = library_path.parent_path() / ("lib" + file_name);
+            library_path.replace_extension(".so");
+#endif
+        }
+
+        if (!std::filesystem::exists(library_path))
+        {
+            const auto debug_candidate = append_debug_postfix(library_path);
+            if (!debug_candidate.empty() && std::filesystem::exists(debug_candidate))
+                return debug_candidate.lexically_normal();
+        }
+
+        return library_path;
+    }
+
     SharedLibrary::SharedLibrary(std::filesystem::path path, std::filesystem::path cleanup_path)
         : _path(std::move(path))
         , _cleanup_path(std::move(cleanup_path))
@@ -128,5 +171,14 @@ namespace tbx
 #else
         return dlsym(_handle, name);
 #endif
+    }
+
+    std::unique_ptr<SharedLibrary> load_shared_lib(
+        const std::filesystem::path& path,
+        const std::filesystem::path& cleanup_path)
+    {
+        return std::make_unique<SharedLibrary>(
+            resolve_shared_library_path(path),
+            cleanup_path.empty() ? std::filesystem::path() : cleanup_path.lexically_normal());
     }
 }

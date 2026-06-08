@@ -2,16 +2,19 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/reload_queue.h"
+#include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/handle.h"
 #include <future>
 
 namespace tbx
 {
+    class IMessageCoordinator;
+
     // TODO: make shadow cascades fully configurable from graphics settings and make shadows render
     // really far by default, but far shadows should use a super low resolution
     /// @brief
@@ -29,7 +32,8 @@ namespace tbx
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,
             std::weak_ptr<WorldManager> world_manager = {},
-            std::weak_ptr<AssetReloadQueue> reload_queue = {});
+            std::weak_ptr<IMessageCoordinator> message_coordinator = {},
+            Handle render_pipeline_script = {});
         ~Rendering() noexcept;
 
       public:
@@ -53,13 +57,13 @@ namespace tbx
         void wait_for_pending_frame() noexcept;
 
       private:
-        void on_asset_reload(const AssetReloadContext& context);
+        void on_asset_reloaded(const AssetReloadedEvent& event);
         void render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings);
         void wait_for_render_frame() noexcept;
 
       private:
         std::weak_ptr<ThreadManager> _thread_manager;
-        std::weak_ptr<AssetReloadQueue> _reload_queue;
+        std::weak_ptr<IMessageCoordinator> _message_coordinator;
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;
         RenderingPipeline _pipeline;

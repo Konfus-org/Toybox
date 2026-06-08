@@ -1,5 +1,6 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "plugin_loader.h"
+#include "plugin_ownership_tracker.h"
 #include "plugin_unloader.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
@@ -10,6 +11,11 @@
 
 namespace tbx
 {
+    struct PluginManager::OwnershipTracker
+    {
+        std::shared_ptr<PluginOwnershipTracker> impl = {};
+    };
+
     static bool plugin_manager_path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
@@ -115,13 +121,15 @@ namespace tbx
     }
 
     PluginManager::PluginManager(
-        std::shared_ptr<ServiceProvider> service_provider,
+        std::weak_ptr<ServiceProvider> service_provider,
         std::weak_ptr<IFileOps> file_ops)
         : _provided_file_ops(file_ops)
         , _file_ops(file_ops)
+        , _ownership_tracker(std::make_unique<OwnershipTracker>())
         , _service_provider(service_provider)
     {
-        TBX_ASSERT(service_provider != nullptr, "PluginManager requires a service provider.");
+        _ownership_tracker->impl = std::make_shared<PluginOwnershipTracker>();
+        bind_plugin_ownership_tracker(_ownership_tracker->impl);
     }
 
     PluginManager::~PluginManager() noexcept
@@ -129,6 +137,7 @@ namespace tbx
         unload_all();
         TBX_ASSERT(_loaded.empty(), "Plugin manager destroyed with loaded plugin containers.");
         TBX_ASSERT(_watcher == nullptr, "Plugin manager destroyed with an active file watcher.");
+        bind_plugin_ownership_tracker({});
 
         auto pending_changes_lock = std::lock_guard<std::mutex>(_pending_file_changes_mutex);
         TBX_ASSERT(
@@ -201,6 +210,28 @@ namespace tbx
             bind_all_runtime();
             attach_all_unattached();
         }
+    }
+
+    void PluginManager::load(const std::vector<std::string>& requested_plugins)
+    {
+        if (requested_plugins.empty())
+            return;
+
+        for (const auto& plugin_name : requested_plugins)
+        {
+            const auto already_requested =
+                std::ranges::find(_requested_plugins, plugin_name) != _requested_plugins.end();
+            if (!already_requested)
+                _requested_plugins.push_back(plugin_name);
+        }
+
+        auto file_ops = _file_ops.lock();
+        if (!file_ops)
+            return;
+
+        auto plugin_loader = PluginLoader();
+        auto loaded_plugins = plugin_loader.load(_directory, requested_plugins, file_ops.get());
+        add(std::move(loaded_plugins));
     }
 
     void PluginManager::add_loaded(LoadedPlugins& loaded_plugins)
@@ -379,6 +410,21 @@ namespace tbx
             plugin.receive_message(msg);
     }
 
+    Plugin* PluginManager::find_plugin(const std::string& plugin_name) const
+    {
+        const auto lowered_name = to_lower(trim(plugin_name));
+        if (lowered_name.empty())
+            return nullptr;
+
+        for (const auto& plugin : _loaded)
+        {
+            if (to_lower(trim(plugin.meta.name)) == lowered_name)
+                return plugin.instance.get();
+        }
+
+        return nullptr;
+    }
+
     bool PluginManager::should_load_plugin(const std::string& plugin_name) const
     {
         if (_requested_plugins.empty())
@@ -412,7 +458,8 @@ namespace tbx
 
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
         auto plugin_unloader = PluginUnloader();
-        plugin_unloader.unload(plugins, *service_provider, msg_coordinator.get());
+        plugin_unloader
+            .unload(plugins, *service_provider, *_ownership_tracker->impl, msg_coordinator.get());
     }
 
     void PluginManager::process_pending_file_changes()

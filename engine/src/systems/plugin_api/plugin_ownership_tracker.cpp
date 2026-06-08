@@ -1,4 +1,6 @@
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <algorithm>
 #include <mutex>
 #include <unordered_map>
@@ -147,7 +149,7 @@ namespace tbx
             std::move(registration_name));
     }
 
-    void PluginOwnershipTracker::track_asset_type_registration(
+    void PluginOwnershipTracker::track_asset_type(
         Uuid plugin_id,
         std::type_index asset_type)
     {
@@ -231,6 +233,19 @@ namespace tbx
         _state->records_by_plugin_id.clear();
     }
 
+    static std::shared_ptr<PluginOwnershipTracker> lock_bound_tracker()
+    {
+        return PluginOwnershipTrackerBinding::get_instance().lock();
+    }
+
+    static Uuid get_tracked_plugin_id()
+    {
+        if (!has_active_plugin_id())
+            return {};
+
+        return get_active_plugin_id();
+    }
+
     void bind_plugin_ownership_tracker(std::weak_ptr<PluginOwnershipTracker> tracker)
     {
         PluginOwnershipTrackerBinding::get_instance().bind(std::move(tracker));
@@ -238,6 +253,76 @@ namespace tbx
 
     std::shared_ptr<PluginOwnershipTracker> lock_plugin_ownership_tracker()
     {
-        return PluginOwnershipTrackerBinding::get_instance().lock();
+        return lock_bound_tracker();
+    }
+
+    void track_plugin_owned_asset_directory(const std::filesystem::path& path)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_asset_directory(plugin_id, path);
+    }
+
+    void track_plugin_owned_asset_pin(const Handle& handle)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_asset_pin(plugin_id, handle);
+    }
+
+    void track_plugin_owned_asset_type(std::type_index asset_type)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_asset_type(plugin_id, asset_type);
+    }
+
+    void track_plugin_owned_component_registration(std::type_index component_type)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_component_registration(plugin_id, component_type);
+    }
+
+    void track_plugin_owned_entity(Uuid entity_id)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_entity(plugin_id, entity_id);
+    }
+
+    void track_plugin_owned_serializable_registration(std::string_view registration_name)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid() || registration_name.empty())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_serializable_registration(plugin_id, std::string(registration_name));
+    }
+
+    void track_plugin_owned_service_registration(std::type_index service_type)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_service(plugin_id, service_type);
     }
 }

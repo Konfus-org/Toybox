@@ -3,6 +3,9 @@
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/texture.generated.h"
 #include "tbx/types/size.h"
+#include "tbx/types/typedefs.h"
+#include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -27,8 +30,29 @@ namespace tbx
     enum class TextureFormat
     {
         RGB [[name("rgb")]],
-        RGBA [[name("rgba")]]
+        RGBA [[name("rgba")]],
+        RGBA8 [[name("rgba8")]],
+        RGBA16_FLOAT [[name("rgba16_float")]],
+        RGBA32_FLOAT [[name("rgba32_float")]],
+        DEPTH24_STENCIL8 [[name("depth24_stencil8")]],
+        DEPTH32_FLOAT [[name("depth32_float")]],
     };
+
+    [[serializable]];
+    enum class TextureUsage : uint8
+    {
+        SAMPLED [[name("sampled")]] = 1U << 0U,
+        RENDER_TARGET [[name("render_target")]] = 1U << 1U,
+        DEPTH_STENCIL [[name("depth_stencil")]] = 1U << 2U,
+        STORAGE [[name("storage")]] = 1U << 3U,
+        SAMPLED_RENDER_TARGET [[name("sampled_render_target")]] = (1U << 0U) | (1U << 1U),
+        SAMPLED_DEPTH_STENCIL [[name("sampled_depth_stencil")]] = (1U << 0U) | (1U << 2U),
+    };
+
+    constexpr TextureUsage operator|(const TextureUsage left, const TextureUsage right)
+    {
+        return static_cast<TextureUsage>(static_cast<uint8>(left) | static_cast<uint8>(right));
+    }
 
     [[serializable]];
     enum class TextureMipmaps
@@ -59,12 +83,12 @@ namespace tbx
             TextureWrap wrap,
             TextureFilter filter,
             TextureFormat format,
-            const std::vector<Pixel>& pixels)
-            : resolution(resolution)
-            , wrap(wrap)
+            std::vector<Pixel> pixels)
+            : wrap(wrap)
             , filter(filter)
             , format(format)
-            , pixels(pixels)
+            , pixels(std::move(pixels))
+            , resolution(resolution)
         {
         }
         Texture(
@@ -74,14 +98,14 @@ namespace tbx
             TextureFormat format,
             TextureMipmaps mipmaps,
             TextureCompression compression,
-            const std::vector<Pixel>& pixels)
-            : resolution(resolution)
-            , wrap(wrap)
+            std::vector<Pixel> pixels)
+            : wrap(wrap)
             , filter(filter)
             , format(format)
             , mipmaps(mipmaps)
             , compression(compression)
-            , pixels(pixels)
+            , pixels(std::move(pixels))
+            , resolution(resolution)
         {
         }
 
@@ -93,7 +117,6 @@ namespace tbx
                    && compression == other.compression && pixels == other.pixels;
         }
 
-        Size resolution = {1, 1};
         [[meta]]
         TextureWrap wrap = TextureWrap::REPEAT;
 
@@ -108,11 +131,39 @@ namespace tbx
 
         [[meta]]
         TextureCompression compression = TextureCompression::DISABLED;
+
         std::vector<Pixel> pixels = {255, 255, 255};
+
+        Size resolution = {1, 1};
     };
 
-    struct TBX_API RenderTexture : Texture
+    /// @brief
+    /// Purpose: Stores texture data and backend usage for render-pipeline runtime textures.
+    /// @details
+    /// Ownership: Owns CPU upload pixels by value; backend resources are owned separately.
+    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    struct TBX_API RenderTexture : public Texture
     {
-    };
+        RenderTexture() = default;
+        RenderTexture(
+            const Size& resolution,
+            TextureWrap wrap,
+            TextureFilter filter,
+            TextureFormat format,
+            TextureMipmaps mipmaps,
+            TextureCompression compression,
+            TextureUsage usage,
+            std::vector<Pixel> pixels = {})
+            : Texture(resolution, wrap, filter, format, mipmaps, compression, std::move(pixels))
+            , usage(usage)
+        {
+        }
 
+        bool operator==(const RenderTexture& other) const
+        {
+            return Texture::operator==(other) && usage == other.usage;
+        }
+
+        TextureUsage usage = TextureUsage::SAMPLED;
+    };
 }

@@ -3,8 +3,6 @@
 #include "tbx/systems/files/messages.h"
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
 #include <memory>
@@ -21,8 +19,8 @@ namespace tbx
     {
       public:
         PluginManager(
-            std::shared_ptr<ServiceProvider> service_provider,
-            std::weak_ptr<IFileOps> file_ops = {});
+            std::weak_ptr<ServiceProvider> service_provider,
+            std::weak_ptr<IFileOps> file_ops);
         ~PluginManager() noexcept;
 
       public:
@@ -45,6 +43,15 @@ namespace tbx
             const std::filesystem::path& working_directory);
 
         /// @brief
+        /// Purpose: Loads additional plugins from the current plugin directory without unloading
+        /// existing plugins.
+        /// @details
+        /// Ownership: Uses the existing plugin directory, requested plugin names, and file-ops
+        /// service.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void load(const std::vector<std::string>& requested_plugins);
+
+        /// @brief
         /// Purpose: Adds, attaches, and begins routing messages to loaded plugin nodes.
         /// @details
         /// Ownership: Takes ownership of the provided loaded plugin list by splicing its nodes.
@@ -65,14 +72,19 @@ namespace tbx
         /// Thread Safety: Not thread-safe; call from the main thread.
         void fixed_update(const DeltaTime& dt);
 
-        void attach_all();
-
         /// @brief
         /// Purpose: Detaches and unloads a specific plugin and any loaded dependents.
         /// @details
         /// Ownership: Releases ownership for unloaded plugin containers.
         /// Thread Safety: Not thread-safe; call from the main thread.
         bool unload(const std::string& plugin_name);
+
+        /// @brief
+        /// Purpose: Attaches all managed plugins.
+        /// @details
+        /// Ownership: Attaches owned plugins that were loaded from load or added via add.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void attach_all();
 
         /// @brief
         /// Purpose: Detaches all managed plugins while keeping their libraries loaded.
@@ -95,6 +107,16 @@ namespace tbx
         /// Ownership: Does not take ownership of the message.
         /// Thread Safety: Not thread-safe; call from the main thread.
         void receive_message(Message& msg);
+
+        /// @brief
+        /// Purpose: Finds a currently loaded plugin instance by its metadata name.
+        /// @details
+        /// Ownership: Returns a non-owning pointer managed by the plugin manager.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        Plugin* find_plugin(const std::string& plugin_name) const;
+
+      private:
+        struct OwnershipTracker;
 
       private:
         void add_loaded(LoadedPlugins& loaded_plugins);
@@ -121,6 +143,7 @@ namespace tbx
         std::weak_ptr<IFileOps> _provided_file_ops = {};
         std::weak_ptr<IFileOps> _file_ops = {};
         std::unique_ptr<FileWatcher> _watcher = {};
+        std::unique_ptr<OwnershipTracker> _ownership_tracker = {};
 
         std::weak_ptr<ServiceProvider> _service_provider = {};
         bool _attached = false;

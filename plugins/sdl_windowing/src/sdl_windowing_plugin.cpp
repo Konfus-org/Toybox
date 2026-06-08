@@ -3,7 +3,7 @@
 
 namespace sdl_windowing
 {
-    void SdlWindowingPlugin::on_attach()
+    void SdlWindowing::on_attach()
     {
         if (auto backend = window_backend.lock())
             backend->initialize();
@@ -11,7 +11,7 @@ namespace sdl_windowing
             TBX_TRACE_ERROR("SDL windowing plugin attached without a window backend service.");
     }
 
-    void SdlWindowingPlugin::on_detach()
+    void SdlWindowing::on_detach()
     {
         if (auto backend = window_backend.lock())
             backend->shutdown();

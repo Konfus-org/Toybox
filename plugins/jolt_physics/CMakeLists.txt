@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME JoltPhysicsPlugin
+    NAME JoltPhysics
     PRIVATE_LINKS
         Jolt::Jolt
         EnTT::EnTT

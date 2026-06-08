@@ -2,7 +2,7 @@
 
 namespace jolt_physics
 {
-    void JoltPhysicsPlugin::on_detach()
+    void JoltPhysics::on_detach()
     {
         physics_backend = {};
     }

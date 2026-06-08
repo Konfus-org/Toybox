@@ -32,7 +32,7 @@ namespace sdl_base_systems
         }
     }
 
-    void SdlBaseSystemsPlugin::on_attach()
+    void SdlBaseSystems::on_attach()
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
@@ -54,12 +54,12 @@ namespace sdl_base_systems
         TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
-    void SdlBaseSystemsPlugin::on_detach()
+    void SdlBaseSystems::on_detach()
     {
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
     }
 
-    void SdlBaseSystemsPlugin::on_update(const tbx::DeltaTime&)
+    void SdlBaseSystems::on_update(const tbx::DeltaTime&)
     {
         SDL_PumpEvents();
     }

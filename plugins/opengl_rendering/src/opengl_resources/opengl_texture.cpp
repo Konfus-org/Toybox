@@ -8,70 +8,74 @@ namespace opengl_rendering
         return std::exchange(id, 0U);
     }
 
-    static bool is_depth_texture_format(const tbx::GraphicsTextureFormat format)
+    static bool is_depth_texture_format(const tbx::TextureFormat format)
     {
-        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8
-               || format == tbx::GraphicsTextureFormat::DEPTH32_FLOAT;
+        return format == tbx::TextureFormat::DEPTH24_STENCIL8
+               || format == tbx::TextureFormat::DEPTH32_FLOAT;
     }
 
-    bool has_texture_usage(
-        const tbx::GraphicsTextureUsage value,
-        const tbx::GraphicsTextureUsage usage)
+    bool has_texture_usage(const tbx::TextureUsage value, const tbx::TextureUsage usage)
     {
         return (static_cast<uint8>(value) & static_cast<uint8>(usage)) != 0U;
     }
 
-    GLenum get_depth_attachment(const tbx::GraphicsTextureFormat format)
+    GLenum get_depth_attachment(const tbx::TextureFormat format)
     {
-        return format == tbx::GraphicsTextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
-                                                                      : GL_DEPTH_ATTACHMENT;
+        return format == tbx::TextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
+                                                              : GL_DEPTH_ATTACHMENT;
     }
 
-    GLenum get_texture_internal_format(const tbx::GraphicsTextureFormat format)
+    GLenum get_texture_internal_format(const tbx::TextureFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA16_FLOAT:
                 return GL_RGBA16F;
-            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
                 return GL_RGBA32F;
-            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
                 return GL_DEPTH24_STENCIL8;
-            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
                 return GL_DEPTH_COMPONENT32F;
-            case tbx::GraphicsTextureFormat::RGBA8:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RGBA:
             default:
                 return GL_RGBA8;
         }
     }
 
-    GLenum get_texture_upload_format(const tbx::GraphicsTextureFormat format)
+    GLenum get_texture_upload_format(const tbx::TextureFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
                 return GL_DEPTH_STENCIL;
-            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
                 return GL_DEPTH_COMPONENT;
-            case tbx::GraphicsTextureFormat::RGBA8:
-            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
-            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::RGB:
+                return GL_RGB;
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
             default:
                 return GL_RGBA;
         }
     }
 
-    GLenum get_texture_upload_type(const tbx::GraphicsTextureFormat format)
+    GLenum get_texture_upload_type(const tbx::TextureFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
-            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
-            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+            case tbx::TextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
                 return GL_FLOAT;
-            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
                 return GL_UNSIGNED_INT_24_8;
-            case tbx::GraphicsTextureFormat::RGBA8:
+            case tbx::TextureFormat::RGB:
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
             default:
                 return GL_UNSIGNED_BYTE;
         }
@@ -83,17 +87,20 @@ namespace opengl_rendering
                * get_texture_bytes_per_pixel(desc.format);
     }
 
-    uint64 get_texture_bytes_per_pixel(const tbx::GraphicsTextureFormat format)
+    uint64 get_texture_bytes_per_pixel(const tbx::TextureFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsTextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA16_FLOAT:
                 return 8U;
-            case tbx::GraphicsTextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
                 return 16U;
-            case tbx::GraphicsTextureFormat::RGBA8:
-            case tbx::GraphicsTextureFormat::DEPTH24_STENCIL8:
-            case tbx::GraphicsTextureFormat::DEPTH32_FLOAT:
+            case tbx::TextureFormat::RGB:
+                return 3U;
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
             default:
                 return 4U;
         }

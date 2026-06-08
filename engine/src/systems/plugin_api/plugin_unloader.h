@@ -1,4 +1,5 @@
 #pragma once
+#include "plugin_ownership_tracker.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/plugin_api/service_provider.h"
@@ -26,6 +27,7 @@ namespace tbx
         void unload(
             LoadedPlugins& loaded_plugins,
             ServiceProvider& service_provider,
+            PluginOwnershipTracker& ownership_tracker,
             IMessageCoordinator* coordinator = nullptr);
     };
 }

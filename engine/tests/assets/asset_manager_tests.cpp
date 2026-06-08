@@ -238,7 +238,7 @@ namespace tbx
         auto& state = get_reentrant_resolve_loader_state();
         if (state.manager != nullptr)
         {
-            state.last_resolved_include_path = state.manager->resolve(parameters.include_path);
+            state.last_resolved_include_path = state.manager->resolve_path(parameters.include_path);
             asset.resolved_include_path = state.last_resolved_include_path;
         }
         state.sync_load_count += 1;
@@ -754,7 +754,6 @@ namespace tbx::tests::assets
         EXPECT_EQ(written_value, 77);
     }
 
-
     TEST(serialization_registry, polymorphic_meta_type_selects_registered_asset_type_when_flagged)
     {
         // Arrange
@@ -792,7 +791,8 @@ namespace tbx::tests::assets
                 .type_name = "stage_named_asset",
                 .type = std::type_index(typeid(PolymorphicFallbackAsset)),
                 .version = 1U,
-                .create_asset = []()
+                .create_asset =
+                    []()
                 {
                     return std::make_unique<PolymorphicFallbackAsset>();
                 },
@@ -1114,16 +1114,12 @@ namespace tbx::tests::assets
         EXPECT_EQ(streamed_in.asset->value, 99);
     }
 
-
     TEST(asset_manager, async_reload_swaps_asset_after_success)
     {
         // Arrange
         std::filesystem::path working_directory = "/virtual/asset_manager";
         auto dispatcher = std::make_shared<CapturingAssetEventDispatcher>();
-        AssetManager manager(
-            dispatcher,
-            get_test_serialization_registry(),
-            working_directory);
+        AssetManager manager(dispatcher, get_test_serialization_registry(), working_directory);
         register_test_asset_loader(*get_test_serialization_registry());
         Handle handle("async_reload_success.asset");
         TestAssetLoadParameters parameters = {.value = 5};
@@ -1375,7 +1371,7 @@ namespace tbx::tests::assets
         std::filesystem::path relative_path = "relative.asset";
 
         // Act
-        auto resolved = manager.resolve(relative_path);
+        auto resolved = manager.resolve_path(relative_path);
 
         // Assert
         EXPECT_EQ(resolved, working_directory / relative_path);

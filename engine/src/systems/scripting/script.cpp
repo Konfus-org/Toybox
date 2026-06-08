@@ -2,17 +2,67 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/types/assets/world.h"
+#include <mutex>
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace tbx
 {
+    struct ScriptStorageRecord
+    {
+        std::optional<ScriptContext> context = std::nullopt;
+        std::unordered_map<std::string, ScriptBinding> script_references = {};
+    };
+
+    static std::unordered_map<const Script*, std::unique_ptr<ScriptStorageRecord>>& script_storage()
+    {
+        static auto g_script_storage =
+            std::unordered_map<const Script*, std::unique_ptr<ScriptStorageRecord>> {};
+        return g_script_storage;
+    }
+
+    static std::mutex& script_storage_mutex()
+    {
+        static auto g_script_storage_mutex = std::mutex {};
+        return g_script_storage_mutex;
+    }
+
+    static ScriptStorageRecord* try_find_script_storage(const Script& script)
+    {
+        auto guard = std::lock_guard(script_storage_mutex());
+        const auto iterator = script_storage().find(&script);
+        if (iterator == script_storage().end())
+            return nullptr;
+
+        return iterator->second.get();
+    }
+
+    static ScriptStorageRecord& get_or_create_script_storage(const Script& script)
+    {
+        auto guard = std::lock_guard(script_storage_mutex());
+        auto& storage = script_storage()[&script];
+        if (!storage)
+            storage = std::make_unique<ScriptStorageRecord>();
+
+        return *storage;
+    }
+
+    static void erase_script_storage(const Script& script)
+    {
+        auto guard = std::lock_guard(script_storage_mutex());
+        script_storage().erase(&script);
+    }
+
     ScriptContext::ScriptContext(
         Uuid world_id,
+        ScriptBinding binding,
         Entity entity,
         std::weak_ptr<World> world,
         ServiceProvider& services,
         IScriptResolver& resolver)
         : _world_id(world_id)
+        , _binding(binding)
         , _entity(std::move(entity))
         , _world(std::move(world))
         , _services(std::ref(services))
@@ -29,6 +79,11 @@ namespace tbx
     Uuid ScriptContext::get_entity_id() const
     {
         return _entity.get_id();
+    }
+
+    ScriptBinding ScriptContext::get_script_binding() const
+    {
+        return _binding;
     }
 
     IScriptResolver& ScriptContext::get_resolver() const
@@ -60,25 +115,33 @@ namespace tbx
         return _world_id;
     }
 
-    void Script::bind_context(ScriptContext context)
+    Script::~Script() noexcept
     {
-        _context = std::move(context);
+        erase_script_storage(*this);
     }
 
-    void Script::bind(ScriptBinding binding)
+    void Script::bind(ScriptContext context)
     {
-        _binding = binding;
+        get_or_create_script_storage(*this).context = std::move(context);
     }
 
     std::optional<ScriptBinding> Script::get_script_binding() const
     {
-        return _binding;
+        auto* storage = try_find_script_storage(*this);
+        if (storage == nullptr || !storage->context.has_value())
+            return std::nullopt;
+
+        return storage->context->get_script_binding();
     }
 
     std::optional<ScriptBinding> Script::get_script_reference(std::string_view field_name) const
     {
-        const auto iterator = _script_references.find(std::string(field_name));
-        if (iterator == _script_references.end())
+        auto* storage = try_find_script_storage(*this);
+        if (storage == nullptr)
+            return std::nullopt;
+
+        const auto iterator = storage->script_references.find(std::string(field_name));
+        if (iterator == storage->script_references.end())
             return std::nullopt;
 
         return iterator->second;
@@ -86,30 +149,34 @@ namespace tbx
 
     Entity& Script::get_entity() const
     {
-        TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->get_entity();
+        auto* storage = try_find_script_storage(*this);
+        TBX_ASSERT(storage != nullptr && storage->context.has_value(), "Script has no bound context.");
+        return storage->context->get_entity();
     }
 
     ServiceProvider& Script::get_services() const
     {
-        TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->get_services();
+        auto* storage = try_find_script_storage(*this);
+        TBX_ASSERT(storage != nullptr && storage->context.has_value(), "Script has no bound context.");
+        return storage->context->get_services();
     }
 
     std::weak_ptr<World> Script::get_world_ptr() const
     {
-        TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->get_world_ptr();
+        auto* storage = try_find_script_storage(*this);
+        TBX_ASSERT(storage != nullptr && storage->context.has_value(), "Script has no bound context.");
+        return storage->context->get_world_ptr();
     }
 
     World& Script::get_world() const
     {
-        TBX_ASSERT(_context.has_value(), "Script has no bound context.");
-        return _context->get_world();
+        auto* storage = try_find_script_storage(*this);
+        TBX_ASSERT(storage != nullptr && storage->context.has_value(), "Script has no bound context.");
+        return storage->context->get_world();
     }
 
     void Script::set_script_reference(std::string_view field_name, ScriptBinding binding)
     {
-        _script_references[std::string(field_name)] = binding;
+        get_or_create_script_storage(*this).script_references[std::string(field_name)] = binding;
     }
 }

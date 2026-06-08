@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME StbImageLoaderPlugin
+    NAME StbImageLoader
     PRIVATE_LINKS
         EnTT::EnTT
         Tbx::Resources

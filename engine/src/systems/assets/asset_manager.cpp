@@ -4,8 +4,7 @@
 #include "tbx/systems/assets/registry.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/messages.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <cstddef>
 
 namespace tbx
@@ -170,18 +169,23 @@ namespace tbx
         return asset_id;
     }
 
-    Uuid AssetManager::resolve(const Handle& handle)
+    Uuid AssetManager::resolve_id(const Handle& handle)
     {
         return ensure(handle);
     }
 
-    std::filesystem::path AssetManager::resolve(const std::filesystem::path& asset_path) const
+    Uuid AssetManager::resolve(const Handle& handle)
+    {
+        return resolve_id(handle);
+    }
+
+    std::filesystem::path AssetManager::resolve_path(const std::filesystem::path& asset_path) const
     {
         std::lock_guard lock(_mutex);
         return _registry->resolve_asset_path(asset_path);
     }
 
-    std::filesystem::path AssetManager::resolve(const Handle& handle) const
+    std::filesystem::path AssetManager::resolve_path(const Handle& handle) const
     {
         std::lock_guard lock(_mutex);
         return _registry->resolve_asset_path(handle);
@@ -197,13 +201,10 @@ namespace tbx
         for (auto& store : _stores)
             store.second->set_pinned(entry->get().asset_id, is_pinned);
 
-        if (!is_pinned || !has_active_plugin_id())
+        if (!is_pinned)
             return;
 
-        if (auto tracker = lock_plugin_ownership_tracker())
-            tracker->track_asset_pin(
-                get_active_plugin_id(),
-                Handle(entry->get().normalized_path, entry->get().asset_id));
+        track_plugin_owned_asset_pin(Handle(entry->get().normalized_path, entry->get().asset_id));
     }
 
     void AssetManager::add_directory(const std::filesystem::path& path)
@@ -231,11 +232,7 @@ namespace tbx
         if (directories.size() == directory_count)
             return;
 
-        if (has_active_plugin_id())
-        {
-            if (auto tracker = lock_plugin_ownership_tracker())
-                tracker->track_asset_directory(get_active_plugin_id(), directories.back());
-        }
+        track_plugin_owned_asset_directory(directories.back());
 
         watch_asset_directory(directories.back());
     }

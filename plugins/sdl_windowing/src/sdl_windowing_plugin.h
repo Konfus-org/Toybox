@@ -8,10 +8,10 @@
 namespace sdl_windowing
 {
     [[tbx::plugin(
-        name = "SdlWindowingPlugin",
+        name = "SdlWindowing",
         version = "1.0.0",
         category = tbx::PluginCategory::INPUT)]];
-    class TBX_PLUGIN_API SdlWindowingPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API SdlWindowing final : public tbx::Plugin
     {
       public:
         void on_attach() override;

@@ -13,12 +13,12 @@ namespace sdl_opengl_context_manager
     /// Ownership: Shares the registered context manager with the service provider.
     /// Thread Safety: Expected to be attached/detached on the main thread.
     [[tbx::plugin(
-        name = "SdlOpenGlContextManagerPlugin",
+        name = "SdlOpenGlContextManager",
         version = "1.0.0",
         category = tbx::PluginCategory::RENDERING,
-        dependencies = {"SdlBaseSystemsPlugin", "SdlWindowingPlugin"})]];
+        dependencies = {"SdlBaseSystems", "SdlWindowing"})]];
     [[tbx::register(tbx::IOpenGlContextBackend, create_context_backend)]];
-    class TBX_PLUGIN_API SdlOpenGlContextManagerPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API SdlOpenGlContextManager final : public tbx::Plugin
     {
       public:
         void on_detach() override;
@@ -28,6 +28,6 @@ namespace sdl_opengl_context_manager
             tbx::ServiceProvider& service_provider);
 
       private:
-        std::weak_ptr<SdlOpenGlContextManager> _context_backend = {};
+        std::weak_ptr<SdlOpenGlContextBackend> _context_backend = {};
     };
 }

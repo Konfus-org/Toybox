@@ -1,4 +1,5 @@
 #pragma once
+#include "debug_window_title_monitor.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/graphics/api.h"
@@ -52,7 +53,7 @@ namespace tbx::performance_monitor
         FpsInfo calculate_fps_averages();
 
 #if !defined(TBX_FULL_RELEASE)
-        void update_debug_main_window_title(tbx::Application& application, const tbx::DeltaTime& dt);
+        void update_debug_main_window_title(tbx::Application& application);
 #endif
 
       private:
@@ -67,8 +68,7 @@ namespace tbx::performance_monitor
 
 #if !defined(TBX_FULL_RELEASE)
         std::string _debug_main_window_title = {};
-        double _debug_window_title_elapsed_seconds = 0.0;
-        uint _debug_window_title_frame_count = 0U;
+        DebugWindowTitleMonitor _debug_window_title_monitor = {};
 #endif
     };
 }

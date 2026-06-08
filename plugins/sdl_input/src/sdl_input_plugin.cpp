@@ -6,7 +6,7 @@ namespace sdl_input
 {
     static constexpr Uint32 GamepadSubsystemMask = SDL_INIT_GAMEPAD;
 
-    void SdlInputPlugin::on_attach()
+    void SdlInput::on_attach()
     {
         if ((SDL_WasInit(GamepadSubsystemMask) & GamepadSubsystemMask) == GamepadSubsystemMask)
         {
@@ -29,7 +29,7 @@ namespace sdl_input
         SDL_AddEventWatch(accumulate_wheel_delta, this);
     }
 
-    void SdlInputPlugin::on_detach()
+    void SdlInput::on_detach()
     {
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
         input_manager = {};
@@ -38,18 +38,18 @@ namespace sdl_input
         _owns_gamepad_subsystem = false;
     }
 
-    void SdlInputPlugin::on_update(const tbx::DeltaTime&)
+    void SdlInput::on_update(const tbx::DeltaTime&)
     {
         if (auto manager = input_manager.lock())
             manager->update_backend_state();
     }
 
-    bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
+    bool SdlInput::accumulate_wheel_delta(void* userdata, SDL_Event* event)
     {
         if (!userdata || !event || event->type != SDL_EVENT_MOUSE_WHEEL)
             return true;
 
-        auto* plugin = static_cast<SdlInputPlugin*>(userdata);
+        auto* plugin = static_cast<SdlInput*>(userdata);
         if (auto manager = plugin->input_manager.lock())
             manager->add_wheel_delta(event->wheel.y);
         return true;

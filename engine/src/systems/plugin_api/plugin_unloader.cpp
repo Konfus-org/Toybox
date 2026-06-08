@@ -3,7 +3,6 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/registry.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
@@ -37,16 +36,15 @@ namespace tbx
         return to_lower(left.name) < to_lower(right.name);
     }
 
-    static void clear_plugin_owned_resources(Uuid plugin_id, ServiceProvider& service_provider)
+    static void clear_plugin_owned_resources(
+        Uuid plugin_id,
+        ServiceProvider& service_provider,
+        PluginOwnershipTracker& ownership_tracker)
     {
         if (!plugin_id.is_valid())
             return;
 
-        auto tracker = service_provider.try_get_service<PluginOwnershipTracker>().lock();
-        if (!tracker)
-            return;
-
-        const auto owned_resources = tracker->snapshot_and_clear(plugin_id);
+        const auto owned_resources = ownership_tracker.snapshot_and_clear(plugin_id);
 
         for (const auto& component_type : owned_resources.component_types)
             unregister_entity_component_type_entry(component_type);
@@ -145,6 +143,7 @@ namespace tbx
     void PluginUnloader::unload(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
+        PluginOwnershipTracker& ownership_tracker,
         IMessageCoordinator* coordinator)
     {
         detach(loaded_plugins, service_provider, coordinator);
@@ -153,7 +152,7 @@ namespace tbx
 
         for (const auto& plugin : loaded_plugins)
         {
-            clear_plugin_owned_resources(plugin.get_id(), service_provider);
+            clear_plugin_owned_resources(plugin.get_id(), service_provider, ownership_tracker);
             if (coordinator)
                 coordinator->flush();
         }

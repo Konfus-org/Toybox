@@ -1,4 +1,4 @@
-#include "Base/PostShaderBase.glsl"
+#include "ShaderBase.glsl"
 
 layout(location = 0) in vec2 v_tex_coord;
 layout(location = 0) out vec4 o_color;

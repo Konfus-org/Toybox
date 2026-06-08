@@ -5,6 +5,61 @@
 
 namespace tbx
 {
+    static std::shared_ptr<DynamicMeshData> get_builtin_dynamic_mesh_data(const Mesh& mesh)
+    {
+        static auto triangle = std::make_shared<DynamicMeshData>(Mesh::TRIANGLE);
+        static auto quad = std::make_shared<DynamicMeshData>(Mesh::QUAD);
+        static auto fullscreen_quad = std::make_shared<DynamicMeshData>(Mesh::FULLSCREEN_QUAD);
+        static auto cube = std::make_shared<DynamicMeshData>(Mesh::CUBE);
+        static auto sphere = std::make_shared<DynamicMeshData>(Mesh::SPHERE);
+        static auto capsule = std::make_shared<DynamicMeshData>(Mesh::CAPSULE);
+        static auto half_sphere = std::make_shared<DynamicMeshData>(Mesh::HALF_SPHERE);
+
+        if (&mesh == &Mesh::TRIANGLE)
+            return triangle;
+        if (&mesh == &Mesh::QUAD)
+            return quad;
+        if (&mesh == &Mesh::FULLSCREEN_QUAD)
+            return fullscreen_quad;
+        if (&mesh == &Mesh::CUBE)
+            return cube;
+        if (&mesh == &Mesh::SPHERE)
+            return sphere;
+        if (&mesh == &Mesh::CAPSULE)
+            return capsule;
+        if (&mesh == &Mesh::HALF_SPHERE)
+            return half_sphere;
+
+        return {};
+    }
+
+    static bool uses_builtin_dynamic_mesh_data(const std::shared_ptr<DynamicMeshData>& mesh_data)
+    {
+        if (!mesh_data)
+            return false;
+
+        const auto* builtin_data = get_builtin_dynamic_mesh_data(Mesh::TRIANGLE).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::QUAD).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::FULLSCREEN_QUAD).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::CUBE).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::SPHERE).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::CAPSULE).get();
+        if (mesh_data.get() == builtin_data)
+            return true;
+        builtin_data = get_builtin_dynamic_mesh_data(Mesh::HALF_SPHERE).get();
+        return mesh_data.get() == builtin_data;
+    }
+
     struct CapsuleRing
     {
         float y = 0.0F;
@@ -589,9 +644,11 @@ namespace tbx
     {
     }
 
-    DynamicMesh::DynamicMesh(Mesh mesh)
-        : _data(std::make_shared<DynamicMeshData>(std::move(mesh)))
+    DynamicMesh::DynamicMesh(const Mesh& mesh)
+        : _data(get_builtin_dynamic_mesh_data(mesh))
     {
+        if (!_data)
+            _data = std::make_shared<DynamicMeshData>(mesh);
     }
 
     DynamicMesh::DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data)
@@ -609,6 +666,8 @@ namespace tbx
     {
         if (!_data)
             _data = std::make_shared<DynamicMeshData>();
+        else if (_data.use_count() > 1U && uses_builtin_dynamic_mesh_data(_data))
+            _data = std::make_shared<DynamicMeshData>(_data->get_mesh());
 
         return _data->edit_mesh();
     }

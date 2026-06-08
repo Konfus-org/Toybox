@@ -17,14 +17,16 @@
                     "b": 1,
                     "a": 1
                 }
-            }
+            },
+            "target": "sky_color"
         },
         {
             "name": "brightness",
             "data": {
                 "type": "float",
                 "value": 1
-            }
+            },
+            "target": "sky_brightness"
         },
         {
             "name": "ambient_multiplier",
@@ -44,7 +46,8 @@
     "textures": [
         {
             "name": "skybox_texture",
-            "texture": 0
+            "texture": 0,
+            "target": "sky_texture"
         },
         {
             "name": "secondary_skybox_texture",

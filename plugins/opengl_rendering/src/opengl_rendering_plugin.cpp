@@ -7,7 +7,7 @@
 
 namespace opengl_rendering
 {
-    std::shared_ptr<tbx::IGraphicsBackend> OpenGlRenderingPlugin::create_graphics_backend(
+    std::shared_ptr<tbx::IGraphicsBackend> OpenGlRendering::create_graphics_backend(
         tbx::ServiceProvider& service_provider)
     {
         auto context_backend =
@@ -36,12 +36,12 @@ namespace opengl_rendering
         return backend;
     }
 
-    void OpenGlRenderingPlugin::on_detach()
+    void OpenGlRendering::on_detach()
     {
         _backend = {};
     }
 
-    void OpenGlRenderingPlugin::on_recieve_message(tbx::Message& msg)
+    void OpenGlRendering::on_recieve_message(tbx::Message& msg)
     {
         if (const auto closed_event = tbx::handle_message<tbx::WindowClosedEvent>(msg);
             closed_event.has_value())

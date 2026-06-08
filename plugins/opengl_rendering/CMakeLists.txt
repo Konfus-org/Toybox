@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME OpenGlRenderingPlugin
+    NAME OpenGlRendering
     PRIVATE_LINKS
         glad::glad
 )

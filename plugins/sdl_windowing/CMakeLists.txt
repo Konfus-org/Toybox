@@ -1,7 +1,7 @@
 tbx_add_plugin(
-    NAME SdlWindowingPlugin
+    NAME SdlWindowing
     PRIVATE_LINKS
         EnTT::EnTT
-        Tbx::Plugins::SdlBaseSystemsPlugin
+        Tbx::Plugins::SdlBaseSystems
         SDL3::SDL3-shared
 )

@@ -39,6 +39,33 @@ namespace tbx
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
 
     /// @brief
+    /// Purpose: Identifies which fixed renderer upload target a declared material binding feeds.
+    /// @details
+    /// Ownership: Value type.
+    /// Thread Safety: Safe to copy between threads.
+    [[serializable]];
+    enum class MaterialBindingTarget : uint8_t
+    {
+        NONE [[name("none")]] = 0,
+        BASE_COLOR [[name("base_color")]] = 1,
+        EMISSIVE_COLOR [[name("emissive_color")]] = 2,
+        METALLIC [[name("metallic")]] = 3,
+        ROUGHNESS [[name("roughness")]] = 4,
+        NORMAL_STRENGTH [[name("normal_strength")]] = 5,
+        AO [[name("ao")]] = 6,
+        ALPHA_CUTOFF [[name("alpha_cutoff")]] = 7,
+        ALBEDO_TEXTURE [[name("albedo_texture")]] = 8,
+        NORMAL_TEXTURE [[name("normal_texture")]] = 9,
+        METALLIC_TEXTURE [[name("metallic_texture")]] = 10,
+        ROUGHNESS_TEXTURE [[name("roughness_texture")]] = 11,
+        AO_TEXTURE [[name("ao_texture")]] = 12,
+        EMISSIVE_TEXTURE [[name("emissive_texture")]] = 13,
+        SKY_COLOR [[name("sky_color")]] = 14,
+        SKY_BRIGHTNESS [[name("sky_brightness")]] = 15,
+        SKY_TEXTURE [[name("sky_texture")]] = 16
+    };
+
+    /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
     /// @details
     /// Ownership: Value type.
@@ -82,7 +109,7 @@ namespace tbx
     /// Ownership: Stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[hash(id, data)]];
+    [[hash(id, data, target)]];
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
@@ -92,6 +119,8 @@ namespace tbx
         MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
         template <typename TValue>
         MaterialParameter(const std::string& parameter_name, TValue&& parameter_data);
+        template <typename TValue>
+        MaterialParameter(const char* parameter_name, TValue&& parameter_data);
 
         [[prop]]
         std::string name = "";
@@ -99,6 +128,9 @@ namespace tbx
 
         [[prop]]
         MaterialParameterData data = 0.0f;
+
+        [[prop]]
+        MaterialBindingTarget target = MaterialBindingTarget::NONE;
     };
 
     /// @brief
@@ -150,11 +182,12 @@ namespace tbx
     /// Ownership: Owns the texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[hash(id, texture.id, texture.name)]];
+    [[hash(id, texture.id, texture.name, target)]];
     struct TBX_API MaterialTextureBinding
     {
         MaterialTextureBinding() = default;
         MaterialTextureBinding(uint32 binding_id, Handle texture_handle);
+        MaterialTextureBinding(const char* binding_name, Handle texture_handle);
         MaterialTextureBinding(const std::string& binding_name, Handle texture_handle);
         MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
 
@@ -164,6 +197,9 @@ namespace tbx
 
         [[prop]]
         Handle texture = {};
+
+        [[prop]]
+        MaterialBindingTarget target = MaterialBindingTarget::NONE;
     };
 
     /// @brief

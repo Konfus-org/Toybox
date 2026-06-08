@@ -1,1 +1,1 @@
-tbx_add_plugin(NAME TbxPerformanceMonitorPlugin)
+tbx_add_plugin(NAME PerformanceMonitor)

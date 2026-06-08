@@ -2,7 +2,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <shared_mutex>
 
 namespace tbx
@@ -119,6 +119,9 @@ namespace tbx
             return;
         const auto component_type = entry.type;
 
+        // TODO: what is this for? We have the entt registry, can we get rid of this? Perhaps we
+        // need a global entity registry and the world shouldn't own it it should just be a
+        // convienience wrapper.
         auto& store = EntityComponentRegistrationStore::get_instance();
         auto guard = std::lock_guard(store.mutex());
         auto& registrations = store.registrations();
@@ -149,11 +152,7 @@ namespace tbx
             return;
         }
 
-        if (!has_active_plugin_id())
-            return;
-
-        if (auto tracker = lock_plugin_ownership_tracker())
-            tracker->track_component_registration(get_active_plugin_id(), component_type);
+        track_plugin_owned_component_registration(component_type);
     }
 
     Entity::Entity(const std::string& name, EntityRegistry& registry)
@@ -434,10 +433,7 @@ namespace tbx
         return true;
     }
 
-    bool Entity::deserialize(
-        std::string_view data,
-        EntityRegistry& registry,
-        Entity& entity)
+    bool Entity::deserialize(std::string_view data, EntityRegistry& registry, Entity& entity)
     {
         auto payload = SerializedEntityPayload();
         if (!read_entity_payload(data, payload))

@@ -16,4 +16,10 @@ namespace tbx
     {
     }
 
+    template <typename TValue>
+    MaterialParameter::MaterialParameter(const char* parameter_name, TValue&& parameter_data)
+        : MaterialParameter(std::string_view(parameter_name), std::forward<TValue>(parameter_data))
+    {
+    }
+
 }

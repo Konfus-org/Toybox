@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/interfaces/graphics_backend.h"
 
 namespace opengl_rendering
 {
@@ -21,7 +22,7 @@ namespace opengl_rendering
     {
         OpenGlBindEntryType type = OpenGlBindEntryType::UNIFORM_BUFFER;
         uint32 slot = 0U;
-        tbx::Uuid resource = {};
+        tbx::GpuId resource = tbx::INVALID_GPU_ID;
         uint64 offset = 0U;
         uint64 range = 0U;
     };

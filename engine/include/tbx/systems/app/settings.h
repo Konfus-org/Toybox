@@ -9,9 +9,20 @@
 #include "tbx/types/assets/builtin_assets.h"
 #include "tbx/types/handle.h"
 #include <string>
+#include <vector>
 
 namespace tbx
 {
+    inline std::vector<std::string> resolve_app_plugins(
+        const std::vector<std::string>& settings_plugins,
+        const std::vector<std::string>& command_plugins)
+    {
+        if (!command_plugins.empty())
+            return command_plugins;
+
+        return settings_plugins;
+    }
+
     /// @brief
     /// Purpose: Stores mutable runtime settings for the application host.
     /// @details
@@ -34,9 +45,22 @@ namespace tbx
         AsyncSettings async = {};
 
         [[prop]]
-        Handle icon = ToyboxIcon::HANDLE;
+        Handle icon = tbx::ToyboxIconTexture::HANDLE;
 
         [[prop]]
         std::string name = "Toybox App";
+
+        [[prop]]
+        std::vector<std::string> plugins = {
+            "PerformanceMonitor",
+            "SdlInput",
+            "JoltPhysics",
+            "SdlWindowing",
+            "SdlOpenGlContextManager",
+            "OpenGlRendering",
+            "StbImageLoader",
+            "AssimpModelLoader",
+            "ShaderIncludeLoader",
+        };
     };
 }

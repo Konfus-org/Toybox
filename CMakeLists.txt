@@ -71,12 +71,24 @@ endif()
 tbx_log_cache_options()
 
 # Includes and subdirectories
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake")
+
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/codegen")
+    set(TBX_CODEGEN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/tools/codegen")
+else()
+    set(TBX_CODEGEN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/codegen")
+endif()
+
+if (NOT EXISTS "${TBX_CODEGEN_ROOT}")
+    message(FATAL_ERROR "Codegen script directory not found at '${TBX_CODEGEN_ROOT}'")
+endif()
+
 add_subdirectory(resources)
 add_subdirectory(thirdparty)
 add_subdirectory(engine)
 add_subdirectory(plugins)
 add_subdirectory(examples)
+add_subdirectory(launcher)
 
 if(TBX_BUILD_TESTS)
     enable_testing()

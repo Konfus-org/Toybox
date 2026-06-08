@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <memory>
@@ -11,6 +11,16 @@
 
 namespace tbx
 {
+    class ServiceProvider;
+    class AssetManager;
+    class IMessageCoordinator;
+    class JobSystem;
+    class SerializationRegistry;
+    class ThreadManager;
+    class WorldManager;
+
+    TBX_API void register_default_services(ServiceProvider& service_provider);
+
     /// @brief
     /// Purpose: Owns runtime services and exposes typed lookup for plugins and systems.
     /// @details
@@ -62,14 +72,6 @@ namespace tbx
         using Entries = std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>>;
 
       private:
-        struct DefaultServicesTag
-        {
-        };
-        ServiceProvider(DefaultServicesTag);
-        friend TBX_API ServiceProvider create_default_service_provider();
-        friend TBX_API std::shared_ptr<ServiceProvider> create_default_service_provider_shared();
-
-      private:
         void erase_service(std::type_index service_type);
         void forget_registration_order(std::type_index service_type);
         void remember_registration_order(std::type_index service_type);
@@ -78,14 +80,6 @@ namespace tbx
         Entries _entries = {};
         std::vector<std::type_index> _registration_order = {};
     };
-
-    /// @brief
-    /// Purpose: Creates the default Toybox runtime service graph.
-    TBX_API ServiceProvider create_default_service_provider();
-
-    /// @brief
-    /// Purpose: Creates the default Toybox runtime service graph with shared ownership.
-    TBX_API std::shared_ptr<ServiceProvider> create_default_service_provider_shared();
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

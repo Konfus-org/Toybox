@@ -14,10 +14,10 @@ namespace stb_image_loader
     /// host. Thread Safety: Handles asset messages on the dispatcher thread; no internal
     /// synchronization.
     [[tbx::plugin(
-        name = "StbImageLoaderPlugin",
+        name = "StbImageLoader",
         version = "1.0.0",
         category = tbx::PluginCategory::DEFAULT)]];
-    class TBX_PLUGIN_API StbImageLoaderPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API StbImageLoader final : public tbx::Plugin
     {
       public:
         void on_attach() override;

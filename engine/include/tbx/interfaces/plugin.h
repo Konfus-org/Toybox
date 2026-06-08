@@ -10,7 +10,6 @@
 
 namespace tbx
 {
-    using GetPluginMetaFn = void (*)(PluginMeta*);
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
     using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);

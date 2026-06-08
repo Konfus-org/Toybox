@@ -1,4 +1,5 @@
 #include "tbx/systems/physics/physics.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
@@ -435,7 +436,7 @@ namespace tbx
               std::move(backend),
               std::move(asset_manager),
               std::move(world_manager),
-              std::weak_ptr<AssetReloadQueue>(),
+              std::weak_ptr<IMessageCoordinator>(),
               settings)
     {
     }
@@ -444,19 +445,20 @@ namespace tbx
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
-        std::weak_ptr<AssetReloadQueue> reload_queue,
+        std::weak_ptr<IMessageCoordinator> message_coordinator,
         const PhysicsSettings& settings)
         : _backend(std::move(backend))
         , _asset_manager(std::move(asset_manager))
-        , _reload_queue(std::move(reload_queue))
+        , _message_coordinator(message_coordinator)
         , _world_manager(std::move(world_manager))
     {
-        if (auto queue = _reload_queue.lock())
+        if (auto coordinator = _message_coordinator.lock())
         {
-            _asset_reload_handler = queue->register_handler(
-                [this](const AssetReloadContext& context)
+            _asset_reload_handler = coordinator->register_handler(
+                [this](Message& message)
                 {
-                    on_asset_reload(context);
+                    if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
+                        on_asset_reloaded(reloaded->get());
                 });
         }
 
@@ -466,8 +468,8 @@ namespace tbx
 
     Physics::~Physics() noexcept
     {
-        if (auto queue = _reload_queue.lock())
-            queue->deregister_handler(_asset_reload_handler);
+        if (auto coordinator = _message_coordinator.lock())
+            coordinator->deregister_handler(_asset_reload_handler);
 
         clear_resources();
         if (auto backend = _backend.lock())
@@ -917,11 +919,11 @@ namespace tbx
         return entity_it->second;
     }
 
-    void Physics::on_asset_reload(const AssetReloadContext& context)
+    void Physics::on_asset_reloaded(const AssetReloadedEvent& event)
     {
-        if (!context.succeeded || !context.affected_asset.id.is_valid())
+        if (!event.succeeded || !event.affected_asset.id.is_valid())
             return;
 
-        _pending_model_reloads.insert(context.affected_asset.id);
+        _pending_model_reloads.insert(event.affected_asset.id);
     }
 }

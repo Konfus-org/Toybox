@@ -1,6 +1,7 @@
 #include "tbx/systems/ecs/world/manager.h"
 #include "chunk_loader.h"
 #include "streamer.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
 #include <unordered_set>
@@ -13,16 +14,18 @@ namespace tbx
 
     struct WorldManager::State
     {
-        State(std::weak_ptr<AssetManager> asset_manager, std::weak_ptr<AssetReloadQueue> queue)
+        State(
+            std::weak_ptr<AssetManager> asset_manager,
+            std::weak_ptr<IMessageCoordinator> message_coordinator)
             : asset_manager(std::move(asset_manager))
-            , reload_queue(std::move(queue))
+            , message_coordinator(std::move(message_coordinator))
             , chunk_loader(std::make_unique<ChunkLoader>(this->asset_manager))
             , entity_streamer(std::make_unique<EntityStreamer>())
         {
         }
 
         std::weak_ptr<AssetManager> asset_manager = {};
-        std::weak_ptr<AssetReloadQueue> reload_queue = {};
+        std::weak_ptr<IMessageCoordinator> message_coordinator = {};
         std::unique_ptr<ChunkLoader> chunk_loader = {};
         std::unique_ptr<EntityStreamer> entity_streamer = {};
         std::shared_ptr<World> active_world = {};
@@ -37,15 +40,16 @@ namespace tbx
 
     WorldManager::WorldManager(
         std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<AssetReloadQueue> reload_queue)
-        : _state(std::make_unique<State>(std::move(asset_manager), std::move(reload_queue)))
+        std::weak_ptr<IMessageCoordinator> message_coordinator)
+        : _state(std::make_unique<State>(std::move(asset_manager), std::move(message_coordinator)))
     {
-        if (auto queue = _state->reload_queue.lock())
+        if (auto coordinator = _state->message_coordinator.lock())
         {
-            _state->reload_handler = queue->register_handler(
-                [this](const AssetReloadContext& context)
+            _state->reload_handler = coordinator->register_handler(
+                [this](Message& message)
                 {
-                    on_asset_reload(context);
+                    if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
+                        on_asset_reloaded(reloaded->get());
                 });
         }
     }
@@ -54,8 +58,8 @@ namespace tbx
     {
         TBX_TRY_CATCH_ASSERT(
             {
-                if (auto queue = _state->reload_queue.lock())
-                    queue->deregister_handler(_state->reload_handler);
+                if (auto coordinator = _state->message_coordinator.lock())
+                    coordinator->deregister_handler(_state->reload_handler);
                 clear_active_world();
             },
             "Toybox world manager shutdown failed.");
@@ -246,12 +250,12 @@ namespace tbx
         return load_world_globals(*_state->active_world);
     }
 
-    void WorldManager::on_asset_reload(const AssetReloadContext& context)
+    void WorldManager::on_asset_reloaded(const AssetReloadedEvent& event)
     {
-        if (!context.succeeded || !_state->active_world)
+        if (!event.succeeded || !_state->active_world)
             return;
 
-        const auto changed_asset = context.affected_asset.id;
+        const auto changed_asset = event.affected_asset.id;
         if (_state->active_world_from_asset && changed_asset == _state->active_world_handle.id)
         {
             static_cast<void>(refresh_active_world_from_asset());
@@ -264,7 +268,7 @@ namespace tbx
             return;
         }
 
-        static_cast<void>(refresh_world_chunk(context.affected_asset));
+        static_cast<void>(refresh_world_chunk(event.affected_asset));
     }
 
     void WorldManager::release_active_world()

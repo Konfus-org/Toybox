@@ -1,9 +1,13 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/assets/serialization.h"
+#include "tbx/systems/debugging/macros.h"
 #include "tbx/types/color.h"
+#include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
+#include <algorithm>
+#include <optional>
+#include <string_view>
 
 namespace tbx
 {
@@ -190,9 +194,7 @@ namespace tbx
             });
     }
 
-    inline Vec4 get_vertex_attribute_value(
-        const Vertex& vertex,
-        const std::string_view debug_name)
+    inline Vec4 get_vertex_attribute_value(const Vertex& vertex, const std::string_view debug_name)
     {
         if (debug_name == vertex_attribute_position_debug_name)
             return Vec4(vertex.position, 0.0F);
@@ -214,8 +216,7 @@ namespace tbx
         std::vector<float>& out_values)
     {
         const Vec4 value = get_vertex_attribute_value(vertex, attribute.debug_name);
-        const uint32 component_count =
-            static_cast<uint32>(get_vertex_data_count(attribute.type));
+        const uint32 component_count = static_cast<uint32>(get_vertex_data_count(attribute.type));
         for (uint32 component = 0U; component < component_count; ++component)
             out_values.push_back(value[component]);
     }
@@ -284,4 +285,47 @@ namespace tbx
         std::vector<float> vertices = {};
         VertexBufferLayout layout = {};
     };
+
+    inline std::optional<uint32> try_get_vertex_attribute_offset(
+        const VertexBufferLayout& layout,
+        const std::string_view debug_name)
+    {
+        for (const auto& attribute : layout.elements)
+        {
+            if (attribute.debug_name != debug_name)
+                continue;
+
+            if ((attribute.offset % static_cast<uint32>(sizeof(float))) != 0U)
+                return std::nullopt;
+
+            return attribute.offset / static_cast<uint32>(sizeof(float));
+        }
+
+        return std::nullopt;
+    }
+
+    inline Vec4 read_vertex_buffer_attribute(
+        const VertexBuffer& buffer,
+        const uint32 vertex_index,
+        const std::string_view debug_name,
+        const Vec4& fallback)
+    {
+        const auto offset = try_get_vertex_attribute_offset(buffer.layout, debug_name);
+        if (!offset.has_value())
+            return fallback;
+
+        const uint32 stride = buffer.layout.stride / static_cast<uint32>(sizeof(float));
+        const size base = static_cast<size>(vertex_index) * static_cast<size>(stride)
+                          + static_cast<size>(*offset);
+        if (base >= buffer.vertices.size())
+            return fallback;
+
+        auto value = fallback;
+        const size available = buffer.vertices.size() - base;
+        const size component_count = std::min<size>(4U, available);
+        for (size component = 0U; component < component_count; ++component)
+            value[component] = buffer.vertices[base + component];
+
+        return value;
+    }
 }

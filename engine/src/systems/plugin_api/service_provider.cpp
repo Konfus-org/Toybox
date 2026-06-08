@@ -1,13 +1,11 @@
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/reload_queue.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/messaging/message_coordinator.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracker.h"
 #include "tbx/systems/scripting/script_system.h"
 #include <algorithm>
 #include <filesystem>
@@ -15,57 +13,59 @@
 
 namespace tbx
 {
-    ServiceProvider::ServiceProvider(DefaultServicesTag)
-    {
-        register_service<IMessageCoordinator>(std::make_shared<MessageCoordinator>());
-
-        register_service<IFileOps>(std::make_shared<FileOperator>(std::filesystem::path()));
-        auto file_ops = get_service<IFileOps>().lock();
-
-        register_service<SerializationRegistry>(std::make_shared<SerializationRegistry>(file_ops));
-
-        register_service<PluginOwnershipTracker>(std::make_shared<PluginOwnershipTracker>());
-        bind_plugin_ownership_tracker(get_service<PluginOwnershipTracker>());
-
-        register_service<AssetManager>(std::make_shared<AssetManager>(
-            get_service<IMessageCoordinator>(),
-            get_service<SerializationRegistry>(),
-            std::filesystem::path(),
-            std::vector<std::filesystem::path>(),
-            HandleSource(),
-            file_ops));
-
-        register_service<AssetReloadQueue>(
-            std::make_shared<AssetReloadQueue>(get_service<IMessageCoordinator>()));
-
-        register_service<WorldManager>(std::make_shared<WorldManager>(
-            try_get_service<AssetManager>(),
-            try_get_service<AssetReloadQueue>()));
-
-        register_service<ScriptSystem>(std::make_shared<ScriptSystem>(
-            try_get_service<AssetManager>(),
-            *this,
-            try_get_service<WorldManager>(),
-            try_get_service<AssetReloadQueue>()));
-
-        register_service<JobSystem>(std::make_shared<JobSystem>());
-        register_service<ThreadManager>(std::make_shared<ThreadManager>());
-    }
-
     ServiceProvider::~ServiceProvider() noexcept
     {
         clear();
     }
 
-    ServiceProvider create_default_service_provider()
+    void register_default_services(ServiceProvider& service_provider)
     {
-        return ServiceProvider(ServiceProvider::DefaultServicesTag {});
-    }
+        auto file_ops = service_provider.try_get_service<IFileOps>().lock();
+        if (!file_ops)
+        {
+            file_ops = std::make_shared<FileOperator>(std::filesystem::path());
+            service_provider.register_service<IFileOps>(file_ops);
+        }
 
-    std::shared_ptr<ServiceProvider> create_default_service_provider_shared()
-    {
-        return std::shared_ptr<ServiceProvider>(
-            new ServiceProvider(ServiceProvider::DefaultServicesTag {}));
+        auto message_coordinator = service_provider.try_get_service<IMessageCoordinator>().lock();
+        if (!message_coordinator)
+        {
+            message_coordinator = std::make_shared<MessageCoordinator>();
+            service_provider.register_service<IMessageCoordinator>(message_coordinator);
+        }
+
+        auto serialization_registry =
+            service_provider.try_get_service<SerializationRegistry>().lock();
+        if (!serialization_registry)
+        {
+            serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
+            service_provider.register_service<SerializationRegistry>(serialization_registry);
+        }
+
+        auto asset_manager = service_provider.try_get_service<AssetManager>().lock();
+        if (!asset_manager)
+        {
+            asset_manager = std::make_shared<AssetManager>(
+                message_coordinator,
+                serialization_registry,
+                file_ops->get_working_directory(),
+                std::vector<std::filesystem::path> {},
+                HandleSource(),
+                file_ops);
+            service_provider.register_service<AssetManager>(asset_manager);
+        }
+
+        auto world_manager = service_provider.try_get_service<WorldManager>().lock();
+        if (!world_manager)
+        {
+            world_manager = std::make_shared<WorldManager>(asset_manager, message_coordinator);
+            service_provider.register_service<WorldManager>(world_manager);
+        }
+
+        if (service_provider.try_get_service<JobSystem>().expired())
+            service_provider.register_service<JobSystem>(std::make_shared<JobSystem>());
+        if (service_provider.try_get_service<ThreadManager>().expired())
+            service_provider.register_service<ThreadManager>(std::make_shared<ThreadManager>());
     }
 
     void ServiceProvider::deregister_service(std::type_index service_type)

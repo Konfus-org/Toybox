@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/reload_queue.h"
+#include "tbx/systems/assets/messages.h"
 #include "tbx/systems/ecs/world/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/world.h"
@@ -9,6 +9,8 @@
 
 namespace tbx
 {
+    class IMessageCoordinator;
+
     /// @brief
     /// Purpose: Owns the active world reference and coordinates world streaming.
     /// @details
@@ -19,7 +21,7 @@ namespace tbx
       public:
         WorldManager(
             std::weak_ptr<AssetManager> asset_manager,
-            std::weak_ptr<AssetReloadQueue> reload_queue = {});
+            std::weak_ptr<IMessageCoordinator> message_coordinator = {});
         ~WorldManager() noexcept;
 
       public:
@@ -65,7 +67,7 @@ namespace tbx
             const World& world,
             const std::vector<Uuid>& asset_entity_ids);
         bool load_world_globals(World& world);
-        void on_asset_reload(const AssetReloadContext& context);
+        void on_asset_reloaded(const AssetReloadedEvent& event);
         void release_active_world();
 
       private:

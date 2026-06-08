@@ -5,7 +5,6 @@
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
 
-
 namespace tbx::tests::graphics
 {
     // Validates that Sky defaults to an unset material handle.
@@ -164,7 +163,8 @@ namespace tbx::tests::graphics
         auto textures = MaterialTextureBindings {};
         textures.set("albedo_map", Handle("Diffuse"));
         textures.set("normal_map", Handle("Normal"));
-        textures.set("metallic_roughness_map", Handle("Specular"));
+        textures.set("metallic_map", Handle("Metallic"));
+        textures.set("roughness_map", Handle("Roughness"));
         textures.set("ao_map", Handle("Shininess"));
         textures.set("emissive_map", Handle("Emissive"));
 
@@ -180,7 +180,7 @@ namespace tbx::tests::graphics
         // Assert
         ASSERT_TRUE(diffuse_map.has_value());
         EXPECT_TRUE(textures.has("albedo_map"));
-        EXPECT_EQ(texture_count, 5);
+        EXPECT_EQ(texture_count, 6);
         EXPECT_NE(textures.begin(), textures.end());
     }
 

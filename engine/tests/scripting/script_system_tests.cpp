@@ -26,7 +26,7 @@ namespace tbx::tests::scripting
         }
     };
 
-    class DoorScript final : public Script
+    class DoorScript final : public GameplayScript
     {
       public:
         float open_speed = 1.0F;
@@ -127,15 +127,16 @@ namespace tbx::tests::scripting
         resolver.script = std::make_shared<DoorScript>();
         auto services = ServiceProvider();
         auto owner = Entity();
-        auto context = ScriptContext(Uuid(1U), owner, {}, services, resolver);
+        auto context = ScriptContext(Uuid(1U), ScriptBinding {}, owner, {}, services, resolver);
         auto owner_script = DoorScript();
-        owner_script.set_script_reference(
-            "linked_door",
-            ScriptBinding {
-                .entity = Uuid(70U),
-                .script = Uuid(0x41000001U),
-                .binding_id = Uuid(9U),
-            });
+        auto json = Json();
+        json["linked_door"] = {
+            { "entity", { { "value", 70U } } },
+            { "script", { { "value", 0x41000001U } } },
+            { "binding_id", { { "value", 9U } } },
+        };
+        auto stored_reference = std::weak_ptr<DoorScript>();
+        read_script_reference_field(json, "linked_door", owner_script, stored_reference);
         auto reference = std::weak_ptr<DoorScript>();
         bind_script_reference_field(owner_script, "linked_door", reference, context);
 

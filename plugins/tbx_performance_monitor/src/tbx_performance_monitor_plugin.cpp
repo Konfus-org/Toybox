@@ -10,6 +10,9 @@ namespace tbx::performance_monitor
     void PerformanceMonitor::on_attach()
     {
         reset_performance_sample();
+#if !defined(TBX_FULL_RELEASE)
+        _debug_window_title_monitor.reset();
+#endif
     }
 
     void PerformanceMonitor::on_detach()
@@ -22,8 +25,7 @@ namespace tbx::performance_monitor
 
 #if !defined(TBX_FULL_RELEASE)
         _debug_main_window_title.clear();
-        _debug_window_title_elapsed_seconds = 0.0;
-        _debug_window_title_frame_count = 0U;
+        _debug_window_title_monitor.reset();
 #endif
     }
 
@@ -40,7 +42,8 @@ namespace tbx::performance_monitor
             const auto& dt = update_end_event->get().delta_time;
             record_frame(dt);
 #if !defined(TBX_FULL_RELEASE)
-            update_debug_main_window_title(update_end_event->get().application, dt);
+            _debug_window_title_monitor.record_frame(dt);
+            update_debug_main_window_title(update_end_event->get().application);
 #endif
         }
     }
@@ -118,9 +121,7 @@ namespace tbx::performance_monitor
     }
 
 #if !defined(TBX_FULL_RELEASE)
-    void PerformanceMonitor::update_debug_main_window_title(
-        tbx::Application& application,
-        const tbx::DeltaTime& dt)
+    void PerformanceMonitor::update_debug_main_window_title(tbx::Application& application)
     {
         if (!_main_window.id.is_valid())
             return;
@@ -130,30 +131,18 @@ namespace tbx::performance_monitor
         if (!window_manager || !window_manager->is_open(_main_window))
             return;
 
-        _debug_window_title_elapsed_seconds += dt.seconds;
-        ++_debug_window_title_frame_count;
-
-        constexpr double debug_window_title_interval_seconds = 0.25;
-        if (_debug_window_title_elapsed_seconds < debug_window_title_interval_seconds)
+        const auto& settings = application.get_settings();
+        const auto next_title = _debug_window_title_monitor.consume_title(
+            _main_window_base_title,
+            settings.graphics.graphics_api);
+        if (!next_title.has_value())
             return;
 
-        const auto average_fps = calculate_fps_averages().average_fps;
-        const auto& settings = application.get_settings();
-
-        auto next_title = std::format(
-            "{} [{}, FPS: {}]",
-            _main_window_base_title,
-            settings.graphics.graphics_api,
-            static_cast<int>(average_fps));
-
-        if (_debug_main_window_title != next_title)
+        if (_debug_main_window_title != *next_title)
         {
-            window_manager->set_title(_main_window, next_title);
-            _debug_main_window_title = next_title;
+            window_manager->set_title(_main_window, *next_title);
+            _debug_main_window_title = *next_title;
         }
-
-        _debug_window_title_elapsed_seconds = 0.0;
-        _debug_window_title_frame_count = 0U;
     }
 #endif
 

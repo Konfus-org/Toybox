@@ -14,12 +14,34 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 
 namespace tbx
 {
     class Script;
+    class ScriptContext;
+    class ScriptSystem;
     class World;
+
+    template <typename TJson, typename TScript>
+    void read_script_reference_field(
+        const TJson& json,
+        std::string_view field_name,
+        Script& owner,
+        std::weak_ptr<TScript>& script);
+
+    template <typename TJson, typename TScript>
+    void write_script_reference_field(
+        TJson& json,
+        std::string_view field_name,
+        const Script& owner,
+        const std::weak_ptr<TScript>& script);
+
+    template <typename TScript>
+    void bind_script_reference_field(
+        Script& owner,
+        std::string_view field_name,
+        std::weak_ptr<TScript>& script,
+        ScriptContext& context);
 
     struct ScriptLookup
     {
@@ -60,6 +82,7 @@ namespace tbx
         ScriptContext() = default;
         ScriptContext(
             Uuid world_id,
+            ScriptBinding binding,
             Entity entity,
             std::weak_ptr<World> world,
             ServiceProvider& services,
@@ -68,6 +91,7 @@ namespace tbx
       public:
         Entity& get_entity() const;
         Uuid get_entity_id() const;
+        ScriptBinding get_script_binding() const;
         IScriptResolver& get_resolver() const;
         ServiceProvider& get_services() const;
         std::weak_ptr<World> get_world_ptr() const;
@@ -76,8 +100,9 @@ namespace tbx
 
       private:
         Uuid _world_id = {};
-        Entity _entity = {};
         std::weak_ptr<World> _world = {};
+        Entity _entity = {};
+        ScriptBinding _binding = {};
         std::optional<std::reference_wrapper<ServiceProvider>> _services = std::nullopt;
         std::optional<std::reference_wrapper<IScriptResolver>> _resolver = std::nullopt;
     };
@@ -89,30 +114,18 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Base asset type for C++ gameplay behavior prototypes.
+    /// Purpose: Base asset type for C++ script prototypes with shared context and binding support.
     class TBX_API Script : public Asset
     {
       public:
         Script() = default;
-        virtual ~Script() noexcept = default;
+        ~Script() noexcept override;
 
       public:
         Script(const Script&) = delete;
         Script& operator=(const Script&) = delete;
         Script(Script&&) noexcept = delete;
         Script& operator=(Script&&) noexcept = delete;
-
-      public:
-        void bind(ScriptBinding binding);
-        void bind_context(ScriptContext context);
-        std::optional<ScriptBinding> get_script_binding() const;
-        std::optional<ScriptBinding> get_script_reference(std::string_view field_name) const;
-        void set_script_reference(std::string_view field_name, ScriptBinding binding);
-
-        virtual void on_destroy() {}
-        virtual void on_fixed_update(const DeltaTime&) {}
-        virtual void on_start() {}
-        virtual void on_update(const DeltaTime&) {}
 
       protected:
         Entity& get_entity() const;
@@ -121,19 +134,66 @@ namespace tbx
         World& get_world() const;
 
       private:
-        std::optional<ScriptContext> _context = std::nullopt;
-        std::optional<ScriptBinding> _binding = std::nullopt;
-        std::unordered_map<std::string, ScriptBinding> _script_references = {};
+        friend class ScriptSystem;
+
+      private:
+        template <typename TJson, typename TScript>
+        friend void read_script_reference_field(
+            const TJson& json,
+            std::string_view field_name,
+            Script& owner,
+            std::weak_ptr<TScript>& script);
+
+        template <typename TJson, typename TScript>
+        friend void write_script_reference_field(
+            TJson& json,
+            std::string_view field_name,
+            const Script& owner,
+            const std::weak_ptr<TScript>& script);
+
+        template <typename TScript>
+        friend void bind_script_reference_field(
+            Script& owner,
+            std::string_view field_name,
+            std::weak_ptr<TScript>& script,
+            ScriptContext& context);
+
+      private:
+        void bind(ScriptContext context);
+        std::optional<ScriptBinding> get_script_binding() const;
+        std::optional<ScriptBinding> get_script_reference(std::string_view field_name) const;
+        void set_script_reference(std::string_view field_name, ScriptBinding binding);
+    };
+
+    /// @brief
+    /// Purpose: Base asset type for gameplay scripts driven by ScriptSystem lifetime hooks.
+    class TBX_API GameplayScript : public Script
+    {
+      public:
+        GameplayScript() = default;
+        ~GameplayScript() noexcept override = default;
+
+      public:
+        GameplayScript(const GameplayScript&) = delete;
+        GameplayScript& operator=(const GameplayScript&) = delete;
+        GameplayScript(GameplayScript&&) noexcept = delete;
+        GameplayScript& operator=(GameplayScript&&) noexcept = delete;
+
+      public:
+        virtual void on_destroy() {}
+        virtual void on_fixed_update(const DeltaTime&) {}
+        virtual void on_start() {}
+        virtual void on_update(const DeltaTime&) {}
     };
 
     template <typename TJson, typename TScript>
-        requires std::derived_from<TScript, Script>
     inline void read_script_reference_field(
         const TJson& json,
         std::string_view field_name,
         Script& owner,
         std::weak_ptr<TScript>& script)
     {
+        static_assert(std::derived_from<TScript, Script>);
         auto binding = ScriptBinding {};
         read_serialization_field(json, field_name, binding, ScriptBinding {});
         owner.set_script_reference(field_name, binding);
@@ -141,13 +201,13 @@ namespace tbx
     }
 
     template <typename TJson, typename TScript>
-        requires std::derived_from<TScript, Script>
     inline void write_script_reference_field(
         TJson& json,
         std::string_view field_name,
         const Script& owner,
         const std::weak_ptr<TScript>& script)
     {
+        static_assert(std::derived_from<TScript, Script>);
         auto binding = ScriptBinding {};
         if (const auto resolved = script.lock())
         {
@@ -164,13 +224,13 @@ namespace tbx
     }
 
     template <typename TScript>
-        requires std::derived_from<TScript, Script>
     inline void bind_script_reference_field(
         Script& owner,
         std::string_view field_name,
         std::weak_ptr<TScript>& script,
         ScriptContext& context)
     {
+        static_assert(std::derived_from<TScript, Script>);
         const auto binding = owner.get_script_reference(field_name);
         if (!binding.has_value() || !binding->script.is_valid())
         {

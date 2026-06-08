@@ -8,6 +8,14 @@
 namespace tbx
 {
     /// @brief
+    /// Purpose: Returns the directory containing the current process executable.
+    /// @details
+    /// Ownership: Returns a caller-owned path value that may be empty when the platform lookup
+    /// fails.
+    /// Thread Safety: Safe to call concurrently.
+    TBX_API std::filesystem::path get_process_executable_directory();
+
+    /// @brief
     /// Purpose: Describes the filesystem entry type for paths and creation requests.
     /// @details
     /// Ownership: Not applicable; this is a value-type classification.

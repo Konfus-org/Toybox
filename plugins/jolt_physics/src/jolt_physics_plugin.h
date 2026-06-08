@@ -8,10 +8,10 @@
 namespace jolt_physics
 {
     [[tbx::plugin(
-        name = "JoltPhysicsPlugin",
+        name = "JoltPhysics",
         version = "1.0.0",
         category = tbx::PluginCategory::PHYSICS)]];
-    class TBX_PLUGIN_API JoltPhysicsPlugin final : public tbx::Plugin
+    class TBX_PLUGIN_API JoltPhysics final : public tbx::Plugin
     {
       public:
         void on_detach() override;

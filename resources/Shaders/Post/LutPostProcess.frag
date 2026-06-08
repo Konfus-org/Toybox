@@ -1,4 +1,4 @@
-#include "Base/PostShaderBase.glsl"
+#include "ShaderBase.glsl"
 
 layout(location = 0) in vec2 v_tex_coord;
 layout(location = 0) out vec4 o_color;
@@ -26,9 +26,8 @@ vec3 sample_lut(vec3 color)
     float color_size = texture_size.y;
     float slice_count = floor((texture_size.x / max(color_size, 1.0)) + 0.5);
 
-    bool has_valid_strip_lut = color_size >= 2.0
-        && slice_count >= 2.0
-        && abs(texture_size.x - (slice_count * color_size)) <= 0.5;
+    bool has_valid_strip_lut = color_size >= 2.0 && slice_count >= 2.0
+                               && abs(texture_size.x - (slice_count * color_size)) <= 0.5;
     if (!has_valid_strip_lut)
     {
         return color;
@@ -39,18 +38,16 @@ vec3 sample_lut(vec3 color)
     float slice0 = floor(blue);
     float slice1 = min(slice0 + 1.0, color_range);
 
-    vec3 graded0 =
-        textureLod(
-            tbx_post_effect_texture0,
-            get_lut_uv(texture_size, color_size, slice0, color),
-            0.0)
-            .rgb;
-    vec3 graded1 =
-        textureLod(
-            tbx_post_effect_texture0,
-            get_lut_uv(texture_size, color_size, slice1, color),
-            0.0)
-            .rgb;
+    vec3 graded0 = textureLod(
+                       tbx_post_effect_texture0,
+                       get_lut_uv(texture_size, color_size, slice0, color),
+                       0.0)
+                       .rgb;
+    vec3 graded1 = textureLod(
+                       tbx_post_effect_texture0,
+                       get_lut_uv(texture_size, color_size, slice1, color),
+                       0.0)
+                       .rgb;
     return mix(graded0, graded1, fract(blue));
 }
 

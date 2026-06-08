@@ -17,13 +17,15 @@
                     "b": 0,
                     "a": 0.35
                 }
-            }
+            },
+            "target": "base_color"
         }
     ],
     "textures": [
         {
             "name": "albedo_map",
-            "texture": 0
+            "texture": 0,
+            "target": "albedo_texture"
         }
     ],
     "config": {

@@ -1,0 +1,111 @@
+{
+    "shader": {
+        "vertex": 304,
+        "fragment": 305,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        {
+            "name": "albedo_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 1,
+                    "a": 1
+                }
+            },
+            "target": "base_color"
+        },
+        {
+            "name": "emissive_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 1,
+                    "a": 1
+                }
+            },
+            "target": "emissive_color"
+        },
+        {
+            "name": "metallic",
+            "data": {
+                "type": "float",
+                "value": 0
+            },
+            "target": "metallic"
+        },
+        {
+            "name": "roughness",
+            "data": {
+                "type": "float",
+                "value": 1
+            },
+            "target": "roughness"
+        },
+        {
+            "name": "normal_strength",
+            "data": {
+                "type": "float",
+                "value": 1
+            },
+            "target": "normal_strength"
+        },
+        {
+            "name": "ao",
+            "data": {
+                "type": "float",
+                "value": 1
+            },
+            "target": "ao"
+        }
+    ],
+    "textures": [
+        {
+            "name": "albedo_map",
+            "texture": 0,
+            "target": "albedo_texture"
+        },
+        {
+            "name": "normal_map",
+            "texture": 0,
+            "target": "normal_texture"
+        },
+        {
+            "name": "metallic_map",
+            "texture": 0,
+            "target": "metallic_texture"
+        },
+        {
+            "name": "roughness_map",
+            "texture": 0,
+            "target": "roughness_texture"
+        },
+        {
+            "name": "ao_map",
+            "texture": 0,
+            "target": "ao_texture"
+        },
+        {
+            "name": "emissive_map",
+            "texture": 0,
+            "target": "emissive_texture"
+        }
+    ],
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": false,
+        "is_cullable": true,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "off"
+    }
+}

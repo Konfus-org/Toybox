@@ -10,7 +10,7 @@ namespace opengl_rendering
     /// Purpose: Stores the last buffer resource bound to one indexed GL binding point.
     struct OpenGlBufferSlotBinding
     {
-        tbx::Uuid resource = {};
+        tbx::GpuId resource = tbx::INVALID_GPU_ID;
         uint64 offset = 0U;
         uint64 range = 0U;
     };
@@ -19,7 +19,8 @@ namespace opengl_rendering
     /// Purpose: Stores the last raster state applied to OpenGL.
     struct OpenGlPipelineState
     {
-        tbx::Uuid id = {};
+        tbx::GpuId id = tbx::INVALID_GPU_ID;
+        tbx::MaterialDepthFunction depth_function = tbx::MaterialDepthFunction::LESS;
         bool is_depth_test_enabled = true;
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
@@ -40,13 +41,13 @@ namespace opengl_rendering
         tbx::VsyncMode vsync_mode = tbx::VsyncMode::OFF;
         int32 max_uniform_buffer_bindings = -1;
 
-        std::vector<tbx::Uuid> bound_samplers = {};
-        std::vector<tbx::Uuid> bound_sampled_textures = {};
-        std::vector<tbx::Uuid> bound_image_textures = {};
-        std::vector<tbx::Uuid> bound_vertex_buffers = {};
+        std::vector<tbx::GpuId> bound_samplers = {};
+        std::vector<tbx::GpuId> bound_sampled_textures = {};
+        std::vector<tbx::GpuId> bound_image_textures = {};
+        std::vector<tbx::GpuId> bound_vertex_buffers = {};
         std::vector<OpenGlBufferSlotBinding> bound_storage_buffers = {};
         std::vector<OpenGlBufferSlotBinding> bound_uniform_buffers = {};
-        tbx::Uuid bound_index_buffer = {};
+        tbx::GpuId bound_index_buffer = tbx::INVALID_GPU_ID;
 
         bool is_loaded = false;
         bool is_compute_pass_active = false;

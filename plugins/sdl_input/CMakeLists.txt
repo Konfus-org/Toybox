@@ -1,5 +1,5 @@
 tbx_add_plugin(
-    NAME SdlInputPlugin
+    NAME SdlInput
     PRIVATE_LINKS
         EnTT::EnTT
         SDL3::SDL3-shared
