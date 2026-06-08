@@ -6,10 +6,6 @@
 #include <filesystem>
 #include <memory>
 
-// App modules can own generated static registrations that live in Engine registries until process
-// teardown, so keep the module mapped after the app instance is gone.
-static tbx::SharedLibrary* g_process_lifetime_app_library = nullptr;
-
 int Launcher::run(int argc, char* argv[])
 {
     auto exit_code = -1;
@@ -71,10 +67,6 @@ int Launcher::run(int argc, char* argv[])
 
         exit_code = app->run(command_list, working_directory);
         app.reset();
-        TBX_ASSERT(
-            g_process_lifetime_app_library == nullptr,
-            "Launcher can retain only one app module for process lifetime.");
-        g_process_lifetime_app_library = app_library.release();
     }
     catch (const std::exception& ex)
     {

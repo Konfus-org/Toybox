@@ -6,6 +6,8 @@
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
+#include <functional>
+#include <optional>
 
 namespace tbx
 {
@@ -74,10 +76,16 @@ namespace tbx
             service_provider.deregister_service(service_type);
     }
 
-    void PluginUnloader::detach(
+    static void unload_plugins(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
-        IMessageCoordinator* coordinator)
+        PluginOwnershipTracker& ownership_tracker,
+        std::optional<std::reference_wrapper<IMessageCoordinator>> coordinator);
+
+    static void detach_plugins(
+        LoadedPlugins& loaded_plugins,
+        ServiceProvider& service_provider,
+        std::optional<std::reference_wrapper<IMessageCoordinator>> coordinator)
     {
         auto remaining_plugins = std::vector<LoadedPlugin*>();
         remaining_plugins.reserve(loaded_plugins.size());
@@ -132,31 +140,61 @@ namespace tbx
 
             const size selected_index = candidates.front();
             remaining_plugins[selected_index]->detach(service_provider);
-            if (coordinator)
-                coordinator->flush();
+            if (coordinator.has_value())
+                coordinator->get().flush();
 
             remaining_plugins.erase(
                 remaining_plugins.begin() + static_cast<std::ptrdiff_t>(selected_index));
         }
     }
 
+    void PluginUnloader::detach(LoadedPlugins& loaded_plugins, ServiceProvider& service_provider)
+    {
+        detach_plugins(loaded_plugins, service_provider, std::nullopt);
+    }
+
+    void PluginUnloader::detach(
+        LoadedPlugins& loaded_plugins,
+        ServiceProvider& service_provider,
+        IMessageCoordinator& coordinator)
+    {
+        detach_plugins(loaded_plugins, service_provider, std::ref(coordinator));
+    }
+
     void PluginUnloader::unload(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker,
-        IMessageCoordinator* coordinator)
+        PluginOwnershipTracker& ownership_tracker)
     {
-        detach(loaded_plugins, service_provider, coordinator);
-        if (coordinator)
-            coordinator->flush();
+        unload_plugins(loaded_plugins, service_provider, ownership_tracker, std::nullopt);
+    }
+
+    static void unload_plugins(
+        LoadedPlugins& loaded_plugins,
+        ServiceProvider& service_provider,
+        PluginOwnershipTracker& ownership_tracker,
+        std::optional<std::reference_wrapper<IMessageCoordinator>> coordinator)
+    {
+        detach_plugins(loaded_plugins, service_provider, coordinator);
+        if (coordinator.has_value())
+            coordinator->get().flush();
 
         for (const auto& plugin : loaded_plugins)
         {
             clear_plugin_owned_resources(plugin.get_id(), service_provider, ownership_tracker);
-            if (coordinator)
-                coordinator->flush();
+            if (coordinator.has_value())
+                coordinator->get().flush();
         }
 
         loaded_plugins.clear();
+    }
+
+    void PluginUnloader::unload(
+        LoadedPlugins& loaded_plugins,
+        ServiceProvider& service_provider,
+        PluginOwnershipTracker& ownership_tracker,
+        IMessageCoordinator& coordinator)
+    {
+        unload_plugins(loaded_plugins, service_provider, ownership_tracker, std::ref(coordinator));
     }
 }

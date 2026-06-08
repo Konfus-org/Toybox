@@ -3,10 +3,11 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/tbx_api.h"
 
 namespace tbx
 {
-    class PluginUnloader final
+    class TBX_API PluginUnloader final
     {
       public:
         PluginUnloader() = default;
@@ -19,15 +20,22 @@ namespace tbx
         PluginUnloader& operator=(PluginUnloader&&) = delete;
 
       public:
+        void detach(LoadedPlugins& loaded_plugins, ServiceProvider& service_provider);
+
         void detach(
             LoadedPlugins& loaded_plugins,
             ServiceProvider& service_provider,
-            IMessageCoordinator* coordinator = nullptr);
+            IMessageCoordinator& coordinator);
+
+        void unload(
+            LoadedPlugins& loaded_plugins,
+            ServiceProvider& service_provider,
+            PluginOwnershipTracker& ownership_tracker);
 
         void unload(
             LoadedPlugins& loaded_plugins,
             ServiceProvider& service_provider,
             PluginOwnershipTracker& ownership_tracker,
-            IMessageCoordinator* coordinator = nullptr);
+            IMessageCoordinator& coordinator);
     };
 }

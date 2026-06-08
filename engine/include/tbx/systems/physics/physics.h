@@ -3,6 +3,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/ecs/world/manager.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
@@ -10,8 +11,6 @@
 
 namespace tbx
 {
-    class IMessageCoordinator;
-
     /// @brief
     /// Purpose: Application-owned physics service that synchronizes ECS components with the
     /// registered physics backend.

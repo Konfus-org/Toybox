@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
@@ -13,10 +14,7 @@
 
 namespace tbx
 {
-    class IMessageCoordinator;
-
-    // TODO: make shadow cascades fully configurable from graphics settings and make shadows render
-    // really far by default, but far shadows should use a super low resolution
+    // Shadow cascades are currently fixed in the renderer until graphics settings owns that policy.
     /// @brief
     /// Purpose: Orchestrates the per-frame render loop and submits frame work to the render lane.
     /// @details

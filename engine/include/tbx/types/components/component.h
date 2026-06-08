@@ -12,8 +12,6 @@
 
 namespace tbx
 {
-    class Entity;
-
     /// @brief
     /// Purpose: Provides identity metadata common to public ECS components.
     /// @details
@@ -45,7 +43,7 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     static bool register_entity_component_type()
     {
-        static_cast<void>(ensure_serializable_type_registered<TComponent>());
+        ensure_serializable_type_registered<TComponent>();
 
         auto type_name = get_serialization_type_name<TComponent>();
         if (type_name.empty())

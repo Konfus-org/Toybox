@@ -11,7 +11,7 @@ namespace tbx::tests::app
         char app[] = "--app=ExampleApp";
         char working[] = "--working-dir=C:/Toybox/Apps/ThreeD";
         char settings[] = "--settings=Configs/ThreeDSettings.json";
-        char option[] = "--load-plugins=ThreeDExampleApp, PerformanceMonitor";
+        char option[] = "--load-plugins=ExampleApp, PerformanceMonitor";
         char flag[] = "--headless=true";
         char positional[] = "Example.world";
         char* argv[] = {program, app, working, settings, option, flag, positional};
@@ -25,7 +25,7 @@ namespace tbx::tests::app
         EXPECT_EQ(commands.get<std::string>("working-dir"), "C:/Toybox/Apps/ThreeD");
         EXPECT_EQ(commands.get<std::string>("settings"), "Configs/ThreeDSettings.json");
         ASSERT_EQ(plugins.size(), 2U);
-        EXPECT_EQ(plugins[0], "ThreeDExampleApp");
+        EXPECT_EQ(plugins[0], "ExampleApp");
         EXPECT_EQ(plugins[1], "PerformanceMonitor");
         EXPECT_TRUE(commands.has("headless"));
         ASSERT_EQ(commands.get_positionals().size(), 1U);

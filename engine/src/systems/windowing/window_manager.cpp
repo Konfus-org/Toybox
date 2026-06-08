@@ -1,6 +1,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
 #include "tbx/systems/windowing/manager.h"
+#include <ranges>
 
 namespace tbx
 {
@@ -243,9 +244,8 @@ namespace tbx
 
     void WindowManager::shutdown()
     {
-        for (const auto& [window_id, record] : _state->windows)
+        for (const auto& window_id : std::views::keys(_state->windows))
         {
-            (void)record;
             queue_window_close(window_id);
         }
         process_pending_window_closes();
@@ -292,9 +292,8 @@ namespace tbx
             }
 
             case WindowBackendEventType::QUIT_REQUESTED:
-                for (const auto& [window_id, record] : _state->windows)
+                for (const auto& window_id : std::views::keys(_state->windows))
                 {
-                    (void)record;
                     queue_window_close(window_id);
                 }
                 break;

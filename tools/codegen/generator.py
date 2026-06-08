@@ -1063,6 +1063,20 @@ def emit_plugin_source(
 
     lines.extend(
         [
+            "::tbx::PluginMeta tbx_get_plugin_meta()",
+            "{",
+            "    auto meta = ::tbx::PluginMeta {};",
+            f"    meta.name = {cpp_string(plugin_name)};",
+            f"    meta.version = {cpp_string(plugin_version)};",
+            f"    meta.description = {cpp_string(description or '')};",
+            f"    meta.dependencies = {dependency_initializer};",
+            f"    meta.abi_version = {validated_plugin_abi_version}U;",
+            f"    meta.category = {category_expression};",
+            "    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;",
+            f"    meta.priority = {priority}U;",
+            "    return meta;",
+            "}",
+            "",
             "TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* tbx_create_plugin()",
             "{",
             f"    ::tbx::Plugin* plugin = new {qualified_plugin_name}();",

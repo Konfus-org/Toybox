@@ -433,11 +433,17 @@ namespace tbx
 
     LoadedPlugins PluginLoader::load(
         const std::filesystem::path& path,
-        const std::vector<std::string>& requested_ids,
-        IFileOps* provided_file_ops)
+        const std::vector<std::string>& requested_ids)
     {
         auto default_file_ops = FileOperator();
-        IFileOps& file_ops = provided_file_ops != nullptr ? *provided_file_ops : default_file_ops;
+        return load(path, requested_ids, default_file_ops);
+    }
+
+    LoadedPlugins PluginLoader::load(
+        const std::filesystem::path& path,
+        const std::vector<std::string>& requested_ids,
+        IFileOps& file_ops)
+    {
         auto loaded = LoadedPlugins();
         const auto resolved_path = path.empty() ? file_ops.get_working_directory() : path;
 

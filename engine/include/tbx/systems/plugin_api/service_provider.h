@@ -1,5 +1,11 @@
 #pragma once
+#include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/systems/async/job_system.h"
+#include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/tbx_api.h"
@@ -11,16 +17,6 @@
 
 namespace tbx
 {
-    class ServiceProvider;
-    class AssetManager;
-    class IMessageCoordinator;
-    class JobSystem;
-    class SerializationRegistry;
-    class ThreadManager;
-    class WorldManager;
-
-    TBX_API void register_default_services(ServiceProvider& service_provider);
-
     /// @brief
     /// Purpose: Owns runtime services and exposes typed lookup for plugins and systems.
     /// @details
@@ -80,6 +76,8 @@ namespace tbx
         Entries _entries = {};
         std::vector<std::type_index> _registration_order = {};
     };
+
+    TBX_API void register_default_services(ServiceProvider& service_provider);
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

@@ -13,10 +13,10 @@ target_link_libraries(ToyboxLauncher
     PRIVATE
         Tbx::Engine
 )
-if(TBX_BUILD_EXAMPLES AND TARGET ThreeDExampleApp)
-    add_dependencies(ToyboxLauncher ThreeDExampleApp)
+if(TBX_BUILD_EXAMPLES AND TARGET ExampleApp)
+    add_dependencies(ToyboxLauncher ExampleApp)
     set_target_properties(ToyboxLauncher PROPERTIES
-        VS_DEBUGGER_COMMAND_ARGUMENTS "--app=ThreeDExampleApp --settings=\"${PROJECT_SOURCE_DIR}/examples/assets/Settings.json\""
+        VS_DEBUGGER_COMMAND_ARGUMENTS "--app=ExampleApp --settings=\"${PROJECT_SOURCE_DIR}/examples/assets/Settings.json\""
     )
 endif()
 target_precompile_headers(ToyboxLauncher PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")

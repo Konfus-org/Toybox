@@ -1,10 +1,11 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/plugin_api/loaded_plugin.h"
+#include "tbx/tbx_api.h"
 
 namespace tbx
 {
-    class PluginLoader final
+    class TBX_API PluginLoader final
     {
       public:
         PluginLoader() = default;
@@ -19,7 +20,11 @@ namespace tbx
       public:
         LoadedPlugins load(
             const std::filesystem::path& path,
-            const std::vector<std::string>& requested_ids = {},
-            IFileOps* file_ops = nullptr);
+            const std::vector<std::string>& requested_ids = {});
+
+        LoadedPlugins load(
+            const std::filesystem::path& path,
+            const std::vector<std::string>& requested_ids,
+            IFileOps& file_ops);
     };
 }

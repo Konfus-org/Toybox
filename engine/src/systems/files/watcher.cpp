@@ -151,7 +151,7 @@ namespace tbx
         std::filesystem::path path_to_watch,
         FileWatchAction on_changed,
         std::chrono::milliseconds poll_interval,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : FileWatcher(
               std::move(path_to_watch),
               std::move(on_changed),
@@ -164,19 +164,24 @@ namespace tbx
         std::filesystem::path path_to_watch,
         FileWatchAction on_changed,
         FileWatchOptions options,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : _on_changed(std::move(on_changed))
         , _file_ops(std::move(file_ops))
         , _snapshot({})
         , _options(normalize_file_watch_options(std::move(options)))
         , _watched_path(path_to_watch.lexically_normal())
     {
-        if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>();
+        auto file_ops_service = lock_file_ops();
+        if (!file_ops_service)
+        {
+            _owned_file_ops = std::make_shared<FileOperator>();
+            _file_ops = _owned_file_ops;
+            file_ops_service = _owned_file_ops;
+        }
         if (_watched_path.empty() || !_on_changed)
             return;
 
-        _snapshot = read_snapshot(*_file_ops, _watched_path, _options.filter);
+        _snapshot = read_snapshot(*file_ops_service, _watched_path, _options.filter);
 
         _worker = std::jthread(
             [this](std::stop_token stop_token)
@@ -213,13 +218,22 @@ namespace tbx
         return _options.idle_poll_interval;
     }
 
+    std::shared_ptr<IFileOps> FileWatcher::lock_file_ops() const
+    {
+        return _file_ops.lock();
+    }
+
     bool FileWatcher::poll_watched_path()
     {
         if (_watched_path.empty() || !_on_changed)
             return false;
 
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return false;
+
         FileWatchSnapshot current_snapshot =
-            read_snapshot(*_file_ops, _watched_path, _options.filter);
+            read_snapshot(*file_ops, _watched_path, _options.filter);
         const std::vector<FileWatchChange> changes =
             diff_file_watch_snapshots(_snapshot, current_snapshot);
 

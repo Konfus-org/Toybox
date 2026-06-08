@@ -94,6 +94,7 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     bool SerializationRegistry::can_read() const
     {
+        const auto file_ops = lock_file_ops();
         std::lock_guard lock(_mutex);
         const auto registration = find_registration<TAsset>();
         const bool has_registered_loader =
@@ -110,7 +111,7 @@ namespace tbx
         const bool has_default_loader =
             asset_registration.has_value()
             && (asset_registration->read_body || asset_registration->transform_meta);
-        return _file_ops != nullptr && (has_registered_transformer || has_default_loader);
+        return file_ops != nullptr && (has_registered_transformer || has_default_loader);
     }
 
     template <typename TAsset>
@@ -121,13 +122,12 @@ namespace tbx
     {
         Loader<TAsset> loader = {};
         std::vector<Transformer<TAsset>> transformers = {};
-        std::shared_ptr<IFileOps> file_ops = {};
+        auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
 
         {
             std::lock_guard lock(_mutex);
-            file_ops = _file_ops;
             const auto registration = find_registration<TAsset>();
             if (registration.has_value())
             {
@@ -138,27 +138,30 @@ namespace tbx
 
         auto read = AssetReadResult<TAsset> {};
         read.asset = std::make_shared<TAsset>();
+        if (!file_ops)
+        {
+            read.asset.reset();
+            read.result = make_failed_result("Serialization registry has no file operations.");
+            return read;
+        }
 
         auto metadata = AssetLoadMetadata {};
         auto meta_data = std::optional<std::string> {};
         auto loaded_meta = false;
-        if (file_ops)
+        const auto expected_version =
+            asset_registration.has_value() ? asset_registration->version : 0U;
+        auto meta_result = try_read_tbx_serialized_asset_meta(
+            asset_path,
+            *file_ops,
+            expected_version,
+            metadata,
+            meta_data,
+            loaded_meta);
+        if (!meta_result.succeeded())
         {
-            const auto expected_version =
-                asset_registration.has_value() ? asset_registration->version : 0U;
-            auto meta_result = try_read_tbx_serialized_asset_meta(
-                asset_path,
-                file_ops,
-                expected_version,
-                metadata,
-                meta_data,
-                loaded_meta);
-            if (!meta_result.succeeded())
-            {
-                read.asset.reset();
-                read.result = std::move(meta_result);
-                return read;
-            }
+            read.asset.reset();
+            read.result = std::move(meta_result);
+            return read;
         }
         read.metadata = metadata;
 
@@ -166,11 +169,11 @@ namespace tbx
         {
             read.result = loader(asset_path, parameters, metadata, *read.asset);
         }
-        else if (file_ops && asset_registration.has_value() && asset_registration->read_body)
+        else if (asset_registration.has_value() && asset_registration->read_body)
         {
             read.result = try_load_registered_asset_body(
                 asset_path,
-                file_ops,
+                *file_ops,
                 *asset_registration,
                 read.asset.get());
         }
@@ -226,13 +229,12 @@ namespace tbx
     {
         AsyncLoader<TAsset> async_loader = {};
         std::vector<Transformer<TAsset>> transformers = {};
-        std::shared_ptr<IFileOps> file_ops = {};
+        auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
 
         {
             std::lock_guard lock(_mutex);
-            file_ops = _file_ops;
             const auto registration = find_registration<TAsset>();
             if (registration.has_value())
             {
@@ -254,23 +256,28 @@ namespace tbx
         auto metadata = AssetLoadMetadata {};
         auto meta_data = std::optional<std::string> {};
         auto loaded_meta = false;
-        if (file_ops)
+        if (!file_ops)
         {
-            const auto expected_version =
-                asset_registration.has_value() ? asset_registration->version : 0U;
-            auto meta_result = try_read_tbx_serialized_asset_meta(
-                asset_path,
-                file_ops,
-                expected_version,
-                metadata,
-                meta_data,
-                loaded_meta);
-            if (!meta_result.succeeded())
-            {
-                auto result = AssetPromise<TAsset> {};
-                result.promise = make_ready_future(std::move(meta_result));
-                return result;
-            }
+            auto result = AssetPromise<TAsset> {};
+            result.promise =
+                make_ready_future(make_failed_result("Serialization registry has no file operations."));
+            return result;
+        }
+
+        const auto expected_version =
+            asset_registration.has_value() ? asset_registration->version : 0U;
+        auto meta_result = try_read_tbx_serialized_asset_meta(
+            asset_path,
+            *file_ops,
+            expected_version,
+            metadata,
+            meta_data,
+            loaded_meta);
+        if (!meta_result.succeeded())
+        {
+            auto result = AssetPromise<TAsset> {};
+            result.promise = make_ready_future(std::move(meta_result));
+            return result;
         }
 
         auto result = AssetPromise<TAsset> {};
@@ -388,13 +395,12 @@ namespace tbx
         const TAsset& asset) const
     {
         Writer<TAsset> writer = {};
-        std::shared_ptr<IFileOps> file_ops = {};
+        auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
 
         {
             std::lock_guard lock(_mutex);
-            file_ops = _file_ops;
             const auto registration = find_registration<TAsset>();
             if (registration.has_value())
                 writer = registration->get().writer;
@@ -408,10 +414,12 @@ namespace tbx
                     std::string("Serialization writer not registered for type '")
                     + typeid(TAsset).name() + "'.");
             }
+            if (!file_ops)
+                return make_failed_result("Serialization registry has no file operations.");
 
             return try_write_registered_asset_body(
                 asset_path,
-                file_ops,
+                *file_ops,
                 *asset_registration,
                 &asset);
         }
@@ -523,19 +531,12 @@ namespace tbx
 
     inline Result SerializationRegistry::try_load_registered_asset_body(
         const std::filesystem::path& asset_path,
-        const std::shared_ptr<IFileOps>& file_ops,
+        const IFileOps& file_ops,
         const AssetTypeRegistration& asset_registration,
         void* asset)
     {
-        if (file_ops == nullptr)
-        {
-            return make_failed_result(
-                std::string("Serialization loader not registered for type '")
-                + asset_registration.type_name + "'.");
-        }
-
         auto contents = std::string();
-        if (!file_ops->read_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
+        if (!file_ops.read_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
         {
             return make_failed_result(
                 std::string("Failed to read Toybox asset body '")
@@ -554,23 +555,16 @@ namespace tbx
 
     inline Result SerializationRegistry::try_write_registered_asset_body(
         const std::filesystem::path& asset_path,
-        const std::shared_ptr<IFileOps>& file_ops,
+        IFileOps& file_ops,
         const AssetTypeRegistration& asset_registration,
         const void* asset)
     {
-        if (file_ops == nullptr)
-        {
-            return make_failed_result(
-                std::string("Serialization writer not registered for type '")
-                + asset_registration.type_name + "'.");
-        }
-
         auto contents = std::string();
         auto result = asset_registration.write_body(asset, contents);
         if (!result.succeeded())
             return result;
 
-        if (!file_ops->write_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
+        if (!file_ops.write_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
         {
             return make_failed_result(
                 std::string("Failed to write Toybox asset body '")
@@ -583,7 +577,7 @@ namespace tbx
 
     inline Result SerializationRegistry::try_read_tbx_serialized_asset_meta(
         const std::filesystem::path& asset_path,
-        const std::shared_ptr<IFileOps>& file_ops,
+        const IFileOps& file_ops,
         uint32 expected_version,
         AssetLoadMetadata& out_metadata,
         std::optional<std::string>& out_meta_data,
@@ -591,11 +585,11 @@ namespace tbx
     {
         auto meta_path = asset_path;
         meta_path += ".meta";
-        if (!file_ops->exists(meta_path))
+        if (!file_ops.exists(meta_path))
             return {};
 
         auto contents = std::string();
-        if (!file_ops->read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
+        if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
         {
             return make_failed_result(
                 std::string("Failed to read Toybox asset meta '")

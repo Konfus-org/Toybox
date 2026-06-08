@@ -1,6 +1,7 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
+#include <tuple>
 
 namespace tbx
 {
@@ -115,13 +116,15 @@ namespace tbx
         if (!thread_manager || !backend || !thread_manager->has_lane(RENDER_LANE_NAME))
             return;
 
-        static_cast<void>(thread_manager->post_with_future(
+        std::ignore = thread_manager->post_with_future(
             std::string(RENDER_LANE_NAME),
             [this, backend]()
             {
-                static_cast<void>(backend);
+                if (!backend)
+                    return;
+
                 _pipeline.reload();
-            }));
+            });
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)

@@ -58,11 +58,10 @@ namespace tbx
     }
 
     ScriptSystem::ScriptSystem(std::shared_ptr<AssetManager> asset_manager, ServiceProvider& services)
-        : ScriptSystem(
-              make_non_owning_service_provider(services),
-              std::move(asset_manager),
-              std::weak_ptr<WorldManager> {},
-              std::weak_ptr<IMessageCoordinator> {})
+        : _state(std::make_unique<State>())
+        , _asset_manager(std::move(asset_manager))
+        , _service_provider_alias(make_non_owning_service_provider(services))
+        , _services(_service_provider_alias)
     {
     }
 

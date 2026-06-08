@@ -61,14 +61,14 @@ namespace tbx
             std::filesystem::path path_to_watch,
             FileWatchAction on_changed,
             std::chrono::milliseconds poll_interval = std::chrono::milliseconds(250),
-            std::shared_ptr<IFileOps> file_ops = {});
+            std::weak_ptr<IFileOps> file_ops = {});
         /// @brief
         /// Purpose: Starts watching a file or directory path with adaptive polling options.
         FileWatcher(
             std::filesystem::path path_to_watch,
             FileWatchAction on_changed,
             FileWatchOptions options,
-            std::shared_ptr<IFileOps> file_ops = {});
+            std::weak_ptr<IFileOps> file_ops = {});
         ~FileWatcher() noexcept;
 
       public:
@@ -80,6 +80,7 @@ namespace tbx
       private:
         void notify_changes(const std::vector<FileWatchChange>& changes) const;
         std::chrono::milliseconds get_next_poll_interval() const;
+        std::shared_ptr<IFileOps> lock_file_ops() const;
         bool poll_watched_path();
         void run(std::stop_token stop_token);
 
@@ -89,7 +90,8 @@ namespace tbx
         std::condition_variable_any _wake_signal = {};
 
         FileWatchAction _on_changed = {};
-        std::shared_ptr<IFileOps> _file_ops = {};
+        std::shared_ptr<IFileOps> _owned_file_ops = {};
+        std::weak_ptr<IFileOps> _file_ops = {};
         FileWatchSnapshot _snapshot = {};
         FileWatchOptions _options = {};
         std::filesystem::path _watched_path = {};

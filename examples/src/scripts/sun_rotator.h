@@ -6,6 +6,8 @@ namespace tbx_example
 {
     /// @brief
     /// Purpose: Rotates the sun entity in sync with the authored sky rotation.
+    // TODO: We only have gameplay scripts, make just ONE script type.
+    // TODO: Make ONE RotateOverTime script and make the sun and sky use it.
     [[tbx::script]];
     [[tbx::version(1U)]];
     class SunRotator final : public tbx::GameplayScript

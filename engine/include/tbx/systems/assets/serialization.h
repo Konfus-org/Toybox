@@ -26,7 +26,7 @@
         /* NOLINTNEXTLINE(bugprone-throwing-static-initialization) */                              \
         static const bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = []() noexcept              \
         {                                                                                          \
-            static_cast<void>(Expression);                                                         \
+            Expression;                                                                            \
             return true;                                                                           \
         }()
 #endif
@@ -643,7 +643,7 @@ namespace tbx
             std::move(write_value),
             std::move(read_value));
         register_serializable_type_entry(entry);
-        static_cast<void>(SerializableTypeRegistrationHook<TValue>::register_type(entry));
+        SerializableTypeRegistrationHook<TValue>::register_type(entry);
         return true;
     }
 

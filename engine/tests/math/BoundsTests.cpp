@@ -3,15 +3,18 @@
 
 namespace tbx::tests::math
 {
-    TEST(BoundsTests, Constructor_SetsValuesCorrectly)
+    TEST(BoundsTests, ConstructedBounds_PreserveProjectionEdges)
     {
-        float left = -2.0f;
-        float right = 2.0f;
-        float top = 1.5f;
-        float bottom = -1.5f;
+        // Arrange
+        const float left = -2.0f;
+        const float right = 2.0f;
+        const float top = 1.5f;
+        const float bottom = -1.5f;
 
-        Bounds bounds(left, right, top, bottom);
+        // Act
+        const Bounds bounds(left, right, top, bottom);
 
+        // Assert
         EXPECT_FLOAT_EQ(bounds.left, -2.0f);
         EXPECT_FLOAT_EQ(bounds.right, 2.0f);
         EXPECT_FLOAT_EQ(bounds.top, 1.5f);
@@ -20,41 +23,50 @@ namespace tbx::tests::math
 
     TEST(BoundsTests, ToString_ProducesFormattedOutput)
     {
-        Bounds bounds(-2.0f, 2.0f, 1.5f, -1.5f);
+        // Arrange
+        const Bounds bounds(-2.0f, 2.0f, 1.5f, -1.5f);
 
-        std::string str = std::format("{}", bounds);
+        // Act
+        const std::string str = std::format("{}", bounds);
 
+        // Assert
         EXPECT_EQ(str, "[Left: -2, Right: 2, Top: 1.5, Bottom: -1.5]");
     }
 
     TEST(BoundsTests, FromOrthographicProjection_CreatesCorrectBounds)
     {
-        float size = 2.0f;
-        float aspect = 1.5f;
+        // Arrange
+        const float size = 2.0f;
+        const float aspect = 1.5f;
 
-        Bounds bounds = Bounds::from_orthographic_projection(size, aspect);
+        // Act
+        const Bounds bounds = Bounds::from_orthographic_projection(size, aspect);
 
-        float expectedWidth = size * aspect;
-        EXPECT_FLOAT_EQ(bounds.left, -expectedWidth);
-        EXPECT_FLOAT_EQ(bounds.right, expectedWidth);
+        // Assert
+        const float expected_width = size * aspect;
+        EXPECT_FLOAT_EQ(bounds.left, -expected_width);
+        EXPECT_FLOAT_EQ(bounds.right, expected_width);
         EXPECT_FLOAT_EQ(bounds.top, size);
         EXPECT_FLOAT_EQ(bounds.bottom, -size);
     }
 
     TEST(BoundsTests, FromPerspectiveProjection_ProducesCorrectBounds)
     {
-        float fov = to_radians(90.0f);
-        float aspect = 1.0f;
-        float zNear = 1.0f;
+        // Arrange
+        const float fov = to_radians(90.0f);
+        const float aspect = 1.0f;
+        const float z_near = 1.0f;
 
-        Bounds bounds = Bounds::from_perspective_projection(fov, aspect, zNear);
+        // Act
+        const Bounds bounds = Bounds::from_perspective_projection(fov, aspect, z_near);
 
-        float halfHeight = zNear * std::tan(fov / 2.0f);
-        float halfWidth = halfHeight * aspect;
+        // Assert
+        const float half_height = z_near * std::tan(fov / 2.0f);
+        const float half_width = half_height * aspect;
 
-        EXPECT_NEAR(bounds.left, -halfWidth, 1e-5f);
-        EXPECT_NEAR(bounds.right, halfWidth, 1e-5f);
-        EXPECT_NEAR(bounds.top, halfHeight, 1e-5f);
-        EXPECT_NEAR(bounds.bottom, -halfHeight, 1e-5f);
+        EXPECT_NEAR(bounds.left, -half_width, 1e-5f);
+        EXPECT_NEAR(bounds.right, half_width, 1e-5f);
+        EXPECT_NEAR(bounds.top, half_height, 1e-5f);
+        EXPECT_NEAR(bounds.bottom, -half_height, 1e-5f);
     }
 }

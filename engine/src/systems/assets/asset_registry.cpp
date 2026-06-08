@@ -129,7 +129,7 @@ namespace tbx
         {
             auto data = JsonParser::parse(contents);
             auto id = Uuid();
-            static_cast<void>(JsonParser::try_get(data, "id", id));
+            JsonParser::try_get(data, "id", id);
 
             if (!id.is_valid())
             {
@@ -167,24 +167,33 @@ namespace tbx
     AssetRegistry::AssetRegistry(
         std::filesystem::path working_directory,
         HandleSource handle_source,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : _handle_source(std::move(handle_source))
         , _file_ops(std::move(file_ops))
     {
-        if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(std::move(working_directory));
+        auto file_ops_service = lock_file_ops();
+        if (!file_ops_service)
+        {
+            _owned_file_ops = std::make_shared<FileOperator>(std::move(working_directory));
+            _file_ops = _owned_file_ops;
+            file_ops_service = _owned_file_ops;
+        }
 
-        _working_directory = _file_ops->get_working_directory();
+        _working_directory = file_ops_service->get_working_directory();
     }
 
     Result AssetRegistry::add_asset_directory(const std::filesystem::path& path)
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
+
         if (path.empty())
         {
             return make_failed_result("Cannot add an empty asset directory path.");
         }
 
-        auto resolved = _file_ops->resolve(path);
+        auto resolved = file_ops->resolve(path);
         if (resolved.empty())
         {
             return make_failed_result("Failed to resolve asset directory path.");
@@ -218,13 +227,20 @@ namespace tbx
         const std::filesystem::path& path)
     {
         auto result = AssetRegistryDirectoryRemovalResult();
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+        {
+            result.result = make_failed_result("Asset registry has no file operations.");
+            return result;
+        }
+
         if (path.empty())
         {
             result.result = make_failed_result("Cannot remove an empty asset directory path.");
             return result;
         }
 
-        const auto resolved = _file_ops->resolve(path).lexically_normal();
+        const auto resolved = file_ops->resolve(path).lexically_normal();
         const auto directory_iterator =
             std::find(_asset_directories.begin(), _asset_directories.end(), resolved);
         if (directory_iterator == _asset_directories.end())
@@ -439,6 +455,10 @@ namespace tbx
     std::filesystem::path AssetRegistry::resolve_asset_path(
         const std::filesystem::path& asset_path) const
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return {};
+
         if (asset_path.empty())
             return asset_path;
         if (asset_path.is_absolute())
@@ -449,12 +469,12 @@ namespace tbx
             if (root.empty())
                 continue;
 
-            auto candidate = _file_ops->resolve(root / asset_path);
-            if (_file_ops->exists(candidate))
+            auto candidate = file_ops->resolve(root / asset_path);
+            if (file_ops->exists(candidate))
                 return candidate;
         }
 
-        return _file_ops->resolve(asset_path);
+        return file_ops->resolve(asset_path);
     }
 
     std::filesystem::path AssetRegistry::resolve_asset_path(const Handle& handle) const
@@ -476,17 +496,21 @@ namespace tbx
 
     Result AssetRegistry::scan_asset_directory(const std::filesystem::path& root)
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
+
         if (root.empty())
         {
             return make_failed_result("Cannot scan an empty asset directory root.");
         }
 
         auto result = Result();
-        auto entries = _file_ops->read_directory(root);
+        auto entries = file_ops->read_directory(root);
         auto asset_entries = std::vector<std::filesystem::path>();
         for (const auto& entry : entries)
         {
-            if (_file_ops->get_type(entry) != FileType::FILE)
+            if (file_ops->get_type(entry) != FileType::FILE)
                 continue;
             if (!should_track_asset_path(entry))
                 continue;
@@ -614,9 +638,13 @@ namespace tbx
         AssetRegistryEntry entry = {};
         entry.resolved_path = std::move(resolved_path);
         entry.normalized_path = normalized_path;
-        auto [inserted, was_inserted] = _entries_by_path.emplace(normalized_path, std::move(entry));
-        static_cast<void>(was_inserted);
+        auto inserted = _entries_by_path.emplace(normalized_path, std::move(entry)).first;
         return inserted->second;
+    }
+
+    std::shared_ptr<IFileOps> AssetRegistry::lock_file_ops() const
+    {
+        return _file_ops.lock();
     }
 
     std::string AssetRegistry::normalize_path_string(const std::filesystem::path& asset_path) const
@@ -636,12 +664,13 @@ namespace tbx
         }
 
         auto meta_path = make_meta_path(entry.resolved_path);
-        if (!_file_ops->exists(meta_path))
+        const auto file_ops = lock_file_ops();
+        if (!file_ops || !file_ops->exists(meta_path))
         {
             return {};
         }
 
-        auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
+        auto parsed_handle = try_read_handle_from_meta(*file_ops, entry.resolved_path);
         if (!parsed_handle || !parsed_handle->id.is_valid())
         {
             return {};
@@ -655,6 +684,9 @@ namespace tbx
         Uuid& out_asset_id) const
     {
         auto result = Result();
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
 
         if (_handle_source)
         {
@@ -679,7 +711,7 @@ namespace tbx
             }
         }
 
-        if (!_file_ops->exists(entry.resolved_path))
+        if (!file_ops->exists(entry.resolved_path))
         {
             out_asset_id = make_runtime_asset_id(entry.normalized_path);
             append_report(
@@ -694,9 +726,9 @@ namespace tbx
 
         auto meta_path = make_meta_path(entry.resolved_path);
 
-        if (_file_ops->exists(meta_path))
+        if (file_ops->exists(meta_path))
         {
-            auto parsed_handle = try_read_handle_from_meta(*_file_ops, entry.resolved_path);
+            auto parsed_handle = try_read_handle_from_meta(*file_ops, entry.resolved_path);
             if (parsed_handle && parsed_handle->id.is_valid())
             {
                 out_asset_id = parsed_handle->id;
@@ -715,7 +747,7 @@ namespace tbx
 
         out_asset_id = generated_id;
 
-        if (!_file_ops->exists(meta_path))
+        if (!file_ops->exists(meta_path))
         {
             TBX_TRACE_WARNING(
                 "Missing metadata sidecar for asset '{}'. Generated in-memory id={}.",

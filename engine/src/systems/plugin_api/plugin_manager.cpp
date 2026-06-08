@@ -43,9 +43,8 @@ namespace tbx
         return false;
     }
 
-    static uint32 get_update_category_rank(PluginCategory category, bool is_fixed_update)
+    static uint32 get_update_category_rank(PluginCategory category, bool)
     {
-        static_cast<void>(is_fixed_update);
         switch (category)
         {
             case PluginCategory::LOGGING:
@@ -170,7 +169,7 @@ namespace tbx
             return;
 
         auto plugin_loader = PluginLoader();
-        auto loaded_plugins = plugin_loader.load(_directory, _requested_plugins, file_ops.get());
+        auto loaded_plugins = plugin_loader.load(_directory, _requested_plugins, *file_ops);
         add_loaded(loaded_plugins);
 
         register_all_services();
@@ -191,8 +190,7 @@ namespace tbx
                 .filter =
                     [](const std::filesystem::path& path)
                 {
-                    // TODO: Do we need file watch here? Also why ignore resources? That could lead
-                    // to some sneaky buggos I think
+                    // AssetManager watches plugin resources; plugin hot reload only tracks modules.
                     if (plugin_manager_path_contains_directory_token(path, "resources"))
                         return false;
                     return is_plugin_library_path(path);
@@ -230,7 +228,7 @@ namespace tbx
             return;
 
         auto plugin_loader = PluginLoader();
-        auto loaded_plugins = plugin_loader.load(_directory, requested_plugins, file_ops.get());
+        auto loaded_plugins = plugin_loader.load(_directory, requested_plugins, *file_ops);
         add(std::move(loaded_plugins));
     }
 
@@ -383,7 +381,10 @@ namespace tbx
 
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
         auto plugin_unloader = PluginUnloader();
-        plugin_unloader.detach(_loaded, *service_provider, msg_coordinator.get());
+        if (msg_coordinator)
+            plugin_unloader.detach(_loaded, *service_provider, *msg_coordinator);
+        else
+            plugin_unloader.detach(_loaded, *service_provider);
         _attached = false;
     }
 
@@ -458,8 +459,14 @@ namespace tbx
 
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
         auto plugin_unloader = PluginUnloader();
-        plugin_unloader
-            .unload(plugins, *service_provider, *_ownership_tracker->impl, msg_coordinator.get());
+        if (msg_coordinator)
+            plugin_unloader.unload(
+                plugins,
+                *service_provider,
+                *_ownership_tracker->impl,
+                *msg_coordinator);
+        else
+            plugin_unloader.unload(plugins, *service_provider, *_ownership_tracker->impl);
     }
 
     void PluginManager::process_pending_file_changes()
@@ -530,7 +537,7 @@ namespace tbx
         }
 
         auto plugin_loader = PluginLoader();
-        auto loaded_plugins = plugin_loader.load(changed_path, _requested_plugins, file_ops.get());
+        auto loaded_plugins = plugin_loader.load(changed_path, _requested_plugins, *file_ops);
         if (loaded_plugins.empty())
         {
             if (existing_plugin != nullptr)

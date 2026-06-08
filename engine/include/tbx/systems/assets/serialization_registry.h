@@ -192,7 +192,7 @@ namespace tbx
 
       public:
         SerializationRegistry();
-        SerializationRegistry(std::shared_ptr<IFileOps> file_ops);
+        explicit SerializationRegistry(std::weak_ptr<IFileOps> file_ops);
         ~SerializationRegistry() noexcept = default;
 
       public:
@@ -308,6 +308,7 @@ namespace tbx
             AssetLoadMetadata& out_metadata);
 
         static void apply_tbx_asset_common_meta(const AssetLoadMetadata& metadata, Asset& asset);
+        std::shared_ptr<IFileOps> lock_file_ops() const;
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
@@ -319,19 +320,19 @@ namespace tbx
 
         static Result try_load_registered_asset_body(
             const std::filesystem::path& asset_path,
-            const std::shared_ptr<IFileOps>& file_ops,
+            const IFileOps& file_ops,
             const AssetTypeRegistration& asset_registration,
             void* asset);
 
         static Result try_write_registered_asset_body(
             const std::filesystem::path& asset_path,
-            const std::shared_ptr<IFileOps>& file_ops,
+            IFileOps& file_ops,
             const AssetTypeRegistration& asset_registration,
             const void* asset);
 
         Result try_read_tbx_serialized_asset_meta(
             const std::filesystem::path& asset_path,
-            const std::shared_ptr<IFileOps>& file_ops,
+            const IFileOps& file_ops,
             uint32 expected_version,
             AssetLoadMetadata& out_metadata,
             std::optional<std::string>& out_meta_data,
@@ -339,7 +340,8 @@ namespace tbx
 
       private:
         mutable std::mutex _mutex = {};
-        std::shared_ptr<IFileOps> _file_ops = nullptr;
+        std::shared_ptr<IFileOps> _owned_file_ops = nullptr;
+        std::weak_ptr<IFileOps> _file_ops = {};
         std::unordered_map<std::type_index, std::unique_ptr<RegistrationBase>> _registrations = {};
     };
 }

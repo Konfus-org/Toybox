@@ -62,7 +62,7 @@ namespace tbx
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
             HandleSource handle_source = {},
-            std::shared_ptr<IFileOps> file_ops = {});
+            std::weak_ptr<IFileOps> file_ops = {});
         ~AssetManager();
 
       public:
@@ -248,6 +248,7 @@ namespace tbx
         void on_asset_changed(
             const std::filesystem::path& watched_path,
             const FileWatchChange& change);
+        std::shared_ptr<IFileOps> lock_file_ops() const;
         std::shared_ptr<SerializationRegistry> lock_serialization_registry() const;
         void watch_asset_directory(const std::filesystem::path& resolved_path);
 
@@ -323,7 +324,8 @@ namespace tbx
 
         std::weak_ptr<IMessageDispatcher> _dispatcher = {};
         std::weak_ptr<SerializationRegistry> _serialization_registry = {};
-        std::shared_ptr<IFileOps> _file_ops = nullptr;
+        std::shared_ptr<IFileOps> _owned_file_ops = nullptr;
+        std::weak_ptr<IFileOps> _file_ops = {};
 
         std::unique_ptr<AssetRegistry> _registry = {};
         std::vector<std::filesystem::path> _watched_directories = {};

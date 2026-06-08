@@ -11,7 +11,7 @@ namespace tbx
 {
     using PluginDeleter = std::function<void(Plugin*)>;
 
-    // TODO: replace with inline vector usages and remove the using
+    // Stable node addresses keep plugin ordering snapshots valid while plugin groups are spliced.
     using LoadedPlugins = std::list<LoadedPlugin>;
 
     enum class LoadedPluginState

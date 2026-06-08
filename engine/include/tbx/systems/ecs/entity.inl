@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/ecs/registry.h"
 #include <utility>
 
 namespace tbx

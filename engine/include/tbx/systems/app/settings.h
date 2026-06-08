@@ -13,16 +13,6 @@
 
 namespace tbx
 {
-    inline std::vector<std::string> resolve_app_plugins(
-        const std::vector<std::string>& settings_plugins,
-        const std::vector<std::string>& command_plugins)
-    {
-        if (!command_plugins.empty())
-            return command_plugins;
-
-        return settings_plugins;
-    }
-
     /// @brief
     /// Purpose: Stores mutable runtime settings for the application host.
     /// @details
@@ -63,4 +53,14 @@ namespace tbx
             "ShaderIncludeLoader",
         };
     };
+
+    inline std::vector<std::string> resolve_app_plugins(
+        const std::vector<std::string>& settings_plugins,
+        const std::vector<std::string>& command_plugins)
+    {
+        if (!command_plugins.empty())
+            return command_plugins;
+
+        return settings_plugins;
+    }
 }

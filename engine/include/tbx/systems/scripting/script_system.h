@@ -47,6 +47,7 @@ namespace tbx
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IMessageCoordinator> _message_coordinator = {};
         std::weak_ptr<WorldManager> _world_manager = {};
+        std::shared_ptr<ServiceProvider> _service_provider_alias = {};
         std::weak_ptr<ServiceProvider> _services = {};
     };
 }

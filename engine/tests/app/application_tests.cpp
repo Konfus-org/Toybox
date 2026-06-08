@@ -124,6 +124,9 @@ namespace tbx::tests::app
         EXPECT_FALSE(application._window_manager.expired());
         EXPECT_TRUE(application.get_main_window().id.is_valid());
 
+        coordinator.reset();
+        backend.reset();
+        file_ops.reset();
         application.shutdown();
     }
 
@@ -165,6 +168,8 @@ namespace tbx::tests::app
         EXPECT_TRUE(application._window_manager.expired());
         EXPECT_FALSE(application.get_main_window().id.is_valid());
 
+        coordinator.reset();
+        file_ops.reset();
         application.shutdown();
     }
 }

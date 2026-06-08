@@ -52,14 +52,6 @@ namespace tbx
 
         void flush();
 
-      private:
-        Log();
-        ~Log() noexcept;
-
-      private:
-        struct Logger;
-
-      private:
         template <typename T>
         auto format(T&& value);
         template <typename... Args>
@@ -69,6 +61,13 @@ namespace tbx
         std::string format(const char* message);
         bool should_write_once(LogLevel level, const std::string& message);
         void write_internal(LogLevel level, const char* file, int line, const std::string& message);
+
+      private:
+        Log();
+        ~Log() noexcept;
+
+      private:
+        struct Logger;
 
       private:
         std::unique_ptr<Logger> _logger;

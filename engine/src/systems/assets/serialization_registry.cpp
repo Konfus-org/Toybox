@@ -3,11 +3,12 @@
 namespace tbx
 {
     SerializationRegistry::SerializationRegistry()
-        : _file_ops(std::make_shared<FileOperator>())
+        : _owned_file_ops(std::make_shared<FileOperator>())
+        , _file_ops(_owned_file_ops)
     {
     }
 
-    SerializationRegistry::SerializationRegistry(std::shared_ptr<IFileOps> file_ops)
+    SerializationRegistry::SerializationRegistry(std::weak_ptr<IFileOps> file_ops)
         : _file_ops(std::move(file_ops))
     {
     }
@@ -30,12 +31,7 @@ namespace tbx
         const std::filesystem::path& asset_path) const
     {
         auto read = AssetReadResult<Asset> {};
-        auto file_ops = std::shared_ptr<IFileOps> {};
-        {
-            std::lock_guard lock(_mutex);
-            file_ops = _file_ops;
-        }
-
+        auto file_ops = lock_file_ops();
         if (!file_ops)
         {
             read.result = make_failed_result("Serialization registry has no file operations.");
@@ -49,7 +45,7 @@ namespace tbx
         auto loaded_meta = false;
         auto meta_result = try_read_tbx_serialized_asset_meta(
             asset_path,
-            file_ops,
+            *file_ops,
             0U,
             metadata,
             meta_data,
@@ -79,7 +75,7 @@ namespace tbx
                 && JsonParser::try_get(meta_json, "polymorphic", is_polymorphic)
                 && is_polymorphic)
             {
-                static_cast<void>(JsonParser::try_get(meta_json, "type", type_name));
+                JsonParser::try_get(meta_json, "type", type_name);
             }
         }
         if (type_name.empty())
@@ -124,7 +120,7 @@ namespace tbx
         {
             auto body_result = try_load_registered_asset_body(
                 asset_path,
-                file_ops,
+                *file_ops,
                 *asset_registration,
                 asset.get());
             if (!body_result.succeeded())
@@ -147,7 +143,7 @@ namespace tbx
         uint32 expected_version,
         AssetLoadMetadata& out_metadata)
     {
-        static_cast<void>(JsonParser::try_get(data, "id", out_metadata.id));
+        JsonParser::try_get(data, "id", out_metadata.id);
         if (!out_metadata.id.is_valid())
         {
             auto numeric_id = uint32 {};
@@ -157,7 +153,7 @@ namespace tbx
             }
         }
 
-        static_cast<void>(JsonParser::try_get(data, "polymorphic", out_metadata.polymorphic));
+        JsonParser::try_get(data, "polymorphic", out_metadata.polymorphic);
 
         auto version = uint32();
         if (!JsonParser::try_get(data, "version", version))
@@ -197,5 +193,10 @@ namespace tbx
     {
         asset.id = metadata.id;
         asset.version = metadata.version;
+    }
+
+    std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const
+    {
+        return _file_ops.lock();
     }
 }

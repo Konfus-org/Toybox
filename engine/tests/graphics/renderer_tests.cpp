@@ -4,11 +4,11 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/post_processing.h"
 #include "tbx/types/components/sky.h"
+#include <iterator>
 
 namespace tbx::tests::graphics
 {
-    // Validates that Sky defaults to an unset material handle.
-    TEST(RendererTests, Sky_Constructor_InitializesWithDefaults)
+    TEST(RendererTests, SkyWithoutMaterial_HasNoRenderableMaterial)
     {
         // Arrange
         Sky sky = {};
@@ -20,8 +20,7 @@ namespace tbx::tests::graphics
         EXPECT_FALSE(is_material_valid);
     }
 
-    // Validates that PostProcessing defaults to enabled with an empty effect stack.
-    TEST(RendererTests, PostProcessing_Constructor_InitializesWithDefaults)
+    TEST(RendererTests, PostProcessingWithoutEffects_HasEnabledEmptyStack)
     {
         // Arrange
         PostProcessing post_processing = {};
@@ -35,8 +34,7 @@ namespace tbx::tests::graphics
         EXPECT_FALSE(has_effects);
     }
 
-    // Validates that PostProcessingEffect defaults to an enabled pass with full blend.
-    TEST(RendererTests, PostProcessingEffect_Constructor_InitializesWithDefaults)
+    TEST(RendererTests, PostProcessingEffectWithoutMaterial_IsEnabledAtFullBlend)
     {
         // Arrange
         PostProcessingEffect effect = {};
@@ -52,8 +50,7 @@ namespace tbx::tests::graphics
         EXPECT_FLOAT_EQ(blend, 1.0f);
     }
 
-    // Validates that MaterialInstance defaults to an unset material and empty override sets.
-    TEST(RendererTests, MaterialInstance_Constructor_InitializesWithDefaults)
+    TEST(RendererTests, MaterialInstanceWithoutMaterial_HasNoOverrides)
     {
         // Arrange
         MaterialInstance material_instance = {};
@@ -142,12 +139,7 @@ namespace tbx::tests::graphics
 
         // Act
         const auto color = parameters.get("color");
-        int parameter_count = 0;
-        for (const auto& parameter : parameters)
-        {
-            (void)parameter;
-            ++parameter_count;
-        }
+        const auto parameter_count = std::distance(parameters.begin(), parameters.end());
 
         // Assert
         ASSERT_TRUE(color.has_value());
@@ -170,12 +162,7 @@ namespace tbx::tests::graphics
 
         // Act
         const auto diffuse_map = textures.get("albedo_map");
-        int texture_count = 0;
-        for (const auto& texture_binding : textures)
-        {
-            (void)texture_binding;
-            ++texture_count;
-        }
+        const auto texture_count = std::distance(textures.begin(), textures.end());
 
         // Assert
         ASSERT_TRUE(diffuse_map.has_value());
@@ -206,8 +193,7 @@ namespace tbx::tests::graphics
         EXPECT_EQ(diffuse_map.id, CheckerboardTexture::HANDLE.id);
     }
 
-    // Validates Lods defaults to no LOD entries and no render-distance cap.
-    TEST(RendererTests, Lods_Constructor_InitializesWithDefaults)
+    TEST(RendererTests, EmptyLods_HasNoEntriesOrDistanceCap)
     {
         // Arrange
         Lods lods = {};

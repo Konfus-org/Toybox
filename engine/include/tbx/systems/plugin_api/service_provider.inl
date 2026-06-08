@@ -40,8 +40,8 @@ namespace tbx
             return;
 
         std::type_index key(typeid(TService));
-        erase_service(key);
-        remember_registration_order(key);
+        deregister_service(key);
+        _registration_order.push_back(key);
         std::shared_ptr<TService> casted_service = std::move(service);
         _entries[key] = std::make_unique<ServiceEntry<TService>>(std::move(casted_service));
 
@@ -106,6 +106,6 @@ namespace tbx
     void ServiceProvider::deregister_service()
     {
         std::type_index key(typeid(TService));
-        erase_service(key);
+        deregister_service(key);
     }
 }

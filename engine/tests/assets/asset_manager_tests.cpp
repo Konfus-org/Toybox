@@ -339,6 +339,12 @@ namespace tbx::tests::assets
         return registry;
     }
 
+    static void keep_test_file_ops_alive(std::shared_ptr<IFileOps> file_ops)
+    {
+        static auto file_ops_owners = std::vector<std::shared_ptr<IFileOps>> {};
+        file_ops_owners.push_back(std::move(file_ops));
+    }
+
     struct CapturedAssetEvent
     {
         std::filesystem::path watched_path = {};
@@ -527,6 +533,7 @@ namespace tbx::tests::assets
         const InMemoryHandleSource& handle_source = {})
     {
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        keep_test_file_ops_alive(file_ops);
         auto provider = [handle_source](const std::filesystem::path& asset_path, Handle& out_handle)
         {
             return handle_source.try_get(asset_path, out_handle);
@@ -544,6 +551,7 @@ namespace tbx::tests::assets
     static AssetManager make_disk_backed_manager(const std::filesystem::path& working_directory)
     {
         auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        keep_test_file_ops_alive(file_ops);
         register_test_asset_loader(*get_test_serialization_registry());
         return AssetManager(
             get_null_dispatcher(),
@@ -917,6 +925,26 @@ namespace tbx::tests::assets
         ASSERT_NE(asset, nullptr);
         EXPECT_TRUE(asset->loader_observed_default);
         EXPECT_EQ(asset->value, 11);
+    }
+
+    TEST(serialization_registry, expired_file_ops_fails_registered_asset_read)
+    {
+        // Arrange
+        auto file_ops = std::make_shared<InMemoryFileOps>("/virtual/serialization");
+        file_ops->set_text(
+            "content/non_polymorphic_meta_asset.asset.meta",
+            R"({ "id": { "value": 52 }, "version": 1, "type": "fragment" })");
+        auto registry = SerializationRegistry(file_ops);
+        file_ops.reset();
+
+        // Act
+        const auto read =
+            registry.read_registered_asset_result("content/non_polymorphic_meta_asset.asset");
+
+        // Assert
+        EXPECT_FALSE(read.result.succeeded());
+        EXPECT_EQ(read.asset, nullptr);
+        EXPECT_EQ(read.result.get_report(), "Serialization registry has no file operations.");
     }
 
     TEST(asset_manager, resolves_handle_by_path)
@@ -1430,6 +1458,29 @@ namespace tbx::tests::assets
         EXPECT_NE(
             std::find(directories.begin(), directories.end(), expected_directory),
             directories.end());
+    }
+
+    TEST(asset_manager, borrowed_file_ops_expires_when_owner_releases_it)
+    {
+        // Arrange
+        const std::filesystem::path working_directory = "/virtual/asset_manager";
+        auto file_ops = std::make_shared<InMemoryFileOps>(working_directory);
+        const std::weak_ptr<IFileOps> borrowed_file_ops = file_ops;
+        auto manager = std::make_unique<AssetManager>(
+            get_null_dispatcher(),
+            get_test_serialization_registry(),
+            working_directory,
+            std::vector<std::filesystem::path>(),
+            HandleSource(),
+            file_ops);
+
+        // Act
+        file_ops.reset();
+        const auto resolved_path = manager->resolve_path("orphan.asset");
+
+        // Assert
+        EXPECT_TRUE(borrowed_file_ops.expired());
+        EXPECT_TRUE(resolved_path.empty());
     }
 
     TEST(asset_manager, tracks_asset_directories)

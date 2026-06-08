@@ -8,13 +8,8 @@
 
 namespace tbx
 {
-    // TODO: Clean this up, lets make a generic resource tracker that is done via
-    // ResourceTracker::get_instance().track(...); Then anything that needs to track resources
-    // calls that track method. Then expose a ResourceTrackingScope(this) that we use to bind the
-    // resource tracker via its ResourceTracker::get_instance().bind_owner(ResourceOwner...); then
-    // we need an ResourceOwner that is friends with the ResourceTracker. Owners just need to
-    // inherit from the ResourceOwner and use the scope, but the details are hidden in private
-    // methods the inherit and scope are the only parts that should be used.
+    // Plugin-owned resources are tracked through free functions so registration sites do not
+    // depend on PluginManager internals.
     /// @brief
     /// Purpose: Records a plugin-owned asset directory for later cleanup during unload.
     /// @details

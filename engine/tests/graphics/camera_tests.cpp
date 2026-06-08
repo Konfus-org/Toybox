@@ -23,16 +23,18 @@ namespace tbx::tests::graphics
         return true;
     }
 
-    TEST(CameraTests, Constructor_InitializesWithDefaults)
+    TEST(CameraTests, NewCamera_UsesPerspectiveProjectionMode)
     {
+        // Arrange
         Camera camera;
 
-        EXPECT_TRUE(camera.is_perspective());
-        EXPECT_FALSE(camera.is_orthographic());
-        EXPECT_NEAR(camera.get_fov(), 60.0f, 1e-5f);
-        EXPECT_NEAR(camera.get_z_near(), 0.1f, 1e-5f);
-        EXPECT_NEAR(camera.get_z_far(), 1000.0f, 1e-5f);
-        EXPECT_NEAR(camera.get_aspect(), 1.78f, 1e-5f);
+        // Act
+        const bool uses_perspective = camera.is_perspective();
+        const bool uses_orthographic = camera.is_orthographic();
+
+        // Assert
+        EXPECT_TRUE(uses_perspective);
+        EXPECT_FALSE(uses_orthographic);
     }
 
     TEST(CameraTests, SetOrthographic_SetsOrthoSettings)

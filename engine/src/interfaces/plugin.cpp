@@ -30,9 +30,8 @@ namespace tbx
         on_attach();
     }
 
-    void Plugin::detach(ServiceProvider& service_provider)
+    void Plugin::detach(ServiceProvider&)
     {
-        static_cast<void>(service_provider);
         auto plugin_scope = ScopedPluginContext(_plugin_id);
         on_detach();
         _dispatcher = {};

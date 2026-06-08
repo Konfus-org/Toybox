@@ -258,17 +258,17 @@ namespace tbx
         const auto changed_asset = event.affected_asset.id;
         if (_state->active_world_from_asset && changed_asset == _state->active_world_handle.id)
         {
-            static_cast<void>(refresh_active_world_from_asset());
+            refresh_active_world_from_asset();
             return;
         }
 
         if (changed_asset == _state->active_world->globals.id)
         {
-            static_cast<void>(refresh_world_globals());
+            refresh_world_globals();
             return;
         }
 
-        static_cast<void>(refresh_world_chunk(event.affected_asset));
+        refresh_world_chunk(event.affected_asset);
     }
 
     void WorldManager::release_active_world()
@@ -294,7 +294,7 @@ namespace tbx
         }
 
         asset_manager->set_pinned(_state->active_world_handle, false);
-        static_cast<void>(asset_manager->unload<World>(_state->active_world_handle, true));
+        asset_manager->unload<World>(_state->active_world_handle, true);
         _state->global_entities.clear();
     }
 }

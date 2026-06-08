@@ -60,26 +60,64 @@ namespace tbx
     {
         //// INITIALIZE: BUILD CORE SERVICE INSTANCES ////
 
-        _service_provider = std::make_shared<ServiceProvider>();
+        if (!_service_provider)
+            _service_provider = std::make_shared<ServiceProvider>();
 
-        auto file_ops = std::make_shared<FileOperator>(root_directory);
-        auto message_coordinator = std::make_shared<MessageCoordinator>();
-        auto serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
-        auto asset_manager = std::make_shared<AssetManager>(
-            message_coordinator,
-            serialization_registry,
-            file_ops->get_working_directory(),
-            std::vector<std::filesystem::path> {},
-            HandleSource(),
-            file_ops);
-        auto world_manager = std::make_shared<WorldManager>(asset_manager, message_coordinator);
-        auto script_system = std::make_shared<ScriptSystem>(
-            _service_provider,
-            asset_manager,
-            world_manager,
-            message_coordinator);
-        auto job_system = std::make_shared<JobSystem>();
-        auto thread_manager = std::make_shared<ThreadManager>();
+        auto file_ops = _service_provider->try_get_service<IFileOps>().lock();
+        const bool has_file_ops = file_ops != nullptr;
+        if (!file_ops)
+            file_ops = std::make_shared<FileOperator>(root_directory);
+
+        auto message_coordinator =
+            _service_provider->try_get_service<IMessageCoordinator>().lock();
+        const bool has_message_coordinator = message_coordinator != nullptr;
+        if (!message_coordinator)
+            message_coordinator = std::make_shared<MessageCoordinator>();
+
+        auto serialization_registry =
+            _service_provider->try_get_service<SerializationRegistry>().lock();
+        const bool has_serialization_registry = serialization_registry != nullptr;
+        if (!serialization_registry)
+            serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
+
+        auto asset_manager = _service_provider->try_get_service<AssetManager>().lock();
+        const bool has_asset_manager = asset_manager != nullptr;
+        if (!asset_manager)
+        {
+            asset_manager = std::make_shared<AssetManager>(
+                message_coordinator,
+                serialization_registry,
+                file_ops->get_working_directory(),
+                std::vector<std::filesystem::path> {},
+                HandleSource(),
+                file_ops);
+        }
+
+        auto world_manager = _service_provider->try_get_service<WorldManager>().lock();
+        const bool has_world_manager = world_manager != nullptr;
+        if (!world_manager)
+            world_manager = std::make_shared<WorldManager>(asset_manager, message_coordinator);
+
+        auto script_system = _service_provider->try_get_service<ScriptSystem>().lock();
+        const bool has_script_system = script_system != nullptr;
+        if (!script_system)
+        {
+            script_system = std::make_shared<ScriptSystem>(
+                _service_provider,
+                asset_manager,
+                world_manager,
+                message_coordinator);
+        }
+
+        auto job_system = _service_provider->try_get_service<JobSystem>().lock();
+        const bool has_job_system = job_system != nullptr;
+        if (!job_system)
+            job_system = std::make_shared<JobSystem>();
+
+        auto thread_manager = _service_provider->try_get_service<ThreadManager>().lock();
+        const bool has_thread_manager = thread_manager != nullptr;
+        if (!thread_manager)
+            thread_manager = std::make_shared<ThreadManager>();
 
         _file_ops = file_ops;
         _msg_coordinator = message_coordinator;
@@ -92,14 +130,22 @@ namespace tbx
 
         // Register in dependency order so constructors and later lookups always see prerequisites:
         // file/message -> serialization -> asset state -> world/script -> job/thread execution.
-        _service_provider->register_service<IFileOps>(file_ops);
-        _service_provider->register_service<IMessageCoordinator>(message_coordinator);
-        _service_provider->register_service<SerializationRegistry>(serialization_registry);
-        _service_provider->register_service<AssetManager>(asset_manager);
-        _service_provider->register_service<WorldManager>(world_manager);
-        _service_provider->register_service<ScriptSystem>(script_system);
-        _service_provider->register_service<JobSystem>(job_system);
-        _service_provider->register_service<ThreadManager>(thread_manager);
+        if (!has_file_ops)
+            _service_provider->register_service<IFileOps>(file_ops);
+        if (!has_message_coordinator)
+            _service_provider->register_service<IMessageCoordinator>(message_coordinator);
+        if (!has_serialization_registry)
+            _service_provider->register_service<SerializationRegistry>(serialization_registry);
+        if (!has_asset_manager)
+            _service_provider->register_service<AssetManager>(asset_manager);
+        if (!has_world_manager)
+            _service_provider->register_service<WorldManager>(world_manager);
+        if (!has_script_system)
+            _service_provider->register_service<ScriptSystem>(script_system);
+        if (!has_job_system)
+            _service_provider->register_service<JobSystem>(job_system);
+        if (!has_thread_manager)
+            _service_provider->register_service<ThreadManager>(thread_manager);
 
         //// INITIALIZE: BIND GLOBAL STARTUP HELPERS ////
 
@@ -116,8 +162,9 @@ namespace tbx
 
         //// INITIALIZE: LOAD PLUGINS ////
 
-        const auto requested_plugins =
-            resolve_plugins(settings->plugins, command_list.get_list<std::string>("load-plugins"));
+        const auto requested_plugins = resolve_plugins(
+            settings->plugins,
+            command_list.get_list<std::string>("load-plugins"));
         const auto plugin_root_directory = file_ops->get_working_directory();
         _plugin_manager->load(plugin_root_directory, requested_plugins, plugin_root_directory);
 
@@ -159,7 +206,6 @@ namespace tbx
             if (window_manager_service.expired())
             {
                 TBX_TRACE_ERROR("Application requires a window service for rendering.");
-                TBX_ASSERT(false, "Application requires a window service for rendering.");
                 return -1;
             }
 
@@ -242,9 +288,6 @@ namespace tbx
         if (!main_window_manager)
         {
             TBX_TRACE_ERROR("Application requires an IWindowManager service.");
-            TBX_ASSERT(
-                main_window_manager != nullptr,
-                "Application requires an IWindowManager service.");
             return -1;
         }
 
@@ -546,7 +589,10 @@ namespace tbx
         const std::vector<std::string>& settings_plugins,
         const std::vector<std::string>& command_plugins)
     {
-        return resolve_app_plugins(settings_plugins, command_plugins);
+        if (!command_plugins.empty())
+            return command_plugins;
+
+        return settings_plugins;
     }
 
     std::shared_ptr<AppSettings> Application::load_app_settings(const Handle& settings_handle)

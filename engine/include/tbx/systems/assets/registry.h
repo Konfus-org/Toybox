@@ -48,7 +48,7 @@ namespace tbx
         AssetRegistry(
             std::filesystem::path working_directory,
             HandleSource handle_source,
-            std::shared_ptr<IFileOps> file_ops);
+            std::weak_ptr<IFileOps> file_ops);
 
       public:
         Result add_asset_directory(const std::filesystem::path& path);
@@ -78,6 +78,7 @@ namespace tbx
         static Uuid make_runtime_asset_id(const std::string& normalized_path);
         Uuid generate_unique_asset_id() const;
         AssetRegistryEntry& get_or_create_path_entry(const std::filesystem::path& asset_path);
+        std::shared_ptr<IFileOps> lock_file_ops() const;
         std::string normalize_path_string(const std::filesystem::path& asset_path) const;
         Uuid try_resolve_discovered_asset_id(const AssetRegistryEntry& entry) const;
         Result resolve_or_repair_asset_id(const AssetRegistryEntry& entry, Uuid& out_asset_id)
@@ -87,10 +88,8 @@ namespace tbx
       private:
         std::filesystem::path _working_directory = {};
         HandleSource _handle_source = {};
-        std::shared_ptr<IFileOps> _file_ops =
-            nullptr; // TODO: Use weak pointer for file ops and other services to avoid holding refs
-                     // when we shouldn't, if something should be fully owned then it should be a
-                     // unique pointer
+        std::shared_ptr<IFileOps> _owned_file_ops = nullptr;
+        std::weak_ptr<IFileOps> _file_ops = {};
         std::vector<std::filesystem::path> _asset_directories = {};
         std::unordered_map<std::string, AssetRegistryEntry> _entries_by_path = {};
         std::unordered_map<Uuid, std::string> _path_by_id = {};

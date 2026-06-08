@@ -68,7 +68,7 @@ namespace tbx
             for (auto& entry : records)
             {
                 auto& record = entry.second;
-                static_cast<void>(update_asset_stream_state(record));
+                update_asset_stream_state(record);
                 if (!record.completed_reload_result.has_value())
                     continue;
 
@@ -353,8 +353,7 @@ namespace tbx
         }
 
         auto store = std::make_unique<Store<TAsset>>();
-        auto [inserted, was_inserted] = stores.emplace(type_key, std::move(store));
-        static_cast<void>(was_inserted);
+        auto inserted = stores.emplace(type_key, std::move(store)).first;
         return std::ref(static_cast<Store<TAsset>&>(*inserted->second));
     }
 
@@ -394,8 +393,7 @@ namespace tbx
         Record<TAsset> record = {};
         record.normalized_path = entry.normalized_path;
         record.asset_id = entry.asset_id;
-        auto [inserted, was_inserted] = store.records.emplace(entry.asset_id, std::move(record));
-        static_cast<void>(was_inserted);
+        auto inserted = store.records.emplace(entry.asset_id, std::move(record)).first;
         return std::ref(inserted->second);
     }
 

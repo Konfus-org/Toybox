@@ -44,14 +44,21 @@ namespace tbx
         std::filesystem::path working_directory,
         std::vector<std::filesystem::path> asset_directories,
         HandleSource handle_source,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : _dispatcher(std::move(dispatcher))
         , _serialization_registry(std::move(serialization_registry))
+        , _file_ops(std::move(file_ops))
     {
-        _file_ops = file_ops ? std::move(file_ops)
-                             : std::make_shared<FileOperator>(std::move(working_directory));
+        auto file_ops_service = lock_file_ops();
+        if (!file_ops_service)
+        {
+            _owned_file_ops = std::make_shared<FileOperator>(std::move(working_directory));
+            _file_ops = _owned_file_ops;
+            file_ops_service = _owned_file_ops;
+        }
+
         _registry = std::make_unique<AssetRegistry>(
-            _file_ops->get_working_directory(),
+            file_ops_service->get_working_directory(),
             std::move(handle_source),
             _file_ops);
 
@@ -279,7 +286,11 @@ namespace tbx
             return;
 
         std::lock_guard lock(_mutex);
-        const auto normalized_path = _file_ops->resolve(path).lexically_normal();
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return;
+
+        const auto normalized_path = file_ops->resolve(path).lexically_normal();
         const auto remove_result = _registry->remove_asset_directory(normalized_path);
         if (!remove_result.result.succeeded())
         {
@@ -320,6 +331,11 @@ namespace tbx
             registry != nullptr,
             "Asset manager requires a SerializationRegistry service while loading assets.");
         return registry;
+    }
+
+    std::shared_ptr<IFileOps> AssetManager::lock_file_ops() const
+    {
+        return _file_ops.lock();
     }
 
     void AssetManager::on_asset_changed(
@@ -585,6 +601,10 @@ namespace tbx
         if (resolved_path.empty())
             return;
 
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return;
+
         _watched_directories.push_back(resolved_path);
         _file_watchers.push_back(
             std::make_unique<FileWatcher>(
@@ -600,7 +620,7 @@ namespace tbx
                         return AssetRegistry::should_track_asset_path(path);
                     },
                 },
-                _file_ops));
+                file_ops));
     }
 
 }

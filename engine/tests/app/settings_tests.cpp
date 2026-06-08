@@ -12,6 +12,8 @@ namespace tbx::tests::app
     {
         auto dispatcher = std::make_shared<MessageCoordinator>();
         auto serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
+        static auto registry_owners = std::vector<std::shared_ptr<SerializationRegistry>> {};
+        registry_owners.push_back(serialization_registry);
         return AssetManager(
             dispatcher,
             serialization_registry,

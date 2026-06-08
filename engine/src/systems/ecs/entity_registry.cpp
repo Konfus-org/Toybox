@@ -138,7 +138,10 @@ namespace tbx
         auto guard = std::unique_lock(_mutex);
         const EntityHandle handle = to_entity_handle(id);
         if (!_registry->valid(handle))
-            static_cast<void>(_registry->create(handle));
+        {
+            const auto created_handle = _registry->create(handle);
+            TBX_ASSERT(created_handle == handle, "Failed to create entity handle '{}'.", id);
+        }
 
         auto resolvedName = name;
         if (resolvedName.empty())

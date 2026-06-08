@@ -119,9 +119,8 @@ namespace tbx
             return;
         const auto component_type = entry.type;
 
-        // TODO: what is this for? We have the entt registry, can we get rid of this? Perhaps we
-        // need a global entity registry and the world shouldn't own it it should just be a
-        // convienience wrapper.
+        // Component serializers live process-wide so plugin unload can remove plugin-owned
+        // component registrations across worlds.
         auto& store = EntityComponentRegistrationStore::get_instance();
         auto guard = std::lock_guard(store.mutex());
         auto& registrations = store.registrations();
