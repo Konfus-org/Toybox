@@ -1,7 +1,5 @@
 #include "tbx/systems/graphics/rendering.h"
-#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
-#include <tuple>
 
 namespace tbx
 {
@@ -13,21 +11,23 @@ namespace tbx
         std::weak_ptr<ThreadManager> thread_manager,
         std::weak_ptr<IWindowManager> window_manager,
         std::weak_ptr<WorldManager> world_manager,
-        std::weak_ptr<IMessageCoordinator> message_coordinator,
-        Handle)
+        std::weak_ptr<AssetReloadQueue> reload_queue)
         : _thread_manager(std::move(thread_manager))
-        , _message_coordinator(message_coordinator)
+        , _reload_queue(std::move(reload_queue))
         , _backend(std::move(backend))
         , _window_manager(window_manager)
-        , _pipeline(_backend, std::move(asset_manager), std::move(window_manager), std::move(world_manager))
+        , _pipeline(
+              _backend,
+              std::move(asset_manager),
+              std::move(window_manager),
+              std::move(world_manager))
     {
-        if (auto coordinator = _message_coordinator.lock())
+        if (auto queue = _reload_queue.lock())
         {
-            _asset_reload_handler = coordinator->register_handler(
-                [this](Message& message)
+            _asset_reload_handler = queue->register_handler(
+                [this](const AssetReloadContext& context)
                 {
-                    if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
-                        on_asset_reloaded(reloaded->get());
+                    on_asset_reload(context);
                 });
         }
 
@@ -52,8 +52,8 @@ namespace tbx
         TBX_TRY_CATCH_ASSERT(
             {
                 wait_for_render_frame();
-                if (auto coordinator = _message_coordinator.lock())
-                    coordinator->deregister_handler(_asset_reload_handler);
+                if (auto queue = _reload_queue.lock())
+                    queue->deregister_handler(_asset_reload_handler);
 
                 if (auto thread_manager = _thread_manager.lock())
                 {
@@ -106,25 +106,12 @@ namespace tbx
         wait_for_render_frame();
     }
 
-    void Rendering::on_asset_reloaded(const AssetReloadedEvent& event)
+    void Rendering::on_asset_reload(const AssetReloadContext& context)
     {
-        if (!event.succeeded || !event.affected_asset.id.is_valid())
+        if (!context.succeeded || !context.affected_asset.id.is_valid())
             return;
 
-        const auto thread_manager = _thread_manager.lock();
-        const auto backend = _backend.lock();
-        if (!thread_manager || !backend || !thread_manager->has_lane(RENDER_LANE_NAME))
-            return;
-
-        std::ignore = thread_manager->post_with_future(
-            std::string(RENDER_LANE_NAME),
-            [this, backend]()
-            {
-                if (!backend)
-                    return;
-
-                _pipeline.reload();
-            });
+        _pipeline.invalidate_asset(context.affected_asset);
     }
 
     void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)
@@ -142,7 +129,7 @@ namespace tbx
             const auto vsync_result = backend->set_vsync(vsync_mode);
             if (!vsync_result)
             {
-                TBX_TRACE_ERROR(
+                TBX_TRACE_ERROR_ONCE(
                     "Toybox renderer failed to apply vsync setting. {}",
                     vsync_result.get_report());
             }
@@ -151,7 +138,9 @@ namespace tbx
         const auto result = _pipeline.execute(*backend, settings, delta_time);
         if (!result)
         {
-            TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());
+            TBX_TRACE_ERROR_ONCE(
+                "Toybox rendering pipeline execution failed. {}",
+                result.get_report());
         }
     }
 
