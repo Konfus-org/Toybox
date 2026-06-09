@@ -284,7 +284,7 @@ namespace tbx
 
             auto entry = find_entry_by_id(handle.id);
             out_asset_id = entry.has_value() ? entry->get().asset_id : handle.id;
-            return {};
+            return Result();
         }
 
         auto ensure_result = ensure_entry(handle);
@@ -790,7 +790,7 @@ namespace tbx
         }
         if (entry.asset_id == asset_id)
         {
-            return {};
+            return Result();
         }
 
         auto iterator = _path_by_id.find(asset_id);

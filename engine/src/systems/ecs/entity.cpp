@@ -335,11 +335,9 @@ namespace tbx
         return out_parent.get_id().is_valid();
     }
 
-    Transform get_world_space_transform(const Entity& entity)
+    Transform Transform::to_world_space(const Entity& entity) const
     {
-        auto world_transform = Transform {};
-        if (entity.has_component<Transform>())
-            world_transform = entity.get_component<Transform>();
+        auto world_transform = *this;
 
         auto cursor = entity;
         auto parent = Entity {};

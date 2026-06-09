@@ -35,6 +35,15 @@ namespace opengl_rendering
 
         uint32 get_texture_id() const;
         uint32 get_array_layer_count() const;
+
+        /// @brief
+        /// Purpose: Returns a resident ARB_bindless_texture handle for sampling this texture from a
+        /// shader by uint index, creating and making it resident on first call.
+        /// @details
+        /// Returns 0 if bindless is unsupported. Creating a handle makes the texture immutable, so
+        /// this must only be called for sampled textures, never render targets or textures still
+        /// being reallocated. Thread Safety: render thread only.
+        GLuint64 get_or_create_bindless_handle();
         void update(
             const tbx::GraphicsTextureUpdateDesc& desc,
             GLenum upload_format,
@@ -44,6 +53,7 @@ namespace opengl_rendering
       private:
         uint32 _texture_id = 0;
         uint32 _array_layer_count = 1U;
+        GLuint64 _bindless_handle = 0;
     };
 
     /// @brief

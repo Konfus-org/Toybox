@@ -1,4 +1,5 @@
 #pragma once
+// clang-format off
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/shader.h"
@@ -7,7 +8,6 @@
 #include "tbx/types/matrices.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
-#include "tbx/utils/hash.h"
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
@@ -16,54 +16,18 @@
 #include <variant>
 #include <vector>
 
+// The generated header must come AFTER the type and alias declarations above
+// (it references Vec2/MaterialParameterData). Keep it last; clang-format guard
+// prevents the include sorter from hoisting it.
 #include "tbx/types/assets/material.generated.h"
+// clang-format on
 
 namespace tbx
 {
-    inline constexpr uint32 INVALID_MATERIAL_PARAM_ID = 0U;
-
-    constexpr uint32 make_param_id(const std::string_view name)
-    {
-        auto result = TBX_FNV1A_OFFSET_BASIS;
-        for (const char value : name)
-        {
-            result ^= static_cast<unsigned char>(value);
-            result *= TBX_FNV1A_PRIME;
-        }
-        return static_cast<uint32>(result);
-    }
-
     [[serializable]];
     [[hash($)]];
     using MaterialParameterData =
         std::variant<bool, int, float, double, Vec2, Vec3, Vec4, Color, Mat3, Mat4>;
-
-    /// @brief
-    /// Purpose: Identifies which fixed renderer upload target a declared material binding feeds.
-    /// @details
-    /// Ownership: Value type.
-    /// Thread Safety: Safe to copy between threads.
-    [[serializable]];
-    enum class MaterialBindingTarget : uint8_t
-    {
-        NONE [[name("none")]] = 0,
-        BASE_COLOR [[name("base_color")]] = 1,
-        EMISSIVE_COLOR [[name("emissive_color")]] = 2,
-        METALLIC [[name("metallic")]] = 3,
-        ROUGHNESS [[name("roughness")]] = 4,
-        NORMAL_STRENGTH [[name("normal_strength")]] = 5,
-        AO [[name("ao")]] = 6,
-        ALPHA_CUTOFF [[name("alpha_cutoff")]] = 7,
-        ALBEDO_TEXTURE [[name("albedo_texture")]] = 8,
-        NORMAL_TEXTURE [[name("normal_texture")]] = 9,
-        METALLIC_TEXTURE [[name("metallic_texture")]] = 10,
-        ROUGHNESS_TEXTURE [[name("roughness_texture")]] = 11,
-        AO_TEXTURE [[name("ao_texture")]] = 12,
-        EMISSIVE_TEXTURE [[name("emissive_texture")]] = 13,
-        SKY_COLOR [[name("sky_color")]] = 14,
-        SKY_BRIGHTNESS [[name("sky_brightness")]] = 15,
-        SKY_TEXTURE [[name("sky_texture")]] = 16
-    };
 
     /// @brief
     /// Purpose: Selects the depth comparison function used when rendering a material.
@@ -104,16 +68,16 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores one material parameter value keyed by a stable hashed id.
+    /// Purpose: Stores one material parameter value keyed by shader binding name.
     /// @details
     /// Ownership: Stores the parameter payload inline.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[hash(id, data, target)]];
+    [[hash(name, data)]];
     struct TBX_API MaterialParameter
     {
         MaterialParameter() = default;
-        MaterialParameter(uint32 parameter_id, MaterialParameterData parameter_data);
+        MaterialParameter(std::string parameter_name, MaterialParameterData parameter_data);
 
         template <typename TValue>
         MaterialParameter(std::string_view parameter_name, TValue&& parameter_data);
@@ -124,13 +88,9 @@ namespace tbx
 
         [[prop]]
         std::string name = "";
-        uint32 id = INVALID_MATERIAL_PARAM_ID;
 
         [[prop]]
         MaterialParameterData data = 0.0f;
-
-        [[prop]]
-        MaterialBindingTarget target = MaterialBindingTarget::NONE;
     };
 
     /// @brief
@@ -151,18 +111,15 @@ namespace tbx
         }
 
         void set(std::string_view name, MaterialParameterData value);
-        void set(uint32 id, MaterialParameterData value);
         void set(MaterialParameter parameter);
         void set(std::initializer_list<MaterialParameter> parameters);
         std::optional<std::reference_wrapper<MaterialParameter>> get(std::string_view name);
         std::optional<std::reference_wrapper<const MaterialParameter>> get(
             std::string_view name) const;
-        std::optional<std::reference_wrapper<MaterialParameter>> get(uint32 id);
-        std::optional<std::reference_wrapper<const MaterialParameter>> get(uint32 id) const;
+        template <typename TValue>
+        TValue get_or(std::string_view name, const TValue& fallback) const;
         bool has(std::string_view name) const;
-        bool has(uint32 id) const;
         void remove(std::string_view name);
-        void remove(uint32 id);
         void clear();
 
         iterator begin();
@@ -177,29 +134,24 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores one texture binding keyed by a stable hashed id.
+    /// Purpose: Stores one texture binding keyed by shader binding name.
     /// @details
     /// Ownership: Owns the texture instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[hash(id, texture.id, texture.name, target)]];
+    [[hash(name, texture.id, texture.name)]];
     struct TBX_API MaterialTextureBinding
     {
         MaterialTextureBinding() = default;
-        MaterialTextureBinding(uint32 binding_id, Handle texture_handle);
+        MaterialTextureBinding(std::string binding_name, Handle texture_handle);
         MaterialTextureBinding(const char* binding_name, Handle texture_handle);
-        MaterialTextureBinding(const std::string& binding_name, Handle texture_handle);
         MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
 
         [[prop]]
         std::string name = "";
-        uint32 id = INVALID_MATERIAL_PARAM_ID;
 
         [[prop]]
         Handle texture = {};
-
-        [[prop]]
-        MaterialBindingTarget target = MaterialBindingTarget::NONE;
     };
 
     /// @brief
@@ -220,18 +172,13 @@ namespace tbx
         }
 
         void set(std::string_view name, Handle texture);
-        void set(uint32 id, Handle texture);
         void set(MaterialTextureBinding texture_binding);
         void set(std::initializer_list<MaterialTextureBinding> texture_bindings);
         std::optional<std::reference_wrapper<MaterialTextureBinding>> get(std::string_view name);
         std::optional<std::reference_wrapper<const MaterialTextureBinding>> get(
             std::string_view name) const;
-        std::optional<std::reference_wrapper<MaterialTextureBinding>> get(uint32 id);
-        std::optional<std::reference_wrapper<const MaterialTextureBinding>> get(uint32 id) const;
         bool has(std::string_view name) const;
-        bool has(uint32 id) const;
         void remove(std::string_view name);
-        void remove(uint32 id);
         void clear();
 
         iterator begin();

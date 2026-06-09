@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <vector>
 
 namespace tbx
 {
@@ -60,6 +61,16 @@ namespace tbx
     {
         //// INITIALIZE: BUILD CORE SERVICE INSTANCES ////
 
+        const auto settings_path = command_list.get<std::string>("settings");
+        auto startup_asset_directories = std::vector<std::filesystem::path>();
+        if (!settings_path.empty())
+        {
+            const auto settings_parent =
+                std::filesystem::path(settings_path).lexically_normal().parent_path();
+            if (!settings_parent.empty())
+                startup_asset_directories.push_back(settings_parent);
+        }
+
         if (!_service_provider)
             _service_provider = std::make_shared<ServiceProvider>();
 
@@ -88,7 +99,7 @@ namespace tbx
                 message_coordinator,
                 serialization_registry,
                 file_ops->get_working_directory(),
-                std::vector<std::filesystem::path> {},
+                std::move(startup_asset_directories),
                 HandleSource(),
                 file_ops);
         }
@@ -153,7 +164,6 @@ namespace tbx
 
         //// INITIALIZE: LOAD SETTINGS ////
 
-        const auto settings_path = command_list.get<std::string>("settings");
         const auto startup_settings_handle =
             settings_path.empty()
                 ? Handle("Settings.json")

@@ -8,6 +8,13 @@ namespace opengl_rendering
         return std::exchange(id, 0U);
     }
 
+    static void release_bindless_handle(GLuint64& handle) noexcept
+    {
+        if (handle != 0)
+            glMakeTextureHandleNonResidentARB(handle);
+        handle = 0;
+    }
+
     static bool is_depth_texture_format(const tbx::TextureFormat format)
     {
         return format == tbx::TextureFormat::DEPTH24_STENCIL8
@@ -33,6 +40,14 @@ namespace opengl_rendering
                 return GL_RGBA16F;
             case tbx::TextureFormat::RGBA32_FLOAT:
                 return GL_RGBA32F;
+            case tbx::TextureFormat::R8:
+                return GL_R8;
+            case tbx::TextureFormat::R16_FLOAT:
+                return GL_R16F;
+            case tbx::TextureFormat::RG8:
+                return GL_RG8;
+            case tbx::TextureFormat::RG16_FLOAT:
+                return GL_RG16F;
             case tbx::TextureFormat::DEPTH24_STENCIL8:
                 return GL_DEPTH24_STENCIL8;
             case tbx::TextureFormat::DEPTH32_FLOAT:
@@ -54,6 +69,12 @@ namespace opengl_rendering
                 return GL_DEPTH_COMPONENT;
             case tbx::TextureFormat::RGB:
                 return GL_RGB;
+            case tbx::TextureFormat::R8:
+            case tbx::TextureFormat::R16_FLOAT:
+                return GL_RED;
+            case tbx::TextureFormat::RG8:
+            case tbx::TextureFormat::RG16_FLOAT:
+                return GL_RG;
             case tbx::TextureFormat::RGBA:
             case tbx::TextureFormat::RGBA8:
             case tbx::TextureFormat::RGBA16_FLOAT:
@@ -69,6 +90,8 @@ namespace opengl_rendering
         {
             case tbx::TextureFormat::RGBA16_FLOAT:
             case tbx::TextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::R16_FLOAT:
+            case tbx::TextureFormat::RG16_FLOAT:
             case tbx::TextureFormat::DEPTH32_FLOAT:
                 return GL_FLOAT;
             case tbx::TextureFormat::DEPTH24_STENCIL8:
@@ -76,6 +99,8 @@ namespace opengl_rendering
             case tbx::TextureFormat::RGB:
             case tbx::TextureFormat::RGBA:
             case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::R8:
+            case tbx::TextureFormat::RG8:
             default:
                 return GL_UNSIGNED_BYTE;
         }
@@ -97,8 +122,14 @@ namespace opengl_rendering
                 return 16U;
             case tbx::TextureFormat::RGB:
                 return 3U;
+            case tbx::TextureFormat::R8:
+                return 1U;
+            case tbx::TextureFormat::R16_FLOAT:
+            case tbx::TextureFormat::RG8:
+                return 2U;
             case tbx::TextureFormat::RGBA:
             case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RG16_FLOAT:
             case tbx::TextureFormat::DEPTH24_STENCIL8:
             case tbx::TextureFormat::DEPTH32_FLOAT:
             default:
@@ -200,6 +231,7 @@ namespace opengl_rendering
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
         : _texture_id(take_texture_gl_handle(other._texture_id))
         , _array_layer_count(other._array_layer_count)
+        , _bindless_handle(std::exchange(other._bindless_handle, 0))
     {
         other._array_layer_count = 1U;
     }
@@ -209,21 +241,42 @@ namespace opengl_rendering
         if (this == &other)
             return *this;
 
+        release_bindless_handle(_bindless_handle);
         if (_texture_id != 0)
             glDeleteTextures(1, &_texture_id);
 
         _texture_id = take_texture_gl_handle(other._texture_id);
         _array_layer_count = other._array_layer_count;
+        _bindless_handle = std::exchange(other._bindless_handle, 0);
         other._array_layer_count = 1U;
         return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept
     {
+        release_bindless_handle(_bindless_handle);
         if (_texture_id != 0)
         {
             glDeleteTextures(1, &_texture_id);
         }
+    }
+
+    GLuint64 OpenGlTexture::get_or_create_bindless_handle()
+    {
+        if (_bindless_handle != 0)
+            return _bindless_handle;
+        if (_texture_id == 0)
+            return 0;
+
+        const GLuint64 handle = glGetTextureHandleARB(_texture_id);
+        if (handle == 0)
+            return 0;
+
+        // Creating a handle makes the texture immutable; making it resident lets shaders sample it
+        // by handle without binding a sampler unit.
+        glMakeTextureHandleResidentARB(handle);
+        _bindless_handle = handle;
+        return _bindless_handle;
     }
 
     void OpenGlTexture::bind_slot(const uint32 slot) const

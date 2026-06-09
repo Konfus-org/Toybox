@@ -1,13 +1,12 @@
 #pragma once
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
+#include "tbx/types/assets/shader.generated.h"
 #include "tbx/types/handle.h"
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-
-#include "tbx/types/assets/shader.generated.h"
 
 namespace tbx
 {

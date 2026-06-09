@@ -28,7 +28,8 @@ namespace tbx
         {
             auto position = Vec3(0.0F, 0.0F, 0.0F);
             if (camera_entity.has_component<Transform>())
-                position = get_world_space_transform(camera_entity).position;
+                position =
+                    camera_entity.get_component<Transform>().to_world_space(camera_entity).position;
 
             const float safe_chunk_size = std::max(chunk_size, 1.0F);
             camera_chunks.push_back(
@@ -84,10 +85,7 @@ namespace tbx
 
             for (const auto& coord : chunk_coords)
             {
-                if (should_load_chunk(
-                        coord,
-                        settings.unload_radius_chunks,
-                        camera_chunks))
+                if (should_load_chunk(coord, settings.unload_radius_chunks, camera_chunks))
                 {
                     desired_chunks.push_back(coord);
                 }

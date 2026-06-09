@@ -462,7 +462,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
             "    try",
             "    {",
             "        if (!tbx_json.is_object())",
-            "            return {};",
+            "            return ::tbx::Result();",
         ]
     )
     for field in prop_fields:
@@ -488,7 +488,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         )
     lines.extend(
         [
-            "        return {};",
+            "        return ::tbx::Result();",
             "    }",
             "    catch (const std::exception& exception)",
             "    {",

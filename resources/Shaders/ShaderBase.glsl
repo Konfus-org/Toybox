@@ -1,22 +1,23 @@
 #version 460 core
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_ARB_shader_viewport_layer_array : enable
+#extension GL_ARB_bindless_texture : require
 
+// Buffer binding slots (SSBO/UBO space). KEEP IN SYNC with GPU_BINDING_* in shader_bindings.h.
 #define TBX_SHADER_BINDING_ALL_INSTANCES 0
 #define TBX_SHADER_BINDING_GLOBAL_VERTICES 1
 #define TBX_SHADER_BINDING_GLOBAL_MESHES 2
 #define TBX_SHADER_BINDING_GLOBAL_MATERIALS 3
 #define TBX_SHADER_BINDING_GLOBAL_LIGHTS 4
-#define TBX_SHADER_BINDING_CLUSTER_GRID 6
-#define TBX_SHADER_BINDING_LIGHT_INDEX_POOL 7
-#define TBX_SHADER_BINDING_MAIN_SCENE_DRAW_ARGS 8
-#define TBX_SHADER_BINDING_SHADOW_ARGS_POOL 9
-#define TBX_SHADER_BINDING_MAIN_SCENE_DRAW_COUNT 10
-#define TBX_SHADER_BINDING_SHADOW_DRAW_COUNT 11
+#define TBX_SHADER_BINDING_CLUSTER_GRID 5
+#define TBX_SHADER_BINDING_LIGHT_INDEX_POOL 6
+#define TBX_SHADER_BINDING_MAIN_SCENE_DRAW_ARGS 7
+#define TBX_SHADER_BINDING_SHADOW_ARGS_POOL 8
+#define TBX_SHADER_BINDING_MAIN_SCENE_DRAW_COUNT 9
+#define TBX_SHADER_BINDING_SHADOW_DRAW_COUNT 10
+#define TBX_SHADER_BINDING_GLOBAL_TEXTURES 11
 
 #define TBX_SHADER_BINDING_SCENE_UNIFORMS 0
-
-#define TBX_SHADER_BINDING_GLOBAL_TEXTURES 0
 #define TBX_SHADER_BINDING_GBUFFER_ALBEDO 17
 #define TBX_SHADER_BINDING_GBUFFER_ROUGHNESS 18
 #define TBX_SHADER_BINDING_GBUFFER_NORMAL 19
@@ -66,27 +67,13 @@ struct MeshData
 struct InstanceData
 {
     mat4 modelMatrix;
+    mat4 prevModelMatrix; // for motion vectors / TAA; matches GpuInstanceData
     vec4 boundsMin;
     vec4 boundsMax;
     uint meshId;
     uint materialId;
     uint padding0;
     uint padding1;
-};
-
-struct MaterialData
-{
-    uint pipelineFlags;
-    uint albedoTextureIndex;
-    uint normalTextureIndex;
-    uint metallicTextureIndex;
-    uint roughnessTextureIndex;
-    uint aoTextureIndex;
-    uint emissiveTextureIndex;
-    float alphaCutoff;
-    vec4 baseColor;
-    vec4 emissiveColor;
-    vec4 surface;
 };
 
 struct DrawCommand
@@ -115,8 +102,12 @@ struct ClusterGridData
     uint padding1;
 };
 
-layout(binding = TBX_SHADER_BINDING_GLOBAL_TEXTURES) uniform sampler2D
-    globalTextures[TBX_MAX_GLOBAL_TEXTURES];
+// Bindless global texture table: each entry is a resident sampler2D handle (uint64) written by
+// GpuSceneBuffers from get_texture_bindless_handle(), indexed by a material's texture index.
+layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_TEXTURES) readonly buffer TbxGlobalTextureTable
+{
+    sampler2D globalTextures[];
+};
 layout(binding = TBX_SHADER_BINDING_GBUFFER_ALBEDO) uniform sampler2D tbx_gbuffer_albedo;
 layout(binding = TBX_SHADER_BINDING_GBUFFER_ROUGHNESS) uniform sampler2D tbx_gbuffer_roughness;
 layout(binding = TBX_SHADER_BINDING_GBUFFER_NORMAL) uniform sampler2D tbx_gbuffer_normal;
@@ -163,12 +154,6 @@ layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_VERTICES) readonly buffer Tbx
 layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_MESHES) readonly buffer TbxGlobalMeshBuffer
 {
     MeshData meshes[];
-};
-
-layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_MATERIALS) readonly buffer
-    TbxGlobalMaterialBuffer
-{
-    MaterialData materials[];
 };
 
 layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_LIGHTS) readonly buffer TbxGlobalLightBuffer
@@ -233,12 +218,7 @@ vec4 tbx_write_to_final_color(vec3 color, float alpha)
 
 vec4 tbx_sample_global_texture(uint texture_index, vec2 tex_coord)
 {
-    uint resolved_texture_index = min(texture_index, uint(TBX_MAX_GLOBAL_TEXTURES - 1));
-#ifdef GL_EXT_nonuniform_qualifier
-    return texture(globalTextures[nonuniformEXT(resolved_texture_index)], tex_coord);
-#else
-    return texture(globalTextures[resolved_texture_index], tex_coord);
-#endif
+    return texture(globalTextures[nonuniformEXT(texture_index)], tex_coord);
 }
 
 uint tbx_cluster_count()
@@ -281,9 +261,8 @@ vec3 tbx_safe_light_direction(LightData light)
 mat4 tbx_make_look_at(vec3 eye, vec3 center)
 {
     vec3 forward = normalize(center - eye);
-    vec3 up = abs(dot(forward, vec3(0.0, 1.0, 0.0))) > 0.999
-                  ? vec3(0.0, 0.0, 1.0)
-                  : vec3(0.0, 1.0, 0.0);
+    vec3 up =
+        abs(dot(forward, vec3(0.0, 1.0, 0.0))) > 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
     vec3 side = normalize(cross(forward, up));
     vec3 corrected_up = cross(side, forward);
     return mat4(
@@ -348,62 +327,6 @@ mat4 tbx_make_light_view_projection(LightData light)
                             : 90.0;
     return tbx_make_perspective(radians(fov_degrees), 1.0, 0.1, max(light.positionRange.w, 1.0))
            * view;
-}
-
-vec4 tbx_sample_material_color(uint material_id, vec2 tex_coord)
-{
-    MaterialData material = materials[material_id];
-    return material.baseColor * tbx_sample_global_texture(material.albedoTextureIndex, tex_coord);
-}
-
-vec3 tbx_resolve_normal(
-    uint material_id,
-    vec2 tex_coord,
-    vec3 interpolated_normal,
-    vec4 interpolated_tangent)
-{
-    MaterialData material = materials[material_id];
-    vec3 normal = normalize(interpolated_normal);
-    vec3 tangent = normalize(interpolated_tangent.xyz);
-    vec3 bitangent = normalize(cross(normal, tangent) * interpolated_tangent.w);
-    vec3 sampled =
-        tbx_sample_global_texture(material.normalTextureIndex, tex_coord).xyz * 2.0 - 1.0;
-    sampled.xy *= material.surface.z;
-    return normalize(mat3(tangent, bitangent, normal) * sampled);
-}
-
-float tbx_sample_material_metallic(uint material_id, vec2 tex_coord)
-{
-    MaterialData material = materials[material_id];
-    return clamp(
-        material.surface.x * tbx_sample_global_texture(material.metallicTextureIndex, tex_coord).r,
-        0.0,
-        1.0);
-}
-
-float tbx_sample_material_roughness(uint material_id, vec2 tex_coord)
-{
-    MaterialData material = materials[material_id];
-    return clamp(
-        material.surface.y * tbx_sample_global_texture(material.roughnessTextureIndex, tex_coord).r,
-        0.04,
-        1.0);
-}
-
-void tbx_write_gbuffer(
-    vec3 albedo,
-    float roughness,
-    vec3 normal,
-    float metallic,
-    out vec4 out_albedo,
-    out vec4 out_roughness,
-    out vec4 out_normal,
-    out vec4 out_metallic)
-{
-    out_albedo = vec4(albedo, 1.0);
-    out_roughness = vec4(roughness, 0.0, 0.0, 1.0);
-    out_normal = vec4(normalize(normal) * 0.5 + 0.5, 1.0);
-    out_metallic = vec4(metallic, 0.0, 0.0, 1.0);
 }
 
 void tbx_write_draw_command(

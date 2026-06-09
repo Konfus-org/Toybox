@@ -703,7 +703,7 @@ namespace tbx
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
-            const auto world_transform = get_world_space_transform(entity);
+            const auto world_transform = entity.get_component<Transform>().to_world_space(entity);
             const bool has_rigidbody_component = entity.has_component<Rigidbody>();
             const bool has_collider = has_any_collider(entity);
             if (!has_rigidbody_component && !has_collider)
@@ -725,8 +725,11 @@ namespace tbx
                     || (entity.has_component<StaticMesh>()
                         && _pending_model_reloads.contains(
                             entity.get_component<StaticMesh>().handle.id))
-                    || (entity.has_component<MeshCollider>() && record_it->second->has_last_transform
-                        && has_scale_changed(world_transform.scale, record_it->second->last_scale))))
+                    || (entity.has_component<MeshCollider>()
+                        && record_it->second->has_last_transform
+                        && has_scale_changed(
+                            world_transform.scale,
+                            record_it->second->last_scale))))
             {
                 destroy_record(*record_it->second);
                 _records_by_entity.erase(record_it);
@@ -860,7 +863,8 @@ namespace tbx
 
             if (!world.has<Rigidbody>(entity_id))
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform =
+                    entity.get_component<Transform>().to_world_space(entity);
                 record.last_position = world_transform.position;
                 record.last_rotation = world_transform.rotation;
                 record.last_scale = world_transform.scale;
@@ -878,7 +882,8 @@ namespace tbx
 
             if (rigidbody.is_kinematic)
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform =
+                    entity.get_component<Transform>().to_world_space(entity);
                 record.last_position = world_transform.position;
                 record.last_rotation = world_transform.rotation;
                 record.last_scale = world_transform.scale;
@@ -889,9 +894,11 @@ namespace tbx
             auto world_transform = state.transform;
             world_transform.scale = transform.scale;
             auto parent_entity = Entity {};
-            if (entity.try_get_parent_entity(parent_entity))
+            if (entity.try_get_parent_entity(parent_entity)
+                && parent_entity.has_component<Transform>())
             {
-                const auto parent_world_transform = get_world_space_transform(parent_entity);
+                const auto parent_world_transform =
+                    parent_entity.get_component<Transform>().to_world_space(parent_entity);
                 const auto local_transform =
                     world_to_local_tranform(parent_world_transform, world_transform);
                 transform.position = local_transform.position;

@@ -5,6 +5,42 @@
 #include "tbx/systems/plugin_api/shared_library.h"
 #include <filesystem>
 #include <memory>
+#include <string>
+#include <vector>
+
+#ifndef TBX_DEFAULT_APP_MODULE_NAME
+    #define TBX_DEFAULT_APP_MODULE_NAME ""
+#endif
+
+#ifndef TBX_DEFAULT_APP_SETTINGS_PATH
+    #define TBX_DEFAULT_APP_SETTINGS_PATH ""
+#endif
+
+static std::vector<std::string> build_defaulted_arguments(int argc, char* argv[])
+{
+    auto arguments = std::vector<std::string>();
+    for (int index = 0; index < argc; ++index)
+        arguments.emplace_back(argv[index] == nullptr ? "" : argv[index]);
+
+    const auto command_list = tbx::CommandList(argc, argv);
+    if (!command_list.has("app") && !std::string(TBX_DEFAULT_APP_MODULE_NAME).empty())
+        arguments.emplace_back(std::string("--app=") + TBX_DEFAULT_APP_MODULE_NAME);
+
+    if (!command_list.has("settings") && !std::string(TBX_DEFAULT_APP_SETTINGS_PATH).empty())
+        arguments.emplace_back(std::string("--settings=") + TBX_DEFAULT_APP_SETTINGS_PATH);
+
+    return arguments;
+}
+
+static tbx::CommandList make_command_list(const std::vector<std::string>& arguments)
+{
+    auto mutable_arguments = arguments;
+    auto argument_pointers = std::vector<char*>();
+    for (auto& argument : mutable_arguments)
+        argument_pointers.push_back(argument.data());
+
+    return tbx::CommandList(static_cast<int>(argument_pointers.size()), argument_pointers.data());
+}
 
 int Launcher::run(int argc, char* argv[])
 {
@@ -12,7 +48,8 @@ int Launcher::run(int argc, char* argv[])
 
     try
     {
-        const auto command_list = tbx::CommandList(argc, argv);
+        const auto defaulted_arguments = build_defaulted_arguments(argc, argv);
+        const auto command_list = make_command_list(defaulted_arguments);
         const auto executable_directory = tbx::get_process_executable_directory();
         const auto app_module_name = command_list.get<std::string>("app");
         if (app_module_name.empty())
@@ -30,7 +67,7 @@ int Launcher::run(int argc, char* argv[])
         auto app_library = tbx::load_shared_lib(executable_directory / app_module_name);
         if (!app_library->is_valid())
         {
-            auto load_error_message = std::string {};
+            auto load_error_message = std::string();
             const auto app_library_path = app_library->get_path();
             if (app_library->try_get_load_error_message(load_error_message))
             {

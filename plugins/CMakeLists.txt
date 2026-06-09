@@ -1,6 +1,7 @@
 message(STATUS "")
 message(STATUS "Configuring Toybox Plugins:")
 include(plugin_targets)
+include(default_plugins)
 
 set(CMAKE_FOLDER "plugins")
 
@@ -18,5 +19,7 @@ foreach(plugin_dir IN ITEMS
 )
     add_subdirectory(${plugin_dir})
 endforeach()
+
+tbx_define_default_plugins()
 
 unset(CMAKE_FOLDER)

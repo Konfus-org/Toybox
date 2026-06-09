@@ -109,14 +109,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Resolves an entity transform in world space by composing parent local transforms.
-    /// @details
-    /// Ownership: Returns an owned Transform value snapshot.
-    /// Thread Safety: Not thread-safe; synchronize external concurrent access. Notes: Entity
-    /// Transform components are authored and stored in local space.
-    TBX_API Transform get_world_space_transform(const Entity& entity);
-
-    /// @brief
     /// Purpose: Owns the ECS registry backend and provides entity lifecycle operations.
     /// @details
     /// Ownership: Owns the underlying entt registry instance.

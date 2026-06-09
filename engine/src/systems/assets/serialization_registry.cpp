@@ -168,7 +168,7 @@ namespace tbx
                         .append(". The file needs versioned."));
             }
 
-            return {};
+            return Result();
         }
 
         if (expected_version != 0U && version != expected_version)
@@ -184,7 +184,7 @@ namespace tbx
         }
 
         out_metadata.version = version;
-        return {};
+        return Result();
     }
 
     void SerializationRegistry::apply_tbx_asset_common_meta(
@@ -200,3 +200,4 @@ namespace tbx
         return _file_ops.lock();
     }
 }
+

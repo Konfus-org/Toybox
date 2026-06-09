@@ -64,41 +64,32 @@ namespace tbx
         void set_config(MaterialConfig config_override);
 
         void set_parameter(const std::string& name, MaterialParameterData value);
-        void set_parameter(uint32 id, MaterialParameterData value);
 
         void set_texture(const std::string& name, Handle texture);
-        void set_texture(uint32 id, Handle texture);
 
-        void set_bool(uint32 id, bool value);
-        void set_int(uint32 id, int value);
-        void set_float(uint32 id, float value);
-        void set_double(uint32 id, double value);
-        void set_vec2(uint32 id, const Vec2& value);
-        void set_vec3(uint32 id, const Vec3& value);
-        void set_vec4(uint32 id, const Vec4& value);
-        void set_color(uint32 id, const Color& value);
-        void set_mat3(uint32 id, const Mat3& value);
-        void set_mat4(uint32 id, const Mat4& value);
+        void set_bool(const std::string& name, bool value);
+        void set_int(const std::string& name, int value);
+        void set_float(const std::string& name, float value);
+        void set_double(const std::string& name, double value);
+        void set_vec2(const std::string& name, const Vec2& value);
+        void set_vec3(const std::string& name, const Vec3& value);
+        void set_vec4(const std::string& name, const Vec4& value);
+        void set_color(const std::string& name, const Color& value);
+        void set_mat3(const std::string& name, const Mat3& value);
+        void set_mat4(const std::string& name, const Mat4& value);
 
         bool get_bool_parameter_or(const std::string& name, bool fallback) const;
-        bool get_bool_parameter_or(uint32 id, bool fallback) const;
 
         int get_int_parameter_or(const std::string& name, int fallback) const;
-        int get_int_parameter_or(uint32 id, int fallback) const;
 
         float get_float_parameter_or(const std::string& name, float fallback) const;
-        float get_float_parameter_or(uint32 id, float fallback) const;
 
         double get_double_parameter_or(const std::string& name, double fallback) const;
-        double get_double_parameter_or(uint32 id, double fallback) const;
 
         Handle get_texture_handle_or(const std::string& name, const Handle& fallback = {}) const;
-        Handle get_texture_handle_or(uint32 id, const Handle& fallback = {}) const;
 
         template <typename TValue>
         TValue get_parameter_or(const std::string& name, const TValue& fallback) const;
-        template <typename TValue>
-        TValue get_parameter_or(uint32 id, const TValue& fallback) const;
 
         [[prop]]
         Handle material = {};

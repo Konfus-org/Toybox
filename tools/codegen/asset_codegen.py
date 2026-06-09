@@ -98,7 +98,7 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
         )
     lines.extend(
         [
-            "        return {};",
+            "        return ::tbx::Result();",
             "    }",
             "    catch (...)",
             "    {",

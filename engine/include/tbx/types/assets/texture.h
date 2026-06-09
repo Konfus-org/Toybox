@@ -34,6 +34,10 @@ namespace tbx
         RGBA8 [[name("rgba8")]],
         RGBA16_FLOAT [[name("rgba16_float")]],
         RGBA32_FLOAT [[name("rgba32_float")]],
+        R8 [[name("r8")]],
+        R16_FLOAT [[name("r16_float")]],
+        RG8 [[name("rg8")]],
+        RG16_FLOAT [[name("rg16_float")]],
         DEPTH24_STENCIL8 [[name("depth24_stencil8")]],
         DEPTH32_FLOAT [[name("depth32_float")]],
     };
@@ -137,33 +141,4 @@ namespace tbx
         Size resolution = {1, 1};
     };
 
-    /// @brief
-    /// Purpose: Stores texture data and backend usage for render-pipeline runtime textures.
-    /// @details
-    /// Ownership: Owns CPU upload pixels by value; backend resources are owned separately.
-    /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API RenderTexture : public Texture
-    {
-        RenderTexture() = default;
-        RenderTexture(
-            const Size& resolution,
-            TextureWrap wrap,
-            TextureFilter filter,
-            TextureFormat format,
-            TextureMipmaps mipmaps,
-            TextureCompression compression,
-            TextureUsage usage,
-            std::vector<Pixel> pixels = {})
-            : Texture(resolution, wrap, filter, format, mipmaps, compression, std::move(pixels))
-            , usage(usage)
-        {
-        }
-
-        bool operator==(const RenderTexture& other) const
-        {
-            return Texture::operator==(other) && usage == other.usage;
-        }
-
-        TextureUsage usage = TextureUsage::SAMPLED;
-    };
 }

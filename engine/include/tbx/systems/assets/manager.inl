@@ -7,7 +7,7 @@ namespace tbx
     {
         bool attempted = false;
         bool pending = false;
-        Result result = {};
+        Result result = Result();
         std::string normalized_path = {};
         Uuid asset_id = {};
         uint64 revision = 0U;
@@ -93,7 +93,7 @@ namespace tbx
             auto iterator = records.find(entry.asset_id);
             if (iterator == records.end())
             {
-                return {};
+                return StoreReloadResult();
             }
 
             auto& record = iterator->second;
@@ -731,3 +731,4 @@ namespace tbx
         return reload_result.attempted && !reload_result.pending && reload_result.result.succeeded();
     }
 }
+

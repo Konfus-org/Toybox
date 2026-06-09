@@ -11,43 +11,26 @@ void main()
     }
 
     InstanceData instance = instances[instance_id];
-    MaterialData material = materials[instance.materialId];
-    if ((material.pipelineFlags & currentPassFilter) == 0u)
+    if (currentPassFilter == TBX_SHADER_PIPELINE_FLAG_SHADOW)
     {
+        for (uint light_id = 0u; light_id < lightCount; ++light_id)
+        {
+            if (lights[light_id].shadowData.x < 0.0)
+            {
+                continue;
+            }
+
+            uint shadow_slot = atomicAdd(shadowDrawCount, 1u);
+            if (shadow_slot >= maxShadowDrawCount)
+            {
+                continue;
+            }
+
+            uint encoded_base_instance = (light_id * max(totalInstanceCount, 1u)) + instance_id;
+            tbx_write_draw_command(shadow_slot, instance_id, encoded_base_instance, true);
+        }
+
         return;
-    }
-
-    if ((material.pipelineFlags & TBX_SHADER_PIPELINE_FLAG_SHADOW) == 0u)
-    {
-        if (!tbx_aabb_is_inside_frustum(instance.boundsMin.xyz, instance.boundsMax.xyz))
-        {
-            return;
-        }
-
-        uint scene_slot = atomicAdd(mainSceneDrawCount, 1u);
-        if (scene_slot < maxSceneDrawCount)
-        {
-            tbx_write_draw_command(scene_slot, instance_id, instance_id, false);
-        }
-
-        return;
-    }
-
-    for (uint light_id = 0u; light_id < lightCount; ++light_id)
-    {
-        if (lights[light_id].shadowData.x < 0.0)
-        {
-            continue;
-        }
-
-        uint shadow_slot = atomicAdd(shadowDrawCount, 1u);
-        if (shadow_slot >= maxShadowDrawCount)
-        {
-            continue;
-        }
-
-        uint encoded_base_instance = (light_id * max(totalInstanceCount, 1u)) + instance_id;
-        tbx_write_draw_command(shadow_slot, instance_id, encoded_base_instance, true);
     }
 
     if (!tbx_aabb_is_inside_frustum(instance.boundsMin.xyz, instance.boundsMax.xyz))

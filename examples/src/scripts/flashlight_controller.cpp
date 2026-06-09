@@ -104,12 +104,14 @@ namespace tbx_example
     void FlashlightController::sync_to_camera_now()
     {
         auto& flashlight = get_entity();
-        if (!_camera_entity.get_id().is_valid() || !flashlight.get_id().is_valid())
+        if (!_camera_entity.get_id().is_valid() || !flashlight.get_id().is_valid()
+            || !_camera_entity.has_component<tbx::Transform>())
             return;
         if (!flashlight.has_component<tbx::Transform>())
             return;
 
-        flashlight.get_component<tbx::Transform>() = tbx::get_world_space_transform(_camera_entity);
+        flashlight.get_component<tbx::Transform>() =
+            _camera_entity.get_component<tbx::Transform>().to_world_space(_camera_entity);
     }
 
     void FlashlightController::update_actions()
@@ -130,12 +132,14 @@ namespace tbx_example
     void FlashlightController::update_transform(const tbx::DeltaTime& dt)
     {
         auto& flashlight = get_entity();
-        if (!_camera_entity.get_id().is_valid() || !flashlight.get_id().is_valid())
+        if (!_camera_entity.get_id().is_valid() || !flashlight.get_id().is_valid()
+            || !_camera_entity.has_component<tbx::Transform>())
             return;
         if (!flashlight.has_component<tbx::Transform>())
             return;
 
-        const auto camera_transform = tbx::get_world_space_transform(_camera_entity);
+        const auto camera_transform =
+            _camera_entity.get_component<tbx::Transform>().to_world_space(_camera_entity);
         auto& flashlight_transform = flashlight.get_component<tbx::Transform>();
         const auto blend = std::clamp(follow_speed * static_cast<float>(dt.seconds), 0.0F, 1.0F);
 

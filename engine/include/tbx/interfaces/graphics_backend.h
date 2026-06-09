@@ -87,16 +87,16 @@ namespace tbx
         RENDER_TARGET,
         DEPTH_WRITE,
         DEPTH_READ,
-        SHADER_READ_ONLY,
+        GPUREAD_ONLY,
         UNORDERED_ACCESS,
         INDIRECT_ARGUMENT,
     };
 
-    inline constexpr uint32 SHADER_STAGE_VERTEX = 1U << 0U;
-    inline constexpr uint32 SHADER_STAGE_TESSELATION = 1U << 1U;
-    inline constexpr uint32 SHADER_STAGE_GEOMETRY = 1U << 2U;
-    inline constexpr uint32 SHADER_STAGE_FRAGMENT = 1U << 3U;
-    inline constexpr uint32 SHADER_STAGE_COMPUTE = 1U << 4U;
+    inline constexpr uint32 GPUSTAGE_VERTEX = 1U << 0U;
+    inline constexpr uint32 GPUSTAGE_TESSELATION = 1U << 1U;
+    inline constexpr uint32 GPUSTAGE_GEOMETRY = 1U << 2U;
+    inline constexpr uint32 GPUSTAGE_FRAGMENT = 1U << 3U;
+    inline constexpr uint32 GPUSTAGE_COMPUTE = 1U << 4U;
 
     /// @brief
     /// Purpose: Defines the type stored in a bound index buffer.
@@ -414,6 +414,12 @@ namespace tbx
 
         virtual Result begin_frame(const Window& output_target) = 0;
         virtual Result end_frame() = 0;
+        virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
+        virtual Result end_render_pass() = 0;
+        virtual Result begin_compute_pass(const GraphicsComputePassDesc& pass) = 0;
+        virtual Result end_compute_pass() = 0;
+
+        virtual Result destroy_resource(const GpuId& resource_uuid) = 0;
 
         virtual Result create_bind_group(const BindGroupDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_bind_group_layout(
@@ -426,14 +432,31 @@ namespace tbx
         virtual Result create_raster_pipeline(
             const RasterPipelineDesc& desc,
             GpuId& out_resource_uuid) = 0;
-        virtual Result create_sampler(const GraphicsSamplerDesc& desc, GpuId& out_resource_uuid) = 0;
-        virtual Result create_texture(const GraphicsTextureDesc& desc, GpuId& out_resource_uuid) = 0;
-        virtual Result destroy_resource(const GpuId& resource_uuid) = 0;
+        virtual Result create_sampler(
+            const GraphicsSamplerDesc& desc,
+            GpuId& out_resource_uuid) = 0;
+        virtual Result create_texture(
+            const GraphicsTextureDesc& desc,
+            GpuId& out_resource_uuid) = 0;
 
-        virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
-        virtual Result end_render_pass() = 0;
-        virtual Result begin_compute_pass(const GraphicsComputePassDesc& pass) = 0;
-        virtual Result end_compute_pass() = 0;
+        /// @brief Whether the backend supports referencing textures by resident bindless handle.
+        virtual bool supports_bindless_textures() const = 0;
+        /// @brief Returns a resident bindless handle for a sampled texture, indexable from shaders.
+        /// @details Fails if bindless is unsupported or the resource is not a sampled texture.
+        virtual Result get_texture_bindless_handle(
+            const GpuId& texture_uuid,
+            uint64& out_handle) = 0;
+
+        virtual Result write_buffer(
+            const GpuId& resource_uuid,
+            const void* data,
+            uint64 data_size,
+            uint64 offset) = 0;
+        virtual Result write_texture(
+            const GpuId& resource_uuid,
+            const GraphicsTextureUpdateDesc& desc,
+            const void* data,
+            uint64 data_size) = 0;
 
         virtual Result present() = 0;
         virtual void wait_for_idle() = 0;
@@ -441,6 +464,7 @@ namespace tbx
         virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
         virtual Result bind_compute_pipeline(const GpuId& pipeline_resource_uuid) = 0;
         virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;
+        virtual Result pipeline_barrier(const std::vector<PipelineBarrierDesc>& barriers) = 0;
 
         virtual Result draw(
             uint32 index_count,
@@ -453,8 +477,6 @@ namespace tbx
             uint64 offset,
             uint32 draw_count,
             uint32 stride) = 0;
-        /// @brief
-        /// Purpose: Draws indirect commands using a GPU-written draw count when supported.
         virtual Result draw_indirect_count(
             const GpuId& argument_buffer,
             uint64 offset,
@@ -466,16 +488,5 @@ namespace tbx
             uint32 group_count_x,
             uint32 group_count_y,
             uint32 group_count_z) = 0;
-        virtual Result pipeline_barrier(const std::vector<PipelineBarrierDesc>& barriers) = 0;
-        virtual Result write_buffer(
-            const GpuId& resource_uuid,
-            const void* data,
-            uint64 data_size,
-            uint64 offset) = 0;
-        virtual Result write_texture(
-            const GpuId& resource_uuid,
-            const GraphicsTextureUpdateDesc& desc,
-            const void* data,
-            uint64 data_size) = 0;
     };
 }

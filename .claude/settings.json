@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cmake --build build/clang --config Debug --target Engine 2>&1)",
+      "PowerShell(cmake --build build/clang --config Debug --target Engine OpenGlRendering 2>&1)",
+      "PowerShell(cmake --build build/clang --config Debug --target Engine OpenGlRendering 2>&1 | Select-String -Pattern \"error|FAILED|Linking\" | Select-Object -First 20; \"exit: $LASTEXITCODE\")",
+      "PowerShell(cmake --build build/clang --config Debug --target Engine 2>&1 | Select-String -Pattern \"error:|FAILED|Linking\" | Select-Object -First 30; \"exit: $LASTEXITCODE\")",
+      "PowerShell(cmake --build build/clang --config Debug --target Engine 2>&1 | Select-String -Pattern \"error:|FAILED|Linking\" | Select-Object -First 20; \"exit: $LASTEXITCODE\")"
+    ]
+  }
+}

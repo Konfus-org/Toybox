@@ -179,7 +179,7 @@ namespace tbx
         }
         else if (asset_registration.has_value() && asset_registration->transform_meta)
         {
-            read.result = {};
+            read.result = Result();
         }
         else
         {
@@ -572,7 +572,7 @@ namespace tbx
                     .append("'."));
         }
 
-        return {};
+        return Result();
     }
 
     inline Result SerializationRegistry::try_read_tbx_serialized_asset_meta(
@@ -586,7 +586,7 @@ namespace tbx
         auto meta_path = asset_path;
         meta_path += ".meta";
         if (!file_ops.exists(meta_path))
-            return {};
+            return Result();
 
         auto contents = std::string();
         if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
@@ -607,7 +607,7 @@ namespace tbx
 
             out_meta_data = std::move(contents);
             out_loaded_meta = true;
-            return {};
+            return Result();
         }
         catch (const std::exception& exception)
         {
@@ -626,3 +626,4 @@ namespace tbx
         }
     }
 }
+

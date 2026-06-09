@@ -17,8 +17,7 @@
                     "b": 1,
                     "a": 1
                 }
-            },
-            "target": "base_color"
+            }
         },
         {
             "name": "emissive_color",
@@ -30,72 +29,61 @@
                     "b": 0,
                     "a": 1
                 }
-            },
-            "target": "emissive_color"
+            }
         },
         {
             "name": "metallic",
             "data": {
                 "type": "float",
                 "value": 0
-            },
-            "target": "metallic"
+            }
         },
         {
             "name": "roughness",
             "data": {
                 "type": "float",
                 "value": 1
-            },
-            "target": "roughness"
+            }
         },
         {
             "name": "normal_strength",
             "data": {
                 "type": "float",
                 "value": 1
-            },
-            "target": "normal_strength"
+            }
         },
         {
             "name": "ao",
             "data": {
                 "type": "float",
                 "value": 1
-            },
-            "target": "ao"
+            }
         }
     ],
     "textures": [
         {
             "name": "albedo_map",
-            "texture": 0,
-            "target": "albedo_texture"
+            "texture": 0
         },
         {
             "name": "normal_map",
-            "texture": 0,
-            "target": "normal_texture"
+            "texture": 0
         },
         {
             "name": "metallic_map",
-            "texture": 0,
-            "target": "metallic_texture"
+            "texture": 0
         },
         {
             "name": "roughness_map",
-            "texture": 0,
-            "target": "roughness_texture"
+            "texture": 0
         },
         {
             "name": "ao_map",
-            "texture": 0,
-            "target": "ao_texture"
+            "texture": 0
         },
         {
             "name": "emissive_map",
-            "texture": 0,
-            "target": "emissive_texture"
+            "texture": 0
         }
     ],
     "config": {

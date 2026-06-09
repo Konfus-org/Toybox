@@ -35,7 +35,7 @@ endif()
 add_library(Tbx::Engine ALIAS Engine)
 set_target_properties(Engine PROPERTIES FOLDER "engine")
 
-include(code_gen_utility)
+include(codegen)
 
 file(GLOB_RECURSE TBX_Engine_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/include/*.*")
 file(GLOB_RECURSE TBX_Engine_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")

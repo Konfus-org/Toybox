@@ -17,13 +17,8 @@ Strictly follow the `docs/CodeStandards.md` and keep `docs` up-to-date when maki
 
 ## Testing & Verification
 
-- **Behavior-Driven Testing**: Write unit tests for all new features. Focus strictly on testing behavioral outcomes, never implementation details or default values.
-- **Dual-Scenario Coverage**: Every behavior requires exactly two explicit test cases: a positive test verifying success under correct conditions, and a negative test verifying graceful failure under invalid conditions.
-- **AAA Pattern**: Enforce the Arrange-Act-Assert structure cleanly inside every test function.
-- **Strict Isolation**: Ban all filesystem and network I/O. Force the use of mocks, fakes, or stubs for all external dependencies.
-- **Target Verification**: The System Under Test (SUT) must be actually instantiated and executed. Never mock the class or function you are trying to test.
 - **Always Build Tests w/ Sanitizers**: Use: `cmake --preset clang-sanitize-tests` and fix any issues raised by sanitizers or test failures.
-- **Always Test Changes**: Build with  `ctest --preset clang-debug` and launch the `examples/3d_example` and test startup/shutdown. Ensure the app fully starts up, runs for a few seconds, then shut it down and examine logs under the build dirs 'logs' folder to ensure their are no warnings or errors logged, if there are fix them and re-test until no warnings/errors.
+- **Always Test Changes**: Build with  `ctest --preset clang-debug` and launch the example app under `examples` and test startup/shutdown. Ensure the app fully starts up, runs for a few seconds, then shut it down and examine logs under the build dirs 'logs' folder to ensure their are no warnings or errors logged, if there are fix them and re-test until no warnings/errors.
 - **Rendering Verification**: When validating rendering changes, launch the existing `ThreeDExampleLauncher.exe`, bring the window to the foreground, and capture a desktop screenshot once the Toybox window is visible. Use the screenshot as a visual regression check that the frame rendered as expected.
 - **Performance Profiling**: When asked to profile or debug performance issues, run the VSDiagnostics.exe against the `examples/3d_example` launcher. Capture actionable CPU/GPU/frame-time evidence before proposing fixes, then verify the same scenario again after changes.
 

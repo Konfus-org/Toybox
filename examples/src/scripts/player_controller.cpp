@@ -274,10 +274,12 @@ namespace tbx_example
     {
         auto world = _world.lock();
         auto physics_system = physics.lock();
-        if (!world || !physics_system || !_camera_entity.get_id().is_valid())
+        if (!world || !physics_system || !_camera_entity.get_id().is_valid()
+            || !_camera_entity.has_component<tbx::Transform>())
             return;
 
-        const auto camera_world_transform = tbx::get_world_space_transform(_camera_entity);
+        const auto camera_world_transform =
+            _camera_entity.get_component<tbx::Transform>().to_world_space(_camera_entity);
         auto raycast = tbx::RaycastQuery {
             .origin = camera_world_transform.position,
             .direction = get_shot_direction(camera_world_transform),
@@ -358,10 +360,12 @@ namespace tbx_example
     void PlayerController::spawn_projectile()
     {
         auto world = _world.lock();
-        if (!world || !_camera_entity.get_id().is_valid())
+        if (!world || !_camera_entity.get_id().is_valid()
+            || !_camera_entity.has_component<tbx::Transform>())
             return;
 
-        const auto camera_world_transform = tbx::get_world_space_transform(_camera_entity);
+        const auto camera_world_transform =
+            _camera_entity.get_component<tbx::Transform>().to_world_space(_camera_entity);
         const auto shot_direction = get_shot_direction(camera_world_transform);
         const auto spawn_position =
             camera_world_transform.position + (shot_direction * _projectile_spawn_distance);

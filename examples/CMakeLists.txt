@@ -2,7 +2,7 @@
 if(TBX_BUILD_EXAMPLES)
     set(CMAKE_FOLDER "examples")
 
-    include(code_gen_utility)
+    include(codegen)
     add_library(ExampleApp SHARED)
     target_compile_features(ExampleApp PRIVATE cxx_std_23)
 

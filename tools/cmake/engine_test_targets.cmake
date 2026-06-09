@@ -16,7 +16,7 @@ function(tbx_add_engine_test)
     tbx_set_test_output(${TBX_TEST_NAME})
 
     if(TBX_TEST_ATTRIBUTE_CODEGEN)
-        include(code_gen_utility)
+        include(codegen)
         tbx_codegen_generate_attribute_headers(
             TARGET ${TBX_TEST_NAME}
             SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"

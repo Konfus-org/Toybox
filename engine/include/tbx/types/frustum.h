@@ -15,6 +15,14 @@ namespace tbx
             extract_planes(view_projection);
         }
 
+        /// @brief Returns the six cached frustum planes (left, right, bottom, top, near, far),
+        /// computed once at construction. Lets callers reuse the planes (e.g. to upload to the GPU)
+        /// without re-deriving them from the view-projection matrix.
+        const std::array<Plane, 6>& get_planes() const
+        {
+            return _planes;
+        }
+
         bool intersects(const Sphere& sphere) const
         {
             for (const auto& plane : _planes)

@@ -56,6 +56,24 @@
       }
     },
     {
+      "name": "tbx-examples-msvc",
+      "displayName": "Toybox Examples (MSVC)",
+      "description": "Targeting Windows x64 with MSVC compiler and example targets enabled",
+      "inherits": "msvc",
+      "cacheVariables": {
+        "TBX_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "tbx-examples-clang",
+      "displayName": "Toybox Examples (Clang)",
+      "description": "Targeting Windows x64 with Clang compiler and example targets enabled",
+      "inherits": "clang",
+      "cacheVariables": {
+        "TBX_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
       "name": "msvc-tests",
       "displayName": "Toybox (MSVC, tests)",
       "description": "Targeting Windows x64 with MSVC compiler and test targets enabled",
@@ -119,6 +137,30 @@
       "name": "clang-debug",
       "inherits": "build-base",
       "configurePreset": "clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "tbx-examples-msvc-release",
+      "inherits": "build-base",
+      "configurePreset": "tbx-examples-msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "tbx-examples-clang-release",
+      "inherits": "build-base",
+      "configurePreset": "tbx-examples-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "tbx-examples-msvc-debug",
+      "inherits": "build-base",
+      "configurePreset": "tbx-examples-msvc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "tbx-examples-clang-debug",
+      "inherits": "build-base",
+      "configurePreset": "tbx-examples-clang",
       "configuration": "Debug"
     },
     {

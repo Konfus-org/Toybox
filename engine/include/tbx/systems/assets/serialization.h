@@ -208,7 +208,7 @@ namespace tbx
     static Result read_json_asset_body(std::string_view data, TAsset& asset)
     {
         if (read_json_serializable_value(data, asset))
-            return {};
+            return Result();
 
         return make_serialization_failure("Failed to parse Toybox asset JSON.");
     }
@@ -221,14 +221,14 @@ namespace tbx
         serialize(json, asset);
         output = json.dump(4);
         post_serialize(asset);
-        return {};
+        return Result();
     }
 
     template <typename TAsset>
     static Result read_json_asset_meta(std::string_view data, TAsset& asset)
     {
         if (read_json_serializable_value(data, asset))
-            return {};
+            return Result();
 
         return make_serialization_failure("Failed to parse Toybox asset meta JSON.");
     }
@@ -240,7 +240,7 @@ namespace tbx
         if (Serializer<TAsset>::deserialize(data, asset))
         {
             post_deserialize(asset);
-            return {};
+            return Result();
         }
 
         return make_serialization_failure("Failed to parse custom Toybox asset body.");
@@ -252,7 +252,7 @@ namespace tbx
         pre_serialize(asset);
         output = Serializer<TAsset>::serialize(asset);
         post_serialize(asset);
-        return {};
+        return Result();
     }
 
     template <typename TText>
@@ -262,7 +262,7 @@ namespace tbx
             std::is_assignable_v<TText&, std::string>,
             "Text asset fields must be assignable from std::string when deserializing.");
         output = std::string(data);
-        return {};
+        return Result();
     }
 
     template <typename TText>
@@ -273,7 +273,7 @@ namespace tbx
             "Text asset fields must be convertible to std::string_view when serializing.");
         const auto view = std::string_view(text);
         output.assign(view.data(), view.size());
-        return {};
+        return Result();
     }
 
     inline std::string make_serialization_json_key(std::string_view field_name)

@@ -4,78 +4,69 @@
 
 namespace tbx
 {
-    static bool matches_material_binding_id(
-        const uint32 binding_id,
-        const std::string& binding_name,
-        const uint32 requested_id)
-    {
-        if (binding_id == requested_id)
-            return true;
-
-        return binding_id == INVALID_MATERIAL_PARAM_ID && !binding_name.empty()
-               && make_param_id(binding_name) == requested_id;
-    }
-
-    static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_id(
+    static std::optional<std::reference_wrapper<MaterialParameter>> try_get_uniform_by_name(
         std::vector<MaterialParameter>& values,
-        const uint32 id)
+        const std::string_view name)
     {
         for (auto& value : values)
         {
-            if (matches_material_binding_id(value.id, value.name, id))
+            if (value.name == name)
                 return std::ref(value);
         }
 
         return std::nullopt;
     }
 
-    static std::optional<std::reference_wrapper<const MaterialParameter>> try_get_uniform_by_id(
+    static std::optional<std::reference_wrapper<const MaterialParameter>> try_get_uniform_by_name(
         const std::vector<MaterialParameter>& values,
-        const uint32 id)
+        const std::string_view name)
     {
         for (const auto& value : values)
         {
-            if (matches_material_binding_id(value.id, value.name, id))
+            if (value.name == name)
                 return std::cref(value);
         }
 
         return std::nullopt;
     }
 
-    static std::optional<std::reference_wrapper<MaterialTextureBinding>> try_get_texture_by_id(
+    static std::optional<std::reference_wrapper<MaterialTextureBinding>> try_get_texture_by_name(
         std::vector<MaterialTextureBinding>& values,
-        const uint32 id)
+        const std::string_view name)
     {
         for (auto& texture : values)
         {
-            if (matches_material_binding_id(texture.id, texture.name, id))
+            if (texture.name == name)
                 return std::ref(texture);
         }
 
         return std::nullopt;
     }
 
-    static std::optional<std::reference_wrapper<const MaterialTextureBinding>> try_get_texture_by_id(
+    static std::optional<std::reference_wrapper<const MaterialTextureBinding>>
+    try_get_texture_by_name(
         const std::vector<MaterialTextureBinding>& values,
-        const uint32 id)
+        const std::string_view name)
     {
         for (const auto& texture : values)
         {
-            if (matches_material_binding_id(texture.id, texture.name, id))
+            if (texture.name == name)
                 return std::cref(texture);
         }
 
         return std::nullopt;
     }
 
-    MaterialParameter::MaterialParameter(uint32 parameter_id, MaterialParameterData parameter_data)
-        : id(parameter_id)
+    MaterialParameter::MaterialParameter(
+        std::string parameter_name,
+        MaterialParameterData parameter_data)
+        : name(std::move(parameter_name))
         , data(std::move(parameter_data))
     {
     }
 
-    MaterialTextureBinding::MaterialTextureBinding(uint32 binding_id, Handle texture_handle)
-        : id(binding_id)
+    MaterialTextureBinding::MaterialTextureBinding(std::string binding_name, Handle texture_handle)
+        : name(std::move(binding_name))
         , texture(std::move(texture_handle))
     {
     }
@@ -86,18 +77,9 @@ namespace tbx
     }
 
     MaterialTextureBinding::MaterialTextureBinding(
-        const std::string& binding_name,
-        Handle texture_handle)
-        : MaterialTextureBinding(std::string_view(binding_name), std::move(texture_handle))
-    {
-    }
-
-    MaterialTextureBinding::MaterialTextureBinding(
         std::string_view binding_name,
         Handle texture_handle)
-        : name(binding_name)
-        , id(make_param_id(binding_name))
-        , texture(std::move(texture_handle))
+        : MaterialTextureBinding(std::string(binding_name), std::move(texture_handle))
     {
     }
 
@@ -106,33 +88,16 @@ namespace tbx
         set(MaterialParameter(name, std::move(value)));
     }
 
-    void MaterialParameterBindings::set(const uint32 id, MaterialParameterData value)
-    {
-        auto parameter = try_get_uniform_by_id(values, id);
-        if (parameter.has_value())
-        {
-            parameter->get().data = std::move(value);
-            return;
-        }
-
-        values.push_back(MaterialParameter(id, std::move(value)));
-    }
-
     void MaterialParameterBindings::set(MaterialParameter parameter)
     {
-        const uint32 id = parameter.id == INVALID_MATERIAL_PARAM_ID && !parameter.name.empty()
-                              ? make_param_id(parameter.name)
-                              : parameter.id;
-        auto existing_parameter = try_get_uniform_by_id(values, id);
+        auto existing_parameter = try_get_uniform_by_name(values, parameter.name);
         if (existing_parameter.has_value())
         {
             existing_parameter->get().name = std::move(parameter.name);
             existing_parameter->get().data = std::move(parameter.data);
-            existing_parameter->get().target = parameter.target;
             return;
         }
 
-        parameter.id = id;
         values.push_back(std::move(parameter));
     }
 
@@ -145,47 +110,25 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialParameter>> MaterialParameterBindings::get(
         std::string_view name)
     {
-        return get(make_param_id(name));
+        return try_get_uniform_by_name(values, name);
     }
 
     std::optional<std::reference_wrapper<const MaterialParameter>> MaterialParameterBindings::get(
         std::string_view name) const
     {
-        return get(make_param_id(name));
-    }
-
-    std::optional<std::reference_wrapper<MaterialParameter>> MaterialParameterBindings::get(
-        const uint32 id)
-    {
-        return try_get_uniform_by_id(values, id);
-    }
-
-    std::optional<std::reference_wrapper<const MaterialParameter>> MaterialParameterBindings::get(
-        const uint32 id) const
-    {
-        return try_get_uniform_by_id(values, id);
+        return try_get_uniform_by_name(values, name);
     }
 
     bool MaterialParameterBindings::has(std::string_view name) const
     {
-        return has(make_param_id(name));
-    }
-
-    bool MaterialParameterBindings::has(const uint32 id) const
-    {
-        return get(id).has_value();
+        return get(name).has_value();
     }
 
     void MaterialParameterBindings::remove(std::string_view name)
     {
-        remove(make_param_id(name));
-    }
-
-    void MaterialParameterBindings::remove(const uint32 id)
-    {
         for (auto it = values.begin(); it != values.end(); ++it)
         {
-            if (it->id != id)
+            if (it->name != name)
                 continue;
 
             values.erase(it);
@@ -236,34 +179,16 @@ namespace tbx
         set(MaterialTextureBinding(name, std::move(texture)));
     }
 
-    void MaterialTextureBindings::set(const uint32 id, Handle texture)
-    {
-        auto entry = try_get_texture_by_id(values, id);
-        if (entry.has_value())
-        {
-            entry->get().texture = std::move(texture);
-            return;
-        }
-
-        values.push_back(MaterialTextureBinding(id, std::move(texture)));
-    }
-
     void MaterialTextureBindings::set(MaterialTextureBinding texture_binding)
     {
-        const uint32 id =
-            texture_binding.id == INVALID_MATERIAL_PARAM_ID && !texture_binding.name.empty()
-                ? make_param_id(texture_binding.name)
-                : texture_binding.id;
-        auto existing_texture = try_get_texture_by_id(values, id);
+        auto existing_texture = try_get_texture_by_name(values, texture_binding.name);
         if (existing_texture.has_value())
         {
             existing_texture->get().name = std::move(texture_binding.name);
             existing_texture->get().texture = std::move(texture_binding.texture);
-            existing_texture->get().target = texture_binding.target;
             return;
         }
 
-        texture_binding.id = id;
         values.push_back(std::move(texture_binding));
     }
 
@@ -277,47 +202,25 @@ namespace tbx
     std::optional<std::reference_wrapper<MaterialTextureBinding>> MaterialTextureBindings::get(
         std::string_view name)
     {
-        return get(make_param_id(name));
+        return try_get_texture_by_name(values, name);
     }
 
     std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::
         get(std::string_view name) const
     {
-        return get(make_param_id(name));
-    }
-
-    std::optional<std::reference_wrapper<MaterialTextureBinding>> MaterialTextureBindings::get(
-        const uint32 id)
-    {
-        return try_get_texture_by_id(values, id);
-    }
-
-    std::optional<std::reference_wrapper<const MaterialTextureBinding>> MaterialTextureBindings::
-        get(const uint32 id) const
-    {
-        return try_get_texture_by_id(values, id);
+        return try_get_texture_by_name(values, name);
     }
 
     bool MaterialTextureBindings::has(std::string_view name) const
     {
-        return has(make_param_id(name));
-    }
-
-    bool MaterialTextureBindings::has(const uint32 id) const
-    {
-        return get(id).has_value();
+        return get(name).has_value();
     }
 
     void MaterialTextureBindings::remove(std::string_view name)
     {
-        remove(make_param_id(name));
-    }
-
-    void MaterialTextureBindings::remove(const uint32 id)
-    {
         for (auto it = values.begin(); it != values.end(); ++it)
         {
-            if (it->id != id)
+            if (it->name != name)
                 continue;
 
             values.erase(it);
@@ -430,107 +333,82 @@ namespace tbx
 
     void MaterialInstance::set_parameter(const std::string& name, MaterialParameterData value)
     {
-        set_parameter(make_param_id(name), std::move(value));
-    }
-
-    void MaterialInstance::set_parameter(const uint32 id, MaterialParameterData value)
-    {
-        overrides.parameters.set(id, std::move(value));
+        overrides.parameters.set(name, std::move(value));
         overrides.has_parameter_override = true;
         mark_dirty();
     }
 
     void MaterialInstance::set_texture(const std::string& name, Handle texture)
     {
-        set_texture(make_param_id(name), std::move(texture));
-    }
-
-    void MaterialInstance::set_texture(const uint32 id, Handle texture)
-    {
-        overrides.textures.set(id, std::move(texture));
+        overrides.textures.set(name, std::move(texture));
         overrides.has_texture_override = true;
         mark_dirty();
     }
 
-    void MaterialInstance::set_bool(const uint32 id, const bool value)
+    void MaterialInstance::set_bool(const std::string& name, const bool value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_int(const uint32 id, const int value)
+    void MaterialInstance::set_int(const std::string& name, const int value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_float(const uint32 id, const float value)
+    void MaterialInstance::set_float(const std::string& name, const float value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_double(const uint32 id, const double value)
+    void MaterialInstance::set_double(const std::string& name, const double value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_vec2(const uint32 id, const Vec2& value)
+    void MaterialInstance::set_vec2(const std::string& name, const Vec2& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_vec3(const uint32 id, const Vec3& value)
+    void MaterialInstance::set_vec3(const std::string& name, const Vec3& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_vec4(const uint32 id, const Vec4& value)
+    void MaterialInstance::set_vec4(const std::string& name, const Vec4& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_color(const uint32 id, const Color& value)
+    void MaterialInstance::set_color(const std::string& name, const Color& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_mat3(const uint32 id, const Mat3& value)
+    void MaterialInstance::set_mat3(const std::string& name, const Mat3& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
-    void MaterialInstance::set_mat4(const uint32 id, const Mat4& value)
+    void MaterialInstance::set_mat4(const std::string& name, const Mat4& value)
     {
-        set_parameter(id, value);
+        set_parameter(name, value);
     }
 
     bool MaterialInstance::get_bool_parameter_or(const std::string& name, const bool fallback) const
     {
-        return get_bool_parameter_or(make_param_id(name), fallback);
-    }
-
-    bool MaterialInstance::get_bool_parameter_or(const uint32 id, const bool fallback) const
-    {
-        return get_parameter_or(id, fallback);
+        return get_parameter_or(name, fallback);
     }
 
     int MaterialInstance::get_int_parameter_or(const std::string& name, const int fallback) const
     {
-        return get_int_parameter_or(make_param_id(name), fallback);
-    }
-
-    int MaterialInstance::get_int_parameter_or(const uint32 id, const int fallback) const
-    {
-        return get_parameter_or(id, fallback);
+        return get_parameter_or(name, fallback);
     }
 
     float MaterialInstance::get_float_parameter_or(const std::string& name, const float fallback)
         const
     {
-        return get_float_parameter_or(make_param_id(name), fallback);
-    }
-
-    float MaterialInstance::get_float_parameter_or(const uint32 id, const float fallback) const
-    {
-        const auto parameter = overrides.parameters.get(id);
+        const auto parameter = overrides.parameters.get(name);
         if (!parameter.has_value())
             return fallback;
         const auto& data = parameter->get().data;
@@ -546,12 +424,7 @@ namespace tbx
     double MaterialInstance::get_double_parameter_or(const std::string& name, const double fallback)
         const
     {
-        return get_double_parameter_or(make_param_id(name), fallback);
-    }
-
-    double MaterialInstance::get_double_parameter_or(const uint32 id, const double fallback) const
-    {
-        const auto parameter = overrides.parameters.get(id);
+        const auto parameter = overrides.parameters.get(name);
         if (!parameter.has_value())
             return fallback;
         const auto& data = parameter->get().data;
@@ -567,12 +440,7 @@ namespace tbx
     Handle MaterialInstance::get_texture_handle_or(const std::string& name, const Handle& fallback)
         const
     {
-        return get_texture_handle_or(make_param_id(name), fallback);
-    }
-
-    Handle MaterialInstance::get_texture_handle_or(const uint32 id, const Handle& fallback) const
-    {
-        const auto texture = overrides.textures.get(id);
+        const auto texture = overrides.textures.get(name);
         if (!texture.has_value())
             return fallback;
         return texture->get().texture;

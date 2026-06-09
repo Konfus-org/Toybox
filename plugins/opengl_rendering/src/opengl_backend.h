@@ -92,6 +92,11 @@ namespace opengl_rendering
             const tbx::GraphicsTextureDesc& desc,
             tbx::GpuId& out_resource_uuid) override;
 
+        bool supports_bindless_textures() const override;
+        tbx::Result get_texture_bindless_handle(
+            const tbx::GpuId& texture_uuid,
+            uint64& out_handle) override;
+
         tbx::Result write_buffer(
             const tbx::GpuId& resource_uuid,
             const void* data,

@@ -365,7 +365,9 @@ namespace assimp_model_loader
             tbx::Material material = {};
             if (source_material)
             {
-                material.parameters.set("color", get_material_diffuse_color(*source_material));
+                material.parameters.set(
+                    "albedo_color",
+                    get_material_diffuse_color(*source_material));
             }
             materials.push_back(material);
         }

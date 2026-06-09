@@ -26,19 +26,19 @@ namespace tbx
 
     struct AssetRegistryEntryResult
     {
-        Result result = {};
+        Result result = Result();
         std::optional<std::reference_wrapper<const AssetRegistryEntry>> entry = std::nullopt;
     };
 
     struct AssetRegistryMutationResult
     {
-        Result result = {};
+        Result result = Result();
         std::optional<AssetRegistryEntry> entry = std::nullopt;
     };
 
     struct AssetRegistryDirectoryRemovalResult
     {
-        Result result = {};
+        Result result = Result();
         std::vector<AssetRegistryEntry> entries = {};
     };
 
@@ -96,3 +96,4 @@ namespace tbx
     };
 
 }
+

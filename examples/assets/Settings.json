@@ -10,5 +10,8 @@
         "StbImageLoader",
         "AssimpModelLoader",
         "ShaderIncludeLoader"
-    ]
+    ],
+    "world": {
+        "startup_world": 822083584
+    }
 }

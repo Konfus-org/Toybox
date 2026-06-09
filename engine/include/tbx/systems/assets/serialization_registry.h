@@ -150,7 +150,7 @@ namespace tbx
     {
         std::shared_ptr<TAsset> asset = {};
         AssetLoadMetadata metadata = {};
-        Result result = {};
+        Result result = Result();
     };
 
     /// @brief
@@ -347,3 +347,4 @@ namespace tbx
 }
 
 #include "tbx/systems/assets/serialization_registry.inl"
+

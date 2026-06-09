@@ -46,7 +46,7 @@ namespace tbx
         virtual ~Message() noexcept;
 
         MessageState state = MessageState::UN_HANDLED;
-        Result result = {};
+        Result result = Result();
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
         Uuid id = Uuid::generate();

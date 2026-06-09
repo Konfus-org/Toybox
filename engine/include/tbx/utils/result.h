@@ -5,11 +5,14 @@
 
 namespace tbx
 {
+    // TODO: Make all constructors use explicit except for Result, Handle, and Uuid. They should be
+    // explicit(false) to allow them to be implicitly created from bool, string or uint, and uint
+    // respectively
     class TBX_API Result
     {
       public:
-        Result();
-        Result(bool success, std::string report = "");
+        explicit Result();
+        explicit(false) Result(bool success, std::string report = "");
 
         // Returns true if the result indicates success.
         bool succeeded() const;

@@ -23,16 +23,18 @@
 - **Internals/Detail**: DO NOT USE, don't have detail or internal namespaces, use static instead and for private structs have a 'State' that we forward declare in the class/structs public header file and define in the cpp file.
 - **Lifecycle Exceptions**: Omit Doxygen summaries entirely for `attach`, `detach`, `update`, `on_attach`, `on_detach`, `on_update`, and `on_fixed_update`.
 
-## Testing & Verification
+## Writing Unit Tests
 
 - **Behavior-Driven Testing**: Write unit tests for all new features. Focus strictly on testing behavioral outcomes, never implementation details or default values.
 - **Dual-Scenario Coverage**: Every behavior requires exactly two explicit test cases: a positive test verifying success under correct conditions, and a negative test verifying graceful failure under invalid conditions.
 - **AAA Pattern**: Enforce the Arrange-Act-Assert structure cleanly inside every test function.
 - **Strict Isolation**: Ban all filesystem and network I/O. Force the use of mocks, fakes, or stubs for all external dependencies.
 - **Target Verification**: The System Under Test (SUT) must be actually instantiated and executed. Never mock the class or function you are trying to test.
-- **Build System**: Execute builds exclusively via `CMakePresets.json`.
-- **Always Build w/ Sanitizers**: Normal Debug presets are intentionally unsanitized for framerate. For ASan+UBSan startup/testing validation, use: `cmake --preset clang-sanitize-tests` -> `cmake --build --preset clang-sanitize-debug-tests` -> `ctest --preset test-clang-sanitize-debug`.
-- **Always Test Changes**: Launch the 3d Example in normal debug mode for interactive startup/shutdown. Also use the Clang sanitizer mode when validating memory safety, undefined behavior, or agent startup/test confidence.
+
+# Verifying Changes
+
+- **Build w/ Sanitizers**: Normal debug presets are intentionally unsanitized for framerate. For ASan+UBSan startup/testing validation, use: `cmake --preset clang-sanitize-tests` -> `cmake --build --preset clang-sanitize-debug-tests` -> `ctest --preset test-clang-sanitize-debug`.
+- **Launch Example**: Launch the example app in normal debug mode for interactive startup/shutdown. Also use the Clang sanitizer mode when validating memory safety, undefined behavior, or agent startup/test confidence.
 
 ## Documentation
 

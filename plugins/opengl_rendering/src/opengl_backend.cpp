@@ -1,6 +1,6 @@
 #include "opengl_backend.h"
-#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
 
@@ -321,9 +321,6 @@ namespace opengl_rendering
 
     uint32 to_gl_image_unit(const uint32 binding_slot)
     {
-        if (binding_slot == tbx::SHADER_BINDING_FINAL_HDR)
-            return tbx::SHADER_BINDING_FINAL_HDR_IMAGE;
-
         return binding_slot;
     }
 
@@ -606,7 +603,8 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::bind_raster_pipeline(const tbx::GpuId& pipeline_resource_uuid)
+    tbx::Result OpenGlGraphicsBackend::bind_raster_pipeline(
+        const tbx::GpuId& pipeline_resource_uuid)
     {
         const auto pipeline_it = _cache.raster_pipelines.find(pipeline_resource_uuid);
         if (pipeline_it == _cache.raster_pipelines.end())
@@ -1170,7 +1168,7 @@ namespace opengl_rendering
                 case tbx::ResourceState::DEPTH_READ:
                     barrier_bits |= GL_FRAMEBUFFER_BARRIER_BIT;
                     break;
-                case tbx::ResourceState::SHADER_READ_ONLY:
+                case tbx::ResourceState::GPUREAD_ONLY:
                     barrier_bits |= GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT
                                     | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
                     break;
@@ -1491,6 +1489,29 @@ namespace opengl_rendering
             return result;
         }
 
+        return make_success();
+    }
+
+    bool OpenGlGraphicsBackend::supports_bindless_textures() const
+    {
+        // Bindless is assumed available on the semi-modern GPU/PC targets this backend supports.
+        return true;
+    }
+
+    tbx::Result OpenGlGraphicsBackend::get_texture_bindless_handle(
+        const tbx::GpuId& texture_uuid,
+        uint64& out_handle)
+    {
+        out_handle = 0U;
+        const auto iterator = _cache.textures.find(texture_uuid);
+        if (iterator == _cache.textures.end())
+            return make_failure("OpenGL backend: texture not found for bindless handle.");
+
+        const GLuint64 handle = iterator->second.texture.get_or_create_bindless_handle();
+        if (handle == 0U)
+            return make_failure("OpenGL backend: failed to create bindless texture handle.");
+
+        out_handle = static_cast<uint64>(handle);
         return make_success();
     }
 

@@ -11,19 +11,19 @@
 namespace tbx
 {
     /// @brief
-    /// Purpose: Executes the fixed GPU-driven render pipeline for one frame.
+    /// Purpose: Executes the backend-facing render pipeline for one frame.
     /// @details
     /// Ownership: Owns GPU resource caches and borrows engine services. Thread Safety: Call on the
     /// render lane.
     class TBX_API RenderingPipeline final
     {
       public:
-        explicit RenderingPipeline(
+        RenderingPipeline(
             std::weak_ptr<IGraphicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<IWindowManager> window_manager,
             std::weak_ptr<WorldManager> world_manager);
-        explicit RenderingPipeline(
+        RenderingPipeline(
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<IWindowManager> window_manager,
             std::weak_ptr<WorldManager> world_manager);
@@ -41,8 +41,8 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Runs frame setup, compute culling, indirect shadow/G-buffer draws, lighting
-        /// resolve, and presentation.
+        /// Purpose: Runs transient allocation, frame graph construction, backend submission, and
+        /// presentation for the active world.
         Result execute(
             IGraphicsBackend& backend,
             const GraphicsSettings& settings,
@@ -62,5 +62,6 @@ namespace tbx
         std::weak_ptr<WorldManager> _world_manager = {};
         std::unique_ptr<State> _state = {};
         float _elapsed_time = 0.0F;
+        uint64 _frame_index = 0U;
     };
 }

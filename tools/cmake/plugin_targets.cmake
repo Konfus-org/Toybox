@@ -1,5 +1,5 @@
 include_guard(GLOBAL)
-include(code_gen_utility)
+include(codegen)
 
 function(tbx_add_plugin)
     set(options)

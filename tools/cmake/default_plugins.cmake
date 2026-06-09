@@ -13,14 +13,14 @@ function(tbx_define_default_plugins)
     endif()
 
     set(default_includes
-        Tbx::Plugins::TbxPerformanceMonitorPlugin
-        Tbx::Plugins::SdlInputPlugin
-        Tbx::Plugins::JoltPhysicsPlugin
-        Tbx::Plugins::SdlWindowingPlugin
-        Tbx::Plugins::SdlOpenGlContextManagerPlugin
-        Tbx::Plugins::OpenGlRenderingPlugin
-        Tbx::Plugins::StbImageLoaderPlugin
-        Tbx::Plugins::AssimpModelLoaderPlugin
+        Tbx::Plugins::PerformanceMonitor
+        Tbx::Plugins::SdlInput
+        Tbx::Plugins::JoltPhysics
+        Tbx::Plugins::SdlWindowing
+        Tbx::Plugins::SdlOpenGlContextManager
+        Tbx::Plugins::OpenGlRendering
+        Tbx::Plugins::StbImageLoader
+        Tbx::Plugins::AssimpModelLoader
         Tbx::Plugins::ShaderIncludeLoader
     )
 

@@ -18,6 +18,14 @@ namespace tbx
         Transform(const Vec3& position, const Quat& rotation);
         Transform(const Vec3& position, const Quat& rotation, const Vec3& scale);
 
+        /// @brief
+        /// Purpose: Resolves this local transform in world space using the provided entity's parent
+        /// hierarchy.
+        /// @details
+        /// Ownership: Returns an owned Transform value snapshot.
+        /// Thread Safety: Not thread-safe; synchronize external concurrent access.
+        Transform to_world_space(const class Entity& entity) const;
+
         // Local-space translation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
