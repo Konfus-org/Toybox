@@ -12,6 +12,7 @@
 #include "tbx/types/quaternions.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/vectors.h"
+#include <cmath>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -21,9 +22,33 @@ namespace tbx
 {
     //// STATIC HELPERS ////
 
-    // Half-extent (world units) of the orthographic box the directional shadow map covers, centered
-    // on the camera. Large enough to hold the example scenes; tighter values sharpen the shadows.
-    static constexpr float SHADOW_ORTHO_RADIUS = 45.0F;
+    // cascade_splits is packed into a Vec4, so at most four cascades are supported.
+    static_assert(SHADOW_CASCADE_COUNT <= 4U, "cascade_splits packs into a Vec4 (max 4 cascades)");
+
+    // Half-extent (world units) of the nearest, sharpest directional shadow cascade centered on the
+    // camera. Further cascades grow geometrically out to half the configured shadow render distance,
+    // so the nearest gets the most texels per world unit and the furthest reaches the farthest.
+    static constexpr float SHADOW_NEAR_CASCADE_RADIUS = 12.0F;
+
+    // Builds the world -> light-clip matrix for one directional cascade: an orthographic box of the
+    // given half-extent centered on the camera, viewed from far back along the light so any caster
+    // between the sun and the camera within the full shadow distance is captured in depth. A larger
+    // half-extent reaches farther but spreads the same texels over more world (lower resolution).
+    static Mat4 build_cascade_matrix(
+        const Vec3& camera_position,
+        const Vec3& light_forward,
+        const float half_extent,
+        const float shadow_distance)
+    {
+        const Vec3 up = (light_forward.y > 0.99F || light_forward.y < -0.99F)
+                            ? Vec3(0.0F, 0.0F, 1.0F)
+                            : Vec3(0.0F, 1.0F, 0.0F);
+        const Vec3 eye = camera_position - (light_forward * shadow_distance);
+        const Mat4 view = look_at(eye, camera_position, up);
+        const Mat4 proj = ortho_projection(
+            -half_extent, half_extent, -half_extent, half_extent, 0.05F, shadow_distance * 2.0F);
+        return proj * view;
+    }
 
     static bool material_instance_has_overrides(const MaterialInstance& instance)
     {
@@ -126,7 +151,7 @@ namespace tbx
                 state.is_depth_write_enabled && !state.is_blending_enabled;
             const auto pipeline =
                 cache.add_pipeline(
-                    hash_shader_pipeline(material.shader, state), material.shader, state, false);
+                    hash(material.shader, state), material.shader, state, false);
             if (pipeline)
                 real_pipeline = *pipeline;
             else
@@ -210,13 +235,28 @@ namespace tbx
         const uint32 instance_index = static_cast<uint32>(result.instances.size());
         result.instances.push_back(instance);
 
-        _bucket_commands[bucket].push_back(
-            GpuIndexedDrawCommand {
-                .index_count = mesh_data.index_count,
-                .instance_count = 1U,
-                .first_index = mesh_data.first_index,
-                .base_vertex = 0,
-                .first_instance = instance_index});
+        const auto draw_command = GpuIndexedDrawCommand {
+            .index_count = mesh_data.index_count,
+            .instance_count = 1U,
+            .first_index = mesh_data.first_index,
+            .base_vertex = 0,
+            .first_instance = instance_index};
+        _bucket_commands[bucket].push_back(draw_command);
+
+        // Mirror shadow-casting renderables into the shadow pass's per-category command list. The sky
+        // dome and any ShadowMode::OFF material are excluded here — this is what stops the
+        // camera-centered sky sphere from writing the shadow map and casting a blob under the camera.
+        // Validation fallbacks (failure != NONE) never cast. The category drives the shadow pass's
+        // raster state: opaque -> depth map, transparent -> colored transmittance map; two-sided
+        // variants disable face culling so the material's sidedness is honored.
+        if (failure == RenderFailure::NONE && material.config.shadow_mode == ShadowMode::ON)
+        {
+            const bool transparent = material.config.blend_mode != MaterialBlendMode::OPAQUE;
+            const uint32 category =
+                (transparent ? SHADOW_CASTER_TRANSPARENT_ONE_SIDED : SHADOW_CASTER_OPAQUE_ONE_SIDED)
+                + (material.config.is_two_sided ? 1U : 0U);
+            _shadow_commands[category].push_back(draw_command);
+        }
     }
 
     WorldViewResult WorldView::capture(
@@ -225,11 +265,15 @@ namespace tbx
         GpuResourceCache& cache,
         const Size& output_size,
         const float elapsed_time,
-        const float light_cull_distance)
+        const float light_cull_distance,
+        const float shadow_distance,
+        const float shadow_softness)
     {
         auto result = WorldViewResult {};
         _bucket_of_pipeline.clear();
         _bucket_commands.clear();
+        for (auto& commands : _shadow_commands)
+            commands.clear();
         _validation.ensure(cache, assets);
 
         //// CAMERA / UNIFORMS ////
@@ -536,24 +580,45 @@ namespace tbx
             ambient_accum += Vec3(light.color.r, light.color.g, light.color.b)
                              * (light.ambient * light.intensity);
 
-            // The first visible directional light becomes the shadow caster: build an orthographic
-            // light-space transform that brackets a box around the camera and tag this light's GPU
-            // record with shadow index 0 so the shader occlusion-tests only it.
+            // The first visible directional light becomes the shadow caster: build the cascade
+            // light-space transforms (camera-centered ortho boxes growing with distance) and tag this
+            // light's GPU record with shadow index 0 so the shader occlusion-tests only it.
             if (shadow_caster_assigned || !light.cast_shadows || light.intensity <= 0.0F)
                 continue;
             const Mat4 light_model = build_transform_matrix(transform);
             const Vec3 light_forward = normalize(-Vec3(light_model[2]));
-            const float radius = SHADOW_ORTHO_RADIUS;
-            const Vec3 center = camera_position;
-            const Vec3 eye = center - (light_forward * radius);
-            const Vec3 up = (light_forward.y > 0.99F || light_forward.y < -0.99F)
-                                ? Vec3(0.0F, 0.0F, 1.0F)
-                                : Vec3(0.0F, 1.0F, 0.0F);
-            const Mat4 light_view = look_at(eye, center, up);
-            const Mat4 light_proj =
-                ortho_projection(-radius, radius, -radius, radius, 0.05F, radius * 2.0F);
-            uniforms.light_view_projection = light_proj * light_view;
-            uniforms.shadow_settings = Vec4(0.0025F, 0.0008F, 0.0F, 0.0F);
+
+            // Full directional reach (GraphicsSettings::shadow_render_distance). The furthest cascade
+            // spans half of it from the camera; raising it pushes shadows farther (lower resolution
+            // per world unit). The eye sits this far back along the light so tall/distant casters
+            // between the sun and the camera are still captured in every cascade's depth.
+            const float reach = shadow_distance > 0.0F ? shadow_distance : SHADOW_NEAR_CASCADE_RADIUS * 8.0F;
+            const float near_radius = std::min(SHADOW_NEAR_CASCADE_RADIUS, reach * 0.5F);
+            const float far_radius = std::max(reach * 0.5F, near_radius);
+
+            // Geometric split: cascade 0 hugs the camera (sharp), each subsequent cascade covers a
+            // geometrically larger box out to far_radius (coarse, far-reaching). cascade_splits[c] is
+            // the camera distance the cascade covers — a fragment within it is guaranteed inside the
+            // box (half-extent radius on every light-space axis), so the shader picks the nearest fit.
+            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            {
+                const float t = SHADOW_CASCADE_COUNT > 1U
+                                    ? static_cast<float>(c) / static_cast<float>(SHADOW_CASCADE_COUNT - 1U)
+                                    : 1.0F;
+                const float radius = near_radius * std::pow(far_radius / near_radius, t);
+                uniforms.cascade_view_projection[c] =
+                    build_cascade_matrix(camera_position, light_forward, radius, reach);
+                uniforms.cascade_splits[static_cast<int>(c)] = radius;
+            }
+            // Colored transmittance is rendered/sampled with the full-range (furthest) cascade so it
+            // covers the whole shadowed range.
+            uniforms.color_view_projection =
+                uniforms.cascade_view_projection[SHADOW_CASCADE_COUNT - 1U];
+            uniforms.cascade_count = SHADOW_CASCADE_COUNT;
+            // x = slope bias, y = constant bias, z = PCF radius in texels (GraphicsSettings::
+            // shadow_softness — larger softens the edges).
+            uniforms.shadow_settings =
+                Vec4(0.0025F, 0.0008F, std::max(shadow_softness, 1.0F), 0.0F);
             uniforms.shadow_count = 1U;
             result.lights.back().shadow_data.x = 0.0F;
             shadow_caster_assigned = true;
@@ -601,6 +666,18 @@ namespace tbx
             result.bucket_command_counts.push_back(static_cast<uint32>(commands.size()));
             result.draw_commands.insert(
                 result.draw_commands.end(),
+                commands.begin(),
+                commands.end());
+        }
+
+        // Flatten the shadow caster commands in ShadowCasterCategory order; the shadow pass walks
+        // the per-category counts to draw each with the matching raster state / target.
+        for (uint32 category = 0U; category < SHADOW_CASTER_CATEGORY_COUNT; ++category)
+        {
+            const auto& commands = _shadow_commands[category];
+            result.shadow_category_counts[category] = static_cast<uint32>(commands.size());
+            result.shadow_draw_commands.insert(
+                result.shadow_draw_commands.end(),
                 commands.begin(),
                 commands.end());
         }

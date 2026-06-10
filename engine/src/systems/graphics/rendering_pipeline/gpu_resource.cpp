@@ -1,4 +1,4 @@
-#include "gpu_resource_cache.h"
+#include "gpu_resources.h"
 #include <utility>
 
 namespace tbx

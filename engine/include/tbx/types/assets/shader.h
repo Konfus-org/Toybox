@@ -3,6 +3,7 @@
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/shader.generated.h"
 #include "tbx/types/handle.h"
+#include "tbx/utils/hash.h"
 #include <string>
 #include <string_view>
 #include <utility>
@@ -128,5 +129,16 @@ namespace tbx
             return true;
         }
     };
+
+    /// @brief Folds a shader program's stage handles into a stable hash. Combined with the render
+    /// state by the material-level hash overload to key a compiled raster pipeline.
+    inline uint64 hash(const ShaderProgram& shader)
+    {
+        uint64 value = hash_handle(shader.vertex.id);
+        value = hash_combine(value, hash_handle(shader.fragment.id));
+        value = hash_combine(value, hash_handle(shader.geometry.id));
+        value = hash_combine(value, hash_handle(shader.tesselation.id));
+        return value;
+    }
 
 }

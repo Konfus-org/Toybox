@@ -39,7 +39,9 @@ namespace tbx
         Size resolution = {0, 0};
 
         /// @brief
-        /// Purpose: Sets square directional shadow-map texture resolution in pixels.
+        /// Purpose: Sets the square directional shadow-map texture resolution in pixels for the
+        /// nearest (cascade 0) shadow map. Each further cascade halves this (floored at 256), so the
+        /// furthest cascade is deliberately low resolution since it spreads over the whole far range.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
@@ -47,12 +49,15 @@ namespace tbx
         uint32 shadow_map_resolution = 2048U;
 
         /// @brief
-        /// Purpose: Controls the camera-distance range covered by directional shadow cascades.
+        /// Purpose: Controls how far directional shadows reach. The shadow frustum is split into
+        /// distance cascades from the camera out to this distance; the nearest cascade is the sharpest
+        /// and the furthest reaches this far at low resolution. Larger values reach farther but spread
+        /// each cascade's texels over more world, so raise shadow_map_resolution to compensate.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         [[prop]]
-        float shadow_render_distance = 90.0F;
+        float shadow_render_distance = 500.0F;
 
         /// @brief
         /// Purpose: Controls directional shadow filter radius in shadow-map texels. Larger values

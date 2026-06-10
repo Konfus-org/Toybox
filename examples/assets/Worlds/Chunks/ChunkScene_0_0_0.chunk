@@ -12,7 +12,13 @@
         },
 
         {
-            "id": 12583300, "name": "Museum_Exterior", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583299, "name": "Museum", "tag": "museum", "layer": "", "parent": 0,
+            "components": {
+                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
+            }
+        },
+        {
+            "id": 12583300, "name": "Museum_Exterior", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243911 },
                 "static_mesh": { "handle": 800000001 },
@@ -21,7 +27,7 @@
             }
         },
         {
-            "id": 12583301, "name": "Museum_Interior", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583301, "name": "Museum_Interior", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243911 },
                 "static_mesh": { "handle": 800000002 },
@@ -30,7 +36,7 @@
             }
         },
         {
-            "id": 12583302, "name": "Museum_Floor", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583302, "name": "Museum_Floor", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243913 },
                 "static_mesh": { "handle": 800000003 },
@@ -39,7 +45,7 @@
             }
         },
         {
-            "id": 12583303, "name": "Museum_Skylight", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583303, "name": "Museum_Skylight", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243912 },
                 "static_mesh": { "handle": 800000004 },
@@ -47,7 +53,7 @@
             }
         },
         {
-            "id": 12583304, "name": "Museum_SkylightFrame", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583304, "name": "Museum_SkylightFrame", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243911 },
                 "static_mesh": { "handle": 800000005 },
@@ -55,11 +61,38 @@
             }
         },
         {
-            "id": 12583305, "name": "Museum_Window", "tag": "museum", "layer": "", "parent": 0,
+            "id": 12583305, "name": "Museum_Window", "tag": "museum", "layer": "", "parent": 12583299,
             "components": {
                 "material_instance": { "material": 539243912 },
                 "static_mesh": { "handle": 800000006 },
                 "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
+            }
+        },
+        {
+            "id": 12583306, "name": "Museum_Door_A", "tag": "museum", "layer": "", "parent": 12583299,
+            "components": {
+                "material_instance": { "material": 539243915 },
+                "static_mesh": { "handle": 800000007 },
+                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+                "mesh_collider": { "is_convex": false }
+            }
+        },
+        {
+            "id": 12583307, "name": "Museum_Door_B", "tag": "museum", "layer": "", "parent": 12583299,
+            "components": {
+                "material_instance": { "material": 539243915 },
+                "static_mesh": { "handle": 800000008 },
+                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+                "mesh_collider": { "is_convex": false }
+            }
+        },
+        {
+            "id": 12583308, "name": "Museum_Statue", "tag": "museum", "layer": "", "parent": 12583299,
+            "components": {
+                "material_instance": { "material": 539243911 },
+                "static_mesh": { "handle": 800000009 },
+                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+                "mesh_collider": { "is_convex": false }
             }
         },
 

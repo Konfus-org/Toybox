@@ -22,10 +22,26 @@ namespace tbx
     constexpr uint32 GPU_BINDING_DRAW_COUNT = 9U;
     constexpr uint32 GPU_BINDING_SHADOW_DRAW_COUNT = 10U;
     constexpr uint32 GPU_BINDING_GLOBAL_TEXTURES = 11U;
-    // Directional shadow map: a depth texture bound to its own sampler unit (mirrors
-    // TBX_SHADER_BINDING_SHADOW_MAP = 12 in ShaderBase.glsl), sampled by the forward pass.
-    constexpr uint32 GPU_BINDING_SHADOW_MAP = 12U;
+
+    // Number of directional shadow cascades (distance-split shadow maps). Cascade 0 is the
+    // highest-resolution near slice; the furthest cascade is the lowest resolution and reaches the
+    // configured shadow_render_distance. KEEP IN SYNC with TBX_SHADER_CASCADE_COUNT in ShaderBase.glsl.
+    constexpr uint32 SHADOW_CASCADE_COUNT = 4U;
+
+    // Directional shadow cascade depth maps occupy consecutive sampler units
+    // [GPU_BINDING_SHADOW_CASCADE_BASE, +SHADOW_CASCADE_COUNT). Each is a depth texture sampled by the
+    // forward pass, which selects one per fragment by camera distance. Mirrors
+    // TBX_SHADER_BINDING_SHADOW_CASCADE_0 in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_SHADOW_CASCADE_BASE = 12U;
+    // Directional translucent (colored) shadow map: an RGBA transmittance texture transparent casters
+    // multiply into; rendered/sampled with the full-range (furthest) cascade matrix so the forward
+    // pass tints directional light by it across the whole shadow range. Mirrors
+    // TBX_SHADER_BINDING_SHADOW_COLOR in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_SHADOW_COLOR = GPU_BINDING_SHADOW_CASCADE_BASE + SHADOW_CASCADE_COUNT;
     constexpr uint32 GPU_BINDING_UNIFORMS = 0U;
+    // Per-cascade caster UBO: the shadow depth/color caster pass reads the active cascade's
+    // world -> light-clip matrix from here. Mirrors TBX_SHADER_BINDING_SHADOW_PASS in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_SHADOW_PASS_UNIFORMS = 6U;
     // Post-processing: per-effect uniforms (UBO) + the scene color sampled by a fullscreen effect.
     // GPU_BINDING_SCENE_COLOR mirrors TBX_SHADER_BINDING_FINAL_HDR (23) in ShaderBase.glsl.
     constexpr uint32 GPU_BINDING_POST_UNIFORMS = 5U;
@@ -125,13 +141,18 @@ namespace tbx
     {
         Mat4 view_projection;
         Mat4 inverse_view_projection;
-        Mat4 light_view_projection; // directional shadow caster's world -> light clip transform
+        // Directional shadow cascades: world -> light-clip per cascade (cascade 0 = nearest/sharpest,
+        // the last = furthest/lowest-res) plus the full-range matrix the colored transmittance map is
+        // rendered and sampled with.
+        std::array<Mat4, SHADOW_CASCADE_COUNT> cascade_view_projection;
+        Mat4 color_view_projection;
 
         std::array<Vec4, 6U> frustum_planes;
 
         Vec4 ambient_light;
         Vec4 camera_position_time; // xyz = camera position, w = elapsed time
-        Vec4 shadow_settings;
+        Vec4 shadow_settings; // x = slope bias, y = constant bias, z = PCF radius (texels)
+        Vec4 cascade_splits; // x..w = furthest camera distance covered by cascade 0..3
         Vec4 sky_color;
         Vec4 sky_params;
         Vec4 screen_size; // xy = size in pixels, zw = inverse size
@@ -142,9 +163,17 @@ namespace tbx
         uint32 total_mesh_count;
         uint32 total_material_count;
         uint32 light_count;
-        uint32 shadow_count;
+        uint32 shadow_count; // 1 if a directional caster is active this frame, else 0
+        uint32 cascade_count; // active directional shadow cascades (<= SHADOW_CASCADE_COUNT)
         uint32 max_scene_draw_count;
         uint32 max_shadow_draw_count;
+    };
+
+    // Mirrors the GLSL `TbxShadowPassUniforms` std140 UBO. One per directional cascade caster
+    // sub-pass: the world -> light-clip matrix the depth/color caster shaders transform vertices by.
+    struct alignas(16) GpuShadowPassUniforms
+    {
+        Mat4 view_projection;
     };
 
     // Mirrors the GLSL `TbxPostUniforms` std140 UBO in Post.glsl. One per post-processing effect:

@@ -8,9 +8,9 @@
         "components": {
             "transform": {
                 "position": [
-                    0,
-                    0.35,
-                    72
+                    -70,
+                    8,
+                    35
                 ],
                 "rotation": [
                     0,
@@ -32,8 +32,8 @@
                         "binding_id": 12584001,
                         "overrides": {
                             "camera_entity": 12582913,
-                            "initial_pitch": 0.02,
-                            "initial_yaw": 3.14159
+                            "initial_pitch": -0.15,
+                            "initial_yaw": -1.1
                         }
                     }
                 ]

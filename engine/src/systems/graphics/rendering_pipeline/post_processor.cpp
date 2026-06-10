@@ -154,7 +154,7 @@ namespace tbx
                 .is_depth_write_enabled = material.config.is_depth_write_enabled,
                 .depth_function = material.config.depth_function};
             const auto pipeline = cache.add_pipeline(
-                hash_shader_pipeline(material.shader, state),
+                hash(material.shader, state),
                 material.shader,
                 state,
                 false);

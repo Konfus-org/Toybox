@@ -140,7 +140,8 @@ namespace tbx
             .is_depth_write_enabled = state.is_depth_write_enabled,
             .is_blending_enabled = state.is_blending_enabled,
             .is_culling_enabled = !state.is_two_sided,
-            .cull_mode = CullMode::BACK};
+            .cull_mode = CullMode::BACK,
+            .blend_equation = state.blend_equation};
 
         auto pipeline = INVALID_GPU_ID;
         if (auto result = backend.create_raster_pipeline(desc, pipeline); !result)

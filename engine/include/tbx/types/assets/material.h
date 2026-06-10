@@ -8,6 +8,7 @@
 #include "tbx/types/matrices.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
+#include "tbx/utils/hash.h"
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
@@ -233,6 +234,41 @@ namespace tbx
         [[prop]]
         ShadowMode shadow_mode = ShadowMode::ON;
     };
+
+    /// @brief The render state (depth/blend/cull) a raster pipeline is built with. Derived from a
+    /// MaterialConfig at draw time; together with the shader program it identifies a pipeline (see
+    /// the hash overload below), which is what the GpuResourceCache keys compiled pipelines by.
+    /// @brief Selects how a blending pipeline combines its output with the existing target. ALPHA is
+    /// standard src-over for transparent surfaces; MULTIPLY is dst *= src, used to accumulate
+    /// transmittance into the colored (translucent) shadow map.
+    enum class BlendEquation : uint8_t
+    {
+        ALPHA = 0,
+        MULTIPLY = 1,
+    };
+
+    struct RasterState
+    {
+        bool is_blending_enabled = false;
+        bool is_two_sided = false;
+        bool is_depth_test_enabled = true;
+        bool is_depth_write_enabled = true;
+        MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
+        BlendEquation blend_equation = BlendEquation::ALPHA;
+    };
+
+    /// @brief Folds a pipeline's shader stages + render state into the stable hash it is keyed by.
+    inline uint64 hash(const ShaderProgram& shader, const RasterState& state)
+    {
+        uint64 value = hash(shader);
+        value = hash_combine(value, static_cast<uint64>(state.is_blending_enabled));
+        value = hash_combine(value, static_cast<uint64>(state.is_two_sided));
+        value = hash_combine(value, static_cast<uint64>(state.is_depth_test_enabled));
+        value = hash_combine(value, static_cast<uint64>(state.is_depth_write_enabled));
+        value = hash_combine(value, static_cast<uint64>(state.depth_function));
+        value = hash_combine(value, static_cast<uint64>(state.blend_equation));
+        return value;
+    }
 
     /// @brief
     /// Purpose: Stores the shader program, default bindings, and render config for a material

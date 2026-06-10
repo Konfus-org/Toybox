@@ -14,7 +14,7 @@
                 "value": {
                     "r": 0.6,
                     "g": 0.75,
-                    "b": 0.85,
+                    "b": 0.95,
                     "a": 0.22
                 }
             }
@@ -94,6 +94,6 @@
         "is_cullable": true,
         "depth_function": "less",
         "blend_mode": "alpha_blend",
-        "shadow_mode": "off"
+        "shadow_mode": "on"
     }
 }

@@ -241,6 +241,7 @@ namespace tbx
         float depth_bias_constant = 0.0F;
         float depth_bias_slope = 0.0F;
         CullMode cull_mode = CullMode::BACK;
+        BlendEquation blend_equation = BlendEquation::ALPHA;
         std::string debug_name = {};
     };
 

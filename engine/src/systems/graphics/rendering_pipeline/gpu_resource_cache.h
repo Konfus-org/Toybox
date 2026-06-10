@@ -1,4 +1,5 @@
 #pragma once
+#include "gpu_resources.h"
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
@@ -8,7 +9,6 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
-#include "tbx/utils/hash.h"
 #include "tbx/utils/result.h"
 #include <memory>
 #include <optional>
@@ -20,86 +20,9 @@ namespace tbx
 {
     // TODO: move all variables to use camelCase
 
-    // TODO: move all the gpu resources and thier consts into a gpu_resources.h, keep records and
-    // cache consts here
-
-    // The unlit, pulsating, color-tinted debug surface + question-mark model that
-    // failed resources fall back to (see RenderValidation for the per-failure color policy).
-    inline const Handle VALIDATION_VERTEX_SHADER_HANDLE = Handle("Shaders/Material/Fallback.vert");
-    inline const Handle VALIDATION_FRAGMENT_SHADER_HANDLE =
-        Handle("Shaders/Material/Fallback.frag");
-    inline const Handle QUESTION_MODEL_HANDLE = Handle("Models/Question.fbx");
-
-    constexpr uint32 MAX_VERTICES = 1U << 20U; // ~1M vertices in the geometry mega-buffer
-    constexpr uint32 MAX_INDICES = 1U << 21U; // ~2M indices
-    constexpr uint32 MAX_MESHES = 4096U;
-    constexpr uint32 MAX_MATERIALS = 1024U;
-    constexpr uint32 MAX_BINDLESS_TEXTURES = 4096U;
-    constexpr uint32 MAX_DRAW_BUCKETS = 64U; // distinct (shader + render state) raster pipelines
-
     // GPU resources untouched for longer than the grace window are purged on the eviction interval.
     constexpr double GPU_RESOURCE_IDLE_GRACE_SECONDS = 10.0;
     constexpr double GPU_RESOURCE_EVICTION_INTERVAL_SECONDS = 2.0;
-
-    // Material parameters pack positionally (declared .mat order) as a float stream into the
-    // GpuMaterialData.params vec4 lanes.
-    constexpr uint32 GPU_MATERIAL_PARAM_FLOAT_COUNT = GPU_MATERIAL_PARAM_VEC4_COUNT * 4U;
-
-    /// @brief
-    /// Purpose: Move-only RAII owner of a single backend GpuId. Destroys the resource through the
-    /// backend on destruction or reassignment, so no owner needs a manual cleanup path.
-    /// @details
-    /// Holds a weak reference to the backend; if the backend has already been destroyed the id is
-    /// simply dropped. Thread Safety: Render-lane only.
-    class GpuResource final
-    {
-      public:
-        GpuResource() = default;
-        GpuResource(std::weak_ptr<IGraphicsBackend> backend, GpuId id);
-        ~GpuResource();
-
-        GpuResource(const GpuResource&) = delete;
-        GpuResource& operator=(const GpuResource&) = delete;
-        GpuResource(GpuResource&& other) noexcept;
-        GpuResource& operator=(GpuResource&& other) noexcept;
-
-      public:
-        GpuId get() const;
-        bool is_valid() const;
-        void reset();
-
-      private:
-        std::weak_ptr<IGraphicsBackend> _backend = {};
-        GpuId _id = INVALID_GPU_ID;
-    };
-
-    /// @brief A mesh's slot id in the mesh table plus the buffer ranges a draw needs — the "combo"
-    /// the cache returns from add_mesh/get_mesh.
-    struct GpuMesh
-    {
-        GpuId id = INVALID_GPU_ID;
-        GpuMeshData data = {};
-    };
-
-    /// @brief A contiguous element range inside a free-list-allocated GPU mega-buffer pool.
-    struct GpuBufferRange
-    {
-        uint32 offset = 0U;
-        uint32 count = 0U;
-    };
-
-    // TODO: Move Raster State to Material.h and hash_shader_pipeline to shader.h and rename to hash
-    /// @brief The render state (depth/blend/cull) a raster pipeline is built with. Together with
-    /// the shader program it identifies a pipeline (see hash_shader_pipeline); the CacheId is the
-    /// key.
-    struct RasterState
-    {
-        bool is_blending_enabled = false;
-        bool is_two_sided = false;
-        bool is_depth_test_enabled = true;
-        bool is_depth_write_enabled = true;
-        MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
-    };
 
     /// @brief Stable key the cache addresses every stored resource by (caller-supplied). Distinct
     /// from GpuId (a backend resource handle) and from the uint32 SSBO slot indices the cache hands
@@ -111,22 +34,6 @@ namespace tbx
     constexpr CacheId INDICES_BUFFER_ID = 0xB0FFE40000000002ULL;
     constexpr CacheId MATERIAL_TABLE_BUFFER_ID = 0xB0FFE40000000003ULL;
     constexpr CacheId TEXTURE_TABLE_BUFFER_ID = 0xB0FFE40000000004ULL;
-
-    /// @brief Folds a pipeline's shader stages + render state into the stable CacheId it is keyed
-    /// by.
-    inline uint64 hash_shader_pipeline(const ShaderProgram& shader, const RasterState& state)
-    {
-        uint64 hash = hash_handle(shader.vertex.id);
-        hash = hash_combine(hash, hash_handle(shader.fragment.id));
-        hash = hash_combine(hash, hash_handle(shader.geometry.id));
-        hash = hash_combine(hash, hash_handle(shader.tesselation.id));
-        hash = hash_combine(hash, static_cast<CacheId>(state.is_blending_enabled));
-        hash = hash_combine(hash, static_cast<CacheId>(state.is_two_sided));
-        hash = hash_combine(hash, static_cast<CacheId>(state.is_depth_test_enabled));
-        hash = hash_combine(hash, static_cast<CacheId>(state.is_depth_write_enabled));
-        hash = hash_combine(hash, static_cast<CacheId>(state.depth_function));
-        return hash;
-    }
 
     /// @brief One mesh's place in the geometry mega-buffer (CPU-side; ranges feed indexed draws).
     struct GpuMeshRecord

@@ -287,6 +287,7 @@ namespace opengl_rendering
             .depth_bias_constant = desc.depth_bias_constant,
             .depth_bias_slope = desc.depth_bias_slope,
             .cull_mode = desc.cull_mode,
+            .blend_equation = desc.blend_equation,
         };
     }
 
@@ -1366,7 +1367,8 @@ namespace opengl_rendering
             && _state.current_pipeline_state.is_culling_enabled == state.is_culling_enabled
             && _state.current_pipeline_state.depth_bias_constant == state.depth_bias_constant
             && _state.current_pipeline_state.depth_bias_slope == state.depth_bias_slope
-            && _state.current_pipeline_state.cull_mode == state.cull_mode)
+            && _state.current_pipeline_state.cull_mode == state.cull_mode
+            && _state.current_pipeline_state.blend_equation == state.blend_equation)
         {
             _state.current_pipeline_state = state;
             return;
@@ -1415,11 +1417,18 @@ namespace opengl_rendering
                 glPolygonOffset(state.depth_bias_slope, state.depth_bias_constant);
         }
 
+        // Re-issue the blend func whenever blending turns on or the equation changes. ALPHA is
+        // standard src-over (transparent surfaces); MULTIPLY is dst *= src, used to accumulate the
+        // translucent shadow map's transmittance across stacked transparent casters.
         if (state.is_blending_enabled
             && (!_state.has_current_pipeline_state
-                || !_state.current_pipeline_state.is_blending_enabled))
+                || !_state.current_pipeline_state.is_blending_enabled
+                || _state.current_pipeline_state.blend_equation != state.blend_equation))
         {
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            if (state.blend_equation == tbx::BlendEquation::MULTIPLY)
+                glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+            else
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         }
 
         _state.current_pipeline_state = state;

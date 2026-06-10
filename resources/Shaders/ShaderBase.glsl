@@ -9,7 +9,14 @@
 #define TBX_SHADER_BINDING_GLOBAL_LIGHTS 4
 #define TBX_SHADER_BINDING_GLOBAL_TEXTURES 11
 #define TBX_SHADER_BINDING_SCENE_UNIFORMS 0
-#define TBX_SHADER_BINDING_SHADOW_MAP 12
+// Directional shadow cascade depth maps occupy consecutive sampler units starting here.
+#define TBX_SHADER_CASCADE_COUNT 4
+#define TBX_SHADER_BINDING_SHADOW_CASCADE_0 12
+#define TBX_SHADER_BINDING_SHADOW_CASCADE_1 13
+#define TBX_SHADER_BINDING_SHADOW_CASCADE_2 14
+#define TBX_SHADER_BINDING_SHADOW_CASCADE_3 15
+#define TBX_SHADER_BINDING_SHADOW_COLOR 16
+#define TBX_SHADER_BINDING_SHADOW_PASS 6
 #define TBX_SHADER_BINDING_FINAL_HDR 23
 
 #define TBX_SHADER_LIGHT_TYPE_DIRECTIONAL 0u
@@ -76,9 +83,19 @@ layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_TEXTURES) readonly buffer Tbx
 // HDR scene color, sampled by the tonemap blit.
 layout(binding = TBX_SHADER_BINDING_FINAL_HDR) uniform sampler2D tbx_scene_color;
 
-// Directional shadow map (depth, light clip space). Only sampled when a light's shadowData.x >= 0,
-// which the CPU sets exclusively on the frame's directional shadow caster while this is bound.
-layout(binding = TBX_SHADER_BINDING_SHADOW_MAP) uniform sampler2D tbx_shadow_map;
+// Directional shadow cascades (depth, each in its own light clip space). Cascade 0 is the nearest,
+// highest-resolution slice; the furthest cascade is the lowest resolution and reaches the configured
+// shadow_render_distance. The forward pass picks one per fragment by camera distance. Only sampled
+// when a light's shadowData.x >= 0, which the CPU sets on the frame's directional caster.
+layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_0) uniform sampler2D tbx_shadow_cascade_0;
+layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_1) uniform sampler2D tbx_shadow_cascade_1;
+layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_2) uniform sampler2D tbx_shadow_cascade_2;
+layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_3) uniform sampler2D tbx_shadow_cascade_3;
+
+// Directional translucent shadow map (RGB transmittance, full-range/furthest-cascade clip space).
+// Transparent casters multiply their tint into it; the forward pass multiplies the directional light
+// by this so colored glass casts a tinted, partial shadow. Cleared to white (1 = transmissive).
+layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR) uniform sampler2D tbx_shadow_color;
 
 // Mirrors GpuUniforms (std140) exactly — keep every field for ABI parity even if a given shader
 // only reads a subset.
@@ -86,11 +103,13 @@ layout(std140, binding = TBX_SHADER_BINDING_SCENE_UNIFORMS) uniform TbxSceneUnif
 {
     mat4 viewProjection;
     mat4 inverseViewProjection;
-    mat4 lightViewProjection;
+    mat4 cascadeViewProjection[TBX_SHADER_CASCADE_COUNT];
+    mat4 colorViewProjection;
     vec4 frustumPlanes[6];
     vec4 ambientLight;
     vec4 cameraPositionTime; // xyz = camera position, w = elapsed time
-    vec4 shadowSettings;
+    vec4 shadowSettings; // x = slope bias, y = constant bias, z = PCF radius (texels)
+    vec4 cascadeSplits; // x..w = furthest camera distance covered by cascade 0..3
     vec4 skyColor;
     vec4 skyParams;
     vec4 screenSize; // xy = pixels, zw = inverse size
@@ -101,8 +120,16 @@ layout(std140, binding = TBX_SHADER_BINDING_SCENE_UNIFORMS) uniform TbxSceneUnif
     uint totalMaterialCount;
     uint lightCount;
     uint shadowCount;
+    uint cascadeCount;
     uint maxSceneDrawCount;
     uint maxShadowDrawCount;
+};
+
+// Per-cascade caster matrix, bound only during the directional shadow caster sub-passes. The depth
+// and color caster shaders transform vertices by this (one cascade at a time).
+layout(std140, binding = TBX_SHADER_BINDING_SHADOW_PASS) uniform TbxShadowPassUniforms
+{
+    mat4 shadowPassViewProjection;
 };
 
 layout(std430, binding = TBX_SHADER_BINDING_ALL_INSTANCES) readonly buffer TbxAllInstancesBuffer
@@ -251,28 +278,65 @@ float tbx_specular_occlusion(float ndotv, float ao, float roughness)
     return tbx_saturate(pow(ndotv + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ao);
 }
 
-// Directional shadow visibility in [0,1] (1 = fully lit). Projects the fragment into the caster's
-// light clip space and does a 3x3 PCF compare against the depth map, with a slope-scaled bias so
-// surfaces near grazing to the light don't self-shadow (acne). Fragments outside the map are lit.
-float tbx_directional_shadow(vec3 world_position, vec3 n, vec3 l)
+// 3x3 PCF over `shadow_map` at `proj` (light NDC remapped to [0,1]), comparing proj.z - bias against
+// stored depth. The sample step is shadowSettings.z texels (shadow_softness), so larger softens edges.
+float tbx_shadow_pcf(sampler2D shadow_map, vec3 proj, float bias)
 {
-    vec4 light_clip = lightViewProjection * vec4(world_position, 1.0);
-    vec3 proj = light_clip.xyz / light_clip.w;
-    proj = proj * 0.5 + 0.5;
-    if (proj.z > 1.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
-        return 1.0;
-
-    float bias = max(shadowSettings.x * (1.0 - dot(n, l)), shadowSettings.y);
     float current = proj.z - bias;
-    vec2 texel = 1.0 / vec2(textureSize(tbx_shadow_map, 0));
+    vec2 texel = (1.0 / vec2(textureSize(shadow_map, 0))) * max(shadowSettings.z, 1.0);
     float sum = 0.0;
     for (int x = -1; x <= 1; ++x)
         for (int y = -1; y <= 1; ++y)
         {
-            float closest = texture(tbx_shadow_map, proj.xy + (vec2(x, y) * texel)).r;
+            float closest = texture(shadow_map, proj.xy + (vec2(x, y) * texel)).r;
             sum += current <= closest ? 1.0 : 0.0;
         }
     return sum * (1.0 / 9.0);
+}
+
+// Directional shadow as a colored visibility factor (vec3, 1 = fully lit). Picks the cascade whose
+// split radius still contains the fragment (nearest = sharpest), projects into that cascade's light
+// clip space, PCF-compares against its depth map (slope-scaled bias widened for coarse far cascades),
+// then multiplies by the transmittance sampled from the full-range translucent map so light through
+// tinted glass is colored. Fragments outside all cascades are fully lit (white).
+vec3 tbx_directional_shadow(vec3 world_position, vec3 n, vec3 l)
+{
+    float view_dist = length(world_position - cameraPositionTime.xyz);
+    int count = int(cascadeCount);
+    int cascade = count - 1;
+    for (int i = 0; i < count; ++i)
+        if (view_dist < cascadeSplits[i])
+        {
+            cascade = i;
+            break;
+        }
+
+    vec4 light_clip = cascadeViewProjection[cascade] * vec4(world_position, 1.0);
+    vec3 proj = (light_clip.xyz / light_clip.w) * 0.5 + 0.5;
+    if (proj.z > 1.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
+        return vec3(1.0);
+
+    // Coarser far cascades cover more world per texel, so widen their bias to avoid acne.
+    float bias = max(shadowSettings.x * (1.0 - dot(n, l)), shadowSettings.y) * (1.0 + float(cascade));
+
+    float opaque_visibility;
+    if (cascade == 0)
+        opaque_visibility = tbx_shadow_pcf(tbx_shadow_cascade_0, proj, bias);
+    else if (cascade == 1)
+        opaque_visibility = tbx_shadow_pcf(tbx_shadow_cascade_1, proj, bias);
+    else if (cascade == 2)
+        opaque_visibility = tbx_shadow_pcf(tbx_shadow_cascade_2, proj, bias);
+    else
+        opaque_visibility = tbx_shadow_pcf(tbx_shadow_cascade_3, proj, bias);
+
+    // Transmittance of any transparent casters, sampled in the full-range clip space the color map
+    // was rendered with (the furthest cascade) so it covers the whole shadowed range.
+    vec3 transmittance = vec3(1.0);
+    vec4 color_clip = colorViewProjection * vec4(world_position, 1.0);
+    vec3 color_proj = (color_clip.xyz / color_clip.w) * 0.5 + 0.5;
+    if (color_proj.x >= 0.0 && color_proj.x <= 1.0 && color_proj.y >= 0.0 && color_proj.y <= 1.0)
+        transmittance = texture(tbx_shadow_color, color_proj.xy).rgb;
+    return opaque_visibility * transmittance;
 }
 
 vec3 tbx_shade_pbr(
@@ -315,9 +379,11 @@ vec3 tbx_shade_pbr(
 
         // The directional caster (shadowData.x >= 0) is occlusion-tested against the shadow map so
         // it no longer lights surfaces it can't physically reach (interiors, the far side of walls).
+        // The test returns a colored factor: opaque geometry darkens it, transparent casters tint it.
+        vec3 shadow = vec3(1.0);
         if (uint(light.directionType.w) == TBX_SHADER_LIGHT_TYPE_DIRECTIONAL
             && light.shadowData.x >= 0.0)
-            attenuation *= tbx_directional_shadow(world_position, n, l);
+            shadow = tbx_directional_shadow(world_position, n, l);
 
         vec3 h = normalize(view_direction + l);
         float hdotv = max(dot(h, view_direction), 0.0);
@@ -326,7 +392,7 @@ vec3 tbx_shade_pbr(
         vec3 fresnel = tbx_fresnel_schlick(hdotv, f0);
         vec3 specular = (ndf * g * fresnel) / max(4.0 * ndotv * ndotl, TBX_EPSILON);
         vec3 diffuse = (vec3(1.0) - fresnel) * (1.0 - metallic) * albedo * TBX_INV_PI;
-        vec3 radiance = light.colorIntensity.rgb * light.colorIntensity.a * attenuation;
+        vec3 radiance = light.colorIntensity.rgb * light.colorIntensity.a * attenuation * shadow;
         color += (diffuse + specular) * radiance * ndotl;
     }
     return color;

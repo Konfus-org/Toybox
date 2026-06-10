@@ -28,6 +28,7 @@ namespace opengl_rendering
         float depth_bias_constant = 0.0F;
         float depth_bias_slope = 0.0F;
         tbx::CullMode cull_mode = tbx::CullMode::BACK;
+        tbx::BlendEquation blend_equation = tbx::BlendEquation::ALPHA;
     };
 
     /// @brief
