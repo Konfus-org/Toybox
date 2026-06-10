@@ -107,6 +107,20 @@ namespace opengl_rendering
                * get_texture_bytes_per_pixel(desc.format);
     }
 
+    static GLint get_texture_wrap_mode(const tbx::TextureWrap wrap)
+    {
+        switch (wrap)
+        {
+            case tbx::TextureWrap::REPEAT:
+                return GL_REPEAT;
+            case tbx::TextureWrap::MIRRORED_REPEAT:
+                return GL_MIRRORED_REPEAT;
+            case tbx::TextureWrap::CLAMP_TO_EDGE:
+            default:
+                return GL_CLAMP_TO_EDGE;
+        }
+    }
+
     uint64 get_texture_bytes_per_pixel(const tbx::TextureFormat format)
     {
         switch (format)
@@ -134,6 +148,7 @@ namespace opengl_rendering
 
     OpenGlTexture::OpenGlTexture(const tbx::TextureDesc& desc, const void* data)
         : _array_layer_count(std::max(desc.array_layer_count, 1U))
+        , _mip_count(std::max(desc.mip_count, 1U))
     {
         const GLsizei width = static_cast<GLsizei>(desc.size.width);
         const GLsizei height = static_cast<GLsizei>(desc.size.height);
@@ -200,12 +215,22 @@ namespace opengl_rendering
         const GLint filter = desc.is_depth_comparison_enabled ? GL_LINEAR
                                                               : (is_depth_format ? GL_NEAREST
                                                                                  : sampled_filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, filter);
+        // Mip filtering only applies to color textures with an allocated mip chain; depth/comparison
+        // textures keep their single-level filter.
+        const bool use_mip_filter = _mip_count > 1U && !is_depth_format
+                                    && !desc.is_depth_comparison_enabled;
+        const GLint min_filter =
+            use_mip_filter
+                ? (desc.is_linear_filtering_enabled ? GL_LINEAR_MIPMAP_LINEAR
+                                                    : GL_NEAREST_MIPMAP_NEAREST)
+                : filter;
+        const GLint wrap_mode = get_texture_wrap_mode(desc.wrap);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, min_filter);
         glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, filter);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, wrap_mode);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, wrap_mode);
         if (is_array_texture)
-            glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+            glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, wrap_mode);
         if (is_depth_format)
         {
             glTextureParameteri(
@@ -215,16 +240,26 @@ namespace opengl_rendering
             glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
 
-        if (desc.mip_count > 1U)
+        // Only generate now if level 0 was supplied up front. When pixels are uploaded later via
+        // write_texture (the cache's create-then-write path), mip generation runs after that upload.
+        if (data != nullptr)
+            generate_mipmaps();
+    }
+
+    void OpenGlTexture::generate_mipmaps() const
+    {
+        if (_mip_count > 1U && _texture_id != 0U)
             glGenerateTextureMipmap(_texture_id);
     }
 
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
         : _texture_id(take_texture_gl_handle(other._texture_id))
         , _array_layer_count(other._array_layer_count)
+        , _mip_count(other._mip_count)
         , _bindless_handle(std::exchange(other._bindless_handle, 0))
     {
         other._array_layer_count = 1U;
+        other._mip_count = 1U;
     }
 
     OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
@@ -238,8 +273,10 @@ namespace opengl_rendering
 
         _texture_id = take_texture_gl_handle(other._texture_id);
         _array_layer_count = other._array_layer_count;
+        _mip_count = other._mip_count;
         _bindless_handle = std::exchange(other._bindless_handle, 0);
         other._array_layer_count = 1U;
+        other._mip_count = 1U;
         return *this;
     }
 

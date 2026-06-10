@@ -128,6 +128,7 @@ namespace tbx
         Size size = {1U, 1U};
         uint32 mip_count = 1U;
         uint32 array_layer_count = 1U;
+        TextureWrap wrap = TextureWrap::CLAMP_TO_EDGE;
         bool is_depth_comparison_enabled = false;
         bool is_linear_filtering_enabled = true;
         std::string debug_name = {};

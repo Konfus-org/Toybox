@@ -49,9 +49,15 @@ namespace opengl_rendering
             GLenum upload_type,
             const void* data) const;
 
+        /// @brief
+        /// Purpose: Regenerates the mip chain from level 0. No-op when the texture has a single mip
+        /// level. Call after uploading level-0 pixels via update().
+        void generate_mipmaps() const;
+
       private:
         uint32 _texture_id = 0;
         uint32 _array_layer_count = 1U;
+        uint32 _mip_count = 1U;
         GLuint64 _bindless_handle = 0;
     };
 

@@ -2,6 +2,8 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/types/vertex.h"
+#include <algorithm>
+#include <bit>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -367,10 +369,19 @@ namespace tbx
         }
 
         const bool is_rgb = texture->format == TextureFormat::RGB;
+        const bool wants_mipmaps = texture->mipmaps == TextureMipmaps::ENABLED;
+        // A full chain has floor(log2(max(w, h))) + 1 levels; bit_width(n) yields exactly that.
+        const uint32 mip_count =
+            wants_mipmaps
+                ? std::bit_width(std::max(texture->resolution.width, texture->resolution.height))
+                : 1U;
         auto desc = TextureDesc {
             .usage = TextureUsage::SAMPLED,
             .format = is_rgb ? TextureFormat::RGBA8 : texture->format,
-            .size = texture->resolution};
+            .size = texture->resolution,
+            .mip_count = std::max(mip_count, 1U),
+            .wrap = texture->wrap,
+            .is_linear_filtering_enabled = texture->filter == TextureFilter::LINEAR};
 
         // The backend uploads 4 bytes/pixel for RGBA8. A 3-channel RGB source is short by a quarter,
         // so write_texture would reject it: expand RGB -> RGBA (opaque alpha) before uploading.

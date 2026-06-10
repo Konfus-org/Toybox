@@ -1257,6 +1257,10 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: texture update data is smaller than region size.");
 
         texture.texture.update(desc, texture.upload_format, texture.upload_type, data);
+        // Refresh the mip chain from the freshly uploaded base level. Only the base level carries
+        // source pixels; smaller levels are derived here.
+        if (desc.mip_level == 0U)
+            texture.texture.generate_mipmaps();
         return consume_gl_errors("update_texture");
     }
 
