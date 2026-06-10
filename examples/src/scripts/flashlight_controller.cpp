@@ -46,8 +46,16 @@ namespace tbx_example
             flashlight.add_component<tbx::Transform>();
 
         if (!flashlight.has_component<tbx::SpotLight>())
-            flashlight.add_component<tbx::SpotLight>();
+        {
+            // No authored light on this entity: pick room-scale defaults (a 10u range would leave
+            // the floor unlit). When the scene authors a SpotLight we respect its range/cone.
+            auto& spot = flashlight.add_component<tbx::SpotLight>();
+            spot.range = 40.0F;
+            spot.inner_angle = 22.0F;
+            spot.outer_angle = 38.0F;
+        }
 
+        // Start off; the toggle drives intensity from here.
         flashlight.get_component<tbx::SpotLight>().intensity = 0.0F;
 
         setup_input();

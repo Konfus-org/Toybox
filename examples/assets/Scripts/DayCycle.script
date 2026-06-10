@@ -1,0 +1,7 @@
+{
+    "sky_entity": 0,
+    "day_length_seconds": 30.0,
+    "sky_spin_speed": 0.03,
+    "sun_intensity": 1.2,
+    "moon_intensity": 0.25
+}

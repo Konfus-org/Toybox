@@ -1,6 +1,5 @@
 #include "opengl_backend.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
 
@@ -38,14 +37,14 @@ namespace opengl_rendering
     tbx::Result make_failure(std::string message)
     {
         auto result = tbx::Result();
-        result.flag_failure(std::move(message));
+        result.failure(std::move(message));
         return result;
     }
 
     tbx::Result make_success()
     {
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -74,74 +73,74 @@ namespace opengl_rendering
         return make_success();
     }
 
-    bool has_clear_flag(const tbx::GraphicsClearFlags value, const tbx::GraphicsClearFlags flag)
+    bool has_clear_flag(const tbx::ClearFlags value, const tbx::ClearFlags flag)
     {
         return (static_cast<uint8>(value) & static_cast<uint8>(flag)) != 0U;
     }
 
-    bool is_integer_vertex_format(const tbx::GraphicsVertexFormat format)
+    bool is_integer_vertex_format(const tbx::VertexFormat format)
     {
-        return format == tbx::GraphicsVertexFormat::UINT32
-               || format == tbx::GraphicsVertexFormat::INT32;
+        return format == tbx::VertexFormat::UINT32
+               || format == tbx::VertexFormat::INT32;
     }
 
-    const tbx::GraphicsVertexBufferLayoutDesc* find_vertex_buffer_layout(
+    const tbx::VertexBufferLayoutDesc* find_vertex_buffer_layout(
         const tbx::RasterPipelineDesc& desc,
         const uint32 slot)
     {
         const auto it = std::ranges::find_if(
             desc.vertex_buffers,
-            [slot](const tbx::GraphicsVertexBufferLayoutDesc& layout)
+            [slot](const tbx::VertexBufferLayoutDesc& layout)
             {
                 return layout.slot == slot;
             });
         return it == desc.vertex_buffers.end() ? nullptr : &(*it);
     }
 
-    GLenum to_gl_primitive_type(const tbx::GraphicsPrimitiveType primitive_type)
+    GLenum to_gl_primitive_type(const tbx::PrimitiveType primitive_type)
     {
         switch (primitive_type)
         {
-            case tbx::GraphicsPrimitiveType::LINES:
+            case tbx::PrimitiveType::LINES:
                 return GL_LINES;
-            case tbx::GraphicsPrimitiveType::POINTS:
+            case tbx::PrimitiveType::POINTS:
                 return GL_POINTS;
-            case tbx::GraphicsPrimitiveType::TRIANGLES:
+            case tbx::PrimitiveType::TRIANGLES:
             default:
                 return GL_TRIANGLES;
         }
     }
 
-    GLint get_vertex_component_count(const tbx::GraphicsVertexFormat format)
+    GLint get_vertex_component_count(const tbx::VertexFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsVertexFormat::VEC2:
+            case tbx::VertexFormat::VEC2:
                 return 2;
-            case tbx::GraphicsVertexFormat::VEC3:
+            case tbx::VertexFormat::VEC3:
                 return 3;
-            case tbx::GraphicsVertexFormat::VEC4:
+            case tbx::VertexFormat::VEC4:
                 return 4;
-            case tbx::GraphicsVertexFormat::FLOAT:
-            case tbx::GraphicsVertexFormat::UINT32:
-            case tbx::GraphicsVertexFormat::INT32:
+            case tbx::VertexFormat::FLOAT:
+            case tbx::VertexFormat::UINT32:
+            case tbx::VertexFormat::INT32:
             default:
                 return 1;
         }
     }
 
-    GLenum get_vertex_component_type(const tbx::GraphicsVertexFormat format)
+    GLenum get_vertex_component_type(const tbx::VertexFormat format)
     {
         switch (format)
         {
-            case tbx::GraphicsVertexFormat::UINT32:
+            case tbx::VertexFormat::UINT32:
                 return GL_UNSIGNED_INT;
-            case tbx::GraphicsVertexFormat::INT32:
+            case tbx::VertexFormat::INT32:
                 return GL_INT;
-            case tbx::GraphicsVertexFormat::FLOAT:
-            case tbx::GraphicsVertexFormat::VEC2:
-            case tbx::GraphicsVertexFormat::VEC3:
-            case tbx::GraphicsVertexFormat::VEC4:
+            case tbx::VertexFormat::FLOAT:
+            case tbx::VertexFormat::VEC2:
+            case tbx::VertexFormat::VEC3:
+            case tbx::VertexFormat::VEC4:
             default:
                 return GL_FLOAT;
         }
@@ -246,19 +245,6 @@ namespace opengl_rendering
         return it == pipeline.vertex_buffers.end() ? nullptr : &(*it);
     }
 
-    const OpenGlBindGroupLayoutEntry* find_bind_group_layout_entry(
-        const std::vector<OpenGlBindGroupLayoutEntry>& layout,
-        const uint32 slot)
-    {
-        const auto it = std::ranges::find_if(
-            layout,
-            [slot](const OpenGlBindGroupLayoutEntry& entry)
-            {
-                return entry.slot == slot;
-            });
-        return it == layout.end() ? nullptr : &(*it);
-    }
-
     bool can_bind_buffer_as(const OpenGlBufferResource& buffer, const OpenGlBindEntryType type)
     {
         switch (type)
@@ -317,11 +303,6 @@ namespace opengl_rendering
             default:
                 return GL_LESS;
         }
-    }
-
-    uint32 to_gl_image_unit(const uint32 binding_slot)
-    {
-        return binding_slot;
     }
 
     void bind_buffer_slot(
@@ -401,7 +382,6 @@ namespace opengl_rendering
 
         _state.current_target = {};
         _state.is_loaded = false;
-        _state.is_compute_pass_active = false;
         _state.is_render_pass_active = false;
     }
 
@@ -555,7 +535,7 @@ namespace opengl_rendering
         }
 
         GLbitfield clear_mask = 0U;
-        if (has_clear_flag(pass.clear_flags, tbx::GraphicsClearFlags::COLOR))
+        if (has_clear_flag(pass.clear_flags, tbx::ClearFlags::COLOR))
         {
             glClearColor(
                 pass.clear_color.r,
@@ -564,7 +544,7 @@ namespace opengl_rendering
                 pass.clear_color.a);
             clear_mask |= GL_COLOR_BUFFER_BIT;
         }
-        if (has_clear_flag(pass.clear_flags, tbx::GraphicsClearFlags::DEPTH))
+        if (has_clear_flag(pass.clear_flags, tbx::ClearFlags::DEPTH))
         {
             // Clear happens before pipeline state is applied for this pass; force depth writes on
             // so stale GL state from a previous pass cannot block the depth clear.
@@ -573,7 +553,7 @@ namespace opengl_rendering
             glClearDepth(pass.clear_depth);
             clear_mask |= GL_DEPTH_BUFFER_BIT;
         }
-        if (has_clear_flag(pass.clear_flags, tbx::GraphicsClearFlags::STENCIL))
+        if (has_clear_flag(pass.clear_flags, tbx::ClearFlags::STENCIL))
         {
             glClearStencil(static_cast<GLint>(pass.clear_stencil));
             clear_mask |= GL_STENCIL_BUFFER_BIT;
@@ -840,30 +820,6 @@ namespace opengl_rendering
                     set_bound_slot(_state.bound_sampled_textures, binding.slot, binding.resource);
                     break;
                 }
-                case OpenGlBindEntryType::STORAGE_TEXTURE:
-                {
-                    const auto texture_it = _cache.textures.find(binding.resource);
-                    if (texture_it == _cache.textures.end())
-                        return make_failure("OpenGL backend: storage texture was not found.");
-
-                    if (const auto* cached =
-                            find_bound_slot(_state.bound_image_textures, binding.slot);
-                        cached != nullptr && *cached == binding.resource)
-                    {
-                        break;
-                    }
-
-                    glBindImageTexture(
-                        to_gl_image_unit(binding.slot),
-                        texture_it->second.texture.get_texture_id(),
-                        0,
-                        texture_it->second.array_layer_count > 1U ? GL_TRUE : GL_FALSE,
-                        0,
-                        GL_READ_WRITE,
-                        texture_it->second.internal_format);
-                    set_bound_slot(_state.bound_image_textures, binding.slot, binding.resource);
-                    break;
-                }
                 case OpenGlBindEntryType::SAMPLER:
                 {
                     const auto sampler_it = _cache.samplers.find(binding.resource);
@@ -886,28 +842,6 @@ namespace opengl_rendering
             }
         }
 
-        return make_success();
-    }
-
-    tbx::Result OpenGlGraphicsBackend::bind_compute_pipeline(
-        const tbx::GpuId& pipeline_resource_uuid)
-    {
-        if (_state.current_pipeline_state.id == pipeline_resource_uuid
-            && _cache.compute_pipelines.contains(pipeline_resource_uuid))
-        {
-            return make_success();
-        }
-
-        const auto pipeline_it = _cache.compute_pipelines.find(pipeline_resource_uuid);
-        if (pipeline_it == _cache.compute_pipelines.end())
-            return make_failure("OpenGL backend: compute pipeline was not found.");
-
-        pipeline_it->second.program.bind();
-        glBindVertexArray(0U);
-
-        _state.current_pipeline_state.id = pipeline_resource_uuid;
-        _state.bound_vertex_buffers.clear();
-        _state.bound_index_buffer = tbx::INVALID_GPU_ID;
         return make_success();
     }
 
@@ -994,109 +928,12 @@ namespace opengl_rendering
         return consume_gl_errors("draw_indirect");
     }
 
-    tbx::Result OpenGlGraphicsBackend::draw_indirect_count(
-        const tbx::GpuId& argument_buffer,
-        const uint64 offset,
-        const tbx::GpuId& count_buffer,
-        const uint64 count_offset,
-        const uint32 max_draw_count,
-        const uint32 stride)
-    {
-        const auto pipeline_it = _cache.raster_pipelines.find(_state.current_pipeline_state.id);
-        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
-            || pipeline_it == _cache.raster_pipelines.end())
-        {
-            return make_failure("OpenGL backend: no raster pipeline is currently bound.");
-        }
-
-        const auto argument_it = _cache.buffers.find(argument_buffer);
-        if (argument_it == _cache.buffers.end())
-            return make_failure("OpenGL backend: indirect argument buffer was not found.");
-        if (!argument_it->second.is_indirect_argument_buffer)
-            return make_failure("OpenGL backend: buffer is not an indirect argument buffer.");
-
-        const auto count_it = _cache.buffers.find(count_buffer);
-        if (count_it == _cache.buffers.end())
-            return draw_indirect(argument_buffer, offset, max_draw_count, stride);
-        if (!count_it->second.is_indirect_argument_buffer)
-            return make_failure("OpenGL backend: count buffer is not an indirect argument buffer.");
-
-        if (!GLAD_GL_VERSION_4_6 || !glMultiDrawElementsIndirectCount
-            || !glMultiDrawArraysIndirectCount)
-        {
-            return draw_indirect(argument_buffer, offset, max_draw_count, stride);
-        }
-
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, argument_it->second.buffer.get_buffer_id());
-        glBindBuffer(GL_PARAMETER_BUFFER, count_it->second.buffer.get_buffer_id());
-        const auto* indirect_offset =
-            reinterpret_cast<const void*>(static_cast<std::uintptr_t>(offset));
-        const auto draw_count_offset = static_cast<GLintptr>(count_offset);
-        const auto& pipeline = pipeline_it->second;
-        if (_state.bound_index_buffer != tbx::INVALID_GPU_ID)
-        {
-            glMultiDrawElementsIndirectCount(
-                pipeline.primitive_type,
-                GL_UNSIGNED_INT,
-                indirect_offset,
-                draw_count_offset,
-                static_cast<GLsizei>(max_draw_count),
-                static_cast<GLsizei>(stride));
-        }
-        else
-        {
-            glMultiDrawArraysIndirectCount(
-                pipeline.primitive_type,
-                indirect_offset,
-                draw_count_offset,
-                static_cast<GLsizei>(max_draw_count),
-                static_cast<GLsizei>(stride));
-        }
-        return consume_gl_errors("draw_indirect_count");
-    }
-
-    tbx::Result OpenGlGraphicsBackend::dispatch_compute(
-        const uint32 group_count_x,
-        const uint32 group_count_y,
-        const uint32 group_count_z)
-    {
-        if (_state.current_pipeline_state.id == tbx::INVALID_GPU_ID
-            || !_cache.compute_pipelines.contains(_state.current_pipeline_state.id))
-        {
-            return make_failure("OpenGL backend: no compute pipeline is currently bound.");
-        }
-        if (group_count_x == 0U || group_count_y == 0U || group_count_z == 0U)
-            return make_failure("OpenGL backend: compute dispatch group counts must be non-zero.");
-
-        glDispatchCompute(group_count_x, group_count_y, group_count_z);
-        return consume_gl_errors("dispatch_compute");
-    }
-
-    tbx::Result OpenGlGraphicsBackend::begin_compute_pass(const tbx::GraphicsComputePassDesc& pass)
-    {
-        (void)pass;
-        if (_state.is_render_pass_active)
-            return make_failure("OpenGL backend: a render pass is already active.");
-        if (_state.is_compute_pass_active)
-            return make_failure("OpenGL backend: a compute pass is already active.");
-
-        _state.is_compute_pass_active = true;
-        return make_success();
-    }
-
     tbx::Result OpenGlGraphicsBackend::destroy_resource(const tbx::GpuId& resource_uuid)
     {
         if (auto group_it = _cache.bind_groups.find(resource_uuid);
             group_it != _cache.bind_groups.end())
         {
             _cache.bind_groups.erase(group_it);
-            return make_success();
-        }
-
-        if (auto layout_it = _cache.bind_group_layouts.find(resource_uuid);
-            layout_it != _cache.bind_group_layouts.end())
-        {
-            _cache.bind_group_layouts.erase(layout_it);
             return make_success();
         }
 
@@ -1113,15 +950,6 @@ namespace opengl_rendering
             if (pipeline_it->second.vertex_array != 0U)
                 glDeleteVertexArrays(1, &pipeline_it->second.vertex_array);
             _cache.raster_pipelines.erase(pipeline_it);
-            if (_state.current_pipeline_state.id == resource_uuid)
-                clear_bound_state();
-            return make_success();
-        }
-
-        if (auto pipeline_it = _cache.compute_pipelines.find(resource_uuid);
-            pipeline_it != _cache.compute_pipelines.end())
-        {
-            _cache.compute_pipelines.erase(pipeline_it);
             if (_state.current_pipeline_state.id == resource_uuid)
                 clear_bound_state();
             return make_success();
@@ -1146,58 +974,10 @@ namespace opengl_rendering
         return make_failure("OpenGL backend: resource was not found.");
     }
 
-    tbx::Result OpenGlGraphicsBackend::end_compute_pass()
-    {
-        if (!_state.is_compute_pass_active)
-            return make_failure("OpenGL backend: no compute pass is active.");
-
-        _state.is_compute_pass_active = false;
-        return make_success();
-    }
-
-    tbx::Result OpenGlGraphicsBackend::pipeline_barrier(
-        const std::vector<tbx::PipelineBarrierDesc>& barriers)
-    {
-        auto barrier_bits = GLbitfield(0U);
-        for (const auto& barrier : barriers)
-        {
-            switch (barrier.state_after)
-            {
-                case tbx::ResourceState::RENDER_TARGET:
-                case tbx::ResourceState::DEPTH_WRITE:
-                case tbx::ResourceState::DEPTH_READ:
-                    barrier_bits |= GL_FRAMEBUFFER_BARRIER_BIT;
-                    break;
-                case tbx::ResourceState::GPUREAD_ONLY:
-                    barrier_bits |= GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT
-                                    | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
-                    break;
-                case tbx::ResourceState::UNORDERED_ACCESS:
-                    barrier_bits |=
-                        GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
-                    break;
-                case tbx::ResourceState::INDIRECT_ARGUMENT:
-                    barrier_bits |= GL_COMMAND_BARRIER_BIT;
-                    break;
-                case tbx::ResourceState::UNDEFINED:
-                default:
-                    break;
-            }
-        }
-
-        if (barrier_bits != 0U)
-            glMemoryBarrier(barrier_bits);
-
-        return make_success();
-    }
-
     tbx::Result OpenGlGraphicsBackend::create_bind_group(
         const tbx::BindGroupDesc& desc,
         tbx::GpuId& out_resource_uuid)
     {
-        const auto layout_it = _cache.bind_group_layouts.find(desc.layout_handle);
-        const std::vector<OpenGlBindGroupLayoutEntry>* layout =
-            layout_it == _cache.bind_group_layouts.end() ? nullptr : &layout_it->second;
         auto bind_entries = std::vector<OpenGlBindEntry>();
         bind_entries.reserve(desc.bindings.size());
 
@@ -1206,49 +986,32 @@ namespace opengl_rendering
             if (binding.resource_handle == tbx::INVALID_GPU_ID)
                 continue;
 
+            // The renderer omits explicit layouts; resolve each binding's resource class from the
+            // bound resource's creation usage.
             auto entry_type = OpenGlBindEntryType::UNIFORM_BUFFER;
             auto has_type = false;
-            if (layout != nullptr)
+
+            if (const auto buffer_it = _cache.buffers.find(binding.resource_handle);
+                buffer_it != _cache.buffers.end())
             {
-                if (const auto* layout_entry =
-                        find_bind_group_layout_entry(*layout, binding.binding_slot))
-                {
-                    entry_type = layout_entry->type;
-                    has_type = true;
-                }
+                if (buffer_it->second.is_vertex_buffer)
+                    entry_type = OpenGlBindEntryType::VERTEX_BUFFER;
+                else if (buffer_it->second.is_index_buffer)
+                    entry_type = OpenGlBindEntryType::INDEX_BUFFER;
+                else if (buffer_it->second.is_uniform_buffer)
+                    entry_type = OpenGlBindEntryType::UNIFORM_BUFFER;
+                else if (buffer_it->second.is_storage_buffer)
+                    entry_type = OpenGlBindEntryType::STORAGE_BUFFER;
+                else
+                    return make_failure(
+                        "OpenGL backend: bind group buffer usage was not recognized.");
+                has_type = true;
             }
 
+            if (!has_type && _cache.textures.contains(binding.resource_handle))
             {
-                const auto buffer_it = _cache.buffers.find(binding.resource_handle);
-                if (!has_type && buffer_it != _cache.buffers.end())
-                {
-                    if (buffer_it->second.is_vertex_buffer)
-                        entry_type = OpenGlBindEntryType::VERTEX_BUFFER;
-                    else if (buffer_it->second.is_index_buffer)
-                        entry_type = OpenGlBindEntryType::INDEX_BUFFER;
-                    else if (buffer_it->second.is_uniform_buffer)
-                        entry_type = OpenGlBindEntryType::UNIFORM_BUFFER;
-                    else if (buffer_it->second.is_storage_buffer)
-                        entry_type = OpenGlBindEntryType::STORAGE_BUFFER;
-                    else
-                    {
-                        return make_failure(
-                            "OpenGL backend: bind group buffer usage was not recognized.");
-                    }
-                    has_type = true;
-                }
-            }
-
-            if (!has_type)
-            {
-                const auto texture_it = _cache.textures.find(binding.resource_handle);
-                if (texture_it != _cache.textures.end())
-                {
-                    entry_type = texture_it->second.is_storage_capable
-                                     ? OpenGlBindEntryType::STORAGE_TEXTURE
-                                     : OpenGlBindEntryType::SAMPLED_TEXTURE;
-                    has_type = true;
-                }
+                entry_type = OpenGlBindEntryType::SAMPLED_TEXTURE;
+                has_type = true;
             }
 
             if (!has_type && _cache.samplers.contains(binding.resource_handle))
@@ -1275,43 +1038,8 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::create_bind_group_layout(
-        const tbx::BindGroupLayoutDesc& desc,
-        tbx::GpuId& out_resource_uuid)
-    {
-        auto layout = std::vector<OpenGlBindGroupLayoutEntry> {};
-        layout.reserve(desc.entries.size());
-        for (const auto& entry : desc.entries)
-        {
-            auto type = OpenGlBindEntryType::UNIFORM_BUFFER;
-            if (entry.type == tbx::BindingType::STORAGE_BUFFER
-                || entry.type == tbx::BindingType::STORAGE_BUFFER_DYNAMIC)
-            {
-                type = OpenGlBindEntryType::STORAGE_BUFFER;
-            }
-            else if (entry.type == tbx::BindingType::SAMPLED_TEXTURE)
-            {
-                type = OpenGlBindEntryType::SAMPLED_TEXTURE;
-            }
-            else if (entry.type == tbx::BindingType::STORAGE_TEXTURE)
-            {
-                type = OpenGlBindEntryType::STORAGE_TEXTURE;
-            }
-
-            layout.push_back(
-                OpenGlBindGroupLayoutEntry {
-                    .slot = entry.binding_slot,
-                    .type = type,
-                });
-        }
-
-        out_resource_uuid = next_resource_id();
-        _cache.bind_group_layouts.emplace(out_resource_uuid, std::move(layout));
-        return make_success();
-    }
-
     tbx::Result OpenGlGraphicsBackend::create_buffer(
-        const tbx::GraphicsBufferDesc& desc,
+        const tbx::BufferDesc& desc,
         tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
@@ -1326,14 +1054,14 @@ namespace opengl_rendering
             OpenGlBufferResource {
                 .buffer = OpenGlGraphicsBuffer(desc, nullptr, 0U),
                 .size = desc.size,
-                .is_vertex_buffer = has_buffer_usage(desc.usage, tbx::GraphicsBufferUsage::VERTEX),
-                .is_index_buffer = has_buffer_usage(desc.usage, tbx::GraphicsBufferUsage::INDEX),
+                .is_vertex_buffer = has_buffer_usage(desc.usage, tbx::BufferUsage::VERTEX),
+                .is_index_buffer = has_buffer_usage(desc.usage, tbx::BufferUsage::INDEX),
                 .is_uniform_buffer =
-                    has_buffer_usage(desc.usage, tbx::GraphicsBufferUsage::UNIFORM),
+                    has_buffer_usage(desc.usage, tbx::BufferUsage::UNIFORM),
                 .is_storage_buffer =
-                    has_buffer_usage(desc.usage, tbx::GraphicsBufferUsage::STORAGE),
+                    has_buffer_usage(desc.usage, tbx::BufferUsage::STORAGE),
                 .is_indirect_argument_buffer =
-                    has_buffer_usage(desc.usage, tbx::GraphicsBufferUsage::INDIRECT_ARGS),
+                    has_buffer_usage(desc.usage, tbx::BufferUsage::INDIRECT_ARGS),
             });
         if (auto result = consume_gl_errors("create_buffer"); !result)
         {
@@ -1342,43 +1070,6 @@ namespace opengl_rendering
             return result;
         }
 
-        return make_success();
-    }
-
-    tbx::Result OpenGlGraphicsBackend::create_compute_pipeline(
-        const tbx::ComputePipelineDesc& desc,
-        tbx::GpuId& out_resource_uuid)
-    {
-        if (auto result = require_gl_ready_for_resource_ops(); !result)
-            return result;
-
-        auto shaders = std::vector<std::shared_ptr<OpenGlShader>> {};
-        if (auto result = create_shaders(desc.shaders, shaders); !result)
-        {
-            auto message = std::string("OpenGL backend: compute shader upload failed");
-            if (!desc.debug_name.empty())
-                message += " for pipeline '" + desc.debug_name + "'";
-            message += ". ";
-            message += result.get_report();
-            return make_failure(std::move(message));
-        }
-
-        auto program = OpenGlShaderProgram(shaders);
-        if (program.get_program_id() == 0U)
-        {
-            auto message = std::string("OpenGL backend: compute program link failed");
-            if (!desc.debug_name.empty())
-                message += " for pipeline '" + desc.debug_name + "'";
-            message += ". ";
-            message += program.get_last_error().empty() ? "No driver error log was provided."
-                                                        : program.get_last_error();
-            return make_failure(std::move(message));
-        }
-
-        out_resource_uuid = next_resource_id();
-        _cache.compute_pipelines.emplace(
-            out_resource_uuid,
-            OpenGlComputePipelineResource {.program = std::move(program)});
         return make_success();
     }
 
@@ -1440,7 +1131,7 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::create_sampler(
-        const tbx::GraphicsSamplerDesc& desc,
+        const tbx::SamplerDesc& desc,
         tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
@@ -1459,7 +1150,7 @@ namespace opengl_rendering
     }
 
     tbx::Result OpenGlGraphicsBackend::create_texture(
-        const tbx::GraphicsTextureDesc& desc,
+        const tbx::TextureDesc& desc,
         tbx::GpuId& out_resource_uuid)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
@@ -1477,10 +1168,8 @@ namespace opengl_rendering
                 .bytes_per_pixel = get_texture_bytes_per_pixel(desc.format),
                 .array_layer_count = std::max(desc.array_layer_count, 1U),
                 .depth_attachment = get_depth_attachment(desc.format),
-                .internal_format = get_texture_internal_format(desc.format),
                 .upload_format = get_texture_upload_format(desc.format),
                 .upload_type = get_texture_upload_type(desc.format),
-                .is_storage_capable = has_texture_usage(desc.usage, tbx::TextureUsage::STORAGE),
             });
         if (auto result = consume_gl_errors("create_texture"); !result)
         {
@@ -1540,7 +1229,7 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::write_texture(
         const tbx::GpuId& resource_uuid,
-        const tbx::GraphicsTextureUpdateDesc& desc,
+        const tbx::TextureUpdateDesc& desc,
         const void* data,
         const uint64 data_size)
     {
@@ -1621,9 +1310,7 @@ namespace opengl_rendering
     {
         while (_next_resource_id == tbx::INVALID_GPU_ID
                || _cache.bind_groups.contains(_next_resource_id)
-               || _cache.bind_group_layouts.contains(_next_resource_id)
                || _cache.buffers.contains(_next_resource_id)
-               || _cache.compute_pipelines.contains(_next_resource_id)
                || _cache.raster_pipelines.contains(_next_resource_id)
                || _cache.samplers.contains(_next_resource_id)
                || _cache.textures.contains(_next_resource_id))
@@ -1637,9 +1324,7 @@ namespace opengl_rendering
     void OpenGlGraphicsBackend::clear_bound_state()
     {
         _state.current_pipeline_state = {};
-        _state.is_compute_pass_active = false;
         _state.bound_index_buffer = tbx::INVALID_GPU_ID;
-        _state.bound_image_textures.clear();
         _state.bound_samplers.clear();
         _state.bound_storage_buffers.clear();
         _state.bound_sampled_textures.clear();
@@ -1664,9 +1349,7 @@ namespace opengl_rendering
                 glDeleteVertexArrays(1, &vertex_array);
         }
         _cache.raster_pipelines.clear();
-        _cache.compute_pipelines.clear();
         _cache.bind_groups.clear();
-        _cache.bind_group_layouts.clear();
         _cache.buffers.clear();
         _cache.samplers.clear();
         _cache.textures.clear();
@@ -1718,7 +1401,7 @@ namespace opengl_rendering
             && (!_state.has_current_pipeline_state
                 || _state.current_pipeline_state.cull_mode != state.cull_mode))
         {
-            glCullFace(state.cull_mode == tbx::GraphicsCullMode::FRONT ? GL_FRONT : GL_BACK);
+            glCullFace(state.cull_mode == tbx::CullMode::FRONT ? GL_FRONT : GL_BACK);
         }
         if (!_state.has_current_pipeline_state
             || _state.current_pipeline_state.depth_bias_constant != state.depth_bias_constant

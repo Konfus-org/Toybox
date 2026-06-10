@@ -21,11 +21,6 @@ namespace opengl_rendering
                || format == tbx::TextureFormat::DEPTH32_FLOAT;
     }
 
-    bool has_texture_usage(const tbx::TextureUsage value, const tbx::TextureUsage usage)
-    {
-        return (static_cast<uint8>(value) & static_cast<uint8>(usage)) != 0U;
-    }
-
     GLenum get_depth_attachment(const tbx::TextureFormat format)
     {
         return format == tbx::TextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
@@ -106,7 +101,7 @@ namespace opengl_rendering
         }
     }
 
-    uint64 get_texture_byte_size(const tbx::GraphicsTextureDesc& desc)
+    uint64 get_texture_byte_size(const tbx::TextureDesc& desc)
     {
         return static_cast<uint64>(desc.size.width) * static_cast<uint64>(desc.size.height)
                * get_texture_bytes_per_pixel(desc.format);
@@ -137,7 +132,7 @@ namespace opengl_rendering
         }
     }
 
-    OpenGlTexture::OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data)
+    OpenGlTexture::OpenGlTexture(const tbx::TextureDesc& desc, const void* data)
         : _array_layer_count(std::max(desc.array_layer_count, 1U))
     {
         const GLsizei width = static_cast<GLsizei>(desc.size.width);
@@ -201,16 +196,12 @@ namespace opengl_rendering
         }
 
         const bool is_depth_format = is_depth_texture_format(desc.format);
-        glTextureParameteri(
-            _texture_id,
-            GL_TEXTURE_MIN_FILTER,
-            desc.is_depth_comparison_enabled ? GL_LINEAR
-                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
-        glTextureParameteri(
-            _texture_id,
-            GL_TEXTURE_MAG_FILTER,
-            desc.is_depth_comparison_enabled ? GL_LINEAR
-                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
+        const GLint sampled_filter = desc.is_linear_filtering_enabled ? GL_LINEAR : GL_NEAREST;
+        const GLint filter = desc.is_depth_comparison_enabled ? GL_LINEAR
+                                                              : (is_depth_format ? GL_NEAREST
+                                                                                 : sampled_filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, filter);
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         if (is_array_texture)
@@ -305,7 +296,7 @@ namespace opengl_rendering
     }
 
     void OpenGlTexture::update(
-        const tbx::GraphicsTextureUpdateDesc& desc,
+        const tbx::TextureUpdateDesc& desc,
         const GLenum upload_format,
         const GLenum upload_type,
         const void* data) const

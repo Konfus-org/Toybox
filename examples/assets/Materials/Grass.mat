@@ -1,0 +1,62 @@
+{
+    "shader": {
+        "vertex": 304,
+        "fragment": 322,
+        "tesselation": 0,
+        "geometry": 325,
+        "computes": []
+    },
+    "parameters": [
+        {
+            "name": "base_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 0.18,
+                    "g": 0.42,
+                    "b": 0.16,
+                    "a": 1
+                }
+            }
+        },
+        {
+            "name": "blade_scale",
+            "data": {
+                "type": "float",
+                "value": 2.5
+            }
+        },
+        {
+            "name": "fuzz",
+            "data": {
+                "type": "float",
+                "value": 0.65
+            }
+        },
+        {
+            "name": "roughness",
+            "data": {
+                "type": "float",
+                "value": 0.9
+            }
+        },
+        {
+            "name": "height",
+            "data": {
+                "type": "float",
+                "value": 0.55
+            }
+        }
+    ],
+    "textures": [],
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "on"
+    }
+}

@@ -6,9 +6,9 @@
 
 namespace opengl_rendering
 {
-    bool has_buffer_usage(tbx::GraphicsBufferUsage value, tbx::GraphicsBufferUsage usage);
-    GLenum to_gl_buffer_target(tbx::GraphicsBufferUsage usage);
-    GLenum to_gl_buffer_usage(const tbx::GraphicsBufferDesc& desc);
+    bool has_buffer_usage(tbx::BufferUsage value, tbx::BufferUsage usage);
+    GLenum to_gl_buffer_target(tbx::BufferUsage usage);
+    GLenum to_gl_buffer_usage(const tbx::BufferDesc& desc);
 
     /// @brief
     /// Purpose: Owns a command-backend OpenGL buffer.
@@ -19,7 +19,7 @@ namespace opengl_rendering
     {
       public:
         OpenGlGraphicsBuffer(
-            const tbx::GraphicsBufferDesc& desc,
+            const tbx::BufferDesc& desc,
             const void* data,
             uint64 data_size);
         ~OpenGlGraphicsBuffer() noexcept override;

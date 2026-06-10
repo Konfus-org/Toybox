@@ -18,18 +18,23 @@ namespace tbx
         bool succeeded() const;
 
         // Marks the result as a success. Report is optional.
-        void flag_success(std::string report = "") const;
+        void ok(std::string report = "") const;
 
         // Marks the result as a failure. A report is required on failure.
-        void flag_failure(std::string report) const;
+        void failure(std::string report) const;
 
         // Returns the report associated with the result.
         const std::string& get_report() const;
 
+      public:
         operator bool() const
         {
             return succeeded();
         }
+
+      public:
+        static const Result OK;
+        static const Result FAILURE;
 
       private:
         std::shared_ptr<bool> _success;

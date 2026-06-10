@@ -146,7 +146,7 @@ namespace tbx
     {
         for (const auto& attribute : layout.elements)
         {
-            if (attribute.type != GraphicsVertexFormat::VEC3)
+            if (attribute.type != VertexFormat::VEC3)
                 continue;
 
             position_offset_bytes = static_cast<size>(attribute.offset);

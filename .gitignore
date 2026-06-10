@@ -37,6 +37,8 @@
 .vs/
 .vscode/
 .cache/
+.claude/
+.agent/
 
 # Solution Files
 *.vcxproj

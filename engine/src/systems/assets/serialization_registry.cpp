@@ -23,7 +23,7 @@ namespace tbx
     Result SerializationRegistry::make_failed_result(std::string report)
     {
         auto result = Result();
-        result.flag_failure(std::move(report));
+        result.failure(std::move(report));
         return result;
     }
 
@@ -133,7 +133,7 @@ namespace tbx
         apply_tbx_asset_common_meta(metadata, *asset);
         read.metadata = metadata;
         read.asset = std::shared_ptr<Asset>(std::move(asset));
-        read.result.flag_success();
+        read.result.ok();
         return read;
     }
 

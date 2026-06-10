@@ -207,7 +207,7 @@ namespace tbx
             }
         }
 
-        read.result.flag_success();
+        read.result.ok();
         return read;
     }
 
@@ -342,7 +342,7 @@ namespace tbx
                                  }
 
                                  auto result = Result();
-                                 result.flag_success();
+                                 result.ok();
                                  return result;
                              })
                              .share();
@@ -547,7 +547,7 @@ namespace tbx
         auto result = asset_registration.read_body(contents, asset);
         if (!result.succeeded())
         {
-            result.flag_failure(
+            result.failure(
                 std::string(result.get_report()).append(" Asset: ").append(asset_path.string()));
         }
         return result;

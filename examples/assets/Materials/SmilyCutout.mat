@@ -1,48 +1,28 @@
-﻿{
+{
     "shader": {
         "vertex": 304,
-        "fragment": 305,
+        "fragment": 321,
         "tesselation": 0,
         "geometry": 0,
         "computes": []
     },
     "parameters": [
-        {
-            "name": "albedo_color",
-            "data": {
-                "type": "color",
-                "value": {
-                    "r": 1,
-                    "g": 1,
-                    "b": 1,
-                    "a": 1
-                }
-            },
-            "target": "base_color"
-        },
-        {
-            "name": "alpha_cutoff",
-            "data": {
-                "type": "float",
-                "value": 0.5
-            },
-            "target": "alpha_cutoff"
-        }
+        { "name": "albedo_color", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
+        { "name": "metallic", "data": { "type": "float", "value": 0 } },
+        { "name": "roughness", "data": { "type": "float", "value": 0.6 } },
+        { "name": "ao", "data": { "type": "float", "value": 1 } },
+        { "name": "alpha_cutoff", "data": { "type": "float", "value": 0.5 } }
     ],
     "textures": [
-        {
-            "name": "albedo_map",
-            "texture": 270544962,
-            "target": "albedo_texture"
-        }
+        { "name": "albedo_map", "texture": 270544962 }
     ],
     "config": {
         "is_depth_test_enabled": true,
         "is_depth_write_enabled": true,
         "is_depth_prepass_enabled": false,
         "is_two_sided": true,
-        "is_cullable": false,
-        "depth_function": "less_equal",
+        "is_cullable": true,
+        "depth_function": "less",
         "blend_mode": "opaque",
         "shadow_mode": "off"
     }

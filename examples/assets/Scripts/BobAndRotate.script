@@ -1,0 +1,5 @@
+{
+    "rotation_speed_radians_per_second": 1.0,
+    "bob_amplitude": 0.5,
+    "bob_frequency": 1.5
+}

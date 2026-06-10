@@ -5,12 +5,11 @@
 
 namespace opengl_rendering
 {
-    bool has_texture_usage(tbx::TextureUsage value, tbx::TextureUsage usage);
     GLenum get_depth_attachment(tbx::TextureFormat format);
     GLenum get_texture_internal_format(tbx::TextureFormat format);
     GLenum get_texture_upload_format(tbx::TextureFormat format);
     GLenum get_texture_upload_type(tbx::TextureFormat format);
-    uint64 get_texture_byte_size(const tbx::GraphicsTextureDesc& desc);
+    uint64 get_texture_byte_size(const tbx::TextureDesc& desc);
     uint64 get_texture_bytes_per_pixel(tbx::TextureFormat format);
 
     /// @brief
@@ -21,7 +20,7 @@ namespace opengl_rendering
     class OpenGlTexture final : public IOpenGlResource
     {
       public:
-        OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data);
+        OpenGlTexture(const tbx::TextureDesc& desc, const void* data);
         OpenGlTexture(const OpenGlTexture&) = delete;
         OpenGlTexture& operator=(const OpenGlTexture&) = delete;
         OpenGlTexture(OpenGlTexture&& other) noexcept;
@@ -45,7 +44,7 @@ namespace opengl_rendering
         /// being reallocated. Thread Safety: render thread only.
         GLuint64 get_or_create_bindless_handle();
         void update(
-            const tbx::GraphicsTextureUpdateDesc& desc,
+            const tbx::TextureUpdateDesc& desc,
             GLenum upload_format,
             GLenum upload_type,
             const void* data) const;
@@ -65,9 +64,7 @@ namespace opengl_rendering
         uint64 bytes_per_pixel = 0U;
         uint32 array_layer_count = 1U;
         GLenum depth_attachment = GL_DEPTH_ATTACHMENT;
-        GLenum internal_format = GL_RGBA8;
         GLenum upload_format = GL_RGBA;
         GLenum upload_type = GL_UNSIGNED_BYTE;
-        bool is_storage_capable = false;
     };
 }

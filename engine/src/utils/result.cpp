@@ -19,13 +19,13 @@ namespace tbx
         return _success && *_success;
     }
 
-    void Result::flag_success(std::string message) const
+    void Result::ok(std::string message) const
     {
         *_success = true;
         *_report = std::move(message);
     }
 
-    void Result::flag_failure(std::string message) const
+    void Result::failure(std::string message) const
     {
         *_success = false;
         *_report = std::move(message);
@@ -35,4 +35,7 @@ namespace tbx
     {
         return *_report;
     }
+
+    const Result Result::OK = Result(true);
+    const Result Result::FAILURE = Result(false);
 }

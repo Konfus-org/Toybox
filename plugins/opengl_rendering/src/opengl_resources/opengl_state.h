@@ -27,7 +27,7 @@ namespace opengl_rendering
         bool is_culling_enabled = true;
         float depth_bias_constant = 0.0F;
         float depth_bias_slope = 0.0F;
-        tbx::GraphicsCullMode cull_mode = tbx::GraphicsCullMode::BACK;
+        tbx::CullMode cull_mode = tbx::CullMode::BACK;
     };
 
     /// @brief
@@ -43,14 +43,12 @@ namespace opengl_rendering
 
         std::vector<tbx::GpuId> bound_samplers = {};
         std::vector<tbx::GpuId> bound_sampled_textures = {};
-        std::vector<tbx::GpuId> bound_image_textures = {};
         std::vector<tbx::GpuId> bound_vertex_buffers = {};
         std::vector<OpenGlBufferSlotBinding> bound_storage_buffers = {};
         std::vector<OpenGlBufferSlotBinding> bound_uniform_buffers = {};
         tbx::GpuId bound_index_buffer = tbx::INVALID_GPU_ID;
 
         bool is_loaded = false;
-        bool is_compute_pass_active = false;
         bool is_render_pass_active = false;
         bool has_current_pipeline_state = false;
     };

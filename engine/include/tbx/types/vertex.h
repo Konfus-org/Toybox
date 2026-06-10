@@ -12,27 +12,27 @@
 namespace tbx
 {
     ///////////// VERTEX DATA //////////////////
-    using VertexData = GraphicsVertexFormat;
+    using VertexData = VertexFormat;
 
     inline int32 get_vertex_data_count(const VertexData& data)
     {
-        if (data == GraphicsVertexFormat::VEC2)
+        if (data == VertexFormat::VEC2)
         {
             return 2;
         }
-        else if (data == GraphicsVertexFormat::VEC3)
+        else if (data == VertexFormat::VEC3)
         {
             return 3;
         }
-        else if (data == GraphicsVertexFormat::VEC4)
+        else if (data == VertexFormat::VEC4)
         {
             return 4;
         }
-        else if (data == GraphicsVertexFormat::FLOAT)
+        else if (data == VertexFormat::FLOAT)
         {
             return 1;
         }
-        else if (data == GraphicsVertexFormat::UINT32 || data == GraphicsVertexFormat::INT32)
+        else if (data == VertexFormat::UINT32 || data == VertexFormat::INT32)
         {
             return 1;
         }
@@ -45,23 +45,23 @@ namespace tbx
 
     inline int32 get_vertex_data_size(const VertexData& data)
     {
-        if (data == GraphicsVertexFormat::VEC2)
+        if (data == VertexFormat::VEC2)
         {
             return 4 * 2;
         }
-        else if (data == GraphicsVertexFormat::VEC3)
+        else if (data == VertexFormat::VEC3)
         {
             return 4 * 3;
         }
-        else if (data == GraphicsVertexFormat::VEC4)
+        else if (data == VertexFormat::VEC4)
         {
             return 4 * 4;
         }
-        else if (data == GraphicsVertexFormat::FLOAT)
+        else if (data == VertexFormat::FLOAT)
         {
             return 4;
         }
-        else if (data == GraphicsVertexFormat::UINT32 || data == GraphicsVertexFormat::INT32)
+        else if (data == VertexFormat::UINT32 || data == VertexFormat::INT32)
         {
             return 4;
         }
@@ -99,14 +99,14 @@ namespace tbx
     struct TBX_API VertexLayoutElement
     {
         std::string debug_name = {};
-        VertexData type = GraphicsVertexFormat::FLOAT;
+        VertexData type = VertexFormat::FLOAT;
         bool normalized = false;
     };
 
     struct TBX_API VertexBufferAttribute
     {
         std::string debug_name = {};
-        VertexData type = GraphicsVertexFormat::FLOAT;
+        VertexData type = VertexFormat::FLOAT;
         uint32 offset = 0;
         bool normalized = false;
     };
@@ -173,23 +173,23 @@ namespace tbx
             std::vector<VertexLayoutElement> {
                 VertexLayoutElement {
                     .debug_name = vertex_attribute_position_debug_name,
-                    .type = GraphicsVertexFormat::VEC3,
+                    .type = VertexFormat::VEC3,
                 },
                 VertexLayoutElement {
                     .debug_name = vertex_attribute_color_debug_name,
-                    .type = GraphicsVertexFormat::VEC4,
+                    .type = VertexFormat::VEC4,
                 },
                 VertexLayoutElement {
                     .debug_name = vertex_attribute_normal_debug_name,
-                    .type = GraphicsVertexFormat::VEC3,
+                    .type = VertexFormat::VEC3,
                 },
                 VertexLayoutElement {
                     .debug_name = vertex_attribute_uv_debug_name,
-                    .type = GraphicsVertexFormat::VEC2,
+                    .type = VertexFormat::VEC2,
                 },
                 VertexLayoutElement {
                     .debug_name = vertex_attribute_tangent_debug_name,
-                    .type = GraphicsVertexFormat::VEC4,
+                    .type = VertexFormat::VEC4,
                 },
             });
     }

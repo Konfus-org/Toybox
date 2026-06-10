@@ -59,7 +59,7 @@ namespace stb_image_loader
         auto files = file_ops.lock();
         if (!files)
         {
-            result.flag_failure("Stb image loader: file services unavailable.");
+            result.failure("Stb image loader: file services unavailable.");
             return result;
         }
 
@@ -71,7 +71,7 @@ namespace stb_image_loader
             auto meta_data = std::string {};
             if (!files->read_file(meta_path, tbx::FileDataFormat::UTF8_TEXT, meta_data))
             {
-                result.flag_failure(
+                result.failure(
                     build_load_failure_message(asset_path, "texture metadata could not be read"));
                 return result;
             }
@@ -79,7 +79,7 @@ namespace stb_image_loader
             const auto meta_result = tbx::tbx_read_json_asset_meta_Texture(meta_data, load_texture);
             if (!meta_result.succeeded())
             {
-                result.flag_failure(meta_result.get_report());
+                result.failure(meta_result.get_report());
                 return result;
             }
         }
@@ -87,7 +87,7 @@ namespace stb_image_loader
         std::string encoded_image;
         if (!files->read_file(asset_path, tbx::FileDataFormat::BINARY, encoded_image))
         {
-            result.flag_failure(build_load_failure_message(asset_path, "file could not be read"));
+            result.failure(build_load_failure_message(asset_path, "file could not be read"));
             return result;
         }
 
@@ -104,7 +104,7 @@ namespace stb_image_loader
             desired_channels);
         if (!raw_data)
         {
-            result.flag_failure(build_load_failure_message(asset_path, stbi_failure_reason()));
+            result.failure(build_load_failure_message(asset_path, stbi_failure_reason()));
             return result;
         }
 
@@ -122,7 +122,7 @@ namespace stb_image_loader
             load_texture.mipmaps,
             load_texture.compression,
             pixels);
-        result.flag_success();
+        result.ok();
         return result;
     }
 }

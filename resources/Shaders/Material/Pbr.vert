@@ -1,35 +1,29 @@
-layout(location = 0) out vec2 v_tex_coord;
+#include "ShaderBase.glsl"
+
+// Forward+ standard vertex: pulls the instance + vertex straight from the global SSBOs (no vertex
+// attributes are bound). gl_BaseInstance carries the visible instance index emitted by the cull
+// shader; gl_VertexID indexes the global vertex mega-buffer (indices are stored globally).
+layout(location = 0) out vec2 v_uv;
 layout(location = 1) out vec4 v_color;
-layout(location = 3) out vec3 v_world_position;
-layout(location = 4) out vec3 v_world_normal;
-layout(location = 5) out vec4 v_world_tangent;
-
-layout(location = 0) in vec3 a_position;
-layout(location = 1) in vec4 a_color;
-layout(location = 2) in vec3 a_normal;
-layout(location = 3) in vec2 a_uv;
-layout(location = 4) in vec4 a_tangent;
-
-layout(std140, binding = 0) uniform TbxFrame
-{
-    mat4 viewProjection;
-    vec4 ambientLight;
-};
-
-layout(std140, binding = 1) uniform TbxObject
-{
-    mat4 modelMatrix;
-};
+layout(location = 2) out vec3 v_world_position;
+layout(location = 3) out vec3 v_world_normal;
+layout(location = 4) out vec4 v_world_tangent;
+layout(location = 5) out flat uint v_material_id;
 
 void main()
 {
-    v_tex_coord = a_uv;
-    v_color = a_color;
+    InstanceData instance = instances[gl_BaseInstance];
+    VertexData vertex = vertices[gl_VertexID];
 
-    vec4 worldPosition = modelMatrix * vec4(a_position, 1.0);
-    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
-    v_world_position = worldPosition.xyz;
-    v_world_normal = normalMatrix * a_normal;
-    v_world_tangent = vec4(normalize(normalMatrix * a_tangent.xyz), a_tangent.w);
-    gl_Position = viewProjection * worldPosition;
+    vec4 world_position = instance.modelMatrix * vec4(vertex.position.xyz, 1.0);
+    mat3 normal_matrix = mat3(instance.modelMatrix);
+
+    v_uv = vertex.uv.xy;
+    v_color = vertex.color;
+    v_world_position = world_position.xyz;
+    v_world_normal = normalize(normal_matrix * vertex.normal.xyz);
+    v_world_tangent = vec4(normalize(normal_matrix * vertex.tangent.xyz), vertex.tangent.w);
+    v_material_id = instance.materialId;
+
+    gl_Position = viewProjection * world_position;
 }

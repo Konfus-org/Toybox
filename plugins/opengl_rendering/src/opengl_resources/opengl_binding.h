@@ -12,7 +12,6 @@ namespace opengl_rendering
         UNIFORM_BUFFER,
         STORAGE_BUFFER,
         SAMPLED_TEXTURE,
-        STORAGE_TEXTURE,
         SAMPLER,
     };
 
@@ -25,13 +24,5 @@ namespace opengl_rendering
         tbx::GpuId resource = tbx::INVALID_GPU_ID;
         uint64 offset = 0U;
         uint64 range = 0U;
-    };
-
-    /// @brief
-    /// Purpose: Stores one backend-ready bind group layout entry.
-    struct OpenGlBindGroupLayoutEntry
-    {
-        uint32 slot = 0U;
-        OpenGlBindEntryType type = OpenGlBindEntryType::UNIFORM_BUFFER;
     };
 }

@@ -22,7 +22,14 @@ namespace tbx
     constexpr uint32 GPU_BINDING_DRAW_COUNT = 9U;
     constexpr uint32 GPU_BINDING_SHADOW_DRAW_COUNT = 10U;
     constexpr uint32 GPU_BINDING_GLOBAL_TEXTURES = 11U;
+    // Directional shadow map: a depth texture bound to its own sampler unit (mirrors
+    // TBX_SHADER_BINDING_SHADOW_MAP = 12 in ShaderBase.glsl), sampled by the forward pass.
+    constexpr uint32 GPU_BINDING_SHADOW_MAP = 12U;
     constexpr uint32 GPU_BINDING_UNIFORMS = 0U;
+    // Post-processing: per-effect uniforms (UBO) + the scene color sampled by a fullscreen effect.
+    // GPU_BINDING_SCENE_COLOR mirrors TBX_SHADER_BINDING_FINAL_HDR (23) in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_POST_UNIFORMS = 5U;
+    constexpr uint32 GPU_BINDING_SCENE_COLOR = 23U;
 
     // ----------------------------------------------------
     // Hardware Abstraction Alignments
@@ -31,12 +38,17 @@ namespace tbx
     constexpr uint32 GPU_PIPELINE_FLAG_TRANSPARENT = 1U << 1U;
     constexpr uint32 GPU_PIPELINE_FLAG_SHADOW = 1U << 2U;
 
+    // Number of vec4 slots of generic scalar/vector parameter scratch in a material record.
+    inline constexpr uint32 GPU_MATERIAL_PARAM_VEC4_COUNT = 8U;
+    // Number of texture binding slots per material; each holds a bindless globalTextures[] index.
+    inline constexpr uint32 GPU_MATERIAL_TEXTURE_SLOT_COUNT = 16U;
+
     // ----------------------------------------------------
     // Geometry & Layout Structs
     // ----------------------------------------------------
-    // Mirrors the GLSL `VertexData` struct in ShaderBase.glsl exactly (std430, 5 x vec4 = 80 bytes).
-    // Unpacked for now; octahedral/half packing is a future optimization that must change both
-    // sides together.
+    // Mirrors the GLSL `VertexData` struct in ShaderBase.glsl exactly (std430, 5 x vec4 = 80
+    // bytes). Unpacked for now; octahedral/half packing is a future optimization that must change
+    // both sides together.
     struct alignas(16) GpuVertexData
     {
         Vec4 position; // xyz used
@@ -78,11 +90,6 @@ namespace tbx
         Vec4 shadow_data; // x = shadow map/atlas index (-1 if none)
     };
 
-    // Number of vec4 slots of generic scalar/vector parameter scratch in a material record.
-    inline constexpr uint32 GPU_MATERIAL_PARAM_VEC4_COUNT = 8U;
-    // Number of texture binding slots per material; each holds a bindless globalTextures[] index.
-    inline constexpr uint32 GPU_MATERIAL_TEXTURE_SLOT_COUNT = 16U;
-
     /// @brief
     /// Purpose: One packed material record stored in the global materials[] SSBO, indexed by
     /// material_id. Generic by design so any material type packs into it without a bespoke struct.
@@ -118,6 +125,7 @@ namespace tbx
     {
         Mat4 view_projection;
         Mat4 inverse_view_projection;
+        Mat4 light_view_projection; // directional shadow caster's world -> light clip transform
 
         std::array<Vec4, 6U> frustum_planes;
 
@@ -137,6 +145,17 @@ namespace tbx
         uint32 shadow_count;
         uint32 max_scene_draw_count;
         uint32 max_shadow_draw_count;
+    };
+
+    // Mirrors the GLSL `TbxPostUniforms` std140 UBO in Post.glsl. One per post-processing effect:
+    // it names the effect's packed material record (in the shared materials[] table) so the
+    // fullscreen shader reads its params/textures, plus the effect's stack blend weight.
+    struct alignas(16) GpuPostUniforms
+    {
+        uint32 post_material_id;
+        float blend;
+        uint32 padding0;
+        uint32 padding1;
     };
 
     // Native API Mapping Layout for GPU Indirect Execution

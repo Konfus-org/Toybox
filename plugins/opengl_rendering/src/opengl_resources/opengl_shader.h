@@ -70,13 +70,6 @@ namespace opengl_rendering
     };
 
     /// @brief
-    /// Purpose: Stores one compute pipeline's OpenGL resources.
-    struct OpenGlComputePipelineResource
-    {
-        OpenGlShaderProgram program;
-    };
-
-    /// @brief
     /// Purpose: Stores one raster pipeline's OpenGL resources and state.
     struct OpenGlRasterPipelineResource
     {

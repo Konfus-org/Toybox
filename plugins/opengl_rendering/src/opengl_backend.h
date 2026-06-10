@@ -39,15 +39,9 @@ namespace opengl_rendering
 
         tbx::Result begin_render_pass(const tbx::RenderPassDesc& pass) override;
         tbx::Result end_render_pass() override;
-        tbx::Result begin_compute_pass(const tbx::GraphicsComputePassDesc& pass) override;
-        tbx::Result end_compute_pass() override;
 
         tbx::Result bind_group(uint32 set_index, const tbx::GpuId& group_resource_uuid) override;
-        tbx::Result bind_compute_pipeline(const tbx::GpuId& pipeline_resource_uuid) override;
         tbx::Result bind_raster_pipeline(const tbx::GpuId& pipeline_resource_uuid) override;
-
-        tbx::Result pipeline_barrier(
-            const std::vector<tbx::PipelineBarrierDesc>& barriers) override;
 
         tbx::Result draw(
             uint32 index_count,
@@ -60,36 +54,19 @@ namespace opengl_rendering
             uint64 offset,
             uint32 draw_count,
             uint32 stride) override;
-        tbx::Result draw_indirect_count(
-            const tbx::GpuId& argument_buffer,
-            uint64 offset,
-            const tbx::GpuId& count_buffer,
-            uint64 count_offset,
-            uint32 max_draw_count,
-            uint32 stride) override;
-        tbx::Result dispatch_compute(
-            uint32 group_count_x,
-            uint32 group_count_y,
-            uint32 group_count_z) override;
 
         tbx::Result create_bind_group(const tbx::BindGroupDesc& desc, tbx::GpuId& out_resource_uuid)
             override;
-        tbx::Result create_bind_group_layout(
-            const tbx::BindGroupLayoutDesc& desc,
-            tbx::GpuId& out_resource_uuid) override;
-        tbx::Result create_buffer(const tbx::GraphicsBufferDesc& desc, tbx::GpuId& out_resource_uuid)
+        tbx::Result create_buffer(const tbx::BufferDesc& desc, tbx::GpuId& out_resource_uuid)
             override;
-        tbx::Result create_compute_pipeline(
-            const tbx::ComputePipelineDesc& desc,
-            tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_raster_pipeline(
             const tbx::RasterPipelineDesc& desc,
             tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_sampler(
-            const tbx::GraphicsSamplerDesc& desc,
+            const tbx::SamplerDesc& desc,
             tbx::GpuId& out_resource_uuid) override;
         tbx::Result create_texture(
-            const tbx::GraphicsTextureDesc& desc,
+            const tbx::TextureDesc& desc,
             tbx::GpuId& out_resource_uuid) override;
 
         bool supports_bindless_textures() const override;
@@ -104,7 +81,7 @@ namespace opengl_rendering
             uint64 offset) override;
         tbx::Result write_texture(
             const tbx::GpuId& resource_uuid,
-            const tbx::GraphicsTextureUpdateDesc& desc,
+            const tbx::TextureUpdateDesc& desc,
             const void* data,
             uint64 data_size) override;
 

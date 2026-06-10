@@ -62,7 +62,7 @@ namespace opengl_rendering
         auto result = tbx::Result();
         if (shader_desc.empty())
         {
-            result.flag_failure("OpenGL backend: pipeline has no shader sources.");
+            result.failure("OpenGL backend: pipeline has no shader sources.");
             return result;
         }
 
@@ -79,14 +79,14 @@ namespace opengl_rendering
                     message += shader->get_last_error();
                 }
 
-                result.flag_failure(std::move(message));
+                result.failure(std::move(message));
                 return result;
             }
 
             out_shaders.push_back(std::move(shader));
         }
 
-        result.flag_success();
+        result.ok();
         return result;
     }
 

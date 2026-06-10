@@ -7,7 +7,7 @@ namespace opengl_rendering
         return std::exchange(handle, 0U);
     }
 
-    OpenGlSampler::OpenGlSampler(const tbx::GraphicsSamplerDesc& desc)
+    OpenGlSampler::OpenGlSampler(const tbx::SamplerDesc& desc)
     {
         glCreateSamplers(1, &_sampler_id);
 

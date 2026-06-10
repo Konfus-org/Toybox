@@ -24,7 +24,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum values are copied by value by resource systems.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsBufferUsage : uint32
+    enum class BufferUsage : uint32
     {
         VERTEX = 1U << 0U,
         INDEX = 1U << 1U,
@@ -35,86 +35,28 @@ namespace tbx
         COPY_DST = 1U << 6U,
     };
 
-    constexpr GraphicsBufferUsage operator|(
-        const GraphicsBufferUsage left,
-        const GraphicsBufferUsage right)
+    constexpr BufferUsage operator|(
+        const BufferUsage left,
+        const BufferUsage right)
     {
-        return static_cast<GraphicsBufferUsage>(
+        return static_cast<BufferUsage>(
             static_cast<uint32>(left) | static_cast<uint32>(right));
     }
 
-    constexpr GraphicsBufferUsage operator&(
-        const GraphicsBufferUsage left,
-        const GraphicsBufferUsage right)
+    constexpr BufferUsage operator&(
+        const BufferUsage left,
+        const BufferUsage right)
     {
-        return static_cast<GraphicsBufferUsage>(
+        return static_cast<BufferUsage>(
             static_cast<uint32>(left) & static_cast<uint32>(right));
     }
-
-    /// @brief
-    /// Purpose: Defines which immutable pipeline category a backend resource represents.
-    /// @details
-    /// Ownership: Enum values are copied by value by pipeline descriptions.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class PipelineType
-    {
-        RASTER,
-        COMPUTE,
-    };
-
-    /// @brief
-    /// Purpose: Defines the resource class expected at one bind group slot.
-    /// @details
-    /// Ownership: Enum values are copied by value by bind group descriptions.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class BindingType
-    {
-        UNIFORM_BUFFER,
-        STORAGE_BUFFER,
-        STORAGE_BUFFER_DYNAMIC,
-        SAMPLED_TEXTURE,
-        STORAGE_TEXTURE,
-    };
-
-    /// @brief
-    /// Purpose: Describes explicit resource synchronization states for backend barriers.
-    /// @details
-    /// Ownership: Enum values are copied by value by command submissions.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class ResourceState
-    {
-        UNDEFINED,
-        RENDER_TARGET,
-        DEPTH_WRITE,
-        DEPTH_READ,
-        GPUREAD_ONLY,
-        UNORDERED_ACCESS,
-        INDIRECT_ARGUMENT,
-    };
-
-    inline constexpr uint32 GPUSTAGE_VERTEX = 1U << 0U;
-    inline constexpr uint32 GPUSTAGE_TESSELATION = 1U << 1U;
-    inline constexpr uint32 GPUSTAGE_GEOMETRY = 1U << 2U;
-    inline constexpr uint32 GPUSTAGE_FRAGMENT = 1U << 3U;
-    inline constexpr uint32 GPUSTAGE_COMPUTE = 1U << 4U;
-
-    /// @brief
-    /// Purpose: Defines the type stored in a bound index buffer.
-    /// @details
-    /// Ownership: Enum values are copied by value by draw submissions.
-    /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsIndexType
-    {
-        UINT16,
-        UINT32,
-    };
 
     /// @brief
     /// Purpose: Defines the primitive topology consumed by a draw command.
     /// @details
     /// Ownership: Enum values are copied by value by draw submissions.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsPrimitiveType
+    enum class PrimitiveType
     {
         TRIANGLES,
         LINES,
@@ -126,7 +68,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum values are copied by value by pipeline descriptions.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsCullMode
+    enum class CullMode
     {
         BACK,
         FRONT,
@@ -137,7 +79,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum values are copied by value by pipeline descriptions.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsVertexFormat
+    enum class VertexFormat
     {
         FLOAT,
         VEC2,
@@ -152,7 +94,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum values are copied by value by pass submissions.
     /// Thread Safety: Thread-safe as immutable enum constants.
-    enum class GraphicsClearFlags : uint8
+    enum class ClearFlags : uint8
     {
         NONE = 0U,
         COLOR = 1U << 0U,
@@ -166,9 +108,9 @@ namespace tbx
     /// @details
     /// Ownership: Owns descriptive values by copy; upload data is supplied separately.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsBufferDesc
+    struct TBX_API BufferDesc
     {
-        GraphicsBufferUsage usage = GraphicsBufferUsage::VERTEX;
+        BufferUsage usage = BufferUsage::VERTEX;
         uint64 size = 0U;
         bool is_dynamic = false;
         std::string debug_name = {};
@@ -179,7 +121,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns descriptive values by copy; upload data is supplied separately.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsTextureDesc
+    struct TBX_API TextureDesc
     {
         TextureUsage usage = TextureUsage::SAMPLED;
         TextureFormat format = TextureFormat::RGBA8;
@@ -187,6 +129,7 @@ namespace tbx
         uint32 mip_count = 1U;
         uint32 array_layer_count = 1U;
         bool is_depth_comparison_enabled = false;
+        bool is_linear_filtering_enabled = true;
         std::string debug_name = {};
     };
 
@@ -195,7 +138,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns region values by copy; upload data is supplied separately.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsTextureUpdateDesc
+    struct TBX_API TextureUpdateDesc
     {
         uint32 x = 0U;
         uint32 y = 0U;
@@ -210,7 +153,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns sampler values by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsSamplerDesc
+    struct TBX_API SamplerDesc
     {
         bool is_linear_filtering_enabled = true;
         bool is_mipmapping_enabled = true;
@@ -230,29 +173,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Describes one resource expected by a bind group layout.
-    /// @details
-    /// Ownership: Owns binding metadata by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API BindGroupLayoutEntry
-    {
-        uint32 binding_slot = 0U;
-        BindingType type = BindingType::UNIFORM_BUFFER;
-        uint32 shader_stages = 0U;
-    };
-
-    /// @brief
-    /// Purpose: Defines the resource layout expected by one bind group set.
-    /// @details
-    /// Ownership: Owns binding metadata and debug names by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API BindGroupLayoutDesc
-    {
-        std::vector<BindGroupLayoutEntry> entries = {};
-        std::string debug_name = {};
-    };
-
-    /// @brief
     /// Purpose: Describes one concrete resource bound into a bind group slot.
     /// @details
     /// Ownership: Stores backend resource identifiers by value.
@@ -269,10 +189,10 @@ namespace tbx
     /// Purpose: Describes a concrete bind group instance submitted by command recording.
     /// @details
     /// Ownership: Owns copied binding metadata and references backend resources by id.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally. The backend
+    /// resolves each binding's resource class from the bound resource's creation usage.
     struct TBX_API BindGroupDesc
     {
-        GpuId layout_handle = INVALID_GPU_ID;
         std::vector<ResourceBinding> bindings = {};
         std::string debug_name = {};
     };
@@ -282,7 +202,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns layout values by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsVertexBufferLayoutDesc
+    struct TBX_API VertexBufferLayoutDesc
     {
         uint32 slot = 0U;
         uint32 stride = 0U;
@@ -294,12 +214,12 @@ namespace tbx
     /// @details
     /// Ownership: Owns attribute values by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsVertexAttributeDesc
+    struct TBX_API VertexAttributeDesc
     {
         uint32 location = 0U;
         uint32 buffer_slot = 0U;
         uint32 offset = 0U;
-        GraphicsVertexFormat format = GraphicsVertexFormat::FLOAT;
+        VertexFormat format = VertexFormat::FLOAT;
     };
 
     /// @brief
@@ -310,10 +230,9 @@ namespace tbx
     struct TBX_API RasterPipelineDesc
     {
         std::vector<Shader> shaders = {};
-        std::vector<BindGroupLayoutDesc> bind_group_layouts = {};
-        std::vector<GraphicsVertexBufferLayoutDesc> vertex_buffers = {};
-        std::vector<GraphicsVertexAttributeDesc> vertex_attributes = {};
-        GraphicsPrimitiveType primitive_type = GraphicsPrimitiveType::TRIANGLES;
+        std::vector<VertexBufferLayoutDesc> vertex_buffers = {};
+        std::vector<VertexAttributeDesc> vertex_attributes = {};
+        PrimitiveType primitive_type = PrimitiveType::TRIANGLES;
         MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
         bool is_depth_test_enabled = true;
         bool is_depth_write_enabled = true;
@@ -321,19 +240,7 @@ namespace tbx
         bool is_culling_enabled = true;
         float depth_bias_constant = 0.0F;
         float depth_bias_slope = 0.0F;
-        GraphicsCullMode cull_mode = GraphicsCullMode::BACK;
-        std::string debug_name = {};
-    };
-
-    /// @brief
-    /// Purpose: Describes immutable compute pipeline state realized by a graphics backend.
-    /// @details
-    /// Ownership: Owns state and shader sources by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API ComputePipelineDesc
-    {
-        std::vector<Shader> shaders = {};
-        std::vector<BindGroupLayoutDesc> bind_group_layouts = {};
+        CullMode cull_mode = CullMode::BACK;
         std::string debug_name = {};
     };
 
@@ -352,47 +259,9 @@ namespace tbx
         Color clear_color = Color::BLACK;
         float clear_depth = 1.0F;
         uint32 clear_stencil = 0U;
-        GraphicsClearFlags clear_flags = GraphicsClearFlags::NONE;
+        ClearFlags clear_flags = ClearFlags::NONE;
         bool is_color_write_enabled = true;
         std::string debug_name = {};
-    };
-
-    /// @brief
-    /// Purpose: Describes a compute pass scope.
-    /// @details
-    /// Ownership: Owns descriptive values by copy.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsComputePassDesc
-    {
-        std::string debug_name = {};
-    };
-
-    /// @brief
-    /// Purpose: Describes one indexed draw command.
-    /// @details
-    /// Ownership: Owns draw ranges by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API GraphicsDrawIndexedDesc
-    {
-        GraphicsPrimitiveType primitive_type = GraphicsPrimitiveType::TRIANGLES;
-        GraphicsIndexType index_type = GraphicsIndexType::UINT32;
-        uint32 index_count = 0U;
-        uint32 index_offset = 0U;
-        int32 vertex_offset = 0;
-        uint32 instance_count = 1U;
-        uint32 first_instance = 0U;
-    };
-
-    /// @brief
-    /// Purpose: Describes one explicit resource state transition.
-    /// @details
-    /// Ownership: Stores backend resource identifiers by value.
-    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API PipelineBarrierDesc
-    {
-        GpuId resource_handle = INVALID_GPU_ID;
-        ResourceState state_before = ResourceState::UNDEFINED;
-        ResourceState state_after = ResourceState::UNDEFINED;
     };
 
     /// @brief
@@ -416,27 +285,19 @@ namespace tbx
         virtual Result end_frame() = 0;
         virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
         virtual Result end_render_pass() = 0;
-        virtual Result begin_compute_pass(const GraphicsComputePassDesc& pass) = 0;
-        virtual Result end_compute_pass() = 0;
 
         virtual Result destroy_resource(const GpuId& resource_uuid) = 0;
 
         virtual Result create_bind_group(const BindGroupDesc& desc, GpuId& out_resource_uuid) = 0;
-        virtual Result create_bind_group_layout(
-            const BindGroupLayoutDesc& desc,
-            GpuId& out_resource_uuid) = 0;
-        virtual Result create_buffer(const GraphicsBufferDesc& desc, GpuId& out_resource_uuid) = 0;
-        virtual Result create_compute_pipeline(
-            const ComputePipelineDesc& desc,
-            GpuId& out_resource_uuid) = 0;
+        virtual Result create_buffer(const BufferDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_raster_pipeline(
             const RasterPipelineDesc& desc,
             GpuId& out_resource_uuid) = 0;
         virtual Result create_sampler(
-            const GraphicsSamplerDesc& desc,
+            const SamplerDesc& desc,
             GpuId& out_resource_uuid) = 0;
         virtual Result create_texture(
-            const GraphicsTextureDesc& desc,
+            const TextureDesc& desc,
             GpuId& out_resource_uuid) = 0;
 
         /// @brief Whether the backend supports referencing textures by resident bindless handle.
@@ -454,7 +315,7 @@ namespace tbx
             uint64 offset) = 0;
         virtual Result write_texture(
             const GpuId& resource_uuid,
-            const GraphicsTextureUpdateDesc& desc,
+            const TextureUpdateDesc& desc,
             const void* data,
             uint64 data_size) = 0;
 
@@ -462,9 +323,7 @@ namespace tbx
         virtual void wait_for_idle() = 0;
 
         virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
-        virtual Result bind_compute_pipeline(const GpuId& pipeline_resource_uuid) = 0;
         virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;
-        virtual Result pipeline_barrier(const std::vector<PipelineBarrierDesc>& barriers) = 0;
 
         virtual Result draw(
             uint32 index_count,
@@ -477,16 +336,5 @@ namespace tbx
             uint64 offset,
             uint32 draw_count,
             uint32 stride) = 0;
-        virtual Result draw_indirect_count(
-            const GpuId& argument_buffer,
-            uint64 offset,
-            const GpuId& count_buffer,
-            uint64 count_offset,
-            uint32 max_draw_count,
-            uint32 stride) = 0;
-        virtual Result dispatch_compute(
-            uint32 group_count_x,
-            uint32 group_count_y,
-            uint32 group_count_z) = 0;
     };
 }

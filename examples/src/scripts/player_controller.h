@@ -26,45 +26,35 @@ namespace tbx_example
 
     /// @brief
     /// Purpose: Script-owned player behavior for the authored 3D example character.
-    [[script]];
-    [[version(1U)]];
+    [[tbx::script]];
+    [[tbx::version(1U)]];
     class PlayerController final : public tbx::GameplayScript
     {
-      public:
-        PlayerController() = default;
-        ~PlayerController() noexcept override = default;
-
-      public:
-        PlayerController(const PlayerController&) = delete;
-        PlayerController& operator=(const PlayerController&) = delete;
-        PlayerController(PlayerController&&) noexcept = delete;
-        PlayerController& operator=(PlayerController&&) noexcept = delete;
-
       public:
         void on_destroy() override;
         void on_start() override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       public:
-        [[prop]]
+        [[tbx::prop]]
         tbx::Uuid camera_entity = {};
 
-        [[prop]]
+        [[tbx::prop]]
         float initial_pitch = 0.0F;
 
-        [[prop]]
+        [[tbx::prop]]
         float initial_yaw = 0.0F;
 
-        [[prop]]
+        [[tbx::prop]]
         float look_sensitivity = 0.0025F;
 
-        [[prop]]
+        [[tbx::prop]]
         float move_speed = 6.0F;
 
-        [[inject]]
+        [[tbx::inject]]
         std::weak_ptr<tbx::IInputManager> input = {};
 
-        [[inject]]
+        [[tbx::inject]]
         std::weak_ptr<tbx::Physics> physics = {};
 
       private:
@@ -87,11 +77,11 @@ namespace tbx_example
         void update_camera(const tbx::DeltaTime& dt);
         void update_projectiles(const tbx::DeltaTime& dt);
 
-        // TODO: Make this a tbx vector util
+        // TODO: Make a tbx vector normalize method
         static tbx::Vec3 normalize_or_zero(const tbx::Vec3& value);
 
       private:
-        std::string _scheme_name = "ThreeDExample.Player";
+        std::string _scheme_name = "Example.Player";
         std::weak_ptr<tbx::World> _world = {};
         tbx::Entity _camera_entity = {};
         tbx::MaterialInstance _projectile_material = {};

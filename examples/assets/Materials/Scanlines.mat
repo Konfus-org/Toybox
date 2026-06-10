@@ -1,0 +1,26 @@
+{
+    "shader": {
+        "vertex": 539243891,
+        "fragment": 539243892,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        { "name": "tint", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
+        { "name": "density", "data": { "type": "float", "value": 220 } },
+        { "name": "intensity", "data": { "type": "float", "value": 0.35 } },
+        { "name": "scroll_speed", "data": { "type": "float", "value": 8 } }
+    ],
+    "textures": [],
+    "config": {
+        "is_depth_test_enabled": false,
+        "is_depth_write_enabled": false,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": false,
+        "depth_function": "always",
+        "blend_mode": "opaque",
+        "shadow_mode": "off"
+    }
+}

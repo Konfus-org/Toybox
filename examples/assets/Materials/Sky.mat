@@ -55,12 +55,12 @@
         }
     ],
     "config": {
-        "is_depth_test_enabled": false,
+        "is_depth_test_enabled": true,
         "is_depth_write_enabled": false,
         "is_depth_prepass_enabled": false,
         "is_two_sided": true,
         "is_cullable": false,
-        "depth_function": "less",
+        "depth_function": "less_equal",
         "blend_mode": "opaque",
         "shadow_mode": "off"
     }

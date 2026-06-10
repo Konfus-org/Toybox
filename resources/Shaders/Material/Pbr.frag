@@ -1,76 +1,53 @@
-layout(location = 0) in vec2 v_tex_coord;
+#include "ShaderBase.glsl"
+
+// Forward+ PBR surface. Reads its packed material record (params in declared .mat order) and shades
+// itself against the clustered light list. Parameter lanes (positional float stream):
+//   params[0] = albedo_color (rgba)
+//   params[1] = emissive_color (rgba)
+//   params[2] = (metallic, roughness, normal_strength, ao)
+// Texture slots (declared .mat order): 0 albedo, 1 normal, 2 metallic, 3 roughness, 4 ao, 5 emissive.
+layout(location = 0) in vec2 v_uv;
 layout(location = 1) in vec4 v_color;
-layout(location = 3) in vec3 v_world_position;
-layout(location = 4) in vec3 v_world_normal;
-layout(location = 5) in vec4 v_world_tangent;
+layout(location = 2) in vec3 v_world_position;
+layout(location = 3) in vec3 v_world_normal;
+layout(location = 4) in vec4 v_world_tangent;
+layout(location = 5) in flat uint v_material_id;
 
 layout(location = 0) out vec4 o_color;
 
-layout(std140, binding = 0) uniform TbxFrame
-{
-    mat4 viewProjection;
-    vec4 ambientLight;
-};
-
-layout(std140, binding = 2) uniform TbxAlbedoColor
-{
-    vec4 albedoColor;
-};
-
-layout(std140, binding = 3) uniform TbxEmissiveColor
-{
-    vec4 emissiveColor;
-};
-
-layout(std140, binding = 4) uniform TbxMetallic
-{
-    float metallic;
-};
-
-layout(std140, binding = 5) uniform TbxRoughness
-{
-    float roughness;
-};
-
-layout(std140, binding = 6) uniform TbxNormalStrength
-{
-    float normalStrength;
-};
-
-layout(std140, binding = 7) uniform TbxAo
-{
-    float ao;
-};
-
-layout(binding = 16) uniform sampler2D albedoMap;
-layout(binding = 17) uniform sampler2D normalMap;
-layout(binding = 18) uniform sampler2D metallicMap;
-layout(binding = 19) uniform sampler2D roughnessMap;
-layout(binding = 20) uniform sampler2D aoMap;
-layout(binding = 21) uniform sampler2D emissiveMap;
-
 void main()
 {
+    uint mid = v_material_id;
+    vec4 albedo_color = tbx_material_param(mid, 0u);
+    vec4 emissive_color = tbx_material_param(mid, 1u);
+    vec4 scalars = tbx_material_param(mid, 2u);
+    float normal_strength = scalars.z;
+
+    vec4 base = v_color * albedo_color * tbx_sample_material_texture(mid, 0u, v_uv, vec4(1.0));
+
+    vec3 view_direction = normalize(cameraPositionTime.xyz - v_world_position);
     vec3 normal = normalize(v_world_normal);
-    vec3 tangent = normalize(v_world_tangent.xyz);
-    vec3 bitangent = normalize(cross(normal, tangent) * v_world_tangent.w);
-    vec3 sampledNormal = texture(normalMap, v_tex_coord).xyz * 2.0 - 1.0;
-    sampledNormal.xy *= normalStrength;
-    normal = normalize(mat3(tangent, bitangent, normal) * sampledNormal);
+    // Two-sided surfaces (e.g. museum interior walls) render both faces; flip the geometric normal
+    // to the side actually being rasterized so the back face lights correctly. Keying off
+    // gl_FrontFacing (not the view vector) keeps lighting tied to geometry, so a directional light
+    // outside a wall no longer "leaks" onto the interior face the way a view-dependent flip did.
+    if (!gl_FrontFacing)
+        normal = -normal;
+    if (tbx_material_has_texture(mid, 1u))
+    {
+        vec3 tangent = normalize(v_world_tangent.xyz);
+        vec3 bitangent = normalize(cross(normal, tangent) * v_world_tangent.w);
+        vec3 sampled = tbx_sample_material_texture(mid, 1u, v_uv, vec4(0.5, 0.5, 1.0, 1.0)).xyz * 2.0 - 1.0;
+        sampled.xy *= normal_strength;
+        normal = normalize(mat3(tangent, bitangent, normal) * sampled);
+    }
 
-    vec3 lightDirection = normalize(vec3(0.35, 0.75, 0.45));
-    vec3 viewDirection = normalize(vec3(0.0, 0.0, 1.0));
-    vec3 halfDirection = normalize(lightDirection + viewDirection);
-    float resolvedMetallic = clamp(metallic * texture(metallicMap, v_tex_coord).r, 0.0, 1.0);
-    float resolvedRoughness = clamp(roughness * texture(roughnessMap, v_tex_coord).r, 0.04, 1.0);
-    float resolvedAo = clamp(ao * texture(aoMap, v_tex_coord).r, 0.0, 1.0);
-    float light = max(dot(normal, lightDirection), 0.0);
-    float specularPower = mix(96.0, 8.0, resolvedRoughness);
-    float specularLight = pow(max(dot(normal, halfDirection), 0.0), specularPower);
+    float metallic = clamp(scalars.x * tbx_sample_material_texture(mid, 2u, v_uv, vec4(1.0)).r, 0.0, 1.0);
+    float roughness = scalars.y * tbx_sample_material_texture(mid, 3u, v_uv, vec4(1.0)).r;
+    float ao = clamp(scalars.w * tbx_sample_material_texture(mid, 4u, v_uv, vec4(1.0)).r, 0.0, 1.0);
+    vec3 emissive = emissive_color.rgb * tbx_sample_material_texture(mid, 5u, v_uv, vec4(1.0)).rgb;
 
-    vec4 surface = v_color * albedoColor * texture(albedoMap, v_tex_coord);
-    vec3 diffuse = surface.rgb * (ambientLight.rgb + vec3(light * 0.85 * resolvedAo));
-    vec3 specularColor = mix(vec3(0.04), surface.rgb, resolvedMetallic);
-    vec3 emissive = emissiveColor.rgb * texture(emissiveMap, v_tex_coord).rgb;
-    o_color = vec4(diffuse + specularColor * specularLight + emissive, surface.a);
+    vec3 lit = tbx_shade_pbr(base.rgb, metallic, roughness, ao, normal, v_world_position, view_direction);
+
+    o_color = vec4(tbx_tonemap(lit + emissive), base.a);
 }

@@ -10,33 +10,33 @@ namespace opengl_rendering
     }
 
     bool has_buffer_usage(
-        const tbx::GraphicsBufferUsage value,
-        const tbx::GraphicsBufferUsage usage)
+        const tbx::BufferUsage value,
+        const tbx::BufferUsage usage)
     {
         return (static_cast<uint32>(value) & static_cast<uint32>(usage)) != 0U;
     }
 
-    GLenum to_gl_buffer_target(const tbx::GraphicsBufferUsage usage)
+    GLenum to_gl_buffer_target(const tbx::BufferUsage usage)
     {
-        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDEX))
+        if (has_buffer_usage(usage, tbx::BufferUsage::INDEX))
             return GL_ELEMENT_ARRAY_BUFFER;
-        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::UNIFORM))
+        if (has_buffer_usage(usage, tbx::BufferUsage::UNIFORM))
             return GL_UNIFORM_BUFFER;
-        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::STORAGE))
+        if (has_buffer_usage(usage, tbx::BufferUsage::STORAGE))
             return GL_SHADER_STORAGE_BUFFER;
-        if (has_buffer_usage(usage, tbx::GraphicsBufferUsage::INDIRECT_ARGS))
+        if (has_buffer_usage(usage, tbx::BufferUsage::INDIRECT_ARGS))
             return GL_DRAW_INDIRECT_BUFFER;
 
         return GL_ARRAY_BUFFER;
     }
 
-    GLenum to_gl_buffer_usage(const tbx::GraphicsBufferDesc& desc)
+    GLenum to_gl_buffer_usage(const tbx::BufferDesc& desc)
     {
         return desc.is_dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
     }
 
     OpenGlGraphicsBuffer::OpenGlGraphicsBuffer(
-        const tbx::GraphicsBufferDesc& desc,
+        const tbx::BufferDesc& desc,
         const void* data,
         const uint64 data_size)
         : _target(to_gl_buffer_target(desc.usage))

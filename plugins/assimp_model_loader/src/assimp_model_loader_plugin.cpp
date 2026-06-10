@@ -352,7 +352,7 @@ namespace assimp_model_loader
         const aiScene* scene = importer.ReadFile(asset_path.string(), flags);
         if (!scene || !scene->HasMeshes())
         {
-            result.flag_failure(build_load_failure_message(asset_path, importer.GetErrorString()));
+            result.failure(build_load_failure_message(asset_path, importer.GetErrorString()));
             return result;
         }
 
@@ -488,7 +488,7 @@ namespace assimp_model_loader
         model.meshes = std::move(baked_meshes);
         model.materials = std::move(materials);
         model.parts = std::move(parts);
-        result.flag_success();
+        result.ok();
         return result;
     }
 }

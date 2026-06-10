@@ -9,8 +9,8 @@
             "transform": {
                 "position": [
                     0,
-                    2.01,
-                    10
+                    0.35,
+                    72
                 ],
                 "rotation": [
                     0,
@@ -32,8 +32,8 @@
                         "binding_id": 12584001,
                         "overrides": {
                             "camera_entity": 12582913,
-                            "initial_pitch": -0.12,
-                            "initial_yaw": 0.785398
+                            "initial_pitch": 0.02,
+                            "initial_yaw": 3.14159
                         }
                     }
                 ]
@@ -94,11 +94,11 @@
                     "b": 1,
                     "a": 1
                 },
-                "intensity": 0.1,
+                "intensity": 2.5,
                 "cast_shadows": true,
-                "range": 25,
-                "inner_angle": 10,
-                "outer_angle": 45
+                "range": 40,
+                "inner_angle": 14,
+                "outer_angle": 50
             },
             "transform": {
                 "position": [
@@ -159,9 +159,13 @@
             "script_container": {
                 "scripts": [
                     {
-                        "script": 822100005,
+                        "script": 822100007,
                         "enabled": true,
-                        "binding_id": 12584005
+                        "binding_id": 12584005,
+                        "overrides": {
+                            "sky_entity": 12582916,
+                            "day_length_seconds": 30.0
+                        }
                     }
                 ]
             }
@@ -239,15 +243,6 @@
                     1,
                     1
                 ]
-            },
-            "script_container": {
-                "scripts": [
-                    {
-                        "script": 822100002,
-                        "enabled": true,
-                        "binding_id": 12584002
-                    }
-                ]
             }
         }
     },
@@ -264,11 +259,18 @@
                         "material": {
                             "material": 539243890
                         },
-                        "is_enabled": false,
+                        "is_enabled": true,
                         "blend": 1
+                    },
+                    {
+                        "material": {
+                            "material": 539243901
+                        },
+                        "is_enabled": true,
+                        "blend": 0.6
                     }
                 ],
-                "is_enabled": false
+                "is_enabled": true
             }
         }
     }

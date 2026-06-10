@@ -152,7 +152,7 @@ namespace tbx
             }
         }
 
-        const auto result = _pipeline.execute(*backend, settings, delta_time);
+        const auto result = _pipeline.execute(settings, delta_time);
         if (!result)
         {
             TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());

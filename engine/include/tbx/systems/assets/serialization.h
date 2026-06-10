@@ -200,7 +200,7 @@ namespace tbx
     static Result make_serialization_failure(std::string report)
     {
         auto result = Result();
-        result.flag_failure(std::move(report));
+        result.failure(std::move(report));
         return result;
     }
 

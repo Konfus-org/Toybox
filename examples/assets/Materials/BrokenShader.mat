@@ -1,0 +1,29 @@
+{
+    "shader": {
+        "vertex": 304,
+        "fragment": 902,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        {
+            "name": "albedo_color",
+            "data": {
+                "type": "color",
+                "value": { "r": 0.2, "g": 0.9, "b": 0.3, "a": 1 }
+            }
+        }
+    ],
+    "textures": [],
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": false,
+        "is_cullable": true,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "off"
+    }
+}

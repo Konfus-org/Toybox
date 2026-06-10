@@ -43,24 +43,21 @@ namespace tbx
         /// @brief
         /// Purpose: Runs transient allocation, frame graph construction, backend submission, and
         /// presentation for the active world.
-        Result execute(
-            IGraphicsBackend& backend,
-            const GraphicsSettings& settings,
-            const DeltaTime& delta_time);
+        Result execute(const GraphicsSettings& settings, const DeltaTime& delta_time);
 
         /// @brief
         /// Purpose: Invalidates cached GPU state affected by asset reloads.
         void reload();
 
       private:
-        struct State;
+        struct Resources;
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<WorldManager> _world_manager = {};
-        std::unique_ptr<State> _state = {};
+        std::unique_ptr<Resources> _resources = {};
         float _elapsed_time = 0.0F;
         uint64 _frame_index = 0U;
     };

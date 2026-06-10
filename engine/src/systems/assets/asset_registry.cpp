@@ -10,7 +10,7 @@ namespace tbx
     static Result make_failed_result(std::string report)
     {
         auto result = Result();
-        result.flag_failure(std::move(report));
+        result.failure(std::move(report));
         return result;
     }
 
@@ -30,11 +30,11 @@ namespace tbx
 
         if (result.succeeded())
         {
-            result.flag_success(std::move(merged));
+            result.ok(std::move(merged));
             return;
         }
 
-        result.flag_failure(std::move(merged));
+        result.failure(std::move(merged));
     }
 
     static void merge_result(Result& destination, const Result& source)
@@ -42,7 +42,7 @@ namespace tbx
         append_report(destination, source.get_report());
         if (!source.succeeded() && destination.succeeded())
         {
-            destination.flag_failure(destination.get_report());
+            destination.failure(destination.get_report());
         }
     }
 
@@ -209,14 +209,14 @@ namespace tbx
         if (is_duplicate)
         {
             auto result = Result();
-            result.flag_success("Asset directory is already tracked.");
+            result.ok("Asset directory is already tracked.");
             return result;
         }
 
         _asset_directories.push_back(resolved);
 
         auto result = Result();
-        result.flag_success("Tracking asset directory.");
+        result.ok("Tracking asset directory.");
 
         const auto scan_result = scan_asset_directory(resolved);
         merge_result(result, scan_result);
@@ -245,7 +245,7 @@ namespace tbx
             std::find(_asset_directories.begin(), _asset_directories.end(), resolved);
         if (directory_iterator == _asset_directories.end())
         {
-            result.result.flag_success("Asset directory is not tracked.");
+            result.result.ok("Asset directory is not tracked.");
             return result;
         }
 
@@ -268,7 +268,7 @@ namespace tbx
             ++entry_iterator;
         }
 
-        result.result.flag_success("Stopped tracking asset directory.");
+        result.result.ok("Stopped tracking asset directory.");
         return result;
     }
 

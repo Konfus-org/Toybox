@@ -16,18 +16,18 @@ namespace tbx
             case MessageState::HANDLED:
             case MessageState::UN_HANDLED:
             {
-                msg.result.flag_success(message);
+                msg.result.ok(message);
                 break;
             }
             case MessageState::CANCELLED:
             {
-                msg.result.flag_failure(
+                msg.result.failure(
                     message.empty() ? std::string("Message was cancelled.") : message);
                 break;
             }
             case MessageState::ERROR:
             {
-                msg.result.flag_failure(
+                msg.result.failure(
                     message.empty() ? std::string("Message processing failed.") : message);
                 break;
             }

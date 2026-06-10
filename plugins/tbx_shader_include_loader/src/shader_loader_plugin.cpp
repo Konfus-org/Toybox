@@ -317,26 +317,26 @@ namespace tbx::shader_loader
         auto files = file_ops.lock();
         if (!files)
         {
-            result.flag_failure("tbx::Shader loader: file services unavailable.");
+            result.failure("tbx::Shader loader: file services unavailable.");
             return result;
         }
 
         auto assets = asset_manager.lock();
         if (!assets)
         {
-            result.flag_failure("tbx::Shader loader: asset manager unavailable.");
+            result.failure("tbx::Shader loader: asset manager unavailable.");
             return result;
         }
 
         if (shader.type == tbx::ShaderType::NONE)
         {
-            result.flag_failure("tbx::Shader loader: shader type metadata is missing.");
+            result.failure("tbx::Shader loader: shader type metadata is missing.");
             return result;
         }
 
         if (shader.source.empty())
         {
-            result.flag_failure("tbx::Shader loader: shader source is empty.");
+            result.failure("tbx::Shader loader: shader source is empty.");
             return result;
         }
 
@@ -352,13 +352,13 @@ namespace tbx::shader_loader
             0U);
         if (!expanded.succeeded)
         {
-            result.flag_failure(build_load_failure_message(asset_path, expanded.error));
+            result.failure(build_load_failure_message(asset_path, expanded.error));
             return result;
         }
 
         shader.source = std::move(expanded.data);
 
-        result.flag_success();
+        result.ok();
         return result;
     }
 }

@@ -1,0 +1,9 @@
+{
+    "id": 700000004,
+    "version": 1,
+    "wrap": "repeat",
+    "filter": "linear",
+    "format": "rgba",
+    "mipmaps": "enabled",
+    "compression": "disabled"
+}

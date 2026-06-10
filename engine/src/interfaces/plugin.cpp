@@ -8,7 +8,7 @@ namespace tbx
     Result Plugin::dispatcher_missing_result(std::string_view action)
     {
         Result result;
-        result.flag_failure(
+        result.failure(
             std::string("Plugin cannot ") + std::string(action)
             + " because it is not attached to a dispatcher.");
         return result;

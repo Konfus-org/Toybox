@@ -89,7 +89,7 @@ namespace sdl_opengl_context_manager
             return make_failure("SDL OpenGL context manager: failed to create context.");
 
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -102,7 +102,7 @@ namespace sdl_opengl_context_manager
         destroy_native_context(window);
 
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -125,7 +125,7 @@ namespace sdl_opengl_context_manager
             return make_failure(SDL_GetError());
 
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -143,7 +143,7 @@ namespace sdl_opengl_context_manager
             return make_failure("SDL OpenGL context manager: present failed.");
 
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -153,7 +153,7 @@ namespace sdl_opengl_context_manager
         apply_vsync_setting();
 
         auto result = tbx::Result();
-        result.flag_success();
+        result.ok();
         return result;
     }
 
@@ -206,7 +206,7 @@ namespace sdl_opengl_context_manager
     tbx::Result SdlOpenGlContextBackend::make_failure(std::string message) const
     {
         auto result = tbx::Result();
-        result.flag_failure(std::move(message));
+        result.failure(std::move(message));
         return result;
     }
 

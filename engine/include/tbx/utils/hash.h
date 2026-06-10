@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/typedefs.h"
 #include "tbx/types/uuid.h"
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -84,5 +85,18 @@ namespace tbx
         for (const auto& value : values)
             seed = hash_combine(seed, value);
         return seed;
+    }
+
+    // Stable hash for an asset handle's id (pass Handle::id). Survives reloads. Kept Uuid-based so
+    // this low-level util need not depend on the higher-level Handle type.
+    inline uint64 hash_handle(const Uuid& id)
+    {
+        return static_cast<uint64>(static_cast<uint32>(id));
+    }
+
+    // Hash for a dynamic, in-memory resource keyed by its address.
+    inline uint64 hash_pointer(const void* pointer)
+    {
+        return static_cast<uint64>(reinterpret_cast<std::uintptr_t>(pointer));
     }
 }

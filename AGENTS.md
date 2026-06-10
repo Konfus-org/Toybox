@@ -19,8 +19,8 @@ Strictly follow the `docs/CodeStandards.md` and keep `docs` up-to-date when maki
 
 - **Always Build Tests w/ Sanitizers**: Use: `cmake --preset clang-sanitize-tests` and fix any issues raised by sanitizers or test failures.
 - **Always Test Changes**: Build with  `ctest --preset clang-debug` and launch the example app under `examples` and test startup/shutdown. Ensure the app fully starts up, runs for a few seconds, then shut it down and examine logs under the build dirs 'logs' folder to ensure their are no warnings or errors logged, if there are fix them and re-test until no warnings/errors.
-- **Rendering Verification**: When validating rendering changes, launch the existing `ThreeDExampleLauncher.exe`, bring the window to the foreground, and capture a desktop screenshot once the Toybox window is visible. Use the screenshot as a visual regression check that the frame rendered as expected.
-- **Performance Profiling**: When asked to profile or debug performance issues, run the VSDiagnostics.exe against the `examples/3d_example` launcher. Capture actionable CPU/GPU/frame-time evidence before proposing fixes, then verify the same scenario again after changes.
+- **Visual Verification**: Always visually validate rendering changes, launch the example app using `tools/run_and_capture.ps1`, it will output a screenshot and logs to `build\run_and_capture`
+- **Profiling**: When asked to profile or debug performance issues, run the `VSDiagnostics.exe` against the example app. Capture actionable CPU/GPU/frame-time evidence before proposing fixes, then verify the same scenario again after changes.
 
 ## C++ Implementation Standards
 

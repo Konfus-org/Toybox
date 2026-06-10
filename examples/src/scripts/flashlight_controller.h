@@ -1,46 +1,38 @@
 #pragma once
 #include "flashlight_controller.generated.h"
 #include "tbx/interfaces/input_manager.h"
-#include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/scripting/script.h"
 #include "tbx/types/uuid.h"
 #include <memory>
 #include <string>
 
 namespace tbx_example
-{
+{ // TODO: remove version. Instead have a version function attribute that
+  // that we use, and the meta stores a list of functions already ran. The
+  // functions names should be stored in a 'versions' list. We just
+  // hash the function name. Version funcs are run top to bottom.
     /// @brief
     /// Purpose: Drives the authored player flashlight entity.
-    [[script]];
-    [[version(1U)]];
+    [[tbx::script]];
+    [[tbx::version(1U)]];
     class FlashlightController final : public tbx::GameplayScript
     {
-      public:
-        FlashlightController() = default;
-        ~FlashlightController() noexcept override = default;
-
-      public:
-        FlashlightController(const FlashlightController&) = delete;
-        FlashlightController& operator=(const FlashlightController&) = delete;
-        FlashlightController(FlashlightController&&) noexcept = delete;
-        FlashlightController& operator=(FlashlightController&&) noexcept = delete;
-
       public:
         void on_destroy() override;
         void on_start() override;
         void on_update(const tbx::DeltaTime& dt) override;
 
       public:
-        [[prop]]
+        [[tbx::prop]]
         tbx::Uuid camera_entity = {};
 
-        [[prop]]
+        [[tbx::prop]]
         float follow_speed = 12.0F;
 
-        [[prop]]
-        float intensity = 180.0F;
+        [[tbx::prop]]
+        float intensity = 90.0F;
 
-        [[inject]]
+        [[tbx::inject]]
         std::weak_ptr<tbx::IInputManager> input = {};
 
       private:
@@ -51,7 +43,7 @@ namespace tbx_example
         void update_transform(const tbx::DeltaTime& dt);
 
       private:
-        std::string _scheme_name = "ThreeDExample.Player";
+        std::string _scheme_name = "Example.Player";
         tbx::Entity _camera_entity = {};
         bool _toggle_requested = false;
         bool _is_enabled = false;

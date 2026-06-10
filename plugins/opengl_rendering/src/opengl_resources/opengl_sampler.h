@@ -13,7 +13,7 @@ namespace opengl_rendering
     class OpenGlSampler final : public IOpenGlResource
     {
       public:
-        OpenGlSampler(const tbx::GraphicsSamplerDesc& desc);
+        OpenGlSampler(const tbx::SamplerDesc& desc);
         ~OpenGlSampler() noexcept override;
 
       public:

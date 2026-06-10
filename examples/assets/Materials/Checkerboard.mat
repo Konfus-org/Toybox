@@ -1,0 +1,27 @@
+{
+    "shader": {
+        "vertex": 304,
+        "fragment": 323,
+        "tesselation": 0,
+        "geometry": 0,
+        "computes": []
+    },
+    "parameters": [
+        { "name": "color_a", "data": { "type": "color", "value": { "r": 0.08, "g": 0.08, "b": 0.10, "a": 1 } } },
+        { "name": "color_b", "data": { "type": "color", "value": { "r": 0.88, "g": 0.88, "b": 0.9, "a": 1 } } },
+        { "name": "cell_size", "data": { "type": "float", "value": 2.0 } },
+        { "name": "metallic", "data": { "type": "float", "value": 0.0 } },
+        { "name": "roughness", "data": { "type": "float", "value": 0.35 } }
+    ],
+    "textures": [],
+    "config": {
+        "is_depth_test_enabled": true,
+        "is_depth_write_enabled": true,
+        "is_depth_prepass_enabled": false,
+        "is_two_sided": true,
+        "is_cullable": true,
+        "depth_function": "less",
+        "blend_mode": "opaque",
+        "shadow_mode": "on"
+    }
+}
