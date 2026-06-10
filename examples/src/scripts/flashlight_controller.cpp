@@ -1,7 +1,7 @@
 #include "flashlight_controller.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/world.h"
-#include "tbx/types/components/light.h"
+#include "tbx/types/components/lights.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"
 #include <algorithm>

@@ -8,9 +8,9 @@
         "components": {
             "transform": {
                 "position": [
-                    -70,
-                    8,
-                    35
+                    0,
+                    2,
+                    0
                 ],
                 "rotation": [
                     0,
@@ -32,8 +32,8 @@
                         "binding_id": 12584001,
                         "overrides": {
                             "camera_entity": 12582913,
-                            "initial_pitch": -0.15,
-                            "initial_yaw": -1.1
+                            "initial_pitch": 1.0,
+                            "initial_yaw": 3.14159
                         }
                     }
                 ]
@@ -94,10 +94,10 @@
                     "b": 1,
                     "a": 1
                 },
-                "intensity": 2.5,
+                "intensity": 1.5,
                 "cast_shadows": true,
                 "range": 40,
-                "inner_angle": 14,
+                "inner_angle": 10,
                 "outer_angle": 50
             },
             "transform": {
@@ -173,37 +173,33 @@
     },
     {
         "id": 12582915,
-        "name": "AreaLight",
+        "name": "PlayerLight",
         "tag": "lighting",
         "layer": "",
         "parent": 12582918,
         "components": {
-            "area_light": {
+            "point_light": {
                 "color": {
                     "r": 1,
-                    "g": 1,
-                    "b": 1,
+                    "g": 0.86,
+                    "b": 0.55,
                     "a": 1
                 },
-                "intensity": 1,
-                "cast_shadows": false,
-                "range": 20,
-                "area_size": [
-                    1,
-                    1
-                ]
+                "intensity": 5,
+                "cast_shadows": true,
+                "range": 20
             },
             "transform": {
                 "position": [
                     0,
-                    5,
+                    2,
                     0
                 ],
                 "rotation": [
-                    -1,
                     0,
                     0,
-                    0
+                    0,
+                    1
                 ],
                 "scale": [
                     1,

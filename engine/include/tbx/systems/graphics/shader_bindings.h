@@ -33,12 +33,30 @@ namespace tbx
     // forward pass, which selects one per fragment by camera distance. Mirrors
     // TBX_SHADER_BINDING_SHADOW_CASCADE_0 in ShaderBase.glsl.
     constexpr uint32 GPU_BINDING_SHADOW_CASCADE_BASE = 12U;
-    // Directional translucent (colored) shadow map: an RGBA transmittance texture transparent casters
-    // multiply into; rendered/sampled with the full-range (furthest) cascade matrix so the forward
-    // pass tints directional light by it across the whole shadow range. Mirrors
-    // TBX_SHADER_BINDING_SHADOW_COLOR in ShaderBase.glsl.
-    constexpr uint32 GPU_BINDING_SHADOW_COLOR = GPU_BINDING_SHADOW_CASCADE_BASE + SHADOW_CASCADE_COUNT;
+    // Directional translucent (colored) shadow maps: one RGBA transmittance texture per cascade, each
+    // rendered/sampled with its own cascade's projection + depth so transparent casters cast a colored,
+    // partial shadow at every distance (matching the per-cascade depth maps). They occupy the
+    // consecutive sampler units [GPU_BINDING_SHADOW_COLOR_BASE, +SHADOW_CASCADE_COUNT). Mirrors
+    // TBX_SHADER_BINDING_SHADOW_COLOR_0 in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_SHADOW_COLOR_BASE = GPU_BINDING_SHADOW_CASCADE_BASE + SHADOW_CASCADE_COUNT;
+
+    // Local (point/spot/area) light shadows share ONE depth texture-array atlas: each shadow-casting
+    // local light occupies a contiguous run of layers — one for a spot/area light, six (cube faces)
+    // for a point light. The forward pass projects the fragment by the light's per-view matrix
+    // (localShadowMatrices[]) and depth-compares against the matching layer so the light no longer
+    // bleeds through walls. MAX_LOCAL_SHADOW_VIEWS bounds the array's layer count (and so the atlas
+    // VRAM); lights past the budget are still lit, just unshadowed. KEEP IN SYNC with ShaderBase.glsl.
+    constexpr uint32 MAX_LOCAL_SHADOW_VIEWS = 16U;
+    // sampler2DArray of per-view depth maps, one consecutive texture unit after the directional color
+    // cascades. Mirrors TBX_SHADER_BINDING_LOCAL_SHADOW_ATLAS in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_LOCAL_SHADOW_ATLAS = GPU_BINDING_SHADOW_COLOR_BASE + SHADOW_CASCADE_COUNT;
+
     constexpr uint32 GPU_BINDING_UNIFORMS = 0U;
+    // Per-view world -> light-clip matrices for local light shadows, indexed by atlas layer. Bound as
+    // an SSBO in the world group (reuses the reserved-but-unused global meshes slot 2 — the renderer
+    // bakes mesh ranges into draw commands, so nothing binds an SSBO there). Mirrors
+    // TBX_SHADER_BINDING_LOCAL_SHADOW_MATRICES in ShaderBase.glsl.
+    constexpr uint32 GPU_BINDING_LOCAL_SHADOW_MATRICES = GPU_BINDING_GLOBAL_MESHES;
     // Per-cascade caster UBO: the shadow depth/color caster pass reads the active cascade's
     // world -> light-clip matrix from here. Mirrors TBX_SHADER_BINDING_SHADOW_PASS in ShaderBase.glsl.
     constexpr uint32 GPU_BINDING_SHADOW_PASS_UNIFORMS = 6U;
@@ -103,7 +121,11 @@ namespace tbx
         Vec4 direction_type; // xyz = direction, w = light type (TBX_SHADER_LIGHT_TYPE_*)
         Vec4 color_intensity; // rgb = color, w = intensity
         Vec4 spot_angles_area; // x = inner cos/angle, y = outer, zw = area size
-        Vec4 shadow_data; // x = shadow map/atlas index (-1 if none)
+        // x = directional cascade flag (>=0 = this is the directional caster, else -1).
+        // y = local shadow atlas base layer (-1 = this local light casts no shadow).
+        // z = local shadow view count (1 = spot/area, 6 = point cube faces).
+        // w = local shadow far plane (light range) for depth-bias scaling.
+        Vec4 shadow_data;
     };
 
     /// @brief
@@ -142,10 +164,9 @@ namespace tbx
         Mat4 view_projection;
         Mat4 inverse_view_projection;
         // Directional shadow cascades: world -> light-clip per cascade (cascade 0 = nearest/sharpest,
-        // the last = furthest/lowest-res) plus the full-range matrix the colored transmittance map is
-        // rendered and sampled with.
+        // the last = furthest/lowest-res). Each cascade's colored transmittance map is rendered and
+        // sampled with this same per-cascade matrix, so no separate full-range color matrix is needed.
         std::array<Mat4, SHADOW_CASCADE_COUNT> cascade_view_projection;
-        Mat4 color_view_projection;
 
         std::array<Vec4, 6U> frustum_planes;
 

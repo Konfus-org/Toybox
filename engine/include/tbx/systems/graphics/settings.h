@@ -46,7 +46,7 @@ namespace tbx
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         [[prop]]
-        uint32 shadow_map_resolution = 2048U;
+        uint32 shadow_map_resolution = 4096U;
 
         /// @brief
         /// Purpose: Controls how far directional shadows reach. The shadow frustum is split into
@@ -70,13 +70,15 @@ namespace tbx
 
         /// @brief
         /// Purpose: Maximum distance from the active camera at which point, spot, and area lights
-        /// are evaluated for scene lighting. Directional lights ignore this limit. Zero or
-        /// negative values disable the limit (unbounded local lights).
+        /// are evaluated for scene lighting. Directional lights ignore this limit. Approaching this
+        /// distance a local light fades its intensity to zero (over the outer ~20%) so it dims away
+        /// smoothly instead of blipping out. Zero or negative values disable the limit (unbounded
+        /// local lights).
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         [[prop]]
-        float local_light_max_distance = 64.0F;
+        float local_light_max_distance = 200.0F;
 
         /// @brief
         /// Purpose: Maximum distance from the active camera at which opaque meshes may cast

@@ -1417,9 +1417,12 @@ namespace opengl_rendering
                 glPolygonOffset(state.depth_bias_slope, state.depth_bias_constant);
         }
 
-        // Re-issue the blend func whenever blending turns on or the equation changes. ALPHA is
-        // standard src-over (transparent surfaces); MULTIPLY is dst *= src, used to accumulate the
-        // translucent shadow map's transmittance across stacked transparent casters.
+        // Re-issue the blend func whenever blending turns on or the equation changes.
+        //   ALPHA (final = src*src.a + dst*src.rgb): a colored composite — the surface adds its own
+        //     alpha-weighted color AND tints (multiplies) whatever is behind it by its color, so an
+        //     alpha-blended pane filters the background instead of just fading over it.
+        //   MULTIPLY (final = dst*src): a pure colored filter; also used to accumulate the translucent
+        //     shadow map's transmittance across stacked transparent casters.
         if (state.is_blending_enabled
             && (!_state.has_current_pipeline_state
                 || !_state.current_pipeline_state.is_blending_enabled
@@ -1428,7 +1431,7 @@ namespace opengl_rendering
             if (state.blend_equation == tbx::BlendEquation::MULTIPLY)
                 glBlendFunc(GL_ZERO, GL_SRC_COLOR);
             else
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glBlendFunc(GL_SRC_ALPHA, GL_SRC_COLOR);
         }
 
         _state.current_pipeline_state = state;

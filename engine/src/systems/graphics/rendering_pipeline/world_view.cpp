@@ -3,7 +3,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/camera.h"
-#include "tbx/types/components/light.h"
+#include "tbx/types/components/lights.h"
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
@@ -12,6 +12,8 @@
 #include "tbx/types/quaternions.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/vectors.h"
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <unordered_map>
@@ -26,28 +28,132 @@ namespace tbx
     static_assert(SHADOW_CASCADE_COUNT <= 4U, "cascade_splits packs into a Vec4 (max 4 cascades)");
 
     // Half-extent (world units) of the nearest, sharpest directional shadow cascade centered on the
-    // camera. Further cascades grow geometrically out to half the configured shadow render distance,
-    // so the nearest gets the most texels per world unit and the furthest reaches the farthest.
+    // camera. Further cascades grow geometrically out to half the configured shadow render
+    // distance, so the nearest gets the most texels per world unit and the furthest reaches the
+    // farthest.
     static constexpr float SHADOW_NEAR_CASCADE_RADIUS = 12.0F;
 
+    // Extra depth (world units) the cascade box extends along the light beyond its own half-extent,
+    // so tall casters above the box (e.g. a skylight) are still captured. Kept tight (not the full
+    // render distance) so the orthographic depth range stays small and the depth bias maps to few
+    // world units — a huge depth range is what makes shadows peter-pan and light leak under walls.
+    static constexpr float SHADOW_DEPTH_MARGIN = 100.0F;
+
     // Builds the world -> light-clip matrix for one directional cascade: an orthographic box of the
-    // given half-extent centered on the camera, viewed from far back along the light so any caster
-    // between the sun and the camera within the full shadow distance is captured in depth. A larger
-    // half-extent reaches farther but spreads the same texels over more world (lower resolution).
+    // given half-extent centered on the camera, viewed from back along the light by depth_extent so
+    // casters between the sun and the box are captured. A larger half-extent reaches farther but
+    // spreads the same texels over more world (lower resolution).
     static Mat4 build_cascade_matrix(
         const Vec3& camera_position,
         const Vec3& light_forward,
         const float half_extent,
-        const float shadow_distance)
+        const float depth_extent)
     {
         const Vec3 up = (light_forward.y > 0.99F || light_forward.y < -0.99F)
                             ? Vec3(0.0F, 0.0F, 1.0F)
                             : Vec3(0.0F, 1.0F, 0.0F);
-        const Vec3 eye = camera_position - (light_forward * shadow_distance);
+        const Vec3 eye = camera_position - (light_forward * depth_extent);
         const Mat4 view = look_at(eye, camera_position, up);
         const Mat4 proj = ortho_projection(
-            -half_extent, half_extent, -half_extent, half_extent, 0.05F, shadow_distance * 2.0F);
+            -half_extent,
+            half_extent,
+            -half_extent,
+            half_extent,
+            0.05F,
+            depth_extent * 2.0F);
         return proj * view;
+    }
+
+    // Fraction of the local-light cull distance at which a point/spot/area light begins fading out.
+    // Beyond this the light's intensity ramps smoothly to zero by the cull distance so it dims away
+    // instead of blipping out the instant it crosses the limit.
+    static constexpr float LOCAL_LIGHT_FADE_START_FRACTION = 0.8F;
+
+    static float degrees_to_radians(const float degrees)
+    {
+        return degrees * 0.01745329252F;
+    }
+
+    static float smoothstep01(float t)
+    {
+        t = std::clamp(t, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
+    }
+
+    // A world up axis that isn't parallel to a light's forward direction, so look_at stays stable
+    // even when the light points straight up or down.
+    static Vec3 stable_light_up(const Vec3& forward)
+    {
+        return (forward.y > 0.99F || forward.y < -0.99F) ? Vec3(0.0F, 0.0F, 1.0F)
+                                                         : Vec3(0.0F, 1.0F, 0.0F);
+    }
+
+    // Spot light shadow view: a perspective frustum from the light along its aim covering the full
+    // outer cone (plus a small margin so the penumbra isn't clipped), out to the light's range.
+    static Mat4 build_spot_shadow_matrix(
+        const Vec3& position,
+        const Vec3& forward,
+        const float range,
+        const float outer_angle_degrees)
+    {
+        const float fov =
+            std::min(degrees_to_radians(outer_angle_degrees * 2.0F + 8.0F), degrees_to_radians(175.0F));
+        const float far = std::max(range, 0.2F);
+        const Mat4 view = look_at(position, position + forward, stable_light_up(forward));
+        // A generous near plane keeps the perspective depth distribution from collapsing all its
+        // precision right at the light — too tight a near is what makes a perspective shadow map
+        // acne-streak distant receivers (the floor under a lamp).
+        const Mat4 proj = perspective_projection(fov, 1.0F, std::max(range * 0.05F, 0.3F), far);
+        return proj * view;
+    }
+
+    // Area light shadow view: an orthographic box matching the rectangle's footprint, looking along
+    // the emitter normal out to the light's range — so the whole one-sided panel casts a sharp,
+    // contained shadow instead of bleeding through the wall behind it.
+    static Mat4 build_area_shadow_matrix(
+        const Vec3& center,
+        const Vec3& forward,
+        const float range,
+        const Vec2 area_size)
+    {
+        const float half_w = std::max(area_size.x * 0.5F, 0.5F);
+        const float half_h = std::max(area_size.y * 0.5F, 0.5F);
+        const Mat4 view = look_at(center, center + forward, stable_light_up(forward));
+        const Mat4 proj =
+            ortho_projection(-half_w, half_w, -half_h, half_h, 0.05F, std::max(range, 0.2F));
+        return proj * view;
+    }
+
+    // Point light shadow views: the six 90-degree cube faces from the light position, out to its
+    // range. The face order MUST match the dominant-axis selection in ShaderBase.glsl
+    // tbx_local_shadow: +X, -X, +Y, -Y, +Z, -Z.
+    static void append_point_shadow_matrices(
+        const Vec3& position,
+        const float range,
+        std::vector<Mat4>& out_matrices)
+    {
+        const float far = std::max(range, 0.2F);
+        // A generous near plane keeps the cube faces' perspective depth precision usable out to the
+        // floor/walls instead of bunching it all at the light (the cause of radial acne streaks).
+        const Mat4 proj =
+            perspective_projection(degrees_to_radians(90.0F), 1.0F, std::max(range * 0.05F, 0.3F), far);
+        static const std::array<Vec3, 6> FACE_DIRECTIONS = {
+            Vec3(1.0F, 0.0F, 0.0F),
+            Vec3(-1.0F, 0.0F, 0.0F),
+            Vec3(0.0F, 1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F)};
+        static const std::array<Vec3, 6> FACE_UPS = {
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, 0.0F, 1.0F),
+            Vec3(0.0F, 0.0F, -1.0F),
+            Vec3(0.0F, -1.0F, 0.0F),
+            Vec3(0.0F, -1.0F, 0.0F)};
+        for (size face = 0U; face < 6U; ++face)
+            out_matrices.push_back(
+                proj * look_at(position, position + FACE_DIRECTIONS[face], FACE_UPS[face]));
     }
 
     static bool material_instance_has_overrides(const MaterialInstance& instance)
@@ -105,7 +211,10 @@ namespace tbx
         return tbx::pack_material(cache, material, material_name, out_failure);
     }
 
-    uint32 WorldView::bucket_for_pipeline(const GpuId pipeline, WorldViewResult& result)
+    uint32 WorldView::bucket_for_pipeline(
+        const GpuId pipeline,
+        const bool is_transparent,
+        WorldViewResult& result)
     {
         if (const auto it = _bucket_of_pipeline.find(pipeline); it != _bucket_of_pipeline.end())
             return it->second;
@@ -115,6 +224,7 @@ namespace tbx
         _bucket_of_pipeline.emplace(pipeline, bucket);
         result.bucket_pipelines.push_back(pipeline);
         _bucket_commands.emplace_back();
+        _bucket_transparent.push_back(is_transparent);
         return bucket;
     }
 
@@ -130,8 +240,19 @@ namespace tbx
         const RenderFailure forced_failure)
     {
 
-        // CPU frustum cull (skipped for materials that opt out, e.g. room shells).
-        if (material.config.is_cullable && !is_inside_frustum(_frustum, model_matrix, mesh.bounds))
+        // Visible in the camera view? Room shells opt out of culling and are always drawn. A
+        // surface that fails the camera frustum is still kept when it casts shadows and is within
+        // shadow range — otherwise an off-screen caster (the skylight frame above you when you look
+        // down at the floor it shadows) would stop writing the shadow map and its shadow would pop
+        // in and out as you turn. Such a kept-but-invisible surface feeds only the shadow pass.
+        const bool visible =
+            !material.config.is_cullable || is_inside_frustum(_frustum, model_matrix, mesh.bounds);
+        const Vec3 model_position(model_matrix[3]);
+        const bool may_cast_shadow = forced_failure == RenderFailure::NONE
+                                     && material.config.shadow_mode == ShadowMode::ON
+                                     && distance(model_position, _camera_position)
+                                            <= _shadow_caster_distance;
+        if (!visible && !may_cast_shadow)
             return;
 
         // Any failed resource surfaces as its colored, unlit validation fallback (see
@@ -141,17 +262,23 @@ namespace tbx
         GpuId real_pipeline = INVALID_GPU_ID;
         if (failure == RenderFailure::NONE)
         {
+            // TRANSPARENT blends multiplicatively (dst *= src) so the surface acts as a colored
+            // filter that tints whatever is behind it by its own color (order-independent —
+            // multiply commutes, so stacked panes need no sorting). ALPHA_BLEND stays standard
+            // src-over.
             auto state = RasterState {
                 .is_blending_enabled = material.config.blend_mode != MaterialBlendMode::OPAQUE,
                 .is_two_sided = material.config.is_two_sided,
                 .is_depth_test_enabled = material.config.is_depth_test_enabled,
                 .is_depth_write_enabled = material.config.is_depth_write_enabled,
-                .depth_function = material.config.depth_function};
+                .depth_function = material.config.depth_function,
+                .blend_equation = material.config.blend_mode == MaterialBlendMode::TRANSPARENT
+                                      ? BlendEquation::MULTIPLY
+                                      : BlendEquation::ALPHA};
             state.is_depth_write_enabled =
                 state.is_depth_write_enabled && !state.is_blending_enabled;
             const auto pipeline =
-                cache.add_pipeline(
-                    hash(material.shader, state), material.shader, state, false);
+                cache.add_pipeline(hash(material.shader, state), material.shader, state, false);
             if (pipeline)
                 real_pipeline = *pipeline;
             else
@@ -223,8 +350,6 @@ namespace tbx
             return; // even the validation surface is unavailable; the whole-frame magenta path
                     // covers it
 
-        const uint32 bucket = bucket_for_pipeline(pipeline, result);
-
         auto instance = GpuInstanceData {
             .mesh_id = mesh_id,
             .material_id = material_id,
@@ -241,14 +366,25 @@ namespace tbx
             .first_index = mesh_data.first_index,
             .base_vertex = 0,
             .first_instance = instance_index};
-        _bucket_commands[bucket].push_back(draw_command);
 
-        // Mirror shadow-casting renderables into the shadow pass's per-category command list. The sky
-        // dome and any ShadowMode::OFF material are excluded here — this is what stops the
-        // camera-centered sky sphere from writing the shadow map and casting a blob under the camera.
-        // Validation fallbacks (failure != NONE) never cast. The category drives the shadow pass's
-        // raster state: opaque -> depth map, transparent -> colored transmittance map; two-sided
-        // variants disable face culling so the material's sidedness is honored.
+        // Only surfaces inside the camera frustum draw to the screen. Blended (non-opaque) surfaces
+        // draw after all opaque ones (validation fallbacks are always opaque unlit). Off-screen
+        // shadow casters fall through to the shadow list below without producing a visible draw.
+        if (visible)
+        {
+            const bool is_transparent = failure == RenderFailure::NONE
+                                        && material.config.blend_mode != MaterialBlendMode::OPAQUE;
+            const uint32 bucket = bucket_for_pipeline(pipeline, is_transparent, result);
+            _bucket_commands[bucket].push_back(draw_command);
+        }
+
+        // Mirror shadow-casting renderables into the shadow pass's per-category command list,
+        // whether or not they're on screen. The sky dome and any ShadowMode::OFF material are
+        // excluded here — this is what stops the camera-centered sky sphere from writing the shadow
+        // map and casting a blob under the camera. Validation fallbacks (failure != NONE) never
+        // cast. The category drives the shadow pass's raster state: opaque -> depth map, transparent
+        // -> colored transmittance map; two-sided variants disable face culling so the material's
+        // sidedness is honored.
         if (failure == RenderFailure::NONE && material.config.shadow_mode == ShadowMode::ON)
         {
             const bool transparent = material.config.blend_mode != MaterialBlendMode::OPAQUE;
@@ -272,6 +408,7 @@ namespace tbx
         auto result = WorldViewResult {};
         _bucket_of_pipeline.clear();
         _bucket_commands.clear();
+        _bucket_transparent.clear();
         for (auto& commands : _shadow_commands)
             commands.clear();
         _validation.ensure(cache, assets);
@@ -289,6 +426,12 @@ namespace tbx
         const Mat4 view_projection =
             camera.get_view_projection_matrix(camera_position, camera_world.rotation);
         _frustum = camera.get_frustum(camera_position, camera_world.rotation);
+
+        // Off-screen surfaces still cast shadows within the larger of the directional shadow reach
+        // and the local-light range, so shadows don't pop as casters leave the camera frustum.
+        _camera_position = camera_position;
+        _shadow_caster_distance =
+            std::max(shadow_distance > 0.0F ? shadow_distance : 0.0F, light_cull_distance);
 
         GpuUniforms& uniforms = result.uniforms;
         uniforms.view_projection = view_projection;
@@ -547,28 +690,84 @@ namespace tbx
                 failed);
         }
 
-        //// LIGHTS (point/spot distance-culled on the CPU) ////
+        //// LIGHTS (point/spot/area distance-culled + faded on the CPU) ////
         Vec3 ambient_accum(0.0F);
+        // Pushes one light's GPU record and returns its index in result.lights, or -1 if it was
+        // culled past the local-light distance limit. Local lights fade their intensity to zero over
+        // the outer band of that limit so they dim away smoothly instead of blipping out of
+        // existence. Directional lights are never distance-culled or faded.
         const auto add_light = [&](const Light& light,
                                    const Transform& transform,
                                    uint32 type,
                                    float range,
                                    float inner,
-                                   float outer)
+                                   float outer,
+                                   Vec2 area) -> int
         {
-            if (type != 0U /*directional lights are never distance-culled*/
-                && distance(transform.position, camera_position) > light_cull_distance)
-                return;
+            float intensity = light.intensity;
+            if (type != 0U)
+            {
+                const float camera_distance = distance(transform.position, camera_position);
+                if (camera_distance >= light_cull_distance)
+                    return -1;
+                const float fade_start = light_cull_distance * LOCAL_LIGHT_FADE_START_FRACTION;
+                if (std::isfinite(light_cull_distance) && camera_distance > fade_start
+                    && light_cull_distance > fade_start)
+                {
+                    const float t = (camera_distance - fade_start) / (light_cull_distance - fade_start);
+                    intensity *= 1.0F - smoothstep01(t);
+                }
+            }
             const Mat4 model = build_transform_matrix(transform);
+            // forward = the local -Z axis in world space: the light's aim (spot/area emission normal).
             const Vec3 forward = normalize(-Vec3(model[2]));
+            const int index = static_cast<int>(result.lights.size());
             result.lights.push_back(
                 GpuLightData {
                     .position_range = Vec4(transform.position, range),
                     .direction_type = Vec4(forward, static_cast<float>(type)),
                     .color_intensity =
-                        Vec4(light.color.r, light.color.g, light.color.b, light.intensity),
-                    .spot_angles_area = Vec4(inner, outer, 0.0F, 0.0F),
-                    .shadow_data = Vec4(-1.0F, 0.0F, 0.0F, 0.0F)});
+                        Vec4(light.color.r, light.color.g, light.color.b, intensity),
+                    // x,y = spot inner/outer angles (degrees); z,w = area light rect size (world units).
+                    .spot_angles_area = Vec4(inner, outer, area.x, area.y),
+                    // x = directional cascade flag, y = local shadow base layer, z = view count,
+                    // w = range; all default to "no shadow" until assigned below.
+                    .shadow_data = Vec4(-1.0F, -1.0F, 0.0F, range)});
+            return index;
+        };
+
+        // Builds a local light's shadow view(s) into result.local_shadow_matrices (within the atlas
+        // budget) and records its base layer + view count on its GPU record, so the forward pass
+        // occlusion-tests it and it stops bleeding through walls. A spot/area light owns one view, a
+        // point light six (cube faces). A light that opts out (cast_shadows == false), is invisible,
+        // or arrives after the atlas is full is left lit but unshadowed.
+        const auto assign_local_shadow = [&](int light_index,
+                                             const Light& light,
+                                             const Transform& transform,
+                                             uint32 type,
+                                             float range,
+                                             float outer,
+                                             Vec2 area)
+        {
+            if (light_index < 0 || !light.cast_shadows || light.intensity <= 0.0F)
+                return;
+            const uint32 view_count = type == 1U ? 6U : 1U;
+            if (result.local_shadow_matrices.size() + view_count > MAX_LOCAL_SHADOW_VIEWS)
+                return;
+            const uint32 base = static_cast<uint32>(result.local_shadow_matrices.size());
+            const Mat4 model = build_transform_matrix(transform);
+            const Vec3 forward = normalize(-Vec3(model[2]));
+            if (type == 1U)
+                append_point_shadow_matrices(transform.position, range, result.local_shadow_matrices);
+            else if (type == 2U)
+                result.local_shadow_matrices.push_back(
+                    build_spot_shadow_matrix(transform.position, forward, range, outer));
+            else
+                result.local_shadow_matrices.push_back(
+                    build_area_shadow_matrix(transform.position, forward, range, area));
+            GpuLightData& record = result.lights[static_cast<size>(light_index)];
+            record.shadow_data.y = static_cast<float>(base);
+            record.shadow_data.z = static_cast<float>(view_count);
         };
 
         bool shadow_caster_assigned = false;
@@ -576,49 +775,56 @@ namespace tbx
         {
             const DirectionalLight& light = entity.get_component<DirectionalLight>();
             const Transform transform = entity.get_component<Transform>().to_world_space(entity);
-            add_light(light, transform, 0U, 0.0F, 0.0F, 0.0F);
+            add_light(light, transform, 0U, 0.0F, 0.0F, 0.0F, Vec2(0.0F, 0.0F));
             ambient_accum += Vec3(light.color.r, light.color.g, light.color.b)
                              * (light.ambient * light.intensity);
 
             // The first visible directional light becomes the shadow caster: build the cascade
-            // light-space transforms (camera-centered ortho boxes growing with distance) and tag this
-            // light's GPU record with shadow index 0 so the shader occlusion-tests only it.
+            // light-space transforms (camera-centered ortho boxes growing with distance) and tag
+            // this light's GPU record with shadow index 0 so the shader occlusion-tests only it.
             if (shadow_caster_assigned || !light.cast_shadows || light.intensity <= 0.0F)
                 continue;
             const Mat4 light_model = build_transform_matrix(transform);
             const Vec3 light_forward = normalize(-Vec3(light_model[2]));
 
-            // Full directional reach (GraphicsSettings::shadow_render_distance). The furthest cascade
-            // spans half of it from the camera; raising it pushes shadows farther (lower resolution
-            // per world unit). The eye sits this far back along the light so tall/distant casters
-            // between the sun and the camera are still captured in every cascade's depth.
-            const float reach = shadow_distance > 0.0F ? shadow_distance : SHADOW_NEAR_CASCADE_RADIUS * 8.0F;
+            // Full directional reach (GraphicsSettings::shadow_render_distance). The furthest
+            // cascade spans half of it from the camera; raising it pushes shadows farther (lower
+            // resolution per world unit). The eye sits this far back along the light so
+            // tall/distant casters between the sun and the camera are still captured in every
+            // cascade's depth.
+            const float reach =
+                shadow_distance > 0.0F ? shadow_distance : SHADOW_NEAR_CASCADE_RADIUS * 8.0F;
             const float near_radius = std::min(SHADOW_NEAR_CASCADE_RADIUS, reach * 0.5F);
             const float far_radius = std::max(reach * 0.5F, near_radius);
 
             // Geometric split: cascade 0 hugs the camera (sharp), each subsequent cascade covers a
-            // geometrically larger box out to far_radius (coarse, far-reaching). cascade_splits[c] is
-            // the camera distance the cascade covers — a fragment within it is guaranteed inside the
-            // box (half-extent radius on every light-space axis), so the shader picks the nearest fit.
+            // geometrically larger box out to far_radius (coarse, far-reaching). cascade_splits[c]
+            // is the camera distance the cascade covers — a fragment within it is guaranteed inside
+            // the box (half-extent radius on every light-space axis), so the shader picks the
+            // nearest fit.
             for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
             {
-                const float t = SHADOW_CASCADE_COUNT > 1U
-                                    ? static_cast<float>(c) / static_cast<float>(SHADOW_CASCADE_COUNT - 1U)
-                                    : 1.0F;
+                const float t =
+                    SHADOW_CASCADE_COUNT > 1U
+                        ? static_cast<float>(c) / static_cast<float>(SHADOW_CASCADE_COUNT - 1U)
+                        : 1.0F;
                 const float radius = near_radius * std::pow(far_radius / near_radius, t);
-                uniforms.cascade_view_projection[c] =
-                    build_cascade_matrix(camera_position, light_forward, radius, reach);
+                uniforms.cascade_view_projection[c] = build_cascade_matrix(
+                    camera_position,
+                    light_forward,
+                    radius,
+                    radius + SHADOW_DEPTH_MARGIN);
                 uniforms.cascade_splits[static_cast<int>(c)] = radius;
             }
-            // Colored transmittance is rendered/sampled with the full-range (furthest) cascade so it
-            // covers the whole shadowed range.
-            uniforms.color_view_projection =
-                uniforms.cascade_view_projection[SHADOW_CASCADE_COUNT - 1U];
+            // Each cascade renders its own colored transmittance map in this same per-cascade
+            // projection (see the shadow pass), so transparent casters tint at every distance.
             uniforms.cascade_count = SHADOW_CASCADE_COUNT;
-            // x = slope bias, y = constant bias, z = PCF radius in texels (GraphicsSettings::
-            // shadow_softness — larger softens the edges).
+            // x = slope bias, y = constant bias (both small — texel-scaled normal offset in the
+            // shader does the heavy lifting against acne, so these stay tiny to avoid peter-panning
+            // / leak), z = PCF radius in texels (GraphicsSettings::shadow_softness — larger softens
+            // the edges).
             uniforms.shadow_settings =
-                Vec4(0.0025F, 0.0008F, std::max(shadow_softness, 1.0F), 0.0F);
+                Vec4(0.0006F, 0.0002F, std::max(shadow_softness, 1.0F), 0.0F);
             uniforms.shadow_count = 1U;
             result.lights.back().shadow_data.x = 0.0F;
             shadow_caster_assigned = true;
@@ -626,49 +832,69 @@ namespace tbx
         for (Entity entity : world.get_with<PointLight, Transform>())
         {
             const PointLight& light = entity.get_component<PointLight>();
-            add_light(
-                light,
-                entity.get_component<Transform>().to_world_space(entity),
-                1U,
-                light.range,
-                0.0F,
-                0.0F);
+            const Transform transform = entity.get_component<Transform>().to_world_space(entity);
+            const int index = add_light(light, transform, 1U, light.range, 0.0F, 0.0F, Vec2(0.0F, 0.0F));
+            assign_local_shadow(index, light, transform, 1U, light.range, 0.0F, Vec2(0.0F, 0.0F));
         }
         for (Entity entity : world.get_with<SpotLight, Transform>())
         {
             const SpotLight& light = entity.get_component<SpotLight>();
-            add_light(
+            const Transform transform = entity.get_component<Transform>().to_world_space(entity);
+            const int index = add_light(
                 light,
-                entity.get_component<Transform>().to_world_space(entity),
+                transform,
                 2U,
                 light.range,
                 light.inner_angle,
-                light.outer_angle);
+                light.outer_angle,
+                Vec2(0.0F, 0.0F));
+            assign_local_shadow(
+                index,
+                light,
+                transform,
+                2U,
+                light.range,
+                light.outer_angle,
+                Vec2(0.0F, 0.0F));
         }
-        // Area lights have no dedicated forward+ path yet, so they contribute as range-limited
-        // point lights (their world position/color/intensity are still respected).
+        // Area lights shade as one-sided rectangles (representative-point diffuse + specular in the
+        // shader); their rect size rides in spot_angles_area.zw and the emission normal in
+        // direction_type.xyz. Distance-culled like the other local lights.
         for (Entity entity : world.get_with<AreaLight, Transform>())
         {
             const AreaLight& light = entity.get_component<AreaLight>();
-            add_light(
-                light,
-                entity.get_component<Transform>().to_world_space(entity),
-                1U,
-                light.range,
-                0.0F,
-                0.0F);
+            const Transform transform = entity.get_component<Transform>().to_world_space(entity);
+            const int index =
+                add_light(light, transform, 3U, light.range, 0.0F, 0.0F, light.area_size);
+            assign_local_shadow(index, light, transform, 3U, light.range, 0.0F, light.area_size);
         }
         uniforms.ambient_light = Vec4(ambient_accum, 1.0F);
 
-        // Flatten the per-bucket commands into one buffer (contiguous in bucket order).
-        for (const auto& commands : _bucket_commands)
+        // Flatten the per-bucket commands into one buffer, emitting every opaque bucket before any
+        // transparent one (each group keeps its creation order). Blended surfaces don't write depth,
+        // so they must paint over the finished opaque scene — otherwise opaque geometry behind a
+        // transparent surface but drawn later would overwrite it (the demo sphere vanishing behind
+        // its own backdrop). bucket_pipelines is reordered to match so the forward pass walks them
+        // and their command counts in lockstep.
+        const std::vector<GpuId> creation_order_pipelines = result.bucket_pipelines;
+        result.bucket_pipelines.clear();
+        const auto emit_buckets = [&](bool transparent)
         {
-            result.bucket_command_counts.push_back(static_cast<uint32>(commands.size()));
-            result.draw_commands.insert(
-                result.draw_commands.end(),
-                commands.begin(),
-                commands.end());
-        }
+            for (size bucket = 0U; bucket < _bucket_commands.size(); ++bucket)
+            {
+                if (_bucket_transparent[bucket] != transparent)
+                    continue;
+                const auto& commands = _bucket_commands[bucket];
+                result.bucket_pipelines.push_back(creation_order_pipelines[bucket]);
+                result.bucket_command_counts.push_back(static_cast<uint32>(commands.size()));
+                result.draw_commands.insert(
+                    result.draw_commands.end(),
+                    commands.begin(),
+                    commands.end());
+            }
+        };
+        emit_buckets(false);
+        emit_buckets(true);
 
         // Flatten the shadow caster commands in ShadowCasterCategory order; the shadow pass walks
         // the per-category counts to draw each with the matching raster state / target.

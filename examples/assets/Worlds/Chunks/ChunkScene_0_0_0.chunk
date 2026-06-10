@@ -1,277 +1,1506 @@
 {
-    "coord": [0, 0, 0],
+    "coord": [
+        0,
+        0,
+        0
+    ],
     "entities": [
         {
-            "id": 12583168, "name": "Ground", "tag": "ground", "layer": "", "parent": 0,
+            "id": 12583168,
+            "name": "Ground",
+            "tag": "ground",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 539243910 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [0, -0.25, 0], "rotation": [0, 0, 0, 1], "scale": [160, 0.5, 160] },
-                "cube_collider": { "half_extents": [80, 0.25, 80] }
-            }
-        },
-
-        {
-            "id": 12583299, "name": "Museum", "tag": "museum", "layer": "", "parent": 0,
-            "components": {
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
-            }
-        },
-        {
-            "id": 12583300, "name": "Museum_Exterior", "tag": "museum", "layer": "", "parent": 12583299,
-            "components": {
-                "material_instance": { "material": 539243911 },
-                "static_mesh": { "handle": 800000001 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
-            }
-        },
-        {
-            "id": 12583301, "name": "Museum_Interior", "tag": "museum", "layer": "", "parent": 12583299,
-            "components": {
-                "material_instance": { "material": 539243911 },
-                "static_mesh": { "handle": 800000002 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
-            }
-        },
-        {
-            "id": 12583302, "name": "Museum_Floor", "tag": "museum", "layer": "", "parent": 12583299,
-            "components": {
-                "material_instance": { "material": 539243913 },
-                "static_mesh": { "handle": 800000003 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
+                "material_instance": {
+                    "material": 539243910
+                },
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        -0.25,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        160,
+                        0.5,
+                        160
+                    ]
+                },
+                "cube_collider": {
+                    "half_extents": [
+                        80,
+                        0.25,
+                        80
+                    ]
+                }
             }
         },
         {
-            "id": 12583303, "name": "Museum_Skylight", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583299,
+            "name": "Museum",
+            "tag": "museum",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 539243912 },
-                "static_mesh": { "handle": 800000004 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
             }
         },
         {
-            "id": 12583304, "name": "Museum_SkylightFrame", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583300,
+            "name": "Museum_Exterior",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
             "components": {
-                "material_instance": { "material": 539243911 },
-                "static_mesh": { "handle": 800000005 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
+                "material_instance": {
+                    "material": 539243911
+                },
+                "static_mesh": {
+                    "handle": 800000001
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
             }
         },
         {
-            "id": 12583305, "name": "Museum_Window", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583301,
+            "name": "Museum_Interior",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
             "components": {
-                "material_instance": { "material": 539243912 },
-                "static_mesh": { "handle": 800000006 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] }
+                "material_instance": {
+                    "material": 539243911
+                },
+                "static_mesh": {
+                    "handle": 800000002
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
             }
         },
         {
-            "id": 12583306, "name": "Museum_Door_A", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583302,
+            "name": "Museum_Floor",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
             "components": {
-                "material_instance": { "material": 539243915 },
-                "static_mesh": { "handle": 800000007 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
+                "material_instance": {
+                    "material": 539243913
+                },
+                "static_mesh": {
+                    "handle": 800000003
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
             }
         },
         {
-            "id": 12583307, "name": "Museum_Door_B", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583303,
+            "name": "Museum_Skylight",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
             "components": {
-                "material_instance": { "material": 539243915 },
-                "static_mesh": { "handle": 800000008 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
+                "material_instance": {
+                    "material": 539243912
+                },
+                "static_mesh": {
+                    "handle": 800000004
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
             }
         },
         {
-            "id": 12583308, "name": "Museum_Statue", "tag": "museum", "layer": "", "parent": 12583299,
+            "id": 12583304,
+            "name": "Museum_SkylightFrame",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
             "components": {
-                "material_instance": { "material": 539243911 },
-                "static_mesh": { "handle": 800000009 },
-                "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
-                "mesh_collider": { "is_convex": false }
+                "material_instance": {
+                    "material": 539243911
+                },
+                "static_mesh": {
+                    "handle": 800000005
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
             }
         },
-
-        { "id": 12583400, "name": "Frame_R0", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [-22, 10, 19.4], "rotation": [0, 0, 0, 1], "scale": [4, 4, 4] } } },
-        { "id": 12583401, "name": "Frame_R1", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [-11, 10, 19.4], "rotation": [0, 0, 0, 1], "scale": [4, 4, 4] } } },
-        { "id": 12583402, "name": "Frame_R2", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [0, 10, 19.4], "rotation": [0, 0, 0, 1], "scale": [4, 4, 4] } } },
-        { "id": 12583403, "name": "Frame_R3", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [11, 10, 19.4], "rotation": [0, 0, 0, 1], "scale": [4, 4, 4] } } },
-        { "id": 12583404, "name": "Frame_R4", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [22, 10, 19.4], "rotation": [0, 0, 0, 1], "scale": [4, 4, 4] } } },
-
-        { "id": 12583410, "name": "Frame_L0", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [-25, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-        { "id": 12583411, "name": "Frame_L1", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [-15, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-        { "id": 12583412, "name": "Frame_L2", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [-5, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-        { "id": 12583413, "name": "Frame_L3", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [5, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-        { "id": 12583414, "name": "Frame_L4", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [15, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-        { "id": 12583415, "name": "Frame_L5", "tag": "frame", "layer": "", "parent": 0,
-            "components": { "material_instance": { "material": 539243914 }, "static_mesh": { "handle": 270544961 },
-                "transform": { "position": [25, 10, -19.4], "rotation": [0, 1, 0, 0], "scale": [4, 4, 4] } } },
-
         {
-            "id": 12583190, "name": "Fail_UniformOverflow", "tag": "error_exhibit", "layer": "", "parent": 0,
+            "id": 12583305,
+            "name": "Museum_Window",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
+            "components": {
+                "material_instance": {
+                    "material": 539243912
+                },
+                "static_mesh": {
+                    "handle": 800000006
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583306,
+            "name": "Museum_Door_A",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
+            "components": {
+                "material_instance": {
+                    "material": 539243915
+                },
+                "static_mesh": {
+                    "handle": 800000007
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
+            }
+        },
+        {
+            "id": 12583307,
+            "name": "Museum_Door_B",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
+            "components": {
+                "material_instance": {
+                    "material": 539243915
+                },
+                "static_mesh": {
+                    "handle": 800000008
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
+            }
+        },
+        {
+            "id": 12583308,
+            "name": "Museum_Statue",
+            "tag": "museum",
+            "layer": "",
+            "parent": 12583299,
+            "components": {
+                "material_instance": {
+                    "material": 539243911
+                },
+                "static_mesh": {
+                    "handle": 800000009
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "mesh_collider": {
+                    "is_convex": false
+                }
+            }
+        },
+        {
+            "id": 12583400,
+            "name": "Frame_R0",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        -22,
+                        10,
+                        19.4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583401,
+            "name": "Frame_R1",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        -11,
+                        10,
+                        19.4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583402,
+            "name": "Frame_R2",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        10,
+                        19.4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583403,
+            "name": "Frame_R3",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        11,
+                        10,
+                        19.4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583404,
+            "name": "Frame_R4",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        22,
+                        10,
+                        19.4
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583410,
+            "name": "Frame_L0",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        -25,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583411,
+            "name": "Frame_L1",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        -15,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583412,
+            "name": "Frame_L2",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        -5,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583413,
+            "name": "Frame_L3",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        5,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583414,
+            "name": "Frame_L4",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        15,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583415,
+            "name": "Frame_L5",
+            "tag": "frame",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "material_instance": {
+                    "material": 539243914
+                },
+                "static_mesh": {
+                    "handle": 270544961
+                },
+                "transform": {
+                    "position": [
+                        25,
+                        10,
+                        -19.4
+                    ],
+                    "rotation": [
+                        0,
+                        1,
+                        0,
+                        0
+                    ],
+                    "scale": [
+                        4,
+                        4,
+                        4
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583420,
+            "name": "GalleryLight",
+            "tag": "lighting",
+            "layer": "",
+            "parent": 0,
+            "components": {
+                "area_light": {
+                    "color": {
+                        "r": 1,
+                        "g": 0.86,
+                        "b": 0.58,
+                        "a": 1
+                    },
+                    "intensity": 5,
+                    "cast_shadows": false,
+                    "range": 80,
+                    "area_size": [
+                        44,
+                        34
+                    ]
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        52,
+                        0
+                    ],
+                    "rotation": [
+                        -0.70710678,
+                        0,
+                        0,
+                        0.70710678
+                    ],
+                    "scale": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
+            }
+        },
+        {
+            "id": 12583190,
+            "name": "Fail_UniformOverflow",
+            "tag": "error_exhibit",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 2,
                     "overrides": {
                         "parameters": [
-                            { "name": "albedo_color", "data": { "type": "color", "value": { "r": 0.8, "g": 0.8, "b": 0.2, "a": 1 } } },
-                            { "name": "uniform_overflow_0", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-                            { "name": "uniform_overflow_1", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-                            { "name": "uniform_overflow_2", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-                            { "name": "uniform_overflow_3", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-                            { "name": "uniform_overflow_4", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-                            { "name": "uniform_overflow_5", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } }
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.8,
+                                        "g": 0.8,
+                                        "b": 0.2,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_0",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_1",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_2",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_3",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_4",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "uniform_overflow_5",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1,
+                                        "g": 1,
+                                        "b": 1,
+                                        "a": 1
+                                    }
+                                }
+                            }
                         ],
                         "has_parameter_override": true
                     }
                 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [-22, 10, 15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584300, "overrides": { "rotation_speed_radians_per_second": 0.9, "bob_amplitude": 0.7, "bob_frequency": 1.3 } } ] }
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        -22,
+                        10,
+                        15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584300,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.9,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.3
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583191, "name": "Fail_Texture", "tag": "error_exhibit", "layer": "", "parent": 0,
+            "id": 12583191,
+            "name": "Fail_Texture",
+            "tag": "error_exhibit",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 2,
-                    "overrides": { "textures": [ { "name": "albedo_map", "texture": 999999 } ], "has_texture_override": true }
+                    "overrides": {
+                        "textures": [
+                            {
+                                "name": "albedo_map",
+                                "texture": 999999
+                            }
+                        ],
+                        "has_texture_override": true
+                    }
                 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [-11, 10, 15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584301, "overrides": { "rotation_speed_radians_per_second": 1.0, "bob_amplitude": 0.7, "bob_frequency": 1.5 } } ] }
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        -11,
+                        10,
+                        15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584301,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 1.0,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.5
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583192, "name": "Fail_Mesh", "tag": "error_exhibit", "layer": "", "parent": 0,
+            "id": 12583192,
+            "name": "Fail_Mesh",
+            "tag": "error_exhibit",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 2,
-                    "overrides": { "parameters": [ { "name": "albedo_color", "data": { "type": "color", "value": { "r": 0.6, "g": 0.6, "b": 0.6, "a": 1 } } } ], "has_parameter_override": true }
+                    "overrides": {
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.6,
+                                        "g": 0.6,
+                                        "b": 0.6,
+                                        "a": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "has_parameter_override": true
+                    }
                 },
-                "static_mesh": { "handle": 999998 },
-                "transform": { "position": [0, 10, 15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584302, "overrides": { "rotation_speed_radians_per_second": 0.8, "bob_amplitude": 0.7, "bob_frequency": 1.4 } } ] }
+                "static_mesh": {
+                    "handle": 999998
+                },
+                "transform": {
+                    "position": [
+                        0,
+                        10,
+                        15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584302,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.8,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.4
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583193, "name": "Fail_Shader", "tag": "error_exhibit", "layer": "", "parent": 0,
+            "id": 12583193,
+            "name": "Fail_Shader",
+            "tag": "error_exhibit",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 900001 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [11, 10, 15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584303, "overrides": { "rotation_speed_radians_per_second": 1.1, "bob_amplitude": 0.7, "bob_frequency": 1.6 } } ] }
+                "material_instance": {
+                    "material": 900001
+                },
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        11,
+                        10,
+                        15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584303,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 1.1,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.6
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583194, "name": "Fail_Material", "tag": "error_exhibit", "layer": "", "parent": 0,
+            "id": 12583194,
+            "name": "Fail_Material",
+            "tag": "error_exhibit",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 900099 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [22, 10, 15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584304, "overrides": { "rotation_speed_radians_per_second": 0.85, "bob_amplitude": 0.7, "bob_frequency": 1.45 } } ] }
+                "material_instance": {
+                    "material": 900099
+                },
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        22,
+                        10,
+                        15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584304,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.85,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.45
+                            }
+                        }
+                    ]
+                }
             }
         },
-
         {
-            "id": 12583200, "name": "Demo_Flat", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583200,
+            "name": "Demo_Flat",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 8,
-                    "overrides": { "parameters": [ { "name": "albedo_color", "data": { "type": "color", "value": { "r": 1.0, "g": 0.55, "b": 0.1, "a": 1 } } } ], "has_parameter_override": true }
+                    "overrides": {
+                        "parameters": [
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.55,
+                                        "b": 0.1,
+                                        "a": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "has_parameter_override": true
+                    }
                 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [-25, 10, -15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584200, "overrides": { "rotation_speed_radians_per_second": 0.9, "bob_amplitude": 0.7, "bob_frequency": 1.4 } } ] }
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        -25,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584200,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.9,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.4
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583201, "name": "Demo_PbrShiny", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583201,
+            "name": "Demo_PbrShiny",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 2,
                     "overrides": {
                         "parameters": [
-                            { "name": "albedo_color", "data": { "type": "color", "value": { "r": 1.0, "g": 0.85, "b": 0.4, "a": 1 } } },
-                            { "name": "metallic", "data": { "type": "float", "value": 1 } },
-                            { "name": "roughness", "data": { "type": "float", "value": 0.08 } }
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 1.0,
+                                        "g": 0.85,
+                                        "b": 0.4,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "metallic",
+                                "data": {
+                                    "type": "float",
+                                    "value": 1
+                                }
+                            },
+                            {
+                                "name": "roughness",
+                                "data": {
+                                    "type": "float",
+                                    "value": 0.08
+                                }
+                            }
                         ],
                         "has_parameter_override": true
                     }
                 },
-                "static_mesh": { "handle": 517 },
-                "transform": { "position": [-15, 10, -15.5], "rotation": [0, 0, 0, 1], "scale": [1.5, 1.5, 1.5] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584201, "overrides": { "rotation_speed_radians_per_second": 1.1, "bob_amplitude": 0.7, "bob_frequency": 1.6 } } ] }
+                "static_mesh": {
+                    "handle": 517
+                },
+                "transform": {
+                    "position": [
+                        -15,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.5,
+                        1.5,
+                        1.5
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584201,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 1.1,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.6
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583202, "name": "Demo_Brick", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583202,
+            "name": "Demo_Brick",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 539243900 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [-5, 10, -15.5], "rotation": [0, 0, 0, 1], "scale": [1.7, 1.7, 1.7] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584202, "overrides": { "rotation_speed_radians_per_second": 0.8, "bob_amplitude": 0.7, "bob_frequency": 1.3 } } ] }
+                "material_instance": {
+                    "material": 539243900
+                },
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        -5,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.7,
+                        1.7,
+                        1.7
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584202,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.8,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.3
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583203, "name": "Demo_PbrMatte", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583203,
+            "name": "Demo_PbrMatte",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
                 "material_instance": {
                     "material": 2,
                     "overrides": {
                         "parameters": [
-                            { "name": "albedo_color", "data": { "type": "color", "value": { "r": 0.35, "g": 0.4, "b": 0.55, "a": 1 } } },
-                            { "name": "metallic", "data": { "type": "float", "value": 0 } },
-                            { "name": "roughness", "data": { "type": "float", "value": 1 } }
+                            {
+                                "name": "albedo_color",
+                                "data": {
+                                    "type": "color",
+                                    "value": {
+                                        "r": 0.35,
+                                        "g": 0.4,
+                                        "b": 0.55,
+                                        "a": 1
+                                    }
+                                }
+                            },
+                            {
+                                "name": "metallic",
+                                "data": {
+                                    "type": "float",
+                                    "value": 0
+                                }
+                            },
+                            {
+                                "name": "roughness",
+                                "data": {
+                                    "type": "float",
+                                    "value": 1
+                                }
+                            }
                         ],
                         "has_parameter_override": true
                     }
                 },
-                "static_mesh": { "handle": 517 },
-                "transform": { "position": [5, 10, -15.5], "rotation": [0, 0, 0, 1], "scale": [1.5, 1.5, 1.5] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584203, "overrides": { "rotation_speed_radians_per_second": 1.0, "bob_amplitude": 0.7, "bob_frequency": 1.5 } } ] }
+                "static_mesh": {
+                    "handle": 517
+                },
+                "transform": {
+                    "position": [
+                        5,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.5,
+                        1.5,
+                        1.5
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584203,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 1.0,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.5
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583204, "name": "Demo_Transparent", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583204,
+            "name": "Demo_Transparent",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 539243902 },
-                "static_mesh": { "handle": 514 },
-                "transform": { "position": [15, 10, -15.5], "rotation": [0, 0, 0, 1], "scale": [1.6, 1.6, 1.6] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584204, "overrides": { "rotation_speed_radians_per_second": 1.2, "bob_amplitude": 0.7, "bob_frequency": 1.7 } } ] }
+                "material_instance": {
+                    "material": 539243902
+                },
+                "static_mesh": {
+                    "handle": 514
+                },
+                "transform": {
+                    "position": [
+                        15,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "scale": [
+                        1.6,
+                        1.6,
+                        1.6
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584204,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 1.2,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.7
+                            }
+                        }
+                    ]
+                }
             }
         },
         {
-            "id": 12583205, "name": "Demo_Cutout", "tag": "material_demo", "layer": "", "parent": 0,
+            "id": 12583205,
+            "name": "Demo_Cutout",
+            "tag": "material_demo",
+            "layer": "",
+            "parent": 0,
             "components": {
-                "material_instance": { "material": 270544964 },
-                "static_mesh": { "handle": 519 },
-                "transform": { "position": [25, 10, -15.5], "rotation": [0.70710678, 0, 0, 0.70710678], "scale": [2.2, 2.2, 2.2] },
-                "script_container": { "scripts": [ { "script": 822100006, "enabled": true, "binding_id": 12584205, "overrides": { "rotation_speed_radians_per_second": 0.85, "bob_amplitude": 0.7, "bob_frequency": 1.45 } } ] }
+                "material_instance": {
+                    "material": 270544964
+                },
+                "static_mesh": {
+                    "handle": 519
+                },
+                "transform": {
+                    "position": [
+                        25,
+                        10,
+                        -15.5
+                    ],
+                    "rotation": [
+                        0.70710678,
+                        0,
+                        0,
+                        0.70710678
+                    ],
+                    "scale": [
+                        2.2,
+                        2.2,
+                        2.2
+                    ]
+                },
+                "script_container": {
+                    "scripts": [
+                        {
+                            "script": 822100006,
+                            "enabled": true,
+                            "binding_id": 12584205,
+                            "overrides": {
+                                "rotation_speed_radians_per_second": 0.85,
+                                "bob_amplitude": 0.7,
+                                "bob_frequency": 1.45
+                            }
+                        }
+                    ]
+                }
             }
         }
     ]

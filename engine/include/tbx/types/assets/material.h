@@ -238,9 +238,10 @@ namespace tbx
     /// @brief The render state (depth/blend/cull) a raster pipeline is built with. Derived from a
     /// MaterialConfig at draw time; together with the shader program it identifies a pipeline (see
     /// the hash overload below), which is what the GpuResourceCache keys compiled pipelines by.
-    /// @brief Selects how a blending pipeline combines its output with the existing target. ALPHA is
-    /// standard src-over for transparent surfaces; MULTIPLY is dst *= src, used to accumulate
-    /// transmittance into the colored (translucent) shadow map.
+    /// @brief Selects how a blending pipeline combines its output with the existing target. ALPHA is a
+    /// colored composite (final = src*src.a + dst*src.rgb): the surface adds its alpha-weighted color
+    /// AND tints whatever is behind it by its color. MULTIPLY is a pure colored filter (dst *= src),
+    /// also used to accumulate transmittance into the colored (translucent) shadow map.
     enum class BlendEquation : uint8_t
     {
         ALPHA = 0,

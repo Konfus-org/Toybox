@@ -32,13 +32,20 @@ namespace tbx
 
         // Persistent directional shadow cascades reused across frames; recreated only when the
         // configured base resolution changes. Each cascade is an opaque depth map at a decreasing
-        // resolution (cascade 0 sharpest, furthest lowest). shadow_color_map is the translucent
-        // transmittance map transparent casters multiply into (white = fully transmissive), shared
-        // with the furthest cascade's projection so it covers the whole shadowed range.
+        // resolution (cascade 0 sharpest, furthest lowest). shadow_color_maps holds the matching
+        // translucent transmittance map for each cascade (same projection + resolution as its depth
+        // map) that transparent casters multiply into (white = fully transmissive), so glass casts
+        // a colored, partial shadow at every distance.
         std::array<GpuResource, SHADOW_CASCADE_COUNT> shadow_cascades = {};
         std::array<uint32, SHADOW_CASCADE_COUNT> shadow_cascade_sizes = {};
-        GpuResource shadow_color_map = {};
+        std::array<GpuResource, SHADOW_CASCADE_COUNT> shadow_color_maps = {};
         uint32 shadow_base_resolution = 0U;
+
+        // Local (point/spot/area) light shadows share one depth texture-array atlas: every
+        // shadow-casting local light occupies a contiguous run of layers (one for spot/area, six for
+        // a point light's cube faces). Recreated only when the derived per-layer resolution changes.
+        GpuResource local_shadow_atlas = {};
+        uint32 local_shadow_resolution = 0U;
     };
 
     //// STATIC HELPERS ////
@@ -79,8 +86,9 @@ namespace tbx
     }
 
     // Transparent caster state: multiplicatively accumulates transmittance into the white-cleared
-    // color map. Depth-tests against (but does not write) the opaque depth map so transparent casters
-    // occluded by opaque geometry don't tint, while stacked transparent layers multiply together.
+    // color map. Depth-tests against (but does not write) the opaque depth map so transparent
+    // casters occluded by opaque geometry don't tint, while stacked transparent layers multiply
+    // together.
     static RasterState shadow_color_state(bool two_sided)
     {
         return RasterState {
@@ -98,15 +106,29 @@ namespace tbx
     }
 
     // Per-cascade shadow-map resolution: the configured base resolution (cascade 0) halved each
-    // cascade, clamped to a floor so the furthest cascade stays usable. With a 2048 base this yields
-    // 2048 / 1024 / 512 / 256 — the furthest cascade is deliberately low resolution since it spreads
-    // over the whole far range.
+    // cascade, clamped to a floor so the furthest cascade stays usable. With a 2048 base this
+    // yields 2048 / 1024 / 512 / 256 — the furthest cascade is deliberately low resolution since it
+    // spreads over the whole far range.
     static constexpr uint32 SHADOW_MIN_CASCADE_RESOLUTION = 256U;
 
     static uint32 cascade_resolution(uint32 base_resolution, uint32 cascade)
     {
         const uint32 scaled = std::max(base_resolution, SHADOW_MIN_CASCADE_RESOLUTION) >> cascade;
         return std::max(scaled, SHADOW_MIN_CASCADE_RESOLUTION);
+    }
+
+    // Per-layer resolution of the local light shadow atlas, derived from the configured base
+    // resolution but capped: the atlas holds MAX_LOCAL_SHADOW_VIEWS layers, so an uncapped 4K base
+    // would cost hundreds of MB. Clamped to a sharp-but-affordable band.
+    static constexpr uint32 LOCAL_SHADOW_MIN_RESOLUTION = 512U;
+    static constexpr uint32 LOCAL_SHADOW_MAX_RESOLUTION = 1024U;
+
+    static uint32 local_shadow_resolution(uint32 base_resolution)
+    {
+        return std::clamp(
+            base_resolution / 2U,
+            LOCAL_SHADOW_MIN_RESOLUTION,
+            LOCAL_SHADOW_MAX_RESOLUTION);
     }
 
     static Result clear_swapchain(IGraphicsBackend& backend, const Color& color, const Size& size)
@@ -127,6 +149,7 @@ namespace tbx
         GpuId instances_buffer,
         GpuId lights_buffer,
         GpuId uniforms_buffer,
+        GpuId local_shadow_matrices_buffer,
         std::weak_ptr<IGraphicsBackend> backend_weak,
         GpuResource& out_group)
     {
@@ -138,6 +161,7 @@ namespace tbx
             .bindings = {
                 storage_binding(GPU_BINDING_ALL_INSTANCES, instances_buffer),
                 storage_binding(GPU_BINDING_GLOBAL_VERTICES, buffer(VERTICES_BUFFER_ID)),
+                storage_binding(GPU_BINDING_LOCAL_SHADOW_MATRICES, local_shadow_matrices_buffer),
                 storage_binding(GPU_BINDING_GLOBAL_MATERIALS, buffer(MATERIAL_TABLE_BUFFER_ID)),
                 storage_binding(GPU_BINDING_GLOBAL_LIGHTS, lights_buffer),
                 storage_binding(GPU_BINDING_GLOBAL_TEXTURES, buffer(TEXTURE_TABLE_BUFFER_ID)),
@@ -277,8 +301,17 @@ namespace tbx
             view.draw_commands.data(),
             view.draw_commands.size() * sizeof(GpuIndexedDrawCommand),
             BufferUsage::INDIRECT_ARGS);
+        // Per-view local shadow matrices (one identity placeholder when no local light casts a shadow
+        // so the SSBO always binds; the forward shader only indexes it for lights flagged shadowed).
+        static const Mat4 identity_matrix(1.0F);
+        const bool has_local_shadows = !view.local_shadow_matrices.empty();
+        const GpuId local_shadow_matrices_buffer = frame.store(
+            has_local_shadows ? view.local_shadow_matrices.data() : &identity_matrix,
+            (has_local_shadows ? view.local_shadow_matrices.size() : 1U) * sizeof(Mat4),
+            BufferUsage::STORAGE);
         if (instances_buffer == INVALID_GPU_ID || lights_buffer == INVALID_GPU_ID
-            || uniforms_buffer == INVALID_GPU_ID || draw_args_buffer == INVALID_GPU_ID)
+            || uniforms_buffer == INVALID_GPU_ID || draw_args_buffer == INVALID_GPU_ID
+            || local_shadow_matrices_buffer == INVALID_GPU_ID)
             return fail_frame(Result(false, "Failed to upload per-frame buffers."));
 
         GpuResource world_group = {};
@@ -288,6 +321,7 @@ namespace tbx
                 instances_buffer,
                 lights_buffer,
                 uniforms_buffer,
+                local_shadow_matrices_buffer,
                 _backend,
                 world_group);
             !result)
@@ -306,21 +340,29 @@ namespace tbx
         constexpr uint32 stride = static_cast<uint32>(sizeof(GpuIndexedDrawCommand));
 
         //// SHADOW PASS ////
-        // Cascaded directional shadows. One opaque depth sub-pass per cascade (each its own
-        // camera-centered ortho box + decreasing resolution; cascade 0 sharp/near, the furthest low-
-        // res/far) writes the depth map the forward pass occlusion-tests against. A final translucent
-        // sub-pass multiplies transparent casters' tint into a white-cleared color map (rendered in
-        // the furthest cascade's full-range projection, depth-tested against that cascade's depth,
-        // depth-write off) so glass casts a colored, partial shadow across the whole range. The sky
-        // and ShadowMode::OFF materials were already excluded by world_view. Each caster sub-pass
-        // reads its cascade's matrix from a small per-cascade UBO. The forward pass samples all
-        // cascades (slots 12..) + the color map; shadow_sample_group is null when there is no caster.
+        // Two families of shadow maps feed the forward pass:
+        //  - Cascaded directional shadows: one opaque depth sub-pass per cascade (each its own
+        //    camera-centered ortho box + decreasing resolution; cascade 0 sharp/near, the furthest
+        //    low-res/far) plus one translucent sub-pass per cascade that multiplies transparent
+        //    casters' tint into that cascade's white-cleared color map, so glass casts a colored,
+        //    partial shadow at every distance.
+        //  - Local light shadows: one opaque depth sub-pass per view into a depth texture-array
+        //    atlas (a spot/area light owns one layer, a point light six cube faces), so point/spot/
+        //    area lights stop bleeding through walls.
+        // The sky and ShadowMode::OFF materials were already excluded by world_view. Each caster
+        // sub-pass reads its view's matrix from a small per-view UBO. The forward pass samples the
+        // cascade depth maps (slots 12..) + color maps (slots 16..) + the local atlas (slot 20);
+        // shadow_sample_group is null when nothing casts a shadow this frame.
+        const bool has_directional_shadows = view.uniforms.shadow_count > 0U;
         GpuResource shadow_sample_group = {};
-        if (view.uniforms.shadow_count > 0U)
+        if (has_directional_shadows || has_local_shadows)
         {
+            // TODO: implement a new 'Clamp' type that clamps its values, can clamp to a min or max
+            // or both. Then use this in the settings.
             const uint32 base_resolution = std::max(settings.shadow_map_resolution, 256U);
-            if (base_resolution != _resources->shadow_base_resolution
-                || !_resources->shadow_cascades[0].is_valid())
+            if (has_directional_shadows
+                && (base_resolution != _resources->shadow_base_resolution
+                    || !_resources->shadow_cascades[0].is_valid()))
             {
                 for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
                 {
@@ -336,27 +378,48 @@ namespace tbx
                         return fail_frame(result);
                     _resources->shadow_cascades[c] = GpuResource(_backend, depth_id);
                     _resources->shadow_cascade_sizes[c] = res;
-                }
 
-                // Colored transmittance shares the furthest cascade's projection + resolution so it
-                // can depth-test against that cascade's depth map.
-                const uint32 color_res =
-                    cascade_resolution(base_resolution, SHADOW_CASCADE_COUNT - 1U);
-                auto color_desc = TextureDesc {
-                    .usage = TextureUsage::SAMPLED_RENDER_TARGET,
-                    .format = TextureFormat::RGBA8,
-                    .size = Size {color_res, color_res},
-                    .is_linear_filtering_enabled = false};
-                auto color_id = INVALID_GPU_ID;
-                if (auto result = backend.create_texture(color_desc, color_id); !result)
-                    return fail_frame(result);
-                _resources->shadow_color_map = GpuResource(_backend, color_id);
+                    // Matching colored transmittance map per cascade: same resolution + projection
+                    // as the depth map so it registers exactly, and so colored glass shadows stay
+                    // sharp near and reach far together with the depth cascades.
+                    auto color_desc = TextureDesc {
+                        .usage = TextureUsage::SAMPLED_RENDER_TARGET,
+                        .format = TextureFormat::RGBA8,
+                        .size = Size {res, res},
+                        .is_linear_filtering_enabled = false};
+                    auto color_id = INVALID_GPU_ID;
+                    if (auto result = backend.create_texture(color_desc, color_id); !result)
+                        return fail_frame(result);
+                    _resources->shadow_color_maps[c] = GpuResource(_backend, color_id);
+                }
 
                 _resources->shadow_base_resolution = base_resolution;
             }
 
-            // Upload the caster commands (concatenated in ShadowCasterCategory order). Empty means a
-            // caster light exists but no geometry casts this frame — the passes still clear the maps.
+            // Local shadow atlas: one DEPTH32 texture array of MAX_LOCAL_SHADOW_VIEWS layers,
+            // recreated only when the derived per-layer resolution changes.
+            const uint32 local_resolution = local_shadow_resolution(base_resolution);
+            if (has_local_shadows
+                && (local_resolution != _resources->local_shadow_resolution
+                    || !_resources->local_shadow_atlas.is_valid()))
+            {
+                auto atlas_desc = TextureDesc {
+                    .usage = TextureUsage::SAMPLED_DEPTH_STENCIL,
+                    .format = TextureFormat::DEPTH32_FLOAT,
+                    .size = Size {local_resolution, local_resolution},
+                    .array_layer_count = MAX_LOCAL_SHADOW_VIEWS,
+                    .is_depth_comparison_enabled = false,
+                    .is_linear_filtering_enabled = false};
+                auto atlas_id = INVALID_GPU_ID;
+                if (auto result = backend.create_texture(atlas_desc, atlas_id); !result)
+                    return fail_frame(result);
+                _resources->local_shadow_atlas = GpuResource(_backend, atlas_id);
+                _resources->local_shadow_resolution = local_resolution;
+            }
+
+            // Upload the caster commands (concatenated in ShadowCasterCategory order). Empty means
+            // a caster light exists but no geometry casts this frame — the passes still clear the
+            // maps.
             GpuId shadow_args_buffer = INVALID_GPU_ID;
             if (!view.shadow_draw_commands.empty())
             {
@@ -377,14 +440,15 @@ namespace tbx
             const auto add_shadow_pipeline = [&](const ShaderProgram& program,
                                                  const RasterState& state) -> GpuId
             {
-                return _resources->cache
-                    .add_pipeline(hash(program, state), program, state, true)
+                return _resources->cache.add_pipeline(hash(program, state), program, state, true)
                     .value_or(INVALID_GPU_ID);
             };
             const ShaderProgram depth_program = shader_program(
-                SHADOW_DEPTH_VERTEX_SHADER_HANDLE, SHADOW_DEPTH_FRAGMENT_SHADER_HANDLE);
+                SHADOW_DEPTH_VERTEX_SHADER_HANDLE,
+                SHADOW_DEPTH_FRAGMENT_SHADER_HANDLE);
             const ShaderProgram color_program = shader_program(
-                SHADOW_COLOR_VERTEX_SHADER_HANDLE, SHADOW_COLOR_FRAGMENT_SHADER_HANDLE);
+                SHADOW_COLOR_VERTEX_SHADER_HANDLE,
+                SHADOW_COLOR_FRAGMENT_SHADER_HANDLE);
             // One pipeline per caster category (indexed by ShadowCasterCategory).
             const std::array<GpuId, SHADOW_CASTER_CATEGORY_COUNT> shadow_pipelines = {
                 add_shadow_pipeline(depth_program, shadow_depth_state(false)),
@@ -392,31 +456,31 @@ namespace tbx
                 add_shadow_pipeline(color_program, shadow_color_state(false)),
                 add_shadow_pipeline(color_program, shadow_color_state(true))};
 
-            // Per-cascade caster matrix UBOs + bind groups (the caster vertex shaders transform by the
-            // active cascade's matrix at binding GPU_BINDING_SHADOW_PASS_UNIFORMS). The furthest
-            // cascade's group is reused for the colored transmittance pass (same full-range matrix).
-            std::array<GpuResource, SHADOW_CASCADE_COUNT> cascade_matrix_groups = {};
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            // Uploads one caster view matrix as a per-view UBO and wraps it in a bind group the
+            // caster vertex shaders read at GPU_BINDING_SHADOW_PASS_UNIFORMS. Used for both cascade
+            // and local-light views.
+            const auto make_matrix_group =
+                [&](const Mat4& view_projection, GpuResource& out_group) -> Result
             {
-                const auto matrix = GpuShadowPassUniforms {
-                    .view_projection = view.uniforms.cascade_view_projection[c]};
+                const auto matrix = GpuShadowPassUniforms {.view_projection = view_projection};
                 const GpuId matrix_buffer =
                     frame.store(&matrix, sizeof(GpuShadowPassUniforms), BufferUsage::UNIFORM);
                 if (matrix_buffer == INVALID_GPU_ID)
-                    return fail_frame(Result(false, "Failed to upload cascade matrix."));
+                    return Result(false, "Failed to upload shadow view matrix.");
                 auto group_desc = BindGroupDesc {
                     .bindings = {ResourceBinding {
                         .binding_slot = GPU_BINDING_SHADOW_PASS_UNIFORMS,
                         .resource_handle = matrix_buffer}}};
                 auto group_id = INVALID_GPU_ID;
                 if (auto result = backend.create_bind_group(group_desc, group_id); !result)
-                    return fail_frame(result);
-                cascade_matrix_groups[c] = GpuResource(_backend, group_id);
-            }
+                    return result;
+                out_group = GpuResource(_backend, group_id);
+                return Result::OK;
+            };
 
-            // Binds the category's pipeline + world group + the given cascade matrix group and issues
-            // its indirect draw. Skips empty categories and ones whose pipeline failed to compile (the
-            // map simply stays cleared).
+            // Binds the category's pipeline + world group + the given view's matrix group and issues
+            // its indirect draw. Skips empty categories and ones whose pipeline failed to compile
+            // (the map simply stays cleared).
             const auto draw_category = [&](uint32 category, GpuId matrix_group) -> Result
             {
                 const uint32 count = view.shadow_category_counts[category];
@@ -436,67 +500,137 @@ namespace tbx
                     stride);
             };
 
-            // (1) Opaque depth sub-pass, one per cascade.
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            if (has_directional_shadows)
             {
-                const Size cascade_size {
-                    _resources->shadow_cascade_sizes[c], _resources->shadow_cascade_sizes[c]};
-                auto depth_pass = RenderPassDesc {
-                    .depth_stencil_target = _resources->shadow_cascades[c].get(),
-                    .clear_depth = 1.0F,
-                    .clear_flags = ClearFlags::DEPTH,
-                    .is_color_write_enabled = false};
-                depth_pass.viewport.dimensions = cascade_size;
-                if (auto result = backend.begin_render_pass(depth_pass); !result)
-                    return fail_frame(result);
-                if (auto result =
-                        draw_category(SHADOW_CASTER_OPAQUE_ONE_SIDED, cascade_matrix_groups[c].get());
-                    !result)
-                    return fail_frame(result);
-                if (auto result =
-                        draw_category(SHADOW_CASTER_OPAQUE_TWO_SIDED, cascade_matrix_groups[c].get());
-                    !result)
-                    return fail_frame(result);
-                if (auto result = backend.end_render_pass(); !result)
-                    return fail_frame(result);
+                // Per-cascade caster matrix groups (one per cascade box).
+                std::array<GpuResource, SHADOW_CASCADE_COUNT> cascade_matrix_groups = {};
+                for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+                    if (auto result = make_matrix_group(
+                            view.uniforms.cascade_view_projection[c],
+                            cascade_matrix_groups[c]);
+                        !result)
+                        return fail_frame(result);
+
+                // (1) Opaque depth sub-pass, one per cascade.
+                for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+                {
+                    const Size cascade_size {
+                        _resources->shadow_cascade_sizes[c],
+                        _resources->shadow_cascade_sizes[c]};
+                    auto depth_pass = RenderPassDesc {
+                        .depth_stencil_target = _resources->shadow_cascades[c].get(),
+                        .clear_depth = 1.0F,
+                        .clear_flags = ClearFlags::DEPTH,
+                        .is_color_write_enabled = false};
+                    depth_pass.viewport.dimensions = cascade_size;
+                    if (auto result = backend.begin_render_pass(depth_pass); !result)
+                        return fail_frame(result);
+                    if (auto result = draw_category(
+                            SHADOW_CASTER_OPAQUE_ONE_SIDED,
+                            cascade_matrix_groups[c].get());
+                        !result)
+                        return fail_frame(result);
+                    if (auto result = draw_category(
+                            SHADOW_CASTER_OPAQUE_TWO_SIDED,
+                            cascade_matrix_groups[c].get());
+                        !result)
+                        return fail_frame(result);
+                    if (auto result = backend.end_render_pass(); !result)
+                        return fail_frame(result);
+                }
+
+                // (2) Translucent transmittance sub-pass, one per cascade (its own projection). Each
+                // clears its color map to white (fully transmissive) but keeps that cascade's opaque
+                // depth so transparent casters behind opaque geometry are depth-rejected. Mirrors the
+                // per-cascade depth passes so colored glass shadows are sharp near and reach far.
+                for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+                {
+                    const GpuId color_matrix_group = cascade_matrix_groups[c].get();
+                    const Size color_size {
+                        _resources->shadow_cascade_sizes[c],
+                        _resources->shadow_cascade_sizes[c]};
+                    auto color_pass = RenderPassDesc {
+                        .color_targets = {_resources->shadow_color_maps[c].get()},
+                        .depth_stencil_target = _resources->shadow_cascades[c].get(),
+                        .clear_color = Color(1.0F, 1.0F, 1.0F, 1.0F),
+                        .clear_flags = ClearFlags::COLOR};
+                    color_pass.viewport.dimensions = color_size;
+                    if (auto result = backend.begin_render_pass(color_pass); !result)
+                        return fail_frame(result);
+                    if (auto result =
+                            draw_category(SHADOW_CASTER_TRANSPARENT_ONE_SIDED, color_matrix_group);
+                        !result)
+                        return fail_frame(result);
+                    if (auto result =
+                            draw_category(SHADOW_CASTER_TRANSPARENT_TWO_SIDED, color_matrix_group);
+                        !result)
+                        return fail_frame(result);
+                    if (auto result = backend.end_render_pass(); !result)
+                        return fail_frame(result);
+                }
             }
 
-            // (2) Translucent transmittance sub-pass (furthest cascade's full-range projection).
-            // Clears color to white (fully transmissive) but keeps the furthest cascade's opaque depth
-            // so transparent casters behind opaque geometry are depth-rejected.
-            const uint32 last = SHADOW_CASCADE_COUNT - 1U;
-            const GpuId color_matrix_group = cascade_matrix_groups[last].get();
-            const Size color_size {
-                _resources->shadow_cascade_sizes[last], _resources->shadow_cascade_sizes[last]};
-            auto color_pass = RenderPassDesc {
-                .color_targets = {_resources->shadow_color_map.get()},
-                .depth_stencil_target = _resources->shadow_cascades[last].get(),
-                .clear_color = Color(1.0F, 1.0F, 1.0F, 1.0F),
-                .clear_flags = ClearFlags::COLOR};
-            color_pass.viewport.dimensions = color_size;
-            if (auto result = backend.begin_render_pass(color_pass); !result)
-                return fail_frame(result);
-            if (auto result =
-                    draw_category(SHADOW_CASTER_TRANSPARENT_ONE_SIDED, color_matrix_group);
-                !result)
-                return fail_frame(result);
-            if (auto result =
-                    draw_category(SHADOW_CASTER_TRANSPARENT_TWO_SIDED, color_matrix_group);
-                !result)
-                return fail_frame(result);
-            if (auto result = backend.end_render_pass(); !result)
-                return fail_frame(result);
+            if (has_local_shadows)
+            {
+                // One opaque depth sub-pass per local shadow view, each rendering the casters into
+                // its own atlas layer through that view's matrix. Only opaque casters block local
+                // lights (transparent casters are skipped — glass barely occludes a lamp), so no
+                // colored transmittance pass is needed here.
+                const Size atlas_size {
+                    _resources->local_shadow_resolution,
+                    _resources->local_shadow_resolution};
+                for (uint32 layer = 0U; layer < view.local_shadow_matrices.size(); ++layer)
+                {
+                    GpuResource view_matrix_group = {};
+                    if (auto result =
+                            make_matrix_group(view.local_shadow_matrices[layer], view_matrix_group);
+                        !result)
+                        return fail_frame(result);
 
-            // Sample group for the forward pass: all cascade depth maps (consecutive slots) + the
-            // colored transmittance map.
+                    auto depth_pass = RenderPassDesc {
+                        .depth_stencil_target = _resources->local_shadow_atlas.get(),
+                        .depth_stencil_layer = static_cast<int32>(layer),
+                        .clear_depth = 1.0F,
+                        .clear_flags = ClearFlags::DEPTH,
+                        .is_color_write_enabled = false};
+                    depth_pass.viewport.dimensions = atlas_size;
+                    if (auto result = backend.begin_render_pass(depth_pass); !result)
+                        return fail_frame(result);
+                    if (auto result =
+                            draw_category(SHADOW_CASTER_OPAQUE_ONE_SIDED, view_matrix_group.get());
+                        !result)
+                        return fail_frame(result);
+                    if (auto result =
+                            draw_category(SHADOW_CASTER_OPAQUE_TWO_SIDED, view_matrix_group.get());
+                        !result)
+                        return fail_frame(result);
+                    if (auto result = backend.end_render_pass(); !result)
+                        return fail_frame(result);
+                }
+            }
+
+            // Sample group for the forward pass: the cascade depth + colored transmittance maps (when
+            // a directional caster is active) and the local light shadow atlas (when any local light
+            // casts). Each binding lands on its consecutive slot; absent families simply aren't bound.
             auto sample_desc = BindGroupDesc {};
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
-                sample_desc.bindings.push_back(ResourceBinding {
-                    .binding_slot = GPU_BINDING_SHADOW_CASCADE_BASE + c,
-                    .resource_handle = _resources->shadow_cascades[c].get()});
-            sample_desc.bindings.push_back(ResourceBinding {
-                .binding_slot = GPU_BINDING_SHADOW_COLOR,
-                .resource_handle = _resources->shadow_color_map.get()});
+            if (has_directional_shadows)
+            {
+                for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+                    sample_desc.bindings.push_back(
+                        ResourceBinding {
+                            .binding_slot = GPU_BINDING_SHADOW_CASCADE_BASE + c,
+                            .resource_handle = _resources->shadow_cascades[c].get()});
+                for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+                    sample_desc.bindings.push_back(
+                        ResourceBinding {
+                            .binding_slot = GPU_BINDING_SHADOW_COLOR_BASE + c,
+                            .resource_handle = _resources->shadow_color_maps[c].get()});
+            }
+            if (has_local_shadows)
+                sample_desc.bindings.push_back(
+                    ResourceBinding {
+                        .binding_slot = GPU_BINDING_LOCAL_SHADOW_ATLAS,
+                        .resource_handle = _resources->local_shadow_atlas.get()});
             auto sample_group_id = INVALID_GPU_ID;
             if (auto result = backend.create_bind_group(sample_desc, sample_group_id); !result)
                 return fail_frame(result);
@@ -521,8 +655,8 @@ namespace tbx
         uint64 command_offset = 0U;
         const bool diag = _frame_index == 2U;
         if (diag)
-            TBX_TRACE_WARNING(
-                "DRAW DIAG: buckets={} instances={} lights={}",
+            TBX_TRACE_INFO(
+                "DRAW INFO: buckets={} instances={} lights={}",
                 view.bucket_pipelines.size(),
                 view.instances.size(),
                 view.lights.size());
@@ -531,8 +665,8 @@ namespace tbx
             const uint32 count = view.bucket_command_counts[bucket];
             const GpuId pipeline = view.bucket_pipelines[bucket];
             if (diag)
-                TBX_TRACE_WARNING(
-                    "DRAW DIAG bucket {}: pipeline={} count={}",
+                TBX_TRACE_INFO(
+                    "DRAW BUCKET INFO {}: pipeline={} count={}",
                     bucket,
                     static_cast<uint64>(pipeline),
                     count);

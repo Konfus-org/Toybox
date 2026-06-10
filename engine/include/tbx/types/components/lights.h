@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/types/color.h"
 #include "tbx/types/components/component.h"
-#include "tbx/types/components/light.generated.h"
+#include "tbx/types/components/lights.generated.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx

@@ -1,7 +1,7 @@
 #include "day_cycle.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/color.h"
-#include "tbx/types/components/light.h"
+#include "tbx/types/components/lights.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"

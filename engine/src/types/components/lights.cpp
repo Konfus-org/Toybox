@@ -1,4 +1,4 @@
-#include "tbx/types/components/light.h"
+#include "tbx/types/components/lights.h"
 
 namespace tbx
 {

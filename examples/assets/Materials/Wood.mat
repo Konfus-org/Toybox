@@ -7,20 +7,84 @@
         "computes": []
     },
     "parameters": [
-        { "name": "albedo_color", "data": { "type": "color", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } } },
-        { "name": "emissive_color", "data": { "type": "color", "value": { "r": 0, "g": 0, "b": 0, "a": 1 } } },
-        { "name": "metallic", "data": { "type": "float", "value": 0 } },
-        { "name": "roughness", "data": { "type": "float", "value": 1 } },
-        { "name": "normal_strength", "data": { "type": "float", "value": 1 } },
-        { "name": "ao", "data": { "type": "float", "value": 1 } }
+        {
+            "name": "albedo_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 1,
+                    "g": 1,
+                    "b": 1,
+                    "a": 1
+                }
+            }
+        },
+        {
+            "name": "emissive_color",
+            "data": {
+                "type": "color",
+                "value": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                }
+            }
+        },
+        {
+            "name": "metallic",
+            "data": {
+                "type": "float",
+                "value": 0
+            }
+        },
+        {
+            "name": "roughness",
+            "data": {
+                "type": "float",
+                "value": 1
+            }
+        },
+        {
+            "name": "normal_strength",
+            "data": {
+                "type": "float",
+                "value": 1
+            }
+        },
+        {
+            "name": "ao",
+            "data": {
+                "type": "float",
+                "value": 1
+            }
+        }
     ],
     "textures": [
-        { "name": "albedo_map", "texture": 700000020 },
-        { "name": "normal_map", "texture": 700000021 },
-        { "name": "metallic_map", "texture": 0 },
-        { "name": "roughness_map", "texture": 700000022 },
-        { "name": "ao_map", "texture": 700000023 },
-        { "name": "emissive_map", "texture": 0 }
+        {
+            "name": "albedo_map",
+            "texture": 700000020
+        },
+        {
+            "name": "normal_map",
+            "texture": 700000021
+        },
+        {
+            "name": "metallic_map",
+            "texture": 0
+        },
+        {
+            "name": "roughness_map",
+            "texture": 0
+        },
+        {
+            "name": "ao_map",
+            "texture": 700000023
+        },
+        {
+            "name": "emissive_map",
+            "texture": 0
+        }
     ],
     "config": {
         "is_depth_test_enabled": true,

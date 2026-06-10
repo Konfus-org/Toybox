@@ -39,10 +39,16 @@ namespace tbx
         std::vector<GpuIndexedDrawCommand> draw_commands = {}; // concatenated in bucket order
         std::vector<GpuId> bucket_pipelines = {}; // one raster pipeline per draw bucket
         std::vector<uint32> bucket_command_counts = {}; // draw count per bucket (aligned)
-        // Directional shadow casters only (sky and ShadowMode::OFF excluded), concatenated in
-        // ShadowCasterCategory order; each references the same `instances` buffer as draw_commands.
+        // Shadow casters (sky and ShadowMode::OFF excluded), concatenated in ShadowCasterCategory
+        // order; each references the same `instances` buffer as draw_commands. The directional
+        // cascades and every local light shadow view re-draw these same opaque casters.
         std::vector<GpuIndexedDrawCommand> shadow_draw_commands = {};
         std::array<uint32, SHADOW_CASTER_CATEGORY_COUNT> shadow_category_counts = {};
+        // Per-view world -> light-clip matrices for the local (point/spot/area) light shadow atlas,
+        // one entry per atlas layer (spot/area contribute one, point six). A light's
+        // GpuLightData::shadow_data carries its base layer + view count into this list. Bounded by
+        // MAX_LOCAL_SHADOW_VIEWS.
+        std::vector<Mat4> local_shadow_matrices = {};
         bool has_camera = false;
     };
 
@@ -73,7 +79,7 @@ namespace tbx
       private:
         GpuMaterialData pack_material(GpuResourceCache& cache, const Material& material,
             const std::string& material_name, RenderFailure& out_failure);
-        uint32 bucket_for_pipeline(GpuId pipeline, WorldViewResult& result);
+        uint32 bucket_for_pipeline(GpuId pipeline, bool is_transparent, WorldViewResult& result);
         void add_renderable(GpuResourceCache& cache, WorldViewResult& result,
             const Mat4& model_matrix, uint64 mesh_key, uint64 material_key, const Mesh& mesh,
             const Material& material, const std::string& material_name, RenderFailure forced_failure);
@@ -84,8 +90,17 @@ namespace tbx
         std::unordered_set<uint32> _failed_assets = {};
         // Transient working set for the current capture() (reset each frame).
         Frustum _frustum = Frustum(Mat4(1.0F));
+        // Camera position + the radius around it within which an off-screen surface still casts
+        // shadows (the larger of the directional shadow reach and the local-light range), used to
+        // keep off-screen casters in the shadow pass without re-uploading the whole world.
+        Vec3 _camera_position = Vec3(0.0F);
+        float _shadow_caster_distance = 0.0F;
         std::unordered_map<GpuId, uint32> _bucket_of_pipeline = {};
         std::vector<std::vector<GpuIndexedDrawCommand>> _bucket_commands = {};
+        // Whether each bucket (by creation index) blends. Blended buckets are flushed after all
+        // opaque ones so transparent surfaces (which don't write depth) aren't overwritten by opaque
+        // geometry behind them that happens to draw later.
+        std::vector<bool> _bucket_transparent = {};
         // Per-category shadow caster draw commands for the current capture(), flattened at the end.
         std::array<std::vector<GpuIndexedDrawCommand>, SHADOW_CASTER_CATEGORY_COUNT>
             _shadow_commands = {};
