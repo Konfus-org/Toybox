@@ -17,12 +17,15 @@ namespace tbx
     struct TBX_API ScriptContainerBinding
     {
         [[prop]]
+        [[editor::view("script")]]
+        [[editor::description("The script asset this binding runs.")]]
         Uuid script = {};
 
         [[prop]]
         bool enabled = true;
 
         [[prop]]
+        [[editor::readonly]]
         Uuid binding_id = {};
 
         [[prop]]

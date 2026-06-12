@@ -5,31 +5,49 @@ from model import (
     Field,
     SerializableType,
     attr_arg,
-    attr_value,
     cpp_string,
+    editor_attr_value,
     find_attr,
+    has_editor_attr,
     json_key,
 )
 
 
 def emit_typed_write_field(field: Field) -> list[str]:
-    """Emits one write_typed_serialization_field call, threading through optional
-    [[tbx::category(...)]] / [[tbx::description(...)]] editor metadata when present."""
-    category = attr_value(field.attrs, "category")
-    description = attr_value(field.attrs, "description")
+    """Emits one write_typed_serialization_field call, threading through optional editor-only
+    metadata ([[tbx::editor::category/description/view]] and the [[tbx::editor::readonly/hidden]]
+    flags) as a PropertyEditorMetadata aggregate when any is present."""
+    category = editor_attr_value(field.attrs, "category")
+    description = editor_attr_value(field.attrs, "description")
+    view = editor_attr_value(field.attrs, "view")
+    readonly = has_editor_attr(field.attrs, "readonly")
+    hidden = has_editor_attr(field.attrs, "hidden")
+
     lines = [
         "    ::tbx::write_typed_serialization_field(",
         "        tbx_json,",
         f"        {cpp_string(json_key(field))},",
         f"        tbx_value.{field.name}",
     ]
+
+    metadata_fields: list[str] = []
+    if category is not None:
+        metadata_fields.append(f".category = {cpp_string(category)}")
     if description is not None:
+        metadata_fields.append(f".description = {cpp_string(description)}")
+    if view is not None:
+        metadata_fields.append(f".view = {cpp_string(view)}")
+    if readonly:
+        metadata_fields.append(".readonly = true")
+    if hidden:
+        metadata_fields.append(".hidden = true")
+
+    if metadata_fields:
         lines[-1] += ","
-        lines.append(f"        {cpp_string(category or '')},")
-        lines.append(f"        {cpp_string(description)});")
-    elif category is not None:
-        lines[-1] += ","
-        lines.append(f"        {cpp_string(category)});")
+        lines.append("        ::tbx::PropertyEditorMetadata {")
+        for index, fragment in enumerate(metadata_fields):
+            suffix = "," if index + 1 < len(metadata_fields) else "});"
+            lines.append(f"            {fragment}{suffix}")
     else:
         lines[-1] += ");"
     return lines

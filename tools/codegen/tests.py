@@ -91,6 +91,36 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn('"amount"', output)
         self.assertIn('"count"', output)
 
+    def test_editor_attributes_emit_property_metadata(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[tbx::serializable]];
+            struct Value
+            {
+                [[tbx::prop]]
+                [[editor::category("Group")]]
+                [[editor::description("A tooltip.")]]
+                [[editor::readonly]]
+                int amount = 0;
+
+                [[tbx::prop]]
+                [[editor::view("script")]]
+                [[editor::hidden]]
+                int other = 0;
+            };
+            }
+            """
+
+        output = self.generate_source(source)
+
+        self.assertIn("::tbx::PropertyEditorMetadata {", output)
+        self.assertIn('.category = "Group"', output)
+        self.assertIn('.description = "A tooltip."', output)
+        self.assertIn(".readonly = true", output)
+        self.assertIn('.view = "script"', output)
+        self.assertIn(".hidden = true", output)
+
     def test_multiline_field_initializer_is_parsed(self) -> None:
         source = """
             namespace tbx::tests

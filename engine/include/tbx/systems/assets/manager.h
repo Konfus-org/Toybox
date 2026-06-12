@@ -161,6 +161,14 @@ namespace tbx
         std::vector<std::filesystem::path> get_directories() const;
 
         /// @brief
+        /// Purpose: Snapshots every registered asset (id + path) so the editor can enumerate the
+        /// project's assets and resolve handle/script ids to display names.
+        /// @details
+        /// Ownership: Returns a copy; callers own the returned entries.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        std::vector<AssetRegistryEntry> get_registered_assets() const;
+
+        /// @brief
         /// Purpose: Returns the serialization registry used to read and write typed assets.
         /// @details
         /// Ownership: Returns a non-owning weak pointer to registry state owned by the host service

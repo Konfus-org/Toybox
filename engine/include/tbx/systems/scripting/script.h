@@ -57,12 +57,15 @@ namespace tbx
     struct TBX_API ScriptBinding
     {
         [[prop]]
+        [[editor::readonly]]
         Uuid entity = {};
 
         [[prop]]
+        [[editor::view("script")]]
         Uuid script = {};
 
         [[prop]]
+        [[editor::readonly]]
         Uuid binding_id = {};
     };
 

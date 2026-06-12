@@ -395,6 +395,16 @@ namespace tbx
         return _asset_directories;
     }
 
+    std::vector<AssetRegistryEntry> AssetRegistry::get_entries() const
+    {
+        auto entries = std::vector<AssetRegistryEntry>();
+        entries.reserve(_entries_by_path.size());
+        for (const auto& [path, entry] : _entries_by_path)
+            entries.push_back(entry);
+
+        return entries;
+    }
+
     AssetRegistryMutationResult AssetRegistry::register_discovered_asset(
         const std::filesystem::path& asset_path)
     {

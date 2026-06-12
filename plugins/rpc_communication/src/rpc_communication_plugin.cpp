@@ -6,7 +6,9 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/transform.h"
+#include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <format>
 #include <string>
 
@@ -104,7 +106,9 @@ namespace tbx::rpc_communication
         TBX_TRACE_INFO("RpcCommunication: listening on 127.0.0.1:{}", port);
         _log_listener_id = tbx::Log::get_instance().add_listener(
             [this](tbx::LogLevel level, const std::string& message)
-            { forward_log(level, message); });
+            {
+                forward_log(level, message);
+            });
     }
 
     void RpcCommunication::on_detach()
@@ -126,7 +130,9 @@ namespace tbx::rpc_communication
         const auto has_client = _server.has_client();
         if (has_client != _had_client)
         {
-            TBX_TRACE_INFO("RpcCommunication: editor {}.", has_client ? "connected" : "disconnected");
+            TBX_TRACE_INFO(
+                "RpcCommunication: editor {}.",
+                has_client ? "connected" : "disconnected");
             if (!has_client)
                 stop_view();
 
@@ -146,12 +152,13 @@ namespace tbx::rpc_communication
             auto& services = application.get_service_provider();
             _world_manager = services.try_get_service<tbx::WorldManager>();
             _rendering = services.try_get_service<tbx::Rendering>();
+            _asset_manager = services.try_get_service<tbx::AssetManager>();
         }
     }
 
-    // Set on the thread that is writing an editor-originated log so the listener below does not echo
-    // that line straight back to the editor (which already displayed it locally). Thread-local because
-    // the log listener runs synchronously on whatever thread called into tbx::Log.
+    // Set on the thread that is writing an editor-originated log so the listener below does not
+    // echo that line straight back to the editor (which already displayed it locally). Thread-local
+    // because the log listener runs synchronously on whatever thread called into tbx::Log.
     static thread_local bool t_suppress_log_forward = false;
 
     void RpcCommunication::forward_log(tbx::LogLevel level, const std::string& message)
@@ -180,8 +187,8 @@ namespace tbx::rpc_communication
         else if (level_name == "critical")
             level = tbx::LogLevel::CRITICAL;
 
-        // Route editor lines through the engine's normal logging (file + console + listeners) but skip
-        // the RPC echo so the editor doesn't show its own line twice.
+        // Route editor lines through the engine's normal logging (file + console + listeners) but
+        // skip the RPC echo so the editor doesn't show its own line twice.
         t_suppress_log_forward = true;
         tbx::Log::get_instance().write_internal(level, "Studio", 0, message);
         t_suppress_log_forward = false;
@@ -191,11 +198,14 @@ namespace tbx::rpc_communication
     {
         auto& log = tbx::Log::get_instance();
         if (params.contains("info"))
-            log.set_color(tbx::LogLevel::INFO, parse_hex_color(params.value("info", std::string())));
+            log.set_color(
+                tbx::LogLevel::INFO,
+                parse_hex_color(params.value("info", std::string())));
 
         if (params.contains("warning"))
             log.set_color(
-                tbx::LogLevel::WARNING, parse_hex_color(params.value("warning", std::string())));
+                tbx::LogLevel::WARNING,
+                parse_hex_color(params.value("warning", std::string())));
 
         if (params.contains("error"))
         {
@@ -210,8 +220,10 @@ namespace tbx::rpc_communication
         const auto message = try_parse_message(line);
         if (!message)
         {
-            _server.send_line(
-                make_error_response(tbx::Json(), JSON_RPC_PARSE_ERROR_CODE, "Failed to parse request."));
+            _server.send_line(make_error_response(
+                tbx::Json(),
+                JSON_RPC_PARSE_ERROR_CODE,
+                "Failed to parse request."));
             return;
         }
 
@@ -230,6 +242,10 @@ namespace tbx::rpc_communication
         else if (method == "world.describe")
         {
             _server.send_line(make_result_response(id, handle_describe_world()));
+        }
+        else if (method == "editor.listAssets")
+        {
+            _server.send_line(make_result_response(id, handle_list_assets()));
         }
         else if (method == "entity.setComponent")
         {
@@ -252,8 +268,10 @@ namespace tbx::rpc_communication
             }
             else
             {
-                _server.send_line(
-                    make_error_response(id, JSON_RPC_VIEW_UNAVAILABLE_CODE, view_result.get_report()));
+                _server.send_line(make_error_response(
+                    id,
+                    JSON_RPC_VIEW_UNAVAILABLE_CODE,
+                    view_result.get_report()));
             }
         }
         else if (method == "view.stop")
@@ -270,7 +288,8 @@ namespace tbx::rpc_communication
         }
         else if (method == "editor.log")
         {
-            // Notification from the editor: write its line into the engine's unified log. No response.
+            // Notification from the editor: write its line into the engine's unified log. No
+            // response.
             write_editor_log(request.value("params", tbx::Json::object()));
         }
         else if (method == "engine.setLogColors")
@@ -286,8 +305,10 @@ namespace tbx::rpc_communication
         }
         else if (!id.is_null())
         {
-            _server.send_line(
-                make_error_response(id, JSON_RPC_METHOD_NOT_FOUND_CODE, "Unknown method: " + method));
+            _server.send_line(make_error_response(
+                id,
+                JSON_RPC_METHOD_NOT_FOUND_CODE,
+                "Unknown method: " + method));
         }
     }
 
@@ -393,8 +414,8 @@ namespace tbx::rpc_communication
         auto entities = tbx::Json::array();
 
         auto world_manager = _world_manager.lock();
-        auto world =
-            world_manager ? world_manager->get_active_world().lock() : std::shared_ptr<tbx::World>();
+        auto world = world_manager ? world_manager->get_active_world().lock()
+                                   : std::shared_ptr<tbx::World>();
         if (world)
         {
             for (const auto& entity : world->get_all())
@@ -410,6 +431,63 @@ namespace tbx::rpc_communication
         }
 
         result["entities"] = std::move(entities);
+        return result;
+    }
+
+    // Lower-cased file extension without the leading dot, used as the asset's editor "type" so the
+    // handle picker can filter (e.g. "mat", "png", "world"). Empty extensions fall back to "asset".
+    static std::string asset_type_from_path(const std::filesystem::path& path)
+    {
+        auto extension = path.extension().string();
+        if (!extension.empty() && extension.front() == '.')
+            extension.erase(extension.begin());
+        if (extension.empty())
+            return "asset";
+
+        for (auto& character : extension)
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+
+        return extension;
+    }
+
+    tbx::Json RpcCommunication::handle_list_assets() const
+    {
+        auto result = tbx::Json::object();
+        auto assets = tbx::Json::array();
+        auto scripts = tbx::Json::array();
+
+        if (auto asset_manager = _asset_manager.lock())
+        {
+            for (const auto& entry : asset_manager->get_registered_assets())
+            {
+                const auto display_name = entry.resolved_path.empty()
+                                              ? entry.normalized_path
+                                              : entry.resolved_path.stem().string();
+
+                auto asset = tbx::Json::object();
+                asset["id"] = entry.asset_id.value;
+                asset["name"] = display_name;
+                asset["type"] = asset_type_from_path(entry.resolved_path);
+                asset["path"] = entry.normalized_path;
+                assets.push_back(std::move(asset));
+            }
+        }
+
+        // The script catalog is the set of registered asset types that carry runtime script glue
+        // (regular assets leave bind_runtime empty). It lets the editor label/validate script refs.
+        for (const auto& registration : tbx::get_asset_type_registrations())
+        {
+            if (!registration.bind_runtime)
+                continue;
+
+            auto script = tbx::Json::object();
+            script["name"] = registration.type_name;
+            script["version"] = registration.version;
+            scripts.push_back(std::move(script));
+        }
+
+        result["assets"] = std::move(assets);
+        result["scripts"] = std::move(scripts);
         return result;
     }
 

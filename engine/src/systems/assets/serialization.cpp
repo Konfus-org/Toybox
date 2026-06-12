@@ -155,6 +155,13 @@ namespace tbx
         track_plugin_owned_asset_type(registration_type);
     }
 
+    std::vector<AssetTypeRegistration> get_asset_type_registrations()
+    {
+        auto& store = SerializationRegistrationStore::get_instance();
+        auto guard = std::lock_guard(store.asset_type_mutex());
+        return store.asset_types();
+    }
+
     std::vector<SerializableTypeRegistration> get_serializable_type_registrations()
     {
         auto& store = SerializationRegistrationStore::get_instance();

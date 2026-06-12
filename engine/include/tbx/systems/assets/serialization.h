@@ -70,6 +70,7 @@ namespace tbx
         std::string_view type_name);
     TBX_API void unregister_asset_type_entry(std::type_index asset_type);
     TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
+    TBX_API std::vector<AssetTypeRegistration> get_asset_type_registrations();
     TBX_API std::vector<SerializableTypeRegistration> get_serializable_type_registrations();
     TBX_API void unregister_serializable_type_entry(std::string_view name);
     TBX_API void register_serializable_type_entry(SerializableTypeRegistration entry);
@@ -291,6 +292,16 @@ namespace tbx
 
     template <typename TValue, typename TAllocator>
     struct IsSerializableVector<std::vector<TValue, TAllocator>> : std::true_type
+    {
+    };
+
+    template <typename TValue>
+    struct IsStdVariant : std::false_type
+    {
+    };
+
+    template <typename... TAlternatives>
+    struct IsStdVariant<std::variant<TAlternatives...>> : std::true_type
     {
     };
 
@@ -612,15 +623,35 @@ namespace tbx
         return result;
     }
 
-    // Keys for the self-describing property wrapper consumed by the editor's property grid. They are
-    // deliberately distinct from SERIALIZABLE_VARIANT_TYPE_KEY/_VALUE_KEY ("type"/"value") so that a
-    // [[prop]] std::variant field — already serialized as { "type": ..., "value": ... } — is never
-    // mistaken for a property wrapper. A leading '$' also cannot appear in a C++ field name, so the
-    // wrapper can never collide with a real struct field.
-    inline constexpr std::string_view PROPERTY_TYPE_KEY = "$type";
-    inline constexpr std::string_view PROPERTY_VALUE_KEY = "$value";
-    inline constexpr std::string_view PROPERTY_CATEGORY_KEY = "$category";
-    inline constexpr std::string_view PROPERTY_DESCRIPTION_KEY = "$description";
+    // Keys for the self-describing property wrapper consumed by the editor's property grid. They share
+    // the variant convention's "type"/"value" shape, which is intentional: a [[prop]] std::variant
+    // field is itself the one ambiguous case, and we disambiguate it explicitly — a variant property
+    // carries the type token "variant" with its value being the variant's own { "type", "value" }
+    // alternative (see get_property_type_token and read_typed_serialization_value). Readers key off the
+    // target's static type, so the two never get confused.
+    inline constexpr std::string_view PROPERTY_TYPE_KEY = "type";
+    inline constexpr std::string_view PROPERTY_VALUE_KEY = "value";
+    inline constexpr std::string_view PROPERTY_CATEGORY_KEY = "category";
+    inline constexpr std::string_view PROPERTY_DESCRIPTION_KEY = "description";
+    inline constexpr std::string_view PROPERTY_VIEW_KEY = "view";
+    inline constexpr std::string_view PROPERTY_READONLY_KEY = "readonly";
+    inline constexpr std::string_view PROPERTY_HIDDEN_KEY = "hidden";
+
+    // The type token a std::variant property carries; its value is the variant's own {type,value}.
+    inline constexpr std::string_view PROPERTY_VARIANT_TOKEN = "variant";
+
+    /// @brief
+    /// Purpose: Optional editor-only presentation metadata for one serialized property, sourced from
+    /// the field's [[tbx::editor::...]] attributes by the code generator. Empty/false members are
+    /// omitted from the wire so the common (no-metadata) case stays compact.
+    struct PropertyEditorMetadata
+    {
+        std::string_view category = {};
+        std::string_view description = {};
+        std::string_view view = {};
+        bool readonly = false;
+        bool hidden = false;
+    };
 
     template <typename TValue>
     struct PropertyValueType
@@ -650,6 +681,12 @@ namespace tbx
         {
             return "array";
         }
+        else if constexpr (IsStdVariant<Clean>::value)
+        {
+            // A variant is self-describing through its value's own { "type", "value" }; the property
+            // token "variant" tells the reader/editor to treat the value as that, not as a sub-struct.
+            return std::string(PROPERTY_VARIANT_TOKEN);
+        }
         else if constexpr (std::is_same_v<Clean, std::string>)
         {
             return "string";
@@ -665,49 +702,82 @@ namespace tbx
     }
 
     /// @brief
-    /// Writes a property as a self-describing { "$type": <token>, "$value": <value> } object, plus
-    /// optional editor metadata ($category for grouping, $description for tooltips) when present.
+    /// Writes a property as a self-describing { "type": <token>, "value": <value> } object, plus
+    /// optional editor metadata (category grouping, description tooltip, view custom control, and the
+    /// readonly/hidden flags) when present. A std::variant value carries token "variant" and its own
+    /// { "type", "value" } as the value.
     template <typename TJson, typename TValue>
     static void write_typed_serialization_field(
         TJson& json,
         std::string_view field_name,
         const TValue& value,
-        std::string_view category = {},
-        std::string_view description = {})
+        const PropertyEditorMetadata& editor = {})
     {
         const auto key = make_serialization_json_key(field_name);
         auto field = TJson::object();
         field[std::string(PROPERTY_TYPE_KEY)] = get_property_type_token<TValue>();
         field[std::string(PROPERTY_VALUE_KEY)] = write_serialization_value<TJson>(value);
-        if (!category.empty())
-            field[std::string(PROPERTY_CATEGORY_KEY)] = category;
-        if (!description.empty())
-            field[std::string(PROPERTY_DESCRIPTION_KEY)] = description;
+        if (!editor.category.empty())
+            field[std::string(PROPERTY_CATEGORY_KEY)] = editor.category;
+        if (!editor.description.empty())
+            field[std::string(PROPERTY_DESCRIPTION_KEY)] = editor.description;
+        if (!editor.view.empty())
+            field[std::string(PROPERTY_VIEW_KEY)] = editor.view;
+        if (editor.readonly)
+            field[std::string(PROPERTY_READONLY_KEY)] = true;
+        if (editor.hidden)
+            field[std::string(PROPERTY_HIDDEN_KEY)] = true;
         json[key] = std::move(field);
     }
 
     /// @brief
-    /// Reads a single node written by write_typed_serialization_field. Accepts both the typed wrapper
-    /// and the legacy bare value. A wrapper is recognized only as an object holding exactly a string
-    /// "type" and a "value" member, so ordinary structs are never mistaken for wrappers.
+    /// Reads a single node written by write_typed_serialization_field. Accepts the typed wrapper and
+    /// the legacy bare value. Disambiguation keys off the target's static type: a std::variant is read
+    /// as a variant unless it is the explicit { "type": "variant", "value": … } wrapper, while any
+    /// other target unwraps any { "type", "value" } object it finds.
     template <typename TJson, typename TValue>
     static void read_typed_serialization_value(const TJson& node, TValue& value)
     {
-        // A wrapper is any object carrying a string "$type" and a "$value"; extra editor metadata
-        // ($category/$description) is ignored. The '$' prefix can't appear in a real field name.
-        if (node.is_object())
+        if constexpr (IsStdVariant<std::remove_cvref_t<TValue>>::value)
         {
-            const auto type_iterator = node.find(std::string(PROPERTY_TYPE_KEY));
-            const auto inner_iterator = node.find(std::string(PROPERTY_VALUE_KEY));
-            if (type_iterator != node.end() && type_iterator->is_string()
-                && inner_iterator != node.end())
+            // The wrapper and the variant share the { "type", "value" } shape. Only the explicit
+            // "variant" token marks the wrapper; otherwise the object is the variant itself (the
+            // legacy/on-disk form), read directly so the alternative's "type"/"value" stay intact.
+            if (node.is_object())
             {
-                read_serialization_value(*inner_iterator, value);
-                return;
+                const auto type_iterator = node.find(std::string(PROPERTY_TYPE_KEY));
+                const auto inner_iterator = node.find(std::string(PROPERTY_VALUE_KEY));
+                if (type_iterator != node.end() && type_iterator->is_string()
+                    && std::string_view(type_iterator->template get_ref<const std::string&>())
+                           == PROPERTY_VARIANT_TOKEN
+                    && inner_iterator != node.end())
+                {
+                    read_serialization_value(*inner_iterator, value);
+                    return;
+                }
             }
-        }
 
-        read_serialization_value(node, value);
+            read_serialization_value(node, value);
+            return;
+        }
+        else
+        {
+            // A wrapper is any object carrying a string "type" and a "value"; extra editor metadata
+            // (category/description/view/readonly/hidden) is ignored.
+            if (node.is_object())
+            {
+                const auto type_iterator = node.find(std::string(PROPERTY_TYPE_KEY));
+                const auto inner_iterator = node.find(std::string(PROPERTY_VALUE_KEY));
+                if (type_iterator != node.end() && type_iterator->is_string()
+                    && inner_iterator != node.end())
+                {
+                    read_serialization_value(*inner_iterator, value);
+                    return;
+                }
+            }
+
+            read_serialization_value(node, value);
+        }
     }
 
     /// @brief

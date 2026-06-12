@@ -19,8 +19,13 @@ from model import (
 )
 
 
+# Editor-only attributes use the `editor::` attribute namespace (e.g. [[editor::readonly]]) — a single
+# scope, which is the most nesting C++ attribute syntax allows. The `editor::` segment is kept in the
+# captured name so it never collides with a subsystem attribute of the same short name (e.g. a plugin's
+# `description`). A leading `tbx::` is still stripped, so [[tbx::editor::x]] (if ever written) and
+# [[editor::x]] normalize to the same `editor::x` name.
 ATTRIBUTE_PATTERN = re.compile(
-    r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
+    r"\[\[\s*(?:tbx::)?((?:editor::)?[A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
 )
 NAMESPACE_PATTERN = re.compile(r"^\s*namespace\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*(?:\{)?\s*$")
 TYPE_PATTERN = re.compile(

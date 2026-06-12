@@ -59,6 +59,7 @@ namespace tbx
         std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry(
             const Handle& handle) const;
         std::vector<std::filesystem::path> get_asset_directories() const;
+        std::vector<AssetRegistryEntry> get_entries() const;
         AssetRegistryMutationResult register_discovered_asset(
             const std::filesystem::path& asset_path);
         AssetRegistryMutationResult unregister_asset(const std::filesystem::path& asset_path);

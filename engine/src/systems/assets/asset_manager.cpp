@@ -250,6 +250,12 @@ namespace tbx
         return _registry->get_asset_directories();
     }
 
+    std::vector<AssetRegistryEntry> AssetManager::get_registered_assets() const
+    {
+        std::lock_guard lock(_mutex);
+        return _registry->get_entries();
+    }
+
     std::weak_ptr<SerializationRegistry> AssetManager::get_serialization_registry()
     {
         return _serialization_registry;

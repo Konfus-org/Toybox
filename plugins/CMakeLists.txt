@@ -7,9 +7,9 @@ set(CMAKE_FOLDER "plugins")
 
 foreach(plugin_dir IN ITEMS
     stb_image_loader
-    tbx_shader_include_loader
+    shader_include_loader
     assimp_model_loader
-    tbx_performance_monitor
+    performance_monitor
     sdl_base_systems
     sdl_opengl_context_manager
     sdl_windowing

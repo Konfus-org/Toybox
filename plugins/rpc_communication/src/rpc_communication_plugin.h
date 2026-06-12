@@ -2,6 +2,7 @@
 #include "frame_capture.h"
 #include "rpc_server.h"
 #include "tbx/interfaces/plugin.h"
+#include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/log_level.h"
 #include "tbx/systems/ecs/world/manager.h"
 #include "tbx/systems/files/json.h"
@@ -46,6 +47,7 @@ namespace tbx::rpc_communication
         void handle_set_log_colors(const tbx::Json& params);
         tbx::Json handle_hello() const;
         tbx::Json handle_describe_world() const;
+        tbx::Json handle_list_assets() const;
         Result apply_component(const tbx::Json& params) const;
         Result start_view();
         void stop_view();
@@ -57,6 +59,7 @@ namespace tbx::rpc_communication
         FrameCapture _frame_capture = {};
         std::weak_ptr<tbx::WorldManager> _world_manager = {};
         std::weak_ptr<tbx::Rendering> _rendering = {};
+        std::weak_ptr<tbx::AssetManager> _asset_manager = {};
         tbx::RenderTexture _editor_view_texture = {};
         tbx::Uuid _editor_camera_id = {};
         std::string _app_name = {};

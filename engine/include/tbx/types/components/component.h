@@ -20,6 +20,8 @@ namespace tbx
     struct TBX_API Component
     {
         [[prop]]
+        [[editor::readonly]]
+        [[editor::description("Stable identity of this component. Assigned by the engine.")]]
         Uuid id = Uuid::generate();
     };
 
