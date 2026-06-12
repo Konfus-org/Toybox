@@ -1,6 +1,11 @@
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/types/color.h"
+#include <algorithm>
+#include <array>
+#include <format>
 #include <mutex>
+#include <optional>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -19,6 +24,71 @@ namespace tbx
         return (get_process_executable_directory() / "logs").lexically_normal();
     }
 
+    static spdlog::level::level_enum to_spdlog_level(LogLevel level)
+    {
+        switch (level)
+        {
+            case LogLevel::INFO:
+                return spdlog::level::info;
+            case LogLevel::WARNING:
+                return spdlog::level::warn;
+            case LogLevel::ERROR:
+                return spdlog::level::err;
+            case LogLevel::CRITICAL:
+                return spdlog::level::critical;
+        }
+
+        return spdlog::level::info;
+    }
+
+#ifdef TBX_PLATFORM_WINDOWS
+    // Windows console foreground attribute bits (stable wincon.h values), kept local so the logger
+    // does not pull in <windows.h>. The console palette is only 16 colors, so an arbitrary RGB is
+    // quantized to the nearest of them.
+    static constexpr uint16 CONSOLE_FG_BLUE = 0x0001U;
+    static constexpr uint16 CONSOLE_FG_GREEN = 0x0002U;
+    static constexpr uint16 CONSOLE_FG_RED = 0x0004U;
+    static constexpr uint16 CONSOLE_FG_INTENSITY = 0x0008U;
+
+    static uint16 to_console_attributes(const Color& color)
+    {
+        uint16 attributes = 0U;
+        if (color.r > 0.25F)
+            attributes |= CONSOLE_FG_RED;
+        if (color.g > 0.25F)
+            attributes |= CONSOLE_FG_GREEN;
+        if (color.b > 0.25F)
+            attributes |= CONSOLE_FG_BLUE;
+        if (std::max({color.r, color.g, color.b}) > 0.6F)
+            attributes |= CONSOLE_FG_INTENSITY;
+
+        // A fully dark color would be invisible against the console background.
+        if ((attributes & (CONSOLE_FG_RED | CONSOLE_FG_GREEN | CONSOLE_FG_BLUE)) == 0U)
+            attributes |= CONSOLE_FG_RED | CONSOLE_FG_GREEN | CONSOLE_FG_BLUE;
+
+        return attributes;
+    }
+
+    static void apply_console_color(
+        spdlog::sinks::stdout_color_sink_mt& sink, LogLevel level, const Color& color)
+    {
+        sink.set_color(to_spdlog_level(level), to_console_attributes(color));
+    }
+#else
+    static uint8 to_byte(float channel)
+    {
+        return static_cast<uint8>(std::clamp(channel, 0.0F, 1.0F) * 255.0F + 0.5F);
+    }
+
+    static void apply_console_color(
+        spdlog::sinks::stdout_color_sink_mt& sink, LogLevel level, const Color& color)
+    {
+        auto code =
+            std::format("\x1b[38;2;{};{};{}m", to_byte(color.r), to_byte(color.g), to_byte(color.b));
+        sink.set_color(to_spdlog_level(level), code);
+    }
+#endif
+
     struct PendingLogEntry
     {
         LogLevel level = LogLevel::INFO;
@@ -28,7 +98,8 @@ namespace tbx
     };
 
     static std::shared_ptr<spdlog::logger> create_default_logger(
-        const std::filesystem::path& logs_directory)
+        const std::filesystem::path& logs_directory,
+        std::shared_ptr<spdlog::sinks::stdout_color_sink_mt>& out_console_sink)
     {
         if (logs_directory.empty())
             return {};
@@ -40,9 +111,10 @@ namespace tbx
 
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path.string(), true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        out_console_sink = console_sink;
 #ifdef TBX_PLATFORM_WINDOWS
         auto msvc_sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
-        return std::make_shared<spdlog::logger>(
+        auto logger = std::make_shared<spdlog::logger>(
             "Toybox",
             spdlog::sinks_init_list {
                 console_sink,
@@ -50,13 +122,18 @@ namespace tbx
                 msvc_sink,
             });
 #else
-        return std::make_shared<spdlog::logger>(
+        auto logger = std::make_shared<spdlog::logger>(
             "Toybox",
             spdlog::sinks_init_list {
                 console_sink,
                 file_sink,
             });
 #endif
+#ifdef TBX_DEBUG
+        // Debug builds flush per message so crash/hang investigations can trust the log tail.
+        logger->flush_on(spdlog::level::trace);
+#endif
+        return logger;
     }
 
     static void write_entry(
@@ -85,9 +162,27 @@ namespace tbx
         }
     }
 
+    static void notify_log_listeners(
+        const std::vector<LogListener>& listeners,
+        LogLevel level,
+        const std::string& file,
+        int line,
+        const std::string& message)
+    {
+        if (listeners.empty())
+            return;
+
+        auto filename = std::filesystem::path(file).filename().string();
+        auto composed = std::format("[{}:{}] {}", filename, line, message);
+        for (const auto& listener : listeners)
+            listener(level, composed);
+    }
+
     struct Log::Logger
     {
         std::shared_ptr<spdlog::logger> impl = {};
+        std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> console_sink = {};
+        std::array<std::optional<Color>, 4> color_overrides = {};
         std::vector<PendingLogEntry> pending_entries = {};
     };
 
@@ -111,6 +206,16 @@ namespace tbx
             _logs_directory = get_default_logs_directory();
 
         return _logs_directory;
+    }
+
+    void Log::set_logs_directory(const std::filesystem::path& directory)
+    {
+        auto lock = std::lock_guard(_logger_mutex);
+        // Only effective before the file sink is created (the launcher sets this before anything logs).
+        if (directory.empty() || _logger->impl)
+            return;
+
+        _logs_directory = directory.lexically_normal();
     }
 
     void Log::flush()
@@ -142,6 +247,30 @@ namespace tbx
         return std::string(message);
     }
 
+    uint Log::add_listener(LogListener listener)
+    {
+        auto lock = std::lock_guard(_listener_mutex);
+        const auto listener_id = _next_listener_id++;
+        _listeners.emplace_back(listener_id, std::move(listener));
+        return listener_id;
+    }
+
+    void Log::remove_listener(uint listener_id)
+    {
+        auto lock = std::lock_guard(_listener_mutex);
+        std::erase_if(
+            _listeners,
+            [listener_id](const auto& entry) { return entry.first == listener_id; });
+    }
+
+    void Log::set_color(LogLevel level, const Color& color)
+    {
+        auto lock = std::lock_guard(_logger_mutex);
+        _logger->color_overrides[static_cast<size>(level)] = color;
+        if (_logger->console_sink)
+            apply_console_color(*_logger->console_sink, level, color);
+    }
+
     bool Log::should_write_once(LogLevel level, const std::string& message)
     {
         const auto message_hash = std::hash<std::string> {}(message);
@@ -166,7 +295,22 @@ namespace tbx
                 _logs_directory = get_default_logs_directory();
 
             if (!_logger->impl && !_logs_directory.empty())
-                _logger->impl = create_default_logger(_logs_directory);
+            {
+                _logger->impl = create_default_logger(_logs_directory, _logger->console_sink);
+
+                // A logger created after set_color calls must adopt those colors.
+                if (_logger->console_sink)
+                {
+                    for (size index = 0; index < _logger->color_overrides.size(); ++index)
+                    {
+                        if (_logger->color_overrides[index])
+                            apply_console_color(
+                                *_logger->console_sink,
+                                static_cast<LogLevel>(index),
+                                *_logger->color_overrides[index]);
+                    }
+                }
+            }
 
             active_logger = _logger->impl;
             if (!active_logger)
@@ -184,15 +328,23 @@ namespace tbx
             pending_entries.swap(_logger->pending_entries);
         }
 
-        for (const auto& entry : pending_entries)
-            write_entry(*active_logger, entry.level, entry.file, entry.line, entry.message);
+        auto listeners = std::vector<LogListener> {};
+        {
+            auto lock = std::lock_guard(_listener_mutex);
+            listeners.reserve(_listeners.size());
+            for (const auto& [id, listener] : _listeners)
+                listeners.push_back(listener);
+        }
 
-        write_entry(
-            *active_logger,
-            level,
-            file != nullptr ? std::string(file) : std::string(),
-            line,
-            message);
+        for (const auto& entry : pending_entries)
+        {
+            write_entry(*active_logger, entry.level, entry.file, entry.line, entry.message);
+            notify_log_listeners(listeners, entry.level, entry.file, entry.line, entry.message);
+        }
+
+        auto current_file = file != nullptr ? std::string(file) : std::string();
+        write_entry(*active_logger, level, current_file, line, message);
+        notify_log_listeners(listeners, level, current_file, line, message);
     }
 
 }

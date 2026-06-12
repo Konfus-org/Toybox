@@ -10,13 +10,6 @@
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Carries backend-specific window handle data across systems.
-    /// @details
-    /// Ownership: Non-owning opaque pointer; platform backend controls lifetime.
-    /// Thread Safety: Pointer value is copyable; lifetime access must be externally synchronized.
-    using NativeWindowHandle = void*;
-
     // Enumerates the presentation modes that a window can be configured for.
     // Ownership: Represents value semantics only; no ownership concerns.
     // Thread-safety: Immutable enum used freely across threads.
@@ -25,7 +18,8 @@ namespace tbx
         WINDOWED,
         BORDERLESS,
         FULLSCREEN,
-        MINIMIZED
+        MINIMIZED,
+        HIDDEN
     };
 
     /// @brief
@@ -60,8 +54,5 @@ namespace tbx
             : RenderTarget(std::move(render_target))
         {
         }
-
-      public:
-        NativeWindowHandle native_handle = nullptr;
     };
 }

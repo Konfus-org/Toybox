@@ -1,10 +1,15 @@
 #include "opengl_backend.h"
+#include <chrono>
+#include <thread>
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
 
 namespace opengl_rendering
 {
+    // Mirrors a 60Hz vsynced swap for render-texture frames.
+    constexpr std::chrono::microseconds TEXTURE_FRAME_INTERVAL(16667);
+
     static std::string gl_error_to_string(const GLenum error)
     {
         switch (error)
@@ -368,6 +373,7 @@ namespace opengl_rendering
 
     void OpenGlGraphicsBackend::cleanup()
     {
+        destroy_output_framebuffer();
         const auto context_backend = lock_context_backend();
 
         if (_state.is_loaded && context_backend)
@@ -409,15 +415,47 @@ namespace opengl_rendering
         return result;
     }
 
-    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::Window& output_target)
+    tbx::Result OpenGlGraphicsBackend::begin_frame(const tbx::RenderTarget& output_target)
     {
         if (!output_target.id.is_valid())
-            return make_failure("OpenGL backend: frame output window is invalid.");
+            return make_failure("OpenGL backend: frame output target is invalid.");
 
-        if (auto result = ensure_frame_context(output_target); !result)
+        // Targets arrive fully resolved from the main thread: window targets carry their native
+        // handle, texture targets carry a size. No service lookups happen on the render lane.
+        const auto window = tbx::Window(output_target);
+        if (window.native_handle != nullptr)
+        {
+            if (auto result = ensure_frame_context(window); !result)
+                return result;
+
+            clear_bound_state();
+            return make_success();
+        }
+
+        if (output_target.size.width == 0U || output_target.size.height == 0U)
+            return make_failure(
+                "OpenGL backend: frame output target has neither a native window nor a size.");
+
+        // Texture targets render offscreen, borrowing whichever window context already exists.
+        if (_contexts.empty())
+            return make_failure(
+                "OpenGL backend: render texture output requires an existing window context.");
+
+        if (auto result = make_current(_contexts.front()); !result)
             return result;
 
+        if (auto result = ensure_gl_loaded(); !result)
+            return result;
+
+        if (auto result = ensure_output_framebuffer(output_target.size); !result)
+            return result;
+
+        // Resource uploads (per-frame buffers, bind groups) require an active frame target, just
+        // like the window path sets via ensure_frame_context. Texture frames borrow the context
+        // host window, so record it as the current target or every upload this frame fails.
+        _state.current_target = _contexts.front();
         clear_bound_state();
+        _is_texture_frame = true;
         return make_success();
     }
 
@@ -426,11 +464,26 @@ namespace opengl_rendering
         clear_bound_state();
         auto result = consume_gl_errors("end_frame");
         _state.current_target = {};
+        _is_texture_frame = false;
         return result;
     }
 
     tbx::Result OpenGlGraphicsBackend::present()
     {
+        if (_is_texture_frame)
+        {
+            // Texture frames swap nothing, so the loop has no natural pacing. Mirror a vsynced
+            // swap only when vsync is actually requested; with vsync off the loop runs unthrottled
+            // exactly as a windowed swap would.
+            if (_state.vsync_mode != tbx::VsyncMode::OFF)
+            {
+                const auto next_frame_time = _last_texture_present_time + TEXTURE_FRAME_INTERVAL;
+                std::this_thread::sleep_until(next_frame_time);
+            }
+            _last_texture_present_time = std::chrono::steady_clock::now();
+            return make_success();
+        }
+
         if (!_state.current_target.id.is_valid())
             return make_failure("OpenGL backend: no active window to present.");
 
@@ -438,6 +491,137 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: active window context was not found.");
 
         return present(_state.current_target);
+    }
+
+    tbx::Result OpenGlGraphicsBackend::read_back_buffer(
+        const tbx::Size& backbuffer_size,
+        std::vector<uint8>& out_pixels)
+    {
+        if (!_state.is_loaded)
+            return make_failure("OpenGL backend: cannot read the back buffer before GL is loaded.");
+
+        const auto width = backbuffer_size.width;
+        const auto height = backbuffer_size.height;
+        if (width == 0U || height == 0U)
+            return make_failure("OpenGL backend: cannot read a zero-sized back buffer.");
+
+        const auto stride = static_cast<size>(width) * 4U;
+        const auto buffer_bytes = stride * height;
+        constexpr uint32 PBO_COUNT = 3U; // a ring deep enough to read a fence two frames behind
+
+        if (_readback_pbos[0] == 0U)
+            glGenBuffers(static_cast<GLsizei>(PBO_COUNT), _readback_pbos);
+
+        // Resize every pixel buffer when the capture size changes; queued frames no longer match,
+        // so drop their fences and start filling the ring again.
+        if (_readback_pbo_size.width != width || _readback_pbo_size.height != height)
+        {
+            for (uint32 slot = 0U; slot < PBO_COUNT; ++slot)
+            {
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[slot]);
+                glBufferData(
+                    GL_PIXEL_PACK_BUFFER,
+                    static_cast<GLsizeiptr>(buffer_bytes),
+                    nullptr,
+                    GL_STREAM_READ);
+                if (_readback_fences[slot] != nullptr)
+                {
+                    glDeleteSync(static_cast<GLsync>(_readback_fences[slot]));
+                    _readback_fences[slot] = nullptr;
+                }
+            }
+            _readback_pbo_size = backbuffer_size;
+            _readback_write_index = 0U;
+            _readback_inflight = 0U;
+        }
+
+        // The pipeline may leave an offscreen FBO bound; read explicitly from the chosen target
+        // and restore whatever read/pack state was active afterwards.
+        GLint previous_read_framebuffer = 0;
+        GLint previous_pack_alignment = 4;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_read_framebuffer);
+        glGetIntegerv(GL_PACK_ALIGNMENT, &previous_pack_alignment);
+
+        // Issue the read into the current ring buffer. With a pack buffer bound glReadPixels queues
+        // an asynchronous DMA and returns immediately; a fence lets a later call tell when the copy
+        // has finished without ever blocking the render lane.
+        const auto write_index = _readback_write_index;
+        if (_readback_fences[write_index] != nullptr) // a skipped read left this slot's fence behind
+        {
+            glDeleteSync(static_cast<GLsync>(_readback_fences[write_index]));
+            _readback_fences[write_index] = nullptr;
+        }
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, get_output_framebuffer());
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadBuffer(_is_texture_frame ? GL_COLOR_ATTACHMENT0 : GL_BACK);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[write_index]);
+        glReadPixels(
+            0,
+            0,
+            static_cast<GLsizei>(width),
+            static_cast<GLsizei>(height),
+            GL_BGRA,
+            GL_UNSIGNED_BYTE,
+            nullptr);
+        _readback_fences[write_index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        // Texture frames never swap, so nothing else submits this work to the GPU. Flush so the
+        // readback and its fence actually start now and have finished by the time a later call polls.
+        glFlush();
+
+        // Deliver the buffer filled two calls ago, but only if its DMA has finished. Polling the
+        // fence with a zero timeout never blocks: a not-yet-ready frame is simply skipped (the
+        // viewport holds the previous frame a beat) instead of stalling the render lane.
+        auto result = make_failure("OpenGL backend: readback frame not ready yet.");
+        if (_readback_inflight >= 2U)
+        {
+            const auto read_index = (write_index + 1U) % PBO_COUNT;
+            const auto fence = static_cast<GLsync>(_readback_fences[read_index]);
+            if (fence != nullptr)
+            {
+                const auto status = glClientWaitSync(fence, 0, 0);
+                if (status == GL_ALREADY_SIGNALED || status == GL_CONDITION_SATISFIED)
+                {
+                    glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[read_index]);
+                    const auto* mapped = static_cast<const uint8*>(glMapBufferRange(
+                        GL_PIXEL_PACK_BUFFER,
+                        0,
+                        static_cast<GLsizeiptr>(buffer_bytes),
+                        GL_MAP_READ_BIT));
+                    if (mapped != nullptr)
+                    {
+                        out_pixels.resize(buffer_bytes);
+                        // GL rows are bottom-up; deliver top-down.
+                        for (uint32 row = 0U; row < height; ++row)
+                        {
+                            const auto* src = mapped + static_cast<size>(height - 1U - row) * stride;
+                            std::memcpy(
+                                out_pixels.data() + static_cast<size>(row) * stride, src, stride);
+                        }
+                        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                        result = make_success();
+                    }
+                    else
+                    {
+                        result = make_failure("OpenGL backend: failed to map the readback buffer.");
+                    }
+                    glDeleteSync(fence);
+                    _readback_fences[read_index] = nullptr;
+                }
+            }
+        }
+
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0U);
+        glPixelStorei(GL_PACK_ALIGNMENT, previous_pack_alignment);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer));
+
+        _readback_write_index = (write_index + 1U) % PBO_COUNT;
+        if (_readback_inflight < PBO_COUNT)
+            ++_readback_inflight;
+
+        const auto gl_result = consume_gl_errors("read_back_buffer");
+        if (!result)
+            return result;
+        return gl_result;
     }
 
     void OpenGlGraphicsBackend::wait_for_idle()
@@ -527,7 +711,7 @@ namespace opengl_rendering
         }
         else
         {
-            glBindFramebuffer(GL_FRAMEBUFFER, 0U);
+            glBindFramebuffer(GL_FRAMEBUFFER, get_output_framebuffer());
             glViewport(
                 static_cast<GLint>(_state.current_viewport.position.x),
                 static_cast<GLint>(_state.current_viewport.position.y),
@@ -579,7 +763,7 @@ namespace opengl_rendering
 
         _state.is_render_pass_active = false;
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0U);
+        glBindFramebuffer(GL_FRAMEBUFFER, get_output_framebuffer());
         _cache.pass_framebuffer.reset();
         return make_success();
     }
@@ -1358,6 +1542,26 @@ namespace opengl_rendering
         _cache.buffers.clear();
         _cache.samplers.clear();
         _cache.textures.clear();
+
+        if (_readback_pbos[0] != 0U)
+        {
+            for (auto& fence : _readback_fences)
+            {
+                if (fence != nullptr)
+                {
+                    glDeleteSync(static_cast<GLsync>(fence));
+                    fence = nullptr;
+                }
+            }
+            glDeleteBuffers(3, _readback_pbos);
+            _readback_pbos[0] = 0U;
+            _readback_pbos[1] = 0U;
+            _readback_pbos[2] = 0U;
+            _readback_pbo_size = {};
+            _readback_write_index = 0U;
+            _readback_inflight = 0U;
+        }
+
         clear_bound_state();
     }
 
@@ -1469,6 +1673,94 @@ namespace opengl_rendering
 
         _state.current_target = window;
         return ensure_gl_loaded();
+    }
+
+    tbx::Result OpenGlGraphicsBackend::ensure_output_framebuffer(const tbx::Size& output_size)
+    {
+        if (_output_framebuffer != 0U
+            && _output_size.width == output_size.width
+            && _output_size.height == output_size.height)
+            return make_success();
+
+        destroy_output_framebuffer();
+
+        glGenTextures(1, &_output_color_texture);
+        glBindTexture(GL_TEXTURE_2D, _output_color_texture);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            static_cast<GLsizei>(output_size.width),
+            static_cast<GLsizei>(output_size.height),
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0U);
+
+        glGenRenderbuffers(1, &_output_depth_renderbuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, _output_depth_renderbuffer);
+        glRenderbufferStorage(
+            GL_RENDERBUFFER,
+            GL_DEPTH24_STENCIL8,
+            static_cast<GLsizei>(output_size.width),
+            static_cast<GLsizei>(output_size.height));
+        glBindRenderbuffer(GL_RENDERBUFFER, 0U);
+
+        glGenFramebuffers(1, &_output_framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, _output_framebuffer);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D,
+            _output_color_texture,
+            0);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            GL_DEPTH_STENCIL_ATTACHMENT,
+            GL_RENDERBUFFER,
+            _output_depth_renderbuffer);
+
+        const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0U);
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            destroy_output_framebuffer();
+            return make_failure("OpenGL backend: render texture output framebuffer is incomplete.");
+        }
+
+        _output_size = output_size;
+        return consume_gl_errors("ensure_output_framebuffer");
+    }
+
+    void OpenGlGraphicsBackend::destroy_output_framebuffer()
+    {
+        if (_output_framebuffer != 0U)
+        {
+            glDeleteFramebuffers(1, &_output_framebuffer);
+            _output_framebuffer = 0U;
+        }
+
+        if (_output_color_texture != 0U)
+        {
+            glDeleteTextures(1, &_output_color_texture);
+            _output_color_texture = 0U;
+        }
+
+        if (_output_depth_renderbuffer != 0U)
+        {
+            glDeleteRenderbuffers(1, &_output_depth_renderbuffer);
+            _output_depth_renderbuffer = 0U;
+        }
+
+        _output_size = {};
+    }
+
+    uint32 OpenGlGraphicsBackend::get_output_framebuffer() const
+    {
+        return _is_texture_frame ? _output_framebuffer : 0U;
     }
 
     tbx::Result OpenGlGraphicsBackend::ensure_gl_loaded()

@@ -42,11 +42,11 @@ namespace tbx
 
       private:
         friend TBX_API void serialize(::tbx::Json& tbx_json, const Camera& tbx_value);
-
         friend TBX_API void deserialize(const ::tbx::Json& tbx_json, Camera& tbx_value);
 
         [[prop]]
         RenderTarget _render_target = {};
+        [[prop]]
         Viewport _viewport = {};
         [[prop]]
         Mat4 _projection_matrix = Mat4(1.0f);

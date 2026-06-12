@@ -430,6 +430,41 @@ namespace tbx
         return true;
     }
 
+    Result Entity::apply_component_json(
+        const Entity& entity,
+        std::string_view component_name,
+        std::string_view value_json)
+    {
+        if (!entity._registry.has_value())
+            return Result(false, "Entity is not bound to a registry.");
+
+        auto& registry = entity._registry->get();
+        if (!registry.has(entity._id))
+            return Result(false, "Entity no longer exists.");
+
+        const auto entries = get_entity_component_type_registrations();
+        const auto entry = std::ranges::find_if(
+            entries,
+            [&component_name](const EntityComponentTypeRegistration& candidate)
+            { return candidate.name == component_name; });
+        if (entry == entries.end() || !entry->read_value)
+            return Result(
+                false,
+                std::string("Unknown component '").append(component_name).append("'."));
+
+        const auto handle = to_entity_handle(entity._id);
+        auto guard = std::unique_lock(registry._mutex);
+        if (!registry._registry->valid(handle))
+            return Result(false, "Entity handle is no longer valid.");
+
+        if (!entry->read_value(value_json, *registry._registry, handle))
+            return Result(
+                false,
+                std::string("Failed to apply component '").append(component_name).append("'."));
+
+        return Result::OK;
+    }
+
     bool Entity::deserialize(std::string_view data, EntityRegistry& registry, Entity& entity)
     {
         auto payload = SerializedEntityPayload();

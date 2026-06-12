@@ -1,0 +1,1 @@
+tbx_add_plugin(NAME RpcCommunication PRIVATE_LINKS ws2_32)

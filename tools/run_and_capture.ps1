@@ -1,10 +1,16 @@
+# Defaults are resolved relative to this script: tools/ -> ../../ExampleProject.
 param(
-    [int]$Seconds = 6
+    [int]$Seconds = 6,
+    [string]$Bin = (Join-Path $PSScriptRoot '..\..\ExampleProject\build\bin\Debug'),
+    [string]$AppArgs = ('--app=ExampleProject --settings="' `
+        + [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\ExampleProject\AppSettings.json')) `
+        + '"')
 )
 $ErrorActionPreference = 'Stop'
-$bin = 'C:\Users\jercl\Projects\Toybox\Engine\build\tbx-examples-clang\bin\Debug'
+$bin = $Bin
 $exe = Join-Path $bin 'Launcher.exe'
-$outDir = 'C:\Users\jercl\Projects\Toybox\Engine\build\run_and_capture'
+# Relative to this script (tools/) → the engine's build/run_and_capture folder.
+$outDir = Join-Path $PSScriptRoot '..\build\run_and_capture'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outLog = Join-Path $outDir 'run_stdout.log'
 $errLog = Join-Path $outDir 'run_stderr.log'
@@ -14,7 +20,7 @@ if (Test-Path $outLog) { Remove-Item $outLog }
 if (Test-Path $errLog) { Remove-Item $errLog }
 if (Test-Path $shot)   { Remove-Item $shot }
 
-$proc = Start-Process -FilePath $exe -WorkingDirectory $bin -PassThru `
+$proc = Start-Process -FilePath $exe -ArgumentList $AppArgs -WorkingDirectory $bin -PassThru `
     -RedirectStandardOutput $outLog -RedirectStandardError $errLog
 Write-Output "Started PID $($proc.Id), waiting $Seconds s..."
 Start-Sleep -Seconds $Seconds

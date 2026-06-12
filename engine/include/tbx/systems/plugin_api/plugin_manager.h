@@ -40,7 +40,8 @@ namespace tbx
         void load(
             const std::filesystem::path& directory,
             const std::vector<std::string>& requested_plugins,
-            const std::filesystem::path& working_directory);
+            const std::filesystem::path& working_directory,
+            const std::vector<PluginCategory>& excluded_categories = {});
 
         /// @brief
         /// Purpose: Loads additional plugins from the current plugin directory without unloading

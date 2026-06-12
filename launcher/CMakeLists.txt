@@ -15,19 +15,11 @@ file(GLOB_RECURSE TBX_Launcher_INCLUDES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURC
 file(GLOB_RECURSE TBX_Launcher_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.*")
 target_sources(Launcher PRIVATE ${TBX_Launcher_SOURCES} ${TBX_Launcher_INCLUDES})
 
-if(TBX_BUILD_EXAMPLES AND TARGET ExampleApp)
-    add_dependencies(Launcher ExampleApp)
-    target_link_libraries(Launcher
-        PRIVATE
-            Tbx::DefaultPlugins
-    )
-    target_compile_definitions(Launcher
-        PRIVATE
-            TBX_DEFAULT_APP_MODULE_NAME="ExampleApp"
-            TBX_DEFAULT_APP_SETTINGS_PATH="${PROJECT_SOURCE_DIR}/examples/assets/Settings.json"
-    )
-    set_target_properties(Launcher PROPERTIES
-        VS_DEBUGGER_COMMAND_ARGUMENTS "--app=ExampleApp --settings=\"${PROJECT_SOURCE_DIR}/examples/assets/Settings.json\""
-    )
-endif()
 target_precompile_headers(Launcher PRIVATE "${PROJECT_SOURCE_DIR}/engine/include/tbx/pch.h")
+
+if(WIN32)
+    # Build as a GUI-subsystem executable so windowed and editor-hosted launches never flash a
+    # console window. The standard main() entry point is kept via mainCRTStartup; a headless run
+    # attaches or allocates its own console for log output (see main.cpp).
+    target_link_options(Launcher PRIVATE "LINKER:/SUBSYSTEM:WINDOWS" "LINKER:/ENTRY:mainCRTStartup")
+endif()

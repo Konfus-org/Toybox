@@ -1,15 +1,23 @@
 #pragma once
 #include "tbx/systems/debugging/log_level.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/typedefs.h"
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace tbx
 {
+    using LogListener = std::function<void(LogLevel level, const std::string& message)>;
+
+    struct Color;
+
     /// @brief
     /// Purpose: Provides process-wide logging with lazy file sink creation.
     /// @details
@@ -34,6 +42,11 @@ namespace tbx
       public:
         std::filesystem::path get_logs_directory();
 
+        /// @brief
+        /// Purpose: Overrides where log files are written. Only takes effect if called before the first
+        /// log line (the launcher sets this from --logs-dir at startup). Thread Safety: Safe.
+        void set_logs_directory(const std::filesystem::path& directory);
+
         template <typename... Args>
         void write(
             LogLevel level,
@@ -51,6 +64,27 @@ namespace tbx
             Args&&... args);
 
         void flush();
+
+        /// @brief
+        /// Purpose: Registers a callback invoked for every written log entry.
+        /// @details
+        /// Ownership: Stores the listener until removed via remove_listener. Thread Safety: Safe
+        /// to call concurrently; listeners may be invoked from any logging thread and must not
+        /// log themselves.
+        uint add_listener(LogListener listener);
+
+        /// @brief
+        /// Purpose: Removes a previously registered log listener.
+        /// @details
+        /// Ownership: Releases the stored listener. Thread Safety: Safe to call concurrently.
+        void remove_listener(uint listener_id);
+
+        /// @brief
+        /// Purpose: Sets the console color used for entries of the given level.
+        /// @details
+        /// Ownership: Stores the color and applies it to the console sink (best-effort: the
+        /// platform console may quantize it). Thread Safety: Safe to call concurrently.
+        void set_color(LogLevel level, const Color& color);
 
         template <typename T>
         auto format(T&& value);
@@ -73,7 +107,10 @@ namespace tbx
         std::unique_ptr<Logger> _logger;
         std::mutex _logger_mutex = {};
         std::mutex _once_mutex = {};
+        std::mutex _listener_mutex = {};
         std::unordered_set<size_t> _once_message_hashes = {};
+        std::vector<std::pair<uint, LogListener>> _listeners = {};
+        uint _next_listener_id = 1U;
         std::filesystem::path _logs_directory = {};
     };
 }

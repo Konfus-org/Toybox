@@ -298,6 +298,8 @@ namespace sdl_windowing
             flags |= SDL_WINDOW_RESIZABLE;
         else if (create_info.mode == tbx::WindowMode::MINIMIZED)
             flags |= SDL_WINDOW_MINIMIZED;
+        else if (create_info.mode == tbx::WindowMode::HIDDEN)
+            flags |= SDL_WINDOW_HIDDEN;
 
         SDL_Window* native_window = SDL_CreateWindow(
             create_info.title.c_str(),

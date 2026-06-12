@@ -64,14 +64,14 @@ target_include_directories(Engine
 tbx_codegen_generate_attribute_headers(
     TARGET Engine
     SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated/include"
+    OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/generated/include"
     INCLUDE_SCOPE PUBLIC
 )
 
 tbx_codegen_generate_attribute_headers(
     TARGET Engine
     SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated/src"
+    OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/generated/src"
     INCLUDE_SCOPE PRIVATE
 )
 

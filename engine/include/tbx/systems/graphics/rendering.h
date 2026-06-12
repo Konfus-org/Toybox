@@ -42,10 +42,25 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Renders the world for the current frame.
+        /// Purpose: Renders the world from the given camera view into the given target, which
+        /// may be a window or an in-memory render texture.
         /// @details
         /// Thread Safety: Call from the message dispatch thread while no frame is pending.
-        void render(const DeltaTime& delta_time, const GraphicsSettings& settings);
+        void render(
+            const DeltaTime& delta_time,
+            const GraphicsSettings& settings,
+            const CameraView& camera_view,
+            const RenderTarget& output_target);
+
+        /// @brief
+        /// Purpose: Registers a callback invoked on the render lane right before each present,
+        /// while the back buffer still holds the finished frame. Pass an empty callback to clear.
+        /// @details
+        /// Thread Safety: Safe to call from any thread.
+        void set_pre_present_callback(
+            std::function<
+                void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
+                callback);
 
         /// @brief
         /// Purpose: Blocks until any previously dispatched render frame has finished.
@@ -56,7 +71,11 @@ namespace tbx
 
       private:
         void on_asset_reloaded(const AssetReloadedEvent& event);
-        void render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings);
+        void render_frame(
+            const DeltaTime& delta_time,
+            const GraphicsSettings& settings,
+            const CameraView& camera_view,
+            const RenderTarget& output_target);
         void wait_for_render_frame() noexcept;
 
       private:

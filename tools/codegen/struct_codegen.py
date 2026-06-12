@@ -1,6 +1,38 @@
 from __future__ import annotations
 
-from model import CodegenError, Field, SerializableType, attr_arg, cpp_string, find_attr, json_key
+from model import (
+    CodegenError,
+    Field,
+    SerializableType,
+    attr_arg,
+    attr_value,
+    cpp_string,
+    find_attr,
+    json_key,
+)
+
+
+def emit_typed_write_field(field: Field) -> list[str]:
+    """Emits one write_typed_serialization_field call, threading through optional
+    [[tbx::category(...)]] / [[tbx::description(...)]] editor metadata when present."""
+    category = attr_value(field.attrs, "category")
+    description = attr_value(field.attrs, "description")
+    lines = [
+        "    ::tbx::write_typed_serialization_field(",
+        "        tbx_json,",
+        f"        {cpp_string(json_key(field))},",
+        f"        tbx_value.{field.name}",
+    ]
+    if description is not None:
+        lines[-1] += ","
+        lines.append(f"        {cpp_string(category or '')},")
+        lines.append(f"        {cpp_string(description)});")
+    elif category is not None:
+        lines[-1] += ","
+        lines.append(f"        {cpp_string(category)});")
+    else:
+        lines[-1] += ");"
+    return lines
 
 
 def emit_lifecycle_hook_declarations(type_info: SerializableType) -> list[str]:
@@ -124,14 +156,7 @@ def emit_json_function_definitions(type_info: SerializableType, fields: list[Fie
         return lines
 
     for field in fields:
-        lines.extend(
-            [
-                "    ::tbx::write_serialization_field(",
-                "        tbx_json,",
-                f"        {cpp_string(json_key(field))},",
-                f"        tbx_value.{field.name});",
-            ]
-        )
+        lines.extend(emit_typed_write_field(field))
     lines.extend(
         [
             "}",
@@ -143,7 +168,7 @@ def emit_json_function_definitions(type_info: SerializableType, fields: list[Fie
     for field in fields:
         lines.extend(
             [
-                "    ::tbx::read_serialization_field(",
+                "    ::tbx::read_typed_serialization_field(",
                 "        tbx_json,",
                 f"        {cpp_string(json_key(field))},",
                 f"        tbx_value.{field.name},",

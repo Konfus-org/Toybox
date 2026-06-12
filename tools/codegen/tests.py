@@ -86,7 +86,8 @@ class AttributeCodegenTests(unittest.TestCase):
 
         output = self.generate_source(source)
 
-        self.assertIn("::tbx::write_serialization_field(", output)
+        self.assertIn("::tbx::write_typed_serialization_field(", output)
+        self.assertIn("::tbx::read_typed_serialization_field(", output)
         self.assertIn('"amount"', output)
         self.assertIn('"count"', output)
 

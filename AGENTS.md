@@ -18,7 +18,7 @@ Most-violated reminders (full rules live in CodeStandards):
 
 - `engine/` — first-class logic compiled directly into the engine.
 - `plugins/` — runtime-loadable plugins (SDL windowing/input, asset/model/image loaders, OpenGL rendering, physics, profiling).
-- `examples/` — sample projects; the example museum app is used for verification.
+- Sample content lives outside this repo: `../ExampleProject` (museum app) follows the standard project layout (CMakeLists, AppSettings.json, Assets/, Source/) and builds against this engine via `-DTBX_ENGINE_DIR`.
 - `resources/` — shared engine resources and generated resource code (shaders live here).
 - `launcher/` — launcher executable that hosts apps.
 - `cmake/`, `tools/` — shared CMake/codegen utilities and `run_and_capture.ps1`.
@@ -45,14 +45,14 @@ cmake --build --preset clang-debug-tests
 ctest --preset test-clang-debug
 ```
 
-**Build & run the example app:**
+**Build & run the example project (lives at `../ExampleProject`):**
 
 ```
-cmake --preset tbx-examples-clang
-cmake --build --preset tbx-examples-clang-debug
+cmake -S ../ExampleProject -B ../ExampleProject/build -G "Ninja Multi-Config" -DTBX_ENGINE_DIR=<engine dir> -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake --build ../ExampleProject/build --config Debug --parallel
 ```
 
-Then launch `build/tbx-examples-clang/bin/Debug/Launcher.exe`.
+Then launch `../ExampleProject/build/bin/Debug/Launcher.exe --app=ExampleProject --settings=<abs path to ExampleProject/AppSettings.json>`.
 
 ## Verification
 

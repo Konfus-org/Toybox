@@ -399,6 +399,7 @@ namespace tbx
         AssetManager& assets,
         World& world,
         GpuResourceCache& cache,
+        const CameraView& camera_view,
         const Size& output_size,
         const float elapsed_time,
         const float light_cull_distance,
@@ -414,18 +415,15 @@ namespace tbx
         _validation.ensure(cache, assets);
 
         //// CAMERA / UNIFORMS ////
-        Entity camera_entity = world.first_with<Camera>();
-        if (!camera_entity.get_id().is_valid() || !camera_entity.has_component<Transform>())
+        if (!camera_view.is_valid)
             return result; // nothing to render without a camera
         result.has_camera = true;
 
-        const Camera& camera = camera_entity.get_component<Camera>();
-        const Transform camera_world =
-            camera_entity.get_component<Transform>().to_world_space(camera_entity);
-        const Vec3 camera_position = camera_world.position;
+        const Camera& camera = camera_view.camera;
+        const Vec3 camera_position = camera_view.position;
         const Mat4 view_projection =
-            camera.get_view_projection_matrix(camera_position, camera_world.rotation);
-        _frustum = camera.get_frustum(camera_position, camera_world.rotation);
+            camera.get_view_projection_matrix(camera_position, camera_view.rotation);
+        _frustum = camera.get_frustum(camera_position, camera_view.rotation);
 
         // Off-screen surfaces still cast shadows within the larger of the directional shadow reach
         // and the local-light range, so shadows don't pop as casters leave the camera frustum.

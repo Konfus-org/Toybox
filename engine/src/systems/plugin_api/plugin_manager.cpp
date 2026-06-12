@@ -147,7 +147,8 @@ namespace tbx
     void PluginManager::load(
         const std::filesystem::path& directory,
         const std::vector<std::string>& requested_plugins,
-        const std::filesystem::path& working_directory)
+        const std::filesystem::path& working_directory,
+        const std::vector<PluginCategory>& excluded_categories)
     {
         unload_all();
 
@@ -170,6 +171,25 @@ namespace tbx
 
         auto plugin_loader = PluginLoader();
         auto loaded_plugins = plugin_loader.load(_directory, _requested_plugins, *file_ops);
+        if (!excluded_categories.empty())
+        {
+            loaded_plugins.remove_if(
+                [&excluded_categories](const LoadedPlugin& plugin)
+                {
+                    const auto is_excluded = std::ranges::contains(
+                        excluded_categories,
+                        plugin.meta.category);
+                    if (is_excluded)
+                    {
+                        TBX_TRACE_INFO(
+                            "Skipping plugin '{}': its category is excluded by the host.",
+                            plugin.meta.name);
+                    }
+
+                    return is_excluded;
+                });
+        }
+
         add_loaded(loaded_plugins);
 
         register_all_services();

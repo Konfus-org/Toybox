@@ -612,6 +612,130 @@ namespace tbx
         return result;
     }
 
+    // Keys for the self-describing property wrapper consumed by the editor's property grid. They are
+    // deliberately distinct from SERIALIZABLE_VARIANT_TYPE_KEY/_VALUE_KEY ("type"/"value") so that a
+    // [[prop]] std::variant field — already serialized as { "type": ..., "value": ... } — is never
+    // mistaken for a property wrapper. A leading '$' also cannot appear in a C++ field name, so the
+    // wrapper can never collide with a real struct field.
+    inline constexpr std::string_view PROPERTY_TYPE_KEY = "$type";
+    inline constexpr std::string_view PROPERTY_VALUE_KEY = "$value";
+    inline constexpr std::string_view PROPERTY_CATEGORY_KEY = "$category";
+    inline constexpr std::string_view PROPERTY_DESCRIPTION_KEY = "$description";
+
+    template <typename TValue>
+    struct PropertyValueType
+    {
+        using type = TValue;
+    };
+
+    template <typename TOwner, typename TProp>
+    struct PropertyValueType<Observable<TOwner, TProp>>
+    {
+        using type = TProp;
+    };
+
+    /// @brief
+    /// Purpose: Resolves the editor type token for a serialized property so self-describing JSON can
+    /// drive a generic property grid. Reuses the existing variant type-name map for primitives,
+    /// vectors and matrices, and the registered serialization type name for nested structs.
+    template <typename TValue>
+    static std::string get_property_type_token()
+    {
+        using Clean = std::remove_cvref_t<TValue>;
+        if constexpr (IsObservable<Clean>::value)
+        {
+            return get_property_type_token<typename PropertyValueType<Clean>::type>();
+        }
+        else if constexpr (IsSerializableVector<Clean>::value)
+        {
+            return "array";
+        }
+        else if constexpr (std::is_same_v<Clean, std::string>)
+        {
+            return "string";
+        }
+        else
+        {
+            constexpr std::string_view type_name = SerializableVariantTypeName<Clean>::VALUE;
+            if constexpr (type_name.empty())
+                return "object";
+            else
+                return make_serializable_type_name(type_name);
+        }
+    }
+
+    /// @brief
+    /// Writes a property as a self-describing { "$type": <token>, "$value": <value> } object, plus
+    /// optional editor metadata ($category for grouping, $description for tooltips) when present.
+    template <typename TJson, typename TValue>
+    static void write_typed_serialization_field(
+        TJson& json,
+        std::string_view field_name,
+        const TValue& value,
+        std::string_view category = {},
+        std::string_view description = {})
+    {
+        const auto key = make_serialization_json_key(field_name);
+        auto field = TJson::object();
+        field[std::string(PROPERTY_TYPE_KEY)] = get_property_type_token<TValue>();
+        field[std::string(PROPERTY_VALUE_KEY)] = write_serialization_value<TJson>(value);
+        if (!category.empty())
+            field[std::string(PROPERTY_CATEGORY_KEY)] = category;
+        if (!description.empty())
+            field[std::string(PROPERTY_DESCRIPTION_KEY)] = description;
+        json[key] = std::move(field);
+    }
+
+    /// @brief
+    /// Reads a single node written by write_typed_serialization_field. Accepts both the typed wrapper
+    /// and the legacy bare value. A wrapper is recognized only as an object holding exactly a string
+    /// "type" and a "value" member, so ordinary structs are never mistaken for wrappers.
+    template <typename TJson, typename TValue>
+    static void read_typed_serialization_value(const TJson& node, TValue& value)
+    {
+        // A wrapper is any object carrying a string "$type" and a "$value"; extra editor metadata
+        // ($category/$description) is ignored. The '$' prefix can't appear in a real field name.
+        if (node.is_object())
+        {
+            const auto type_iterator = node.find(std::string(PROPERTY_TYPE_KEY));
+            const auto inner_iterator = node.find(std::string(PROPERTY_VALUE_KEY));
+            if (type_iterator != node.end() && type_iterator->is_string()
+                && inner_iterator != node.end())
+            {
+                read_serialization_value(*inner_iterator, value);
+                return;
+            }
+        }
+
+        read_serialization_value(node, value);
+    }
+
+    /// @brief
+    /// Reads a property written by write_typed_serialization_field, falling back to a default when the
+    /// field is absent. Backward-compatible with the legacy bare value form.
+    template <typename TJson, typename TValue>
+    static void read_typed_serialization_field(
+        const TJson& json,
+        std::string_view field_name,
+        TValue& value,
+        const TValue& default_value)
+    {
+        if (json.is_null())
+        {
+            value = default_value;
+            return;
+        }
+
+        const auto value_iterator = find_serialization_field(json, field_name);
+        if (value_iterator == json.end())
+        {
+            value = default_value;
+            return;
+        }
+
+        read_typed_serialization_value(*value_iterator, value);
+    }
+
     template <typename TValue, typename TWriteValue, typename TReadValue>
     static SerializableTypeRegistration make_serializable_type_registration(
         TWriteValue write_value,

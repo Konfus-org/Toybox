@@ -49,6 +49,8 @@ namespace tbx
         const Window& get_main_window() const;
         bool should_exit() const;
         void request_exit();
+        bool is_paused() const;
+        void set_paused(bool is_paused);
 
       protected:
         virtual int initialize(
@@ -66,6 +68,10 @@ namespace tbx
 
       private:
         bool _should_exit = false;
+        bool _is_headless = false;
+        bool _is_hidden = false;
+        bool _hidden_context_primed = false;
+        bool _is_paused = false;
         std::string _name = "Toybox App";
 
         std::shared_ptr<ServiceProvider> _service_provider = {};

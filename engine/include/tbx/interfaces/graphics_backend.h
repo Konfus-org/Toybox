@@ -6,6 +6,7 @@
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/types/color.h"
+#include "tbx/types/render_texture.h"
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
@@ -35,20 +36,14 @@ namespace tbx
         COPY_DST = 1U << 6U,
     };
 
-    constexpr BufferUsage operator|(
-        const BufferUsage left,
-        const BufferUsage right)
+    constexpr BufferUsage operator|(const BufferUsage left, const BufferUsage right)
     {
-        return static_cast<BufferUsage>(
-            static_cast<uint32>(left) | static_cast<uint32>(right));
+        return static_cast<BufferUsage>(static_cast<uint32>(left) | static_cast<uint32>(right));
     }
 
-    constexpr BufferUsage operator&(
-        const BufferUsage left,
-        const BufferUsage right)
+    constexpr BufferUsage operator&(const BufferUsage left, const BufferUsage right)
     {
-        return static_cast<BufferUsage>(
-            static_cast<uint32>(left) & static_cast<uint32>(right));
+        return static_cast<BufferUsage>(static_cast<uint32>(left) & static_cast<uint32>(right));
     }
 
     /// @brief
@@ -283,7 +278,11 @@ namespace tbx
         virtual VsyncMode get_vsync() const = 0;
         virtual Result set_vsync(VsyncMode mode) = 0;
 
-        virtual Result begin_frame(const Window& output_target) = 0;
+        /// @brief
+        /// Purpose: Begins a frame against a window or an in-memory texture target; texture
+        /// frames render offscreen and present becomes a paced no-op.
+        virtual Result begin_frame(const RenderTarget& output_target) = 0;
+
         virtual Result end_frame() = 0;
         virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
         virtual Result end_render_pass() = 0;
@@ -295,12 +294,8 @@ namespace tbx
         virtual Result create_raster_pipeline(
             const RasterPipelineDesc& desc,
             GpuId& out_resource_uuid) = 0;
-        virtual Result create_sampler(
-            const SamplerDesc& desc,
-            GpuId& out_resource_uuid) = 0;
-        virtual Result create_texture(
-            const TextureDesc& desc,
-            GpuId& out_resource_uuid) = 0;
+        virtual Result create_sampler(const SamplerDesc& desc, GpuId& out_resource_uuid) = 0;
+        virtual Result create_texture(const TextureDesc& desc, GpuId& out_resource_uuid) = 0;
 
         /// @brief Whether the backend supports referencing textures by resident bindless handle.
         virtual bool supports_bindless_textures() const = 0;
@@ -323,6 +318,17 @@ namespace tbx
 
         virtual Result present() = 0;
         virtual void wait_for_idle() = 0;
+
+        /// @brief
+        /// Purpose: Copies the current back buffer into out_pixels as tightly packed BGRA8 rows
+        /// in top-down order, resizing out_pixels as needed.
+        /// @details
+        /// Thread Safety: Call on the render lane after rendering and before present. Backends
+        /// without readback support fail the result.
+        virtual Result read_back_buffer(const Size& backbuffer_size, std::vector<uint8>& out_pixels)
+        {
+            return Result(false, "Back buffer readback is not supported by this backend.");
+        }
 
         virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
         virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;

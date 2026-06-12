@@ -216,7 +216,11 @@ namespace tbx
     // GpuResourceCache and WorldView are complete types.
     RenderingPipeline::~RenderingPipeline() = default;
 
-    Result RenderingPipeline::execute(const GraphicsSettings& settings, const DeltaTime& delta_time)
+    Result RenderingPipeline::execute(
+        const GraphicsSettings& settings,
+        const DeltaTime& delta_time,
+        const CameraView& camera_view,
+        const RenderTarget& output_target)
     {
         const auto backend_service = _backend.lock();
         if (!backend_service)
@@ -232,17 +236,14 @@ namespace tbx
                                               ? settings.local_light_max_distance
                                               : std::numeric_limits<float>::max();
 
-        const auto window_manager = _window_manager.lock();
-        if (!window_manager || !window_manager->has_main_window())
-            return Result::OK;
-
-        const Window output = window_manager->get_main_window();
-        if (auto result = backend.begin_frame(output); !result)
+        if (auto result = backend.begin_frame(output_target); !result)
             return result;
 
-        const Size output_size = window_manager->get_size(output);
-        const auto finish_frame = [&backend]() -> Result
+        // The target arrives fully resolved from the main thread, size included.
+        const auto output_size = output_target.size;
+        const auto finish_frame = [this, &backend, &output_target, &output_size]() -> Result
         {
+            invoke_pre_present_callback(backend, output_target, output_size);
             const auto present_result = backend.present();
             const auto end_result = backend.end_frame();
             return present_result ? end_result : present_result;
@@ -273,6 +274,7 @@ namespace tbx
             *asset_manager,
             *world,
             _resources->cache,
+            camera_view,
             output_size,
             _elapsed_time,
             light_cull_distance,
@@ -710,6 +712,25 @@ namespace tbx
         }
 
         return finish_frame();
+    }
+
+    void RenderingPipeline::set_pre_present_callback(
+        std::function<
+            void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
+            callback)
+    {
+        auto lock = std::lock_guard(_pre_present_mutex);
+        _pre_present_callback = std::move(callback);
+    }
+
+    void RenderingPipeline::invoke_pre_present_callback(
+        IGraphicsBackend& backend,
+        const RenderTarget& output_target,
+        const Size& backbuffer_size)
+    {
+        auto lock = std::lock_guard(_pre_present_mutex);
+        if (_pre_present_callback)
+            _pre_present_callback(backend, output_target, backbuffer_size);
     }
 
     void RenderingPipeline::reload()

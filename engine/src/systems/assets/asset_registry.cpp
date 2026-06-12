@@ -100,7 +100,7 @@ namespace tbx
                || lowered_extension == ".hh" || lowered_extension == ".hpp"
                || lowered_extension == ".c" || lowered_extension == ".cc"
                || lowered_extension == ".cpp" || lowered_extension == ".cxx"
-               || lowered_extension == ".in";
+               || lowered_extension == ".in" || lowered_extension == ".log";
     }
 
     static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
@@ -158,6 +158,10 @@ namespace tbx
         if (asset_path.empty())
             return false;
         if (path_contains_directory_token(asset_path, "generated"))
+            return false;
+        // Build output is never source content: it holds compiled binaries, logs, and copies of
+        // assets only bundled on release. Project assets are tracked from the source tree instead.
+        if (path_contains_directory_token(asset_path, "build"))
             return false;
         if (is_non_asset_file(asset_path))
             return false;

@@ -159,16 +159,21 @@ namespace sdl_opengl_context_manager
 
     void SdlOpenGlContextBackend::shutdown()
     {
+        TBX_TRACE_INFO("SDL GL context manager: shutdown begin ({} contexts).", _contexts.size());
         for (const auto& context_entry : _contexts)
         {
             if (!context_entry.second)
                 continue;
 
+            TBX_TRACE_INFO("SDL GL context manager: releasing current context.");
             try_release_current_context(context_entry.second);
+            TBX_TRACE_INFO("SDL GL context manager: destroying context.");
             SDL_GL_DestroyContext(context_entry.second);
+            TBX_TRACE_INFO("SDL GL context manager: context destroyed.");
         }
 
         _contexts.clear();
+        TBX_TRACE_INFO("SDL GL context manager: shutdown complete.");
     }
 
     tbx::GraphicsProcAddress SdlOpenGlContextBackend::get_proc_address() const

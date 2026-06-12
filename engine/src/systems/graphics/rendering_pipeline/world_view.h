@@ -2,6 +2,7 @@
 #include "gpu_resource_cache.h"
 #include "render_validation.h"
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/systems/graphics/camera_view.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/assets/material.h"
@@ -73,8 +74,8 @@ namespace tbx
         /// @brief Builds this frame's render view from the camera's perspective (never fails — an
         /// empty world or missing camera simply yields a result with no renderables).
         WorldViewResult capture(AssetManager& assets, World& world, GpuResourceCache& cache,
-            const Size& output_size, float elapsed_time, float light_cull_distance,
-            float shadow_distance, float shadow_softness);
+            const CameraView& camera_view, const Size& output_size, float elapsed_time,
+            float light_cull_distance, float shadow_distance, float shadow_softness);
 
       private:
         GpuMaterialData pack_material(GpuResourceCache& cache, const Material& material,

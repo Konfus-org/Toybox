@@ -1,6 +1,8 @@
 #pragma once
 #include "opengl_resources/opengl_resource_cache.h"
 #include "opengl_resources/opengl_state.h"
+#include "tbx/systems/plugin_api/service_provider.h"
+#include <chrono>
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/types/window.h"
@@ -31,11 +33,15 @@ namespace opengl_rendering
         tbx::VsyncMode get_vsync() const override;
         tbx::Result set_vsync(tbx::VsyncMode mode) override;
 
-        tbx::Result begin_frame(const tbx::Window& output_target) override;
+        tbx::Result begin_frame(const tbx::RenderTarget& output_target) override;
         tbx::Result end_frame() override;
 
         tbx::Result present() override;
         void wait_for_idle() override;
+
+        tbx::Result read_back_buffer(
+            const tbx::Size& backbuffer_size,
+            std::vector<uint8>& out_pixels) override;
 
         tbx::Result begin_render_pass(const tbx::RenderPassDesc& pass) override;
         tbx::Result end_render_pass() override;
@@ -96,6 +102,9 @@ namespace opengl_rendering
         void cleanup();
         void destroy_resources();
         tbx::Result ensure_frame_context(const tbx::Window& window);
+        tbx::Result ensure_output_framebuffer(const tbx::Size& output_size);
+        void destroy_output_framebuffer();
+        uint32 get_output_framebuffer() const;
         tbx::Result ensure_gl_loaded();
         tbx::GpuId next_resource_id();
         std::shared_ptr<tbx::IOpenGlContextBackend> lock_context_backend() const;
@@ -107,6 +116,17 @@ namespace opengl_rendering
 
         OpenGlResourceCache _cache = {};
         OpenGlState _state = {};
+        uint32 _readback_pbos[3] = {0U, 0U, 0U};
+        void* _readback_fences[3] = {nullptr, nullptr, nullptr};
+        uint32 _readback_write_index = 0U;
+        uint32 _readback_inflight = 0U;
+        tbx::Size _readback_pbo_size = {};
+        uint32 _output_framebuffer = 0U;
+        uint32 _output_color_texture = 0U;
+        uint32 _output_depth_renderbuffer = 0U;
+        tbx::Size _output_size = {};
+        bool _is_texture_frame = false;
+        std::chrono::steady_clock::time_point _last_texture_present_time = {};
         tbx::GpuId _next_resource_id = 1U;
     };
 }

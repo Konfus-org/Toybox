@@ -63,6 +63,7 @@ from struct_codegen import (
     emit_lifecycle_hook_definitions,
     emit_serializable_registration,
     emit_struct_serialization_declarations,
+    emit_typed_write_field,
 )
 from variant_codegen import emit_variant, emit_variant_declarations
 
@@ -396,14 +397,7 @@ def emit_script_json_function_definitions(type_info: SerializableType, fields: l
             )
             continue
 
-        lines.extend(
-            [
-                "    ::tbx::write_serialization_field(",
-                "        tbx_json,",
-                f"        {cpp_string(json_key(field))},",
-                f"        tbx_value.{field.name});",
-            ]
-        )
+        lines.extend(emit_typed_write_field(field))
 
     lines.extend(
         [
@@ -429,7 +423,7 @@ def emit_script_json_function_definitions(type_info: SerializableType, fields: l
 
         lines.extend(
             [
-                "    ::tbx::read_serialization_field(",
+                "    ::tbx::read_typed_serialization_field(",
                 "        tbx_json,",
                 f"        {cpp_string(json_key(field))},",
                 f"        tbx_value.{field.name},",
@@ -483,7 +477,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         lines.extend(
             [
                 f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
-                f"            ::tbx::read_serialization_value(*tbx_value_it, tbx_value.{field.name});",
+                f"            ::tbx::read_typed_serialization_value(*tbx_value_it, tbx_value.{field.name});",
             ]
         )
     lines.extend(

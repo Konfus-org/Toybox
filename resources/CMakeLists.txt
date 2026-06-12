@@ -17,7 +17,7 @@ if(resource_files)
     source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${resource_files})
 endif()
 
-set(resources_generated_dir "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+set(resources_generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(builtin_assets_generated_header "${resources_generated_dir}/builtin_assets.generated.h")
 set(resources_material_descriptions_generated_header
     "${resources_generated_dir}/material_descriptions.generated.h")

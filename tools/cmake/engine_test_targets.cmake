@@ -20,7 +20,7 @@ function(tbx_add_engine_test)
         tbx_codegen_generate_attribute_headers(
             TARGET ${TBX_TEST_NAME}
             SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}"
-            OUTPUT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/generated"
+            OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/generated"
             INCLUDE_SCOPE PRIVATE
         )
     endif()

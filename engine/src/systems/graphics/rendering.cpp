@@ -78,7 +78,11 @@ namespace tbx
             "Toybox renderer shutdown failed.");
     }
 
-    void Rendering::render(const DeltaTime& delta_time, const GraphicsSettings& settings)
+    void Rendering::render(
+        const DeltaTime& delta_time,
+        const GraphicsSettings& settings,
+        const CameraView& camera_view,
+        const RenderTarget& output_target)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -87,22 +91,40 @@ namespace tbx
             return;
         }
 
-        // Need at least the main window to render...
-        // if no main window is open then nothing to render to
+        // The main window is either the presentation target or the context host for texture
+        // targets; without it there is nothing to render with.
         const auto window_manager = _window_manager.lock();
         if (!window_manager || !window_manager->has_main_window())
             return;
+
+        // Resolve the target on this (main) thread: the window manager is not thread-safe, so
+        // the render lane must receive everything it needs by value.
+        auto resolved_target = output_target;
+        const auto target_window = Window(output_target);
+        if (window_manager->has(target_window))
+        {
+            resolved_target.native_handle = window_manager->get_native_handle(target_window);
+            resolved_target.size = window_manager->get_size(target_window);
+        }
 
         TBX_TRY_CATCH_ASSERT(
             {
                 _render_future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
-                    [this, delta_time, settings]()
+                    [this, delta_time, settings, camera_view, resolved_target]()
                     {
-                        render_frame(delta_time, settings);
+                        render_frame(delta_time, settings, camera_view, resolved_target);
                     });
             },
             "Toybox renderer dispatch failed");
+    }
+
+    void Rendering::set_pre_present_callback(
+        std::function<
+            void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
+            callback)
+    {
+        _pipeline.set_pre_present_callback(std::move(callback));
     }
 
     void Rendering::wait_for_pending_frame() noexcept
@@ -131,7 +153,11 @@ namespace tbx
             });
     }
 
-    void Rendering::render_frame(const DeltaTime& delta_time, const GraphicsSettings& settings)
+    void Rendering::render_frame(
+        const DeltaTime& delta_time,
+        const GraphicsSettings& settings,
+        const CameraView& camera_view,
+        const RenderTarget& output_target)
     {
         const auto backend = _backend.lock();
         if (!backend)
@@ -152,7 +178,7 @@ namespace tbx
             }
         }
 
-        const auto result = _pipeline.execute(settings, delta_time);
+        const auto result = _pipeline.execute(settings, delta_time, camera_view, output_target);
         if (!result)
         {
             TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());

@@ -1,6 +1,7 @@
 #include "launcher.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/command_list.h"
+#include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/shared_library.h"
 #include <filesystem>
@@ -50,6 +51,12 @@ int Launcher::run(int argc, char* argv[])
     {
         const auto defaulted_arguments = build_defaulted_arguments(argc, argv);
         const auto command_list = make_command_list(defaulted_arguments);
+
+        // Redirect logs before anything writes them (the editor points owned engines at ~/.toybox/Logs).
+        const auto logs_directory = command_list.get<std::string>("logs-dir");
+        if (!logs_directory.empty())
+            tbx::Log::get_instance().set_logs_directory(logs_directory);
+
         const auto executable_directory = tbx::get_process_executable_directory();
         const auto app_module_name = command_list.get<std::string>("app");
         if (app_module_name.empty())

@@ -86,6 +86,13 @@ namespace tbx
             class EntityRegistry& registry,
             Entity& entity);
 
+        /// @brief Replaces a single component on this entity from its serialized JSON value, reporting a
+        /// failure (rather than throwing) when the component is unknown or the JSON cannot be applied.
+        static Result apply_component_json(
+            const Entity& entity,
+            std::string_view component_name,
+            std::string_view value_json);
+
       private:
         friend class EntityRegistry;
 

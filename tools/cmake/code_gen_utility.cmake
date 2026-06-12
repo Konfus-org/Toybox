@@ -222,7 +222,7 @@ function(tbx_codegen_generate_plugin_registration)
     string(REPLACE "\\" "/" relative_input "${relative_input}")
     get_filename_component(input_stem "${relative_input}" NAME_WE)
 
-    set(generated_dir "${TBX_CODEGEN_BASE_DIR}/generated")
+    set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
     set(output_header "${generated_dir}/${input_stem}.generated.h")
     set(output_source "${generated_dir}/${input_stem}.generated.cpp")
     set(output_plugin_meta "${generated_dir}/${input_stem}.plugin.meta")
@@ -280,7 +280,7 @@ endfunction()
 
 function(tbx_codegen_generate_app_registration)
     set(options)
-    set(one_value_args TARGET BASE_DIR)
+    set(one_value_args TARGET BASE_DIR SOURCE_DIR)
     cmake_parse_arguments(TBX_CODEGEN "${options}" "${one_value_args}" "" ${ARGN})
 
     if(NOT TBX_CODEGEN_TARGET)
@@ -292,6 +292,9 @@ function(tbx_codegen_generate_app_registration)
     if(NOT TBX_CODEGEN_BASE_DIR)
         message(FATAL_ERROR "tbx_codegen_generate_app_registration: BASE_DIR is required")
     endif()
+    if(NOT TBX_CODEGEN_SOURCE_DIR)
+        set(TBX_CODEGEN_SOURCE_DIR "${TBX_CODEGEN_BASE_DIR}/src")
+    endif()
 
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -300,9 +303,9 @@ function(tbx_codegen_generate_app_registration)
         CONFIGURE_DEPENDS
         "${TBX_CODEGEN_BASE_DIR}/include/*.h"
         "${TBX_CODEGEN_BASE_DIR}/include/*.hpp"
-        "${TBX_CODEGEN_BASE_DIR}/src/*.h"
-        "${TBX_CODEGEN_BASE_DIR}/src/*.hpp"
-        "${TBX_CODEGEN_BASE_DIR}/src/*.cpp"
+        "${TBX_CODEGEN_SOURCE_DIR}/*.h"
+        "${TBX_CODEGEN_SOURCE_DIR}/*.hpp"
+        "${TBX_CODEGEN_SOURCE_DIR}/*.cpp"
     )
     list(SORT app_attribute_inputs)
 
@@ -329,7 +332,7 @@ function(tbx_codegen_generate_app_registration)
     string(REPLACE "\\" "/" relative_input "${relative_input}")
     get_filename_component(input_stem "${relative_input}" NAME_WE)
 
-    set(generated_dir "${TBX_CODEGEN_BASE_DIR}/generated")
+    set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
     set(output_header "${generated_dir}/${input_stem}.generated.h")
     set(output_source "${generated_dir}/${input_stem}.generated.cpp")
 
@@ -342,7 +345,7 @@ function(tbx_codegen_generate_app_registration)
             --input "${app_input}"
             --output-header "${output_header}"
             --output-source "${output_source}"
-            --include-root "${TBX_CODEGEN_BASE_DIR}/src"
+            --include-root "${TBX_CODEGEN_SOURCE_DIR}"
         DEPENDS
             "${app_input}"
             ${attribute_codegen_sources}

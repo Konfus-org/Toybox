@@ -176,7 +176,18 @@ namespace tbx
             settings->plugins,
             command_list.get_list<std::string>("load-plugins"));
         const auto plugin_root_directory = file_ops->get_working_directory();
-        _plugin_manager->load(plugin_root_directory, requested_plugins, plugin_root_directory);
+        // Headless apps are pure simulation hosts: interaction and visualization plugins are
+        // never loaded, so their backends (and the services built on them) simply do not exist.
+        _is_headless = command_list.has("headless");
+        const auto excluded_plugin_categories =
+            _is_headless
+                ? std::vector<PluginCategory> { PluginCategory::INPUT, PluginCategory::RENDERING }
+                : std::vector<PluginCategory>();
+        _plugin_manager->load(
+            plugin_root_directory,
+            requested_plugins,
+            plugin_root_directory,
+            excluded_plugin_categories);
 
         //// INITIALIZE: REGISTER APP-OWNED RUNTIME SERVICES ////
 
@@ -262,6 +273,13 @@ namespace tbx
                     return;
                 }
 
+                if (auto pause_request = handle_message<SetApplicationPausedRequest>(msg))
+                {
+                    set_paused(pause_request->get().is_paused);
+                    pause_request->get().state = MessageState::HANDLED;
+                    return;
+                }
+
                 if (const auto closed_event = handle_message<WindowClosedEvent>(msg))
                 {
                     const auto window_manager = _window_manager.lock();
@@ -294,34 +312,41 @@ namespace tbx
 
         //// INITIALIZE: OPEN MAIN WINDOW ////
 
-        const auto main_window_manager = _window_manager.lock();
-        if (!main_window_manager)
+        // Headless apps have no window manager at all; otherwise the main window is required.
+        // Hidden apps (such as those hosted by the Toybox Studio editor) create it invisible.
+        if (!_is_headless)
         {
-            TBX_TRACE_ERROR("Application requires an IWindowManager service.");
-            return -1;
-        }
-
-        std::filesystem::path icon_path = {};
-        if (_settings->icon.is_valid())
-        {
-            // Resolve the icon only after settings and assets are both live so window creation sees
-            // the final application branding state.
-            icon_path = asset_manager->resolve_path(_settings->icon);
-            if (icon_path.empty())
+            const auto main_window_manager = _window_manager.lock();
+            if (!main_window_manager)
             {
-                TBX_TRACE_WARNING(
-                    "Failed to resolve app icon handle to a path. Window icon will not be set.");
+                TBX_TRACE_ERROR("Application requires an IWindowManager service.");
+                return -1;
             }
-        }
 
-        main_window_manager->open(
-            WindowCreateInfo {
-                .title = _name.empty() ? std::string("Toybox Application") : _name,
-                .size = {1280, 720},
-                .mode = WindowMode::WINDOWED,
-                .api = get_settings().graphics.graphics_api,
-                .icon_path = icon_path,
-            });
+            std::filesystem::path icon_path = {};
+            if (_settings->icon.is_valid())
+            {
+                // Resolve the icon only after settings and assets are both live so window
+                // creation sees the final application branding state.
+                icon_path = asset_manager->resolve_path(_settings->icon);
+                if (icon_path.empty())
+                {
+                    TBX_TRACE_WARNING(
+                        "Failed to resolve app icon handle to a path. Window icon will not be set.");
+                }
+            }
+
+            _is_hidden = command_list.has("hidden");
+            const auto main_window_mode = _is_hidden ? WindowMode::HIDDEN : WindowMode::WINDOWED;
+            main_window_manager->open(
+                WindowCreateInfo {
+                    .title = _name.empty() ? std::string("Toybox Application") : _name,
+                    .size = {1280, 720},
+                    .mode = main_window_mode,
+                    .api = get_settings().graphics.graphics_api,
+                    .icon_path = icon_path,
+                });
+        }
 
         //// INITIALIZE: REPORT RESOLVED STARTUP PATHS ////
 
@@ -477,7 +502,8 @@ namespace tbx
         _time_running += delta_time.seconds;
         frame_msg_coordinator->send<ApplicationUpdateBeginEvent>(*this, delta_time);
 
-        fixed_update(delta_time);
+        if (!_is_paused)
+            fixed_update(delta_time);
 
         //// UPDATE: PUMP INPUT AND RUN FRAME SIMULATION ////
 
@@ -490,12 +516,61 @@ namespace tbx
 
         get_plugin_manager().update(delta_time);
 
-        if (const auto frame_world_manager = _world_manager.lock())
-            frame_world_manager->update(delta_time, get_settings().world);
-        if (const auto script_system = _script_system.lock())
-            script_system->update(delta_time);
-        if (const auto rendering = _rendering.lock())
-            rendering->render(delta_time, get_settings().graphics);
+        // Pausing freezes simulation only; plugins, input, and rendering keep running so
+        // attached tooling keeps its live view.
+        if (!_is_paused)
+        {
+            if (const auto frame_world_manager = _world_manager.lock())
+                frame_world_manager->update(delta_time, get_settings().world);
+            if (const auto script_system = _script_system.lock())
+                script_system->update(delta_time);
+        }
+        // Every camera in the world renders into its own target; cameras without one present
+        // to the main window. Headless apps never created a rendering service, so this whole
+        // block naturally no-ops there.
+        {
+            const auto rendering = _rendering.lock();
+            const auto render_window_manager = _window_manager.lock();
+            const auto render_world_manager = _world_manager.lock();
+            const auto active_world =
+                render_world_manager ? render_world_manager->get_active_world().lock() : nullptr;
+            if (rendering && active_world)
+            {
+                for (auto& camera_entity : active_world->get_with<Camera>())
+                {
+                    const auto camera_view = CameraView::from_entity(camera_entity);
+                    if (!camera_view.is_valid)
+                        continue;
+
+                    auto output_target = camera_view.camera.get_render_target();
+                    auto renders_to_main_window = false;
+                    if (!output_target.id.is_valid())
+                    {
+                        if (!render_window_manager || !render_window_manager->has_main_window())
+                            continue;
+
+                        // A hidden main window (a Studio-hosted engine) is never seen, so the game
+                        // view is not worth drawing into it every frame. It still hosts the shared
+                        // GL context that editor-view render textures borrow, so render it once to
+                        // create that context, then skip it on every later frame.
+                        if (_is_hidden && _hidden_context_primed)
+                            continue;
+
+                        output_target = RenderTarget(render_window_manager->get_main_window());
+                        renders_to_main_window = true;
+                    }
+
+                    rendering->render(
+                        delta_time,
+                        get_settings().graphics,
+                        camera_view,
+                        output_target);
+
+                    if (renders_to_main_window && _is_hidden)
+                        _hidden_context_primed = true;
+                }
+            }
+        }
 
         //// UPDATE: BROADCAST FRAME END AND COMMIT ASSET WORK ////
 
@@ -588,6 +663,16 @@ namespace tbx
     bool Application::should_exit() const
     {
         return _should_exit;
+    }
+
+    bool Application::is_paused() const
+    {
+        return _is_paused;
+    }
+
+    void Application::set_paused(bool is_paused)
+    {
+        _is_paused = is_paused;
     }
 
     void Application::request_exit()
