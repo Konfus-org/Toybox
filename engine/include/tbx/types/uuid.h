@@ -12,7 +12,7 @@ namespace tbx
     struct Uuid
     {
         TBX_API Uuid();
-        TBX_API Uuid(uint32 v);
+        TBX_API Uuid(uint64 v);
 
         TBX_API static Uuid generate();
 
@@ -33,6 +33,8 @@ namespace tbx
         TBX_API bool is_valid() const;
 
         TBX_API operator bool() const;
+        // Truncates to the low 32 bits. Used by the renderer for compact GPU cache/table keys; not a
+        // lossless identity — compare/hash on the full Uuid for identity.
         TBX_API operator uint32() const;
         TBX_API bool operator!() const;
         TBX_API bool operator<(const Uuid& other) const;
@@ -43,7 +45,7 @@ namespace tbx
         TBX_API bool operator!=(const Uuid& other) const;
 
         [[prop]]
-        uint32 value = 0U;
+        uint64 value = 0U;
 
         static const Uuid NONE;
     };

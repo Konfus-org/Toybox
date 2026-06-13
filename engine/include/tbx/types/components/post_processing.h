@@ -47,6 +47,7 @@ namespace tbx
     /// Ownership: Stores value settings and an ordered effect stack by value.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[serializable]];
+    [[icon("Aperture", Color::MAGENTA)]];
     struct TBX_API PostProcessing : Component
     {
         ~PostProcessing();

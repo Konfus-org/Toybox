@@ -78,6 +78,24 @@ namespace tbx
     {
     }
 
+    EntityRegistry::EntityRegistry(const EntityRegistry& other)
+        : _registry(std::make_unique<entt::registry>())
+    {
+        for (const auto& entity : other.get_all())
+            absorb(entity);
+    }
+
+    EntityRegistry& EntityRegistry::operator=(const EntityRegistry& other)
+    {
+        if (this == &other)
+            return *this;
+
+        clear();
+        for (const auto& entity : other.get_all())
+            absorb(entity);
+        return *this;
+    }
+
     EntityRegistry::~EntityRegistry() noexcept = default;
 
     bool EntityRegistry::is_empty() const
@@ -279,5 +297,63 @@ namespace tbx
     {
         auto guard = std::unique_lock(_mutex);
         set_component_value<EntityLayerComponent>(*_registry, id, layer);
+    }
+
+    void EntityRegistry::absorb(const Entity& source)
+    {
+        const auto id = source.get_id();
+        if (!id.is_valid() || !source._registry.has_value())
+            return;
+
+        auto& source_registry = source._registry->get();
+        if (&source_registry == this)
+            return;
+
+        // Recreate identity metadata in this registry, then copy each registered component by value.
+        add(id, source.get_name(), source.get_tag(), source.get_layer(), source.get_parent());
+
+        const auto entries = get_entity_component_type_registrations();
+        const auto handle = to_entity_handle(id);
+        auto source_guard = std::shared_lock(source_registry._mutex);
+        auto guard = std::unique_lock(_mutex);
+        for (const auto& entry : entries)
+        {
+            const auto* storage = source_registry._registry->storage(entry.type_id);
+            if (storage == nullptr || !storage->contains(handle) || !entry.copy_value)
+                continue;
+
+            entry.copy_value(storage->value(handle), *_registry, handle);
+        }
+    }
+
+    std::string EntityRegistry::serialize(const EntityRegistry& registry)
+    {
+        auto entities = Json::array();
+        for (const auto& entity : registry.get_all())
+        {
+            if (!entity.get_id().is_valid())
+                continue;
+
+            auto record = Json::parse(Entity::serialize(entity), nullptr, false);
+            if (!record.is_discarded())
+                entities.push_back(std::move(record));
+        }
+        return entities.dump();
+    }
+
+    bool EntityRegistry::deserialize(std::string_view data, EntityRegistry& registry)
+    {
+        auto json = Json::parse(data, nullptr, false);
+        if (json.is_discarded())
+            return false;
+        if (!json.is_array())
+            return true;
+
+        for (const auto& record : json)
+        {
+            auto entity = Entity();
+            Entity::deserialize(record.dump(), registry, entity);
+        }
+        return true;
     }
 }

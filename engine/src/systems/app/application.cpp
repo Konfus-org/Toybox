@@ -8,6 +8,7 @@
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/debugging/logging.h"
@@ -18,16 +19,63 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/systems/reflection/reflection.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <fstream>
 #include <memory>
 #include <vector>
 
 namespace tbx
 {
+    // Writes BGRA, top-down pixels (the layout IGraphicsBackend::read_back_buffer delivers) as a
+    // 32-bit BMP. Used by the --screenshot diagnostic so a real rendered frame can be inspected
+    // without a window-capture step (GDI/PrintWindow return black for hardware GL surfaces).
+    static bool write_bgra_bmp(
+        const std::filesystem::path& path,
+        uint32 width,
+        uint32 height,
+        const std::vector<uint8>& bgra_top_down)
+    {
+        if (width == 0U || height == 0U
+            || bgra_top_down.size() < static_cast<size>(width) * height * 4U)
+            return false;
+
+        const uint32 pixel_bytes = width * height * 4U;
+        const uint32 file_size = 54U + pixel_bytes;
+        auto put_u32 = [](uint8* out, uint32 value)
+        {
+            out[0] = static_cast<uint8>(value & 0xFFU);
+            out[1] = static_cast<uint8>((value >> 8U) & 0xFFU);
+            out[2] = static_cast<uint8>((value >> 16U) & 0xFFU);
+            out[3] = static_cast<uint8>((value >> 24U) & 0xFFU);
+        };
+
+        uint8 header[54] = {};
+        header[0] = 'B';
+        header[1] = 'M';
+        put_u32(header + 2, file_size);
+        put_u32(header + 10, 54U); // pixel data offset
+        put_u32(header + 14, 40U); // DIB header size
+        put_u32(header + 18, width);
+        // Negative height marks the rows as top-down, matching the readback's delivered order.
+        put_u32(header + 22, static_cast<uint32>(-static_cast<int32>(height)));
+        header[26] = 1U; // planes
+        header[28] = 32U; // bits per pixel
+        put_u32(header + 34, pixel_bytes);
+
+        auto stream = std::ofstream(path, std::ios::binary | std::ios::trunc);
+        if (!stream)
+            return false;
+        stream.write(reinterpret_cast<const char*>(header), sizeof(header));
+        stream.write(reinterpret_cast<const char*>(bgra_top_down.data()), pixel_bytes);
+        return stream.good();
+    }
+
     Application::Application() = default;
 
     Application::~Application() noexcept = default;
@@ -79,8 +127,7 @@ namespace tbx
         if (!file_ops)
             file_ops = std::make_shared<FileOperator>(root_directory);
 
-        auto message_coordinator =
-            _service_provider->try_get_service<IMessageCoordinator>().lock();
+        auto message_coordinator = _service_provider->try_get_service<IMessageCoordinator>().lock();
         const bool has_message_coordinator = message_coordinator != nullptr;
         if (!message_coordinator)
             message_coordinator = std::make_shared<MessageCoordinator>();
@@ -172,16 +219,15 @@ namespace tbx
 
         //// INITIALIZE: LOAD PLUGINS ////
 
-        const auto requested_plugins = resolve_plugins(
-            settings->plugins,
-            command_list.get_list<std::string>("load-plugins"));
+        const auto requested_plugins =
+            resolve_plugins(settings->plugins, command_list.get_list<std::string>("load-plugins"));
         const auto plugin_root_directory = file_ops->get_working_directory();
         // Headless apps are pure simulation hosts: interaction and visualization plugins are
         // never loaded, so their backends (and the services built on them) simply do not exist.
         _is_headless = command_list.has("headless");
         const auto excluded_plugin_categories =
             _is_headless
-                ? std::vector<PluginCategory> { PluginCategory::INPUT, PluginCategory::RENDERING }
+                ? std::vector<PluginCategory> {PluginCategory::INPUT, PluginCategory::RENDERING}
                 : std::vector<PluginCategory>();
         _plugin_manager->load(
             plugin_root_directory,
@@ -239,6 +285,59 @@ namespace tbx
                 message_coordinator);
             _service_provider->register_service<Rendering>(rendering);
             _rendering = rendering;
+
+            // TODO: move to Rendering to capture and write a screenshot to an image instead of
+            // making it a app responsability and have this wierd pre-render callback thing.
+            // --screenshot=<path>: capture one real rendered frame to a BMP via GPU readback, then
+            // exit. This is the reliable way to validate rendering headlessly — window captures
+            // (GDI/PrintWindow) return black for hardware OpenGL surfaces regardless of content.
+            if (command_list.has("screenshot"))
+            {
+                const auto screenshot_path =
+                    std::filesystem::path(command_list.get<std::string>("screenshot"));
+                // Warm-up frames let the world finish its synchronous first-frame asset load and
+                // prime the backend's asynchronous readback ring before the first capture attempt.
+                auto attempts = std::make_shared<int>(0);
+                rendering->set_pre_present_callback(
+                    [this, screenshot_path, attempts](
+                        IGraphicsBackend& backend,
+                        const RenderTarget&,
+                        const Size& backbuffer_size)
+                    {
+                        constexpr int WARMUP_FRAMES = 8;
+                        constexpr int MAX_ATTEMPTS = 240;
+                        const int attempt = (*attempts)++;
+                        if (attempt < WARMUP_FRAMES)
+                            return;
+
+                        auto pixels = std::vector<uint8>();
+                        if (backend.read_back_buffer(backbuffer_size, pixels) && !pixels.empty())
+                        {
+                            if (write_bgra_bmp(
+                                    screenshot_path,
+                                    backbuffer_size.width,
+                                    backbuffer_size.height,
+                                    pixels))
+                            {
+                                TBX_TRACE_INFO(
+                                    "Saved screenshot to '{}'.",
+                                    screenshot_path.string());
+                            }
+                            else
+                            {
+                                TBX_TRACE_ERROR(
+                                    "Failed to write screenshot '{}'.",
+                                    screenshot_path.string());
+                            }
+                            request_exit();
+                        }
+                        else if (attempt >= MAX_ATTEMPTS)
+                        {
+                            TBX_TRACE_ERROR("Screenshot readback never became ready; giving up.");
+                            request_exit();
+                        }
+                    });
+            }
         }
 
         // TODO: Make a IInputBackend and InputManager
@@ -332,7 +431,8 @@ namespace tbx
                 if (icon_path.empty())
                 {
                     TBX_TRACE_WARNING(
-                        "Failed to resolve app icon handle to a path. Window icon will not be set.");
+                        "Failed to resolve app icon handle to a path. Window icon will not be "
+                        "set.");
                 }
             }
 
@@ -442,6 +542,15 @@ namespace tbx
             _service_provider->deregister_service<WorldManager>();
         _settings = {};
         asset_manager->unload_all();
+
+        // Drop the process-wide reflection and serialization registries while every module is still
+        // mapped. Plugin-owned records were already erased on detach via the ownership tracker, but the
+        // app module (loaded by the launcher) registers reflection/serializer/asset entries at static-init
+        // with no owning plugin, so those linger here. Their std::functions point into the app module's
+        // code; clearing now — before any library is unloaded — keeps the registries' own static
+        // destructors from later destroying those functions after the app module has been unloaded.
+        clear_type_reflections();
+        clear_serialization_registrations();
 
         //// SHUTDOWN: STOP REMAINING BACKGROUND WORK ////
 
@@ -560,11 +669,8 @@ namespace tbx
                         renders_to_main_window = true;
                     }
 
-                    rendering->render(
-                        delta_time,
-                        get_settings().graphics,
-                        camera_view,
-                        output_target);
+                    rendering
+                        ->render(delta_time, get_settings().graphics, camera_view, output_target);
 
                     if (renders_to_main_window && _is_hidden)
                         _hidden_context_primed = true;

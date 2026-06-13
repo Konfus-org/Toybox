@@ -3,6 +3,7 @@
 #include "tbx/systems/files/json.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/script_container.generated.h"
+#include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include <vector>
 
@@ -17,15 +18,15 @@ namespace tbx
     struct TBX_API ScriptContainerBinding
     {
         [[prop]]
-        [[editor::view("script")]]
-        [[editor::description("The script asset this binding runs.")]]
-        Uuid script = {};
+        [[description("The script asset this binding runs.")]]
+        Handle script = {};
 
         [[prop]]
         bool enabled = true;
 
         [[prop]]
-        [[editor::readonly]]
+        [[readonly]]
+        [[hidden]]
         Uuid binding_id = {};
 
         [[prop]]
@@ -35,6 +36,7 @@ namespace tbx
     /// @brief
     /// Purpose: Stores script asset bindings attached to an entity.
     [[serializable]];
+    [[icon("ScrollText", Color::GREEN)]];
     struct TBX_API ScriptContainer : Component
     {
         [[prop]]

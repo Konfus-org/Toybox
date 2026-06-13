@@ -10,7 +10,7 @@ Most-violated reminders (full rules live in CodeStandards):
 
 - C++23 only; no blanket `using namespace` imports.
 - No `detail`/`internal` namespaces and no anonymous namespaces — use file-scope `static` instead.
-- Use `size` and `uint` from `common/typedefs.h`, never raw `std::size_t`.
+- Use `size` and `uint` from `tbx/types/typedefs.h`, never raw `std::size_t`.
 - Permanently delete stale code; never leave commented-out placeholders.
 - Prefer existing engine utilities and the simplest direct solution over new abstractions.
 

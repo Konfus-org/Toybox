@@ -38,6 +38,32 @@ namespace tbx
         {
         }
 
+        // Copying shares the validity flag so invalidation propagates among copies. The flag is
+        // created lazily on the first copy (or invalidate) rather than on every construction, so a
+        // handle that is never copied and never invalidated — the common transient case — pays no
+        // allocation at all.
+        Handle(const Handle& other)
+            : name(other.name)
+            , id(other.id)
+            , _is_valid(other.shared_validity())
+        {
+        }
+
+        Handle& operator=(const Handle& other)
+        {
+            if (this != &other)
+            {
+                name = other.name;
+                id = other.id;
+                _is_valid = other.shared_validity();
+            }
+            return *this;
+        }
+
+        Handle(Handle&&) noexcept = default;
+        Handle& operator=(Handle&&) noexcept = default;
+        ~Handle() = default;
+
         bool operator==(const Handle& other) const
         {
             return id == other.id && name == other.name;
@@ -45,13 +71,14 @@ namespace tbx
 
         bool is_valid() const
         {
-            return id.is_valid() && _is_valid && _is_valid->load();
+            // A null flag means this handle has never been invalidated (and never shared a flag),
+            // so it is valid as long as its id is.
+            return id.is_valid() && (!_is_valid || _is_valid->load());
         }
 
         void invalidate() const
         {
-            if (_is_valid)
-                _is_valid->store(false);
+            shared_validity()->store(false);
         }
 
         std::string name = {};
@@ -60,6 +87,17 @@ namespace tbx
         Uuid id = {};
 
       private:
-        std::shared_ptr<std::atomic_bool> _is_valid = std::make_shared<std::atomic_bool>(true);
+        // Lazily creates the shared validity flag (if absent) and returns it, so the first copy or
+        // invalidate establishes a flag that all subsequent copies share. Not safe to call on the
+        // same instance from multiple threads concurrently; copy the handle first, then share the
+        // copies.
+        const std::shared_ptr<std::atomic_bool>& shared_validity() const
+        {
+            if (!_is_valid)
+                _is_valid = std::make_shared<std::atomic_bool>(true);
+            return _is_valid;
+        }
+
+        mutable std::shared_ptr<std::atomic_bool> _is_valid = nullptr;
     };
 }

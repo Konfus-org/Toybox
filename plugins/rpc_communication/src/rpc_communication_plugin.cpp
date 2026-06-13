@@ -4,6 +4,7 @@
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/reflection/reflection.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/transform.h"
 #include <cctype>
@@ -18,7 +19,8 @@ namespace tbx::rpc_communication
     constexpr std::string_view EDITOR_ENTITY_TAG = "tbx_editor";
     constexpr uint32 EDITOR_VIEW_WIDTH = 1280U;
     constexpr uint32 EDITOR_VIEW_HEIGHT = 720U;
-    constexpr int PROTOCOL_VERSION = 1;
+    // v2 adds the reflect.* namespace (per-property get/set/isDefault and describeType).
+    constexpr int PROTOCOL_VERSION = 2;
 
     static uint16 read_port_from_env()
     {
@@ -256,6 +258,62 @@ namespace tbx::rpc_communication
                 _server.send_line(
                     make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
         }
+        else if (method == "reflect.get")
+        {
+            auto node = tbx::Json::object();
+            const auto result = reflect_get(request.value("params", tbx::Json::object()), node);
+            if (result)
+                _server.send_line(make_result_response(id, node));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
+        else if (method == "reflect.set")
+        {
+            const auto result = reflect_set(request.value("params", tbx::Json::object()));
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
+        else if (method == "reflect.reset")
+        {
+            const auto result = reflect_reset(request.value("params", tbx::Json::object()));
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
+        else if (method == "reflect.isDefault")
+        {
+            auto is_default = false;
+            const auto result =
+                reflect_is_default(request.value("params", tbx::Json::object()), is_default);
+            if (result)
+            {
+                auto reply = tbx::Json::object();
+                reply["isDefault"] = is_default;
+                _server.send_line(make_result_response(id, reply));
+            }
+            else
+            {
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+            }
+        }
+        else if (method == "reflect.describeType")
+        {
+            const auto reply = reflect_describe_type(request.value("params", tbx::Json::object()));
+            if (reply.contains("name"))
+                _server.send_line(make_result_response(id, reply));
+            else
+                _server.send_line(make_error_response(
+                    id,
+                    JSON_RPC_APPLY_FAILED_CODE,
+                    "Unknown reflected type."));
+        }
         else if (method == "view.start")
         {
             auto view_result = start_view();
@@ -424,13 +482,34 @@ namespace tbx::rpc_communication
                 if (entity.get_tag() == EDITOR_ENTITY_TAG)
                     continue;
 
-                auto entity_json = tbx::Json::parse(tbx::Entity::serialize(entity), nullptr, false);
+                auto entity_json = tbx::Json::parse(tbx::Entity::describe(entity), nullptr, false);
                 if (!entity_json.is_discarded() && entity_json.is_object())
                     entities.push_back(std::move(entity_json));
             }
         }
 
         result["entities"] = std::move(entities);
+
+        // A describe-only side table of component-type icons ([[tbx::icon]]), keyed by wire name, so the
+        // inspector can badge component headers without bloating every persisted component payload. The
+        // icon is sourced from the reflection registry rather than the component registration.
+        auto component_types = tbx::Json::object();
+        for (const auto& registration : tbx::get_entity_component_type_registrations())
+        {
+            if (registration.name.empty())
+                continue;
+
+            const auto type_icon = tbx::reflect(std::string_view(registration.name)).icon();
+            if (type_icon.name.empty())
+                continue;
+
+            auto icon = tbx::Json::object();
+            icon["icon"] = std::string(type_icon.name);
+            if (!type_icon.color.empty())
+                icon["iconColor"] = std::string(type_icon.color);
+            component_types[registration.name] = std::move(icon);
+        }
+        result["component_types"] = std::move(component_types);
         return result;
     }
 
@@ -518,5 +597,165 @@ namespace tbx::rpc_communication
             return Result(false, "Entity not found.");
 
         return tbx::Entity::apply_component_json(entity, component, value_iterator->dump());
+    }
+
+    Result RpcCommunication::resolve_reflect_entity(
+        const tbx::Json& params,
+        tbx::Entity& out_entity) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        auto world_manager = _world_manager.lock();
+        auto world = world_manager ? world_manager->get_active_world().lock() : nullptr;
+        if (!world)
+            return Result(false, "No active world.");
+
+        out_entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!out_entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        return Result::OK;
+    }
+
+    Result RpcCommunication::reflect_get(const tbx::Json& params, tbx::Json& out_node) const
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
+            return resolved;
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto property = params.value("property", std::string());
+        if (property.empty())
+            return Result(false, "Missing 'property'.");
+
+        auto node_json = std::string();
+        if (const auto result =
+                tbx::Entity::get_component_property(entity, component, property, node_json);
+            !result)
+            return result;
+
+        out_node = tbx::Json::parse(node_json, nullptr, false);
+        if (out_node.is_discarded())
+            return Result(false, "Engine produced an invalid property node.");
+
+        return Result::OK;
+    }
+
+    Result RpcCommunication::reflect_set(const tbx::Json& params) const
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
+            return resolved;
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto property = params.value("property", std::string());
+        if (property.empty())
+            return Result(false, "Missing 'property'.");
+
+        const auto value_iterator = params.find("value");
+        if (value_iterator == params.end())
+            return Result(false, "Missing 'value'.");
+
+        return tbx::Entity::set_component_property(
+            entity,
+            component,
+            property,
+            value_iterator->dump());
+    }
+
+    Result RpcCommunication::reflect_reset(const tbx::Json& params) const
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
+            return resolved;
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto property = params.value("property", std::string());
+        if (property.empty())
+            return Result(false, "Missing 'property'.");
+
+        return tbx::Entity::reset_component_property(entity, component, property);
+    }
+
+    Result RpcCommunication::reflect_is_default(
+        const tbx::Json& params,
+        bool& out_is_default) const
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
+            return resolved;
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto property = params.value("property", std::string());
+        if (property.empty())
+            return Result(false, "Missing 'property'.");
+
+        return tbx::Entity::is_component_property_default(
+            entity,
+            component,
+            property,
+            out_is_default);
+    }
+
+    tbx::Json RpcCommunication::reflect_describe_type(const tbx::Json& params) const
+    {
+        auto result = tbx::Json::object();
+        const auto type_name = params.value("typeName", std::string());
+        if (type_name.empty())
+            return result;
+
+        const auto info = tbx::reflect(std::string_view(type_name));
+        const auto* record = info.record();
+        if (record == nullptr)
+            return result;
+
+        result["name"] = std::string(info.name());
+        const auto type_icon = info.icon();
+        if (!type_icon.name.empty())
+        {
+            result["icon"] = std::string(type_icon.name);
+            if (!type_icon.color.empty())
+                result["iconColor"] = std::string(type_icon.color);
+        }
+
+        auto properties = tbx::Json::array();
+        for (const auto& property : record->properties)
+        {
+            auto entry = tbx::Json::object();
+            entry["name"] = property.name;
+            entry["type"] = property.type_token;
+            if (!property.nested_type_name.empty())
+                entry["nestedType"] = property.nested_type_name;
+            if (!property.category.empty())
+                entry["category"] = property.category;
+            if (!property.description.empty())
+                entry["description"] = property.description;
+            if (!property.view.empty())
+                entry["view"] = property.view;
+            if (property.readonly)
+                entry["readonly"] = true;
+            if (property.hidden)
+                entry["hidden"] = true;
+            properties.push_back(std::move(entry));
+        }
+        result["properties"] = std::move(properties);
+        return result;
     }
 }

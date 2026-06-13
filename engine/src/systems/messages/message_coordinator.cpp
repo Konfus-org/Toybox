@@ -200,9 +200,8 @@ namespace tbx
                 {
                     TBX_ASSERT(
                         false,
-                        "Message is registered as having a handler, but hanlder was null! This is "
-                        "a "
-                        "memory leak!");
+                        "A registered message handler slot held a null callable; skipping it. This "
+                        "indicates a handler was registered without a valid callable.");
                     continue;
                 }
 
@@ -243,7 +242,7 @@ namespace tbx
                     case MessageNotHandledBehavior::WARN:
                     {
                         TBX_TRACE_WARNING(
-                            "Request was not handled (type: %s).",
+                            "Request was not handled (type: {}).",
                             typeid(msg).name());
                         apply_state(
                             msg,
@@ -255,7 +254,7 @@ namespace tbx
                     {
                         TBX_ASSERT(
                             false,
-                            "Request required handling but was not handled (type: %s).",
+                            "Request required handling but was not handled (type: {}).",
                             typeid(msg).name());
                         apply_state(
                             msg,

@@ -145,14 +145,19 @@ def attr_value(attrs: list[Attribute], name: str) -> str | None:
     return None
 
 
-def editor_attr_value(attrs: list[Attribute], short_name: str) -> str | None:
-    """Reads an editor-only attribute (stored as ``editor::<short_name>``) by its short name."""
-    return attr_value(attrs, f"editor::{short_name}")
+def editor_attr_value(attrs: list[Attribute], name: str) -> str | None:
+    """Reads an editor-only attribute (e.g. ``[[tbx::description("...")]]``) by name."""
+    return attr_value(attrs, name)
 
 
-def has_editor_attr(attrs: list[Attribute], short_name: str) -> bool:
-    """True when the flag attribute ``[[tbx::editor::<short_name>]]`` is present."""
-    return has_attr(attrs, f"editor::{short_name}")
+def has_editor_attr(attrs: list[Attribute], name: str) -> bool:
+    """True when the flag attribute (e.g. ``[[tbx::readonly]]``) is present."""
+    return has_attr(attrs, name)
+
+
+def attr_spelling(name: str) -> str:
+    """Render an internal attribute name back as its fully-qualified C++ source spelling."""
+    return f"tbx::{name}"
 
 
 def attrs_named(attrs: list[Attribute], name: str) -> list[Attribute]:

@@ -19,13 +19,14 @@ from model import (
 )
 
 
-# Editor-only attributes use the `editor::` attribute namespace (e.g. [[editor::readonly]]) — a single
-# scope, which is the most nesting C++ attribute syntax allows. The `editor::` segment is kept in the
-# captured name so it never collides with a subsystem attribute of the same short name (e.g. a plugin's
-# `description`). A leading `tbx::` is still stripped, so [[tbx::editor::x]] (if ever written) and
-# [[editor::x]] normalize to the same `editor::x` name.
+# Toybox attributes live in the `tbx::` attribute namespace. Engine code (which is itself inside
+# `namespace tbx`) omits the scope and writes the bare name, e.g. [[prop]] / [[readonly]]; examples
+# and plugins write it out in full, e.g. [[tbx::prop]] / [[tbx::readonly]]. Both forms normalize to
+# the same bare captured name. Editor-only attributes (category, description, hidden, readonly, view)
+# share this namespace; their names never collide with a subsystem attribute, so no extra scope is
+# needed to disambiguate them.
 ATTRIBUTE_PATTERN = re.compile(
-    r"\[\[\s*(?:tbx::)?((?:editor::)?[A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
+    r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
 )
 NAMESPACE_PATTERN = re.compile(r"^\s*namespace\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*(?:\{)?\s*$")
 TYPE_PATTERN = re.compile(

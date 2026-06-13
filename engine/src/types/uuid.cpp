@@ -3,15 +3,15 @@
 
 namespace tbx
 {
-    static uint32 combine_value(uint32 seed, uint32 value)
+    static uint64 combine_value(uint64 seed, uint64 value)
     {
-        auto hashed = std::hash<uint32> {}(value);
-        seed ^= hashed + 0x9e3779b9U + (seed << 6) + (seed >> 2);
+        auto hashed = std::hash<uint64> {}(value);
+        seed ^= hashed + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
         return seed;
     }
 
     Uuid::Uuid() = default;
-    Uuid::Uuid(uint32 v)
+    Uuid::Uuid(uint64 v)
         : value(v)
     {
     }
@@ -19,8 +19,8 @@ namespace tbx
     Uuid Uuid::generate()
     {
         std::random_device rd;
-        std::mt19937 generator(rd());
-        std::uniform_int_distribution<uint32> dist(1u, std::numeric_limits<uint32>::max());
+        std::mt19937_64 generator(rd());
+        std::uniform_int_distribution<uint64> dist(1u, std::numeric_limits<uint64>::max());
 
         Uuid id = dist(generator);
 
@@ -77,7 +77,7 @@ namespace tbx
 
     Uuid::operator uint32() const
     {
-        return value;
+        return static_cast<uint32>(value);
     }
 
     bool Uuid::operator==(const Uuid& other) const
@@ -103,7 +103,7 @@ namespace tbx
         if (trimmed.size() > 2U && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
             trimmed.remove_prefix(2U);
 
-        auto parsed = uint32();
+        auto parsed = uint64();
         const auto* begin = trimmed.data();
         const auto* end = trimmed.data() + trimmed.size();
         const auto result = std::from_chars(begin, end, parsed, 16);
@@ -116,7 +116,7 @@ namespace tbx
     Uuid hash_string_to_id(std::string_view handle_name)
     {
         const auto hasher = std::hash<std::string_view>();
-        const auto hashed = static_cast<uint32>(hasher(handle_name));
-        return hashed == 0U ? Uuid(1U) : Uuid(hashed);
+        const auto hashed = static_cast<uint64>(hasher(handle_name));
+        return hashed == 0U ? Uuid(uint64 {1U}) : Uuid(hashed);
     }
 }

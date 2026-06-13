@@ -61,6 +61,7 @@ from struct_codegen import (
     emit_json_function_definitions,
     emit_lifecycle_hook_declarations,
     emit_lifecycle_hook_definitions,
+    emit_reflection_registration,
     emit_serializable_registration,
     emit_struct_serialization_declarations,
     emit_typed_write_field,
@@ -465,8 +466,10 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
                 [
                     f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
                     "        {",
+                    "            auto tbx_reference = ::tbx::Handle {};",
+                    "            ::tbx::read_typed_serialization_value(*tbx_value_it, tbx_reference);",
                     "            auto tbx_binding = ::tbx::ScriptBinding {};",
-                    "            ::tbx::read_serialization_value(*tbx_value_it, tbx_binding);",
+                    "            tbx_binding.script = tbx_reference.id;",
                     f"            tbx_value.set_script_reference({cpp_string(json_key(field))}, tbx_binding);",
                     f"            tbx_value.{field.name} = {{}};",
                     "        }",
@@ -581,6 +584,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
         else:
             lines.extend(emit_lifecycle_hook_definitions(type_info))
             lines.extend(emit_script_asset(type_info, version, prop_fields))
+            lines.extend(emit_reflection_registration(type_info, prop_fields))
         return lines
 
     if has_attr(type_info.attrs, "serializable"):
@@ -622,6 +626,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                 else:
                     lines.extend(emit_json_function_definitions(type_info, prop_fields))
                     lines.extend(emit_serializable_registration(type_info))
+                    lines.extend(emit_reflection_registration(type_info, prop_fields))
             elif "variant" in type_info.alias_value:
                 lines.extend(
                     emit_variant_declarations(type_info) if target == "header" else emit_variant(type_info)
@@ -674,6 +679,8 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                         if target == "header"
                         else emit_asset_body(type_info, version, prop_fields)
                     )
+                    if target == "source":
+                        lines.extend(emit_reflection_registration(type_info, prop_fields))
                 if meta_fields:
                     lines.extend(
                         emit_asset_meta_declarations(type_info)
@@ -744,6 +751,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     else:
                         lines.extend(emit_json_function_definitions(type_info, prop_fields))
                         lines.extend(emit_serializable_registration(type_info))
+                        lines.extend(emit_reflection_registration(type_info, prop_fields))
                 elif custom_write_callable is not None and custom_read_callable is not None:
                     if target == "header":
                         lines.extend(emit_struct_serialization_declarations(type_info))
@@ -848,6 +856,7 @@ def generate_header(types: list[SerializableType]) -> str:
         GENERATED_CODE_BANNER,
         "#pragma once",
         "#include \"tbx/systems/assets/serialization.h\"",
+        "#include \"tbx/systems/reflection/reflection.h\"",
         "#include \"tbx/types/typedefs.h\"",
         "#include <cstdint>",
         "#include <format>",
@@ -1107,20 +1116,26 @@ def generate_plugin_meta(
     if not priority.isdigit():
         raise CodegenError(f"{type_info.name} plugin priority must be a non-negative integer.")
 
-    metadata = {
-        "name": plugin_name,
-        "version": plugin_version,
-        "description": attr_value(type_info.attrs, "description") or "",
-        "dependencies": plugin_dependencies(type_info),
-        "resource_directory": plugin_resource_directory or "",
-        "abi_version": int(validate_plugin_abi_version(plugin_abi_version)),
-        "category": category_key,
-        "linkage": "dynamic",
-        "priority": int(priority),
-    }
-    if not metadata["dependencies"] and category_key == "gameplay":
-        metadata["dependencies"] = GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES
+    dependencies = plugin_dependencies(type_info)
+    if not dependencies and category_key == "gameplay":
+        dependencies = GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES
 
+    # The PluginMeta sidecar is read back through the engine's serializer, which is typed-only, so it
+    # is written as the same self-describing { "type", "value" } schema as every other data file.
+    def typed(value: object, token: str) -> dict:
+        return {"type": token, "value": value}
+
+    metadata = {
+        "name": typed(plugin_name, "string"),
+        "version": typed(plugin_version, "string"),
+        "description": typed(attr_value(type_info.attrs, "description") or "", "string"),
+        "dependencies": typed(dependencies, "array"),
+        "resource_directory": typed(plugin_resource_directory or "", "string"),
+        "abi_version": typed(int(validate_plugin_abi_version(plugin_abi_version)), "int"),
+        "category": typed(category_key, "plugin_category"),
+        "linkage": typed("dynamic", "plugin_linkage"),
+        "priority": typed(int(priority), "int"),
+    }
     return json.dumps(metadata, indent=4) + "\n"
 
 

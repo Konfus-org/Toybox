@@ -3,6 +3,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/registry.h"
+#include "tbx/systems/reflection/reflection.h"
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
@@ -52,7 +53,11 @@ namespace tbx
             unregister_entity_component_type_entry(component_type);
 
         for (const auto& serializable_type_name : owned_resources.serializable_type_names)
+        {
             unregister_serializable_type_entry(serializable_type_name);
+            // Reflection records share the serializable wire name, so the same tracked name cleans both.
+            unregister_type_reflection_entry(serializable_type_name);
+        }
 
         for (const auto& asset_type : owned_resources.asset_types)
             unregister_asset_type_entry(asset_type);

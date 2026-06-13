@@ -7,6 +7,7 @@
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
+#include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include <concepts>
 #include <functional>
@@ -57,15 +58,16 @@ namespace tbx
     struct TBX_API ScriptBinding
     {
         [[prop]]
-        [[editor::readonly]]
+        [[readonly]]
+        [[hidden]]
         Uuid entity = {};
 
         [[prop]]
-        [[editor::view("script")]]
         Uuid script = {};
 
         [[prop]]
-        [[editor::readonly]]
+        [[readonly]]
+        [[hidden]]
         Uuid binding_id = {};
     };
 
@@ -189,6 +191,9 @@ namespace tbx
         virtual void on_update(const DeltaTime&) {}
     };
 
+    // A script reference is serialized as just the referenced script asset's id, carried as a Handle so
+    // the editor renders it with the generic asset picker (no script type needed). It resolves to that
+    // script's instance on the same entity at bind time.
     template <typename TJson, typename TScript>
     inline void read_script_reference_field(
         const TJson& json,
@@ -197,8 +202,10 @@ namespace tbx
         std::weak_ptr<TScript>& script)
     {
         static_assert(std::derived_from<TScript, Script>);
+        auto reference = Handle {};
+        read_typed_serialization_field(json, field_name, reference, Handle {});
         auto binding = ScriptBinding {};
-        read_serialization_field(json, field_name, binding, ScriptBinding {});
+        binding.script = reference.id;
         owner.set_script_reference(field_name, binding);
         script = {};
     }
@@ -211,19 +218,19 @@ namespace tbx
         const std::weak_ptr<TScript>& script)
     {
         static_assert(std::derived_from<TScript, Script>);
-        auto binding = ScriptBinding {};
+        auto reference = Handle {};
         if (const auto resolved = script.lock())
         {
             if (const auto resolved_binding = resolved->get_script_binding())
-                binding = *resolved_binding;
+                reference.id = resolved_binding->script;
         }
-        if (!binding.script.is_valid())
+        if (!reference.id.is_valid())
         {
             if (const auto stored_binding = owner.get_script_reference(field_name))
-                binding = *stored_binding;
+                reference.id = stored_binding->script;
         }
 
-        write_serialization_field(json, field_name, binding);
+        write_typed_serialization_field(json, field_name, reference);
     }
 
     template <typename TScript>
@@ -245,10 +252,9 @@ namespace tbx
                             .try_get_script(
                                 ScriptLookup {
                                     .world = context.get_world_id(),
-                                    .entity = binding->entity.is_valid() ? binding->entity
-                                                                         : context.get_entity_id(),
+                                    .entity = context.get_entity_id(),
                                     .script = binding->script,
-                                    .binding_id = binding->binding_id,
+                                    .binding_id = {},
                                 })
                             .lock();
         script = std::dynamic_pointer_cast<TScript>(resolved);

@@ -395,7 +395,7 @@ namespace tbx
         }
     }
 
-    WorldViewResult WorldView::capture(
+    const WorldViewResult& WorldView::capture(
         AssetManager& assets,
         World& world,
         GpuResourceCache& cache,
@@ -406,7 +406,20 @@ namespace tbx
         const float shadow_distance,
         const float shadow_softness)
     {
-        auto result = WorldViewResult {};
+        // Reuse the persistent result buffer: clear each vector (keeping its capacity) and reset the
+        // scalar fields, so a steady-state frame does no heap allocation for the view arrays.
+        WorldViewResult& result = _result;
+        result.uniforms = {};
+        result.instances.clear();
+        result.lights.clear();
+        result.draw_commands.clear();
+        result.bucket_pipelines.clear();
+        result.bucket_command_counts.clear();
+        result.shadow_draw_commands.clear();
+        result.shadow_category_counts = {};
+        result.local_shadow_matrices.clear();
+        result.has_camera = false;
+
         _bucket_of_pipeline.clear();
         _bucket_commands.clear();
         _bucket_transparent.clear();

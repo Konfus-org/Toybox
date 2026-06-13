@@ -27,7 +27,7 @@ namespace tbx
         IVec3 coord = {};
 
         [[prop]]
-        std::vector<Entity> entities = {};
+        EntityRegistry entities = {};
     };
 
     /// @brief
@@ -37,7 +37,7 @@ namespace tbx
     struct TBX_API WorldGlobals : Asset
     {
         [[prop]]
-        std::vector<Entity> entities = {};
+        EntityRegistry entities = {};
     };
 
     /// @brief
@@ -65,6 +65,7 @@ namespace tbx
         void clear_runtime_entities();
 
         void add_entities(const std::vector<Entity>& entities);
+        void add_entities(const EntityRegistry& entities);
         void load_globals(const WorldGlobals& globals);
         void remove_entities(const std::vector<Uuid>& ids);
 

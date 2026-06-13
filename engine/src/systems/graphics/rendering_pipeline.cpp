@@ -270,7 +270,7 @@ namespace tbx
         if (!world)
             return finish_frame();
 
-        const WorldViewResult view = _resources->view.capture(
+        const WorldViewResult& view = _resources->view.capture(
             *asset_manager,
             *world,
             _resources->cache,

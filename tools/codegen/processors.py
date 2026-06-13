@@ -12,7 +12,7 @@ from hash_codegen import (
     emit_hash_equality,
     emit_hash_equality_declaration,
 )
-from model import Attribute, CodegenError, SerializableType, has_attr
+from model import Attribute, CodegenError, SerializableType, attr_spelling, has_attr
 
 
 @dataclass
@@ -37,12 +37,10 @@ class AttributeSchemaRegistry:
         self._schemas = {
             "array": AttributeSchema(1, frozenset({"value"})),
             "app": AttributeSchema(None, frozenset({"name", "version"})),
+            "category": AttributeSchema(1, frozenset({"value"})),
             "custom_serialization": AttributeSchema(2, frozenset({"read", "write"})),
-            "editor::category": AttributeSchema(1, frozenset({"value"})),
-            "editor::description": AttributeSchema(1, frozenset({"value"})),
-            "editor::hidden": AttributeSchema(0, frozenset()),
-            "editor::readonly": AttributeSchema(0, frozenset()),
-            "editor::view": AttributeSchema(1, frozenset({"value"})),
+            "description": AttributeSchema(1, frozenset({"value"})),
+            "hidden": AttributeSchema(0, frozenset()),
             "inject": AttributeSchema(),
             "meta": AttributeSchema(None, frozenset({"fields"})),
             "name": AttributeSchema(1, frozenset({"value"})),
@@ -56,25 +54,28 @@ class AttributeSchemaRegistry:
             "pre_serialize": AttributeSchema(1, frozenset({"method"})),
             "printable": AttributeSchema(None, frozenset({"fields", "format"})),
             "prop": AttributeSchema(None, frozenset({"fields"})),
+            "readonly": AttributeSchema(0, frozenset()),
             "register": AttributeSchema(2, frozenset({"factory", "service"})),
             "serializable": AttributeSchema(1, frozenset({"mode"})),
             "text": AttributeSchema(None, frozenset({"field"})),
             "version": AttributeSchema(1, frozenset({"value"})),
+            "view": AttributeSchema(1, frozenset({"value"})),
         }
 
     def validate_attribute(self, owner_name: str, attr: Attribute) -> None:
         schema = self._schemas.get(attr.name)
         if schema is None:
             return
+        spelling = attr_spelling(attr.name)
         if schema.max_positional_args is not None and len(attr.args) > schema.max_positional_args:
             raise CodegenError(
-                f"{owner_name} uses [[tbx::{attr.name}]] with too many positional arguments."
+                f"{owner_name} uses [[{spelling}]] with too many positional arguments."
             )
         unsupported = sorted(set(attr.named_args) - set(schema.named_args))
         if unsupported:
             names = ", ".join(unsupported)
             raise CodegenError(
-                f"{owner_name} uses [[tbx::{attr.name}]] with unsupported named arguments: {names}."
+                f"{owner_name} uses [[{spelling}]] with unsupported named arguments: {names}."
             )
 
     def validate_type(self, type_info: SerializableType) -> None:

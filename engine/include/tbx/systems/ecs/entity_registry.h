@@ -80,6 +80,12 @@ namespace tbx
 
       public:
         static std::string serialize(const Entity& entity);
+
+        /// @brief Serializes the entity for the editor: like serialize, but each property is enriched
+        /// with its reflection metadata (category/description/view/readonly/hidden, value-type icons)
+        /// so the inspector can render it. Persisted files use the lean serialize form instead.
+        static std::string describe(const Entity& entity);
+
         static bool deserialize(std::string_view data, Entity& entity);
         static bool deserialize(
             std::string_view data,
@@ -93,8 +99,55 @@ namespace tbx
             std::string_view component_name,
             std::string_view value_json);
 
+        /// @brief Reads one reflected property of one component as a self-describing
+        /// { "type", "value" } node. Fails when the component or property is unknown. The value is the
+        /// property's lean serialized form (no editor metadata); use describe for metadata.
+        static Result get_component_property(
+            const Entity& entity,
+            std::string_view component_name,
+            std::string_view property_name,
+            std::string& out_node_json);
+
+        /// @brief Writes one reflected property of one component in place from its bare serialized value
+        /// (not a { "type", "value" } wrapper). Fails when the component or property is unknown or the
+        /// value cannot be applied; other properties on the component are left untouched.
+        static Result set_component_property(
+            const Entity& entity,
+            std::string_view component_name,
+            std::string_view property_name,
+            std::string_view value_json);
+
+        /// @brief Reports whether one reflected property of one component currently equals the value it
+        /// has on a default-constructed component. Fails when the component or property is unknown.
+        static Result is_component_property_default(
+            const Entity& entity,
+            std::string_view component_name,
+            std::string_view property_name,
+            bool& out_is_default);
+
+        /// @brief Resets one reflected property of one component to the value it has on a
+        /// default-constructed component. Fails when the component or property is unknown, or the
+        /// property has no captured default (its owner is not default-constructible).
+        static Result reset_component_property(
+            const Entity& entity,
+            std::string_view component_name,
+            std::string_view property_name);
+
       private:
         friend class EntityRegistry;
+
+        // Resolves (entity, component_name) to a live component instance under the appropriate registry
+        // lock, then runs action; the readable form takes a shared lock and a const instance, the
+        // writable form a unique lock and a mutable instance. Centralizes the bind/find/lock/storage
+        // boilerplate shared by the reflection property endpoints.
+        static Result with_readable_component(
+            const Entity& entity,
+            std::string_view component_name,
+            const std::function<Result(const EntityComponentTypeRegistration&, const void*)>& action);
+        static Result with_writable_component(
+            const Entity& entity,
+            std::string_view component_name,
+            const std::function<Result(const EntityComponentTypeRegistration&, void*)>& action);
 
         std::shared_ptr<class EntityRegistry> _owned_registry = nullptr;
         std::optional<std::reference_wrapper<class EntityRegistry>> _registry = std::nullopt;
@@ -119,14 +172,32 @@ namespace tbx
     /// Purpose: Owns the ECS registry backend and provides entity lifecycle operations.
     /// @details
     /// Ownership: Owns the underlying entt registry instance.
-    /// Thread Safety: Thread-safe for concurrent registry API calls via internal locking.
-    /// Notes: References returned from component access APIs are only safe while callers
-    /// externally prevent concurrent mutation of the same entity/component.
+    /// Thread Safety: Each individual call is internally synchronized (a shared_mutex guards the
+    /// backing registry), so concurrent calls will not corrupt registry state. It is NOT
+    /// transactionally safe: the lock is released when a call returns, so a read-then-write sequence
+    /// (e.g. get_name + set_name) can interleave with other writers, and any reference returned by a
+    /// component-access API is only valid until the next mutation of that storage — callers that
+    /// hold such a reference must externally prevent concurrent mutation of the same
+    /// entity/component for the duration they use it.
+    ///
+    /// Serialization: A registry is itself a serializable value (an array of entity records), so any
+    /// asset can hold one as a [[prop]] and have its entities (de)serialized automatically. This is how
+    /// WorldChunk / WorldGlobals persist their entities — they own a registry rather than a loose entity
+    /// list, so loading populates a registry directly instead of round-tripping each entity.
+    [[serializable]];
+    [[custom_serialization(serialize, deserialize)]];
     class TBX_API EntityRegistry
     {
       public:
         EntityRegistry();
         ~EntityRegistry() noexcept;
+
+        // Deep-copyable (entities and their components are duplicated). Copyability is required because
+        // EntityRegistry is a serializable [[prop]] of WorldChunk / WorldGlobals and the serialization
+        // default-fallback path assigns the field. Copies are rare (an empty default fallback, or asset
+        // duplication); the live world owns its registry by value and never copies it.
+        EntityRegistry(const EntityRegistry& other);
+        EntityRegistry& operator=(const EntityRegistry& other);
 
         bool is_empty() const;
         void clear();
@@ -178,6 +249,21 @@ namespace tbx
             requires(std::derived_from<TComponent, Component> && ...)
         void for_each_with(const std::function<void(Entity&)>& callback);
         void for_each(const std::function<void(Entity&)>& callback);
+
+        /// @brief Copies one entity — its identity metadata and every registered component — from its
+        /// owning registry into this one, by value. Does nothing if the source is invalid or already
+        /// belongs to this registry. Used to move loaded chunk/globals entities into the live world
+        /// registry without serializing through JSON.
+        void absorb(const Entity& source);
+
+      public:
+        /// @brief Serializes a whole registry to a JSON array of entity records (each the lean
+        /// Entity::serialize form). Custom-serialization entry point for the [[serializable]] registry.
+        static std::string serialize(const EntityRegistry& registry);
+
+        /// @brief Populates a registry from the array produced by serialize, adding each record directly
+        /// into the registry. Returns false only when the input is not valid JSON.
+        static bool deserialize(std::string_view data, EntityRegistry& registry);
 
       private:
         friend class Entity;

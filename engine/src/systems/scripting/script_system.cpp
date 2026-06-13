@@ -52,7 +52,7 @@ namespace tbx
         return ScriptSystemStateKey {
             .world = world.id,
             .entity = entity.get_id(),
-            .script = binding.script,
+            .script = binding.script.id,
             .binding_id = binding.binding_id,
         };
     }
@@ -135,18 +135,18 @@ namespace tbx
         AssetManager& asset_manager,
         const ScriptContainerBinding& binding)
     {
-        auto prototype_asset = asset_manager.load(Handle(binding.script));
+        auto prototype_asset = asset_manager.load(binding.script);
         auto prototype = std::dynamic_pointer_cast<Script>(prototype_asset);
         if (!prototype)
         {
-            TBX_TRACE_WARNING("Failed to load script asset id={}.", binding.script);
+            TBX_TRACE_WARNING("Failed to load script asset id={}.", binding.script.id);
             return {};
         }
 
         auto instance = clone_script_prototype(*prototype);
         if (!instance)
         {
-            TBX_TRACE_WARNING("Failed to create script instance id={}.", binding.script);
+            TBX_TRACE_WARNING("Failed to create script instance id={}.", binding.script.id);
             return {};
         }
 
@@ -160,7 +160,7 @@ namespace tbx
             {
                 TBX_TRACE_WARNING(
                     "Failed to apply script overrides id={}: {}",
-                    binding.script,
+                    binding.script.id,
                     result.get_report());
                 return {};
             }
@@ -208,7 +208,7 @@ namespace tbx
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
                     {
-                        if (!binding.enabled || !binding.script.is_valid())
+                        if (!binding.enabled || !binding.script.id.is_valid())
                             continue;
 
                         const auto key = State::make_key(*world, entity, binding);
@@ -225,7 +225,7 @@ namespace tbx
 
                         const auto script_binding = ScriptBinding {
                             .entity = entity.get_id(),
-                            .script = binding.script,
+                            .script = binding.script.id,
                             .binding_id = binding.binding_id,
                         };
                         auto context = ScriptContext(
@@ -306,7 +306,7 @@ namespace tbx
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
                     {
-                        if (!binding.enabled || !binding.script.is_valid())
+                        if (!binding.enabled || !binding.script.id.is_valid())
                             continue;
 
                         const auto key = State::make_key(*world, entity, binding);
@@ -323,7 +323,7 @@ namespace tbx
 
                         const auto script_binding = ScriptBinding {
                             .entity = entity.get_id(),
-                            .script = binding.script,
+                            .script = binding.script.id,
                             .binding_id = binding.binding_id,
                         };
                         auto context = ScriptContext(

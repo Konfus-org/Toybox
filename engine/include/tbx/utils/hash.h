@@ -91,7 +91,7 @@ namespace tbx
     // this low-level util need not depend on the higher-level Handle type.
     inline uint64 hash_handle(const Uuid& id)
     {
-        return static_cast<uint64>(static_cast<uint32>(id));
+        return static_cast<uint64>(id.value);
     }
 
     // Hash for a dynamic, in-memory resource keyed by its address.

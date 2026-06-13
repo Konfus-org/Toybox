@@ -27,11 +27,10 @@ namespace tbx
         std::unordered_map<IVec3, ChunkLoaderChunkRecord> chunks = {};
     };
 
-    static std::vector<Uuid> collect_entity_ids(const std::vector<Entity>& entities)
+    static std::vector<Uuid> collect_entity_ids(const EntityRegistry& entities)
     {
         auto ids = std::vector<Uuid> {};
-        ids.reserve(entities.size());
-        for (const auto& entity : entities)
+        for (const auto& entity : entities.get_all())
         {
             if (entity.get_id().is_valid())
                 ids.push_back(entity.get_id());

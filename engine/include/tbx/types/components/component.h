@@ -20,8 +20,9 @@ namespace tbx
     struct TBX_API Component
     {
         [[prop]]
-        [[editor::readonly]]
-        [[editor::description("Stable identity of this component. Assigned by the engine.")]]
+        [[readonly]]
+        [[hidden]]
+        [[description("Stable identity of this component. Assigned by the engine.")]]
         Uuid id = Uuid::generate();
     };
 
@@ -35,6 +36,9 @@ namespace tbx
         entt::id_type type_id = {};
         std::function<std::string(const void*)> write_value = {};
         std::function<bool(std::string_view, entt::registry&, entt::entity)> read_value = {};
+        // Copies a live component value from one registry into another without going through JSON, so an
+        // EntityRegistry can absorb entities from another registry directly (see EntityRegistry::absorb).
+        std::function<bool(const void*, entt::registry&, entt::entity)> copy_value = {};
     };
 
     TBX_API std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations();
@@ -85,6 +89,21 @@ namespace tbx
                             return false;
 
                         registry.emplace_or_replace<TComponent>(entity, component);
+                        return true;
+                    }
+                    catch (...)
+                    {
+                        return false;
+                    }
+                },
+                .copy_value =
+                    [](const void* source, entt::registry& registry, entt::entity entity)
+                {
+                    try
+                    {
+                        registry.emplace_or_replace<TComponent>(
+                            entity,
+                            *static_cast<const TComponent*>(source));
                         return true;
                     }
                     catch (...)

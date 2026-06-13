@@ -72,8 +72,10 @@ namespace tbx
 
       public:
         /// @brief Builds this frame's render view from the camera's perspective (never fails — an
-        /// empty world or missing camera simply yields a result with no renderables).
-        WorldViewResult capture(AssetManager& assets, World& world, GpuResourceCache& cache,
+        /// empty world or missing camera simply yields a result with no renderables). The returned
+        /// reference borrows a buffer owned by this WorldView that is overwritten on the next
+        /// capture(), so consume it before capturing again (the render lane does, synchronously).
+        const WorldViewResult& capture(AssetManager& assets, World& world, GpuResourceCache& cache,
             const CameraView& camera_view, const Size& output_size, float elapsed_time,
             float light_cull_distance, float shadow_distance, float shadow_softness);
 
@@ -105,5 +107,9 @@ namespace tbx
         // Per-category shadow caster draw commands for the current capture(), flattened at the end.
         std::array<std::vector<GpuIndexedDrawCommand>, SHADOW_CASTER_CATEGORY_COUNT>
             _shadow_commands = {};
+        // Reused across frames so capture() reuses each vector's storage instead of reallocating the
+        // whole result (instances, lights, draw commands, buckets…) every frame. Cleared, not
+        // freed, at the start of each capture().
+        WorldViewResult _result = {};
     };
 }

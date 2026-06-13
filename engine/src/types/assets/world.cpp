@@ -43,26 +43,29 @@ namespace tbx
     {
         for (const auto& source : entities)
         {
-            auto entity = Entity();
-            const auto entity_record = Entity::serialize(source);
-            if (!Entity::deserialize(entity_record, _registry, entity))
-                continue;
+            _registry.absorb(source);
+            if (source.get_id().is_valid())
+                remove_global(source.get_id());
+        }
+    }
 
-            if (entity.get_id().is_valid())
-                remove_global(entity.get_id());
+    void World::add_entities(const EntityRegistry& entities)
+    {
+        for (const auto& source : entities.get_all())
+        {
+            _registry.absorb(source);
+            if (source.get_id().is_valid())
+                remove_global(source.get_id());
         }
     }
 
     void World::load_globals(const WorldGlobals& globals_asset)
     {
-        for (const auto& source : globals_asset.entities)
+        for (const auto& source : globals_asset.entities.get_all())
         {
-            auto entity = Entity();
-            const auto entity_record = Entity::serialize(source);
-            if (!Entity::deserialize(entity_record, _registry, entity))
-                continue;
-
-            make_persistent(entity.get_id());
+            _registry.absorb(source);
+            if (source.get_id().is_valid())
+                make_persistent(source.get_id());
         }
     }
 

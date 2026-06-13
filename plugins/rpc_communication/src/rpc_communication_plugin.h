@@ -49,6 +49,12 @@ namespace tbx::rpc_communication
         tbx::Json handle_describe_world() const;
         tbx::Json handle_list_assets() const;
         Result apply_component(const tbx::Json& params) const;
+        Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
+        Result reflect_get(const tbx::Json& params, tbx::Json& out_node) const;
+        Result reflect_set(const tbx::Json& params) const;
+        Result reflect_reset(const tbx::Json& params) const;
+        Result reflect_is_default(const tbx::Json& params, bool& out_is_default) const;
+        tbx::Json reflect_describe_type(const tbx::Json& params) const;
         Result start_view();
         void stop_view();
         void create_editor_camera(tbx::World& world);

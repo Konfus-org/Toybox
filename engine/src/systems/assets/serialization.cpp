@@ -187,6 +187,19 @@ namespace tbx
             registrations.erase(iterator);
     }
 
+    void clear_serialization_registrations()
+    {
+        auto& store = SerializationRegistrationStore::get_instance();
+        {
+            auto guard = std::lock_guard(store.serializable_type_mutex());
+            store.serializable_types().clear();
+        }
+        {
+            auto guard = std::lock_guard(store.asset_type_mutex());
+            store.asset_types().clear();
+        }
+    }
+
     void register_serializable_type_entry(SerializableTypeRegistration entry)
     {
         if (entry.name.empty() || !entry.write_value || !entry.read_value)

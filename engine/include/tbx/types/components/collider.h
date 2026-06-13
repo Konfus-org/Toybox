@@ -73,6 +73,7 @@ namespace tbx
     /// Ownership: Owns mesh collider settings by value only; geometry ownership stays with the mesh
     /// component. Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[serializable]];
+    [[icon("Shapes", Color::GREEN)]];
     struct TBX_API MeshCollider : Component
     {
         MeshCollider() = default;
@@ -91,6 +92,7 @@ namespace tbx
     /// Ownership: Owns size data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[serializable]];
+    [[icon("Box", Color::GREEN)]];
     struct TBX_API CubeCollider : Component
     {
         CubeCollider() = default;
@@ -109,6 +111,7 @@ namespace tbx
     /// Ownership: Owns radius data by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[serializable]];
+    [[icon("Shapes", Color::GREEN)]];
     struct TBX_API SphereCollider : Component
     {
         SphereCollider() = default;
@@ -127,6 +130,7 @@ namespace tbx
     /// Ownership: Owns capsule dimensions by value.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[serializable]];
+    [[icon("Shapes", Color::GREEN)]];
     struct TBX_API CapsuleCollider : Component
     {
         CapsuleCollider() = default;

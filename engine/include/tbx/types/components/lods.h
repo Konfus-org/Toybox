@@ -25,6 +25,7 @@ namespace tbx
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
+    [[icon("Layers", Color::GREY)]];
     struct TBX_API Lods : Component
     {
         [[prop]]

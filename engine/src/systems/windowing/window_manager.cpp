@@ -250,9 +250,12 @@ namespace tbx
         }
         process_pending_window_closes();
 
-        if (const auto backend = _backend.lock())
-            backend->shutdown();
-
+        // Closing every window above is enough here; deliberately don't shut the backend down. The SDL
+        // backend is owned by the SdlWindowing plugin, which shuts it down — quitting the SDL video
+        // subsystem — from its on_detach. That detach runs after the OpenGL context plugin's, so GL
+        // contexts are destroyed while SDL video is still alive. Quitting the subsystem here (before any
+        // plugin detaches) left SdlOpenGlContextManager calling SDL_GL_DestroyContext on a torn-down
+        // video subsystem, crashing shutdown with an access violation.
         _state->pending_close_window_ids.clear();
         _state->windows.clear();
         _state->main_window = {};

@@ -42,6 +42,7 @@ namespace tbx
         overrides.parameters.values,
         overrides.has_texture_override,
         overrides.textures.values)]];
+    [[icon("Palette", Color::MAGENTA)]];
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();

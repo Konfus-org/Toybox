@@ -69,6 +69,7 @@ namespace tbx
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[serializable]];
+    [[icon("Cuboid", Color::BLUE)]];
     struct TBX_API StaticMesh : Component
     {
         StaticMesh() = default;

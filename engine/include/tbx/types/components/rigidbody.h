@@ -24,6 +24,7 @@ namespace tbx
     /// Ownership: Value type that owns all component data by copy.
     /// Thread Safety: Safe for concurrent reads; synchronize external mutation.
     [[serializable]];
+    [[icon("Atom", Color::GREEN)]];
     struct TBX_API Rigidbody : Component
     {
         [[prop]]

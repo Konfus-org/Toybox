@@ -56,6 +56,10 @@ namespace sdl_base_systems
 
     void SdlBaseSystems::on_detach()
     {
+        // Restore SDL's default log handler before this plugin is unloaded. The callback installed in
+        // on_attach lives in this plugin's DLL; leaving it registered lets SDL call into freed code
+        // during its process-exit teardown, which crashes shutdown with an access violation.
+        SDL_SetLogOutputFunction(SDL_GetDefaultLogOutputFunction(), nullptr);
         SDL_QuitSubSystem(SDL_INIT_EVENTS);
     }
 
