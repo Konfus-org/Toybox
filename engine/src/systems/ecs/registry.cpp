@@ -28,6 +28,13 @@ namespace tbx
         Uuid value = {};
     };
 
+    // Explicit sibling order, so the editor can present and persist a user-chosen arrangement rather than
+    // entt's insertion order. Lower sorts first among entities sharing a parent.
+    struct EntityOrderComponent
+    {
+        int value = 0;
+    };
+
     static EntityHandle to_entity_handle(const Uuid& id)
     {
         if (!id.is_valid())
@@ -137,6 +144,7 @@ namespace tbx
         _registry->emplace<EntityTagComponent>(handle, EntityTagComponent {.value = tag});
         _registry->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
         _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
+        _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
 
         track_plugin_owned_entity(id);
 
@@ -177,6 +185,10 @@ namespace tbx
         _registry->emplace_or_replace<EntityParentComponent>(
             handle,
             EntityParentComponent {.value = parent});
+        // Order defaults to 0 here; a persisted value is applied afterwards via set_order_value (the
+        // add overloads carry only the four identity fields).
+        if (!_registry->all_of<EntityOrderComponent>(handle))
+            _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
 
         track_plugin_owned_entity(id);
 
@@ -287,6 +299,18 @@ namespace tbx
         set_component_value<EntityParentComponent>(*_registry, id, parent);
     }
 
+    int EntityRegistry::get_order_value(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        return get_component_value<EntityOrderComponent, int>(*_registry, id);
+    }
+
+    void EntityRegistry::set_order_value(const Uuid& id, int order)
+    {
+        auto guard = std::unique_lock(_mutex);
+        set_component_value<EntityOrderComponent>(*_registry, id, order);
+    }
+
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
@@ -311,6 +335,7 @@ namespace tbx
 
         // Recreate identity metadata in this registry, then copy each registered component by value.
         add(id, source.get_name(), source.get_tag(), source.get_layer(), source.get_parent());
+        set_order_value(id, source.get_order());
 
         const auto entries = get_entity_component_type_registrations();
         const auto handle = to_entity_handle(id);
@@ -324,36 +349,5 @@ namespace tbx
 
             entry.copy_value(storage->value(handle), *_registry, handle);
         }
-    }
-
-    std::string EntityRegistry::serialize(const EntityRegistry& registry)
-    {
-        auto entities = Json::array();
-        for (const auto& entity : registry.get_all())
-        {
-            if (!entity.get_id().is_valid())
-                continue;
-
-            auto record = Json::parse(Entity::serialize(entity), nullptr, false);
-            if (!record.is_discarded())
-                entities.push_back(std::move(record));
-        }
-        return entities.dump();
-    }
-
-    bool EntityRegistry::deserialize(std::string_view data, EntityRegistry& registry)
-    {
-        auto json = Json::parse(data, nullptr, false);
-        if (json.is_discarded())
-            return false;
-        if (!json.is_array())
-            return true;
-
-        for (const auto& record : json)
-        {
-            auto entity = Entity();
-            Entity::deserialize(record.dump(), registry, entity);
-        }
-        return true;
     }
 }

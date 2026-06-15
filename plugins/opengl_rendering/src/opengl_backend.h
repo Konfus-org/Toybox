@@ -7,6 +7,7 @@
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/types/window.h"
 #include <memory>
+#include <unordered_map>
 
 namespace opengl_rendering
 {
@@ -38,6 +39,12 @@ namespace opengl_rendering
 
         tbx::Result present() override;
         void wait_for_idle() override;
+
+        tbx::Result create_shared_target(
+            const tbx::RenderTarget& target,
+            const tbx::Size& size,
+            tbx::SharedTargetInfo& out_info) override;
+        void destroy_shared_target(const tbx::RenderTarget& target) override;
 
         tbx::Result read_back_buffer(
             const tbx::Size& backbuffer_size,
@@ -116,11 +123,38 @@ namespace opengl_rendering
 
         OpenGlResourceCache _cache = {};
         OpenGlState _state = {};
-        uint32 _readback_pbos[3] = {0U, 0U, 0U};
-        void* _readback_fences[3] = {nullptr, nullptr, nullptr};
-        uint32 _readback_write_index = 0U;
-        uint32 _readback_inflight = 0U;
-        tbx::Size _readback_pbo_size = {};
+
+        // A GPU texture another process samples directly (zero readback). The D3D11 texture is the
+        // cross-process surface; it is registered with GL through WGL_NV_DX_interop2 as a
+        // renderbuffer (renderbuffer, not texture, sidesteps an NVIDIA FBO-incomplete bug) and
+        // attached to a private framebuffer this backend draws the view into. Pointers are stored
+        // type-erased so this header stays free of <d3d11.h>/<windows.h>.
+        struct SharedTarget
+        {
+            void* d3d_texture = nullptr;       // ID3D11Texture2D*
+            void* keyed_mutex = nullptr;       // IDXGIKeyedMutex*
+            void* gl_interop_object = nullptr; // HANDLE from wglDXRegisterObjectNV
+            void* share_handle = nullptr;      // HANDLE: the DXGI global cross-process handle
+            uint32 color_renderbuffer = 0U;    // GL name bound to the D3D texture
+            uint32 depth_renderbuffer = 0U;
+            uint32 framebuffer = 0U;
+            tbx::Size size = {};
+            bool is_locked = false; // wglDXLockObjectsNV held for the in-flight frame
+        };
+        tbx::Result ensure_d3d_interop_ready();
+        void release_shared_target(SharedTarget& target);
+        void destroy_all_shared_targets();
+
+        // The D3D11 device that owns every shared texture, plus the GL<->D3D interop device opened
+        // on it. Created lazily on the render lane the first time a shared target is requested.
+        void* _d3d_device = nullptr;     // ID3D11Device*
+        void* _d3d_context = nullptr;    // ID3D11DeviceContext*
+        void* _interop_device = nullptr; // HANDLE from wglDXOpenDeviceNV
+        // Keyed by target id so concurrently streamed views never collide; the active one is set in
+        // begin_frame and drives the keyed-mutex/lock handshake through end_frame.
+        std::unordered_map<uint64, SharedTarget> _shared_targets = {};
+        SharedTarget* _active_shared_target = nullptr;
+
         uint32 _output_framebuffer = 0U;
         uint32 _output_color_texture = 0U;
         uint32 _output_depth_renderbuffer = 0U;

@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-namespace tbx::rpc_communication
+namespace tbx::studio_bridge
 {
     constexpr uint64 INVALID_SOCKET_HANDLE = static_cast<uint64>(-1);
 

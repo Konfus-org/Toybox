@@ -1,14 +1,57 @@
 #include "opengl_backend.h"
 #include <chrono>
+#include <cstdint>
 #include <thread>
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/viewport.h"
 
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <d3d11.h>
+#include <dxgi.h>
+// wingdi.h defines an ERROR macro that would rewrite the engine's TBX_TRACE_ERROR / LogLevel::ERROR
+// tokens; drop it now that the Windows headers are in.
+#undef ERROR
+
+// WGL_NV_DX_interop2 entry points. The extension is part of the ICD, so it has no import library;
+// the pointers are resolved through wglGetProcAddress the first time a shared target is created,
+// while a GL context is current. Signatures and access tokens match the extension spec.
+#ifndef WGL_ACCESS_WRITE_DISCARD_NV
+#define WGL_ACCESS_READ_ONLY_NV 0x00000000
+#define WGL_ACCESS_READ_WRITE_NV 0x00000001
+#define WGL_ACCESS_WRITE_DISCARD_NV 0x00000002
+#endif
+
+using PFN_wglDXOpenDeviceNV = HANDLE(WINAPI*)(void* dxDevice);
+using PFN_wglDXCloseDeviceNV = BOOL(WINAPI*)(HANDLE hDevice);
+using PFN_wglDXRegisterObjectNV =
+    HANDLE(WINAPI*)(HANDLE hDevice, void* dxObject, GLuint name, GLenum type, GLenum access);
+using PFN_wglDXUnregisterObjectNV = BOOL(WINAPI*)(HANDLE hDevice, HANDLE hObject);
+using PFN_wglDXLockObjectsNV = BOOL(WINAPI*)(HANDLE hDevice, GLint count, HANDLE* hObjects);
+using PFN_wglDXUnlockObjectsNV = BOOL(WINAPI*)(HANDLE hDevice, GLint count, HANDLE* hObjects);
+
+static PFN_wglDXOpenDeviceNV g_wglDXOpenDeviceNV = nullptr;
+static PFN_wglDXCloseDeviceNV g_wglDXCloseDeviceNV = nullptr;
+static PFN_wglDXRegisterObjectNV g_wglDXRegisterObjectNV = nullptr;
+static PFN_wglDXUnregisterObjectNV g_wglDXUnregisterObjectNV = nullptr;
+static PFN_wglDXLockObjectsNV g_wglDXLockObjectsNV = nullptr;
+static PFN_wglDXUnlockObjectsNV g_wglDXUnlockObjectsNV = nullptr;
+#endif
+
 namespace opengl_rendering
 {
     // Mirrors a 60Hz vsynced swap for render-texture frames.
     constexpr std::chrono::microseconds TEXTURE_FRAME_INTERVAL(16667);
+
+#ifdef _WIN32
+    // How long begin_frame waits to take the shared texture from the editor before giving up for
+    // this frame. Short so a not-yet-consuming editor never stalls the render lane: the frame just
+    // renders into a throwaway framebuffer and the next one retries.
+    constexpr uint32 SHARED_TARGET_ACQUIRE_TIMEOUT_MS = 8U;
+#endif
 
     static std::string gl_error_to_string(const GLenum error)
     {
@@ -374,6 +417,7 @@ namespace opengl_rendering
     void OpenGlGraphicsBackend::cleanup()
     {
         destroy_output_framebuffer();
+        destroy_all_shared_targets();
         const auto context_backend = lock_context_backend();
 
         if (_state.is_loaded && context_backend)
@@ -447,6 +491,29 @@ namespace opengl_rendering
         if (auto result = ensure_gl_loaded(); !result)
             return result;
 
+        _active_shared_target = nullptr;
+#ifdef _WIN32
+        // A streamed view renders straight into its shared GPU texture (no readback). Take the
+        // texture from the editor first: producer acquires keyed-mutex key 0, then locks the
+        // registered object for GL. A short acquire timeout means a not-yet-consuming editor can
+        // never stall the lane — we just fall through to the throwaway framebuffer below.
+        if (const auto it = _shared_targets.find(output_target.id.value); it != _shared_targets.end())
+        {
+            auto& shared = it->second;
+            auto* mutex = static_cast<IDXGIKeyedMutex*>(shared.keyed_mutex);
+            if (mutex->AcquireSync(0U, SHARED_TARGET_ACQUIRE_TIMEOUT_MS) == S_OK)
+            {
+                g_wglDXLockObjectsNV(_interop_device, 1, &shared.gl_interop_object);
+                shared.is_locked = true;
+                _active_shared_target = &shared;
+                _state.current_target = _contexts.front();
+                clear_bound_state();
+                _is_texture_frame = true;
+                return make_success();
+            }
+        }
+#endif
+
         if (auto result = ensure_output_framebuffer(output_target.size); !result)
             return result;
 
@@ -463,6 +530,23 @@ namespace opengl_rendering
     {
         clear_bound_state();
         auto result = consume_gl_errors("end_frame");
+#ifdef _WIN32
+        if (_active_shared_target != nullptr)
+        {
+            // Flush GL work into the shared texture, release it back to D3D, then hand the texture
+            // to the editor: producer releases keyed-mutex key 1 (the editor acquires 1 / releases
+            // 0). wglDXUnlockObjectsNV inserts the GL/D3D sync, so the editor sees a complete frame.
+            auto& shared = *_active_shared_target;
+            glFlush();
+            if (shared.is_locked)
+            {
+                g_wglDXUnlockObjectsNV(_interop_device, 1, &shared.gl_interop_object);
+                shared.is_locked = false;
+            }
+            static_cast<IDXGIKeyedMutex*>(shared.keyed_mutex)->ReleaseSync(1U);
+            _active_shared_target = nullptr;
+        }
+#endif
         _state.current_target = {};
         _is_texture_frame = false;
         return result;
@@ -497,6 +581,8 @@ namespace opengl_rendering
         const tbx::Size& backbuffer_size,
         std::vector<uint8>& out_pixels)
     {
+        // One-shot synchronous capture for headless --screenshot. The editor never takes this path
+        // (it samples shared textures directly), so a plain blocking read is fine — no PBO ring.
         if (!_state.is_loaded)
             return make_failure("OpenGL backend: cannot read the back buffer before GL is loaded.");
 
@@ -507,54 +593,16 @@ namespace opengl_rendering
 
         const auto stride = static_cast<size>(width) * 4U;
         const auto buffer_bytes = stride * height;
-        constexpr uint32 PBO_COUNT = 3U; // a ring deep enough to read a fence two frames behind
 
-        if (_readback_pbos[0] == 0U)
-            glGenBuffers(static_cast<GLsizei>(PBO_COUNT), _readback_pbos);
-
-        // Resize every pixel buffer when the capture size changes; queued frames no longer match,
-        // so drop their fences and start filling the ring again.
-        if (_readback_pbo_size.width != width || _readback_pbo_size.height != height)
-        {
-            for (uint32 slot = 0U; slot < PBO_COUNT; ++slot)
-            {
-                glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[slot]);
-                glBufferData(
-                    GL_PIXEL_PACK_BUFFER,
-                    static_cast<GLsizeiptr>(buffer_bytes),
-                    nullptr,
-                    GL_STREAM_READ);
-                if (_readback_fences[slot] != nullptr)
-                {
-                    glDeleteSync(static_cast<GLsync>(_readback_fences[slot]));
-                    _readback_fences[slot] = nullptr;
-                }
-            }
-            _readback_pbo_size = backbuffer_size;
-            _readback_write_index = 0U;
-            _readback_inflight = 0U;
-        }
-
-        // The pipeline may leave an offscreen FBO bound; read explicitly from the chosen target
-        // and restore whatever read/pack state was active afterwards.
         GLint previous_read_framebuffer = 0;
         GLint previous_pack_alignment = 4;
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_read_framebuffer);
         glGetIntegerv(GL_PACK_ALIGNMENT, &previous_pack_alignment);
 
-        // Issue the read into the current ring buffer. With a pack buffer bound glReadPixels queues
-        // an asynchronous DMA and returns immediately; a fence lets a later call tell when the copy
-        // has finished without ever blocking the render lane.
-        const auto write_index = _readback_write_index;
-        if (_readback_fences[write_index] != nullptr) // a skipped read left this slot's fence behind
-        {
-            glDeleteSync(static_cast<GLsync>(_readback_fences[write_index]));
-            _readback_fences[write_index] = nullptr;
-        }
+        auto scratch = std::vector<uint8>(buffer_bytes);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, get_output_framebuffer());
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadBuffer(_is_texture_frame ? GL_COLOR_ATTACHMENT0 : GL_BACK);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[write_index]);
         glReadPixels(
             0,
             0,
@@ -562,67 +610,322 @@ namespace opengl_rendering
             static_cast<GLsizei>(height),
             GL_BGRA,
             GL_UNSIGNED_BYTE,
-            nullptr);
-        _readback_fences[write_index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        // Texture frames never swap, so nothing else submits this work to the GPU. Flush so the
-        // readback and its fence actually start now and have finished by the time a later call polls.
-        glFlush();
+            scratch.data());
 
-        // Deliver the buffer filled two calls ago, but only if its DMA has finished. Polling the
-        // fence with a zero timeout never blocks: a not-yet-ready frame is simply skipped (the
-        // viewport holds the previous frame a beat) instead of stalling the render lane.
-        auto result = make_failure("OpenGL backend: readback frame not ready yet.");
-        if (_readback_inflight >= 2U)
-        {
-            const auto read_index = (write_index + 1U) % PBO_COUNT;
-            const auto fence = static_cast<GLsync>(_readback_fences[read_index]);
-            if (fence != nullptr)
-            {
-                const auto status = glClientWaitSync(fence, 0, 0);
-                if (status == GL_ALREADY_SIGNALED || status == GL_CONDITION_SATISFIED)
-                {
-                    glBindBuffer(GL_PIXEL_PACK_BUFFER, _readback_pbos[read_index]);
-                    const auto* mapped = static_cast<const uint8*>(glMapBufferRange(
-                        GL_PIXEL_PACK_BUFFER,
-                        0,
-                        static_cast<GLsizeiptr>(buffer_bytes),
-                        GL_MAP_READ_BIT));
-                    if (mapped != nullptr)
-                    {
-                        out_pixels.resize(buffer_bytes);
-                        // GL rows are bottom-up; deliver top-down.
-                        for (uint32 row = 0U; row < height; ++row)
-                        {
-                            const auto* src = mapped + static_cast<size>(height - 1U - row) * stride;
-                            std::memcpy(
-                                out_pixels.data() + static_cast<size>(row) * stride, src, stride);
-                        }
-                        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-                        result = make_success();
-                    }
-                    else
-                    {
-                        result = make_failure("OpenGL backend: failed to map the readback buffer.");
-                    }
-                    glDeleteSync(fence);
-                    _readback_fences[read_index] = nullptr;
-                }
-            }
-        }
-
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0U);
         glPixelStorei(GL_PACK_ALIGNMENT, previous_pack_alignment);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer));
 
-        _readback_write_index = (write_index + 1U) % PBO_COUNT;
-        if (_readback_inflight < PBO_COUNT)
-            ++_readback_inflight;
+        out_pixels.resize(buffer_bytes);
+        // GL rows are bottom-up; deliver top-down.
+        for (uint32 row = 0U; row < height; ++row)
+        {
+            const auto* src = scratch.data() + static_cast<size>(height - 1U - row) * stride;
+            std::memcpy(out_pixels.data() + static_cast<size>(row) * stride, src, stride);
+        }
 
-        const auto gl_result = consume_gl_errors("read_back_buffer");
-        if (!result)
-            return result;
-        return gl_result;
+        return consume_gl_errors("read_back_buffer");
     }
+
+#ifdef _WIN32
+    tbx::Result OpenGlGraphicsBackend::ensure_d3d_interop_ready()
+    {
+        if (_interop_device != nullptr)
+            return make_success();
+
+        // The interop functions live in the ICD, so they are resolved through wglGetProcAddress
+        // (which needs a current GL context — the caller establishes one first).
+        if (g_wglDXOpenDeviceNV == nullptr)
+        {
+            g_wglDXOpenDeviceNV =
+                reinterpret_cast<PFN_wglDXOpenDeviceNV>(wglGetProcAddress("wglDXOpenDeviceNV"));
+            g_wglDXCloseDeviceNV =
+                reinterpret_cast<PFN_wglDXCloseDeviceNV>(wglGetProcAddress("wglDXCloseDeviceNV"));
+            g_wglDXRegisterObjectNV = reinterpret_cast<PFN_wglDXRegisterObjectNV>(
+                wglGetProcAddress("wglDXRegisterObjectNV"));
+            g_wglDXUnregisterObjectNV = reinterpret_cast<PFN_wglDXUnregisterObjectNV>(
+                wglGetProcAddress("wglDXUnregisterObjectNV"));
+            g_wglDXLockObjectsNV =
+                reinterpret_cast<PFN_wglDXLockObjectsNV>(wglGetProcAddress("wglDXLockObjectsNV"));
+            g_wglDXUnlockObjectsNV = reinterpret_cast<PFN_wglDXUnlockObjectsNV>(
+                wglGetProcAddress("wglDXUnlockObjectsNV"));
+        }
+        if (g_wglDXOpenDeviceNV == nullptr || g_wglDXCloseDeviceNV == nullptr
+            || g_wglDXRegisterObjectNV == nullptr || g_wglDXUnregisterObjectNV == nullptr
+            || g_wglDXLockObjectsNV == nullptr || g_wglDXUnlockObjectsNV == nullptr)
+            return make_failure(
+                "OpenGL backend: WGL_NV_DX_interop2 is unavailable; GPU texture sharing needs a "
+                "driver that exports it on the same GPU adapter as the editor.");
+
+        if (_d3d_device == nullptr)
+        {
+            ID3D11Device* device = nullptr;
+            ID3D11DeviceContext* context = nullptr;
+            const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+            D3D_FEATURE_LEVEL obtained = {};
+            const auto hr = ::D3D11CreateDevice(
+                nullptr, // default adapter — must be the same GPU the editor composites on
+                D3D_DRIVER_TYPE_HARDWARE,
+                nullptr,
+                D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+                levels,
+                ARRAYSIZE(levels),
+                D3D11_SDK_VERSION,
+                &device,
+                &obtained,
+                &context);
+            if (FAILED(hr) || device == nullptr)
+                return make_failure(
+                    "OpenGL backend: failed to create the D3D11 device for texture sharing.");
+            _d3d_device = device;
+            _d3d_context = context;
+        }
+
+        const auto interop = g_wglDXOpenDeviceNV(_d3d_device);
+        if (interop == nullptr)
+            return make_failure(
+                "OpenGL backend: wglDXOpenDeviceNV failed to open the D3D11 device for interop.");
+        _interop_device = interop;
+        return make_success();
+    }
+
+    tbx::Result OpenGlGraphicsBackend::create_shared_target(
+        const tbx::RenderTarget& target,
+        const tbx::Size& size,
+        tbx::SharedTargetInfo& out_info)
+    {
+        if (!target.id.is_valid())
+            return make_failure("OpenGL backend: shared target id is invalid.");
+        if (size.width == 0U || size.height == 0U)
+            return make_failure("OpenGL backend: shared target size is zero.");
+        if (_contexts.empty())
+            return make_failure(
+                "OpenGL backend: a window context must exist before creating a shared target.");
+
+        if (auto result = make_current(_contexts.front()); !result)
+            return result;
+        if (auto result = ensure_gl_loaded(); !result)
+            return result;
+        if (auto result = ensure_d3d_interop_ready(); !result)
+            return result;
+
+        // Idempotent per target: a same-size request returns the existing handle; a resize rebuilds.
+        if (const auto it = _shared_targets.find(target.id.value); it != _shared_targets.end())
+        {
+            if (it->second.size.width == size.width && it->second.size.height == size.height)
+            {
+                out_info.shared_handle =
+                    static_cast<uint64>(reinterpret_cast<uintptr_t>(it->second.share_handle));
+                out_info.width = size.width;
+                out_info.height = size.height;
+                return make_success();
+            }
+            release_shared_target(it->second);
+            _shared_targets.erase(it);
+        }
+
+        auto* device = static_cast<ID3D11Device*>(_d3d_device);
+
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width = size.width;
+        desc.Height = size.height;
+        desc.MipLevels = 1U;
+        desc.ArraySize = 1U;
+        desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+        desc.SampleDesc.Count = 1U;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        // Keyed mutex + a global cross-process handle is exactly what the editor's compositor
+        // imports (Avalonia's D3D11TextureGlobalSharedHandle).
+        desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
+
+        ID3D11Texture2D* texture = nullptr;
+        if (FAILED(device->CreateTexture2D(&desc, nullptr, &texture)) || texture == nullptr)
+            return make_failure("OpenGL backend: failed to create the shared D3D11 texture.");
+
+        HANDLE share_handle = nullptr;
+        IDXGIResource* dxgi_resource = nullptr;
+        if (FAILED(texture->QueryInterface(
+                __uuidof(IDXGIResource), reinterpret_cast<void**>(&dxgi_resource)))
+            || dxgi_resource == nullptr)
+        {
+            texture->Release();
+            return make_failure("OpenGL backend: shared texture exposes no IDXGIResource.");
+        }
+        const auto handle_hr = dxgi_resource->GetSharedHandle(&share_handle);
+        dxgi_resource->Release();
+        if (FAILED(handle_hr) || share_handle == nullptr)
+        {
+            texture->Release();
+            return make_failure("OpenGL backend: failed to obtain the shared texture handle.");
+        }
+
+        IDXGIKeyedMutex* keyed_mutex = nullptr;
+        if (FAILED(texture->QueryInterface(
+                __uuidof(IDXGIKeyedMutex), reinterpret_cast<void**>(&keyed_mutex)))
+            || keyed_mutex == nullptr)
+        {
+            texture->Release();
+            return make_failure("OpenGL backend: shared texture exposes no keyed mutex.");
+        }
+
+        // Register the D3D texture with GL as a renderbuffer (not a texture: a renderbuffer
+        // attachment sidesteps an NVIDIA GL_FRAMEBUFFER_UNSUPPORTED bug) and hang it plus a private
+        // depth-stencil buffer off a dedicated FBO this backend draws the view into.
+        GLuint color_rb = 0U;
+        GLuint depth_rb = 0U;
+        GLuint fbo = 0U;
+        glGenRenderbuffers(1, &color_rb);
+
+        // Non-const so &gl_object is a mutable HANDLE* for the lock/unlock calls below.
+        auto gl_object = g_wglDXRegisterObjectNV(
+            _interop_device, texture, color_rb, GL_RENDERBUFFER, WGL_ACCESS_WRITE_DISCARD_NV);
+        if (gl_object == nullptr)
+        {
+            glDeleteRenderbuffers(1, &color_rb);
+            keyed_mutex->Release();
+            texture->Release();
+            return make_failure(
+                "OpenGL backend: wglDXRegisterObjectNV failed for the shared texture.");
+        }
+
+        glGenRenderbuffers(1, &depth_rb);
+        glBindRenderbuffer(GL_RENDERBUFFER, depth_rb);
+        glRenderbufferStorage(
+            GL_RENDERBUFFER,
+            GL_DEPTH24_STENCIL8,
+            static_cast<GLsizei>(size.width),
+            static_cast<GLsizei>(size.height));
+        glBindRenderbuffer(GL_RENDERBUFFER, 0U);
+
+        // The color renderbuffer only has the texture's storage while the interop object is locked,
+        // so lock for the completeness check, then unlock — per-frame locking lives in begin_frame.
+        glGenFramebuffers(1, &fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        g_wglDXLockObjectsNV(_interop_device, 1, &gl_object);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color_rb);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth_rb);
+        const auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        g_wglDXUnlockObjectsNV(_interop_device, 1, &gl_object);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0U);
+
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            g_wglDXUnregisterObjectNV(_interop_device, gl_object);
+            glDeleteRenderbuffers(1, &color_rb);
+            glDeleteRenderbuffers(1, &depth_rb);
+            glDeleteFramebuffers(1, &fbo);
+            keyed_mutex->Release();
+            texture->Release();
+            return make_failure("OpenGL backend: shared render target framebuffer is incomplete.");
+        }
+
+        auto shared = SharedTarget();
+        shared.d3d_texture = texture;
+        shared.keyed_mutex = keyed_mutex;
+        shared.gl_interop_object = gl_object;
+        shared.share_handle = share_handle;
+        shared.color_renderbuffer = color_rb;
+        shared.depth_renderbuffer = depth_rb;
+        shared.framebuffer = fbo;
+        shared.size = size;
+        _shared_targets[target.id.value] = shared;
+
+        out_info.shared_handle = static_cast<uint64>(reinterpret_cast<uintptr_t>(share_handle));
+        out_info.width = size.width;
+        out_info.height = size.height;
+        return consume_gl_errors("create_shared_target");
+    }
+
+    void OpenGlGraphicsBackend::release_shared_target(SharedTarget& target)
+    {
+        if (target.gl_interop_object != nullptr && _interop_device != nullptr)
+        {
+            if (target.is_locked && g_wglDXUnlockObjectsNV != nullptr)
+                g_wglDXUnlockObjectsNV(_interop_device, 1, &target.gl_interop_object);
+            if (g_wglDXUnregisterObjectNV != nullptr)
+                g_wglDXUnregisterObjectNV(_interop_device, target.gl_interop_object);
+        }
+        target.is_locked = false;
+
+        if (target.framebuffer != 0U)
+            glDeleteFramebuffers(1, &target.framebuffer);
+        if (target.color_renderbuffer != 0U)
+            glDeleteRenderbuffers(1, &target.color_renderbuffer);
+        if (target.depth_renderbuffer != 0U)
+            glDeleteRenderbuffers(1, &target.depth_renderbuffer);
+        target.framebuffer = 0U;
+        target.color_renderbuffer = 0U;
+        target.depth_renderbuffer = 0U;
+
+        if (target.keyed_mutex != nullptr)
+            static_cast<IDXGIKeyedMutex*>(target.keyed_mutex)->Release();
+        if (target.d3d_texture != nullptr)
+            static_cast<ID3D11Texture2D*>(target.d3d_texture)->Release();
+        target.keyed_mutex = nullptr;
+        target.d3d_texture = nullptr;
+        target.gl_interop_object = nullptr;
+        target.share_handle = nullptr;
+    }
+
+    void OpenGlGraphicsBackend::destroy_shared_target(const tbx::RenderTarget& target)
+    {
+        const auto it = _shared_targets.find(target.id.value);
+        if (it == _shared_targets.end())
+            return;
+
+        // GL deletes need a current context; the render lane usually has one, but make it explicit.
+        if (!_contexts.empty())
+            (void)make_current(_contexts.front());
+        if (_active_shared_target == &it->second)
+            _active_shared_target = nullptr;
+        release_shared_target(it->second);
+        _shared_targets.erase(it);
+    }
+
+    void OpenGlGraphicsBackend::destroy_all_shared_targets()
+    {
+        for (auto& [id, target] : _shared_targets)
+            release_shared_target(target);
+        _shared_targets.clear();
+        _active_shared_target = nullptr;
+
+        if (_interop_device != nullptr && g_wglDXCloseDeviceNV != nullptr)
+            g_wglDXCloseDeviceNV(_interop_device);
+        _interop_device = nullptr;
+        if (_d3d_context != nullptr)
+            static_cast<ID3D11DeviceContext*>(_d3d_context)->Release();
+        if (_d3d_device != nullptr)
+            static_cast<ID3D11Device*>(_d3d_device)->Release();
+        _d3d_context = nullptr;
+        _d3d_device = nullptr;
+    }
+#else
+    tbx::Result OpenGlGraphicsBackend::ensure_d3d_interop_ready()
+    {
+        return make_failure("OpenGL backend: GPU texture sharing is only implemented on Windows.");
+    }
+
+    tbx::Result OpenGlGraphicsBackend::create_shared_target(
+        const tbx::RenderTarget&,
+        const tbx::Size&,
+        tbx::SharedTargetInfo&)
+    {
+        return make_failure("OpenGL backend: GPU texture sharing is only implemented on Windows.");
+    }
+
+    void OpenGlGraphicsBackend::release_shared_target(SharedTarget&)
+    {
+    }
+
+    void OpenGlGraphicsBackend::destroy_shared_target(const tbx::RenderTarget&)
+    {
+    }
+
+    void OpenGlGraphicsBackend::destroy_all_shared_targets()
+    {
+    }
+#endif
 
     void OpenGlGraphicsBackend::wait_for_idle()
     {
@@ -1543,25 +1846,6 @@ namespace opengl_rendering
         _cache.samplers.clear();
         _cache.textures.clear();
 
-        if (_readback_pbos[0] != 0U)
-        {
-            for (auto& fence : _readback_fences)
-            {
-                if (fence != nullptr)
-                {
-                    glDeleteSync(static_cast<GLsync>(fence));
-                    fence = nullptr;
-                }
-            }
-            glDeleteBuffers(3, _readback_pbos);
-            _readback_pbos[0] = 0U;
-            _readback_pbos[1] = 0U;
-            _readback_pbos[2] = 0U;
-            _readback_pbo_size = {};
-            _readback_write_index = 0U;
-            _readback_inflight = 0U;
-        }
-
         clear_bound_state();
     }
 
@@ -1760,6 +2044,12 @@ namespace opengl_rendering
 
     uint32 OpenGlGraphicsBackend::get_output_framebuffer() const
     {
+#ifdef _WIN32
+        // A streamed view draws into its shared texture's framebuffer; everything else keeps the
+        // window backbuffer (0) or the throwaway texture framebuffer.
+        if (_active_shared_target != nullptr)
+            return _active_shared_target->framebuffer;
+#endif
         return _is_texture_frame ? _output_framebuffer : 0U;
     }
 

@@ -7,6 +7,10 @@ namespace tbx
 {
     constexpr auto RENDER_LANE_NAME = std::string_view("render");
 
+    // A target untouched for this many dispatches is treated as a closed view and its lane dropped.
+    // Mirrors the OpenGL backend's readback-ring eviction so the two per-target maps age in step.
+    constexpr auto RENDER_LANE_STALE_TOUCHES = uint64(256);
+
     Rendering::Rendering(
         std::weak_ptr<IGraphicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
@@ -109,12 +113,20 @@ namespace tbx
 
         TBX_TRY_CATCH_ASSERT(
             {
-                _render_future = thread_manager->post_with_future(
+                auto future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
                     [this, delta_time, settings, camera_view, resolved_target]()
                     {
                         render_frame(delta_time, settings, camera_view, resolved_target);
                     });
+
+                // Each target owns its own lane so its completion is tracked independently; all
+                // work still funnels to the single render lane, so submission order is preserved.
+                auto guard = std::lock_guard(_render_lanes_mutex);
+                auto& lane = _render_lanes[resolved_target.id.value];
+                lane.frame = std::move(future);
+                lane.last_touch = ++_lane_touch_counter;
+                evict_stale_lanes();
             },
             "Toybox renderer dispatch failed");
     }
@@ -187,9 +199,27 @@ namespace tbx
 
     void Rendering::wait_for_render_frame() noexcept
     {
-        if (!_render_future.valid())
-            return;
+        auto guard = std::lock_guard(_render_lanes_mutex);
+        for (auto& [key, lane] : _render_lanes)
+        {
+            if (!lane.frame.valid())
+                continue;
 
-        TBX_TRY_CATCH_ASSERT(_render_future.get();, "Toybox renderer frame completion failed.");
+            // Wait each lane independently so one target's failure cannot stop draining the rest.
+            TBX_TRY_CATCH_ASSERT(lane.frame.get();, "Toybox renderer frame completion failed.");
+        }
+    }
+
+    void Rendering::evict_stale_lanes()
+    {
+        // Stopped views stop calling render(), so their key stops advancing the touch counter.
+        // Drop any lane that has fallen far enough behind; by then its last frame has completed.
+        for (auto it = _render_lanes.begin(); it != _render_lanes.end();)
+        {
+            if (_lane_touch_counter - it->second.last_touch > RENDER_LANE_STALE_TOUCHES)
+                it = _render_lanes.erase(it);
+            else
+                ++it;
+        }
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/app/settings.generated.h"
 #include "tbx/systems/async/settings.h"
-#include "tbx/systems/ecs/world/settings.h"
+#include "tbx/systems/world/settings.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/physics/settings.h"
 #include "tbx/tbx_api.h"

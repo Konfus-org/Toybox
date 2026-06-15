@@ -5,16 +5,16 @@
 namespace sdl_input
 {
     /// @brief
-    /// Purpose: Implements the engine input service by translating SDL device state into Toybox
-    /// input snapshots.
+    /// Purpose: Implements the engine input backend by translating SDL device state into Toybox
+    /// input snapshots, which the engine-owned InputManager reads each frame.
     /// @details
     /// Ownership: Owns SDL-specific mouse lock state for the active backend.
     /// Thread Safety: Not thread-safe; expected to run on the main thread.
-    class SdlInputManager final : public tbx::InputManager
+    class SdlInputBackend final : public tbx::IInputBackend
     {
       public:
-        SdlInputManager() = default;
-        ~SdlInputManager() noexcept override;
+        SdlInputBackend() = default;
+        ~SdlInputBackend() noexcept override;
 
       public:
         tbx::KeyboardState get_keyboard_state() const override;
@@ -22,9 +22,9 @@ namespace sdl_input
         tbx::MouseState get_mouse_state() const override;
         void set_mouse_lock_mode(tbx::MouseLockMode mode) override;
         tbx::MouseLockMode get_mouse_lock_mode() const override;
+        void update_backend_state() override;
 
         void add_wheel_delta(float wheel_delta);
-        void update_backend_state();
 
       private:
         bool apply_mouse_lock_mode(std::string* out_error_report = nullptr);

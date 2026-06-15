@@ -19,6 +19,23 @@ namespace tbx
     struct Color;
 
     /// @brief
+    /// Purpose: RAII convenience over Log::begin_category / Log::end_category — pushes a log category for
+    /// its lifetime and pops it on destruction. The engine pushes the app or plugin name around their
+    /// update calls so their log lines are auto-tagged; everything outside a scope is "Engine".
+    /// @details
+    /// Thread Safety: Affects only the calling thread.
+    class TBX_API LogCategoryScope final
+    {
+      public:
+        explicit LogCategoryScope(std::string category);
+        ~LogCategoryScope() noexcept;
+        LogCategoryScope(const LogCategoryScope&) = delete;
+        LogCategoryScope& operator=(const LogCategoryScope&) = delete;
+        LogCategoryScope(LogCategoryScope&&) = delete;
+        LogCategoryScope& operator=(LogCategoryScope&&) = delete;
+    };
+
+    /// @brief
     /// Purpose: Provides process-wide logging with lazy file sink creation.
     /// @details
     /// Ownership: Owns its logger state, pending messages, and process-derived logs directory.
@@ -43,8 +60,8 @@ namespace tbx
         std::filesystem::path get_logs_directory();
 
         /// @brief
-        /// Purpose: Overrides where log files are written. Only takes effect if called before the first
-        /// log line (the launcher sets this from --logs-dir at startup). Thread Safety: Safe.
+        /// Purpose: Overrides where log files are written. Only takes effect if called before the
+        /// first log line (the launcher sets this from --logs-dir at startup). Thread Safety: Safe.
         void set_logs_directory(const std::filesystem::path& directory);
 
         template <typename... Args>
@@ -85,6 +102,23 @@ namespace tbx
         /// Ownership: Stores the color and applies it to the console sink (best-effort: the
         /// platform console may quantize it). Thread Safety: Safe to call concurrently.
         void set_color(LogLevel level, const Color& color);
+
+        /// @brief
+        /// Purpose: Returns the log category in effect on the calling thread (default "Engine"). The core
+        /// logger prefixes every line with it as "[Category]".
+        /// Thread Safety: Reads a thread-local; safe to call concurrently.
+        const std::string& get_active_category();
+
+        /// @brief
+        /// Purpose: Pushes a log category (capitalized) for the calling thread until the matching
+        /// end_category(). Nests. Prefer the RAII LogCategoryScope at call sites.
+        /// Thread Safety: Affects only the calling thread.
+        void begin_category(std::string category);
+
+        /// @brief
+        /// Purpose: Pops the most recent begin_category() on the calling thread (no-op if none active).
+        /// Thread Safety: Affects only the calling thread.
+        void end_category();
 
         template <typename T>
         auto format(T&& value);

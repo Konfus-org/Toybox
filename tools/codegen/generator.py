@@ -61,7 +61,6 @@ from struct_codegen import (
     emit_json_function_definitions,
     emit_lifecycle_hook_declarations,
     emit_lifecycle_hook_definitions,
-    emit_reflection_registration,
     emit_serializable_registration,
     emit_struct_serialization_declarations,
     emit_typed_write_field,
@@ -584,7 +583,6 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
         else:
             lines.extend(emit_lifecycle_hook_definitions(type_info))
             lines.extend(emit_script_asset(type_info, version, prop_fields))
-            lines.extend(emit_reflection_registration(type_info, prop_fields))
         return lines
 
     if has_attr(type_info.attrs, "serializable"):
@@ -599,7 +597,10 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
         if type_info.declaration_kind == "enum":
             if mode != "json":
                 raise CodegenError(f"{type_info.name} enum serialization only supports json mode.")
-            lines.extend(emit_enum_declarations(type_info) if target == "header" else emit_enum(type_info))
+            if target == "header":
+                lines.extend(emit_enum_declarations(type_info))
+            else:
+                lines.extend(emit_enum(type_info))
         elif type_info.declaration_kind == "using":
             if mode != "json":
                 raise CodegenError(f"{type_info.name} alias serialization only supports json mode.")
@@ -626,7 +627,6 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                 else:
                     lines.extend(emit_json_function_definitions(type_info, prop_fields))
                     lines.extend(emit_serializable_registration(type_info))
-                    lines.extend(emit_reflection_registration(type_info, prop_fields))
             elif "variant" in type_info.alias_value:
                 lines.extend(
                     emit_variant_declarations(type_info) if target == "header" else emit_variant(type_info)
@@ -679,8 +679,6 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                         if target == "header"
                         else emit_asset_body(type_info, version, prop_fields)
                     )
-                    if target == "source":
-                        lines.extend(emit_reflection_registration(type_info, prop_fields))
                 if meta_fields:
                     lines.extend(
                         emit_asset_meta_declarations(type_info)
@@ -751,7 +749,6 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     else:
                         lines.extend(emit_json_function_definitions(type_info, prop_fields))
                         lines.extend(emit_serializable_registration(type_info))
-                        lines.extend(emit_reflection_registration(type_info, prop_fields))
                 elif custom_write_callable is not None and custom_read_callable is not None:
                     if target == "header":
                         lines.extend(emit_struct_serialization_declarations(type_info))
@@ -856,7 +853,6 @@ def generate_header(types: list[SerializableType]) -> str:
         GENERATED_CODE_BANNER,
         "#pragma once",
         "#include \"tbx/systems/assets/serialization.h\"",
-        "#include \"tbx/systems/reflection/reflection.h\"",
         "#include \"tbx/types/typedefs.h\"",
         "#include <cstdint>",
         "#include <format>",

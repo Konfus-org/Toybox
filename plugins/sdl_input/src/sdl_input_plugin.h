@@ -1,5 +1,5 @@
 #pragma once
-#include "sdl_input_manager.h"
+#include "sdl_input_backend.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
@@ -26,8 +26,8 @@ namespace sdl_input
         void on_update(const tbx::DeltaTime& dt) override;
 
       public:
-        [[tbx::register(tbx::IInputManager)]]
-        std::weak_ptr<SdlInputManager> input_manager = {};
+        [[tbx::register(tbx::IInputBackend)]]
+        std::weak_ptr<SdlInputBackend> input_backend = {};
 
       private:
         static bool accumulate_wheel_delta(void* userdata, SDL_Event* event);

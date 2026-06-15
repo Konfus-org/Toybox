@@ -23,7 +23,6 @@ add_subdirectory(resources)
 add_subdirectory(thirdparty)
 add_subdirectory(engine)
 add_subdirectory(plugins)
-add_subdirectory(apps)
 add_subdirectory(launcher)
 
 if(TBX_BUILD_TESTS)

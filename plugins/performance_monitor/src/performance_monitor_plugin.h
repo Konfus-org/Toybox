@@ -1,15 +1,9 @@
 #pragma once
 #include "debug_window_title_monitor.h"
 #include "tbx/interfaces/plugin.h"
-#include "tbx/interfaces/window_manager.h"
-#include "tbx/systems/graphics/api.h"
+#include "tbx/systems/app/application.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/time/delta_time.h"
-
-namespace tbx
-{
-    class Application;
-}
 
 namespace tbx::performance_monitor
 {

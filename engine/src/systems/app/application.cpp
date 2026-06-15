@@ -19,7 +19,6 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
-#include "tbx/systems/reflection/reflection.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/systems/windowing/manager.h"
@@ -295,8 +294,8 @@ namespace tbx
             {
                 const auto screenshot_path =
                     std::filesystem::path(command_list.get<std::string>("screenshot"));
-                // Warm-up frames let the world finish its synchronous first-frame asset load and
-                // prime the backend's asynchronous readback ring before the first capture attempt.
+                // Warm-up frames let the world finish its synchronous first-frame asset load before
+                // the first capture attempt, so the screenshot isn't of an empty scene.
                 auto attempts = std::make_shared<int>(0);
                 rendering->set_pre_present_callback(
                     [this, screenshot_path, attempts](
@@ -340,8 +339,16 @@ namespace tbx
             }
         }
 
-        // TODO: Make a IInputBackend and InputManager
-        _input_manager = _service_provider->try_get_service<IInputManager>();
+        // Input is app-owned like windowing/physics/rendering: the InputManager (scheme/action
+        // evaluation plus host injection) lives in the engine and reads raw device state from whatever
+        // IInputBackend a plugin supplied. Headless apps load no input backend, so none is created.
+        const auto input_backend = _service_provider->try_get_service<IInputBackend>();
+        if (!input_backend.expired())
+        {
+            auto input_manager = std::make_shared<InputManager>(input_backend);
+            _service_provider->register_service<IInputManager>(input_manager);
+            _input_manager = input_manager;
+        }
 
         //// INITIALIZE: SET APP SETTINGS ////
 
@@ -438,10 +445,11 @@ namespace tbx
 
             _is_hidden = command_list.has("hidden");
             const auto main_window_mode = _is_hidden ? WindowMode::HIDDEN : WindowMode::WINDOWED;
+            // The window (and so the game's render size) follows the configured graphics resolution.
             main_window_manager->open(
                 WindowCreateInfo {
                     .title = _name.empty() ? std::string("Toybox Application") : _name,
-                    .size = {1280, 720},
+                    .size = get_settings().graphics.resolution,
                     .mode = main_window_mode,
                     .api = get_settings().graphics.graphics_api,
                     .icon_path = icon_path,
@@ -543,13 +551,12 @@ namespace tbx
         _settings = {};
         asset_manager->unload_all();
 
-        // Drop the process-wide reflection and serialization registries while every module is still
-        // mapped. Plugin-owned records were already erased on detach via the ownership tracker, but the
-        // app module (loaded by the launcher) registers reflection/serializer/asset entries at static-init
-        // with no owning plugin, so those linger here. Their std::functions point into the app module's
-        // code; clearing now — before any library is unloaded — keeps the registries' own static
-        // destructors from later destroying those functions after the app module has been unloaded.
-        clear_type_reflections();
+        // Drop the process-wide serialization registries while every module is still mapped. Plugin-owned
+        // records were already erased on detach via the ownership tracker, but the app module (loaded by
+        // the launcher) registers serializer/asset entries at static-init with no owning plugin, so those
+        // linger here. Their std::functions point into the app module's code; clearing now — before any
+        // library is unloaded — keeps the registries' own static destructors from later destroying those
+        // functions after the app module has been unloaded.
         clear_serialization_registrations();
 
         //// SHUTDOWN: STOP REMAINING BACKGROUND WORK ////
@@ -611,7 +618,12 @@ namespace tbx
         _time_running += delta_time.seconds;
         frame_msg_coordinator->send<ApplicationUpdateBeginEvent>(*this, delta_time);
 
-        if (!_is_paused)
+        // Simulation (fixed step, world, scripts) runs unless paused. A host (e.g. Studio) can pause
+        // to freeze gameplay while the world keeps rendering, so an attached editor shows the scene
+        // without it advancing.
+        const auto should_simulate = !_is_paused;
+
+        if (should_simulate)
             fixed_update(delta_time);
 
         //// UPDATE: PUMP INPUT AND RUN FRAME SIMULATION ////
@@ -625,14 +637,19 @@ namespace tbx
 
         get_plugin_manager().update(delta_time);
 
-        // Pausing freezes simulation only; plugins, input, and rendering keep running so
-        // attached tooling keeps its live view.
-        if (!_is_paused)
+        // World streaming runs every frame, even in editor mode, so the scene's chunks load and stay
+        // visible while not playing. Only gameplay — scripts here, fixed-step physics above — is gated
+        // on play mode, so not simulating freezes behavior without unloading the world.
+        if (const auto frame_world_manager = _world_manager.lock())
+            frame_world_manager->update(delta_time, get_settings().world);
+        if (should_simulate)
         {
-            if (const auto frame_world_manager = _world_manager.lock())
-                frame_world_manager->update(delta_time, get_settings().world);
             if (const auto script_system = _script_system.lock())
+            {
+                // Scripts are the app's own code, so their log lines carry the app's name as category.
+                TBX_LOG_CATEGORY_SCOPE(get_name());
                 script_system->update(delta_time);
+            }
         }
         // Every camera in the world renders into its own target; cameras without one present
         // to the main window. Headless apps never created a rendering service, so this whole
@@ -790,10 +807,17 @@ namespace tbx
         const std::vector<std::string>& settings_plugins,
         const std::vector<std::string>& command_plugins)
     {
-        if (!command_plugins.empty())
-            return command_plugins;
+        // Command-line plugins are additive on top of the project's own list: a host (e.g. Studio)
+        // injects extra plugins like the studio bridge via --load-plugins without restating the
+        // project's plugins, and standalone runs that pass nothing keep exactly the settings list.
+        auto resolved = settings_plugins;
+        for (const auto& plugin : command_plugins)
+        {
+            if (std::find(resolved.begin(), resolved.end(), plugin) == resolved.end())
+                resolved.push_back(plugin);
+        }
 
-        return settings_plugins;
+        return resolved;
     }
 
     std::shared_ptr<AppSettings> Application::load_app_settings(const Handle& settings_handle)

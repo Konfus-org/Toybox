@@ -31,12 +31,13 @@ namespace tbx
         GraphicsApi graphics_api = GraphicsApi::OPEN_GL;
 
         /// @brief
-        /// Purpose: Sets the internal render resolution used by active renderers.
+        /// Purpose: Sets the render resolution used by active renderers — the game window's size and
+        /// the editor's view textures both follow this.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         [[prop]]
-        Size resolution = {0, 0};
+        Size resolution = {1280, 720};
 
         /// @brief
         /// Purpose: Sets the square directional shadow-map texture resolution in pixels for the

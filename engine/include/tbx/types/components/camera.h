@@ -42,15 +42,13 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
-        friend TBX_API void serialize(::tbx::Json& tbx_json, const Camera& tbx_value);
-        friend TBX_API void deserialize(const ::tbx::Json& tbx_json, Camera& tbx_value);
+        friend TBX_API void serialize(Json& tbx_json, const Camera& tbx_value);
+        friend TBX_API void deserialize(const Json& tbx_json, Camera& tbx_value);
 
         [[prop]]
         RenderTarget _render_target = {};
         [[prop]]
         Viewport _viewport = {};
-        [[prop]]
-        Mat4 _projection_matrix = Mat4(1.0f);
         [[prop]]
         bool _is_perspective = true;
         [[prop]]
@@ -59,7 +57,8 @@ namespace tbx
         float _z_far = 1000.0f;
         [[prop]]
         float _fov = 60.0f;
-        [[prop]]
+
         float _aspect = 1.78f;
+        Mat4 _projection_matrix = Mat4(1.0f);
     };
-} // namespace tbx
+}

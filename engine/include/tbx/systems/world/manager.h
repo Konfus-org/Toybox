@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
-#include "tbx/systems/ecs/world/settings.h"
+#include "tbx/systems/world/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/handle.h"

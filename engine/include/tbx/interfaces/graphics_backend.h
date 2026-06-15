@@ -262,6 +262,21 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Identifies a GPU texture the backend renders into and a host process can sample
+    /// directly, with no CPU readback.
+    /// @details
+    /// shared_handle is an OS-global, cross-process texture handle (a DXGI global shared handle on
+    /// Windows) whose numeric value can be handed to another process verbatim. The texture is
+    /// BGRA8 and guarded by a keyed mutex (producer acquires key 0 / releases key 1; the consumer
+    /// acquires 1 / releases 0).
+    struct SharedTargetInfo
+    {
+        uint64 shared_handle = 0U;
+        uint32 width = 0U;
+        uint32 height = 0U;
+    };
+
+    /// @brief
     /// Purpose: Defines the explicit resource and command contract implemented by graphics
     /// backends.
     /// @details
@@ -320,11 +335,36 @@ namespace tbx
         virtual void wait_for_idle() = 0;
 
         /// @brief
-        /// Purpose: Copies the current back buffer into out_pixels as tightly packed BGRA8 rows
-        /// in top-down order, resizing out_pixels as needed.
+        /// Purpose: Creates a GPU texture that this backend renders the given target into and that
+        /// another process can sample directly (zero-copy), returning its cross-process shared
+        /// handle and dimensions in out_info.
         /// @details
-        /// Thread Safety: Call on the render lane after rendering and before present. Backends
-        /// without readback support fail the result.
+        /// Thread Safety: Call on the render lane (it touches GPU state). Backends without
+        /// texture-sharing support fail the result. While a target has a shared texture, the
+        /// backend draws that target's frames into it and drives the keyed-mutex handshake around
+        /// begin_frame/end_frame. Idempotent per target.
+        virtual Result create_shared_target(
+            const RenderTarget& target,
+            const Size& size,
+            SharedTargetInfo& out_info)
+        {
+            return Result(false, "GPU texture sharing is not supported by this backend.");
+        }
+
+        /// @brief
+        /// Purpose: Destroys the shared texture previously created for target.
+        /// @details Thread Safety: Call on the render lane. No-op if the target has none.
+        virtual void destroy_shared_target(const RenderTarget& target)
+        {
+        }
+
+        /// @brief
+        /// Purpose: Copies the current back buffer into out_pixels as tightly packed BGRA8 rows in
+        /// top-down order, resizing out_pixels as needed.
+        /// @details
+        /// Thread Safety: Call on the render lane after rendering and before present. A one-shot
+        /// synchronous capture (used by headless --screenshot); not the editor's per-frame path,
+        /// which uses zero-copy shared targets. Backends without readback fail the result.
         virtual Result read_back_buffer(const Size& backbuffer_size, std::vector<uint8>& out_pixels)
         {
             return Result(false, "Back buffer readback is not supported by this backend.");

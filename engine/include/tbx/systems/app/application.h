@@ -6,7 +6,7 @@
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_APP_ENTRY_EXPORT extern "C" __declspec(dllexport)

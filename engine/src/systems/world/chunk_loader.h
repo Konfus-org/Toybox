@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include <ranges>
 #include <unordered_map>
 #include <unordered_set>

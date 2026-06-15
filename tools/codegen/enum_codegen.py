@@ -7,6 +7,9 @@ def emit_enum_declarations(type_info: SerializableType) -> list[str]:
     return [
         f"void serialize(::tbx::Json& json, const {type_info.name}& value);",
         f"void deserialize(const ::tbx::Json& json, {type_info.name}& value);",
+        # ADL hook advertising the enum's members so attribute serialization can render a property of
+        # this type as a dropdown (replaces the old enum reflection record's enum_values).
+        f"std::vector<std::string> tbx_property_choices(const {type_info.name}*);",
         "",
     ]
 
@@ -66,6 +69,16 @@ def emit_enum(type_info: SerializableType) -> list[str]:
     lines.extend(
         [
             f"    value = static_cast<{type_info.name}>(0);",
+            "}",
+            "",
+        ]
+    )
+    values = ", ".join(cpp_string(enum_value.json_name) for enum_value in type_info.enum_values)
+    lines.extend(
+        [
+            f"std::vector<std::string> tbx_property_choices(const {type_info.name}*)",
+            "{",
+            f"    return {{ {values} }};",
             "}",
             "",
         ]

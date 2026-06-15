@@ -3,7 +3,7 @@
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/utils/result.h"

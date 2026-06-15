@@ -296,7 +296,11 @@ namespace tbx
             return;
 
         for (auto& plugin : _loaded)
+        {
+            // Tag a plugin's start-up log lines with its name too, not just its per-frame updates.
+            TBX_LOG_CATEGORY_SCOPE(plugin.meta.name);
             plugin.attach(service_provider);
+        }
     }
 
     void PluginManager::bind_all_runtime()
@@ -321,7 +325,11 @@ namespace tbx
         process_pending_file_changes();
         auto ordered_plugins = build_update_order(_loaded, false);
         for (auto* plugin : ordered_plugins)
+        {
+            // Lines a plugin logs during its update are auto-tagged with the plugin's name.
+            TBX_LOG_CATEGORY_SCOPE(plugin->meta.name);
             plugin->update(dt);
+        }
     }
 
     void PluginManager::fixed_update(const DeltaTime& dt)
@@ -329,7 +337,10 @@ namespace tbx
         process_pending_file_changes();
         auto ordered_plugins = build_update_order(_loaded, true);
         for (auto* plugin : ordered_plugins)
+        {
+            TBX_LOG_CATEGORY_SCOPE(plugin->meta.name);
             plugin->fixed_update(dt);
+        }
     }
 
     void PluginManager::attach_all()

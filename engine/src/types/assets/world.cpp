@@ -92,6 +92,17 @@ namespace tbx
         return has_global(id);
     }
 
+    void World::set_global(const Uuid& id, bool global)
+    {
+        if (!has(id))
+            return;
+
+        if (global)
+            make_persistent(id);
+        else
+            remove_global(id);
+    }
+
     Entity World::find_by_name(std::string_view name) const
     {
         for (const auto& entity : get_all())

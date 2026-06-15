@@ -246,6 +246,18 @@ vec4 tbx_sample_material_texture(uint material_id, uint slot, vec2 uv, vec4 fall
     return texture(globalTextures[materials[material_id].textureIndices[slot]], uv);
 }
 
+// Same as tbx_sample_material_texture but with caller-supplied screen-space gradients for the mip
+// selection. Use this when the uv is derived through a discontinuous mapping (e.g. an equirectangular
+// atan2 longitude) whose implicit dFdx/dFdy would spike at the wrap seam and collapse the sample to
+// the coarsest mip — a visible blurry line. The caller unwraps the gradient across the seam first.
+vec4 tbx_sample_material_texture_grad(
+    uint material_id, uint slot, vec2 uv, vec2 ddx, vec2 ddy, vec4 fallback)
+{
+    if (materials[material_id].texturePresent[slot] == 0u)
+        return fallback;
+    return textureGrad(globalTextures[materials[material_id].textureIndices[slot]], uv, ddx, ddy);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Forward+ PBR. Material fragment shaders fill surface values and call tbx_shade_pbr, which loops
 // the (CPU distance-culled) light list. Deferred resolve has been retired so authors shade directly.

@@ -48,11 +48,20 @@ def read_json_file(input_path: Path) -> dict:
     return json.loads(input_path.read_text(encoding="utf-8-sig"))
 
 
+def unwrap_typed_value(value):
+    """Typed serialization wraps every value as { "type": ..., "value": ... }. Return the inner value,
+    passing through anything already bare (older/untyped material data)."""
+    if isinstance(value, dict) and "value" in value:
+        return value["value"]
+    return value
+
+
 def read_binding_list(material_data: dict, key: str) -> list:
-    value = material_data.get(key, [])
+    value = unwrap_typed_value(material_data.get(key, []))
     if isinstance(value, list):
         return value
     if isinstance(value, dict):
+        # Legacy untyped shape: { "values": [...] }.
         values = value.get("values", [])
         if isinstance(values, list):
             return values
@@ -232,11 +241,15 @@ def generate_material_instance_header(source_root: Path, output_file: Path, name
         binding_sources.extend(read_binding_list(material_data, "textures"))
         binding_sources.extend(read_binding_list(material_data, "parameters"))
         for binding in binding_sources:
-            parameter_type = str(binding.get("type", binding.get("data", {}).get("type", ""))).lower()
+            # A binding's value is a typed { "type", "value" } node (a variant for parameters, a handle
+            # for textures); its name is a typed string node. Unwrap both before inspecting them.
+            binding_data = unwrap_typed_value(binding.get("data", {}))
+            data_type = binding_data.get("type", "") if isinstance(binding_data, dict) else ""
+            parameter_type = str(binding.get("type") or data_type or "").lower()
             if parameter_type == "shader":
                 continue
 
-            binding_name = binding.get("name")
+            binding_name = unwrap_typed_value(binding.get("name"))
             if not isinstance(binding_name, str) or not binding_name:
                 continue
 

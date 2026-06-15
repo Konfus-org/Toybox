@@ -16,7 +16,7 @@ foreach(plugin_dir IN ITEMS
     sdl_input
     jolt_physics
     opengl_rendering
-    rpc_communication
+    studio_bridge
 )
     add_subdirectory(${plugin_dir})
 endforeach()

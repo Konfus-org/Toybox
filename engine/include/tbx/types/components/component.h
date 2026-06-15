@@ -39,6 +39,12 @@ namespace tbx
         // Copies a live component value from one registry into another without going through JSON, so an
         // EntityRegistry can absorb entities from another registry directly (see EntityRegistry::absorb).
         std::function<bool(const void*, entt::registry&, entt::entity)> copy_value = {};
+        // Editor metadata carried over from the serializable registration: the component's [[tbx::icon]]
+        // and a describe(include_attributes) thunk that serializes a default instance (the editor's source
+        // of a component's property schema, defaults and attributes). See SerializableTypeRegistration.
+        std::string icon = {};
+        std::string icon_color = {};
+        std::function<std::string(bool)> describe = {};
     };
 
     TBX_API std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations();
@@ -111,6 +117,9 @@ namespace tbx
                         return false;
                     }
                 },
+                .icon = registration.icon,
+                .icon_color = registration.icon_color,
+                .describe = registration.describe,
             });
         return true;
     }

@@ -1,5 +1,5 @@
 #include "sdl_input_plugin.h"
-#include "sdl_input_manager.h"
+#include "sdl_input_backend.h"
 #include "tbx/systems/debugging/macros.h"
 
 namespace sdl_input
@@ -22,9 +22,9 @@ namespace sdl_input
         {
             _owns_gamepad_subsystem = true;
         }
-        auto manager = input_manager.lock();
-        TBX_ASSERT(manager != nullptr, "SDL input manager service has unexpected type.");
-        if (!manager)
+        auto backend = input_backend.lock();
+        TBX_ASSERT(backend != nullptr, "SDL input backend service has unexpected type.");
+        if (!backend)
             return;
         SDL_AddEventWatch(accumulate_wheel_delta, this);
     }
@@ -32,7 +32,7 @@ namespace sdl_input
     void SdlInput::on_detach()
     {
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
-        input_manager = {};
+        input_backend = {};
         if (_owns_gamepad_subsystem)
             SDL_QuitSubSystem(GamepadSubsystemMask);
         _owns_gamepad_subsystem = false;
@@ -40,8 +40,8 @@ namespace sdl_input
 
     void SdlInput::on_update(const tbx::DeltaTime&)
     {
-        if (auto manager = input_manager.lock())
-            manager->update_backend_state();
+        if (auto backend = input_backend.lock())
+            backend->update_backend_state();
     }
 
     bool SdlInput::accumulate_wheel_delta(void* userdata, SDL_Event* event)
@@ -50,8 +50,8 @@ namespace sdl_input
             return true;
 
         auto* plugin = static_cast<SdlInput*>(userdata);
-        if (auto manager = plugin->input_manager.lock())
-            manager->add_wheel_delta(event->wheel.y);
+        if (auto backend = plugin->input_backend.lock())
+            backend->add_wheel_delta(event->wheel.y);
         return true;
     }
 }

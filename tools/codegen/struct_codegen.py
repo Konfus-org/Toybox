@@ -70,116 +70,58 @@ def _wire_type_name(type_name: str) -> str:
     return "".join(result)
 
 
-def emit_typed_write_field(field: Field) -> list[str]:
-    """Emits one write_typed_serialization_field call. Editor metadata ([[tbx::category/description/
-    view]] and the [[tbx::readonly/hidden]] flags) is no longer threaded through serialization output;
-    it now lives in the reflection registry (see emit_reflection_registration)."""
+def _attribute_descriptor_literal(field: Field, order: int) -> str:
+    """Builds a ::tbx::PropertyAttributeInfo literal from a field's editor attributes. It is passed to the
+    attribute-aware write so the metadata is emitted inline next to the value when attribute serialization
+    is on. The type token and enum choices are derived from the field's static type at write time; only the
+    editor attributes ([[tbx::category/description/view/readonly/hidden]]), the nested wire-type name
+    (so the editor can tell e.g. a quaternion from a plain vec4), and the field's declaration order (so the
+    editor lists properties in source order, not the alphabetical key order the JSON map imposes) are baked
+    here."""
+    parts: list[str] = []
+    category = editor_attr_value(field.attrs, "category")
+    if category is not None:
+        parts.append(f".category = {cpp_string(category)}")
+    description = editor_attr_value(field.attrs, "description")
+    if description is not None:
+        parts.append(f".description = {cpp_string(description)}")
+    view = editor_attr_value(field.attrs, "view")
+    if view is not None:
+        parts.append(f".view = {cpp_string(view)}")
+    nested = _wire_type_name(_unwrap_field_type(field.type_name))
+    if nested:
+        parts.append(f".nested = {cpp_string(nested)}")
+    if has_editor_attr(field.attrs, "readonly"):
+        parts.append(".readonly = true")
+    if has_editor_attr(field.attrs, "hidden"):
+        parts.append(".hidden = true")
+    # order is the last field of PropertyAttributeInfo; designated initializers must follow declaration
+    # order, so it is appended last.
+    parts.append(f".order = {order}")
+    return "::tbx::PropertyAttributeInfo { " + ", ".join(parts) + " }"
+
+
+def emit_typed_write_field(field: Field, order: int, with_default: bool = False) -> list[str]:
+    """Emits one write_typed_serialization_field call. The multi-field (with_default) path passes the
+    field's editor attributes so attribute serialization can emit them inline next to the value; the same
+    call stays lean and omits defaults on the persistence path. The caller must have declared
+    `const T tbx_default_value {};` in scope. `order` is the field's declaration index, baked so the editor
+    can present properties in source order."""
+    if with_default:
+        return [
+            "    ::tbx::write_typed_serialization_field(",
+            "        tbx_json,",
+            f"        {cpp_string(json_key(field))},",
+            f"        tbx_value.{field.name},",
+            f"        tbx_default_value.{field.name},",
+            f"        {_attribute_descriptor_literal(field, order)});",
+        ]
     return [
         "    ::tbx::write_typed_serialization_field(",
         "        tbx_json,",
         f"        {cpp_string(json_key(field))},",
         f"        tbx_value.{field.name});",
     ]
-
-
-def _emit_reflection_property(type_info: SerializableType, field: Field) -> list[str]:
-    """Emits one PropertyReflection initializer for a [[prop]] field. The type token and default value
-    are read from a default-constructed probe's serialized JSON, and get/set route through the owning
-    type's serialize/deserialize — so private [[prop]] fields are never named directly."""
-    name = type_info.name
-    key = json_key(field)
-    key_literal = cpp_string(key)
-    category = editor_attr_value(field.attrs, "category")
-    description = editor_attr_value(field.attrs, "description")
-    view = editor_attr_value(field.attrs, "view")
-    readonly = has_editor_attr(field.attrs, "readonly")
-    hidden = has_editor_attr(field.attrs, "hidden")
-
-    nested_type_name = _wire_type_name(_unwrap_field_type(field.type_name))
-
-    lines = [
-        "    {",
-        "        auto tbx_property = ::tbx::PropertyReflection {};",
-        f"        tbx_property.name = {key_literal};",
-        f"        tbx_property.nested_type_name = {cpp_string(nested_type_name)};",
-        "        if (tbx_has_probe)",
-        "        {",
-        f"            const auto tbx_field = tbx_probe_json.find({key_literal});",
-        "            if (tbx_field != tbx_probe_json.end() && tbx_field->is_object())",
-        "            {",
-        "                if (const auto tbx_token = tbx_field->find(\"type\");",
-        "                    tbx_token != tbx_field->end() && tbx_token->is_string())",
-        "                    tbx_property.type_token = tbx_token->get<std::string>();",
-        "                if (const auto tbx_value = tbx_field->find(\"value\");",
-        "                    tbx_value != tbx_field->end())",
-        "                {",
-        "                    tbx_property.default_value = *tbx_value;",
-        "                    tbx_property.has_default = true;",
-        "                }",
-        "            }",
-        "        }",
-    ]
-    if category is not None:
-        lines.append(f"        tbx_property.category = {cpp_string(category)};")
-    if description is not None:
-        lines.append(f"        tbx_property.description = {cpp_string(description)};")
-    if view is not None:
-        lines.append(f"        tbx_property.view = {cpp_string(view)};")
-    if readonly:
-        lines.append("        tbx_property.readonly = true;")
-    if hidden:
-        lines.append("        tbx_property.hidden = true;")
-    lines.extend(
-        [
-            f"        tbx_property.get_value = ::tbx::make_property_getter<{name}>({key_literal});",
-            f"        tbx_property.set_value = ::tbx::make_property_setter<{name}>({key_literal});",
-            "        tbx_record.properties.push_back(std::move(tbx_property));",
-            "    }",
-        ]
-    )
-    return lines
-
-
-def emit_reflection_registration(
-    type_info: SerializableType,
-    prop_fields: list[Field],
-) -> list[str]:
-    """Emits the runtime reflection record for a type's [[prop]] fields plus its static-init registrar.
-    The builder has external linkage so it is not flagged unused when the registrar no-ops in plugins."""
-    name = type_info.name
-    lines = [
-        f"::tbx::TypeReflection tbx_build_type_reflection_{name}()",
-        "{",
-        "    auto tbx_record = ::tbx::TypeReflection {};",
-        "    tbx_record.name = ::tbx::make_serializable_type_name(",
-        f"        tbx_serialization_type_name(static_cast<const {name}*>(nullptr)));",
-        f"    tbx_record.type_name = {cpp_string(name)};",
-        f"    tbx_record.type = std::type_index(typeid({name}));",
-        "    {",
-        f"        const auto tbx_icon = ::tbx::get_property_type_icon<{name}>();",
-        "        tbx_record.icon = std::string(tbx_icon.name);",
-        "        tbx_record.icon_color = std::string(tbx_icon.color);",
-        "    }",
-        # A default-constructed probe, serialized once, supplies each property's type token and default
-        # value without naming members (so private [[prop]] fields are handled too).
-        f"    constexpr bool tbx_has_probe = std::is_default_constructible_v<{name}>;",
-        "    auto tbx_probe_json = ::tbx::Json();",
-        f"    if constexpr (std::is_default_constructible_v<{name}>)",
-        f"        tbx_probe_json = ::tbx::write_serialization_value<::tbx::Json>({name} {{}});",
-    ]
-    for field in prop_fields:
-        lines.extend(_emit_reflection_property(type_info, field))
-    lines.extend(
-        [
-            "    return tbx_record;",
-            "}",
-            "TBX_REFLECTION_AUTO_REGISTER(",
-            "    tbx_type_reflection_registration_,",
-            f"    ::tbx::register_type_reflection<{name}>(&tbx_build_type_reflection_{name}));",
-            "",
-        ]
-    )
-    return lines
 
 
 def emit_property_icon_declaration(type_info: SerializableType) -> list[str]:
@@ -333,8 +275,12 @@ def emit_json_function_definitions(type_info: SerializableType, fields: list[Fie
         )
         return lines
 
-    for field in fields:
-        lines.extend(emit_typed_write_field(field))
+    # Multi-field structs serialize with default omission: a default-constructed probe supplies each
+    # field's default, and the four-argument write skips fields equal to it when the per-thread omit
+    # switch is on (the persistence path). The probe mirrors the one deserialize already builds.
+    lines.append(f"    const {type_info.name} tbx_default_value {{}};")
+    for order, field in enumerate(fields):
+        lines.extend(emit_typed_write_field(field, order, with_default=True))
     lines.extend(
         [
             "}",

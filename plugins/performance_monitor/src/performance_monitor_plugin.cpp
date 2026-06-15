@@ -1,4 +1,4 @@
-#include "tbx_performance_monitor_plugin.h"
+#include "performance_monitor_plugin.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/settings.h"

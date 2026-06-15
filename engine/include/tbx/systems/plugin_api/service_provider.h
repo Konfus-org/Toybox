@@ -5,7 +5,7 @@
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/tbx_api.h"

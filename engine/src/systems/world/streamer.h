@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/transform.h"
 #include <algorithm>

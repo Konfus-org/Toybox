@@ -2,7 +2,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-namespace tbx::rpc_communication
+namespace tbx::studio_bridge
 {
     static constexpr int IO_POLL_TIMEOUT_MILLISECONDS = 100;
 

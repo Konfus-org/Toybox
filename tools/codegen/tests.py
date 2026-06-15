@@ -114,16 +114,17 @@ class AttributeCodegenTests(unittest.TestCase):
 
         output = self.generate_source(source)
 
-        # Editor metadata now lives in the reflection record, not the serialized wire.
-        self.assertNotIn("PropertyEditorMetadata", output)
-        self.assertIn("::tbx::TypeReflection tbx_build_type_reflection_Value()", output)
-        self.assertIn('tbx_property.category = "Group";', output)
-        self.assertIn('tbx_property.description = "A tooltip.";', output)
-        self.assertIn("tbx_property.readonly = true;", output)
-        self.assertIn('tbx_property.view = "script";', output)
-        self.assertIn("tbx_property.hidden = true;", output)
+        # Editor metadata is baked into the generated serialize as a PropertyAttributeInfo descriptor,
+        # emitted inline next to the value when attribute serialization is on. There is no separate
+        # reflection record.
+        self.assertIn("::tbx::PropertyAttributeInfo", output)
+        self.assertIn('.category = "Group"', output)
+        self.assertIn('.description = "A tooltip."', output)
+        self.assertIn(".readonly = true", output)
+        self.assertIn('.view = "script"', output)
+        self.assertIn(".hidden = true", output)
 
-    def test_reflection_registration_is_generated(self) -> None:
+    def test_no_reflection_registry_is_generated(self) -> None:
         source = """
             namespace tbx::tests
             {
@@ -132,32 +133,26 @@ class AttributeCodegenTests(unittest.TestCase):
             {
                 [[prop]]
                 int amount = 0;
+
+                [[prop]]
+                int other = 0;
             };
             }
             """
 
         output = self.generate_source(source)
 
-        self.assertIn("::tbx::TypeReflection tbx_build_type_reflection_Value()", output)
-        self.assertIn('tbx_property.name = "amount";', output)
-        # Token and default come from a default-constructed probe; get/set route through the whole-object
-        # serialize/deserialize so private [[prop]] members are never named directly.
-        self.assertIn("constexpr bool tbx_has_probe = std::is_default_constructible_v<Value>;", output)
+        # The runtime type-reflection registry is gone: no TypeReflection record, builder, or registrar.
+        # Metadata travels through serialization (PropertyAttributeInfo) and a describe() thunk on the
+        # serializable registration instead.
+        self.assertNotIn("TypeReflection", output)
+        self.assertNotIn("register_type_reflection", output)
+        self.assertNotIn("TBX_REFLECTION_AUTO_REGISTER", output)
+        self.assertNotIn("tbx_build_type_reflection", output)
+        # The serializable registration is still emitted; the describe/icon metadata is added generically
+        # by make_serializable_type_registration, not per-type codegen.
         self.assertIn(
-            "tbx_probe_json = ::tbx::write_serialization_value<::tbx::Json>(Value {});",
-            output,
-        )
-        self.assertIn(
-            'tbx_property.get_value = ::tbx::make_property_getter<Value>("amount");',
-            output,
-        )
-        self.assertIn(
-            'tbx_property.set_value = ::tbx::make_property_setter<Value>("amount");',
-            output,
-        )
-        self.assertNotIn("decltype(Value::amount)", output)
-        self.assertIn(
-            "::tbx::register_type_reflection<Value>(&tbx_build_type_reflection_Value)",
+            "tbx_register_serializable_type(static_cast<const Value*>(nullptr))",
             output,
         )
 
@@ -824,7 +819,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         self.assertEqual(self.generate_source(bare), self.generate_source(qualified))
-        self.assertIn('tbx_property.description = "A tooltip.";', self.generate_source(qualified))
+        self.assertIn('.description = "A tooltip."', self.generate_source(qualified))
 
     def test_parent_field_props_are_generated(self) -> None:
         source = textwrap.dedent(
@@ -859,8 +854,10 @@ class AttributeCodegenTests(unittest.TestCase):
             "value.h",
         )
 
-        self.assertIn("tbx_value.id);", output)
-        self.assertIn("tbx_value.amount);", output)
+        self.assertIn("tbx_value.id,", output)
+        self.assertIn("tbx_default_value.id);", output)
+        self.assertIn("tbx_value.amount,", output)
+        self.assertIn("tbx_default_value.amount);", output)
 
     def test_type_level_struct_props_are_rejected(self) -> None:
         with self.assertRaises(CodegenError):
@@ -942,8 +939,10 @@ class AttributeCodegenTests(unittest.TestCase):
             "value.h",
         )
 
-        self.assertIn("tbx_value.id);", output)
-        self.assertIn("tbx_value.amount);", output)
+        self.assertIn("tbx_value.id,", output)
+        self.assertIn("tbx_default_value.id);", output)
+        self.assertIn("tbx_value.amount,", output)
+        self.assertIn("tbx_default_value.amount);", output)
 
     def test_script_asset_registration_is_generated(self) -> None:
         output = self.generate_source(
@@ -970,12 +969,9 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("bind_script_field(tbx_value.open_speed", output)
         self.assertIn("bind_script_field(tbx_value.input", output)
         self.assertNotIn("tbx_json[\"input\"]", output)
-        # Scripts now also register a reflection record.
-        self.assertIn("::tbx::TypeReflection tbx_build_type_reflection_DoorController()", output)
-        self.assertIn(
-            "::tbx::register_type_reflection<DoorController>(&tbx_build_type_reflection_DoorController)",
-            output,
-        )
+        # No reflection registry is emitted; the editor schema comes from the serializable registration.
+        self.assertNotIn("TypeReflection", output)
+        self.assertNotIn("register_type_reflection", output)
 
     def test_nested_type_name_is_emitted_for_struct_and_vector_props(self) -> None:
         output = self.generate_source(
@@ -1000,8 +996,9 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        # Both the nested struct field and the vector-of-struct field resolve to the element wire name.
-        self.assertIn('tbx_property.nested_type_name = "inner";', output)
+        # Both the nested struct field and the vector-of-struct field resolve to the element wire name,
+        # emitted as the attribute descriptor's nested name.
+        self.assertIn('.nested = "inner"', output)
 
     def test_map_prop_serializes_and_resolves_value_type_for_reflection(self) -> None:
         output = self.generate_source(
@@ -1019,15 +1016,18 @@ class AttributeCodegenTests(unittest.TestCase):
             {
                 [[prop]]
                 std::map<Uuid, Inner> by_id = {};
+
+                [[prop]]
+                int count = 0;
             };
             }
             """
         )
         # Map fields serialize through the generic value template (no map-specific emission)...
-        self.assertIn("tbx_value.by_id);", output)
-        # ...and the nested (mapped) type name resolves to the value type's wire name so describe-time
-        # enrichment can recurse into it.
-        self.assertIn('tbx_property.nested_type_name = "inner";', output)
+        self.assertIn("tbx_value.by_id,", output)
+        # ...and the nested (mapped) type name resolves to the value type's wire name in the attribute
+        # descriptor so the editor can resolve it.
+        self.assertIn('.nested = "inner"', output)
 
     def test_core_render_pipeline_script_registration_is_generated(self) -> None:
         output = self.generate_source(

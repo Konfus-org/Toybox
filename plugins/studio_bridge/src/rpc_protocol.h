@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace tbx::rpc_communication
+namespace tbx::studio_bridge
 {
     constexpr int JSON_RPC_PARSE_ERROR_CODE = -32700;
     constexpr int JSON_RPC_METHOD_NOT_FOUND_CODE = -32601;

@@ -5,6 +5,22 @@
 
 #define TBX_TRACE_FLUSH() ::tbx::Log::get_instance().flush()
 
+// Token-paste helpers for generating a unique identifier per macro expansion.
+#define TBX_CONCAT_IMPL(a, b) a##b
+#define TBX_CONCAT(a, b) TBX_CONCAT_IMPL(a, b)
+
+// Pushes a log category (see Log::begin_category) for the rest of the enclosing scope, so every line
+// logged within it is tagged "[Category]"; it pops automatically on scope exit (RAII). Use this at call
+// sites instead of the raw tbx::LogCategoryScope so it can be compiled out wholesale — like the other
+// gated log endpoints — by not defining TBX_ENABLE_LOG_CATEGORIES (then it costs nothing and never
+// evaluates its argument).
+#if defined(TBX_ENABLE_LOG_CATEGORIES)
+    #define TBX_LOG_CATEGORY_SCOPE(category)                                                       \
+        ::tbx::LogCategoryScope TBX_CONCAT(tbx_log_category_scope_, __LINE__) { (category) }
+#else
+    #define TBX_LOG_CATEGORY_SCOPE(category) ((void)0)
+#endif
+
 #define TBX_TRACE_INFO(msg, ...)                                                                   \
     do                                                                                             \
     {                                                                                              \

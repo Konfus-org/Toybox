@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/systems/ecs/world/settings.generated.h"
+#include "tbx/systems/world/settings.generated.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"

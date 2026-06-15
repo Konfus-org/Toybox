@@ -1,25 +1,72 @@
-﻿{
+{
     "shader": {
-        "vertex": 308,
-        "fragment": 309,
-        "tesselation": 0,
-        "geometry": 0,
-        "computes": []
+        "type": "shader_program",
+        "value": {
+            "vertex": {
+                "type": "handle",
+                "value": 308
+            },
+            "fragment": {
+                "type": "handle",
+                "value": 309
+            },
+            "tesselation": {
+                "type": "handle",
+                "value": 0
+            },
+            "geometry": {
+                "type": "handle",
+                "value": 0
+            },
+            "computes": {
+                "type": "array",
+                "value": []
+            }
+        }
     },
-    "parameters": [
-        {}
-    ],
-    "textures": [
-        {}
-    ],
+    "parameters": {
+        "type": "material_parameter_bindings",
+        "value": []
+    },
+    "textures": {
+        "type": "material_texture_bindings",
+        "value": []
+    },
     "config": {
-        "is_depth_test_enabled": true,
-        "is_depth_write_enabled": true,
-        "is_depth_prepass_enabled": false,
-        "is_two_sided": false,
-        "is_cullable": true,
-        "depth_function": "less",
-        "blend_mode": "opaque",
-        "shadow_mode": "on"
+        "type": "material_config",
+        "value": {
+            "is_depth_test_enabled": {
+                "type": "bool",
+                "value": true
+            },
+            "is_depth_write_enabled": {
+                "type": "bool",
+                "value": true
+            },
+            "is_depth_prepass_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_two_sided": {
+                "type": "bool",
+                "value": false
+            },
+            "is_cullable": {
+                "type": "bool",
+                "value": true
+            },
+            "depth_function": {
+                "type": "material_depth_function",
+                "value": "less"
+            },
+            "blend_mode": {
+                "type": "material_blend_mode",
+                "value": "opaque"
+            },
+            "shadow_mode": {
+                "type": "shadow_mode",
+                "value": "on"
+            }
+        }
     }
 }

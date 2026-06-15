@@ -1,8 +1,8 @@
-#include "sdl_input_manager.h"
+#include "sdl_input_backend.h"
 
 namespace sdl_input
 {
-    SdlInputManager::~SdlInputManager() noexcept
+    SdlInputBackend::~SdlInputBackend() noexcept
     {
         std::string error_report = {};
         release_mouse_lock_window(&error_report);
@@ -10,12 +10,12 @@ namespace sdl_input
         _mouse_lock_mode = tbx::MouseLockMode::UNLOCKED;
     }
 
-    void SdlInputManager::add_wheel_delta(float wheel_delta)
+    void SdlInputBackend::add_wheel_delta(float wheel_delta)
     {
         _wheel_delta += wheel_delta;
     }
 
-    tbx::KeyboardState SdlInputManager::get_keyboard_state() const
+    tbx::KeyboardState SdlInputBackend::get_keyboard_state() const
     {
         auto state = tbx::KeyboardState {};
 
@@ -33,7 +33,7 @@ namespace sdl_input
         return state;
     }
 
-    tbx::ControllerState SdlInputManager::get_controller_state(int controller_index) const
+    tbx::ControllerState SdlInputBackend::get_controller_state(int controller_index) const
     {
         auto state = tbx::ControllerState {};
         state.controller_index = controller_index;
@@ -71,7 +71,7 @@ namespace sdl_input
         return state;
     }
 
-    tbx::MouseState SdlInputManager::get_mouse_state() const
+    tbx::MouseState SdlInputBackend::get_mouse_state() const
     {
         auto state = tbx::MouseState {};
 
@@ -102,23 +102,23 @@ namespace sdl_input
         return state;
     }
 
-    void SdlInputManager::set_mouse_lock_mode(tbx::MouseLockMode mode)
+    void SdlInputBackend::set_mouse_lock_mode(tbx::MouseLockMode mode)
     {
         _requested_mouse_lock_mode = mode;
     }
 
-    tbx::MouseLockMode SdlInputManager::get_mouse_lock_mode() const
+    tbx::MouseLockMode SdlInputBackend::get_mouse_lock_mode() const
     {
         return _mouse_lock_mode;
     }
 
-    void SdlInputManager::update_backend_state()
+    void SdlInputBackend::update_backend_state()
     {
         _wheel_delta = 0.0F;
         apply_mouse_lock_mode();
     }
 
-    bool SdlInputManager::apply_mouse_lock_mode(std::string* out_error_report)
+    bool SdlInputBackend::apply_mouse_lock_mode(std::string* out_error_report)
     {
         SDL_Window* target_window = SDL_GetMouseFocus();
         if (!target_window)
@@ -207,7 +207,7 @@ namespace sdl_input
         return true;
     }
 
-    bool SdlInputManager::release_mouse_lock_window(std::string* out_error_report)
+    bool SdlInputBackend::release_mouse_lock_window(std::string* out_error_report)
     {
         if (!_mouse_lock_window)
             return true;
@@ -232,7 +232,7 @@ namespace sdl_input
         return true;
     }
 
-    bool SdlInputManager::is_maximized_fullscreen_window(SDL_Window* window)
+    bool SdlInputBackend::is_maximized_fullscreen_window(SDL_Window* window)
     {
         if (!window)
             return false;

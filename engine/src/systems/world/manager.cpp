@@ -1,4 +1,4 @@
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "chunk_loader.h"
 #include "streamer.h"
 #include "tbx/interfaces/message_dispatcher.h"

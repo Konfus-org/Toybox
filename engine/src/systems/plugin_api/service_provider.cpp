@@ -4,7 +4,7 @@
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/scripting/script_system.h"
 #include <algorithm>

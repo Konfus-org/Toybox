@@ -5,15 +5,28 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/world/manager.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/typedefs.h"
 #include <future>
+#include <mutex>
+#include <unordered_map>
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: Tracks the most recent in-flight frame for one render target so each target's
+    /// completion is observed independently while all GL work still funnels to the single
+    /// render lane.
+    struct RenderLane
+    {
+        std::future<void> frame = {};
+        uint64 last_touch = 0U;
+    };
+
     // Shadow cascades are currently fixed in the renderer until graphics settings owns that policy.
     /// @brief
     /// Purpose: Orchestrates the per-frame render loop and submits frame work to the render lane.
@@ -77,6 +90,7 @@ namespace tbx
             const CameraView& camera_view,
             const RenderTarget& output_target);
         void wait_for_render_frame() noexcept;
+        void evict_stale_lanes();
 
       private:
         std::weak_ptr<ThreadManager> _thread_manager;
@@ -85,7 +99,9 @@ namespace tbx
         std::weak_ptr<IWindowManager> _window_manager;
         RenderingPipeline _pipeline;
 
-        std::future<void> _render_future = {};
+        std::unordered_map<uint64, RenderLane> _render_lanes = {};
+        uint64 _lane_touch_counter = 0U;
+        std::mutex _render_lanes_mutex = {};
         Uuid _asset_reload_handler = {};
     };
 }
