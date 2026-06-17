@@ -1,22 +1,23 @@
 #pragma once
+#include "tbx/systems/time/span.generated.h"
 #include "tbx/tbx_api.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
-#include <string>
-
 
 namespace tbx
 {
-    enum TimeUnit
+    [[printable]];
+    enum class TimeUnit
     {
-        MILLISECONDS,
-        SECONDS,
-        MINUTES,
-        HOURS,
-        DAYS
+        MILLISECONDS [[name("ms")]],
+        SECONDS [[name("s")]],
+        MINUTES [[name("min")]],
+        HOURS [[name("h")]],
+        DAYS [[name("d")]]
     };
 
     // Value-type duration helper; thread-safe due to copy semantics.
+    [[printable("{} {}", value, unit)]];
     struct TBX_API TimeSpan
     {
         bool is_zero() const;
@@ -29,9 +30,4 @@ namespace tbx
         uint64 value = 0;
         TimeUnit unit = TimeUnit::MILLISECONDS;
     };
-
-    /// @brief Purpose: Formats a TimeSpan value with its unit for display.
-    /// @details Ownership: Returns an owned std::string. Thread Safety: Stateless and safe for
-    /// concurrent use.
-    TBX_API std::string to_string(const TimeSpan& time_span);
 }

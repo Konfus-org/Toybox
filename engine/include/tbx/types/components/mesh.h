@@ -1,11 +1,8 @@
 #pragma once
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
+#include "tbx/types/components/component.h"
+#include "tbx/types/components/mesh.generated.h"
 #include "tbx/types/mesh_bounds.h"
-#include "tbx/types/typedefs.h"
 #include "tbx/types/vertex.h"
-#include <memory>
-#include <vector>
 
 namespace tbx
 {
@@ -71,13 +68,19 @@ namespace tbx
     /// @details
     /// Ownership: Stores a non-owning model handle reference.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
-    struct TBX_API StaticMesh
+    [[serializable]];
+    [[icon("Cuboid", Color::BLUE)]];
+    struct TBX_API StaticMesh : Component
     {
+        StaticMesh() = default;
+        explicit StaticMesh(Handle handle);
+
         /// @brief
         /// Purpose: Model asset handle that provides mesh geometry (and optional part materials).
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[prop]]
         Handle handle = {};
     };
 
@@ -87,11 +90,11 @@ namespace tbx
     /// Ownership: Holds a shared pointer to mesh data owned by a producer system.
     /// Thread Safety: Mesh content mutation must be synchronized externally; the shared pointer
     /// itself is safe to copy between threads.
-    struct TBX_API DynamicMesh
+    struct TBX_API DynamicMesh : Component
     {
         DynamicMesh() = default;
-        DynamicMesh(Mesh mesh);
-        DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data);
+        explicit DynamicMesh(const Mesh& mesh);
+        explicit DynamicMesh(std::shared_ptr<DynamicMeshData> mesh_data);
 
         const Mesh& get_mesh() const;
         Mesh& edit_mesh();

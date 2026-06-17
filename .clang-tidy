@@ -4,6 +4,7 @@ Checks:
   - -bugprone-easily-swappable-parameters
   - -bugprone-narrowing-conversions
   - clang-analyzer-*
+  - -clang-diagnostic-attributes
   - cppcoreguidelines-avoid-goto
   - -cppcoreguidelines-narrowing-conversions
   - google-build-using-namespace
@@ -12,6 +13,8 @@ Checks:
   - readability-identifier-naming
 WarningsAsErrors: '*'
 FormatStyle: file
+ExtraArgs:
+  - -Wno-attributes
 CheckOptions:
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case

@@ -1,37 +1,476 @@
 #include "tbx/systems/physics/physics.h"
-#include "tbx/systems/app/settings.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
-#include "systems/physics/internal/physics_internal.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
-#include "tbx/types/components/model.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"
-#include <algorithm>
-#include <cmath>
-#include <utility>
-#include <vector>
+
 namespace tbx
 {
+    static bool has_any_collider(const Entity& entity)
+    {
+        return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
+               || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
+    }
+
+    static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
+    {
+        if (entity.has_component<SphereCollider>())
+            return &entity.get_component<SphereCollider>().trigger;
+
+        if (entity.has_component<CapsuleCollider>())
+            return &entity.get_component<CapsuleCollider>().trigger;
+
+        if (entity.has_component<CubeCollider>())
+            return &entity.get_component<CubeCollider>().trigger;
+
+        if (entity.has_component<MeshCollider>())
+            return &entity.get_component<MeshCollider>().trigger;
+
+        return nullptr;
+    }
+
+    static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+    {
+        if (entity.has_component<SphereCollider>())
+            return &entity.get_component<SphereCollider>().trigger;
+
+        if (entity.has_component<CapsuleCollider>())
+            return &entity.get_component<CapsuleCollider>().trigger;
+
+        if (entity.has_component<CubeCollider>())
+            return &entity.get_component<CubeCollider>().trigger;
+
+        if (entity.has_component<MeshCollider>())
+            return &entity.get_component<MeshCollider>().trigger;
+
+        return nullptr;
+    }
+
+    static bool is_trigger_only_collider(const Entity& entity)
+    {
+        const ColliderTrigger* trigger = try_get_trigger_collider(entity);
+        if (trigger == nullptr)
+            return false;
+
+        return trigger->is_trigger_only;
+    }
+
+    static bool should_execute_overlap_query(
+        ColliderOverlapExecutionMode execution_mode,
+        bool is_manual_trigger_requested)
+    {
+        return execution_mode == ColliderOverlapExecutionMode::AUTO || is_manual_trigger_requested;
+    }
+
+    static float get_vec3_distance_squared(const Vec3& left, const Vec3& right)
+    {
+        const float delta_x = left.x - right.x;
+        const float delta_y = left.y - right.y;
+        const float delta_z = left.z - right.z;
+        return delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+    }
+
+    static bool has_scale_changed(const Vec3& current_scale, const Vec3& previous_scale)
+    {
+        constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+        return get_vec3_distance_squared(current_scale, previous_scale) > scale_epsilon_squared;
+    }
+
+    static bool has_transform_changed(
+        const Transform& current,
+        const Vec3& previous_position,
+        const Quat& previous_rotation,
+        const Vec3& previous_scale)
+    {
+        constexpr float position_epsilon_squared = 0.000001F * 0.000001F;
+        constexpr float rotation_dot_epsilon = 0.0001F;
+        constexpr float scale_epsilon_squared = 0.0001F * 0.0001F;
+
+        if (get_vec3_distance_squared(current.position, previous_position)
+            > position_epsilon_squared)
+            return true;
+
+        const Quat current_rotation = normalize(current.rotation);
+        const Quat previous_rotation_normalized = normalize(previous_rotation);
+        const float rotation_dot = std::abs(
+            current_rotation.x * previous_rotation_normalized.x
+            + current_rotation.y * previous_rotation_normalized.y
+            + current_rotation.z * previous_rotation_normalized.z
+            + current_rotation.w * previous_rotation_normalized.w);
+        if ((1.0F - std::min(1.0F, rotation_dot)) > rotation_dot_epsilon)
+            return true;
+
+        return get_vec3_distance_squared(current.scale, previous_scale) > scale_epsilon_squared;
+    }
+
+    static Vec3 calculate_angular_velocity_for_step(
+        const Quat& start_rotation,
+        const Quat& target_rotation,
+        float dt_seconds)
+    {
+        Quat normalized_start = normalize(start_rotation);
+        Quat normalized_target = normalize(target_rotation);
+
+        Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
+        if (delta_rotation.w < 0.0F)
+            delta_rotation = -delta_rotation;
+
+        float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
+        float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
+        if (half_angle_sine <= 0.000001F)
+            return Vec3(0.0F, 0.0F, 0.0F);
+
+        Vec3 axis =
+            Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
+        float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
+        return axis * (angle_radians / std::max(0.0001F, dt_seconds));
+    }
+
+    static Vec3 get_safe_scale(const Vec3& scale)
+    {
+        return Vec3(
+            std::max(0.001F, std::abs(scale.x)),
+            std::max(0.001F, std::abs(scale.y)),
+            std::max(0.001F, std::abs(scale.z)));
+    }
+
+    static bool try_get_mesh_vertex_position_offset(
+        const VertexBufferLayout& layout,
+        size& position_offset_bytes)
+    {
+        for (const auto& attribute : layout.elements)
+        {
+            if (attribute.type != VertexFormat::VEC3)
+                continue;
+
+            position_offset_bytes = static_cast<size>(attribute.offset);
+            return true;
+        }
+
+        return false;
+    }
+
+    static bool try_append_mesh_geometry(
+        const Mesh& mesh,
+        const Mat4& mesh_transform,
+        const Vec3& mesh_scale,
+        std::vector<Vec3>& vertices,
+        std::vector<PhysicsMeshTriangle>& triangles)
+    {
+        const auto& vertex_values = mesh.vertices.vertices;
+        const size stride_bytes = static_cast<size>(mesh.vertices.layout.stride);
+        if (stride_bytes < sizeof(float) * 3U)
+            return false;
+
+        size position_offset_bytes = 0U;
+        if (!try_get_mesh_vertex_position_offset(mesh.vertices.layout, position_offset_bytes))
+            position_offset_bytes = 0U;
+
+        if ((stride_bytes % sizeof(float)) != 0U || (position_offset_bytes % sizeof(float)) != 0U)
+            return false;
+
+        const size stride_floats = stride_bytes / sizeof(float);
+        const size position_offset_floats = position_offset_bytes / sizeof(float);
+        if (stride_floats == 0U || position_offset_floats + 2U >= stride_floats)
+            return false;
+
+        if ((vertex_values.size() % stride_floats) != 0U)
+            return false;
+
+        const size base_vertex_index = static_cast<size>(vertices.size());
+        const Vec3 safe_scale = get_safe_scale(mesh_scale);
+        const size vertex_count = static_cast<size>(vertex_values.size()) / stride_floats;
+        vertices.reserve(base_vertex_index + vertex_count);
+        for (size vertex_index = 0U; vertex_index < vertex_count; ++vertex_index)
+        {
+            const size base_index = vertex_index * stride_floats + position_offset_floats;
+            const Vec4 local_position = Vec4(
+                vertex_values[base_index],
+                vertex_values[base_index + 1U],
+                vertex_values[base_index + 2U],
+                1.0F);
+            const Vec4 transformed_position = mesh_transform * local_position;
+
+            vertices.push_back(Vec3(
+                transformed_position.x * safe_scale.x,
+                transformed_position.y * safe_scale.y,
+                transformed_position.z * safe_scale.z));
+        }
+
+        const auto& mesh_indices = mesh.indices;
+        if (mesh_indices.size() >= 3U)
+        {
+            const size triangle_count = static_cast<size>(mesh_indices.size()) / 3U;
+            triangles.reserve(triangles.size() + triangle_count);
+            for (size triangle_index = 0U; triangle_index < triangle_count; ++triangle_index)
+            {
+                const size index_base = triangle_index * 3U;
+                const size index0 = base_vertex_index + mesh_indices[index_base];
+                const size index1 = base_vertex_index + mesh_indices[index_base + 1U];
+                const size index2 = base_vertex_index + mesh_indices[index_base + 2U];
+                if (index0 >= vertices.size() || index1 >= vertices.size()
+                    || index2 >= vertices.size())
+                    continue;
+
+                triangles.push_back(
+                    PhysicsMeshTriangle {
+                        .index0 = static_cast<uint32>(index0),
+                        .index1 = static_cast<uint32>(index1),
+                        .index2 = static_cast<uint32>(index2),
+                    });
+            }
+        }
+
+        return vertices.size() > base_vertex_index;
+    }
+
+    struct MeshPartQueueEntry
+    {
+        size part_index = 0U;
+        Mat4 parent_transform = Mat4(1.0F);
+    };
+
+    static bool try_get_mesh_collider_data(
+        AssetManager& asset_manager,
+        const Entity& entity,
+        const Vec3& scale,
+        std::vector<Vec3>& vertices,
+        std::vector<PhysicsMeshTriangle>& triangles)
+    {
+        vertices.clear();
+        triangles.clear();
+
+        if (entity.has_component<DynamicMesh>())
+        {
+            const auto& mesh_component = entity.get_component<DynamicMesh>();
+            if (!mesh_component.get_data())
+                return false;
+
+            return try_append_mesh_geometry(
+                mesh_component.get_mesh(),
+                Mat4(1.0F),
+                scale,
+                vertices,
+                triangles);
+        }
+
+        if (!entity.has_component<StaticMesh>())
+            return false;
+
+        const auto& static_mesh = entity.get_component<StaticMesh>();
+        if (!static_mesh.handle.id.is_valid())
+            return false;
+
+        auto model = asset_manager.load<Model>(static_mesh.handle);
+        if (!model || model->meshes.empty())
+            return false;
+
+        if (model->parts.empty())
+        {
+            bool has_any_mesh = false;
+            for (const auto& mesh : model->meshes)
+                has_any_mesh |=
+                    try_append_mesh_geometry(mesh, Mat4(1.0F), scale, vertices, triangles);
+
+            return has_any_mesh;
+        }
+
+        auto has_parent = std::vector<bool>(model->parts.size(), false);
+        for (const auto& part : model->parts)
+        {
+            for (const auto child_index : part.children)
+            {
+                if (child_index < has_parent.size())
+                    has_parent[child_index] = true;
+            }
+        }
+
+        auto queue = std::vector<MeshPartQueueEntry> {};
+        queue.reserve(model->parts.size());
+        for (size part_index = 0U; part_index < model->parts.size(); ++part_index)
+        {
+            if (has_parent[part_index])
+                continue;
+
+            queue.push_back(
+                MeshPartQueueEntry {
+                    .part_index = part_index,
+                    .parent_transform = Mat4(1.0F),
+                });
+        }
+
+        if (queue.empty())
+        {
+            queue.push_back(
+                MeshPartQueueEntry {
+                    .part_index = 0U,
+                    .parent_transform = Mat4(1.0F),
+                });
+        }
+
+        auto visited_parts = std::vector<bool>(model->parts.size(), false);
+        bool has_any_part_mesh = false;
+        while (!queue.empty())
+        {
+            const MeshPartQueueEntry current = queue.back();
+            queue.pop_back();
+            if (current.part_index >= model->parts.size())
+                continue;
+
+            if (visited_parts[current.part_index])
+                continue;
+            visited_parts[current.part_index] = true;
+
+            const auto& part = model->parts[current.part_index];
+            const Mat4 part_transform = current.parent_transform * part.transform;
+            if (part.mesh_index < model->meshes.size())
+            {
+                has_any_part_mesh |= try_append_mesh_geometry(
+                    model->meshes[part.mesh_index],
+                    part_transform,
+                    scale,
+                    vertices,
+                    triangles);
+            }
+
+            for (const auto child_index : part.children)
+            {
+                queue.push_back(
+                    MeshPartQueueEntry {
+                        .part_index = child_index,
+                        .parent_transform = part_transform,
+                    });
+            }
+        }
+
+        return has_any_part_mesh;
+    }
+
+    static PhysicsColliderCreateInfo create_collider_info_for_entity(
+        AssetManager& asset_manager,
+        const Entity& entity,
+        const Transform& transform,
+        bool is_physics_driven)
+    {
+        auto create_info = PhysicsColliderCreateInfo {};
+        create_info.is_trigger_only = is_trigger_only_collider(entity);
+
+        if (entity.has_component<SphereCollider>())
+        {
+            const auto& sphere = entity.get_component<SphereCollider>();
+            create_info.shape_type = PhysicsColliderShapeType::SPHERE;
+            create_info.radius = sphere.radius;
+            return create_info;
+        }
+
+        if (entity.has_component<CapsuleCollider>())
+        {
+            const auto& capsule = entity.get_component<CapsuleCollider>();
+            create_info.shape_type = PhysicsColliderShapeType::CAPSULE;
+            create_info.radius = capsule.radius;
+            create_info.half_height = capsule.half_height;
+            return create_info;
+        }
+
+        if (entity.has_component<CubeCollider>())
+        {
+            const auto& cube = entity.get_component<CubeCollider>();
+            create_info.shape_type = PhysicsColliderShapeType::BOX;
+            create_info.half_extents = cube.half_extents;
+            return create_info;
+        }
+
+        if (entity.has_component<MeshCollider>())
+        {
+            const auto& mesh_collider = entity.get_component<MeshCollider>();
+            create_info.shape_type = PhysicsColliderShapeType::MESH;
+            create_info.is_convex = mesh_collider.is_convex || is_physics_driven;
+            if (try_get_mesh_collider_data(
+                    asset_manager,
+                    entity,
+                    transform.scale,
+                    create_info.mesh_vertices,
+                    create_info.mesh_triangles))
+                return create_info;
+
+            TBX_TRACE_WARNING(
+                "Physics: tbx::MeshCollider on entity {} has no usable mesh geometry, using "
+                "fallback box shape.",
+                entity.get_id());
+        }
+
+        create_info.shape_type = PhysicsColliderShapeType::BOX;
+        create_info.half_extents = Vec3(0.5F, 0.5F, 0.5F);
+        return create_info;
+    }
+
+    struct Physics::EntityRecord
+    {
+        PhysicsColliderHandle collider = {};
+        PhysicsRigidbodyHandle rigidbody = {};
+        Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
+        Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
+        Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
+        bool has_last_transform = false;
+        bool is_physics_driven = false;
+        bool is_trigger_only = false;
+    };
+
+    void Physics::EntityRecordDeleter::operator()(EntityRecord* record) const noexcept
+    {
+        delete record;
+    }
+
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
-        std::weak_ptr<EntityRegistry> entity_registry,
         std::weak_ptr<AssetManager> asset_manager,
-        std::weak_ptr<AppSettings> settings)
-        : _backend(std::move(backend))
-        , _entity_registry(std::move(entity_registry))
-        , _asset_manager(std::move(asset_manager))
-        , _settings(std::move(settings))
+        std::weak_ptr<WorldManager> world_manager,
+        const PhysicsSettings& settings)
+        : Physics(
+              std::move(backend),
+              std::move(asset_manager),
+              std::move(world_manager),
+              std::weak_ptr<IMessageCoordinator>(),
+              settings)
     {
+    }
+
+    Physics::Physics(
+        std::weak_ptr<IPhysicsBackend> backend,
+        std::weak_ptr<AssetManager> asset_manager,
+        std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<IMessageCoordinator> message_coordinator,
+        const PhysicsSettings& settings)
+        : _backend(std::move(backend))
+        , _asset_manager(std::move(asset_manager))
+        , _message_coordinator(message_coordinator)
+        , _world_manager(std::move(world_manager))
+    {
+        if (auto coordinator = _message_coordinator.lock())
+        {
+            _asset_reload_handler = coordinator->register_handler(
+                [this](Message& message)
+                {
+                    if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
+                        on_asset_reloaded(reloaded->get());
+                });
+        }
+
         if (auto backend_strong = _backend.lock())
-            backend_strong->initialize(get_backend_settings());
+            backend_strong->initialize(get_backend_settings(settings));
     }
 
     Physics::~Physics() noexcept
     {
+        if (auto coordinator = _message_coordinator.lock())
+            coordinator->deregister_handler(_asset_reload_handler);
+
         clear_resources();
         if (auto backend = _backend.lock())
             backend->shutdown();
@@ -48,7 +487,7 @@ namespace tbx
         {
             if (const auto record_it = _records_by_entity.find(raycast_query.ignored_entity_id);
                 record_it != _records_by_entity.end())
-                ignored_rigidbody = record_it->second.rigidbody;
+                ignored_rigidbody = record_it->second->rigidbody;
         }
 
         auto backend_hit = PhysicsRaycastHit {};
@@ -63,29 +502,57 @@ namespace tbx
         };
     }
 
-    void Physics::update(const DeltaTime& dt)
+    void Physics::update(const DeltaTime& dt, const PhysicsSettings& settings)
     {
         if (_backend.expired())
             return;
 
-        sync_entities_to_backend(static_cast<float>(dt.seconds));
+        auto asset_manager = _asset_manager.lock();
+        if (!asset_manager)
+            return;
+
+        auto worlds = std::vector<std::shared_ptr<World>> {};
+        if (const auto world_manager = _world_manager.lock())
+        {
+            if (auto world = world_manager->get_active_world().lock())
+                worlds.push_back(world);
+        }
+        else
+        {
+            worlds = asset_manager->get_loaded<World>();
+        }
+
+        for (const auto& world : worlds)
+        {
+            if (!world)
+                continue;
+
+            sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
+        }
         if (auto backend = _backend.lock())
-            backend->update(get_backend_settings(), dt);
-        sync_backend_to_entities();
-        process_trigger_colliders();
+            backend->update(get_backend_settings(settings), dt);
+        for (const auto& world : worlds)
+        {
+            if (!world)
+                continue;
+
+            sync_backend_to_entities(*world);
+            process_trigger_colliders(*world);
+        }
+        _pending_model_reloads.clear();
     }
 
     void Physics::clear_resources()
     {
         for (auto& record_entry : _records_by_entity)
-            destroy_record(record_entry.second);
+            destroy_record(*record_entry.second);
 
         _records_by_entity.clear();
         _entity_by_rigidbody_handle.clear();
         _overlap_entities_by_trigger.clear();
     }
 
-    void Physics::destroy_record(PhysicsEntityRecord& record)
+    void Physics::destroy_record(EntityRecord& record)
     {
         if (auto backend = _backend.lock())
         {
@@ -100,38 +567,32 @@ namespace tbx
         record = {};
     }
 
-    PhysicsBackendSettings Physics::get_backend_settings() const
+    PhysicsBackendSettings Physics::get_backend_settings(const PhysicsSettings& settings)
     {
-        auto settings = _settings.lock();
-        if (!settings)
-            return {};
-
-        const auto& physics_settings = settings->physics;
         return PhysicsBackendSettings {
-            .gravity = physics_settings.gravity.value,
-            .max_body_count = physics_settings.max_body_count.value,
-            .max_contact_constraints = physics_settings.max_contact_constraints.value,
-            .max_body_pairs = physics_settings.max_body_pairs.value,
-            .solver_velocity_iterations = physics_settings.solver_velocity_iterations.value,
-            .solver_position_iterations = physics_settings.solver_position_iterations.value,
-            .max_linear_velocity = physics_settings.max_linear_velocity.value,
-            .max_angular_velocity = physics_settings.max_angular_velocity.value,
+            .gravity = settings.gravity,
+            .max_body_count = settings.max_body_count,
+            .max_contact_constraints = settings.max_contact_constraints,
+            .max_body_pairs = settings.max_body_pairs,
+            .solver_velocity_iterations = settings.solver_velocity_iterations,
+            .solver_position_iterations = settings.solver_position_iterations,
+            .max_linear_velocity = settings.max_linear_velocity,
+            .max_angular_velocity = settings.max_angular_velocity,
         };
     }
 
-    void Physics::process_trigger_colliders()
+    void Physics::process_trigger_colliders(World& world)
     {
-        auto registry = _entity_registry.lock();
         auto backend = _backend.lock();
-        if (!registry || !backend)
+        if (!backend)
             return;
 
         auto active_trigger_entities = std::unordered_set<Uuid>();
-        auto trigger_entities = registry->get_with<Transform>();
+        auto trigger_entities = world.get_with<Transform>();
         for (auto& trigger_entity : trigger_entities)
         {
             const Uuid trigger_entity_id = trigger_entity.get_id();
-            auto* trigger_collider = internal::try_get_trigger_collider(trigger_entity);
+            auto* trigger_collider = try_get_trigger_collider(trigger_entity);
             if (trigger_collider == nullptr)
                 continue;
 
@@ -143,7 +604,7 @@ namespace tbx
                 continue;
             }
 
-            if (!internal::should_execute_overlap_query(
+            if (!should_execute_overlap_query(
                     trigger_collider->overlap_execution_mode,
                     trigger_collider->is_manual_scan_requested))
             {
@@ -158,7 +619,7 @@ namespace tbx
             {
                 auto overlapped_rigidbodies = std::vector<PhysicsRigidbodyHandle> {};
                 backend->get_rigidbody_overlaps(
-                    record_it->second.rigidbody,
+                    record_it->second->rigidbody,
                     overlapped_rigidbodies);
                 current_overlaps.reserve(overlapped_rigidbodies.size());
                 for (const PhysicsRigidbodyHandle overlapped_rigidbody : overlapped_rigidbodies)
@@ -229,27 +690,26 @@ namespace tbx
             _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 
-    void Physics::sync_entities_to_backend(float dt_seconds)
+    void Physics::sync_entities_to_backend(World& world, float dt_seconds)
     {
-        auto registry = _entity_registry.lock();
         auto asset_manager = _asset_manager.lock();
         auto backend = _backend.lock();
-        if (!registry || !asset_manager || !backend)
+        if (!asset_manager || !backend)
             return;
 
         auto active_entities = std::unordered_set<Uuid>();
 
-        auto entities = registry->get_with<Transform>();
+        auto entities = world.get_with<Transform>();
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
-            const auto world_transform = get_world_space_transform(entity);
+            const auto world_transform = entity.get_component<Transform>().to_world_space(entity);
             const bool has_rigidbody_component = entity.has_component<Rigidbody>();
-            const bool has_collider = internal::has_any_collider(entity);
+            const bool has_collider = has_any_collider(entity);
             if (!has_rigidbody_component && !has_collider)
                 continue;
 
-            const bool is_trigger_only = internal::is_trigger_only_collider(entity);
+            const bool is_trigger_only = is_trigger_only_collider(entity);
             const auto* rigidbody =
                 has_rigidbody_component ? &entity.get_component<Rigidbody>() : nullptr;
             const bool is_physics_driven = rigidbody != nullptr && rigidbody->is_valid();
@@ -260,26 +720,29 @@ namespace tbx
 
             auto record_it = _records_by_entity.find(entity_id);
             if (record_it != _records_by_entity.end()
-                && (record_it->second.is_physics_driven != is_physics_driven
-                    || record_it->second.is_trigger_only != is_trigger_only
-                    || (entity.has_component<MeshCollider>() && record_it->second.has_last_transform
-                        && internal::has_scale_changed(
+                && (record_it->second->is_physics_driven != is_physics_driven
+                    || record_it->second->is_trigger_only != is_trigger_only
+                    || (entity.has_component<StaticMesh>()
+                        && _pending_model_reloads.contains(
+                            entity.get_component<StaticMesh>().handle.id))
+                    || (entity.has_component<MeshCollider>()
+                        && record_it->second->has_last_transform
+                        && has_scale_changed(
                             world_transform.scale,
-                            record_it->second.last_scale))))
+                            record_it->second->last_scale))))
             {
-                destroy_record(record_it->second);
+                destroy_record(*record_it->second);
                 _records_by_entity.erase(record_it);
                 record_it = _records_by_entity.end();
             }
 
             if (record_it == _records_by_entity.end())
             {
-                const PhysicsColliderCreateInfo collider_info =
-                    internal::create_collider_info_for_entity(
-                        *asset_manager,
-                        entity,
-                        world_transform,
-                        is_physics_driven);
+                const PhysicsColliderCreateInfo collider_info = create_collider_info_for_entity(
+                    *asset_manager,
+                    entity,
+                    world_transform,
+                    is_physics_driven);
                 PhysicsColliderHandle collider = backend->create_collider(collider_info);
                 if (!collider.is_valid())
                     continue;
@@ -298,7 +761,8 @@ namespace tbx
                     continue;
                 }
 
-                auto& record = _records_by_entity[entity_id];
+                auto record_ptr = EntityRecordPtr(new EntityRecord());
+                auto& record = *record_ptr;
                 record.collider = collider;
                 record.rigidbody = rigidbody_handle;
                 record.last_position = world_transform.position;
@@ -307,13 +771,14 @@ namespace tbx
                 record.has_last_transform = true;
                 record.is_physics_driven = is_physics_driven;
                 record.is_trigger_only = is_trigger_only;
+                _records_by_entity[entity_id] = std::move(record_ptr);
                 _entity_by_rigidbody_handle[rigidbody_handle.value] = entity_id;
                 continue;
             }
 
-            auto& record = record_it->second;
+            auto& record = *record_it->second;
             const bool transform_is_dirty = record.has_last_transform
-                                            && internal::has_transform_changed(
+                                            && has_transform_changed(
                                                 world_transform,
                                                 record.last_position,
                                                 record.last_rotation,
@@ -339,11 +804,10 @@ namespace tbx
                     update_info.sweep_linear_velocity =
                         (world_transform.position - current_state.transform.position)
                         / safe_dt_seconds;
-                    update_info.sweep_angular_velocity =
-                        internal::calculate_angular_velocity_for_step(
-                            current_state.transform.rotation,
-                            world_transform.rotation,
-                            safe_dt_seconds);
+                    update_info.sweep_angular_velocity = calculate_angular_velocity_for_step(
+                        current_state.transform.rotation,
+                        world_transform.rotation,
+                        safe_dt_seconds);
                 }
             }
 
@@ -373,34 +837,34 @@ namespace tbx
             if (record_it == _records_by_entity.end())
                 continue;
 
-            destroy_record(record_it->second);
+            destroy_record(*record_it->second);
             _records_by_entity.erase(record_it);
         }
     }
 
-    void Physics::sync_backend_to_entities()
+    void Physics::sync_backend_to_entities(World& world)
     {
-        auto registry = _entity_registry.lock();
         auto backend = _backend.lock();
-        if (!registry || !backend)
+        if (!backend)
             return;
 
         for (auto& record_entry : _records_by_entity)
         {
             const Uuid& entity_id = record_entry.first;
-            auto& record = record_entry.second;
+            auto& record = *record_entry.second;
 
-            if (!registry->has<Transform>(entity_id))
+            if (!world.has<Transform>(entity_id))
                 continue;
 
-            auto& transform = registry->get_with<Transform>(entity_id);
-            auto entity = registry->get(entity_id);
+            auto entity = world.get(entity_id);
             if (!entity.get_id().is_valid())
                 continue;
+            auto& transform = entity.get_component<Transform>();
 
-            if (!registry->has<Rigidbody>(entity_id))
+            if (!world.has<Rigidbody>(entity_id))
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform =
+                    entity.get_component<Transform>().to_world_space(entity);
                 record.last_position = world_transform.position;
                 record.last_rotation = world_transform.rotation;
                 record.last_scale = world_transform.scale;
@@ -412,13 +876,14 @@ namespace tbx
             if (!state.is_valid)
                 continue;
 
-            auto& rigidbody = registry->get_with<Rigidbody>(entity_id);
+            auto& rigidbody = entity.get_component<Rigidbody>();
             rigidbody.linear_velocity = state.linear_velocity;
             rigidbody.angular_velocity = state.angular_velocity;
 
             if (rigidbody.is_kinematic)
             {
-                const auto world_transform = get_world_space_transform(entity);
+                const auto world_transform =
+                    entity.get_component<Transform>().to_world_space(entity);
                 record.last_position = world_transform.position;
                 record.last_rotation = world_transform.rotation;
                 record.last_scale = world_transform.scale;
@@ -429,9 +894,11 @@ namespace tbx
             auto world_transform = state.transform;
             world_transform.scale = transform.scale;
             auto parent_entity = Entity {};
-            if (entity.try_get_parent_entity(parent_entity))
+            if (entity.try_get_parent_entity(parent_entity)
+                && parent_entity.has_component<Transform>())
             {
-                const auto parent_world_transform = get_world_space_transform(parent_entity);
+                const auto parent_world_transform =
+                    parent_entity.get_component<Transform>().to_world_space(parent_entity);
                 const auto local_transform =
                     world_to_local_tranform(parent_world_transform, world_transform);
                 transform.position = local_transform.position;
@@ -457,5 +924,13 @@ namespace tbx
             return {};
 
         return entity_it->second;
+    }
+
+    void Physics::on_asset_reloaded(const AssetReloadedEvent& event)
+    {
+        if (!event.succeeded || !event.affected_asset.id.is_valid())
+            return;
+
+        _pending_model_reloads.insert(event.affected_asset.id);
     }
 }

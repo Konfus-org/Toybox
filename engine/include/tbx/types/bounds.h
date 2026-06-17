@@ -1,11 +1,14 @@
+#pragma once
 #include "tbx/tbx_api.h"
-#include <string>
+#include "tbx/types/bounds.generated.h"
 
 namespace tbx
 {
     // Represents axis-aligned bounds for projection calculations.
     // Ownership: value type; callers own copies and may store or return them freely.
     // Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[printable("[Left: {}, Right: {}, Top: {}, Bottom: {}]", left, right, top, bottom)]];
     struct TBX_API Bounds
     {
       public:
@@ -26,11 +29,16 @@ namespace tbx
         // Thread Safety: stateless; safe to call concurrently.
         static Bounds from_perspective_projection(float fov, float aspect_ratio, float z_near);
 
+        [[prop]]
         float left = 0.0f;
+
+        [[prop]]
         float right = 0.0f;
+
+        [[prop]]
         float top = 0.0f;
+
+        [[prop]]
         float bottom = 0.0f;
     };
-
-    TBX_API std::string to_string(const Bounds& bounds);
 }

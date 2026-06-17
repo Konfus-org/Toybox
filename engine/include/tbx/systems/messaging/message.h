@@ -4,7 +4,6 @@
 #include "tbx/utils/result.h"
 #include <functional>
 #include <optional>
-#include <typeinfo>
 
 namespace tbx
 {
@@ -47,10 +46,13 @@ namespace tbx
         virtual ~Message() noexcept;
 
         MessageState state = MessageState::UN_HANDLED;
-        Result result = {};
+        Result result = Result();
         CancellationToken cancellation_token = {};
         MessageCallbacks callbacks = {};
-        Uuid id = Uuid::generate();
+        // Lazily assigned only when a caller needs a stable identity. Defaulting to a generated UUID
+        // here would construct a random_device + mt19937 for every message (several per frame) even
+        // though the dispatcher never reads it; callers that need one assign Uuid::generate().
+        Uuid id = {};
     };
 
     // Simple event message with no response.

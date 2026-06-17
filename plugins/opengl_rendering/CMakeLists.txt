@@ -1,21 +1,11 @@
-set(plugin_name OpenGlRenderingPlugin)
-
-add_library(${plugin_name} SHARED)
-add_library(Tbx::Plugins::${plugin_name} ALIAS ${plugin_name})
-
-target_include_directories(${plugin_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(${plugin_name} PRIVATE
-        Tbx::Engine
+tbx_add_plugin(
+    NAME OpenGlRendering
+    PRIVATE_LINKS
         glad::glad
-)
-
-tbx_register_plugin(
-        TARGET ${plugin_name}
-        CLASS opengl_rendering::OpenGlRenderingPlugin
-        HEADER "tbx/plugins/opengl_rendering/opengl_rendering_plugin.h"
-        NAME "${plugin_name}"
-        VERSION "1.0.0"
-        CATEGORY "rendering"
-        PRIORITY 100
-        DEPENDENCIES SdlOpenGlContextManagerPlugin
+        # GPU texture sharing: D3D11 owns the shared surface, DXGI exposes the cross-process
+        # handle + keyed mutex, opengl32 provides wglGetProcAddress for the WGL_NV_DX_interop2
+        # entry points. Windows-only.
+        $<$<PLATFORM_ID:Windows>:d3d11>
+        $<$<PLATFORM_ID:Windows>:dxgi>
+        $<$<PLATFORM_ID:Windows>:opengl32>
 )

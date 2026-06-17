@@ -1,29 +1,61 @@
 # Toybox Agent Guide
 
-This file defines contributor workflow rules for agents working in this repository.
+Operational guide for AI agents working in this repository. AI-generated code is held to the **same standards as human-written code** and is reviewed with great care — see [`docs/Contributing.md`](docs/Contributing.md).
 
-## Primary coding standard
-- Follow `docs/CodeStandards.md` for all C++ style, formatting, class layout, and documentation expectations.
+## Standards
 
-## Agent rules
-- Act as a senior C++ engineer with game development expertise.
-- Follow DRY principles; avoid duplicated logic and duplicated data transformations.
-- Avoid raw pointers when possible; use references where objects are guaranteed to exist and smart pointers in most other situations.
-- Use RAII consistently so resources are cleaned up when an object is destroyed.
-- Do not remake the wheel; reuse existing engine utilities/components before introducing new implementations.
-- When it makes sense, design features and helpers for reusability.
-- Avoid throwaway helper methods. If a function will not be reused, implement it inline and use comments to break up complex logic when that improves readability.
-- DO NOT use anonymous namespaces, prefer private or static in a internal namespace and file over anonymous.
-- Structs and classes should not be nested, it hurts readability. If its 'private' just put them in a source file and wrap into a detail namespace.
-- Comment on and document assumptions.
-- Keep changes focused and minimal to the requested scope.
-- Prefer direct includes over forward declarations.
-- Remove stale/unused declarations and definitions instead of leaving placeholders.
-- Unit tests must not use filesystem or network I/O.
-- Unit tests must use mocks/fakes/stubs for all filesystem and network behavior.
-- Use Arrange / Act / Assert structure for unit tests.
-- Test changes by building with the presets in `CMakePresets.json`.
-- Use `cmake --preset clang` followed by `cmake --build --preset clang-debug` on macOS/Linux or when using Clang.
-- Use `cmake --preset msvc` followed by `cmake --build --preset msvc-debug` on Windows when using the MSVC toolchain.
-- Run the matching `ctest` preset (`test-clang-debug` or `test-msvc-debug`) when tests are affected or available.
-- Run clang format and tidy to ensure rules are followed.
+**Strictly follow [`docs/CodeStandards.md`](docs/CodeStandards.md).** It is the single source of truth for engineering policies, C++ rules, unit-test style, file/class layout, and formatting. Do not restate those rules here — keep `docs/` up to date when making sweeping architectural changes.
+
+Most-violated reminders (full rules live in CodeStandards):
+
+- C++23 only; no blanket `using namespace` imports.
+- No `detail`/`internal` namespaces and no anonymous namespaces — use file-scope `static` instead.
+- Use `size` and `uint` from `tbx/types/typedefs.h`, never raw `std::size_t`.
+- Permanently delete stale code; never leave commented-out placeholders.
+- Prefer existing engine utilities and the simplest direct solution over new abstractions.
+
+## Repository Map
+
+- `engine/` — first-class logic compiled directly into the engine.
+- `plugins/` — runtime-loadable plugins (SDL windowing/input, asset/model/image loaders, OpenGL rendering, physics, profiling).
+- Sample content lives outside this repo: `../ExampleProject` (museum app) follows the standard project layout (CMakeLists, AppSettings.json, Assets/, Source/) and builds against this engine via `-DTBX_ENGINE_DIR`.
+- `resources/` — shared engine resources and generated resource code (shaders live here).
+- `launcher/` — launcher executable that hosts apps.
+- `cmake/`, `tools/` — shared CMake/codegen utilities and `run_and_capture.ps1`.
+- `thirdparty/` — vendored dependencies.
+- `CMakePresets.json` — all configure/build/test presets. Build exclusively through these presets; no ad-hoc `cmake` invocations.
+
+## Build / Test / Run
+
+Normal debug presets are intentionally unsanitized for framerate. Use the sanitized presets for memory-safety / UB / startup validation.
+
+**Sanitized build + tests (ASan+UBSan):**
+
+```
+cmake --preset clang-sanitize-tests
+cmake --build --preset clang-sanitize-debug-tests
+ctest --preset test-clang-sanitize-debug
+```
+
+**Normal debug tests:**
+
+```
+cmake --preset clang-tests
+cmake --build --preset clang-debug-tests
+ctest --preset test-clang-debug
+```
+
+**Build & run the example project (lives at `../ExampleProject`):**
+
+```
+cmake -S ../ExampleProject -B ../ExampleProject/build -G "Ninja Multi-Config" -DTBX_ENGINE_DIR=<engine dir> -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake --build ../ExampleProject/build --config Debug --parallel
+```
+
+Then launch `../ExampleProject/build/bin/Debug/Launcher.exe --app=ExampleProject --settings=<abs path to ExampleProject/AppSettings.json>`.
+
+## Verification
+
+- **Always test changes**: build, run `ctest` (presets above), then launch the example app, let it run a few seconds, and shut it down. Examine the build dir's `logs/` folder — fix any logged warnings or errors and re-test until the logs are clean.
+- **Visual verification (rendering changes)**: run `tools/run_and_capture.ps1`. It writes `run_screenshot.png`, `run_stdout.log`, and `run_stderr.log` to `build/run_and_capture`. Always visually validate rendering changes.
+- **Profiling**: when asked to profile or debug performance, run `VSDiagnostics.exe` against the example app. Capture actionable CPU/GPU/frame-time evidence before proposing fixes, then re-verify the same scenario after the change.

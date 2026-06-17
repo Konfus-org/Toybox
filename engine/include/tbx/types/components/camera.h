@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
-#include "tbx/tbx_api.h"
+#include "tbx/types/components/camera.generated.h"
+#include "tbx/types/components/component.h"
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/quaternions.h"
@@ -10,7 +10,9 @@
 
 namespace tbx
 {
-    class TBX_API Camera
+    [[serializable]];
+    [[icon("Camera", Color::GREEN)]];
+    class TBX_API Camera : public Component
     {
       public:
         Camera();
@@ -40,13 +42,23 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
+        friend TBX_API void serialize(Json& tbx_json, const Camera& tbx_value);
+        friend TBX_API void deserialize(const Json& tbx_json, Camera& tbx_value);
+
+        [[prop]]
         RenderTarget _render_target = {};
+        [[prop]]
         Viewport _viewport = {};
-        Mat4 _projection_matrix = Mat4(1.0f);
+        [[prop]]
         bool _is_perspective = true;
+        [[prop]]
         float _z_near = 0.1f;
+        [[prop]]
         float _z_far = 1000.0f;
+        [[prop]]
         float _fov = 60.0f;
+
         float _aspect = 1.78f;
+        Mat4 _projection_matrix = Mat4(1.0f);
     };
 }

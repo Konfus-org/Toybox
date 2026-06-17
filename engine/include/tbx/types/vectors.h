@@ -1,13 +1,24 @@
 #pragma once
-#include "tbx/tbx_api.h"
+#ifndef GLM_ENABLE_EXPERIMENTAL
+    #define GLM_ENABLE_EXPERIMENTAL
+#endif
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
+#include "tbx/types/vectors.generated.h"
+
 namespace tbx
 {
+    const glm::vec3 UP = glm::vec3(0.0F, 1.0F, 0.0F);
+    const glm::vec3 RIGHT = glm::vec3(1.0F, 0.0F, 0.0F);
+
     /// @brief
     /// Purpose: Represents a two-component floating-point vector compatible with GLM operations.
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Vec2")]];
+    [[array(2U)]];
     using Vec2 = glm::vec2;
 
     /// @brief
@@ -15,6 +26,9 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Vec3")]];
+    [[array(3U)]];
     using Vec3 = glm::vec3;
 
     /// @brief
@@ -22,6 +36,9 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Vec4")]];
+    [[array(4U)]];
     using Vec4 = glm::vec4;
 
     /// @brief

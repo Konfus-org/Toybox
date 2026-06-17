@@ -1,10 +1,8 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/types/typedefs.h"
-#include "tbx/types/uuid.h"
 #include "tbx/types/viewport.h"
 #include "tbx/types/window.h"
-#include <unordered_map>
+#include <vector>
 
 namespace opengl_rendering
 {
@@ -12,7 +10,7 @@ namespace opengl_rendering
     /// Purpose: Stores the last buffer resource bound to one indexed GL binding point.
     struct OpenGlBufferSlotBinding
     {
-        tbx::Uuid resource = {};
+        tbx::GpuId resource = tbx::INVALID_GPU_ID;
         uint64 offset = 0U;
         uint64 range = 0U;
     };
@@ -21,12 +19,16 @@ namespace opengl_rendering
     /// Purpose: Stores the last raster state applied to OpenGL.
     struct OpenGlPipelineState
     {
-        tbx::Uuid id = {};
+        tbx::GpuId id = tbx::INVALID_GPU_ID;
+        tbx::MaterialDepthFunction depth_function = tbx::MaterialDepthFunction::LESS;
         bool is_depth_test_enabled = true;
         bool is_depth_write_enabled = true;
         bool is_blending_enabled = false;
         bool is_culling_enabled = true;
-        tbx::GraphicsCullMode cull_mode = tbx::GraphicsCullMode::BACK;
+        float depth_bias_constant = 0.0F;
+        float depth_bias_slope = 0.0F;
+        tbx::CullMode cull_mode = tbx::CullMode::BACK;
+        tbx::BlendEquation blend_equation = tbx::BlendEquation::ALPHA;
     };
 
     /// @brief
@@ -40,16 +42,14 @@ namespace opengl_rendering
         tbx::VsyncMode vsync_mode = tbx::VsyncMode::OFF;
         int32 max_uniform_buffer_bindings = -1;
 
-        std::unordered_map<uint32, tbx::Uuid> bound_samplers = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_sampled_textures = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_image_textures = {};
-        std::unordered_map<uint32, tbx::Uuid> bound_vertex_buffers = {};
-        std::unordered_map<uint32, OpenGlBufferSlotBinding> bound_storage_buffers = {};
-        std::unordered_map<uint32, OpenGlBufferSlotBinding> bound_uniform_buffers = {};
-        tbx::Uuid bound_index_buffer = {};
+        std::vector<tbx::GpuId> bound_samplers = {};
+        std::vector<tbx::GpuId> bound_sampled_textures = {};
+        std::vector<tbx::GpuId> bound_vertex_buffers = {};
+        std::vector<OpenGlBufferSlotBinding> bound_storage_buffers = {};
+        std::vector<OpenGlBufferSlotBinding> bound_uniform_buffers = {};
+        tbx::GpuId bound_index_buffer = tbx::INVALID_GPU_ID;
 
         bool is_loaded = false;
-        bool is_compute_pass_active = false;
         bool is_render_pass_active = false;
         bool has_current_pipeline_state = false;
     };

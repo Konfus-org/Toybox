@@ -24,8 +24,4 @@ namespace tbx
         return dt;
     }
 
-    std::string to_string(const DeltaTime& delta_time)
-    {
-        return std::to_string(delta_time.seconds) + "s";
-    }
 }

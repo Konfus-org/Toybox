@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/vectors.h"

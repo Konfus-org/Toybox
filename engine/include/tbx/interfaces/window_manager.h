@@ -1,7 +1,5 @@
 #pragma once
 #include "tbx/types/window.h"
-#include <string>
-#include <vector>
 
 namespace tbx
 {

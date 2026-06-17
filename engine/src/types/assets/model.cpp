@@ -1,0 +1,25 @@
+#include "tbx/types/assets/model.h"
+
+namespace tbx
+{
+    Model::Model()
+    {
+        meshes = {Mesh::QUAD};
+        materials = {Material()};
+        parts = {ModelPart()};
+    }
+
+    Model::Model(Mesh mesh)
+    {
+        meshes = {std::move(mesh)};
+        materials = {Material()};
+        parts = {ModelPart()};
+    }
+
+    Model::Model(Mesh mesh, Material material)
+    {
+        meshes = {std::move(mesh)};
+        materials = {std::move(material)};
+        parts = {ModelPart()};
+    }
+}

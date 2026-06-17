@@ -2,11 +2,14 @@
 #include "opengl_resource.h"
 #include "opengl_texture.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/types/typedefs.h"
 #include <glad/glad.h>
 
 namespace opengl_rendering
 {
+    bool has_buffer_usage(tbx::BufferUsage value, tbx::BufferUsage usage);
+    GLenum to_gl_buffer_target(tbx::BufferUsage usage);
+    GLenum to_gl_buffer_usage(const tbx::BufferDesc& desc);
+
     /// @brief
     /// Purpose: Owns a command-backend OpenGL buffer.
     /// @details
@@ -16,7 +19,7 @@ namespace opengl_rendering
     {
       public:
         OpenGlGraphicsBuffer(
-            const tbx::GraphicsBufferDesc& desc,
+            const tbx::BufferDesc& desc,
             const void* data,
             uint64 data_size);
         ~OpenGlGraphicsBuffer() noexcept override;

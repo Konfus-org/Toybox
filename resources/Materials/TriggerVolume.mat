@@ -1,23 +1,102 @@
 {
-  "shaders": { "vertex": "0000013B", "fragment": "0000013C" },
-  "config": {
-    "depth": {
-      "test": true,
-      "write": false,
-      "prepass": false,
-      "function": "less_equal"
+    "shader": {
+        "type": "shader_program",
+        "value": {
+            "vertex": {
+                "type": "handle",
+                "value": 315
+            },
+            "fragment": {
+                "type": "handle",
+                "value": 316
+            },
+            "tesselation": {
+                "type": "handle",
+                "value": 0
+            },
+            "geometry": {
+                "type": "handle",
+                "value": 0
+            },
+            "computes": {
+                "type": "array",
+                "value": []
+            }
+        }
     },
-    "transparency": {
-      "blend_mode": "alpha_blend"
+    "parameters": {
+        "type": "material_parameter_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "albedo_color"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "color",
+                        "value": {
+                            "r": 1,
+                            "g": 0,
+                            "b": 0,
+                            "a": 0.35
+                        }
+                    }
+                }
+            }
+        ]
     },
-    "cullable": false,
-    "two_sided": true,
-    "shadow_mode": "none"
-  },
-  "textures": [
-    { "name": "albedo_map", "value": "" }
-  ],
-  "parameters": [
-    { "name": "albedo_color", "type": "color", "value": [1.0, 0.0, 0.0, 0.35] }
-  ]
+    "textures": {
+        "type": "material_texture_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "albedo_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            }
+        ]
+    },
+    "config": {
+        "type": "material_config",
+        "value": {
+            "is_depth_test_enabled": {
+                "type": "bool",
+                "value": true
+            },
+            "is_depth_write_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_depth_prepass_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_two_sided": {
+                "type": "bool",
+                "value": true
+            },
+            "is_cullable": {
+                "type": "bool",
+                "value": false
+            },
+            "depth_function": {
+                "type": "material_depth_function",
+                "value": "less_equal"
+            },
+            "blend_mode": {
+                "type": "material_blend_mode",
+                "value": "alpha_blend"
+            },
+            "shadow_mode": {
+                "type": "shadow_mode",
+                "value": "off"
+            }
+        }
+    }
 }

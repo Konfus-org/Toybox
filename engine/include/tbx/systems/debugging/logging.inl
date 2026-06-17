@@ -1,6 +1,8 @@
 #pragma once
 #include <format>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace tbx
 {
@@ -12,7 +14,18 @@ namespace tbx
         std::string_view fmt,
         Args&&... args)
     {
-        write_internal(level, file, line, format(fmt, std::forward<Args>(args)...));
+        if constexpr (sizeof...(Args) == 0)
+        {
+            write_internal(level, file, line, std::string(fmt));
+        }
+        else
+        {
+            write_internal(
+                level,
+                file,
+                line,
+                format(fmt, std::forward<Args>(args)...));
+        }
     }
 
     template <typename... Args>
@@ -23,7 +36,12 @@ namespace tbx
         std::string_view fmt,
         Args&&... args)
     {
-        const std::string message = format(fmt, std::forward<Args>(args)...);
+        auto message = std::string();
+        if constexpr (sizeof...(Args) == 0)
+            message = std::string(fmt);
+        else
+            message = format(fmt, std::forward<Args>(args)...);
+
         if (!should_write_once(level, message))
             return;
 
@@ -48,7 +66,8 @@ namespace tbx
     {
         // Pass arguments as lvalues to avoid binding rvalues to non-const references
         // inside std::make_format_args on some standard library implementations.
-        auto arguments = std::make_tuple(format(std::forward<Args>(args))...);
+        auto arguments = std::make_tuple(
+            this->template format<Args>(std::forward<Args>(args))...);
         std::string formatted = std::apply(
             [&](auto&... tuple_args)
             {

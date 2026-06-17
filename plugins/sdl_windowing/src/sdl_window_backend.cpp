@@ -1,18 +1,120 @@
 #include "sdl_window_backend.h"
-#include "internal/sdl_window_backend_internal.h"
+#include "SDL3/SDL_error.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_surface.h"
+#include "SDL3/SDL_video.h"
+#include "tbx/interfaces/window_backend.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/handle.h"
-#include "tbx/types/typedefs.h"
+#include "tbx/systems/graphics/api.h"
+#include "tbx/types/size.h"
+#include "tbx/types/window.h"
 #include <ranges>
 #include <string_view>
+
 namespace sdl_windowing
 {
+    static bool is_wayland_video_driver()
+    {
+        const char* video_driver = SDL_GetCurrentVideoDriver();
+        return video_driver != nullptr && std::string_view(video_driver) == "wayland";
+    }
+
+    static void try_apply_window_icon(SDL_Window* native, SDL_Surface* icon_surface)
+    {
+        if (!native || !icon_surface)
+            return;
+
+        if (is_wayland_video_driver())
+            return;
+
+        if (!SDL_SetWindowIcon(native, icon_surface))
+        {
+            TBX_TRACE_WARNING("Failed to set SDL window icon. Error: {}", SDL_GetError());
+            SDL_ClearError();
+        }
+    }
+
+    static SdlSurfacePtr try_load_icon_surface(const std::filesystem::path& icon_path)
+    {
+        if (icon_path.empty())
+            return nullptr;
+
+        if (is_wayland_video_driver())
+            return nullptr;
+
+        SDL_ClearError();
+        if (SDL_Surface* icon_surface = SDL_LoadSurface(icon_path.string().c_str()))
+        {
+            TBX_TRACE_INFO("Loaded app icon '{}'.", icon_path.string());
+            return SdlSurfacePtr(icon_surface);
+        }
+
+        TBX_TRACE_WARNING(
+            "Failed to load app icon '{}'. Error: {}",
+            icon_path.string(),
+            SDL_GetError());
+        SDL_ClearError();
+        return nullptr;
+    }
+
+    void SdlSurfaceDeleter::operator()(SDL_Surface* surface) const
+    {
+        if (surface)
+            SDL_DestroySurface(surface);
+    }
+
+    SdlWindowBackend::~SdlWindowBackend() noexcept
+    {
+        shutdown();
+    }
+
+    void SdlWindowBackend::initialize()
+    {
+        if (_is_initialized)
+            return;
+
+        if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+        {
+            TBX_TRACE_ERROR("Failed to initialize SDL video subsystem. Error: {}", SDL_GetError());
+            SDL_ClearError();
+            return;
+        }
+
+        _is_initialized = true;
+        TBX_TRACE_INFO("Initialized SDL video subsystem.");
+        TBX_TRACE_INFO("Video driver: {}", SDL_GetCurrentVideoDriver());
+    }
+
+    void SdlWindowBackend::shutdown()
+    {
+        for (const auto& [window_id, native_window] : _windows)
+        {
+            (void)window_id;
+            if (native_window)
+                SDL_DestroyWindow(native_window);
+        }
+        _windows.clear();
+        _icon_surfaces.clear();
+
+        if (_is_initialized)
+        {
+            SDL_QuitSubSystem(SDL_INIT_VIDEO);
+            _is_initialized = false;
+        }
+    }
+
     bool SdlWindowBackend::create_window(
         const tbx::Window& window,
         const tbx::WindowCreateInfo& create_info,
         tbx::NativeWindowHandle& out_native_handle)
     {
         out_native_handle = nullptr;
+        if (!_is_initialized)
+            initialize();
+        if (!_is_initialized)
+            return false;
+
         const auto existing_window = _windows.find(window);
         if (existing_window != _windows.end() && existing_window->second)
         {
@@ -25,6 +127,7 @@ namespace sdl_windowing
             return false;
 
         _windows[window] = sdl_window;
+        try_set_window_icon(window, sdl_window, create_info.icon_path);
         out_native_handle = static_cast<tbx::NativeWindowHandle>(sdl_window);
         return true;
     }
@@ -37,6 +140,7 @@ namespace sdl_windowing
 
         SDL_DestroyWindow(window_it->second);
         _windows.erase(window_it);
+        _icon_surfaces.erase(window);
         return true;
     }
 
@@ -97,6 +201,9 @@ namespace sdl_windowing
 
     void SdlWindowBackend::pump_events(std::vector<tbx::WindowBackendEvent>& out_events)
     {
+        if (!_is_initialized)
+            return;
+
         SDL_Event event = {};
         while (SDL_PollEvent(&event))
         {
@@ -178,48 +285,11 @@ namespace sdl_windowing
         }
     }
 
-    void SdlWindowBackend::shutdown()
-    {
-        for (const auto& [window_id, native_window] : _windows)
-        {
-            (void)window_id;
-            if (native_window)
-                SDL_DestroyWindow(native_window);
-        }
-
-        _windows.clear();
-    }
-
-    void SdlWindowBackend::set_icon_surface(SDL_Surface* icon_surface)
-    {
-        _icon_surface = icon_surface;
-        for (const auto& [window_id, native_window] : _windows)
-        {
-            (void)window_id;
-            internal::try_apply_window_icon(native_window, _icon_surface);
-        }
-    }
-
-    void SdlWindowBackend::set_use_opengl(bool use_opengl)
-    {
-        if (_use_opengl == use_opengl)
-            return;
-
-        _use_opengl = use_opengl;
-        if (!_windows.empty())
-        {
-            TBX_TRACE_WARNING(
-                "SDL window backend: window backend mode switched to {} while windows are open; "
-                "the change applies to newly opened windows.",
-                _use_opengl ? "OpenGL" : "SDL");
-        }
-    }
-
     SDL_Window* SdlWindowBackend::create_sdl_window(
         const tbx::Window& window,
-        const tbx::WindowCreateInfo& create_info) const
+        const tbx::WindowCreateInfo& create_info)
     {
-        uint flags = _use_opengl ? SDL_WINDOW_OPENGL : 0;
+        uint flags = create_info.api == tbx::GraphicsApi::OPEN_GL ? SDL_WINDOW_OPENGL : 0;
         if (create_info.mode == tbx::WindowMode::BORDERLESS)
             flags |= SDL_WINDOW_BORDERLESS;
         else if (create_info.mode == tbx::WindowMode::FULLSCREEN)
@@ -228,6 +298,8 @@ namespace sdl_windowing
             flags |= SDL_WINDOW_RESIZABLE;
         else if (create_info.mode == tbx::WindowMode::MINIMIZED)
             flags |= SDL_WINDOW_MINIMIZED;
+        else if (create_info.mode == tbx::WindowMode::HIDDEN)
+            flags |= SDL_WINDOW_HIDDEN;
 
         SDL_Window* native_window = SDL_CreateWindow(
             create_info.title.c_str(),
@@ -238,14 +310,26 @@ namespace sdl_windowing
         {
             TBX_TRACE_ERROR(
                 "SDL window backend: failed to create native window '{}'. Error: {}",
-                tbx::to_string(window),
+                window,
                 SDL_GetError());
             SDL_ClearError();
             return nullptr;
         }
 
-        internal::try_apply_window_icon(native_window, _icon_surface);
         return native_window;
+    }
+
+    void SdlWindowBackend::try_set_window_icon(
+        const tbx::Window& window,
+        SDL_Window* native_window,
+        const std::filesystem::path& icon_path)
+    {
+        auto icon_surface = try_load_icon_surface(icon_path);
+        if (!icon_surface)
+            return;
+
+        try_apply_window_icon(native_window, icon_surface.get());
+        _icon_surfaces[window] = std::move(icon_surface);
     }
 
     std::optional<tbx::Window> SdlWindowBackend::try_get_window_id(
@@ -260,6 +344,8 @@ namespace sdl_windowing
         if (window_it == _windows.end())
             return std::nullopt;
 
-        return window_it->first;
+        auto window = window_it->first;
+        window.native_handle = static_cast<tbx::NativeWindowHandle>(window_it->second);
+        return window;
     }
 }

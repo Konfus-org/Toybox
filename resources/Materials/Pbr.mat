@@ -1,29 +1,222 @@
 {
-  "shaders": { "vertex": "00000130", "fragment": "00000131" },
-  "config": {
-    "depth": {
-      "test": true,
-      "write": true,
-      "prepass": false,
-      "function": "less"
+    "shader": {
+        "type": "shader_program",
+        "value": {
+            "vertex": {
+                "type": "handle",
+                "value": 304
+            },
+            "fragment": {
+                "type": "handle",
+                "value": 305
+            },
+            "tesselation": {
+                "type": "handle",
+                "value": 0
+            },
+            "geometry": {
+                "type": "handle",
+                "value": 0
+            },
+            "computes": {
+                "type": "array",
+                "value": []
+            }
+        }
     },
-    "transparency": {
-      "blend_mode": "opaque"
+    "parameters": {
+        "type": "material_parameter_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "albedo_color"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "color",
+                        "value": {
+                            "r": 1,
+                            "g": 1,
+                            "b": 1,
+                            "a": 1
+                        }
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "emissive_color"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "color",
+                        "value": {
+                            "r": 0,
+                            "g": 0,
+                            "b": 0,
+                            "a": 1
+                        }
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "metallic"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "roughness"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 1
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "normal_strength"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 1
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "ao"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 1
+                    }
+                }
+            }
+        ]
+    },
+    "textures": {
+        "type": "material_texture_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "albedo_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "normal_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "metallic_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "roughness_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "ao_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "emissive_map"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            }
+        ]
+    },
+    "config": {
+        "type": "material_config",
+        "value": {
+            "is_depth_test_enabled": {
+                "type": "bool",
+                "value": true
+            },
+            "is_depth_write_enabled": {
+                "type": "bool",
+                "value": true
+            },
+            "is_depth_prepass_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_two_sided": {
+                "type": "bool",
+                "value": false
+            },
+            "is_cullable": {
+                "type": "bool",
+                "value": true
+            },
+            "depth_function": {
+                "type": "material_depth_function",
+                "value": "less"
+            },
+            "blend_mode": {
+                "type": "material_blend_mode",
+                "value": "opaque"
+            },
+            "shadow_mode": {
+                "type": "shadow_mode",
+                "value": "on"
+            }
+        }
     }
-  },
-  "textures": [
-    { "name": "albedo_map", "value": "" },
-    { "name": "normal_map", "value": "" },
-    { "name": "metallic_roughness_map", "value": "" },
-    { "name": "ao_map", "value": "" },
-    { "name": "emissive_map", "value": "" }
-  ],
-  "parameters": [
-    { "name": "albedo_color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "emissive_color", "type": "color", "value": [0.0, 0.0, 0.0, 1.0] },
-    { "name": "metallic", "type": "float", "value": 0.0 },
-    { "name": "roughness", "type": "float", "value": 1.0 },
-    { "name": "normal_strength", "type": "float", "value": 1.0 },
-    { "name": "ao", "type": "float", "value": 1.0 }
-  ]
 }

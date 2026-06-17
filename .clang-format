@@ -43,6 +43,7 @@ BraceWrapping:
   SplitEmptyNamespace: true
   BeforeLambdaBody: true
   BeforeWhile: true
+BreakAfterAttributes: Always
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Allman
 BreakBeforeInheritanceComma: true
@@ -95,4 +96,14 @@ Standard: c++20
 TabWidth: 4
 UseCRLF: true
 UseTab: Never
+OneLineFormatOffRegex: '(\[\[tbx::|name,|id\s*\]\])'
+# Force Clang to treat your dynamic attributes as unformattable black boxes
+AttributeMacros:
+  - '[[tbx::serializable]]'
+  - '[[tbx::prop]]'
+
+# Tell Clang that these multi-line arguments belong to macros, which changes the layout math
+Macros:
+  - '[[tbx::printable(str, ...)]]='
+  - '[[tbx::hash(...)]]='
 ...

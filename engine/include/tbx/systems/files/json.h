@@ -1,54 +1,136 @@
 #pragma once
-#include "tbx/tbx_api.h"
-#include "tbx/types/color.h"
-#include "tbx/types/matrices.h"
-#include "tbx/types/quaternions.h"
-#include "tbx/types/texture.h"
-#include "tbx/types/uuid.h"
-#include "tbx/types/vectors.h"
-#include <cstddef>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <vector>
+#include "tbx/interfaces/file_ops.h"
+#include <nlohmann/json.hpp>
 
 namespace tbx
 {
-    class TBX_API Json
+    using Json = nlohmann::json;
+
+    class JsonParser final
     {
       public:
-        Json();
-        Json(const std::string& data);
-        Json(Json&& other) noexcept;
-        Json& operator=(Json&& other);
-        ~Json() noexcept;
+        JsonParser() = delete;
 
-        // Serializes the wrapped JSON value into a string.
-        std::string to_string(int indent = 4) const;
+        static Json parse(std::string_view data)
+        {
+            return Json::parse(std::string(data), nullptr, true, true);
+        }
+
+        static bool try_parse(std::string_view data, Json& out_json)
+        {
+            try
+            {
+                out_json = parse(data);
+                return true;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
+
+        static bool try_parse_file(
+            const IFileOps& file_ops,
+            const std::filesystem::path& path,
+            Json& out_json)
+        {
+            auto data = std::string();
+            if (!file_ops.read_file(path, FileDataFormat::UTF8_TEXT, data))
+                return false;
+
+            return try_parse(data, out_json);
+        }
 
         template <typename TValue>
-        bool try_get(const std::string& key, TValue& out_value) const;
+        static bool try_get(const Json& data, TValue& out_value)
+        {
+            try
+            {
+                if constexpr (requires {
+                                  typename TValue::length_type;
+                                  TValue::length();
+                                  out_value[typename TValue::length_type()];
+                              })
+                {
+                    if (!data.is_array())
+                        return false;
+
+                    const auto value_count =
+                        std::min(data.size(), static_cast<size_t>(TValue::length()));
+                    for (auto index = size_t(); index < value_count; ++index)
+                    {
+                        if (!try_get(
+                                data[index],
+                                out_value[static_cast<typename TValue::length_type>(index)]))
+                            return false;
+                    }
+                    return true;
+                }
+                else if constexpr (requires { deserialize(data, out_value); })
+                {
+                    deserialize(data, out_value);
+                }
+                else
+                {
+                    out_value = data.get<TValue>();
+                }
+                return true;
+            }
+            catch (...)
+            {
+                return false;
+            }
+        }
 
         template <typename TValue>
-        bool try_get(const std::string& key, std::vector<TValue>& out_values) const;
+        static bool try_get(const Json& data, const std::string& key, TValue& out_value)
+        {
+            const auto value = data.find(key);
+            if (value == data.end())
+                return false;
+
+            return try_get(*value, out_value);
+        }
 
         template <typename TValue>
-        bool try_get(
+        static bool try_get(
+            const Json& data,
             const std::string& key,
-            std::size_t expected_size,
-            std::vector<TValue>& out_values) const;
+            std::vector<TValue>& out_values)
+        {
+            const auto value = data.find(key);
+            if (value == data.end() || !value->is_array())
+                return false;
 
-        // Attempts to retrieve a nested JSON object stored at the specified object key.
-        bool try_get_child(const std::string& key, Json& out_value) const;
+            auto parsed_values = std::vector<TValue>();
+            parsed_values.reserve(value->size());
+            for (const auto& entry : *value)
+            {
+                auto parsed_value = TValue();
+                if (try_get(entry, parsed_value))
+                    parsed_values.push_back(std::move(parsed_value));
+            }
 
-        // Attempts to retrieve an array of nested JSON objects stored at the specified object key.
-        bool try_get_children(const std::string& key, std::vector<Json>& out_values) const;
+            out_values.insert(out_values.end(), parsed_values.begin(), parsed_values.end());
+            return !parsed_values.empty();
+        }
 
-      private:
-        class Impl;
-        std::unique_ptr<Impl> _data;
+        template <typename TValue>
+        static bool try_get(
+            const Json& data,
+            const std::string& key,
+            size_t expected_size,
+            std::vector<TValue>& out_values)
+        {
+            auto parsed_values = std::vector<TValue>();
+            if (!try_get(data, key, parsed_values))
+                return false;
+
+            if (parsed_values.size() != expected_size)
+                return false;
+
+            out_values.insert(out_values.end(), parsed_values.begin(), parsed_values.end());
+            return true;
+        }
     };
-
 }
-
-#include "tbx/systems/files/json.inl"

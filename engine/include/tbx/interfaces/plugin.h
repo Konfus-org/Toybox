@@ -1,18 +1,20 @@
 #pragma once
 #include "tbx/interfaces/message_dispatcher.h"
-#include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/message.h"
+#include "tbx/systems/plugin_api/plugin_meta.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
-#include <functional>
 #include <future>
-#include <string_view>
-#include <type_traits>
-#include <utility>
 
 namespace tbx
 {
+    using CreatePluginFn = Plugin* (*)();
+    using DestroyPluginFn = void (*)(Plugin*);
+    using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);
+    using RegisterPluginServicesFn = void (*)(Plugin*, ServiceProvider*);
+
     // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.
     class TBX_API Plugin
@@ -20,23 +22,18 @@ namespace tbx
       public:
         Plugin();
         virtual ~Plugin() noexcept;
+
+      public:
         Plugin(const Plugin&) = delete;
         Plugin& operator=(const Plugin&) = delete;
         Plugin(Plugin&&) noexcept = default;
         Plugin& operator=(Plugin&&) = default;
 
-        /// @brief
-        /// Purpose: Initializes the plugin, wiring it to the given service provider.
-        /// @details
-        /// Ownership: Does not own the service provider or dispatcher references.
-        /// Thread Safety: Not thread-safe; must be called exactly once before use.
-        void attach(ServiceProvider& service_provider);
+      public:
+        // Initializes the plugin, wiring it to the given service provider.
+        void attach(ServiceProvider& service_provider, PluginInstanceId plugin_id);
 
-        /// @brief
-        /// Purpose: Shuts the plugin down and clears dispatcher references.
-        /// @details
-        /// Ownership: Does not own the provider or dispatcher references.
-        /// Thread Safety: Not thread-safe; call from the main thread.
+        // Shuts the plugin down and clears dispatcher references.
         void detach(ServiceProvider& service_provider);
 
         // Ticks the plugin for the given frame delta.
@@ -58,13 +55,15 @@ namespace tbx
             requires std::derived_from<TMessage, Message>
         std::shared_future<Result> post_message(TArgs&&... args) const;
 
+        Uuid get_id() const;
+
       protected:
         // Called when the plugin is attached to the service provider.
         // The plugin must not retain references that outlive its own lifetime.
-        virtual void on_attach(ServiceProvider& service_provider) = 0;
+        virtual void on_attach() {}
 
         // Called before the plugin is detached from the service provider.
-        virtual void on_detach(ServiceProvider& service_provider) {}
+        virtual void on_detach() {}
 
         // Per-frame update with delta timing.
         virtual void on_update(const DeltaTime& dt) {}
@@ -75,17 +74,15 @@ namespace tbx
         // Unified message entry point for dispatch callbacks.
         virtual void on_recieve_message(Message& msg) {}
 
-        // Non-owning dispatcher reference provided by the service provider.
+        // Non-owning dispatcher service provided by the service provider.
         IMessageDispatcher& get_dispatcher() const;
 
       private:
         static Result dispatcher_missing_result(std::string_view action);
 
-        IMessageDispatcher* _dispatcher = nullptr;
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
+        PluginInstanceId _plugin_id = PluginInstanceId {};
     };
-
-    using CreatePluginFn = Plugin* (*)();
-    using DestroyPluginFn = void (*)(Plugin*);
 }
 
 #include "tbx/interfaces/plugin.inl"
@@ -95,16 +92,3 @@ namespace tbx
 #else
     #define TBX_PLUGIN_ENTRY_EXPORT extern "C"
 #endif
-
-#define TBX_REGISTER_PLUGIN(PluginName, PluginType)                                                \
-    TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* create_##PluginName()                                   \
-    {                                                                                              \
-        ::tbx::Plugin* plugin = new PluginType();                                                  \
-        ::tbx::PluginRegistry::get_instance().register_plugin(#PluginName, plugin);                \
-        return plugin;                                                                             \
-    }                                                                                              \
-    TBX_PLUGIN_ENTRY_EXPORT void destroy_##PluginName(::tbx::Plugin* plugin)                       \
-    {                                                                                              \
-        ::tbx::PluginRegistry::get_instance().unregister_plugin(#PluginName);                      \
-        delete plugin;                                                                             \
-    }

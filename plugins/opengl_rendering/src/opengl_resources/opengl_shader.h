@@ -1,19 +1,22 @@
 #pragma once
 #include "opengl_resource.h"
 #include "opengl_state.h"
-#include "tbx/types/shader.h"
-#include "tbx/types/typedefs.h"
+#include "tbx/types/assets/shader.h"
+#include "tbx/utils/result.h"
 #include <glad/glad.h>
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace opengl_rendering
 {
+    class OpenGlShader;
+
+    tbx::Result create_shaders(
+        const std::vector<tbx::Shader>& shader_desc,
+        std::vector<std::shared_ptr<OpenGlShader>>& out_shaders);
+
     class OpenGlShader final : public IOpenGlResource
     {
       public:
-        OpenGlShader(const tbx::ShaderSource& shader);
+        OpenGlShader(const tbx::Shader& shader);
         OpenGlShader(const OpenGlShader&) = delete;
         OpenGlShader& operator=(const OpenGlShader&) = delete;
         OpenGlShader(OpenGlShader&& other) noexcept;
@@ -64,13 +67,6 @@ namespace opengl_rendering
     {
         uint32 slot = 0U;
         GLsizei stride = 0;
-    };
-
-    /// @brief
-    /// Purpose: Stores one compute pipeline's OpenGL resources.
-    struct OpenGlComputePipelineResource
-    {
-        OpenGlShaderProgram program;
     };
 
     /// @brief

@@ -5,17 +5,9 @@
 #include <functional>
 #include <future>
 #include <memory>
-#include <mutex>
-#include <string>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
-
-namespace tbx::internal
-{
-    class ThreadLane;
-}
 
 namespace tbx
 {
@@ -29,7 +21,7 @@ namespace tbx
     {
       public:
         using Task = std::move_only_function<void()>;
-        ThreadManager() = default;
+        ThreadManager();
         ~ThreadManager() noexcept;
 
         ThreadManager(const ThreadManager&) = delete;
@@ -90,11 +82,8 @@ namespace tbx
         size get_lane_count() const;
 
       private:
-        std::shared_ptr<internal::ThreadLane> get_lane(std::string_view lane_name) const;
-
-      private:
-        mutable std::mutex _lanes_mutex = {};
-        std::unordered_map<std::string, std::shared_ptr<internal::ThreadLane>> _lanes = {};
+        struct State;
+        std::unique_ptr<State> _state = {};
     };
 }
 

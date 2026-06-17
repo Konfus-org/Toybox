@@ -1,28 +1,8 @@
 #pragma once
 #include "tbx/interfaces/message_dispatcher.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/uuid.h"
-#include <atomic>
-#include <future>
-#include <memory>
-#include <mutex>
-#include <utility>
-#include <vector>
-
 
 namespace tbx
 {
-    struct QueuedMessage
-    {
-        std::unique_ptr<Message> message;
-    };
-
-    struct RegisteredMessageHandler
-    {
-        Uuid id = {};
-        std::shared_ptr<MessageHandler> handler = nullptr;
-    };
-
     class TBX_API MessageCoordinator final : public IMessageCoordinator
     {
       public:
@@ -47,13 +27,11 @@ namespace tbx
         std::shared_future<Result> post(std::unique_ptr<Message> msg) const override;
 
       private:
-        std::shared_ptr<const std::vector<RegisteredMessageHandler>> get_handlers_snapshot() const;
         void dispatch(Message& msg) const;
 
-        mutable std::mutex _handlers_write_mutex;
-        mutable std::atomic<std::shared_ptr<const std::vector<RegisteredMessageHandler>>>
-            _handlers_snapshot;
-        mutable std::mutex _pending_mutex;
-        mutable std::vector<QueuedMessage> _pending;
+      private:
+        struct State;
+
+        std::unique_ptr<State> _state = {};
     };
 }

@@ -1,23 +1,58 @@
-#include "tbx/plugins/sdl_opengl_context_manager/sdl_opengl_context_manager.h"
-#include "internal/sdl_opengl_context_manager_internal.h"
+#include "sdl_opengl_context_manager.h"
 #include "tbx/interfaces/opengl_context_backend.h"
 #include "tbx/systems/debugging/macros.h"
-#include <string_view>
-#include <utility>
 
 namespace sdl_opengl_context_manager
 {
-    SdlOpenGlContextManager::SdlOpenGlContextManager(tbx::IWindowManager& window_manager)
-        : _window_manager(window_manager)
+    static void try_release_current_context(SDL_GLContext context)
     {
+        if (!context)
+            return;
+        if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0U)
+            return;
+
+        SDL_GLContext current_context = SDL_GL_GetCurrentContext();
+        if (current_context != context)
+            return;
+
+        if (!SDL_GL_MakeCurrent(nullptr, nullptr))
+        {
+            const char* error = SDL_GetError();
+            if (error && std::string_view(error) == "OpenGL not initialized")
+            {
+                SDL_ClearError();
+                return;
+            }
+
+            TBX_TRACE_WARNING(
+                "Failed to release current SDL OpenGL context before destruction: {}",
+                error);
+            SDL_ClearError();
+        }
     }
 
-    SdlOpenGlContextManager::~SdlOpenGlContextManager() noexcept
+    static void set_opengl_attribute(SDL_GLAttr attribute, int value)
+    {
+        if (!SDL_GL_SetAttribute(attribute, value))
+        {
+            TBX_TRACE_WARNING(
+                "Failed to set SDL OpenGL attribute {}: {}",
+                static_cast<int>(attribute),
+                SDL_GetError());
+        }
+    }
+
+    static bool is_sdl_video_initialized()
+    {
+        return (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != 0U;
+    }
+
+    SdlOpenGlContextBackend::~SdlOpenGlContextBackend() noexcept
     {
         shutdown();
     }
 
-    void SdlOpenGlContextManager::initialize(
+    void SdlOpenGlContextBackend::initialize(
         const int major_version,
         const int minor_version,
         const int depth_bits,
@@ -34,53 +69,54 @@ namespace sdl_opengl_context_manager
         _settings.is_debug_context_enabled = debug_context_enabled;
         _settings.vsync_mode = vsync_enabled ? tbx::VsyncMode::ON : tbx::VsyncMode::OFF;
 
-        apply_default_attributes();
+        if (is_sdl_video_initialized())
+            apply_default_attributes();
         apply_vsync_setting();
     }
 
-    tbx::Result SdlOpenGlContextManager::create_context(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextBackend::create_context(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
         if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
-        const std::string label = to_string(window);
+        const std::string label = std::format("{}", window);
         if (!try_create_context(window, sdl_window, label))
             return make_failure("SDL OpenGL context manager: failed to create context.");
 
-        auto result = tbx::Result {};
-        result.flag_success();
+        auto result = tbx::Result();
+        result.ok();
         return result;
     }
 
-    tbx::Result SdlOpenGlContextManager::destroy_context(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextBackend::destroy_context(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         destroy_native_context(window);
 
-        auto result = tbx::Result {};
-        result.flag_success();
+        auto result = tbx::Result();
+        result.ok();
         return result;
     }
 
-    tbx::Result SdlOpenGlContextManager::make_context_current(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextBackend::make_context_current(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
         if (!sdl_window)
             return make_failure("SDL OpenGL context manager: native window not available.");
 
-        const std::string label = to_string(window);
+        const std::string label = std::format("{}", window);
         const auto context_it = _contexts.find(window);
         if (context_it == _contexts.end())
             return make_failure("SDL OpenGL context manager: context not created.");
@@ -88,15 +124,15 @@ namespace sdl_opengl_context_manager
         if (!try_make_current(sdl_window, context_it->second, label))
             return make_failure(SDL_GetError());
 
-        auto result = tbx::Result {};
-        result.flag_success();
+        auto result = tbx::Result();
+        result.ok();
         return result;
     }
 
-    tbx::Result SdlOpenGlContextManager::swap_buffers(const tbx::Window& window)
+    tbx::Result SdlOpenGlContextBackend::swap_buffers(const tbx::Window& window)
     {
-        TBX_ASSERT(window.is_valid(), "SDL OpenGL context manager requires a valid window id.");
-        if (!window.is_valid())
+        TBX_ASSERT(window.id.is_valid(), "SDL OpenGL context manager requires a valid window id.");
+        if (!window.id.is_valid())
             return make_failure("SDL OpenGL context manager: window id is invalid.");
 
         auto* sdl_window = get_sdl_window(window);
@@ -106,56 +142,59 @@ namespace sdl_opengl_context_manager
         if (!try_present(window, sdl_window))
             return make_failure("SDL OpenGL context manager: present failed.");
 
-        auto result = tbx::Result {};
-        result.flag_success();
+        auto result = tbx::Result();
+        result.ok();
         return result;
     }
 
-    tbx::Result SdlOpenGlContextManager::set_vsync(const tbx::VsyncMode& mode)
+    tbx::Result SdlOpenGlContextBackend::set_vsync(const tbx::VsyncMode& mode)
     {
         _settings.vsync_mode = mode;
         apply_vsync_setting();
 
-        auto result = tbx::Result {};
-        result.flag_success();
+        auto result = tbx::Result();
+        result.ok();
         return result;
     }
 
-    void SdlOpenGlContextManager::shutdown()
+    void SdlOpenGlContextBackend::shutdown()
     {
+        TBX_TRACE_INFO("SDL GL context manager: shutdown begin ({} contexts).", _contexts.size());
         for (const auto& context_entry : _contexts)
         {
             if (!context_entry.second)
                 continue;
 
-            internal::try_release_current_context(context_entry.second);
+            TBX_TRACE_INFO("SDL GL context manager: releasing current context.");
+            try_release_current_context(context_entry.second);
+            TBX_TRACE_INFO("SDL GL context manager: destroying context.");
             SDL_GL_DestroyContext(context_entry.second);
+            TBX_TRACE_INFO("SDL GL context manager: context destroyed.");
         }
 
         _contexts.clear();
+        TBX_TRACE_INFO("SDL GL context manager: shutdown complete.");
     }
 
-    tbx::GraphicsProcAddress SdlOpenGlContextManager::get_proc_address() const
+    tbx::GraphicsProcAddress SdlOpenGlContextBackend::get_proc_address() const
     {
         return reinterpret_cast<tbx::GraphicsProcAddress>(SDL_GL_GetProcAddress);
     }
 
-    void SdlOpenGlContextManager::apply_default_attributes() const
+    void SdlOpenGlContextBackend::apply_default_attributes() const
     {
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, _settings.major_version);
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, _settings.minor_version);
-        internal::set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        internal::set_opengl_attribute(SDL_GL_DEPTH_SIZE, _settings.depth_bits);
-        internal::set_opengl_attribute(SDL_GL_STENCIL_SIZE, _settings.stencil_bits);
-        internal::set_opengl_attribute(
-            SDL_GL_DOUBLEBUFFER,
-            _settings.is_double_buffer_enabled ? 1 : 0);
-        internal::set_opengl_attribute(
+        set_opengl_attribute(SDL_GL_CONTEXT_MAJOR_VERSION, _settings.major_version);
+        set_opengl_attribute(SDL_GL_CONTEXT_MINOR_VERSION, _settings.minor_version);
+        set_opengl_attribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        set_opengl_attribute(SDL_GL_DEPTH_SIZE, _settings.depth_bits);
+        set_opengl_attribute(SDL_GL_STENCIL_SIZE, _settings.stencil_bits);
+        set_opengl_attribute(SDL_GL_DOUBLEBUFFER, _settings.is_double_buffer_enabled ? 1 : 0);
+        set_opengl_attribute(
             SDL_GL_CONTEXT_FLAGS,
             _settings.is_debug_context_enabled ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
     }
 
-    int SdlOpenGlContextManager::get_swap_interval() const
+    int SdlOpenGlContextBackend::get_swap_interval() const
     {
         switch (_settings.vsync_mode)
         {
@@ -169,19 +208,19 @@ namespace sdl_opengl_context_manager
         }
     }
 
-    tbx::Result SdlOpenGlContextManager::make_failure(std::string message) const
+    tbx::Result SdlOpenGlContextBackend::make_failure(std::string message) const
     {
-        auto result = tbx::Result {};
-        result.flag_failure(std::move(message));
+        auto result = tbx::Result();
+        result.failure(std::move(message));
         return result;
     }
 
-    SDL_Window* SdlOpenGlContextManager::get_sdl_window(const tbx::Window& window) const
+    SDL_Window* SdlOpenGlContextBackend::get_sdl_window(const tbx::Window& window) const
     {
-        return static_cast<SDL_Window*>(_window_manager.get_native_handle(window));
+        return static_cast<SDL_Window*>(window.native_handle);
     }
 
-    bool SdlOpenGlContextManager::try_create_context(
+    bool SdlOpenGlContextBackend::try_create_context(
         const tbx::Window& window,
         SDL_Window* sdl_window,
         const std::string& window_title)
@@ -193,6 +232,7 @@ namespace sdl_opengl_context_manager
         if (existing_context != _contexts.end())
             return try_make_current(sdl_window, existing_context->second, window_title);
 
+        apply_default_attributes();
         SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
         if (!context)
         {
@@ -228,9 +268,9 @@ namespace sdl_opengl_context_manager
         return true;
     }
 
-    void SdlOpenGlContextManager::destroy_native_context(const tbx::Window& window)
+    void SdlOpenGlContextBackend::destroy_native_context(const tbx::Window& window)
     {
-        if (!window.is_valid())
+        if (!window.id.is_valid())
             return;
 
         auto context_it = _contexts.find(window);
@@ -239,13 +279,13 @@ namespace sdl_opengl_context_manager
 
         if (context_it->second)
         {
-            internal::try_release_current_context(context_it->second);
+            try_release_current_context(context_it->second);
             SDL_GL_DestroyContext(context_it->second);
         }
         _contexts.erase(context_it);
     }
 
-    bool SdlOpenGlContextManager::try_make_current(
+    bool SdlOpenGlContextBackend::try_make_current(
         SDL_Window* sdl_window,
         SDL_GLContext context,
         const std::string& window_title)
@@ -265,7 +305,7 @@ namespace sdl_opengl_context_manager
         return true;
     }
 
-    bool SdlOpenGlContextManager::try_present(const tbx::Window& window, SDL_Window* sdl_window)
+    bool SdlOpenGlContextBackend::try_present(const tbx::Window& window, SDL_Window* sdl_window)
     {
         if (!sdl_window || !_contexts.contains(window))
             return false;
@@ -274,7 +314,7 @@ namespace sdl_opengl_context_manager
         return true;
     }
 
-    void SdlOpenGlContextManager::apply_vsync_setting()
+    void SdlOpenGlContextBackend::apply_vsync_setting()
     {
         SDL_Window* current_window = SDL_GL_GetCurrentWindow();
         SDL_GLContext current_context = SDL_GL_GetCurrentContext();

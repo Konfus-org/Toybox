@@ -2,8 +2,6 @@
 #include "tbx/types/plane.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/matrices.h"
-#include "tbx/tbx_api.h"
-#include <array>
 #include <glm/geometric.hpp>
 
 namespace tbx
@@ -15,6 +13,14 @@ namespace tbx
         Frustum(const Mat4& view_projection)
         {
             extract_planes(view_projection);
+        }
+
+        /// @brief Returns the six cached frustum planes (left, right, bottom, top, near, far),
+        /// computed once at construction. Lets callers reuse the planes (e.g. to upload to the GPU)
+        /// without re-deriving them from the view-projection matrix.
+        const std::array<Plane, 6>& get_planes() const
+        {
+            return _planes;
         }
 
         bool intersects(const Sphere& sphere) const

@@ -1,31 +1,49 @@
-#include "tbx/plugins/sdl_base_systems/sdl_base_systems_plugin.h"
-#include "internal/sdl_base_systems_plugin_internal.h"
+#include "sdl_base_systems_plugin.h"
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_init.h"
+#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_stdinc.h"
 #include "tbx/systems/debugging/macros.h"
-#include <SDL3/SDL.h>
+#include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/systems/time/delta_time.h"
+
 namespace sdl_base_systems
 {
-    void SdlBaseSystemsPlugin::on_attach(tbx::ServiceProvider&)
+    static void sdl_log_callback(
+        void* userdata,
+        int category,
+        SDL_LogPriority priority,
+        const char* message)
+    {
+        if (priority >= SDL_LOG_PRIORITY_ERROR)
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported an error without details.";
+            if (priority == SDL_LOG_PRIORITY_CRITICAL)
+                TBX_TRACE_ERROR("SDL critical (category {}): {}", category, text);
+            else
+                TBX_TRACE_ERROR("SDL error (category {}): {}", category, text);
+        }
+        else if (priority == SDL_LOG_PRIORITY_WARN)
+        {
+            const char* text =
+                (message && *message) ? message : "SDL reported a warning without details.";
+            TBX_TRACE_WARNING("SDL warning (category {}): {}", category, text);
+        }
+    }
+
+    void SdlBaseSystems::on_attach()
     {
         SDL_SetLogOutputFunction(
             [](void* userdata, int category, SDL_LogPriority priority, const char* message)
             {
-                internal::sdl_log_callback(userdata, category, priority, message);
+                sdl_log_callback(userdata, category, priority, message);
             },
             this);
 
         const Uint32 mask = SDL_INIT_EVENTS;
-        if ((SDL_WasInit(mask) & mask) == mask)
-        {
-            _owns_sdl = false;
-            TBX_TRACE_WARNING(
-                "SDL events subsystem already initialized; adapter will not manage shutdown.");
-            return;
-        }
-
         if (!SDL_InitSubSystem(mask))
         {
-            _owns_sdl = false;
-            TBX_TRACE_ERROR("Failed to initialize SDL events subsystem. See SDL logs for details.");
             TBX_ASSERT(
                 false,
                 "SDL base systems failed to initialize events subsystem. See SDL logs for "
@@ -36,14 +54,16 @@ namespace sdl_base_systems
         TBX_TRACE_INFO("SDL base systems initialized the SDL events subsystem.");
     }
 
-    void SdlBaseSystemsPlugin::on_detach(tbx::ServiceProvider&)
+    void SdlBaseSystems::on_detach()
     {
-        if (_owns_sdl)
-            SDL_QuitSubSystem(SDL_INIT_EVENTS);
-        _owns_sdl = false;
+        // Restore SDL's default log handler before this plugin is unloaded. The callback installed in
+        // on_attach lives in this plugin's DLL; leaving it registered lets SDL call into freed code
+        // during its process-exit teardown, which crashes shutdown with an access violation.
+        SDL_SetLogOutputFunction(SDL_GetDefaultLogOutputFunction(), nullptr);
+        SDL_QuitSubSystem(SDL_INIT_EVENTS);
     }
 
-    void SdlBaseSystemsPlugin::on_update(const tbx::DeltaTime&)
+    void SdlBaseSystems::on_update(const tbx::DeltaTime&)
     {
         SDL_PumpEvents();
     }

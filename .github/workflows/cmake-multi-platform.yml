@@ -23,6 +23,6 @@ jobs:
     with:
       matrix-config: >-
         {"include":[
-          {"os":"windows-latest","configure_preset":"msvc","build_preset":"msvc-release","test_preset":"test-msvc-release"},
-          {"os":"ubuntu-latest","configure_preset":"clang","build_preset":"clang-release","test_preset":"test-clang-release"}
+          {"os":"windows-latest","configure_preset":"msvc-tests","build_preset":"msvc-release-tests","test_preset":"test-msvc-release"},
+          {"os":"ubuntu-latest","configure_preset":"clang-tests","build_preset":"clang-release-tests","test_preset":"test-clang-release"}
         ]}

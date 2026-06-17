@@ -5,15 +5,7 @@
 #include "tbx/systems/plugin_api/loaded_plugin.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include <chrono>
-#include <filesystem>
 #include <memory>
-#include <mutex>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
 
 namespace tbx
 {
@@ -26,7 +18,9 @@ namespace tbx
     class TBX_API PluginManager
     {
       public:
-        PluginManager(ServiceProvider& service_provider, std::shared_ptr<IFileOps> file_ops = {});
+        PluginManager(
+            std::weak_ptr<ServiceProvider> service_provider,
+            std::weak_ptr<IFileOps> file_ops);
         ~PluginManager() noexcept;
 
       public:
@@ -46,21 +40,24 @@ namespace tbx
         void load(
             const std::filesystem::path& directory,
             const std::vector<std::string>& requested_plugins,
-            const std::filesystem::path& working_directory);
+            const std::filesystem::path& working_directory,
+            const std::vector<PluginCategory>& excluded_categories = {});
 
         /// @brief
-        /// Purpose: Loads and adds a specific plugin from parsed metadata.
+        /// Purpose: Loads additional plugins from the current plugin directory without unloading
+        /// existing plugins.
         /// @details
-        /// Ownership: Uses the bound file-ops instance to load plugin artifacts.
+        /// Ownership: Uses the existing plugin directory, requested plugin names, and file-ops
+        /// service.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        bool load(const PluginMeta& meta);
+        void load(const std::vector<std::string>& requested_plugins);
 
         /// @brief
-        /// Purpose: Adds, attaches, and begins routing messages to a specific loaded plugin.
+        /// Purpose: Adds, attaches, and begins routing messages to loaded plugin nodes.
         /// @details
-        /// Ownership: Takes ownership of the provided loaded plugin container.
+        /// Ownership: Takes ownership of the provided loaded plugin list by splicing its nodes.
         /// Thread Safety: Not thread-safe; call from the main thread.
-        void add(LoadedPlugin loaded_plugin);
+        void add(LoadedPlugins loaded_plugins);
 
         /// @brief
         /// Purpose: Updates all managed plugins using variable-timestep ordering.
@@ -84,6 +81,13 @@ namespace tbx
         bool unload(const std::string& plugin_name);
 
         /// @brief
+        /// Purpose: Attaches all managed plugins.
+        /// @details
+        /// Ownership: Attaches owned plugins that were loaded from load or added via add.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void attach_all();
+
+        /// @brief
         /// Purpose: Detaches all managed plugins while keeping their libraries loaded.
         /// @details
         /// Ownership: Retains loaded plugin containers so remaining plugin-authored data can be
@@ -105,11 +109,25 @@ namespace tbx
         /// Thread Safety: Not thread-safe; call from the main thread.
         void receive_message(Message& msg);
 
+        /// @brief
+        /// Purpose: Finds a currently loaded plugin instance by its metadata name.
+        /// @details
+        /// Ownership: Returns a non-owning pointer managed by the plugin manager.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        Plugin* find_plugin(const std::string& plugin_name) const;
+
       private:
+        struct OwnershipTracker;
+
+      private:
+        void add_loaded(LoadedPlugins& loaded_plugins);
+        void attach_all_unattached();
+        void bind_all_runtime();
+        std::shared_ptr<ServiceProvider> get_service_provider() const;
         bool should_load_plugin(const std::string& plugin_name) const;
+        void register_all_services();
+        void unload_plugin_group(LoadedPlugins& plugins);
         void process_pending_file_changes();
-        bool try_parse_plugin_meta(const std::filesystem::path& manifest_path, PluginMeta& out_meta)
-            const;
         void process_file_change(
             const FileWatchChange& change,
             std::unordered_set<std::string>& processed_plugin_names);
@@ -117,16 +135,18 @@ namespace tbx
       private:
         std::mutex _pending_file_changes_mutex = {};
         std::vector<FileWatchChange> _pending_file_changes = {};
-        std::vector<LoadedPlugin> _loaded = {};
+        LoadedPlugins _loaded = {};
         std::vector<std::string> _requested_plugins = {};
 
         std::filesystem::path _directory = {};
         std::filesystem::path _working_directory = {};
 
-        std::shared_ptr<IFileOps> _provided_file_ops = nullptr;
-        std::shared_ptr<IFileOps> _file_ops = nullptr;
+        std::weak_ptr<IFileOps> _provided_file_ops = {};
+        std::weak_ptr<IFileOps> _file_ops = {};
         std::unique_ptr<FileWatcher> _watcher = {};
+        std::unique_ptr<OwnershipTracker> _ownership_tracker = {};
 
-        ServiceProvider& _service_provider;
+        std::weak_ptr<ServiceProvider> _service_provider = {};
+        bool _attached = false;
     };
 }

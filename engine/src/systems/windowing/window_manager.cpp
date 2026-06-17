@@ -1,16 +1,46 @@
-#include "tbx/systems/windowing/window_manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
-#include "systems/windowing/internal/window_manager_internal.h"
-#include <algorithm>
-#include <string_view>
-#include <utility>
+#include "tbx/systems/windowing/manager.h"
+#include <ranges>
 
 namespace tbx
 {
-    WindowManager::WindowManager(IMessageDispatcher& dispatcher, IWindowBackend& backend)
-        : _dispatcher(dispatcher)
-        , _backend(backend)
+    static bool are_sizes_equal(const Size& left, const Size& right)
+    {
+        return left.width == right.width && left.height == right.height;
+    }
+
+    static std::string sanitize_window_handle_name(std::string title)
+    {
+        if (title.empty())
+            return "Toybox";
+
+        return title;
+    }
+
+    struct WindowManager::ManagedWindowRecord
+    {
+        Window id = {};
+        std::string title = "Toybox";
+        Size size = {1280, 720};
+        WindowMode mode = WindowMode::WINDOWED;
+        WindowMode mode_to_restore = WindowMode::WINDOWED;
+        bool is_open = false;
+    };
+
+    struct WindowManager::State
+    {
+        std::unordered_map<Window, ManagedWindowRecord> windows = {};
+        std::vector<Window> pending_close_window_ids = {};
+        Window main_window = {};
+    };
+
+    WindowManager::WindowManager(
+        std::weak_ptr<IMessageDispatcher> dispatcher,
+        std::weak_ptr<IWindowBackend> backend)
+        : _dispatcher(std::move(dispatcher))
+        , _backend(std::move(backend))
+        , _state(std::make_unique<State>())
     {
     }
 
@@ -21,14 +51,14 @@ namespace tbx
 
     Window WindowManager::open(const WindowCreateInfo& create_info)
     {
-        const auto base_name = internal::sanitize_window_handle_name(create_info.title);
+        const auto base_name = sanitize_window_handle_name(create_info.title);
         auto handle_name = base_name;
         auto duplicate_index = uint32 {2U};
-        auto window = Handle(handle_name);
-        while (_windows.contains(window))
+        auto window = Window(handle_name);
+        while (_state->windows.contains(window))
         {
             handle_name = base_name + " (" + std::to_string(duplicate_index) + ")";
-            window = Handle(handle_name);
+            window = Window(handle_name);
             ++duplicate_index;
         }
 
@@ -42,22 +72,27 @@ namespace tbx
         record.is_open = true;
 
         auto native_handle = NativeWindowHandle {nullptr};
-        if (!_backend.create_window(window, create_info, native_handle))
+        const auto backend = _backend.lock();
+        if (!backend)
+            return {};
+
+        if (!backend->create_window(window, create_info, native_handle))
             return {};
 
         if (!native_handle)
         {
             TBX_TRACE_ERROR(
                 "Window manager: backend returned a null native handle for window '{}'.",
-                to_string(window));
-            _backend.destroy_window(window);
+                window);
+            backend->destroy_window(window);
             return {};
         }
 
-        record.native_handle = native_handle;
-        _windows[window] = std::move(record);
-        if (!_main_window.is_valid())
-            _main_window = window;
+        window.native_handle = native_handle;
+        record.id = window;
+        _state->windows[window] = std::move(record);
+        if (!_state->main_window.id.is_valid())
+            _state->main_window = window;
         send_window_opened(window);
         return window;
     }
@@ -68,25 +103,27 @@ namespace tbx
         if (!record)
             return false;
 
-        if (!_backend.destroy_window(window))
+        const auto backend = _backend.lock();
+        if (!backend || !backend->destroy_window(window))
             return false;
 
-        const bool was_main_window = (_main_window == window);
+        const bool was_main_window = (_state->main_window == window);
         const Window closed_window = record->id;
+        record->id.invalidate();
         if (was_main_window)
-            _main_window = {};
+            _state->main_window = {};
 
-        _windows.erase(window);
-        auto pending_it = std::ranges::find(_pending_close_window_ids, window);
-        if (pending_it != _pending_close_window_ids.end())
-            _pending_close_window_ids.erase(pending_it);
+        _state->windows.erase(window);
+        auto pending_it = std::ranges::find(_state->pending_close_window_ids, window);
+        if (pending_it != _state->pending_close_window_ids.end())
+            _state->pending_close_window_ids.erase(pending_it);
         send_window_closed(closed_window);
         return true;
     }
 
     bool WindowManager::has(const Window& window) const
     {
-        return _windows.contains(window);
+        return _state->windows.contains(window);
     }
 
     bool WindowManager::is_open(const Window& window) const
@@ -129,7 +166,8 @@ namespace tbx
 
         if (record->is_open)
         {
-            if (!_backend.set_window_title(window, title))
+            const auto backend = _backend.lock();
+            if (!backend || !backend->set_window_title(window, title))
                 return false;
         }
 
@@ -142,7 +180,7 @@ namespace tbx
     NativeWindowHandle WindowManager::get_native_handle(const Window& window) const
     {
         const auto* record = try_get_record(window);
-        return record ? record->native_handle : nullptr;
+        return record ? record->id.native_handle : nullptr;
     }
 
     Size WindowManager::get_size(const Window& window) const
@@ -163,8 +201,8 @@ namespace tbx
     std::vector<Window> WindowManager::get_open_windows() const
     {
         auto windows = std::vector<Window> {};
-        windows.reserve(_windows.size());
-        for (const auto& [window_id, record] : _windows)
+        windows.reserve(_state->windows.size());
+        for (const auto& [window_id, record] : _state->windows)
             windows.push_back(window_id);
 
         return windows;
@@ -172,12 +210,12 @@ namespace tbx
 
     bool WindowManager::has_main_window() const
     {
-        return _main_window.is_valid() && has(_main_window);
+        return _state->main_window.id.is_valid() && has(_state->main_window);
     }
 
     const Window& WindowManager::get_main_window() const
     {
-        return _main_window;
+        return _state->main_window;
     }
 
     bool WindowManager::set_main_window(const Window& window)
@@ -185,14 +223,18 @@ namespace tbx
         if (!has(window))
             return false;
 
-        _main_window = window;
+        _state->main_window = window;
         return true;
     }
 
     void WindowManager::update()
     {
         auto events = std::vector<WindowBackendEvent> {};
-        _backend.pump_events(events);
+        const auto backend = _backend.lock();
+        if (!backend)
+            return;
+
+        backend->pump_events(events);
 
         for (const auto& event : events)
             handle_backend_event(event);
@@ -202,18 +244,21 @@ namespace tbx
 
     void WindowManager::shutdown()
     {
-        for (const auto& [window_id, record] : _windows)
+        for (const auto& window_id : std::views::keys(_state->windows))
         {
-            (void)record;
             queue_window_close(window_id);
         }
         process_pending_window_closes();
 
-        _backend.shutdown();
-
-        _pending_close_window_ids.clear();
-        _windows.clear();
-        _main_window = {};
+        // Closing every window above is enough here; deliberately don't shut the backend down. The SDL
+        // backend is owned by the SdlWindowing plugin, which shuts it down — quitting the SDL video
+        // subsystem — from its on_detach. That detach runs after the OpenGL context plugin's, so GL
+        // contexts are destroyed while SDL video is still alive. Quitting the subsystem here (before any
+        // plugin detaches) left SdlOpenGlContextManager calling SDL_GL_DestroyContext on a torn-down
+        // video subsystem, crashing shutdown with an access violation.
+        _state->pending_close_window_ids.clear();
+        _state->windows.clear();
+        _state->main_window = {};
     }
 
     void WindowManager::handle_backend_event(const WindowBackendEvent& event)
@@ -250,9 +295,8 @@ namespace tbx
             }
 
             case WindowBackendEventType::QUIT_REQUESTED:
-                for (const auto& [window_id, record] : _windows)
+                for (const auto& window_id : std::views::keys(_state->windows))
                 {
-                    (void)record;
                     queue_window_close(window_id);
                 }
                 break;
@@ -261,23 +305,23 @@ namespace tbx
 
     void WindowManager::process_pending_window_closes()
     {
-        if (_pending_close_window_ids.empty())
+        if (_state->pending_close_window_ids.empty())
             return;
 
-        auto pending_windows = std::move(_pending_close_window_ids);
-        _pending_close_window_ids.clear();
+        auto pending_windows = std::move(_state->pending_close_window_ids);
+        _state->pending_close_window_ids.clear();
         for (const auto& window : pending_windows)
             close(window);
     }
 
     void WindowManager::queue_window_close(const Window& window)
     {
-        if (!std::ranges::contains(_pending_close_window_ids, window))
-            _pending_close_window_ids.push_back(window);
+        if (!std::ranges::contains(_state->pending_close_window_ids, window))
+            _state->pending_close_window_ids.push_back(window);
     }
 
     bool WindowManager::update_window_mode(
-        ManagedWindowRecord& record,
+        WindowManager::ManagedWindowRecord& record,
         WindowMode mode,
         bool apply_to_native_window)
     {
@@ -286,7 +330,8 @@ namespace tbx
 
         if (apply_to_native_window)
         {
-            if (!_backend.set_window_mode(record.id, mode))
+            const auto backend = _backend.lock();
+            if (!backend || !backend->set_window_mode(record.id, mode))
                 return false;
         }
 
@@ -302,16 +347,17 @@ namespace tbx
     }
 
     bool WindowManager::update_window_size(
-        ManagedWindowRecord& record,
+        WindowManager::ManagedWindowRecord& record,
         const Size& size,
         bool apply_to_native_window)
     {
-        if (internal::are_sizes_equal(record.size, size))
+        if (are_sizes_equal(record.size, size))
             return true;
 
         if (apply_to_native_window)
         {
-            if (!_backend.set_window_size(record.id, size))
+            const auto backend = _backend.lock();
+            if (!backend || !backend->set_window_size(record.id, size))
                 return false;
         }
 
@@ -323,7 +369,8 @@ namespace tbx
 
     void WindowManager::send_window_closed(const Window& window) const
     {
-        _dispatcher.send<WindowClosedEvent>(window);
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->send<WindowClosedEvent>(window);
     }
 
     void WindowManager::send_window_mode_changed(
@@ -331,12 +378,14 @@ namespace tbx
         WindowMode previous_mode,
         WindowMode current_mode) const
     {
-        _dispatcher.send<WindowModeChangedEvent>(window, previous_mode, current_mode);
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->send<WindowModeChangedEvent>(window, previous_mode, current_mode);
     }
 
     void WindowManager::send_window_opened(const Window& window) const
     {
-        _dispatcher.send<WindowOpenedEvent>(window);
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->send<WindowOpenedEvent>(window);
     }
 
     void WindowManager::send_window_size_changed(
@@ -344,7 +393,8 @@ namespace tbx
         const Size& previous_size,
         const Size& current_size) const
     {
-        _dispatcher.send<WindowSizeChangedEvent>(window, previous_size, current_size);
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->send<WindowSizeChangedEvent>(window, previous_size, current_size);
     }
 
     void WindowManager::send_window_title_changed(
@@ -352,21 +402,23 @@ namespace tbx
         const std::string& previous_title,
         const std::string& current_title) const
     {
-        _dispatcher.send<WindowTitleChangedEvent>(window, previous_title, current_title);
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->send<WindowTitleChangedEvent>(window, previous_title, current_title);
     }
 
-    const ManagedWindowRecord* WindowManager::try_get_record(const Window& window) const
+    const WindowManager::ManagedWindowRecord* WindowManager::try_get_record(
+        const Window& window) const
     {
-        const auto it = _windows.find(window);
-        if (it == _windows.end())
+        const auto it = _state->windows.find(window);
+        if (it == _state->windows.end())
             return nullptr;
 
         return &it->second;
     }
 
-    ManagedWindowRecord* WindowManager::try_get_record(const Window& window)
+    WindowManager::ManagedWindowRecord* WindowManager::try_get_record(const Window& window)
     {
         const auto* self = static_cast<const WindowManager*>(this);
-        return const_cast<ManagedWindowRecord*>(self->try_get_record(window));
+        return const_cast<WindowManager::ManagedWindowRecord*>(self->try_get_record(window));
     }
 }

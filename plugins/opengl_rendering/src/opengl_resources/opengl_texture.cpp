@@ -1,12 +1,154 @@
 #include "opengl_texture.h"
-#include "internal/opengl_texture_internal.h"
-#include <algorithm>
 #include <glad/glad.h>
-#include <utility>
+
 namespace opengl_rendering
 {
-    OpenGlTexture::OpenGlTexture(const tbx::GraphicsTextureDesc& desc, const void* data)
+    static uint32 take_texture_gl_handle(uint32& id) noexcept
+    {
+        return std::exchange(id, 0U);
+    }
+
+    static void release_bindless_handle(GLuint64& handle) noexcept
+    {
+        if (handle != 0)
+            glMakeTextureHandleNonResidentARB(handle);
+        handle = 0;
+    }
+
+    static bool is_depth_texture_format(const tbx::TextureFormat format)
+    {
+        return format == tbx::TextureFormat::DEPTH24_STENCIL8
+               || format == tbx::TextureFormat::DEPTH32_FLOAT;
+    }
+
+    GLenum get_depth_attachment(const tbx::TextureFormat format)
+    {
+        return format == tbx::TextureFormat::DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
+                                                              : GL_DEPTH_ATTACHMENT;
+    }
+
+    GLenum get_texture_internal_format(const tbx::TextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::TextureFormat::RGBA16_FLOAT:
+                return GL_RGBA16F;
+            case tbx::TextureFormat::RGBA32_FLOAT:
+                return GL_RGBA32F;
+            case tbx::TextureFormat::R8:
+                return GL_R8;
+            case tbx::TextureFormat::R16_FLOAT:
+                return GL_R16F;
+            case tbx::TextureFormat::RG8:
+                return GL_RG8;
+            case tbx::TextureFormat::RG16_FLOAT:
+                return GL_RG16F;
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
+                return GL_DEPTH24_STENCIL8;
+            case tbx::TextureFormat::DEPTH32_FLOAT:
+                return GL_DEPTH_COMPONENT32F;
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RGBA:
+            default:
+                return GL_RGBA8;
+        }
+    }
+
+    GLenum get_texture_upload_format(const tbx::TextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
+                return GL_DEPTH_STENCIL;
+            case tbx::TextureFormat::DEPTH32_FLOAT:
+                return GL_DEPTH_COMPONENT;
+            case tbx::TextureFormat::RGB:
+                return GL_RGB;
+            case tbx::TextureFormat::R8:
+            case tbx::TextureFormat::R16_FLOAT:
+                return GL_RED;
+            case tbx::TextureFormat::RG8:
+            case tbx::TextureFormat::RG16_FLOAT:
+                return GL_RG;
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
+            default:
+                return GL_RGBA;
+        }
+    }
+
+    GLenum get_texture_upload_type(const tbx::TextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::TextureFormat::RGBA16_FLOAT:
+            case tbx::TextureFormat::RGBA32_FLOAT:
+            case tbx::TextureFormat::R16_FLOAT:
+            case tbx::TextureFormat::RG16_FLOAT:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
+                return GL_FLOAT;
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
+                return GL_UNSIGNED_INT_24_8;
+            case tbx::TextureFormat::RGB:
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::R8:
+            case tbx::TextureFormat::RG8:
+            default:
+                return GL_UNSIGNED_BYTE;
+        }
+    }
+
+    uint64 get_texture_byte_size(const tbx::TextureDesc& desc)
+    {
+        return static_cast<uint64>(desc.size.width) * static_cast<uint64>(desc.size.height)
+               * get_texture_bytes_per_pixel(desc.format);
+    }
+
+    static GLint get_texture_wrap_mode(const tbx::TextureWrap wrap)
+    {
+        switch (wrap)
+        {
+            case tbx::TextureWrap::REPEAT:
+                return GL_REPEAT;
+            case tbx::TextureWrap::MIRRORED_REPEAT:
+                return GL_MIRRORED_REPEAT;
+            case tbx::TextureWrap::CLAMP_TO_EDGE:
+            default:
+                return GL_CLAMP_TO_EDGE;
+        }
+    }
+
+    uint64 get_texture_bytes_per_pixel(const tbx::TextureFormat format)
+    {
+        switch (format)
+        {
+            case tbx::TextureFormat::RGBA16_FLOAT:
+                return 8U;
+            case tbx::TextureFormat::RGBA32_FLOAT:
+                return 16U;
+            case tbx::TextureFormat::RGB:
+                return 3U;
+            case tbx::TextureFormat::R8:
+                return 1U;
+            case tbx::TextureFormat::R16_FLOAT:
+            case tbx::TextureFormat::RG8:
+                return 2U;
+            case tbx::TextureFormat::RGBA:
+            case tbx::TextureFormat::RGBA8:
+            case tbx::TextureFormat::RG16_FLOAT:
+            case tbx::TextureFormat::DEPTH24_STENCIL8:
+            case tbx::TextureFormat::DEPTH32_FLOAT:
+            default:
+                return 4U;
+        }
+    }
+
+    OpenGlTexture::OpenGlTexture(const tbx::TextureDesc& desc, const void* data)
         : _array_layer_count(std::max(desc.array_layer_count, 1U))
+        , _mip_count(std::max(desc.mip_count, 1U))
     {
         const GLsizei width = static_cast<GLsizei>(desc.size.width);
         const GLsizei height = static_cast<GLsizei>(desc.size.height);
@@ -21,7 +163,7 @@ namespace opengl_rendering
             glTextureStorage3D(
                 _texture_id,
                 levels,
-                internal::get_texture_internal_format(desc.format),
+                get_texture_internal_format(desc.format),
                 width,
                 height,
                 layer_count);
@@ -31,7 +173,7 @@ namespace opengl_rendering
             glTextureStorage2D(
                 _texture_id,
                 levels,
-                internal::get_texture_internal_format(desc.format),
+                get_texture_internal_format(desc.format),
                 width,
                 height);
         }
@@ -49,8 +191,8 @@ namespace opengl_rendering
                     width,
                     height,
                     layer_count,
-                    internal::get_texture_upload_format(desc.format),
-                    internal::get_texture_upload_type(desc.format),
+                    get_texture_upload_format(desc.format),
+                    get_texture_upload_type(desc.format),
                     data);
             }
             else
@@ -62,27 +204,33 @@ namespace opengl_rendering
                     0,
                     width,
                     height,
-                    internal::get_texture_upload_format(desc.format),
-                    internal::get_texture_upload_type(desc.format),
+                    get_texture_upload_format(desc.format),
+                    get_texture_upload_type(desc.format),
                     data);
             }
         }
 
-        const bool is_depth_format = internal::is_depth_texture_format(desc.format);
-        glTextureParameteri(
-            _texture_id,
-            GL_TEXTURE_MIN_FILTER,
-            desc.is_depth_comparison_enabled ? GL_LINEAR
-                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
-        glTextureParameteri(
-            _texture_id,
-            GL_TEXTURE_MAG_FILTER,
-            desc.is_depth_comparison_enabled ? GL_LINEAR
-                                             : (is_depth_format ? GL_NEAREST : GL_LINEAR));
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        const bool is_depth_format = is_depth_texture_format(desc.format);
+        const GLint sampled_filter = desc.is_linear_filtering_enabled ? GL_LINEAR : GL_NEAREST;
+        const GLint filter = desc.is_depth_comparison_enabled ? GL_LINEAR
+                                                              : (is_depth_format ? GL_NEAREST
+                                                                                 : sampled_filter);
+        // Mip filtering only applies to color textures with an allocated mip chain; depth/comparison
+        // textures keep their single-level filter.
+        const bool use_mip_filter = _mip_count > 1U && !is_depth_format
+                                    && !desc.is_depth_comparison_enabled;
+        const GLint min_filter =
+            use_mip_filter
+                ? (desc.is_linear_filtering_enabled ? GL_LINEAR_MIPMAP_LINEAR
+                                                    : GL_NEAREST_MIPMAP_NEAREST)
+                : filter;
+        const GLint wrap_mode = get_texture_wrap_mode(desc.wrap);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, min_filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, filter);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_S, wrap_mode);
+        glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_T, wrap_mode);
         if (is_array_texture)
-            glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+            glTextureParameteri(_texture_id, GL_TEXTURE_WRAP_R, wrap_mode);
         if (is_depth_format)
         {
             glTextureParameteri(
@@ -92,15 +240,26 @@ namespace opengl_rendering
             glTextureParameteri(_texture_id, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
 
-        if (desc.mip_count > 1U)
+        // Only generate now if level 0 was supplied up front. When pixels are uploaded later via
+        // write_texture (the cache's create-then-write path), mip generation runs after that upload.
+        if (data != nullptr)
+            generate_mipmaps();
+    }
+
+    void OpenGlTexture::generate_mipmaps() const
+    {
+        if (_mip_count > 1U && _texture_id != 0U)
             glGenerateTextureMipmap(_texture_id);
     }
 
     OpenGlTexture::OpenGlTexture(OpenGlTexture&& other) noexcept
-        : _texture_id(internal::take_texture_gl_handle(other._texture_id))
+        : _texture_id(take_texture_gl_handle(other._texture_id))
         , _array_layer_count(other._array_layer_count)
+        , _mip_count(other._mip_count)
+        , _bindless_handle(std::exchange(other._bindless_handle, 0))
     {
         other._array_layer_count = 1U;
+        other._mip_count = 1U;
     }
 
     OpenGlTexture& OpenGlTexture::operator=(OpenGlTexture&& other) noexcept
@@ -108,21 +267,44 @@ namespace opengl_rendering
         if (this == &other)
             return *this;
 
+        release_bindless_handle(_bindless_handle);
         if (_texture_id != 0)
             glDeleteTextures(1, &_texture_id);
 
-        _texture_id = internal::take_texture_gl_handle(other._texture_id);
+        _texture_id = take_texture_gl_handle(other._texture_id);
         _array_layer_count = other._array_layer_count;
+        _mip_count = other._mip_count;
+        _bindless_handle = std::exchange(other._bindless_handle, 0);
         other._array_layer_count = 1U;
+        other._mip_count = 1U;
         return *this;
     }
 
     OpenGlTexture::~OpenGlTexture() noexcept
     {
+        release_bindless_handle(_bindless_handle);
         if (_texture_id != 0)
         {
             glDeleteTextures(1, &_texture_id);
         }
+    }
+
+    GLuint64 OpenGlTexture::get_or_create_bindless_handle()
+    {
+        if (_bindless_handle != 0)
+            return _bindless_handle;
+        if (_texture_id == 0)
+            return 0;
+
+        const GLuint64 handle = glGetTextureHandleARB(_texture_id);
+        if (handle == 0)
+            return 0;
+
+        // Creating a handle makes the texture immutable; making it resident lets shaders sample it
+        // by handle without binding a sampler unit.
+        glMakeTextureHandleResidentARB(handle);
+        _bindless_handle = handle;
+        return _bindless_handle;
     }
 
     void OpenGlTexture::bind_slot(const uint32 slot) const
@@ -151,7 +333,7 @@ namespace opengl_rendering
     }
 
     void OpenGlTexture::update(
-        const tbx::GraphicsTextureUpdateDesc& desc,
+        const tbx::TextureUpdateDesc& desc,
         const GLenum upload_format,
         const GLenum upload_type,
         const void* data) const

@@ -1,6 +1,7 @@
 #pragma once
-#include "tbx/tbx_api.h"
 #include <glm/gtc/quaternion.hpp>
+#include "tbx/types/quaternions.generated.h"
+
 namespace tbx
 {
     /// @brief
@@ -8,6 +9,9 @@ namespace tbx
     /// @details
     /// Ownership: value type; callers own any copies created from this alias.
     /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Quat")]];
+    [[array(4U)]];
     using Quat = glm::quat;
 
     /// @brief

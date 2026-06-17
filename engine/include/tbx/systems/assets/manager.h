@@ -1,12 +1,16 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/systems/assets/registry.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/files/watcher.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/assets/asset.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include <chrono>
+#include <concepts>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -18,18 +22,6 @@
 
 namespace tbx
 {
-    using HandleSource = std::function<bool(const std::filesystem::path&, Handle& out_handle)>;
-
-    struct AssetRegistryEntry;
-    class AssetRegistry;
-    class IMessageDispatcher;
-    struct IAssetStore;
-
-    template <typename TAsset>
-    struct AssetRecord;
-    template <typename TAsset>
-    struct AssetStore;
-
     /// @brief
     /// Purpose: Describes the streaming state for an asset record.
     /// @details
@@ -53,6 +45,7 @@ namespace tbx
         bool is_pinned = false;
         AssetStreamState stream_state = AssetStreamState::UNLOADED;
         std::chrono::steady_clock::time_point last_access = {};
+        uint64 revision = 0U;
     };
 
     /// @brief
@@ -64,12 +57,12 @@ namespace tbx
     {
       public:
         AssetManager(
-            IMessageDispatcher& dispatcher,
-            SerializationRegistry& serialization_registry,
+            std::weak_ptr<IMessageDispatcher> dispatcher,
+            std::weak_ptr<SerializationRegistry> serialization_registry,
             std::filesystem::path working_directory,
             std::vector<std::filesystem::path> asset_directories = {},
             HandleSource handle_source = {},
-            std::shared_ptr<IFileOps> file_ops = {});
+            std::weak_ptr<IFileOps> file_ops = {});
         ~AssetManager();
 
       public:
@@ -85,9 +78,12 @@ namespace tbx
         /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         std::shared_ptr<TAsset> load(
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
+
+        std::shared_ptr<Asset> load(const Handle& handle);
 
         /// @brief
         /// Purpose: Advances asset lifecycle timers and unloads stale unreferenced assets.
@@ -102,7 +98,17 @@ namespace tbx
         /// Ownership: Returns caller-owned usage data by value.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         AssetUsage get_usage(const Handle& handle) const;
+
+        /// @brief
+        /// Purpose: Returns loaded assets of the requested type without changing asset usage.
+        /// @details
+        /// Ownership: Returns shared asset references owned jointly by the manager and callers.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        std::vector<std::shared_ptr<TAsset>> get_loaded() const;
 
         /// @brief
         /// Purpose: Resolves a handle to the canonical asset UUID, generating an in-memory id when
@@ -117,6 +123,13 @@ namespace tbx
         /// @details
         /// Ownership: Returns a UUID value; no ownership transfer.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        Uuid resolve_id(const Handle& handle);
+
+        /// @brief
+        /// Purpose: Resolves a handle to the registered asset UUID for legacy callers.
+        /// @details
+        /// Ownership: Returns a UUID value; no ownership transfer.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         Uuid resolve(const Handle& handle);
 
         /// @brief
@@ -124,14 +137,14 @@ namespace tbx
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve(const std::filesystem::path& asset_path) const;
+        std::filesystem::path resolve_path(const std::filesystem::path& asset_path) const;
 
         /// @brief
         /// Purpose: Resolves a handle to its registered absolute asset path when available.
         /// @details
         /// Ownership: Returns a path value owned by the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
-        std::filesystem::path resolve(const Handle& handle) const;
+        std::filesystem::path resolve_path(const Handle& handle) const;
 
         /// @brief
         /// Purpose: Adds an asset directory to the search list.
@@ -148,18 +161,26 @@ namespace tbx
         std::vector<std::filesystem::path> get_directories() const;
 
         /// @brief
-        /// Purpose: Returns the serialization registry used to read and write typed assets.
+        /// Purpose: Snapshots every registered asset (id + path) so the editor can enumerate the
+        /// project's assets and resolve handle/script ids to display names.
         /// @details
-        /// Ownership: Returns a non-owning reference to registry state owned by the host service
-        /// graph. Thread Safety: Registry operations are synchronized internally.
-        SerializationRegistry& get_serialization_registry();
+        /// Ownership: Returns a copy; callers own the returned entries.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        std::vector<AssetRegistryEntry> get_registered_assets() const;
 
         /// @brief
         /// Purpose: Returns the serialization registry used to read and write typed assets.
         /// @details
-        /// Ownership: Returns a non-owning reference to registry state owned by the host service
+        /// Ownership: Returns a non-owning weak pointer to registry state owned by the host service
         /// graph. Thread Safety: Registry operations are synchronized internally.
-        const SerializationRegistry& get_serialization_registry() const;
+        std::weak_ptr<SerializationRegistry> get_serialization_registry();
+
+        /// @brief
+        /// Purpose: Returns the serialization registry used to read and write typed assets.
+        /// @details
+        /// Ownership: Returns a non-owning weak pointer to registry state owned by the host service
+        /// graph. Thread Safety: Registry operations are synchronized internally.
+        std::weak_ptr<const SerializationRegistry> get_serialization_registry() const;
 
         /// @brief
         /// Purpose: Loads an asset asynchronously and tracks usage metadata.
@@ -167,6 +188,7 @@ namespace tbx
         /// Ownership: Returns an AssetPromise that shares ownership with the caller.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         AssetPromise<TAsset> load_async(
             const Handle& handle,
             const AssetLoadParameters<TAsset>& parameters = {});
@@ -177,6 +199,7 @@ namespace tbx
         /// Ownership: Releases the manager-owned asset instance when streaming out.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         bool unload(const Handle& handle, bool force = false);
 
         /// @brief
@@ -201,7 +224,15 @@ namespace tbx
         /// Ownership: Replaces the manager-owned asset instance with the newly loaded instance.
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
         bool reload(const Handle& handle);
+
+        /// @brief
+        /// Purpose: Removes an asset directory and drops assets registered from that directory.
+        /// @details
+        /// Ownership: Releases manager-owned records for assets found under the removed directory.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        void remove_directory(const std::filesystem::path& path);
 
         /// @brief
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
@@ -211,47 +242,107 @@ namespace tbx
         void set_pinned(const Handle& handle, bool is_pinned);
 
       private:
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        struct Record;
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        struct Store;
+        struct StoreReloadResult;
+        struct IStore;
+
+      private:
+        void dispatch_reload_events(const std::vector<StoreReloadResult>& reload_results) const;
         void on_asset_changed(
             const std::filesystem::path& watched_path,
             const FileWatchChange& change);
+        std::shared_ptr<IFileOps> lock_file_ops() const;
+        std::shared_ptr<SerializationRegistry> lock_serialization_registry() const;
         void watch_asset_directory(const std::filesystem::path& resolved_path);
 
-      private:
         template <typename TAsset>
-        std::optional<std::reference_wrapper<AssetStore<TAsset>>> get_store(
-            bool create_if_missing = false);
+            requires std::derived_from<TAsset, Asset>
+        static bool asset_load_parameters_match(
+            const Record<TAsset>& record,
+            const AssetLoadParameters<TAsset>& parameters);
 
         template <typename TAsset>
-        std::optional<std::reference_wrapper<const AssetStore<TAsset>>> get_store() const;
+            requires std::derived_from<TAsset, Asset>
+        static AssetUsage build_asset_usage(const Record<TAsset>& record);
 
         template <typename TAsset>
-        std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
-            AssetStore<TAsset>& store,
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<std::reference_wrapper<Record<TAsset>>> get_asset_record(
+            Store<TAsset>& store,
             const AssetRegistryEntry& entry,
             bool create_if_missing = false);
 
         template <typename TAsset>
-        std::optional<std::reference_wrapper<AssetRecord<TAsset>>> get_record(
-            AssetStore<TAsset>& store,
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<std::reference_wrapper<Record<TAsset>>> get_asset_record(
+            AssetRegistry& registry,
+            Store<TAsset>& store,
             const Handle& handle);
 
         template <typename TAsset>
-        std::optional<std::reference_wrapper<const AssetRecord<TAsset>>> get_record(
-            const AssetStore<TAsset>& store,
-            const Handle& handle) const;
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<std::reference_wrapper<const Record<TAsset>>> get_asset_record(
+            const AssetRegistry& registry,
+            const Store<TAsset>& store,
+            const Handle& handle);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<std::reference_wrapper<Store<TAsset>>> get_asset_store(
+            std::unordered_map<std::type_index, std::unique_ptr<IStore>>& stores,
+            bool create_if_missing = false);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<std::reference_wrapper<const Store<TAsset>>> get_asset_store(
+            const std::unordered_map<std::type_index, std::unique_ptr<IStore>>& stores);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static bool is_asset_record_referenced(const Record<TAsset>& record);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static void populate_loaded_asset_data(const std::shared_ptr<TAsset>& asset);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static void store_asset_load_parameters(
+            Record<TAsset>& record,
+            const AssetLoadParameters<TAsset>& parameters);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static std::optional<Result> update_asset_stream_state(Record<TAsset>& record);
+
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        static void warn_if_asset_metadata_is_invalid(
+            const Record<TAsset>& asset_record,
+            const AssetLoadMetadata& metadata);
 
       private:
-        // Asset readers can synchronously re-enter AssetManager APIs (for example shader includes
-        // resolving additional asset paths) on the same thread during load.
+        // Loaders can resolve/load related assets while the manager is already locked.
         mutable std::recursive_mutex _mutex = {};
-        IMessageDispatcher& _dispatcher;
-        SerializationRegistry& _serialization_registry;
-        std::shared_ptr<IFileOps> _file_ops = nullptr;
-        std::unique_ptr<AssetRegistry> _registry;
-        std::unordered_map<std::type_index, std::unique_ptr<IAssetStore>> _stores = {};
+
+        std::weak_ptr<IMessageDispatcher> _dispatcher = {};
+        std::weak_ptr<SerializationRegistry> _serialization_registry = {};
+        std::shared_ptr<IFileOps> _owned_file_ops = nullptr;
+        std::weak_ptr<IFileOps> _file_ops = {};
+
+        std::unique_ptr<AssetRegistry> _registry = {};
+        std::vector<std::filesystem::path> _watched_directories = {};
         std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
+        std::unordered_map<Uuid, uint64> _polymorphic_asset_revisions = {};
+        std::unordered_map<std::type_index, std::unique_ptr<IStore>> _stores = {};
+
         double _unload_elapsed_seconds = 0.0;
     };
-}
 
+}
 #include "tbx/systems/assets/manager.inl"

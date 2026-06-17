@@ -2,7 +2,7 @@
 Toybox is a lightweight, plugin-based, open source game engine that is currently in development.
 
 ## What's here so far?
-Toybox currently includes a runtime plugin system, ECS integration through EnTT, math via GLM, logging and asserts via spdlog, asset and resource handling, SDL-backed windowing and input plugins, OpenGL rendering, shader/material/model/image loader plugins, profiling support, and Jolt-based physics.
+Toybox currently includes a runtime plugin system, ECS integration through EnTT, math via GLM, logging and asserts via spdlog, asset and resource handling, SDL-backed windowing and input plugins, OpenGL rendering, shader include transformation, model/image loader plugins, profiling support, and Jolt-based physics.
 
 ## Repository Structure
 - `engine/`: First-class logic that is directly linked to and compiled into the engine.
@@ -75,7 +75,7 @@ ctest --preset test-clang-debug
 ctest --preset test-clang-release
 ```
 
-#### MSVC (Ninja + MSVC toolchain)
+#### MSVC
 ```bash
 # Configure; output goes under build/msvc
 cmake --preset msvc

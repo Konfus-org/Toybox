@@ -2,7 +2,7 @@
 #include "tbx/systems/input/action.h"
 #include "tbx/systems/input/scheme.h"
 #include "tbx/systems/time/delta_time.h"
-#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -98,6 +98,13 @@ namespace tbx
         virtual void set_mouse_lock_mode(MouseLockMode mode) = 0;
         virtual MouseLockMode get_mouse_lock_mode() const = 0;
 
+        // Lets a host (e.g. Studio) feed input in place of the physical device. While injection is
+        // enabled the manager reports the injected keyboard/mouse state instead of the backend, so a
+        // hidden, unfocused engine window can still drive gameplay from forwarded input.
+        virtual void set_input_injection_enabled(bool enabled) = 0;
+        virtual void set_injected_keyboard(const KeyboardState& keyboard) = 0;
+        virtual void set_injected_mouse(const MouseState& mouse) = 0;
+
         /// @brief
         /// Purpose: Evaluates bindings and sends action lifecycle callbacks.
         /// @details
@@ -107,14 +114,38 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Reuses shared scheme and action evaluation logic across input backends.
+    /// Purpose: Backend interface implemented by input plugins: raw device polling that the engine's
+    /// InputManager reads to build each frame's input snapshot. Mirrors the window/graphics/physics
+    /// backend split, keeping device specifics in a plugin while the manager stays engine-owned.
     /// @details
-    /// Ownership: Owns all registered schemes and their action state.
+    /// Ownership: Implementations own backend/device resources. Thread Safety: Not thread-safe; drive
+    /// from the update thread.
+    class TBX_API IInputBackend
+    {
+      public:
+        virtual ~IInputBackend() noexcept = default;
+
+        virtual KeyboardState get_keyboard_state() const = 0;
+        virtual ControllerState get_controller_state(int controller_index) const = 0;
+        virtual MouseState get_mouse_state() const = 0;
+        virtual void set_mouse_lock_mode(MouseLockMode mode) = 0;
+        virtual MouseLockMode get_mouse_lock_mode() const = 0;
+        // Per-frame backend bookkeeping: applies the requested mouse-lock mode and resets event-driven
+        // deltas (e.g. mouse wheel) accumulated since the last frame.
+        virtual void update_backend_state() = 0;
+    };
+
+    /// @brief
+    /// Purpose: Engine-owned input service. Owns scheme/action evaluation and host injection, and
+    /// reads raw device state from an IInputBackend supplied by a plugin.
+    /// @details
+    /// Ownership: Owns all registered schemes and their action state; borrows the input backend.
     /// Thread Safety: Not thread-safe; intended for main-thread update loops.
     class TBX_API InputManager : public IInputManager
     {
       public:
         InputManager() = default;
+        explicit InputManager(std::weak_ptr<IInputBackend> backend);
         ~InputManager() noexcept override = default;
 
       public:
@@ -129,6 +160,17 @@ namespace tbx
             const std::string& scheme_name) const override;
         std::vector<std::reference_wrapper<const InputScheme>> get_all_schemes() const override;
 
+        // Reports injected state while injection is enabled, otherwise the backend's device state.
+        KeyboardState get_keyboard_state() const override;
+        ControllerState get_controller_state(int controller_index) const override;
+        MouseState get_mouse_state() const override;
+        void set_mouse_lock_mode(MouseLockMode mode) override;
+        MouseLockMode get_mouse_lock_mode() const override;
+
+        void set_input_injection_enabled(bool enabled) override;
+        void set_injected_keyboard(const KeyboardState& keyboard) override;
+        void set_injected_mouse(const MouseState& mouse) override;
+
         void update(const DeltaTime& delta_time) override;
 
       private:
@@ -142,5 +184,9 @@ namespace tbx
 
       private:
         std::unordered_map<std::string, InputScheme> _schemes = {};
+        std::weak_ptr<IInputBackend> _backend = {};
+        bool _injection_enabled = false;
+        KeyboardState _injected_keyboard = {};
+        MouseState _injected_mouse = {};
     };
 }

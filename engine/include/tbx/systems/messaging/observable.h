@@ -62,4 +62,6 @@ namespace tbx
 
 }
 
+// TODO: Class and struct shapes should still be defined in headers, the inl should ONLY hide
+// template method implementations
 #include "tbx/systems/messaging/observable.inl"

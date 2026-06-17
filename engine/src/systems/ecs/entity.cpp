@@ -1,8 +1,7 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/debugging/macros.h"
-#include "systems/ecs/internal/entity_internal.h"
-#include "tbx/types/uuid.h"
-#include <cstddef>
+#include "tbx/systems/ecs/registry.h"
+
 namespace tbx
 {
     Entity::Entity(const std::string& name, EntityRegistry& registry)
@@ -38,10 +37,23 @@ namespace tbx
         registry.remove(*this);
     }
 
+    Uuid tbx_reference_id(const Entity& entity)
+    {
+        // A reference field's stored id; get_id() returns the raw _id when there is no bound registry,
+        // which is exactly the state of a reference entity.
+        return entity.get_id();
+    }
+
+    void tbx_bind_reference(Entity& entity, const Uuid& id)
+    {
+        // A reference holds only the target id — no registry. The game resolves it against the live world.
+        entity._id = id;
+    }
+
     Uuid Entity::get_id() const
     {
         if (!_registry.has_value())
-            return {};
+            return _id;
 
         // Callers commonly use `get_id().is_valid()` as a safe validity probe.
         if (!_registry->get().has(_id))
@@ -68,6 +80,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -96,6 +109,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -124,6 +138,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -152,6 +167,7 @@ namespace tbx
     {
         if (!_registry.has_value())
             return;
+
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
@@ -160,6 +176,35 @@ namespace tbx
         }
 
         registry.set_parent_id(_id, parent);
+    }
+
+    int Entity::get_order() const
+    {
+        if (!_registry.has_value())
+            return 0;
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity order from a stale handle.");
+            return 0;
+        }
+
+        return registry.get_order_value(_id);
+    }
+
+    void Entity::set_order(int order)
+    {
+        if (!_registry.has_value())
+            return;
+
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity order to a stale handle.");
+            return;
+        }
+
+        registry.set_order_value(_id, order);
     }
 
     bool Entity::try_get_parent_entity(Entity& out_parent) const
@@ -182,48 +227,15 @@ namespace tbx
         return out_parent.get_id().is_valid();
     }
 
-    std::string to_string(const Entity& entity)
+    Transform Transform::to_world_space(const Entity& entity) const
     {
-        auto idValue = std::to_string(entity.get_id().value);
-        auto nameValue = entity.get_name();
-        auto tagValue = entity.get_tag();
-        auto layerValue = entity.get_layer();
-        auto parentValue = std::to_string(entity.get_parent().value);
-
-        std::string value = {};
-        value.reserve(
-            32U + idValue.size() + nameValue.size() + tagValue.size() + layerValue.size()
-            + parentValue.size());
-
-        value += "Entity{";
-        value += "id=";
-        value += idValue;
-        value += ", name='";
-        value += nameValue;
-        value += "'";
-        value += ", tag='";
-        value += tagValue;
-        value += "'";
-        value += ", layer='";
-        value += layerValue;
-        value += "'";
-        value += ", parent=";
-        value += parentValue;
-        value += "}";
-        return value;
-    }
-
-    Transform get_world_space_transform(const Entity& entity)
-    {
-        auto world_transform = Transform {};
-        if (entity.has_component<Transform>())
-            world_transform = entity.get_component<Transform>();
+        auto world_transform = *this;
 
         auto cursor = entity;
         auto parent = Entity {};
         size_t iteration_count = 0U;
-        static constexpr size_t max_parent_depth = 1024U;
-        while (cursor.try_get_parent_entity(parent) && iteration_count < max_parent_depth)
+        static constexpr size_t MAX_PARENT_DEPTH = 1024U;
+        while (cursor.try_get_parent_entity(parent) && iteration_count < MAX_PARENT_DEPTH)
         {
             if (parent.get_id() == cursor.get_id())
                 break;
@@ -231,8 +243,7 @@ namespace tbx
             if (parent.has_component<Transform>())
             {
                 const auto& parent_transform = parent.get_component<Transform>();
-                world_transform =
-                    internal::compose_world_space_transform(parent_transform, world_transform);
+                world_transform = compose_world_space_transform(parent_transform, world_transform);
             }
 
             cursor = parent;

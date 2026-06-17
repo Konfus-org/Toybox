@@ -1,23 +1,169 @@
 #include "tbx/interfaces/file_ops.h"
-#include "systems/assets/internal/asset_registry_internal.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
-#include <filesystem>
-#include <memory>
-#include <string>
-#include <string_view>
+
 namespace tbx
 {
+    static Result make_failed_result(std::string report)
+    {
+        auto result = Result();
+        result.failure(std::move(report));
+        return result;
+    }
+
+    static void append_report(Result& result, std::string report)
+    {
+        if (report.empty())
+        {
+            return;
+        }
+
+        auto merged = result.get_report();
+        if (!merged.empty())
+        {
+            merged.append("; ");
+        }
+        merged.append(report);
+
+        if (result.succeeded())
+        {
+            result.ok(std::move(merged));
+            return;
+        }
+
+        result.failure(std::move(merged));
+    }
+
+    static void merge_result(Result& destination, const Result& source)
+    {
+        append_report(destination, source.get_report());
+        if (!source.succeeded() && destination.succeeded())
+        {
+            destination.failure(destination.get_report());
+        }
+    }
+
+    static bool is_duplicate_asset_id_result(const Result& result)
+    {
+        return !result.succeeded() && result.get_report().starts_with("Duplicate asset id=");
+    }
+
+    static bool path_contains_directory_token(
+        const std::filesystem::path& path,
+        std::string_view directory_name_lowered)
+    {
+        if (directory_name_lowered.empty())
+            return false;
+
+        for (const auto& part : path)
+        {
+            if (tbx::to_lower(part.string()) == directory_name_lowered)
+                return true;
+        }
+
+        return false;
+    }
+
+    static bool path_is_same_or_inside_directory(
+        const std::filesystem::path& path,
+        const std::filesystem::path& directory)
+    {
+        if (path.empty() || directory.empty())
+            return false;
+
+        const auto normalized_path = path.lexically_normal();
+        const auto normalized_directory = directory.lexically_normal();
+        auto path_iterator = normalized_path.begin();
+
+        for (auto directory_iterator = normalized_directory.begin();
+             directory_iterator != normalized_directory.end();
+             ++directory_iterator, ++path_iterator)
+        {
+            if (path_iterator == normalized_path.end() || *path_iterator != *directory_iterator)
+                return false;
+        }
+
+        return true;
+    }
+
+    static bool is_non_asset_file(const std::filesystem::path& path)
+    {
+        const auto lowered_name = tbx::to_lower(path.filename().string());
+        if (lowered_name == "cmakelists.txt")
+            return true;
+
+        const auto lowered_extension = tbx::to_lower(path.extension().string());
+        return lowered_extension == ".cmake" || lowered_extension == ".h"
+               || lowered_extension == ".hh" || lowered_extension == ".hpp"
+               || lowered_extension == ".c" || lowered_extension == ".cc"
+               || lowered_extension == ".cpp" || lowered_extension == ".cxx"
+               || lowered_extension == ".in" || lowered_extension == ".log";
+    }
+
+    static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
+    {
+        auto meta_path = asset_path;
+        meta_path += ".meta";
+        return meta_path;
+    }
+
+    static std::unique_ptr<Handle> try_read_handle_from_meta(
+        const IFileOps& file_ops,
+        const std::filesystem::path& asset_path)
+    {
+        if (asset_path.empty())
+            return nullptr;
+
+        const auto meta_path = make_meta_path(asset_path);
+        if (!file_ops.exists(meta_path))
+            return nullptr;
+
+        auto contents = std::string();
+        if (!file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, contents))
+            return nullptr;
+
+        try
+        {
+            auto data = JsonParser::parse(contents);
+            auto id = Uuid();
+            JsonParser::try_get(data, "id", id);
+
+            if (!id.is_valid())
+            {
+                auto id_value = uint32 {};
+                if (JsonParser::try_get(data, "id", id_value) && id_value != 0U)
+                {
+                    id = Uuid(id_value);
+                }
+            }
+
+            if (!id.is_valid())
+            {
+                return nullptr;
+            }
+
+            return std::make_unique<Handle>(asset_path.lexically_normal().generic_string(), id);
+        }
+        catch (...)
+        {
+            return nullptr;
+        }
+    }
+
     bool AssetRegistry::should_track_asset_path(const std::filesystem::path& asset_path)
     {
         if (asset_path.empty())
             return false;
-        if (internal::path_contains_directory_token(asset_path, "generated"))
+        if (path_contains_directory_token(asset_path, "generated"))
             return false;
-        if (internal::is_non_asset_file(asset_path))
+        // Build output is never source content: it holds compiled binaries, logs, and copies of
+        // assets only bundled on release. Project assets are tracked from the source tree instead.
+        if (path_contains_directory_token(asset_path, "build"))
+            return false;
+        if (is_non_asset_file(asset_path))
             return false;
         return asset_path.extension() != ".meta";
     }
@@ -25,27 +171,36 @@ namespace tbx
     AssetRegistry::AssetRegistry(
         std::filesystem::path working_directory,
         HandleSource handle_source,
-        std::shared_ptr<IFileOps> file_ops)
+        std::weak_ptr<IFileOps> file_ops)
         : _handle_source(std::move(handle_source))
         , _file_ops(std::move(file_ops))
     {
-        if (!_file_ops)
-            _file_ops = std::make_shared<FileOperator>(std::move(working_directory));
+        auto file_ops_service = lock_file_ops();
+        if (!file_ops_service)
+        {
+            _owned_file_ops = std::make_shared<FileOperator>(std::move(working_directory));
+            _file_ops = _owned_file_ops;
+            file_ops_service = _owned_file_ops;
+        }
 
-        _working_directory = _file_ops->get_working_directory();
+        _working_directory = file_ops_service->get_working_directory();
     }
 
     Result AssetRegistry::add_asset_directory(const std::filesystem::path& path)
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
+
         if (path.empty())
         {
-            return internal::make_failed_result("Cannot add an empty asset directory path.");
+            return make_failed_result("Cannot add an empty asset directory path.");
         }
 
-        auto resolved = _file_ops->resolve(path);
+        auto resolved = file_ops->resolve(path);
         if (resolved.empty())
         {
-            return internal::make_failed_result("Failed to resolve asset directory path.");
+            return make_failed_result("Failed to resolve asset directory path.");
         }
 
         const bool is_duplicate = std::any_of(
@@ -57,34 +212,83 @@ namespace tbx
             });
         if (is_duplicate)
         {
-            auto result = Result {};
-            result.flag_success("Asset directory is already tracked.");
+            auto result = Result();
+            result.ok("Asset directory is already tracked.");
             return result;
         }
 
         _asset_directories.push_back(resolved);
 
-        auto result = Result {};
-        result.flag_success("Tracking asset directory.");
+        auto result = Result();
+        result.ok("Tracking asset directory.");
 
         const auto scan_result = scan_asset_directory(resolved);
-        internal::merge_result(result, scan_result);
+        merge_result(result, scan_result);
+        return result;
+    }
+
+    AssetRegistryDirectoryRemovalResult AssetRegistry::remove_asset_directory(
+        const std::filesystem::path& path)
+    {
+        auto result = AssetRegistryDirectoryRemovalResult();
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+        {
+            result.result = make_failed_result("Asset registry has no file operations.");
+            return result;
+        }
+
+        if (path.empty())
+        {
+            result.result = make_failed_result("Cannot remove an empty asset directory path.");
+            return result;
+        }
+
+        const auto resolved = file_ops->resolve(path).lexically_normal();
+        const auto directory_iterator =
+            std::find(_asset_directories.begin(), _asset_directories.end(), resolved);
+        if (directory_iterator == _asset_directories.end())
+        {
+            result.result.ok("Asset directory is not tracked.");
+            return result;
+        }
+
+        _asset_directories.erase(directory_iterator);
+
+        for (auto entry_iterator = _entries_by_path.begin();
+             entry_iterator != _entries_by_path.end();)
+        {
+            const auto normalized =
+                std::filesystem::path(entry_iterator->second.normalized_path).lexically_normal();
+            if (path_is_same_or_inside_directory(normalized, resolved))
+            {
+                result.entries.push_back(entry_iterator->second);
+                if (entry_iterator->second.asset_id.is_valid())
+                    _path_by_id.erase(entry_iterator->second.asset_id);
+                entry_iterator = _entries_by_path.erase(entry_iterator);
+                continue;
+            }
+
+            ++entry_iterator;
+        }
+
+        result.result.ok("Stopped tracking asset directory.");
         return result;
     }
 
     Result AssetRegistry::ensure_asset_id(const Handle& handle, Uuid& out_asset_id)
     {
-        if (handle.get_name().empty())
+        if (handle.name.empty())
         {
-            if (!handle.get_id().is_valid())
+            if (!handle.id.is_valid())
             {
-                return internal::make_failed_result(
+                return make_failed_result(
                     "Cannot ensure asset id: handle has no path and no valid id.");
             }
 
-            auto entry = find_entry_by_id(handle.get_id());
-            out_asset_id = entry.has_value() ? entry->get().asset_id : handle.get_id();
-            return {};
+            auto entry = find_entry_by_id(handle.id);
+            out_asset_id = entry.has_value() ? entry->get().asset_id : handle.id;
+            return Result();
         }
 
         auto ensure_result = ensure_entry(handle);
@@ -95,9 +299,9 @@ namespace tbx
 
         if (!ensure_result.entry.has_value() || !ensure_result.entry->get().asset_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Resolved asset entry for '")
-                    .append(handle.get_name())
+                    .append(handle.name)
                     .append("' does not contain a valid id."));
         }
 
@@ -107,20 +311,20 @@ namespace tbx
 
     AssetRegistryEntryResult AssetRegistry::ensure_entry(const Handle& handle)
     {
-        auto result = AssetRegistryEntryResult {};
+        auto result = AssetRegistryEntryResult();
 
-        if (!handle.get_name().empty())
+        if (!handle.name.empty())
         {
-            auto& entry = get_or_create_path_entry(handle.get_name());
+            auto& entry = get_or_create_path_entry(handle.name);
             if (entry.asset_id.is_valid())
             {
                 result.entry = std::cref(entry);
                 return result;
             }
 
-            auto asset_id = Uuid {};
+            auto asset_id = Uuid();
             const auto resolve_result = resolve_or_repair_asset_id(entry, asset_id);
-            internal::merge_result(result.result, resolve_result);
+            merge_result(result.result, resolve_result);
             if (!resolve_result.succeeded())
             {
                 return result;
@@ -129,17 +333,17 @@ namespace tbx
             if (!asset_id.is_valid())
             {
                 asset_id = make_runtime_asset_id(entry.normalized_path);
-                internal::append_report(
+                append_report(
                     result.result,
                     std::string("Resolved an invalid asset id for '")
                         .append(entry.normalized_path)
                         .append("'. Using runtime id=")
-                        .append(to_string(asset_id))
+                        .append(std::format("{}", asset_id))
                         .append("."));
             }
 
             const auto assign_result = try_assign_asset_id(entry, asset_id);
-            internal::merge_result(result.result, assign_result);
+            merge_result(result.result, assign_result);
             if (!assign_result.succeeded())
             {
                 return result;
@@ -149,19 +353,19 @@ namespace tbx
             return result;
         }
 
-        if (!handle.get_id().is_valid())
+        if (!handle.id.is_valid())
         {
-            result.result = internal::make_failed_result(
-                "Cannot resolve an asset entry from an invalid handle id.");
+            result.result =
+                make_failed_result("Cannot resolve an asset entry from an invalid handle id.");
             return result;
         }
 
-        auto entry = find_entry_by_id(handle.get_id());
+        auto entry = find_entry_by_id(handle.id);
         if (!entry.has_value())
         {
-            result.result = internal::make_failed_result(
+            result.result = make_failed_result(
                 std::string("No registered asset entry exists for id=")
-                    .append(to_string(handle.get_id()))
+                    .append(std::format("{}", handle.id))
                     .append("."));
             return result;
         }
@@ -173,17 +377,17 @@ namespace tbx
     std::optional<std::reference_wrapper<const AssetRegistryEntry>> AssetRegistry::find_entry(
         const Handle& handle) const
     {
-        if (!handle.get_name().empty())
+        if (!handle.name.empty())
         {
-            auto entry = find_entry_by_path(handle.get_name());
+            auto entry = find_entry_by_path(handle.name);
             if (entry.has_value())
                 return entry;
         }
 
-        if (!handle.get_id().is_valid())
+        if (!handle.id.is_valid())
             return std::nullopt;
 
-        return find_entry_by_id(handle.get_id());
+        return find_entry_by_id(handle.id);
     }
 
     std::vector<std::filesystem::path> AssetRegistry::get_asset_directories() const
@@ -191,13 +395,23 @@ namespace tbx
         return _asset_directories;
     }
 
+    std::vector<AssetRegistryEntry> AssetRegistry::get_entries() const
+    {
+        auto entries = std::vector<AssetRegistryEntry>();
+        entries.reserve(_entries_by_path.size());
+        for (const auto& [path, entry] : _entries_by_path)
+            entries.push_back(entry);
+
+        return entries;
+    }
+
     AssetRegistryMutationResult AssetRegistry::register_discovered_asset(
         const std::filesystem::path& asset_path)
     {
-        auto result = AssetRegistryMutationResult {};
+        auto result = AssetRegistryMutationResult();
         if (!should_track_asset_path(asset_path))
         {
-            result.result = internal::make_failed_result("Path is not a tracked asset.");
+            result.result = make_failed_result("Path is not a tracked asset.");
             return result;
         }
 
@@ -208,16 +422,16 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(entry, discovered_id);
-                internal::merge_result(result.result, assign_result);
+                merge_result(result.result, assign_result);
                 if (!assign_result.succeeded())
                 {
                     return result;
                 }
 
-                internal::append_report(
+                append_report(
                     result.result,
                     std::string("Indexed discovered asset id=")
-                        .append(to_string(discovered_id))
+                        .append(std::format("{}", discovered_id))
                         .append(" for '")
                         .append(entry.normalized_path)
                         .append("'."));
@@ -231,12 +445,12 @@ namespace tbx
     AssetRegistryMutationResult AssetRegistry::unregister_asset(
         const std::filesystem::path& asset_path)
     {
-        auto result = AssetRegistryMutationResult {};
+        auto result = AssetRegistryMutationResult();
         const auto normalized_path = normalize_path_string(asset_path);
         auto iterator = _entries_by_path.find(normalized_path);
         if (iterator == _entries_by_path.end())
         {
-            result.result = internal::make_failed_result(
+            result.result = make_failed_result(
                 std::string("Asset path is not registered: '")
                     .append(normalized_path)
                     .append("'."));
@@ -255,6 +469,10 @@ namespace tbx
     std::filesystem::path AssetRegistry::resolve_asset_path(
         const std::filesystem::path& asset_path) const
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return {};
+
         if (asset_path.empty())
             return asset_path;
         if (asset_path.is_absolute())
@@ -265,25 +483,25 @@ namespace tbx
             if (root.empty())
                 continue;
 
-            auto candidate = _file_ops->resolve(root / asset_path);
-            if (_file_ops->exists(candidate))
+            auto candidate = file_ops->resolve(root / asset_path);
+            if (file_ops->exists(candidate))
                 return candidate;
         }
 
-        return _file_ops->resolve(asset_path);
+        return file_ops->resolve(asset_path);
     }
 
     std::filesystem::path AssetRegistry::resolve_asset_path(const Handle& handle) const
     {
-        if (!handle.get_name().empty())
+        if (!handle.name.empty())
         {
-            return resolve_asset_path(std::filesystem::path(handle.get_name()));
+            return resolve_asset_path(std::filesystem::path(handle.name));
         }
 
-        if (!handle.get_id().is_valid())
+        if (!handle.id.is_valid())
             return {};
 
-        auto entry = find_entry_by_id(handle.get_id());
+        auto entry = find_entry_by_id(handle.id);
         if (!entry.has_value())
             return {};
 
@@ -292,17 +510,21 @@ namespace tbx
 
     Result AssetRegistry::scan_asset_directory(const std::filesystem::path& root)
     {
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
+
         if (root.empty())
         {
-            return internal::make_failed_result("Cannot scan an empty asset directory root.");
+            return make_failed_result("Cannot scan an empty asset directory root.");
         }
 
-        auto result = Result {};
-        auto entries = _file_ops->read_directory(root);
+        auto result = Result();
+        auto entries = file_ops->read_directory(root);
         auto asset_entries = std::vector<std::filesystem::path>();
         for (const auto& entry : entries)
         {
-            if (_file_ops->get_type(entry) != FileType::FILE)
+            if (file_ops->get_type(entry) != FileType::FILE)
                 continue;
             if (!should_track_asset_path(entry))
                 continue;
@@ -331,7 +553,16 @@ namespace tbx
             if (discovered_id.is_valid())
             {
                 const auto assign_result = try_assign_asset_id(registry_entry, discovered_id);
-                internal::merge_result(result, assign_result);
+                if (is_duplicate_asset_id_result(assign_result))
+                {
+                    append_report(
+                        result,
+                        std::string("Skipped discovered duplicate asset: ")
+                            .append(assign_result.get_report()));
+                    continue;
+                }
+
+                merge_result(result, assign_result);
             }
         }
 
@@ -421,9 +652,13 @@ namespace tbx
         AssetRegistryEntry entry = {};
         entry.resolved_path = std::move(resolved_path);
         entry.normalized_path = normalized_path;
-        auto [inserted, was_inserted] = _entries_by_path.emplace(normalized_path, std::move(entry));
-        static_cast<void>(was_inserted);
+        auto inserted = _entries_by_path.emplace(normalized_path, std::move(entry)).first;
         return inserted->second;
+    }
+
+    std::shared_ptr<IFileOps> AssetRegistry::lock_file_ops() const
+    {
+        return _file_ops.lock();
     }
 
     std::string AssetRegistry::normalize_path_string(const std::filesystem::path& asset_path) const
@@ -436,78 +671,81 @@ namespace tbx
         if (_handle_source)
         {
             auto handle = Handle();
-            if (_handle_source(entry.resolved_path, handle) && handle.get_id().is_valid())
+            if (_handle_source(entry.resolved_path, handle) && handle.id.is_valid())
             {
-                return handle.get_id();
+                return handle.id;
             }
         }
 
-        auto meta_path = internal::make_meta_path(entry.resolved_path);
-        if (!_file_ops->exists(meta_path))
+        auto meta_path = make_meta_path(entry.resolved_path);
+        const auto file_ops = lock_file_ops();
+        if (!file_ops || !file_ops->exists(meta_path))
         {
             return {};
         }
 
-        auto parsed_handle = internal::try_read_handle_from_meta(*_file_ops, entry.resolved_path);
-        if (!parsed_handle || !parsed_handle->get_id().is_valid())
+        auto parsed_handle = try_read_handle_from_meta(*file_ops, entry.resolved_path);
+        if (!parsed_handle || !parsed_handle->id.is_valid())
         {
             return {};
         }
 
-        return parsed_handle->get_id();
+        return parsed_handle->id;
     }
 
     Result AssetRegistry::resolve_or_repair_asset_id(
         const AssetRegistryEntry& entry,
         Uuid& out_asset_id) const
     {
-        auto result = Result {};
+        auto result = Result();
+        const auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Asset registry has no file operations.");
 
         if (_handle_source)
         {
             auto handle = Handle();
             if (_handle_source(entry.resolved_path, handle))
             {
-                if (handle.get_id().is_valid())
+                if (handle.id.is_valid())
                 {
-                    out_asset_id = handle.get_id();
+                    out_asset_id = handle.id;
                     return result;
                 }
 
                 out_asset_id = make_runtime_asset_id(entry.normalized_path);
-                internal::append_report(
+                append_report(
                     result,
                     std::string("Handle source returned an invalid id for '")
                         .append(entry.normalized_path)
                         .append("'. Using runtime id=")
-                        .append(to_string(out_asset_id))
+                        .append(std::format("{}", out_asset_id))
                         .append("."));
                 return result;
             }
         }
 
-        if (!_file_ops->exists(entry.resolved_path))
+        if (!file_ops->exists(entry.resolved_path))
         {
             out_asset_id = make_runtime_asset_id(entry.normalized_path);
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Requested asset '")
                     .append(entry.normalized_path)
                     .append("' was not found on disk. Using runtime id=")
-                    .append(to_string(out_asset_id))
+                    .append(std::format("{}", out_asset_id))
                     .append("."));
             return result;
         }
 
-        auto meta_path = internal::make_meta_path(entry.resolved_path);
+        auto meta_path = make_meta_path(entry.resolved_path);
 
-        if (_file_ops->exists(meta_path))
+        if (file_ops->exists(meta_path))
         {
-            auto parsed_handle =
-                internal::try_read_handle_from_meta(*_file_ops, entry.resolved_path);
-            if (parsed_handle && parsed_handle->get_id().is_valid())
+            auto parsed_handle = try_read_handle_from_meta(*file_ops, entry.resolved_path);
+            if (parsed_handle && parsed_handle->id.is_valid())
             {
-                out_asset_id = parsed_handle->get_id();
+                out_asset_id = parsed_handle->id;
                 return result;
             }
         }
@@ -515,7 +753,7 @@ namespace tbx
         auto generated_id = generate_unique_asset_id();
         if (!generated_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Failed to generate a valid id for asset '")
                     .append(entry.normalized_path)
                     .append("'."));
@@ -523,18 +761,18 @@ namespace tbx
 
         out_asset_id = generated_id;
 
-        if (!_file_ops->exists(meta_path))
+        if (!file_ops->exists(meta_path))
         {
             TBX_TRACE_WARNING(
                 "Missing metadata sidecar for asset '{}'. Generated in-memory id={}.",
                 entry.normalized_path,
-                to_string(generated_id));
-            internal::append_report(
+                generated_id);
+            append_report(
                 result,
                 std::string("Missing metadata for asset '")
                     .append(entry.normalized_path)
                     .append("'. Generated in-memory id=")
-                    .append(to_string(generated_id))
+                    .append(std::format("{}", generated_id))
                     .append("."));
         }
         else
@@ -542,13 +780,13 @@ namespace tbx
             TBX_TRACE_WARNING(
                 "Invalid metadata sidecar for asset '{}'. Generated in-memory id={}.",
                 entry.normalized_path,
-                to_string(generated_id));
-            internal::append_report(
+                generated_id);
+            append_report(
                 result,
                 std::string("Invalid metadata for asset '")
                     .append(entry.normalized_path)
                     .append("'. Generated in-memory id=")
-                    .append(to_string(generated_id))
+                    .append(std::format("{}", generated_id))
                     .append("."));
         }
 
@@ -559,14 +797,14 @@ namespace tbx
     {
         if (!asset_id.is_valid())
         {
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Cannot assign an invalid id to asset '")
                     .append(entry.normalized_path)
                     .append("'."));
         }
         if (entry.asset_id == asset_id)
         {
-            return {};
+            return Result();
         }
 
         auto iterator = _path_by_id.find(asset_id);
@@ -579,9 +817,9 @@ namespace tbx
                 existing_path = existing_entry_iterator->second.normalized_path;
             }
 
-            return internal::make_failed_result(
+            return make_failed_result(
                 std::string("Duplicate asset id=")
-                    .append(to_string(asset_id))
+                    .append(std::format("{}", asset_id))
                     .append(" for '")
                     .append(entry.normalized_path)
                     .append("'; already used by '")
@@ -589,17 +827,17 @@ namespace tbx
                     .append("'."));
         }
 
-        auto result = Result {};
+        auto result = Result();
         if (entry.asset_id.is_valid())
         {
-            internal::append_report(
+            append_report(
                 result,
                 std::string("Reassigned asset id for '")
                     .append(entry.normalized_path)
                     .append("' from ")
-                    .append(to_string(entry.asset_id))
+                    .append(std::format("{}", entry.asset_id))
                     .append(" to ")
-                    .append(to_string(asset_id))
+                    .append(std::format("{}", asset_id))
                     .append("."));
             _path_by_id.erase(entry.asset_id);
         }

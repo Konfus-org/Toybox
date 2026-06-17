@@ -1,27 +1,28 @@
-#include "tbx/types/uuid.h"
-#include "types/internal/uuid_internal.h"
-#include <functional>
-#include <limits>
+#include <charconv>
 #include <random>
-#include <sstream>
-#include <string>
+
 namespace tbx
 {
+    static uint64 combine_value(uint64 seed, uint64 value)
+    {
+        auto hashed = std::hash<uint64> {}(value);
+        seed ^= hashed + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+
     Uuid::Uuid() = default;
-    Uuid::Uuid(uint32 v)
+    Uuid::Uuid(uint64 v)
         : value(v)
     {
     }
 
     Uuid Uuid::generate()
     {
-        Uuid id = {};
-
         std::random_device rd;
-        std::mt19937 generator(rd());
-        std::uniform_int_distribution<uint32> dist(1u, std::numeric_limits<uint32>::max());
+        std::mt19937_64 generator(rd());
+        std::uniform_int_distribution<uint64> dist(1u, std::numeric_limits<uint64>::max());
 
-        id.value = dist(generator);
+        Uuid id = dist(generator);
 
         return id;
     }
@@ -34,11 +35,9 @@ namespace tbx
 
     void Uuid::combine(uint32 value)
     {
-        this->value = internal::combine_value(this->value, value);
+        this->value = combine_value(this->value, value);
         if (this->value == 0U)
-        {
             this->value = 1U;
-        }
     }
 
     bool Uuid::is_valid() const
@@ -78,7 +77,7 @@ namespace tbx
 
     Uuid::operator uint32() const
     {
-        return value;
+        return static_cast<uint32>(value);
     }
 
     bool Uuid::operator==(const Uuid& other) const
@@ -91,10 +90,33 @@ namespace tbx
         return !(value == other.value);
     }
 
-    std::string to_string(const Uuid& value)
+    Uuid parse_uuid(std::string_view value)
     {
-        std::ostringstream stream = {};
-        stream << std::hex << value.value;
-        return stream.str();
+        auto trimmed = value;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front())) != 0)
+            trimmed.remove_prefix(1U);
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())) != 0)
+            trimmed.remove_suffix(1U);
+        if (trimmed.empty())
+            return {};
+
+        if (trimmed.size() > 2U && trimmed[0] == '0' && (trimmed[1] == 'x' || trimmed[1] == 'X'))
+            trimmed.remove_prefix(2U);
+
+        auto parsed = uint64();
+        const auto* begin = trimmed.data();
+        const auto* end = trimmed.data() + trimmed.size();
+        const auto result = std::from_chars(begin, end, parsed, 16);
+        if (result.ec != std::errc() || result.ptr != end || parsed == 0U)
+            return {};
+
+        return Uuid(parsed);
+    }
+
+    Uuid hash_string_to_id(std::string_view handle_name)
+    {
+        const auto hasher = std::hash<std::string_view>();
+        const auto hashed = static_cast<uint64>(hasher(handle_name));
+        return hashed == 0U ? Uuid(uint64 {1U}) : Uuid(hashed);
     }
 }

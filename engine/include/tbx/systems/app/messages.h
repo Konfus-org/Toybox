@@ -2,7 +2,6 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
 
 namespace tbx
 {
@@ -38,5 +37,18 @@ namespace tbx
 
     struct TBX_API ExitApplicationRequest : public Request<void>
     {
+    };
+
+    /// @brief
+    /// Purpose: Pauses or resumes simulation (world, scripts, fixed updates) while rendering and
+    /// plugins keep running, so external tools can freeze gameplay without losing their view.
+    struct TBX_API SetApplicationPausedRequest : public Request<void>
+    {
+        explicit SetApplicationPausedRequest(bool paused)
+            : is_paused(paused)
+        {
+        }
+
+        bool is_paused = false;
     };
 }

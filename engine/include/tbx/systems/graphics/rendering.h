@@ -1,21 +1,33 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/ecs/entity_registry.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
-#include "tbx/systems/messaging/message.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
-#include "tbx/utils/result.h"
+#include "tbx/types/handle.h"
+#include "tbx/types/typedefs.h"
 #include <future>
-#include <memory>
 #include <mutex>
+#include <unordered_map>
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: Tracks the most recent in-flight frame for one render target so each target's
+    /// completion is observed independently while all GL work still funnels to the single
+    /// render lane.
+    struct RenderLane
+    {
+        std::future<void> frame = {};
+        uint64 last_touch = 0U;
+    };
+
+    // Shadow cascades are currently fixed in the renderer until graphics settings owns that policy.
     /// @brief
     /// Purpose: Orchestrates the per-frame render loop and submits frame work to the render lane.
     /// @details
@@ -27,11 +39,12 @@ namespace tbx
       public:
         Rendering(
             std::weak_ptr<IGraphicsBackend> backend,
-            std::weak_ptr<EntityRegistry> entity_registry,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<ThreadManager> thread_manager,
             std::weak_ptr<IWindowManager> window_manager,
-            const GraphicsSettings& settings);
+            std::weak_ptr<WorldManager> world_manager = {},
+            std::weak_ptr<IMessageCoordinator> message_coordinator = {},
+            Handle render_pipeline_script = {});
         ~Rendering() noexcept;
 
       public:
@@ -42,16 +55,25 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Renders the world for the current frame.
+        /// Purpose: Renders the world from the given camera view into the given target, which
+        /// may be a window or an in-memory render texture.
         /// @details
         /// Thread Safety: Call from the message dispatch thread while no frame is pending.
-        void render(const DeltaTime& delta_time);
+        void render(
+            const DeltaTime& delta_time,
+            const GraphicsSettings& settings,
+            const CameraView& camera_view,
+            const RenderTarget& output_target);
 
         /// @brief
-        /// Purpose: Applies graphics settings change messages to the renderer's cached settings.
+        /// Purpose: Registers a callback invoked on the render lane right before each present,
+        /// while the back buffer still holds the finished frame. Pass an empty callback to clear.
         /// @details
-        /// Thread Safety: Call from the message dispatch thread while no frame is pending.
-        void receive_message(Message& msg);
+        /// Thread Safety: Safe to call from any thread.
+        void set_pre_present_callback(
+            std::function<
+                void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
+                callback);
 
         /// @brief
         /// Purpose: Blocks until any previously dispatched render frame has finished.
@@ -61,18 +83,25 @@ namespace tbx
         void wait_for_pending_frame() noexcept;
 
       private:
-        void render_frame(const DeltaTime& delta_time);
-
+        void on_asset_reloaded(const AssetReloadedEvent& event);
+        void render_frame(
+            const DeltaTime& delta_time,
+            const GraphicsSettings& settings,
+            const CameraView& camera_view,
+            const RenderTarget& output_target);
         void wait_for_render_frame() noexcept;
+        void evict_stale_lanes();
 
+      private:
         std::weak_ptr<ThreadManager> _thread_manager;
+        std::weak_ptr<IMessageCoordinator> _message_coordinator;
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;
         RenderingPipeline _pipeline;
 
-        std::mutex _settings_mutex = {};
-        GraphicsSettings _settings;
-
-        std::future<void> _render_future = {};
+        std::unordered_map<uint64, RenderLane> _render_lanes = {};
+        uint64 _lane_touch_counter = 0U;
+        std::mutex _render_lanes_mutex = {};
+        Uuid _asset_reload_handler = {};
     };
 }

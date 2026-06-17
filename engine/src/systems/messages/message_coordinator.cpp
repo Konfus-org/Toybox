@@ -1,19 +1,140 @@
 #include "tbx/systems/messaging/message_coordinator.h"
 #include "tbx/systems/debugging/macros.h"
-#include "systems/messages/internal/message_coordinator_internal.h"
-#include <algorithm>
+#include <atomic>
 #include <exception>
-#include <mutex>
-#include <string>
-#include <utility>
+#include <future>
+
 namespace tbx
 {
+    static void update_result_for_state(
+        const Message& msg,
+        const MessageState& state,
+        const std::string& message)
+    {
+        switch (state)
+        {
+            case MessageState::HANDLED:
+            case MessageState::UN_HANDLED:
+            {
+                msg.result.ok(message);
+                break;
+            }
+            case MessageState::CANCELLED:
+            {
+                msg.result.failure(
+                    message.empty() ? std::string("Message was cancelled.") : message);
+                break;
+            }
+            case MessageState::ERROR:
+            {
+                msg.result.failure(
+                    message.empty() ? std::string("Message processing failed.") : message);
+                break;
+            }
+            default:
+            {
+                TBX_ASSERT(false, "Failed to process msg, error occured!");
+                break;
+            }
+        }
+    }
+
+    static void dispatch_state_callbacks(const Message& msg, const MessageState& state)
+    {
+        switch (state)
+        {
+            case MessageState::CANCELLED:
+            {
+                if (msg.callbacks.on_cancelled)
+                    msg.callbacks.on_cancelled(msg);
+                break;
+            }
+            case MessageState::ERROR:
+            {
+                if (msg.callbacks.on_error)
+                    msg.callbacks.on_error(msg);
+                break;
+            }
+            case MessageState::HANDLED:
+            case MessageState::UN_HANDLED:
+                break;
+            default:
+            {
+                TBX_ASSERT(false, "Cannot process, unknown message state!");
+                break;
+            }
+        }
+
+        if (msg.callbacks.on_processed)
+            msg.callbacks.on_processed(msg);
+    }
+
+    static void apply_state(Message& msg, MessageState state, const std::string& reason)
+    {
+        msg.state = state;
+        update_result_for_state(msg, state, reason);
+        dispatch_state_callbacks(msg, state);
+    }
+
+    static void handle_state_change(const Message& msg, const MessageState& previous_state)
+    {
+        if (msg.state == previous_state)
+            return;
+
+        update_result_for_state(msg, msg.state, std::string());
+        dispatch_state_callbacks(msg, msg.state);
+    }
+
+    static bool cancel_if_requested(Message& msg, const std::string& reason = std::string())
+    {
+        if (!msg.cancellation_token || !msg.cancellation_token.is_cancelled())
+            return false;
+
+        if (msg.state == MessageState::CANCELLED)
+            return true;
+
+        std::string resolved = reason.empty() ? std::string("Message was cancelled.") : reason;
+        apply_state(msg, MessageState::CANCELLED, resolved);
+
+        return true;
+    }
+
     // ----------------------
     // MessageCoordinator
     // ----------------------
 
+    struct QueuedMessage
+    {
+        std::unique_ptr<Message> message;
+    };
+
+    struct RegisteredHandler
+    {
+        Uuid id = {};
+        std::shared_ptr<MessageHandler> handler = nullptr;
+    };
+
+    struct MessageCoordinator::State
+    {
+        State()
+            : handlers_snapshot(std::make_shared<const std::vector<RegisteredHandler>>())
+        {
+        }
+
+        std::shared_ptr<const std::vector<RegisteredHandler>> get_handlers_snapshot() const
+        {
+            return handlers_snapshot.load(std::memory_order_acquire);
+        }
+
+        mutable std::mutex handlers_write_mutex = {};
+        mutable std::atomic<std::shared_ptr<const std::vector<RegisteredHandler>>>
+            handlers_snapshot = {};
+        mutable std::mutex pending_mutex = {};
+        mutable std::vector<QueuedMessage> pending = {};
+    };
+
     MessageCoordinator::MessageCoordinator()
-        : _handlers_snapshot(std::make_shared<const std::vector<RegisteredMessageHandler>>())
+        : _state(std::make_unique<State>())
     {
     }
 
@@ -26,56 +147,50 @@ namespace tbx
     Uuid MessageCoordinator::register_handler(MessageHandler handler)
     {
         Uuid id = Uuid::generate();
-        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+        std::lock_guard<std::mutex> lock(_state->handlers_write_mutex);
 
-        auto current = get_handlers_snapshot();
-        auto next = std::make_shared<std::vector<RegisteredMessageHandler>>(*current);
+        auto current = _state->get_handlers_snapshot();
+        auto next = std::make_shared<std::vector<RegisteredHandler>>(*current);
         next->push_back(
-            RegisteredMessageHandler {
+            RegisteredHandler {
                 .id = id,
                 .handler = std::make_shared<MessageHandler>(std::move(handler)),
             });
-        _handlers_snapshot.store(next, std::memory_order_release);
+        _state->handlers_snapshot.store(next, std::memory_order_release);
 
         return id;
     }
 
     void MessageCoordinator::deregister_handler(const Uuid& token)
     {
-        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+        std::lock_guard<std::mutex> lock(_state->handlers_write_mutex);
 
-        auto current = get_handlers_snapshot();
-        auto next = std::make_shared<std::vector<RegisteredMessageHandler>>(*current);
+        auto current = _state->get_handlers_snapshot();
+        auto next = std::make_shared<std::vector<RegisteredHandler>>(*current);
         std::erase_if(
             *next,
-            [&](const RegisteredMessageHandler& entry)
+            [&](const RegisteredHandler& entry)
             {
                 return entry.id == token;
             });
-        _handlers_snapshot.store(next, std::memory_order_release);
+        _state->handlers_snapshot.store(next, std::memory_order_release);
     }
 
     void MessageCoordinator::clear_handlers()
     {
-        std::lock_guard<std::mutex> lock(_handlers_write_mutex);
+        std::lock_guard<std::mutex> lock(_state->handlers_write_mutex);
 
-        auto cleared = std::make_shared<const std::vector<RegisteredMessageHandler>>();
-        _handlers_snapshot.store(cleared, std::memory_order_release);
-    }
-
-    std::shared_ptr<const std::vector<RegisteredMessageHandler>> MessageCoordinator::
-        get_handlers_snapshot() const
-    {
-        return _handlers_snapshot.load(std::memory_order_acquire);
+        auto cleared = std::make_shared<const std::vector<RegisteredHandler>>();
+        _state->handlers_snapshot.store(cleared, std::memory_order_release);
     }
 
     void MessageCoordinator::dispatch(Message& msg) const
     {
         try
         {
-            auto handlers_snapshot = get_handlers_snapshot();
+            auto handlers_snapshot = _state->get_handlers_snapshot();
 
-            if (internal::cancel_if_requested(msg))
+            if (cancel_if_requested(msg))
                 return;
 
             MessageState previous_state = msg.state;
@@ -85,9 +200,8 @@ namespace tbx
                 {
                     TBX_ASSERT(
                         false,
-                        "Message is registered as having a handler, but hanlder was null! This is "
-                        "a "
-                        "memory leak!");
+                        "A registered message handler slot held a null callable; skipping it. This "
+                        "indicates a handler was registered without a valid callable.");
                     continue;
                 }
 
@@ -95,7 +209,7 @@ namespace tbx
 
                 if (msg.state != previous_state)
                 {
-                    internal::handle_state_change(msg, previous_state);
+                    handle_state_change(msg, previous_state);
                     previous_state = msg.state;
                 }
 
@@ -105,7 +219,7 @@ namespace tbx
                     return;
                 if (msg.state == MessageState::ERROR)
                     return;
-                if (internal::cancel_if_requested(msg))
+                if (cancel_if_requested(msg))
                     return;
             }
 
@@ -114,7 +228,7 @@ namespace tbx
                 auto request = handle_message<RequestBase>(msg);
                 if (!request.has_value())
                 {
-                    internal::apply_state(msg, MessageState::UN_HANDLED, std::string());
+                    apply_state(msg, MessageState::UN_HANDLED, std::string());
                     return;
                 }
 
@@ -122,15 +236,15 @@ namespace tbx
                 {
                     case MessageNotHandledBehavior::DO_NOTHING:
                     {
-                        internal::apply_state(msg, MessageState::UN_HANDLED, std::string());
+                        apply_state(msg, MessageState::UN_HANDLED, std::string());
                         break;
                     }
                     case MessageNotHandledBehavior::WARN:
                     {
                         TBX_TRACE_WARNING(
-                            "Request was not handled (type: %s).",
+                            "Request was not handled (type: {}).",
                             typeid(msg).name());
-                        internal::apply_state(
+                        apply_state(
                             msg,
                             MessageState::ERROR,
                             "Request was not handled by any handlers.");
@@ -140,9 +254,9 @@ namespace tbx
                     {
                         TBX_ASSERT(
                             false,
-                            "Request required handling but was not handled (type: %s).",
+                            "Request required handling but was not handled (type: {}).",
                             typeid(msg).name());
-                        internal::apply_state(
+                        apply_state(
                             msg,
                             MessageState::ERROR,
                             "Request required handling but was not handled by any handlers.");
@@ -151,7 +265,7 @@ namespace tbx
                     default:
                     {
                         TBX_ASSERT(false, "Unknown MessageNotHandledBehavior.");
-                        internal::apply_state(
+                        apply_state(
                             msg,
                             MessageState::ERROR,
                             "Unknown request not-handled behavior.");
@@ -162,15 +276,12 @@ namespace tbx
         }
         catch (const std::exception& ex)
         {
-            internal::apply_state(msg, MessageState::ERROR, ex.what());
+            apply_state(msg, MessageState::ERROR, ex.what());
             TBX_ASSERT(false, "Exception during message dispatch: %s", ex.what());
         }
         catch (...)
         {
-            internal::apply_state(
-                msg,
-                MessageState::ERROR,
-                "Unknown exception during message dispatch.");
+            apply_state(msg, MessageState::ERROR, "Unknown exception during message dispatch.");
             TBX_ASSERT(false, "Unknown exception during message dispatch.");
         }
     }
@@ -200,8 +311,8 @@ namespace tbx
         };
 
         {
-            std::lock_guard<std::mutex> lock(_pending_mutex);
-            _pending.emplace_back(QueuedMessage {std::move(msg)});
+            std::lock_guard<std::mutex> lock(_state->pending_mutex);
+            _state->pending.emplace_back(QueuedMessage {std::move(msg)});
         }
 
         return future;
@@ -211,8 +322,8 @@ namespace tbx
     {
         std::vector<QueuedMessage> processing;
         {
-            std::lock_guard<std::mutex> lock(_pending_mutex);
-            processing.swap(_pending);
+            std::lock_guard<std::mutex> lock(_state->pending_mutex);
+            processing.swap(_state->pending);
         }
 
         for (auto& entry : processing)
@@ -223,11 +334,11 @@ namespace tbx
             }
             catch (const std::exception& ex)
             {
-                internal::apply_state(*entry.message, MessageState::ERROR, ex.what());
+                apply_state(*entry.message, MessageState::ERROR, ex.what());
             }
             catch (...)
             {
-                internal::apply_state(
+                apply_state(
                     *entry.message,
                     MessageState::ERROR,
                     "Unknown exception during message dispatch.");

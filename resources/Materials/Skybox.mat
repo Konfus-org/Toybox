@@ -1,27 +1,151 @@
 {
-  "shaders": { "vertex": "0000013D", "fragment": "0000013E" },
-  "config": {
-    "depth": {
-      "test": false,
-      "write": false,
-      "prepass": false,
-      "function": "less"
+    "shader": {
+        "type": "shader_program",
+        "value": {
+            "vertex": {
+                "type": "handle",
+                "value": 317
+            },
+            "fragment": {
+                "type": "handle",
+                "value": 318
+            },
+            "tesselation": {
+                "type": "handle",
+                "value": 0
+            },
+            "geometry": {
+                "type": "handle",
+                "value": 0
+            },
+            "computes": {
+                "type": "array",
+                "value": []
+            }
+        }
     },
-    "transparency": {
-      "blend_mode": "opaque"
+    "parameters": {
+        "type": "material_parameter_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "color"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "color",
+                        "value": {
+                            "r": 1,
+                            "g": 1,
+                            "b": 1,
+                            "a": 1
+                        }
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "brightness"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 1
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "ambient_multiplier"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 0
+                    }
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "blend_factor"
+                },
+                "data": {
+                    "type": "variant",
+                    "value": {
+                        "type": "float",
+                        "value": 0
+                    }
+                }
+            }
+        ]
     },
-    "cullable": false,
-    "two_sided": true,
-    "shadow_mode": "none"
-  },
-  "textures": [
-    { "name": "skybox_texture", "value": "" },
-    { "name": "secondary_skybox_texture", "value": "" }
-  ],
-  "parameters": [
-    { "name": "color", "type": "color", "value": [1.0, 1.0, 1.0, 1.0] },
-    { "name": "brightness", "type": "float", "value": 1.0 },
-    { "name": "ambient_multiplier", "type": "float", "value": 0.0 },
-    { "name": "blend_factor", "type": "float", "value": 0.0 }
-  ]
+    "textures": {
+        "type": "material_texture_bindings",
+        "value": [
+            {
+                "name": {
+                    "type": "string",
+                    "value": "skybox_texture"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            },
+            {
+                "name": {
+                    "type": "string",
+                    "value": "secondary_skybox_texture"
+                },
+                "texture": {
+                    "type": "handle",
+                    "value": 0
+                }
+            }
+        ]
+    },
+    "config": {
+        "type": "material_config",
+        "value": {
+            "is_depth_test_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_depth_write_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_depth_prepass_enabled": {
+                "type": "bool",
+                "value": false
+            },
+            "is_two_sided": {
+                "type": "bool",
+                "value": true
+            },
+            "is_cullable": {
+                "type": "bool",
+                "value": false
+            },
+            "depth_function": {
+                "type": "material_depth_function",
+                "value": "less"
+            },
+            "blend_mode": {
+                "type": "material_blend_mode",
+                "value": "opaque"
+            },
+            "shadow_mode": {
+                "type": "shadow_mode",
+                "value": "off"
+            }
+        }
+    }
 }

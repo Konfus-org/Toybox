@@ -10,35 +10,33 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include "tbx/types/matrices.generated.h"
 
 namespace tbx
 {
     /// @brief
     /// Purpose: Represents a 2x2 floating-point matrix compatible with GLM operations.
-    /// @details
-    /// Ownership: value type; callers own any copies created from this alias.
-    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Mat2")]];
+    [[array(2U)]];
     using Mat2 = glm::mat2;
 
     /// @brief
     /// Purpose: Represents a 3x3 floating-point matrix compatible with GLM operations.
-    /// @details
-    /// Ownership: value type; callers own any copies created from this alias.
-    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Mat3")]];
+    [[array(3U)]];
     using Mat3 = glm::mat3;
 
     /// @brief
     /// Purpose: Represents a 4x4 floating-point matrix compatible with GLM operations.
-    /// @details
-    /// Ownership: value type; callers own any copies created from this alias.
-    /// Thread Safety: immutable value semantics; safe for concurrent use when not shared mutably.
+    [[serializable]];
+    [[name("Mat4")]];
+    [[array(4U)]];
     using Mat4 = glm::mat4;
 
     /// @brief
     /// Purpose: Builds an orthographic projection matrix with the provided clip-space bounds.
-    /// @details
-    /// Ownership: returns a matrix by value; the caller owns the copy.
-    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 ortho_projection(
         float left,
         float right,
@@ -52,9 +50,6 @@ namespace tbx
 
     /// @brief
     /// Purpose: Builds a perspective projection matrix using a field of view specified in radians.
-    /// @details
-    /// Ownership: returns a matrix by value; the caller owns the copy.
-    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 perspective_projection(float fov_radians, float aspect, float z_near, float z_far)
     {
         return glm::perspective(fov_radians, aspect, z_near, z_far);
@@ -62,9 +57,6 @@ namespace tbx
 
     /// @brief
     /// Purpose: Converts a quaternion into its equivalent rotation matrix.
-    /// @details
-    /// Ownership: returns a matrix by value; the caller owns the copy.
-    /// Thread Safety: stateless wrapper; safe to call concurrently.
     inline Mat4 quaternion_to_mat4(const Quat& rotation)
     {
         return glm::toMat4(rotation);

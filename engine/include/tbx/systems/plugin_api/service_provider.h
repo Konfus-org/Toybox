@@ -1,13 +1,19 @@
 #pragma once
+#include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/systems/async/job_system.h"
+#include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/world/manager.h"
+#include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <memory>
-#include <type_traits>
 #include <typeindex>
-#include <typeinfo>
 #include <unordered_map>
-#include <utility>
+#include <vector>
 
 namespace tbx
 {
@@ -21,18 +27,18 @@ namespace tbx
     {
       public:
         ServiceProvider() = default;
-        ~ServiceProvider() noexcept = default;
+        ~ServiceProvider() noexcept;
 
       public:
         ServiceProvider(const ServiceProvider&) = delete;
         ServiceProvider& operator=(const ServiceProvider&) = delete;
-        ServiceProvider(ServiceProvider&&) noexcept = default;
-        ServiceProvider& operator=(ServiceProvider&&) noexcept = default;
+        ServiceProvider(ServiceProvider&&) = delete;
+        ServiceProvider& operator=(ServiceProvider&&) = delete;
 
       public:
         template <typename TService, typename TImplementation = TService>
             requires std::derived_from<TImplementation, TService>
-        void register_service(std::unique_ptr<TImplementation> service);
+        void register_service(std::shared_ptr<TImplementation> service);
 
         template <typename TService>
         bool has_service() const;
@@ -52,28 +58,26 @@ namespace tbx
         template <typename TService>
         void deregister_service();
 
+        void deregister_service(std::type_index service_type);
         void clear();
 
       private:
-        struct ServiceEntryBase
-        {
-            virtual ~ServiceEntryBase() noexcept = default;
-        };
-
+        struct ServiceEntryBase;
         template <typename TService>
-        struct ServiceEntry final : ServiceEntryBase
-        {
-            ServiceEntry(std::unique_ptr<TService> value)
-                : service(std::move(value))
-            {
-            }
-
-            std::shared_ptr<TService> service = nullptr;
-        };
+        struct ServiceEntry;
+        using Entries = std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>>;
 
       private:
-        std::unordered_map<std::type_index, std::unique_ptr<ServiceEntryBase>> _entries = {};
+        void erase_service(std::type_index service_type);
+        void forget_registration_order(std::type_index service_type);
+        void remember_registration_order(std::type_index service_type);
+
+      private:
+        Entries _entries = {};
+        std::vector<std::type_index> _registration_order = {};
     };
+
+    TBX_API void register_default_services(ServiceProvider& service_provider);
 }
 
 #include "tbx/systems/plugin_api/service_provider.inl"

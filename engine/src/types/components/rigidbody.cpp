@@ -1,5 +1,4 @@
 #include "tbx/types/components/rigidbody.h"
-#include <cmath>
 
 namespace tbx
 {

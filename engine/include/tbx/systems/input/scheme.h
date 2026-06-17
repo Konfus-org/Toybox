@@ -1,11 +1,6 @@
 #pragma once
 #include "tbx/systems/input/action.h"
-#include <functional>
 #include <initializer_list>
-#include <optional>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace tbx
 {
@@ -14,6 +9,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns stored actions.
     /// Thread Safety: Not thread-safe; synchronize external access.
+    // TODO: make all constructors specify explicit. Except for Result, Uuid, and Handle those
+    // should be implicit.
     class TBX_API InputScheme
     {
       public:

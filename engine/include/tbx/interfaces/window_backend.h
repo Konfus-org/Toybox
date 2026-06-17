@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/types/window.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/window.h"
 #include <string>
 #include <vector>
 
@@ -34,15 +34,19 @@ namespace tbx
         virtual ~IWindowBackend() noexcept = default;
 
       public:
+        virtual void initialize() = 0;
+        virtual void shutdown() = 0;
+
+        virtual void pump_events(std::vector<WindowBackendEvent>& out_events) = 0;
+
         virtual bool create_window(
             const Window& window,
             const WindowCreateInfo& create_info,
             NativeWindowHandle& out_native_handle) = 0;
         virtual bool destroy_window(const Window& window) = 0;
+
         virtual bool set_window_mode(const Window& window, WindowMode mode) = 0;
         virtual bool set_window_title(const Window& window, const std::string& title) = 0;
         virtual bool set_window_size(const Window& window, const Size& size) = 0;
-        virtual void pump_events(std::vector<WindowBackendEvent>& out_events) = 0;
-        virtual void shutdown() = 0;
     };
 }

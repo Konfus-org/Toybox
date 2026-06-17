@@ -1,10 +1,6 @@
 #pragma once
 #include "tbx/systems/async/cancellation_token.h"
 #include "tbx/systems/time/span.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/typedefs.h"
-#include <functional>
-
 
 namespace tbx
 {
@@ -20,9 +16,15 @@ namespace tbx
         Timer(
             const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
-        Timer(Timer&& other) noexcept;
         ~Timer() noexcept = default;
 
+      public:
+        // TODO: Do we need a copy constructor and assignment ops? I would think this wouldn't be
+        // required as we don't have anything that needs lifetime transfer right?
+
+        Timer(Timer&& other) noexcept;
+
+      public:
         Timer& operator=(const Timer& other);
         Timer& operator=(Timer&& other) noexcept;
 

@@ -1,9 +1,13 @@
 #include "opengl_sampler.h"
-#include "internal/opengl_sampler_internal.h"
-#include <utility>
+
 namespace opengl_rendering
 {
-    OpenGlSampler::OpenGlSampler(const tbx::GraphicsSamplerDesc& desc)
+    static GLuint take_gl_handle(GLuint& handle) noexcept
+    {
+        return std::exchange(handle, 0U);
+    }
+
+    OpenGlSampler::OpenGlSampler(const tbx::SamplerDesc& desc)
     {
         glCreateSamplers(1, &_sampler_id);
 
@@ -27,7 +31,7 @@ namespace opengl_rendering
     }
 
     OpenGlSampler::OpenGlSampler(OpenGlSampler&& other) noexcept
-        : _sampler_id(internal::take_gl_handle(other._sampler_id))
+        : _sampler_id(take_gl_handle(other._sampler_id))
     {
     }
 
@@ -39,7 +43,7 @@ namespace opengl_rendering
         if (_sampler_id != 0U)
             glDeleteSamplers(1, &_sampler_id);
 
-        _sampler_id = internal::take_gl_handle(other._sampler_id);
+        _sampler_id = take_gl_handle(other._sampler_id);
         return *this;
     }
 

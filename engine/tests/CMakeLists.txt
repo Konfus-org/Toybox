@@ -1,12 +1,5 @@
-add_subdirectory(app)
-add_subdirectory(assets)
-add_subdirectory(async)
-add_subdirectory(files)
-add_subdirectory(math)
-add_subdirectory(messaging)
-add_subdirectory(input)
-add_subdirectory(plugin_api)
-add_subdirectory(ecs)
-add_subdirectory(graphics)
-add_subdirectory(time)
-add_subdirectory(utils)
+include(engine_test_targets)
+
+# Runtime reflection API coverage. Reflects engine-registered components (e.g. Transform) directly, so
+# no per-test attribute codegen is needed — the reflection records are registered inside the Engine DLL.
+tbx_add_engine_test(NAME ReflectionTests)

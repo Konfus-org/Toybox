@@ -1,75 +1,57 @@
-#include "tbx/plugins/sdl_input/sdl_input_plugin.h"
-#include "internal/sdl_input_plugin_internal.h"
-#include "sdl_input_manager.h"
+#include "sdl_input_plugin.h"
+#include "sdl_input_backend.h"
 #include "tbx/systems/debugging/macros.h"
-#include <memory>
+
 namespace sdl_input
 {
-    void SdlInputPlugin::on_attach(tbx::ServiceProvider& service_provider)
+    static constexpr Uint32 GamepadSubsystemMask = SDL_INIT_GAMEPAD;
+
+    void SdlInput::on_attach()
     {
-        service_provider.register_service<tbx::IInputManager>(std::make_unique<SdlInputManager>());
-        auto input_manager_service = service_provider.get_service<tbx::IInputManager>().lock();
-        TBX_ASSERT(
-            input_manager_service != nullptr,
-            "SDL input plugin requires IInputManager after service registration.");
-        if (!input_manager_service)
-            return;
-
-        auto input_manager = std::dynamic_pointer_cast<SdlInputManager>(input_manager_service);
-        TBX_ASSERT(input_manager != nullptr, "SDL input manager service has unexpected type.");
-        if (!input_manager)
-            return;
-
-        _input_manager = input_manager;
-
-        if ((SDL_WasInit(internal::GamepadSubsystemMask) & internal::GamepadSubsystemMask)
-            == internal::GamepadSubsystemMask)
+        if ((SDL_WasInit(GamepadSubsystemMask) & GamepadSubsystemMask) == GamepadSubsystemMask)
         {
             _owns_gamepad_subsystem = false;
-            SDL_AddEventWatch(accumulate_wheel_delta, this);
-            return;
         }
-
-        if (!SDL_InitSubSystem(internal::GamepadSubsystemMask))
+        else if (!SDL_InitSubSystem(GamepadSubsystemMask))
         {
             TBX_TRACE_ERROR("Failed to initialize SDL gamepad subsystem.");
             _owns_gamepad_subsystem = false;
-            SDL_AddEventWatch(accumulate_wheel_delta, this);
             return;
         }
-
+        else
+        {
+            _owns_gamepad_subsystem = true;
+        }
+        auto backend = input_backend.lock();
+        TBX_ASSERT(backend != nullptr, "SDL input backend service has unexpected type.");
+        if (!backend)
+            return;
         SDL_AddEventWatch(accumulate_wheel_delta, this);
-        _owns_gamepad_subsystem = true;
     }
 
-    void SdlInputPlugin::on_detach(tbx::ServiceProvider& service_provider)
+    void SdlInput::on_detach()
     {
         SDL_RemoveEventWatch(accumulate_wheel_delta, this);
-
-        if (service_provider.has_service<tbx::IInputManager>())
-            service_provider.deregister_service<tbx::IInputManager>();
-
-        _input_manager = {};
-
+        input_backend = {};
         if (_owns_gamepad_subsystem)
-            SDL_QuitSubSystem(internal::GamepadSubsystemMask);
+            SDL_QuitSubSystem(GamepadSubsystemMask);
         _owns_gamepad_subsystem = false;
     }
 
-    void SdlInputPlugin::on_update(const tbx::DeltaTime&)
+    void SdlInput::on_update(const tbx::DeltaTime&)
     {
-        if (auto input_manager = _input_manager.lock())
-            input_manager->update_backend_state();
+        if (auto backend = input_backend.lock())
+            backend->update_backend_state();
     }
 
-    bool SdlInputPlugin::accumulate_wheel_delta(void* userdata, SDL_Event* event)
+    bool SdlInput::accumulate_wheel_delta(void* userdata, SDL_Event* event)
     {
         if (!userdata || !event || event->type != SDL_EVENT_MOUSE_WHEEL)
             return true;
 
-        auto* plugin = static_cast<SdlInputPlugin*>(userdata);
-        if (auto input_manager = plugin->_input_manager.lock())
-            input_manager->add_wheel_delta(event->wheel.y);
+        auto* plugin = static_cast<SdlInput*>(userdata);
+        if (auto backend = plugin->input_backend.lock())
+            backend->add_wheel_delta(event->wheel.y);
         return true;
     }
 }

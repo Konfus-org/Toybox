@@ -16,6 +16,7 @@
 *.so
 *.dylib
 *.dll
+*.pyc
 
 # Fortran module files
 *.mod
@@ -36,6 +37,8 @@
 .vs/
 .vscode/
 .cache/
+.claude/
+.agent/
 
 # Solution Files
 *.vcxproj

@@ -1,8 +1,6 @@
 #pragma once
-#include "tbx/systems/files/serialization.h"
-#include "tbx/tbx_api.h"
-#include "tbx/types/handle.h"
-#include <vector>
+#include "tbx/types/components/component.h"
+#include "tbx/types/components/lods.generated.h"
 
 namespace tbx
 {
@@ -11,9 +9,13 @@ namespace tbx
     /// @details
     /// Ownership: Stores handles by value; does not own loaded model assets.
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
+    [[serializable]];
     struct TBX_API Lod
     {
+        [[prop]]
         Handle handle = {};
+
+        [[prop]]
         float max_distance = 0.0f;
     };
 
@@ -22,9 +24,14 @@ namespace tbx
     /// @details
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API Lods
+    [[serializable]];
+    [[icon("Layers", Color::GREY)]];
+    struct TBX_API Lods : Component
     {
+        [[prop]]
         std::vector<Lod> values = {};
+
+        [[prop]]
         float render_distance = 0.0f;
     };
 }
