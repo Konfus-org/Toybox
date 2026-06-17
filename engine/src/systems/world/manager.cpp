@@ -4,6 +4,7 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -130,6 +131,84 @@ namespace tbx
         _state->active_world_handle = Handle(world->id);
         _state->active_world = std::move(world);
         _state->active_world_from_asset = false;
+        return true;
+    }
+
+    bool WorldManager::save_active_world()
+    {
+        if (!_state->active_world || !_state->active_world_from_asset)
+            return false;
+
+        const auto asset_manager = _state->asset_manager.lock();
+        if (!asset_manager)
+            return false;
+
+        const auto serialization = asset_manager->get_serialization_registry().lock();
+        if (!serialization)
+            return false;
+
+        auto& world = *_state->active_world;
+
+        // Globals: every entity currently flagged global goes to the world's globals asset.
+        if (world.globals.is_valid())
+        {
+            auto globals_asset = WorldGlobals {};
+            for (const auto& entity : world.get_all())
+            {
+                if (world.is_global(entity.get_id()))
+                    globals_asset.entities.absorb(entity);
+            }
+
+            const auto path = asset_manager->resolve_path(world.globals);
+            if (path.empty() || !serialization->write(path, globals_asset))
+                return false;
+        }
+
+        // Chunks: each loaded chunk keeps its own entities; entities created since load that belong to no
+        // chunk are folded into the primary (lowest-coord) chunk so they persist.
+        const auto loaded_chunks = _state->chunk_loader->get_loaded_chunks(world);
+        if (loaded_chunks.empty())
+            return true;
+
+        auto assigned = std::unordered_set<Uuid> {};
+        for (const auto& chunk : loaded_chunks)
+            assigned.insert(chunk.entities.begin(), chunk.entities.end());
+
+        const auto primary = std::ranges::min_element(
+            loaded_chunks,
+            [](const LoadedChunkInfo& left, const LoadedChunkInfo& right)
+            {
+                return std::tie(left.coord.x, left.coord.y, left.coord.z)
+                       < std::tie(right.coord.x, right.coord.y, right.coord.z);
+            });
+
+        for (const auto& chunk : loaded_chunks)
+        {
+            auto chunk_asset = WorldChunk {};
+            chunk_asset.coord = chunk.coord;
+
+            for (const auto& id : chunk.entities)
+            {
+                if (world.has(id) && !world.is_global(id))
+                    chunk_asset.entities.absorb(world.get(id));
+            }
+
+            // The primary chunk also takes in any new, still-ungrouped runtime entities.
+            if (&chunk == &*primary)
+            {
+                for (const auto& entity : world.get_all())
+                {
+                    const auto id = entity.get_id();
+                    if (!world.is_global(id) && !assigned.contains(id))
+                        chunk_asset.entities.absorb(entity);
+                }
+            }
+
+            const auto path = asset_manager->resolve_path(chunk.handle);
+            if (path.empty() || !serialization->write(path, chunk_asset))
+                return false;
+        }
+
         return true;
     }
 

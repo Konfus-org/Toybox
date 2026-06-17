@@ -18,9 +18,21 @@ endif()
 include(cache_options)
 include(codegen)
 
+# Third-party dependencies are vendored with CMake FetchContent. There is no central
+# dependency list: the engine core and each plugin declare, configure, and make available
+# the dependencies they own, guarded by `if(NOT TARGET ...)` so a dependency shared by
+# several consumers is fetched once (first declaration wins). Only the global FetchContent
+# settings live here. Sources are cached under thirdparty/_deps (git-ignored) and shared
+# across build directories instead of re-downloaded per preset. (UPDATES_DISCONNECTED is
+# intentionally left at its default so that bumping a pinned GIT_TAG is always re-applied.)
+if(NOT DEFINED FETCHCONTENT_BASE_DIR)
+    set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/_deps" CACHE PATH
+        "Location for FetchContent-vendored third-party sources")
+endif()
+include(FetchContent)
+
 # Includes and subdirectories
 add_subdirectory(resources)
-add_subdirectory(thirdparty)
 add_subdirectory(engine)
 add_subdirectory(plugins)
 add_subdirectory(launcher)

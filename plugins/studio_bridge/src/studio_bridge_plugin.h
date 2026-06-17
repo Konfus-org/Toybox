@@ -119,6 +119,13 @@ namespace tbx::studio_bridge
         Result set_entity_name(const tbx::Json& params) const;
         // Promotes/demotes an entity between global (full-lifetime resident) and ordinary scene entity.
         Result set_entity_global(const tbx::Json& params) const;
+        // Persists the active world's current entities back to its chunk + globals asset files (File ▸ Save
+        // in the editor). Takes no params — the engine writes whichever world is active.
+        Result save_world() const;
+        // Persists an arbitrary registered asset the editor edited: deserializes the given JSON into a fresh
+        // instance of the named type and writes it back to the given (absolute) path via the serialization
+        // registry. Params: { type, path, json }.
+        Result save_asset(const tbx::Json& params) const;
         Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
         Result reflect_get(const tbx::Json& params, tbx::Json& out_node) const;
         Result reflect_set(const tbx::Json& params) const;

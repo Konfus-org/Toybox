@@ -1,3 +1,8 @@
+# This plugin owns glad (in-tree OpenGL loader).
+if(NOT TARGET glad::glad)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/thirdparty/glad" "${CMAKE_BINARY_DIR}/thirdparty/glad")
+endif()
+
 tbx_add_plugin(
     NAME OpenGlRendering
     PRIVATE_LINKS

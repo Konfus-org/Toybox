@@ -6,6 +6,59 @@ set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin co
 message(STATUS "")
 message(STATUS "Configuring Toybox Engine:")
 
+# The engine core owns its third-party dependencies. They are fetched here so the include
+# directories referenced below (glm/EnTT) and the link list at the bottom resolve.
+include(FetchContent)
+
+# EnTT (header-only ECS) — used publicly by the engine and by several plugins.
+if(NOT TARGET EnTT::EnTT)
+    set(ENTT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(entt
+        GIT_REPOSITORY https://github.com/skypjack/entt.git
+        GIT_TAG v3.14.0
+        GIT_SHALLOW TRUE
+        SYSTEM)
+    FetchContent_MakeAvailable(entt)
+endif()
+
+# glm (header-only math) — used publicly by the engine and by the physics plugin.
+if(NOT TARGET glm)
+    set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG 1.0.1
+        GIT_SHALLOW TRUE
+        SYSTEM)
+    FetchContent_MakeAvailable(glm)
+endif()
+
+# nlohmann_json (header-only) — engine serialization.
+if(NOT TARGET nlohmann_json)
+    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+    set(JSON_Install OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+        GIT_SHALLOW TRUE
+        SYSTEM)
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+# spdlog (compiled) — engine logging. v1.15.3 bundles an fmt new enough to pass its own
+# compile-time format-string checks under recent clang.
+if(NOT TARGET spdlog::spdlog)
+    set(SPDLOG_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.15.3
+        GIT_SHALLOW TRUE
+        SYSTEM)
+    FetchContent_MakeAvailable(spdlog)
+    set_target_properties(spdlog PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
+endif()
+
 if(CMAKE_CXX_FLAGS MATCHES "-fno-rtti")
     message(FATAL_ERROR "Tbx: RTTI must be enabled for Toybox")
 endif()

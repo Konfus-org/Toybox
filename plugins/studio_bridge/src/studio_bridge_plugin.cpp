@@ -333,6 +333,24 @@ namespace tbx::studio_bridge
         {
             _server.send_line(make_result_response(id, handle_describe_world()));
         }
+        else if (method == "world.save")
+        {
+            const auto result = save_world();
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
+        else if (method == "asset.save")
+        {
+            const auto result = save_asset(request.value("params", tbx::Json::object()));
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
         else if (method == "editor.listAssets")
         {
             _server.send_line(make_result_response(id, handle_list_assets()));
@@ -1267,6 +1285,52 @@ namespace tbx::studio_bridge
 
         world->set_global(id, params.value("global", false));
         return Result::OK;
+    }
+
+    Result StudioBridge::save_world() const
+    {
+        auto world_manager = _world_manager.lock();
+        if (!world_manager)
+            return Result(false, "No active world.");
+
+        if (!world_manager->save_active_world())
+            return Result(false, "Failed to save the active world.");
+
+        return Result::OK;
+    }
+
+    Result StudioBridge::save_asset(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto type = params.value("type", std::string());
+        const auto path = params.value("path", std::string());
+        if (type.empty() || path.empty())
+            return Result(false, "Missing 'type' or 'path'.");
+
+        const auto value_iterator = params.find("json");
+        if (value_iterator == params.end() || !value_iterator->is_object())
+            return Result(false, "Missing 'json' body.");
+
+        const auto registration = tbx::get_asset_type_registration(type);
+        if (!registration || !registration->create_asset || !registration->read_body)
+            return Result(false, "Unknown or non-serializable asset type: " + type);
+
+        auto asset = registration->create_asset();
+        if (!asset)
+            return Result(false, "Could not create asset of type: " + type);
+
+        if (auto read = registration->read_body(value_iterator->dump(), asset.get()); !read)
+            return read;
+
+        auto asset_manager = _asset_manager.lock();
+        auto serialization =
+            asset_manager ? asset_manager->get_serialization_registry().lock() : nullptr;
+        if (!serialization)
+            return Result(false, "No serialization registry.");
+
+        return serialization->write(path, *registration, asset.get());
     }
 
     Result StudioBridge::set_entity_name(const tbx::Json& params) const

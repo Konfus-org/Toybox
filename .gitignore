@@ -70,6 +70,8 @@ compile_commands.json
 
 # CMake
 cmake-build-*/
+# FetchContent-vendored third-party sources
+/thirdparty/_deps/
 CMakeUserPresets.json
 CMakeFiles/
 CMakeCache.txt

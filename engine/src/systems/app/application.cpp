@@ -1,12 +1,12 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/graphics_backend.h"
-#include "tbx/interfaces/process_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/app/messages.h"
+#include "tbx/systems/app/process_ops.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/serialization.h"
@@ -571,7 +571,15 @@ namespace tbx
         // Detach plugins before tearing down the services they may have consumed.
         if (_plugin_manager)
             _plugin_manager->detach_all();
+
+        // Destroy the engine-owned InputManager service now, while the input plugin's library is
+        // still mapped. It holds a weak_ptr<IInputBackend> whose control block lives in that plugin
+        // DLL; if the manager outlived plugin unload, its weak_ptr destructor would touch the freed
+        // control block (a use-after-free crash on shutdown). Mirror how Rendering/Physics/windowing
+        // are released before unload_all rather than leaving it to the service provider's teardown.
         _input_manager = {};
+        if (_service_provider->has_service<IInputManager>())
+            _service_provider->deregister_service<IInputManager>();
         if (_service_provider->has_service<Physics>())
             _service_provider->deregister_service<Physics>();
         if (_service_provider->has_service<IWindowManager>())

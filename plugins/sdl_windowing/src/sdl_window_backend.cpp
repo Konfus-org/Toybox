@@ -10,6 +10,7 @@
 #include "tbx/types/size.h"
 #include "tbx/types/window.h"
 #include <ranges>
+#include <stb_image.h>
 #include <string_view>
 
 namespace sdl_windowing
@@ -43,19 +44,39 @@ namespace sdl_windowing
         if (is_wayland_video_driver())
             return nullptr;
 
-        SDL_ClearError();
-        if (SDL_Surface* icon_surface = SDL_LoadSurface(icon_path.string().c_str()))
+        // Upstream SDL has no multi-format image loader (that lives in SDL_image), so decode the
+        // icon with stb_image and wrap the RGBA pixels in an SDL surface that owns its own copy.
+        stbi_set_flip_vertically_on_load(false);
+        int width = 0;
+        int height = 0;
+        stbi_uc* pixels = stbi_load(icon_path.string().c_str(), &width, &height, nullptr, 4);
+        if (!pixels)
         {
-            TBX_TRACE_INFO("Loaded app icon '{}'.", icon_path.string());
-            return SdlSurfacePtr(icon_surface);
+            TBX_TRACE_WARNING(
+                "Failed to load app icon '{}'. Error: {}",
+                icon_path.string(),
+                stbi_failure_reason());
+            return nullptr;
         }
 
-        TBX_TRACE_WARNING(
-            "Failed to load app icon '{}'. Error: {}",
-            icon_path.string(),
-            SDL_GetError());
-        SDL_ClearError();
-        return nullptr;
+        SDL_Surface* view =
+            SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, pixels, width * 4);
+        SDL_Surface* icon_surface = view ? SDL_DuplicateSurface(view) : nullptr;
+        SDL_DestroySurface(view);
+        stbi_image_free(pixels);
+
+        if (!icon_surface)
+        {
+            TBX_TRACE_WARNING(
+                "Failed to create app icon surface '{}'. Error: {}",
+                icon_path.string(),
+                SDL_GetError());
+            SDL_ClearError();
+            return nullptr;
+        }
+
+        TBX_TRACE_INFO("Loaded app icon '{}'.", icon_path.string());
+        return SdlSurfacePtr(icon_surface);
     }
 
     void SdlSurfaceDeleter::operator()(SDL_Surface* surface) const

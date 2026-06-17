@@ -15,6 +15,15 @@ namespace tbx
         Handle full_chunk = {};
     };
 
+    // A loaded chunk's identity plus the ids of the entities it currently owns — what saving needs to write
+    // each chunk's entities back to its own asset file.
+    struct LoadedChunkInfo
+    {
+        IVec3 coord = {};
+        Handle handle = {};
+        std::vector<Uuid> entities = {};
+    };
+
     struct ChunkLoaderChunkRecord
     {
         Handle full_chunk = {};
@@ -106,6 +115,24 @@ namespace tbx
             }
 
             return ids;
+        }
+
+        // The loaded chunks of a world (coord + handle + owned entity ids) — used by saving to write each
+        // chunk's current entities back to its own asset file.
+        std::vector<LoadedChunkInfo> get_loaded_chunks(const World& world) const
+        {
+            auto result = std::vector<LoadedChunkInfo> {};
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return result;
+
+            for (const auto& [coord, record] : world_it->second.chunks)
+            {
+                if (record.is_loaded)
+                    result.push_back(LoadedChunkInfo { coord, record.full_chunk, record.entities });
+            }
+
+            return result;
         }
 
         std::vector<Handle> get_loaded_chunk_handles(const World& world) const

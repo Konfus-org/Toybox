@@ -195,6 +195,26 @@ namespace tbx
         asset.version = metadata.version;
     }
 
+    Result SerializationRegistry::write(
+        const std::filesystem::path& asset_path,
+        const AssetTypeRegistration& asset_registration,
+        const void* asset) const
+    {
+        if (!asset_registration.write_body)
+        {
+            return make_failed_result(
+                std::string("Asset type '")
+                    .append(asset_registration.type_name)
+                    .append("' has no registered serializer."));
+        }
+
+        auto file_ops = lock_file_ops();
+        if (!file_ops)
+            return make_failed_result("Serialization registry has no file operations.");
+
+        return try_write_registered_asset_body(asset_path, *file_ops, asset_registration, asset);
+    }
+
     std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const
     {
         return _file_ops.lock();

@@ -267,6 +267,14 @@ namespace tbx
             requires std::derived_from<TAsset, Asset>
         Result write(const std::filesystem::path& asset_path, const TAsset& asset) const;
 
+        // Type-erased write for callers that only hold a runtime AssetTypeRegistration and a pointer to the
+        // matching asset (e.g. saving an asset chosen by type name from the editor). Mirrors the
+        // registered-body branch of the templated write.
+        Result write(
+            const std::filesystem::path& asset_path,
+            const AssetTypeRegistration& asset_registration,
+            const void* asset) const;
+
       private:
         struct RegistrationBase
         {

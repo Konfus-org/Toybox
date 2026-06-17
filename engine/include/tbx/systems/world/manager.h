@@ -56,6 +56,15 @@ namespace tbx
         bool set_active_world(std::shared_ptr<World> world);
 
         /// @brief
+        /// Purpose: Writes the active world's current entities back to its chunk + globals asset files so
+        /// editor edits persist and round-trip on reload. Each loaded chunk keeps its membership; entities
+        /// created since load that belong to no chunk are written into the primary (lowest-coord) chunk.
+        /// @details
+        /// Returns false when there is no asset-backed active world, the asset manager is gone, or a write
+        /// fails. Only the active world (loaded from a handle) can be saved.
+        bool save_active_world();
+
+        /// @brief
         /// Purpose: Updates world streaming for the active world.
         void update(const DeltaTime& dt, const WorldSettings& settings);
 
