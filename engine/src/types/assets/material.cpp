@@ -277,26 +277,16 @@ namespace tbx
         : material(std::move(handle))
         , overrides(std::move(material_overrides))
     {
-        overrides.has_texture_override =
-            overrides.has_texture_override || !overrides.textures.values.empty();
-        overrides.has_parameter_override =
-            overrides.has_parameter_override || !overrides.parameters.values.empty();
     }
 
     MaterialInstance::MaterialInstance(
         Handle handle,
         MaterialParameterBindings parameter_overrides,
-        MaterialTextureBindings texture_overrides_value,
-        MaterialConfig config_override,
-        const bool has_config_override)
+        MaterialTextureBindings texture_overrides_value)
         : material(std::move(handle))
     {
-        overrides.textures = std::move(texture_overrides_value);
-        overrides.parameters = std::move(parameter_overrides);
-        overrides.config = std::move(config_override);
-        overrides.has_texture_override = !overrides.textures.values.empty();
-        overrides.has_parameter_override = !overrides.parameters.values.empty();
-        overrides.has_config_override = has_config_override;
+        overrides.textures = std::move(texture_overrides_value.values);
+        overrides.parameters = std::move(parameter_overrides.values);
     }
 
     bool MaterialInstance::is_dirty() const
@@ -319,29 +309,21 @@ namespace tbx
         return material;
     }
 
-    bool MaterialInstance::has_config_override_enabled() const
-    {
-        return overrides.has_config_override;
-    }
-
-    void MaterialInstance::set_config(MaterialConfig config_override)
-    {
-        overrides.config = std::move(config_override);
-        overrides.has_config_override = true;
-        mark_dirty();
-    }
-
     void MaterialInstance::set_parameter(const std::string& name, MaterialParameterData value)
     {
-        overrides.parameters.set(name, std::move(value));
-        overrides.has_parameter_override = true;
+        if (auto existing = try_get_uniform_by_name(overrides.parameters, name))
+            existing->get().data = std::move(value);
+        else
+            overrides.parameters.emplace_back(name, std::move(value));
         mark_dirty();
     }
 
     void MaterialInstance::set_texture(const std::string& name, Handle texture)
     {
-        overrides.textures.set(name, std::move(texture));
-        overrides.has_texture_override = true;
+        if (auto existing = try_get_texture_by_name(overrides.textures, name))
+            existing->get().texture = std::move(texture);
+        else
+            overrides.textures.emplace_back(name, std::move(texture));
         mark_dirty();
     }
 
@@ -408,7 +390,7 @@ namespace tbx
     float MaterialInstance::get_float_parameter_or(const std::string& name, const float fallback)
         const
     {
-        const auto parameter = overrides.parameters.get(name);
+        const auto parameter = try_get_uniform_by_name(overrides.parameters, name);
         if (!parameter.has_value())
             return fallback;
         const auto& data = parameter->get().data;
@@ -424,7 +406,7 @@ namespace tbx
     double MaterialInstance::get_double_parameter_or(const std::string& name, const double fallback)
         const
     {
-        const auto parameter = overrides.parameters.get(name);
+        const auto parameter = try_get_uniform_by_name(overrides.parameters, name);
         if (!parameter.has_value())
             return fallback;
         const auto& data = parameter->get().data;
@@ -440,7 +422,7 @@ namespace tbx
     Handle MaterialInstance::get_texture_handle_or(const std::string& name, const Handle& fallback)
         const
     {
-        const auto texture = overrides.textures.get(name);
+        const auto texture = try_get_texture_by_name(overrides.textures, name);
         if (!texture.has_value())
             return fallback;
         return texture->get().texture;

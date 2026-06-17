@@ -42,6 +42,7 @@ class AttributeSchemaRegistry:
             "description": AttributeSchema(1, frozenset({"value"})),
             "hidden": AttributeSchema(0, frozenset()),
             "inject": AttributeSchema(),
+            "label": AttributeSchema(1, frozenset({"value"})),
             "meta": AttributeSchema(None, frozenset({"fields"})),
             "name": AttributeSchema(1, frozenset({"value"})),
             "plugin": AttributeSchema(

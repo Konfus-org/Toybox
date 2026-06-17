@@ -4,9 +4,11 @@
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/assets/serialization.h"
+#include "tbx/systems/assets/describe.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/systems/graphics/camera_view.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/mesh.h"
@@ -335,6 +337,20 @@ namespace tbx::studio_bridge
         {
             _server.send_line(make_result_response(id, handle_list_assets()));
         }
+        else if (method == "app.describeSettings")
+        {
+            _server.send_line(make_result_response(id, describe_settings()));
+        }
+        else if (method == "asset.describe")
+        {
+            auto reply = tbx::Json::object();
+            const auto result = describe_asset(request.value("params", tbx::Json::object()), reply);
+            if (result)
+                _server.send_line(make_result_response(id, reply));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
         else if (method == "entity.setComponent")
         {
             const auto result = apply_component(request.value("params", tbx::Json::object()));
@@ -367,6 +383,15 @@ namespace tbx::studio_bridge
         else if (method == "entity.destroy")
         {
             const auto result = destroy_entity(request.value("params", tbx::Json::object()));
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
+        else if (method == "entity.setName")
+        {
+            const auto result = set_entity_name(request.value("params", tbx::Json::object()));
             if (result)
                 _server.send_line(make_result_response(id, tbx::Json::object()));
             else
@@ -1244,6 +1269,28 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
+    Result StudioBridge::set_entity_name(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        auto world_manager = _world_manager.lock();
+        auto world = world_manager ? world_manager->get_active_world().lock() : nullptr;
+        if (!world)
+            return Result(false, "No active world.");
+
+        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        entity.set_name(params.value("name", std::string()));
+        return Result::OK;
+    }
+
     // Lower-cased file extension without the leading dot, used as the asset's editor "type" so the
     // handle picker can filter (e.g. "mat", "png", "world"). Empty extensions fall back to "asset".
     static std::string asset_type_from_path(const std::filesystem::path& path)
@@ -1299,6 +1346,63 @@ namespace tbx::studio_bridge
         result["assets"] = std::move(assets);
         result["scripts"] = std::move(scripts);
         return result;
+    }
+
+    tbx::Json StudioBridge::describe_settings() const
+    {
+        // Hand the editor the full AppSettings schema with every field's engine default — graphics, physics,
+        // async, etc. The project's own AppSettings.json is lean (only the values it overrides), so the editor
+        // merges its values over these defaults and diffs against them again to save leanly. The enriched
+        // per-field shape (type tokens, enum choices, and the plugins vector's element_template that make that
+        // list editable) is produced by the engine-side describe helper, which enters the attribute scope in
+        // the engine module where the generated serialize runs — serializing across the plugin boundary here
+        // would silently fall back to the lean { type, value } form.
+        const auto schema = tbx::describe_serializable_asset("AppSettings");
+        auto reply = tbx::Json::object();
+        reply["settings"] = schema.empty() ? tbx::Json::object() : tbx::Json::parse(schema);
+        return reply;
+    }
+
+    Result StudioBridge::describe_asset(const tbx::Json& params, tbx::Json& out_reply) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("assetId");
+        if (id_iterator == params.end() || !id_iterator->is_number())
+            return Result(false, "Missing or invalid 'assetId'.");
+        const auto asset_id = id_iterator->get<uint32>();
+
+        auto asset_manager = _asset_manager.lock();
+        if (!asset_manager)
+            return Result(false, "No asset manager.");
+
+        // Find the registered asset by id and confirm it is a material before loading. The id matches the
+        // value the handle picker wrote (editor.listAssets advertises entry.asset_id.value as the id).
+        for (const auto& entry : asset_manager->get_registered_assets())
+        {
+            if (entry.asset_id.value != asset_id)
+                continue;
+
+            if (asset_type_from_path(entry.resolved_path) != "mat")
+                return Result(false, "Asset is not a material.");
+
+            const auto material =
+                asset_manager->load<tbx::Material>(tbx::Handle(entry.normalized_path, entry.asset_id));
+            if (!material)
+                return Result(false, "Failed to load material.");
+
+            // Same enriched shape entity.describe emits per field (every field plus reflection metadata),
+            // so the editor parses the base parameters/textures with the existing JsonParser path.
+            const auto include_all = tbx::OmitDefaultFieldsScope(false);
+            const auto include_attrs = tbx::AttributeSerializationScope(true);
+            auto material_json = tbx::Json::object();
+            serialize(material_json, *material);
+            out_reply["material"] = std::move(material_json);
+            return Result::OK;
+        }
+
+        return Result(false, "Asset not found.");
     }
 
     Result StudioBridge::apply_component(const tbx::Json& params) const

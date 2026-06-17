@@ -1,9 +1,9 @@
 #include "ShaderBase.glsl"
 
 // Shell-extruded grass. Takes each ground triangle from Pbr.vert and emits it again as a stack of
-// thin shells pushed up along the surface normal. Grass.frag then carves tapered blades out of each
-// shell (discarding the gaps), so the stacked layers read as real, fuzzy 3D blades when seen at a
-// grazing angle. Shell count is fixed here; blade height is the 4th lane of params[1].
+// thin shells pushed up along the surface normal. Grass.frag then carves soft round tufts out of each
+// shell (discarding the gaps), so the stacked layers read as real, fuzzy 3D clumps when seen at a
+// grazing angle. Shell count is fixed here; tuft height is the 4th lane of params[1].
 //   params[1] = (blade_scale, fuzz, roughness, height)
 // Only the varyings Grass.frag actually consumes are emitted (world position/normal, material id,
 // shell height) — emitting the full vertex set blows past the driver's geometry-output component cap.

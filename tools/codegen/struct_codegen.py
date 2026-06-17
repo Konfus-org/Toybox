@@ -88,6 +88,9 @@ def _attribute_descriptor_literal(field: Field, order: int) -> str:
     view = editor_attr_value(field.attrs, "view")
     if view is not None:
         parts.append(f".view = {cpp_string(view)}")
+    label = editor_attr_value(field.attrs, "label")
+    if label is not None:
+        parts.append(f".label = {cpp_string(label)}")
     nested = _wire_type_name(_unwrap_field_type(field.type_name))
     if nested:
         parts.append(f".nested = {cpp_string(nested)}")

@@ -788,6 +788,9 @@ namespace tbx
         std::string_view category = {};
         std::string_view description = {};
         std::string_view view = {};
+        // A display name for the editor, from [[tbx::label]], overriding the humanized field key without
+        // changing the serialized key (e.g. a "material" handle shown as "Base").
+        std::string_view label = {};
         // The wire name of the field's (unwrapped) type, e.g. "quat" for a quaternion rotation that
         // shares the structural "vec4" token. The editor uses it to disambiguate such types.
         std::string_view nested = {};
@@ -1005,6 +1008,8 @@ namespace tbx
                 attribute_node["description"] = std::string(attributes.description);
             if (!attributes.view.empty())
                 attribute_node["view"] = std::string(attributes.view);
+            if (!attributes.label.empty())
+                attribute_node["label"] = std::string(attributes.label);
             if (attributes.readonly)
                 attribute_node["readonly"] = true;
             if (attributes.hidden)

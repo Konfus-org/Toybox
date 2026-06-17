@@ -101,6 +101,13 @@ namespace tbx::studio_bridge
         // Serializes one entity (the same shape world.describe emits per entity) so the editor can keep the
         // selected entity in sync with the running game; replies { entity, component_types }.
         Result describe_entity(const tbx::Json& params, tbx::Json& out_reply) const;
+        // Loads a material asset by id and serializes it with reflection metadata so the editor can show
+        // a MaterialInstance's base values (the slots its overrides apply on top of); replies { material }.
+        Result describe_asset(const tbx::Json& params, tbx::Json& out_reply) const;
+        // Serializes a default-constructed AppSettings with reflection metadata (the full settings schema +
+        // engine defaults + the plugins vector's element_template) so the editor can render every setting and
+        // make the plugins list editable; replies { settings }.
+        tbx::Json describe_settings() const;
         tbx::Json handle_list_assets() const;
         Result apply_component(const tbx::Json& params) const;
         // World-as-list editing: create a child/root entity (replies { id }), destroy an entity and its
@@ -108,6 +115,8 @@ namespace tbx::studio_bridge
         Result create_entity(const tbx::Json& params, tbx::Json& out_reply) const;
         Result destroy_entity(const tbx::Json& params) const;
         Result move_entity(const tbx::Json& params) const;
+        // Renames an entity in place (the editor's inline rename in the world list).
+        Result set_entity_name(const tbx::Json& params) const;
         // Promotes/demotes an entity between global (full-lifetime resident) and ordinary scene entity.
         Result set_entity_global(const tbx::Json& params) const;
         Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;

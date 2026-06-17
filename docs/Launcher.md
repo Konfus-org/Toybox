@@ -9,6 +9,7 @@ Toybox now starts apps through a single generic launcher executable instead of p
 - Logs always write beneath `<launcher exe dir>/logs`, resolved automatically by `tbx::Log`.
 - `--settings` is optional and overrides the default `Settings.json` asset.
 - `--load-plugins` is optional and appends extra runtime plugins after settings are loaded.
+- `--live-together-die-together=<pid>` is optional and ties the engine's lifetime to a launching process: the engine monitors that process id and shuts itself down once it exits, so a host (e.g. Toybox Studio) never leaves an orphaned engine behind — even if the host crashes. Omit it to run independently.
 
 ## Apps
 

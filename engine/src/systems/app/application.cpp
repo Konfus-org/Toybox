@@ -1,6 +1,7 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/graphics_backend.h"
+#include "tbx/interfaces/process_ops.h"
 #include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/interfaces/window_backend.h"
@@ -27,6 +28,7 @@
 #include <cstdint>
 #include <fstream>
 #include <memory>
+#include <thread>
 #include <vector>
 
 namespace tbx
@@ -479,6 +481,36 @@ namespace tbx
             TBX_TRACE_INFO("Asset Directory: <none>");
         }
 
+        //// INITIALIZE: PARENT WATCHDOG ////
+
+        // --live-together-die-together=<pid>: when the launching process (e.g. the editor) dies,
+        // exit too instead of lingering as an orphan. A background thread polls the parent's
+        // liveness and requests a graceful exit once it is gone.
+        if (command_list.has("live-together-die-together"))
+        {
+            const auto parent_pid = command_list.get<uint32>("live-together-die-together");
+            TBX_TRACE_INFO("Tied to launching process {} (--live-together-die-together).", parent_pid);
+            _parent_watchdog = std::jthread(
+                [this, parent_pid](std::stop_token stop_token)
+                {
+                    while (!stop_token.stop_requested())
+                    {
+                        if (!is_process_running(parent_pid))
+                        {
+                            TBX_TRACE_WARNING(
+                                "Launching process {} exited; shutting down.", parent_pid);
+                            request_exit();
+                            return;
+                        }
+
+                        // Poll about once a second, but in short slices so a graceful shutdown's
+                        // stop request is honored promptly rather than waiting out the interval.
+                        for (int slice = 0; slice < 5 && !stop_token.stop_requested(); ++slice)
+                            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    }
+                });
+        }
+
         //// INITIALIZE: BROADCAST READY ////
 
         message_coordinator->send<ApplicationInitializedEvent>(*this);
@@ -487,6 +519,11 @@ namespace tbx
 
     void Application::shutdown()
     {
+        // Stop the parent watchdog first: on a normal shutdown the launching process is still
+        // alive, so the monitor must stand down rather than race the teardown. (The std::jthread
+        // destructor joins it; this just signals the loop to exit promptly.)
+        _parent_watchdog.request_stop();
+
         //// SHUTDOWN: CAPTURE REQUIRED SERVICES ////
 
         if (!_service_provider)

@@ -9,22 +9,24 @@ namespace tbx
     struct TBX_API MaterialOverrides
     {
         [[prop]]
-        MaterialTextureBindings textures = {};
+        std::vector<MaterialTextureBinding> textures = {};
 
         [[prop]]
-        MaterialParameterBindings parameters = {};
+        std::vector<MaterialParameter> parameters = {};
 
-        [[prop]]
-        MaterialConfig config = {};
+        // The has_*_override flags are derived, not stored: an override is "present" exactly when its
+        // list is non-empty. Computed on demand so they never need serializing or keeping in sync with
+        // edits. Render config is not overridable per-instance — it lives on the Material asset and is
+        // shared by every instance of that material — so there is no config override here.
+        bool has_texture_override() const
+        {
+            return !textures.empty();
+        }
 
-        [[prop]]
-        bool has_texture_override = false;
-
-        [[prop]]
-        bool has_parameter_override = false;
-
-        [[prop]]
-        bool has_config_override = false;
+        bool has_parameter_override() const
+        {
+            return !parameters.empty();
+        }
     };
 
     /// @brief
@@ -36,12 +38,10 @@ namespace tbx
     [[hash(
         material.id,
         material.name,
-        overrides.has_config_override,
-        $.overrides.has_config_override ? $.overrides.config : ::tbx::MaterialConfig(),
-        overrides.has_parameter_override,
-        overrides.parameters.values,
-        overrides.has_texture_override,
-        overrides.textures.values)]];
+        overrides.has_parameter_override(),
+        overrides.parameters,
+        overrides.has_texture_override(),
+        overrides.textures)]];
     [[icon("Palette", Color::MAGENTA)]];
     struct TBX_API MaterialInstance : Component
     {
@@ -51,18 +51,13 @@ namespace tbx
         MaterialInstance(
             Handle handle,
             MaterialParameterBindings parameter_overrides,
-            MaterialTextureBindings texture_overrides = {},
-            MaterialConfig config_override = {},
-            bool has_config_override = false);
+            MaterialTextureBindings texture_overrides = {});
 
         bool is_dirty() const;
         void clear_dirty();
         void mark_dirty();
 
         const Handle& get_handle() const;
-
-        bool has_config_override_enabled() const;
-        void set_config(MaterialConfig config_override);
 
         void set_parameter(const std::string& name, MaterialParameterData value);
 
@@ -93,6 +88,7 @@ namespace tbx
         TValue get_parameter_or(const std::string& name, const TValue& fallback) const;
 
         [[prop]]
+        [[label("Base")]]
         Handle material = {};
 
         [[prop]]

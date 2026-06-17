@@ -1,6 +1,9 @@
 #include "tbx/systems/assets/serialization.h"
+#include "tbx/systems/assets/describe.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/types/assets/asset.h"
+#include <memory>
 #include <mutex>
 
 namespace tbx
@@ -198,6 +201,28 @@ namespace tbx
             auto guard = std::lock_guard(store.asset_type_mutex());
             store.asset_types().clear();
         }
+    }
+
+    std::string describe_serializable_asset(std::string_view type_name)
+    {
+        const auto registration = get_asset_type_registration(type_name);
+        if (!registration || !registration->create_asset || !registration->write_body)
+            return {};
+
+        auto asset = registration->create_asset();
+        if (!asset)
+            return {};
+
+        // Enter the editor scopes here, in the engine module, so the generated serialize that write_body
+        // invokes — which reads a per-module thread-local switch — actually emits the enriched, every-field
+        // shape rather than the lean persistence form.
+        const auto include_all = OmitDefaultFieldsScope(false);
+        const auto include_attrs = AttributeSerializationScope(true);
+        auto body = std::string();
+        if (!registration->write_body(asset.get(), body))
+            return {};
+
+        return body;
     }
 
     void register_serializable_type_entry(SerializableTypeRegistration entry)

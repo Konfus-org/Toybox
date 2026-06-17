@@ -158,8 +158,7 @@ namespace tbx
 
     static bool material_instance_has_overrides(const MaterialInstance& instance)
     {
-        return instance.overrides.has_parameter_override || instance.overrides.has_texture_override
-               || instance.overrides.has_config_override;
+        return instance.overrides.has_parameter_override() || instance.overrides.has_texture_override();
     }
 
     static bool is_inside_frustum(
@@ -484,14 +483,12 @@ namespace tbx
             out_material = *base;
             out_name = "material_" + std::to_string(static_cast<uint32>(instance.material.id));
             const MaterialOverrides& overrides = instance.overrides;
-            if (overrides.has_parameter_override)
-                for (const auto& parameter : overrides.parameters.values)
+            if (overrides.has_parameter_override())
+                for (const auto& parameter : overrides.parameters)
                     out_material.parameters.set(parameter.name, parameter.data);
-            if (overrides.has_texture_override)
-                for (const auto& texture : overrides.textures.values)
+            if (overrides.has_texture_override())
+                for (const auto& texture : overrides.textures)
                     out_material.textures.set(texture.name, texture.texture);
-            if (overrides.has_config_override)
-                out_material.config = overrides.config;
         };
 
         const auto resolve_effective_material = [&](Entity& entity,

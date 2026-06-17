@@ -14,10 +14,12 @@
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/tbx_api.h"
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <thread>
 
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_APP_ENTRY_EXPORT extern "C" __declspec(dllexport)
@@ -68,7 +70,7 @@ namespace tbx
             const std::vector<std::string>& command_plugins);
 
       private:
-        bool _should_exit = false;
+        std::atomic<bool> _should_exit = false;
         bool _is_headless = false;
         bool _is_hidden = false;
         bool _hidden_context_primed = false;
@@ -92,6 +94,11 @@ namespace tbx
         uint64 _update_count = 0;
         double _time_running = 0;
         double _fixed_update_accumulator_seconds = 0.0;
+
+        // Optional --live-together-die-together watchdog: monitors the launching process and
+        // requests exit when it dies. Declared last so it is stopped/joined first on teardown,
+        // before the members its callback touches. Default-constructed = no thread running.
+        std::jthread _parent_watchdog = {};
     };
 
     using CreateAppFn = Application* (*)();
