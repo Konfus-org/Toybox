@@ -131,6 +131,12 @@ tbx_codegen_generate_attribute_headers(
 target_compile_definitions(Engine
     PUBLIC
         TBX_PLUGIN_ABI_VERSION=${TBX_PLUGIN_ABI_VERSION}
+    PRIVATE
+        # spdlog v1.15.3 bundles fmt v11.2.0, whose FMT_USE_CONSTEVAL=1 path rejects spdlog's own
+        # FMT_STRING construction under recent clang (spdlog/logger.h:334). Disable the consteval
+        # format-string check (runtime checks remain). Scoped PRIVATE: logging.cpp is the only TU that
+        # includes fmt/spdlog, so no other target needs it.
+        FMT_USE_CONSTEVAL=0
 )
 
 if(TBX_ENABLE_VERBOSE)

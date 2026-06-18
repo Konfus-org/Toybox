@@ -27,6 +27,7 @@ namespace tbx
         std::string layer = {};
         Uuid parent = {};
         int order = 0;
+        bool is_enabled = true;
         Json components = {};
     };
 
@@ -85,6 +86,7 @@ namespace tbx
             read_typed_serialization_field(json, "layer", payload.layer, std::string {});
             read_typed_serialization_field(json, "parent", payload.parent, Uuid {});
             read_typed_serialization_field(json, "order", payload.order, 0);
+            read_typed_serialization_field(json, "is_enabled", payload.is_enabled, true);
             // "components" is a structural keyed collection whose values are already-typed component
             // bodies, so the container itself is not wrapped.
             if (const auto components = json.find("components"); components != json.end())
@@ -228,6 +230,7 @@ namespace tbx
         write_typed_serialization_field(json, "layer", entity.get_layer());
         write_typed_serialization_field(json, "parent", entity.get_parent());
         write_typed_serialization_field(json, "order", entity.get_order());
+        write_typed_serialization_field(json, "is_enabled", entity.is_enabled());
 
         auto components = Json::object();
         // The order components are visited (their registration order) before the JSON object alphabetizes
@@ -303,6 +306,7 @@ namespace tbx
             registry.add(payload.id, payload.name, payload.tag, payload.layer, payload.parent);
         entity._registry = std::ref(registry);
         entity.set_order(payload.order);
+        entity.set_enabled(payload.is_enabled);
 
         if (payload.components.is_null())
             return true;

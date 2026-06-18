@@ -35,6 +35,15 @@ namespace tbx
         int value = 0;
     };
 
+    // Wholesale enable flag for the entity. A disabled entity is skipped by the typed component queries
+    // (get_with / first_with / for_each_with), so every runtime system that gathers through them —
+    // rendering, physics, scripting — passes it over, while the editor (get_all / get / serialize) still
+    // sees it so it can be listed and re-enabled. Defaults enabled.
+    struct EntityEnabledComponent
+    {
+        bool value = true;
+    };
+
     static EntityHandle to_entity_handle(const Uuid& id)
     {
         if (!id.is_valid())
@@ -145,6 +154,7 @@ namespace tbx
         _registry->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
         _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
         _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
+        _registry->emplace<EntityEnabledComponent>(handle, EntityEnabledComponent {});
 
         track_plugin_owned_entity(id);
 
@@ -189,6 +199,10 @@ namespace tbx
         // add overloads carry only the four identity fields).
         if (!_registry->all_of<EntityOrderComponent>(handle))
             _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
+        // Enabled defaults true here; a persisted value is applied afterwards via set_enabled, mirroring
+        // order. Preserved if the entity already exists so a plain re-add doesn't silently re-enable it.
+        if (!_registry->all_of<EntityEnabledComponent>(handle))
+            _registry->emplace<EntityEnabledComponent>(handle, EntityEnabledComponent {});
 
         track_plugin_owned_entity(id);
 
@@ -311,6 +325,24 @@ namespace tbx
         set_component_value<EntityOrderComponent>(*_registry, id, order);
     }
 
+    bool EntityRegistry::get_enabled(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        // Absent flag means enabled: every entity gets one on add, but treating absence as enabled keeps
+        // any entity created outside the add path (and the query filter) from vanishing.
+        if (!_registry->valid(handle) || !_registry->all_of<EntityEnabledComponent>(handle))
+            return true;
+
+        return _registry->get<EntityEnabledComponent>(handle).value;
+    }
+
+    void EntityRegistry::set_enabled(const Uuid& id, bool enabled)
+    {
+        auto guard = std::unique_lock(_mutex);
+        set_component_value<EntityEnabledComponent>(*_registry, id, enabled);
+    }
+
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
@@ -336,6 +368,7 @@ namespace tbx
         // Recreate identity metadata in this registry, then copy each registered component by value.
         add(id, source.get_name(), source.get_tag(), source.get_layer(), source.get_parent());
         set_order_value(id, source.get_order());
+        set_enabled(id, source.is_enabled());
 
         const auto entries = get_entity_component_type_registrations();
         const auto handle = to_entity_handle(id);

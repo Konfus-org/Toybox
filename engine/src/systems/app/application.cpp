@@ -370,8 +370,13 @@ namespace tbx
                         return;
                     }
 
+                    // Live-reload: swap in the new settings, then re-apply the fields that aren't read
+                    // per-frame (window title + resolution). Everything else (world streaming, vsync,
+                    // shadows, physics) is read fresh each frame from get_settings(), so it self-applies.
+                    const auto previous = _settings ? *_settings : AppSettings();
                     _settings = load_app_settings(startup_settings_handle);
                     _name = _settings ? _settings->name : "Toybox App";
+                    apply_runtime_settings(previous, get_settings());
                 }
 
                 if (auto exit_request = handle_message<ExitApplicationRequest>(msg))
@@ -882,5 +887,31 @@ namespace tbx
             "Failed to load application settings '{}', falling back to default settings.",
             settings_handle);
         return std::make_shared<AppSettings>();
+    }
+
+    void Application::apply_runtime_settings(const AppSettings& previous, const AppSettings& current)
+    {
+        const auto window_manager = _window_manager.lock();
+        if (!window_manager || !window_manager->has_main_window())
+            return;
+
+        const auto& window = window_manager->get_main_window();
+
+        // The window title follows the app name.
+        if (previous.name != current.name)
+        {
+            window_manager->set_title(
+                window, current.name.empty() ? std::string("Toybox Application") : current.name);
+        }
+
+        // The render resolution drives the main window size (Rendering reads the live window size each
+        // frame, never the setting directly), so resize the window to apply a changed resolution.
+        const auto& old_size = previous.graphics.resolution;
+        const auto& new_size = current.graphics.resolution;
+        if (new_size.width != 0U && new_size.height != 0U
+            && (old_size.width != new_size.width || old_size.height != new_size.height))
+        {
+            window_manager->set_size(window, new_size);
+        }
     }
 }

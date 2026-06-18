@@ -207,6 +207,35 @@ namespace tbx
         registry.set_order_value(_id, order);
     }
 
+    bool Entity::is_enabled() const
+    {
+        if (!_registry.has_value())
+            return true;
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity enabled flag from a stale handle.");
+            return true;
+        }
+
+        return registry.get_enabled(_id);
+    }
+
+    void Entity::set_enabled(bool enabled)
+    {
+        if (!_registry.has_value())
+            return;
+
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity enabled flag to a stale handle.");
+            return;
+        }
+
+        registry.set_enabled(_id, enabled);
+    }
+
     bool Entity::try_get_parent_entity(Entity& out_parent) const
     {
         out_parent = Entity {};

@@ -137,6 +137,9 @@ namespace tbx
         int get_order_value(const Uuid& id) const;
         void set_order_value(const Uuid& id, int order);
 
+        bool get_enabled(const Uuid& id) const;
+        void set_enabled(const Uuid& id, bool enabled);
+
         std::string get_layer(const Uuid& id) const;
         void set_layer(const Uuid& id, const std::string& layer);
 

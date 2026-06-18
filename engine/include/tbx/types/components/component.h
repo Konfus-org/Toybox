@@ -24,6 +24,17 @@ namespace tbx
         [[hidden]]
         [[description("Stable identity of this component. Assigned by the engine.")]]
         Uuid id = Uuid::generate();
+
+        /// @brief
+        /// Purpose: Whether this component is active. Disabled components are skipped by their systems.
+        /// @details
+        /// Ownership: Value type. Hidden from the property grid — the inspector exposes it as the toggle in
+        /// the component header rather than as an ordinary row.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[prop]]
+        [[hidden]]
+        [[description("Whether this component is active. Disabled components are skipped by their systems.")]]
+        bool is_enabled = true;
     };
 
     /// @brief

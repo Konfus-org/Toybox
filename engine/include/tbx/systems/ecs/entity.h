@@ -58,6 +58,12 @@ namespace tbx
         int get_order() const;
         void set_order(int order);
 
+        // Wholesale enable flag. A disabled entity is skipped by every typed component query
+        // (get_with / first_with / for_each_with), so rendering, physics and scripting all pass it over —
+        // it stays in the world (and the editor) but is inert until re-enabled. Persisted; defaults true.
+        bool is_enabled() const;
+        void set_enabled(bool enabled);
+
         template <typename TComponent>
             requires std::derived_from<TComponent, Component>
         TComponent& add_component(const TComponent& component);

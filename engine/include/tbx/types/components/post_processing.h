@@ -59,13 +59,5 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         [[prop]]
         std::vector<PostProcessingEffect> effects = {};
-
-        /// @brief
-        /// Purpose: Enables or disables post-processing for this component.
-        /// @details
-        /// Ownership: Value type.
-        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
-        bool is_enabled = true;
     };
 }

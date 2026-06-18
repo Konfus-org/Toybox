@@ -425,6 +425,15 @@ namespace tbx::studio_bridge
                 _server.send_line(
                     make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
         }
+        else if (method == "entity.setEnabled")
+        {
+            const auto result = set_entity_enabled(request.value("params", tbx::Json::object()));
+            if (result)
+                _server.send_line(make_result_response(id, tbx::Json::object()));
+            else
+                _server.send_line(
+                    make_error_response(id, JSON_RPC_APPLY_FAILED_CODE, result.get_report()));
+        }
         else if (method == "entity.move")
         {
             const auto result = move_entity(request.value("params", tbx::Json::object()));
@@ -1284,6 +1293,28 @@ namespace tbx::studio_bridge
             return Result(false, "Entity not found.");
 
         world->set_global(id, params.value("global", false));
+        return Result::OK;
+    }
+
+    Result StudioBridge::set_entity_enabled(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        auto world_manager = _world_manager.lock();
+        auto world = world_manager ? world_manager->get_active_world().lock() : nullptr;
+        if (!world)
+            return Result(false, "No active world.");
+
+        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        entity.set_enabled(params.value("enabled", true));
         return Result::OK;
     }
 

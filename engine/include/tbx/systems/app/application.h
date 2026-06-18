@@ -68,6 +68,10 @@ namespace tbx
         std::vector<std::string> resolve_plugins(
             const std::vector<std::string>& settings_plugins,
             const std::vector<std::string>& command_plugins);
+        // Re-applies the AppSettings fields that are consumed once (not per-frame) to their subsystems after a
+        // live settings reload — currently the window title (name) and render resolution (window size).
+        // Per-frame-read fields (world streaming, vsync, shadows, physics) are picked up automatically.
+        void apply_runtime_settings(const AppSettings& previous, const AppSettings& current);
 
       private:
         std::atomic<bool> _should_exit = false;

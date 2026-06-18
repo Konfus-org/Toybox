@@ -119,6 +119,8 @@ namespace tbx::studio_bridge
         Result set_entity_name(const tbx::Json& params) const;
         // Promotes/demotes an entity between global (full-lifetime resident) and ordinary scene entity.
         Result set_entity_global(const tbx::Json& params) const;
+        // Toggles an entity's wholesale enable flag (disabled entities are skipped by every runtime system).
+        Result set_entity_enabled(const tbx::Json& params) const;
         // Persists the active world's current entities back to its chunk + globals asset files (File ▸ Save
         // in the editor). Takes no params — the engine writes whichever world is active.
         Result save_world() const;
