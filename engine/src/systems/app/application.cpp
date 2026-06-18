@@ -1,17 +1,15 @@
 #include "tbx/systems/app/application.h"
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/interfaces/graphics_backend.h"
-#include "tbx/interfaces/input_manager.h"
-#include "tbx/interfaces/physics_backend.h"
+#include "tbx/systems/input/input_manager.h"
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/app/app_core_service_factory.h"
+#include "tbx/systems/app/app_runtime_service_factory.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/app/process_ops.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/systems/async/job_system.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/graphics/messages.h"
@@ -22,61 +20,14 @@
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/systems/windowing/manager.h"
 #include <algorithm>
 #include <chrono>
-#include <cstdint>
-#include <fstream>
 #include <memory>
 #include <thread>
 #include <vector>
 
 namespace tbx
 {
-    // Writes BGRA, top-down pixels (the layout IGraphicsBackend::read_back_buffer delivers) as a
-    // 32-bit BMP. Used by the --screenshot diagnostic so a real rendered frame can be inspected
-    // without a window-capture step (GDI/PrintWindow return black for hardware GL surfaces).
-    static bool write_bgra_bmp(
-        const std::filesystem::path& path,
-        uint32 width,
-        uint32 height,
-        const std::vector<uint8>& bgra_top_down)
-    {
-        if (width == 0U || height == 0U
-            || bgra_top_down.size() < static_cast<size>(width) * height * 4U)
-            return false;
-
-        const uint32 pixel_bytes = width * height * 4U;
-        const uint32 file_size = 54U + pixel_bytes;
-        auto put_u32 = [](uint8* out, uint32 value)
-        {
-            out[0] = static_cast<uint8>(value & 0xFFU);
-            out[1] = static_cast<uint8>((value >> 8U) & 0xFFU);
-            out[2] = static_cast<uint8>((value >> 16U) & 0xFFU);
-            out[3] = static_cast<uint8>((value >> 24U) & 0xFFU);
-        };
-
-        uint8 header[54] = {};
-        header[0] = 'B';
-        header[1] = 'M';
-        put_u32(header + 2, file_size);
-        put_u32(header + 10, 54U); // pixel data offset
-        put_u32(header + 14, 40U); // DIB header size
-        put_u32(header + 18, width);
-        // Negative height marks the rows as top-down, matching the readback's delivered order.
-        put_u32(header + 22, static_cast<uint32>(-static_cast<int32>(height)));
-        header[26] = 1U; // planes
-        header[28] = 32U; // bits per pixel
-        put_u32(header + 34, pixel_bytes);
-
-        auto stream = std::ofstream(path, std::ios::binary | std::ios::trunc);
-        if (!stream)
-            return false;
-        stream.write(reinterpret_cast<const char*>(header), sizeof(header));
-        stream.write(reinterpret_cast<const char*>(bgra_top_down.data()), pixel_bytes);
-        return stream.good();
-    }
-
     Application::Application() = default;
 
     Application::~Application() noexcept = default;
@@ -108,8 +59,11 @@ namespace tbx
         const CommandList& command_list,
         const std::filesystem::path& root_directory)
     {
-        //// INITIALIZE: BUILD CORE SERVICE INSTANCES ////
+        //// INITIALIZE: BUILD CORE SERVICES ////
 
+        _services.initialize();
+
+        // A startup settings file makes its own directory an asset root so sibling assets resolve.
         const auto settings_path = command_list.get<std::string>("settings");
         auto startup_asset_directories = std::vector<std::filesystem::path>();
         if (!settings_path.empty())
@@ -120,95 +74,11 @@ namespace tbx
                 startup_asset_directories.push_back(settings_parent);
         }
 
-        if (!_service_provider)
-            _service_provider = std::make_shared<ServiceProvider>();
+        build_core_services(root_directory, std::move(startup_asset_directories));
 
-        auto file_ops = _service_provider->try_get_service<IFileOps>().lock();
-        const bool has_file_ops = file_ops != nullptr;
-        if (!file_ops)
-            file_ops = std::make_shared<FileOperator>(root_directory);
-
-        auto message_coordinator = _service_provider->try_get_service<IMessageCoordinator>().lock();
-        const bool has_message_coordinator = message_coordinator != nullptr;
-        if (!message_coordinator)
-            message_coordinator = std::make_shared<MessageCoordinator>();
-
-        auto serialization_registry =
-            _service_provider->try_get_service<SerializationRegistry>().lock();
-        const bool has_serialization_registry = serialization_registry != nullptr;
-        if (!serialization_registry)
-            serialization_registry = std::make_shared<SerializationRegistry>(file_ops);
-
-        auto asset_manager = _service_provider->try_get_service<AssetManager>().lock();
-        const bool has_asset_manager = asset_manager != nullptr;
-        if (!asset_manager)
-        {
-            asset_manager = std::make_shared<AssetManager>(
-                message_coordinator,
-                serialization_registry,
-                file_ops->get_working_directory(),
-                std::move(startup_asset_directories),
-                HandleSource(),
-                file_ops);
-        }
-
-        auto world_manager = _service_provider->try_get_service<WorldManager>().lock();
-        const bool has_world_manager = world_manager != nullptr;
-        if (!world_manager)
-            world_manager = std::make_shared<WorldManager>(asset_manager, message_coordinator);
-
-        auto script_system = _service_provider->try_get_service<ScriptSystem>().lock();
-        const bool has_script_system = script_system != nullptr;
-        if (!script_system)
-        {
-            script_system = std::make_shared<ScriptSystem>(
-                _service_provider,
-                asset_manager,
-                world_manager,
-                message_coordinator);
-        }
-
-        auto job_system = _service_provider->try_get_service<JobSystem>().lock();
-        const bool has_job_system = job_system != nullptr;
-        if (!job_system)
-            job_system = std::make_shared<JobSystem>();
-
-        auto thread_manager = _service_provider->try_get_service<ThreadManager>().lock();
-        const bool has_thread_manager = thread_manager != nullptr;
-        if (!thread_manager)
-            thread_manager = std::make_shared<ThreadManager>();
-
-        _file_ops = file_ops;
-        _msg_coordinator = message_coordinator;
-        _asset_manager = asset_manager;
-        _world_manager = world_manager;
-        _thread_manager = thread_manager;
-        _script_system = script_system;
-
-        //// INITIALIZE: REGISTER CORE SERVICES ////
-
-        // Register in dependency order so constructors and later lookups always see prerequisites:
-        // file/message -> serialization -> asset state -> world/script -> job/thread execution.
-        if (!has_file_ops)
-            _service_provider->register_service<IFileOps>(file_ops);
-        if (!has_message_coordinator)
-            _service_provider->register_service<IMessageCoordinator>(message_coordinator);
-        if (!has_serialization_registry)
-            _service_provider->register_service<SerializationRegistry>(serialization_registry);
-        if (!has_asset_manager)
-            _service_provider->register_service<AssetManager>(asset_manager);
-        if (!has_world_manager)
-            _service_provider->register_service<WorldManager>(world_manager);
-        if (!has_script_system)
-            _service_provider->register_service<ScriptSystem>(script_system);
-        if (!has_job_system)
-            _service_provider->register_service<JobSystem>(job_system);
-        if (!has_thread_manager)
-            _service_provider->register_service<ThreadManager>(thread_manager);
-
-        //// INITIALIZE: BIND GLOBAL STARTUP HELPERS ////
-
-        _plugin_manager = std::make_unique<PluginManager>(_service_provider, file_ops);
+        // The plugin manager must exist before plugins are loaded below, but its plugins attach
+        // only later, once the full runtime service graph has been built.
+        _plugin_manager = std::make_unique<PluginManager>(_services.shared(), _file_ops.lock());
 
         //// INITIALIZE: LOAD SETTINGS ////
 
@@ -216,13 +86,89 @@ namespace tbx
             settings_path.empty()
                 ? Handle("Settings.json")
                 : Handle(std::filesystem::path(settings_path).lexically_normal().string());
-        auto settings = load_app_settings(startup_settings_handle);
+        _settings = load_app_settings(startup_settings_handle);
+        _name = _settings ? _settings->name : "Toybox App";
 
         //// INITIALIZE: LOAD PLUGINS ////
 
-        const auto requested_plugins =
-            resolve_plugins(settings->plugins, command_list.get_list<std::string>("load-plugins"));
+        load_plugins(command_list);
+
+        //// INITIALIZE: REGISTER APP-OWNED RUNTIME SERVICES ////
+
+        if (register_runtime_services(command_list) != 0)
+            return -1;
+
+        //// INITIALIZE: REGISTER MESSAGE HANDLERS ////
+
+        register_message_handlers(startup_settings_handle);
+
+        //// INITIALIZE: FINALIZE APP STATE ////
+
+        // Plugins attach only after the full runtime graph exists so bind/runtime hooks see the
+        // final service set instead of a partial startup state.
+        get_plugin_manager().attach_all();
+
+        // The startup world is activated before the first window frame so scripts and rendering
+        // start from the intended scene state.
+        if (get_settings().world.startup_world.is_valid())
+        {
+            const auto world_manager = _world_manager.lock();
+            if (!world_manager
+                || !world_manager->set_active_world(get_settings().world.startup_world))
+            {
+                TBX_TRACE_ERROR(
+                    "Failed to load startup world '{}'.", get_settings().world.startup_world);
+                return -1;
+            }
+        }
+
+        //// INITIALIZE: OPEN MAIN WINDOW ////
+
+        if (open_main_window(command_list) != 0)
+            return -1;
+
+        //// INITIALIZE: REPORT RESOLVED STARTUP PATHS ////
+
+        // Startup logging happens after the main window is opened so any failures above short
+        // circuit before emitting the "ready" environment summary.
+        log_startup_environment(command_list);
+
+        //// INITIALIZE: PARENT WATCHDOG ////
+
+        start_parent_watchdog(command_list);
+
+        //// INITIALIZE: BROADCAST READY ////
+
+        if (const auto message_coordinator = _msg_coordinator.lock())
+            message_coordinator->send<ApplicationInitializedEvent>(*this);
+        return 0;
+    }
+
+    void Application::build_core_services(
+        const std::filesystem::path& root_directory,
+        std::vector<std::filesystem::path> startup_asset_directories)
+    {
+        auto factory = AppCoreServiceFactory(_services);
+        const auto core = factory.create(root_directory, std::move(startup_asset_directories));
+
+        _file_ops = core.file_ops;
+        _msg_coordinator = core.message_coordinator;
+        _asset_manager = core.asset_manager;
+        _world_manager = core.world_manager;
+        _thread_manager = core.thread_manager;
+        _script_system = core.script_system;
+    }
+
+    void Application::load_plugins(const CommandList& command_list)
+    {
+        const auto file_ops = _file_ops.lock();
+        if (!file_ops)
+            return;
+
+        const auto requested_plugins = resolve_plugins(
+            get_settings().plugins, command_list.get_list<std::string>("load-plugins"));
         const auto plugin_root_directory = file_ops->get_working_directory();
+
         // Headless apps are pure simulation hosts: interaction and visualization plugins are
         // never loaded, so their backends (and the services built on them) simply do not exist.
         _is_headless = command_list.has("headless");
@@ -235,129 +181,38 @@ namespace tbx
             requested_plugins,
             plugin_root_directory,
             excluded_plugin_categories);
+    }
 
-        //// INITIALIZE: REGISTER APP-OWNED RUNTIME SERVICES ////
+    int Application::register_runtime_services(const CommandList& command_list)
+    {
+        auto factory = AppRuntimeServiceFactory(_services);
+        const auto runtime = factory.create(get_settings().physics);
+        if (!runtime)
+            return -1;
 
-        const auto window_backend = _service_provider->try_get_service<IWindowBackend>();
-        const auto physics_backend = _service_provider->try_get_service<IPhysicsBackend>();
-        const auto graphics_backend = _service_provider->try_get_service<IGraphicsBackend>();
+        _window_manager = runtime->window_manager;
+        _physics = runtime->physics;
+        _rendering = runtime->rendering;
+        _input_manager = runtime->input_manager;
 
-        // Windowing must come first because rendering depends on a live window manager, and the
-        // backend usually arrives from a plugin that was just loaded above.
-        if (!window_backend.expired())
+        // --screenshot=<path>: capture one real rendered frame to a BMP, then exit. Rendering owns
+        // the capture itself; the app only wires its completion to a graceful exit.
+        if (runtime->rendering && command_list.has("screenshot"))
         {
-            auto window_manager =
-                std::make_shared<WindowManager>(message_coordinator, window_backend);
-            _service_provider->register_service<IWindowManager>(window_manager);
-            _window_manager = window_manager;
+            auto screenshot_path =
+                std::filesystem::path(command_list.get<std::string>("screenshot"));
+            runtime->rendering->capture_screenshot(
+                std::move(screenshot_path), [this](bool) { request_exit(); });
         }
 
-        // Physics can be created once the plugin backend exists and the core asset/world services
-        // are already registered.
-        if (!physics_backend.expired())
-        {
-            auto physics = std::make_shared<Physics>(
-                physics_backend,
-                asset_manager,
-                world_manager,
-                message_coordinator,
-                settings->physics);
-            _service_provider->register_service<Physics>(physics);
-            _physics = _service_provider->try_get_service<Physics>();
-        }
+        return 0;
+    }
 
-        // Rendering comes last because it needs the graphics backend plus window/thread services
-        // that were established earlier in the startup sequence.
-        if (!graphics_backend.expired())
-        {
-            auto window_manager_service = _service_provider->try_get_service<IWindowManager>();
-            if (window_manager_service.expired())
-            {
-                TBX_TRACE_ERROR("Application requires a window service for rendering.");
-                return -1;
-            }
-
-            auto rendering = std::make_shared<Rendering>(
-                graphics_backend,
-                asset_manager,
-                thread_manager,
-                window_manager_service,
-                world_manager,
-                message_coordinator);
-            _service_provider->register_service<Rendering>(rendering);
-            _rendering = rendering;
-
-            // TODO: move to Rendering to capture and write a screenshot to an image instead of
-            // making it a app responsability and have this wierd pre-render callback thing.
-            // --screenshot=<path>: capture one real rendered frame to a BMP via GPU readback, then
-            // exit. This is the reliable way to validate rendering headlessly — window captures
-            // (GDI/PrintWindow) return black for hardware OpenGL surfaces regardless of content.
-            if (command_list.has("screenshot"))
-            {
-                const auto screenshot_path =
-                    std::filesystem::path(command_list.get<std::string>("screenshot"));
-                // Warm-up frames let the world finish its synchronous first-frame asset load before
-                // the first capture attempt, so the screenshot isn't of an empty scene.
-                auto attempts = std::make_shared<int>(0);
-                rendering->set_pre_present_callback(
-                    [this, screenshot_path, attempts](
-                        IGraphicsBackend& backend,
-                        const RenderTarget&,
-                        const Size& backbuffer_size)
-                    {
-                        constexpr int WARMUP_FRAMES = 8;
-                        constexpr int MAX_ATTEMPTS = 240;
-                        const int attempt = (*attempts)++;
-                        if (attempt < WARMUP_FRAMES)
-                            return;
-
-                        auto pixels = std::vector<uint8>();
-                        if (backend.read_back_buffer(backbuffer_size, pixels) && !pixels.empty())
-                        {
-                            if (write_bgra_bmp(
-                                    screenshot_path,
-                                    backbuffer_size.width,
-                                    backbuffer_size.height,
-                                    pixels))
-                            {
-                                TBX_TRACE_INFO(
-                                    "Saved screenshot to '{}'.",
-                                    screenshot_path.string());
-                            }
-                            else
-                            {
-                                TBX_TRACE_ERROR(
-                                    "Failed to write screenshot '{}'.",
-                                    screenshot_path.string());
-                            }
-                            request_exit();
-                        }
-                        else if (attempt >= MAX_ATTEMPTS)
-                        {
-                            TBX_TRACE_ERROR("Screenshot readback never became ready; giving up.");
-                            request_exit();
-                        }
-                    });
-            }
-        }
-
-        // Input is app-owned like windowing/physics/rendering: the InputManager (scheme/action
-        // evaluation plus host injection) lives in the engine and reads raw device state from whatever
-        // IInputBackend a plugin supplied. Headless apps load no input backend, so none is created.
-        const auto input_backend = _service_provider->try_get_service<IInputBackend>();
-        if (!input_backend.expired())
-        {
-            auto input_manager = std::make_shared<InputManager>(input_backend);
-            _service_provider->register_service<IInputManager>(input_manager);
-            _input_manager = input_manager;
-        }
-
-        //// INITIALIZE: SET APP SETTINGS ////
-
-        _settings = std::move(settings);
-        _name = _settings ? _settings->name : "Toybox App";
-
-        //// INITIALIZE: REGISTER MESSAGE HANDLERS ////
+    void Application::register_message_handlers(const Handle& startup_settings_handle)
+    {
+        const auto message_coordinator = _msg_coordinator.lock();
+        if (!message_coordinator)
+            return;
 
         message_coordinator->register_handler(
             [this, startup_settings_handle](Message& msg)
@@ -405,68 +260,60 @@ namespace tbx
 
                 get_plugin_manager().receive_message(msg);
             });
+    }
 
-        //// INITIALIZE: FINALIZE APP STATE ////
+    int Application::open_main_window(const CommandList& command_list)
+    {
+        // Headless apps have no window manager at all; otherwise the main window is required.
+        // Hidden apps (such as those hosted by the Toybox Studio editor) create it invisible.
+        if (_is_headless)
+            return 0;
 
-        // Plugins attach only after the full runtime graph exists so bind/runtime hooks see the
-        // final service set instead of a partial startup state.
-        get_plugin_manager().attach_all();
-
-        // The startup world is activated before the first window frame so scripts and rendering
-        // start from the intended scene state.
-        if (get_settings().world.startup_world.is_valid()
-            && !world_manager->set_active_world(get_settings().world.startup_world))
+        const auto window_manager = _window_manager.lock();
+        if (!window_manager)
         {
-            TBX_TRACE_ERROR(
-                "Failed to load startup world '{}'.",
-                get_settings().world.startup_world);
+            TBX_TRACE_ERROR("Application requires an IWindowManager service.");
             return -1;
         }
 
-        //// INITIALIZE: OPEN MAIN WINDOW ////
-
-        // Headless apps have no window manager at all; otherwise the main window is required.
-        // Hidden apps (such as those hosted by the Toybox Studio editor) create it invisible.
-        if (!_is_headless)
+        std::filesystem::path icon_path = {};
+        if (_settings && _settings->icon.is_valid())
         {
-            const auto main_window_manager = _window_manager.lock();
-            if (!main_window_manager)
+            // Resolve the icon only after settings and assets are both live so window
+            // creation sees the final application branding state.
+            const auto asset_manager = _asset_manager.lock();
+            icon_path = asset_manager ? asset_manager->resolve_path(_settings->icon)
+                                      : std::filesystem::path();
+            if (icon_path.empty())
             {
-                TBX_TRACE_ERROR("Application requires an IWindowManager service.");
-                return -1;
+                TBX_TRACE_WARNING(
+                    "Failed to resolve app icon handle to a path. Window icon will not be set.");
             }
-
-            std::filesystem::path icon_path = {};
-            if (_settings->icon.is_valid())
-            {
-                // Resolve the icon only after settings and assets are both live so window
-                // creation sees the final application branding state.
-                icon_path = asset_manager->resolve_path(_settings->icon);
-                if (icon_path.empty())
-                {
-                    TBX_TRACE_WARNING(
-                        "Failed to resolve app icon handle to a path. Window icon will not be "
-                        "set.");
-                }
-            }
-
-            _is_hidden = command_list.has("hidden");
-            const auto main_window_mode = _is_hidden ? WindowMode::HIDDEN : WindowMode::WINDOWED;
-            // The window (and so the game's render size) follows the configured graphics resolution.
-            main_window_manager->open(
-                WindowCreateInfo {
-                    .title = _name.empty() ? std::string("Toybox Application") : _name,
-                    .size = get_settings().graphics.resolution,
-                    .mode = main_window_mode,
-                    .api = get_settings().graphics.graphics_api,
-                    .icon_path = icon_path,
-                });
         }
 
-        //// INITIALIZE: REPORT RESOLVED STARTUP PATHS ////
+        _is_hidden = command_list.has("hidden");
+        const auto main_window_mode = _is_hidden ? WindowMode::HIDDEN : WindowMode::WINDOWED;
+        // The window (and so the game's render size) follows the configured graphics resolution.
+        window_manager->open(
+            WindowCreateInfo {
+                .title = _name.empty() ? std::string("Toybox Application") : _name,
+                .size = get_settings().graphics.resolution,
+                .mode = main_window_mode,
+                .api = get_settings().graphics.graphics_api,
+                .icon_path = icon_path,
+            });
+        return 0;
+    }
 
-        // Startup logging happens after the main window is opened so any failures above short
-        // circuit before emitting the "ready" environment summary.
+    void Application::log_startup_environment(const CommandList& command_list) const
+    {
+        const auto file_ops = _file_ops.lock();
+        const auto asset_manager = _asset_manager.lock();
+        if (!file_ops || !asset_manager)
+            return;
+
+        const auto command_line = command_list.to_string();
+        TBX_TRACE_INFO("Command Line: {}", command_line.empty() ? "<none>" : command_line);
         TBX_TRACE_INFO("Working Directory: '{}'", file_ops->get_working_directory().string());
         TBX_TRACE_INFO("Logs Directory: '{}'", Log::get_instance().get_logs_directory().string());
 
@@ -485,41 +332,37 @@ namespace tbx
         {
             TBX_TRACE_INFO("Asset Directory: <none>");
         }
+    }
 
-        //// INITIALIZE: PARENT WATCHDOG ////
-
+    void Application::start_parent_watchdog(const CommandList& command_list)
+    {
         // --live-together-die-together=<pid>: when the launching process (e.g. the editor) dies,
         // exit too instead of lingering as an orphan. A background thread polls the parent's
         // liveness and requests a graceful exit once it is gone.
-        if (command_list.has("live-together-die-together"))
-        {
-            const auto parent_pid = command_list.get<uint32>("live-together-die-together");
-            TBX_TRACE_INFO("Tied to launching process {} (--live-together-die-together).", parent_pid);
-            _parent_watchdog = std::jthread(
-                [this, parent_pid](std::stop_token stop_token)
+        if (!command_list.has("live-together-die-together"))
+            return;
+
+        const auto parent_pid = command_list.get<uint32>("live-together-die-together");
+        TBX_TRACE_INFO("Tied to launching process {} (--live-together-die-together).", parent_pid);
+        _parent_watchdog = std::jthread(
+            [this, parent_pid](std::stop_token stop_token)
+            {
+                while (!stop_token.stop_requested())
                 {
-                    while (!stop_token.stop_requested())
+                    if (!is_process_running(parent_pid))
                     {
-                        if (!is_process_running(parent_pid))
-                        {
-                            TBX_TRACE_WARNING(
-                                "Launching process {} exited; shutting down.", parent_pid);
-                            request_exit();
-                            return;
-                        }
-
-                        // Poll about once a second, but in short slices so a graceful shutdown's
-                        // stop request is honored promptly rather than waiting out the interval.
-                        for (int slice = 0; slice < 5 && !stop_token.stop_requested(); ++slice)
-                            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                        TBX_TRACE_WARNING(
+                            "Launching process {} exited; shutting down.", parent_pid);
+                        request_exit();
+                        return;
                     }
-                });
-        }
 
-        //// INITIALIZE: BROADCAST READY ////
-
-        message_coordinator->send<ApplicationInitializedEvent>(*this);
-        return 0;
+                    // Poll about once a second, but in short slices so a graceful shutdown's
+                    // stop request is honored promptly rather than waiting out the interval.
+                    for (int slice = 0; slice < 5 && !stop_token.stop_requested(); ++slice)
+                        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                }
+            });
     }
 
     void Application::shutdown()
@@ -531,7 +374,7 @@ namespace tbx
 
         //// SHUTDOWN: CAPTURE REQUIRED SERVICES ////
 
-        if (!_service_provider)
+        if (!_services.is_valid())
             return;
 
         const auto shutdown_begin = std::chrono::steady_clock::now();
@@ -541,7 +384,7 @@ namespace tbx
         if (!msg_coordinator || !asset_manager || !thread_manager)
         {
             _plugin_manager = {};
-            _service_provider = {};
+            _services.reset();
             return;
         }
 
@@ -554,8 +397,8 @@ namespace tbx
         // Release rendering before windowing so GPU resources are gone while the context still
         // exists.
         _rendering = {};
-        if (_service_provider->has_service<Rendering>())
-            _service_provider->deregister_service<Rendering>();
+        if (_services.get().has_service<Rendering>())
+            _services.get().deregister_service<Rendering>();
 
         // Close the main window before removing systems that may still reference it during detach.
         if (auto window_manager = _window_manager.lock())
@@ -568,8 +411,8 @@ namespace tbx
 
         // Destroy runtime scripts while their backing worlds and assets are still available.
         _script_system = {};
-        if (_service_provider->has_service<ScriptSystem>())
-            _service_provider->deregister_service<ScriptSystem>();
+        if (_services.get().has_service<ScriptSystem>())
+            _services.get().deregister_service<ScriptSystem>();
 
         //// SHUTDOWN: DETACH PLUGINS BEFORE REMOVING THEIR DEPENDENCIES ////
 
@@ -583,12 +426,12 @@ namespace tbx
         // control block (a use-after-free crash on shutdown). Mirror how Rendering/Physics/windowing
         // are released before unload_all rather than leaving it to the service provider's teardown.
         _input_manager = {};
-        if (_service_provider->has_service<IInputManager>())
-            _service_provider->deregister_service<IInputManager>();
-        if (_service_provider->has_service<Physics>())
-            _service_provider->deregister_service<Physics>();
-        if (_service_provider->has_service<IWindowManager>())
-            _service_provider->deregister_service<IWindowManager>();
+        if (_services.get().has_service<InputManager>())
+            _services.get().deregister_service<InputManager>();
+        if (_services.get().has_service<Physics>())
+            _services.get().deregister_service<Physics>();
+        if (_services.get().has_service<IWindowManager>())
+            _services.get().deregister_service<IWindowManager>();
 
         //// SHUTDOWN: CLEAR WORLD AND ASSET STATE ////
 
@@ -596,8 +439,8 @@ namespace tbx
         if (auto world_manager = _world_manager.lock())
             world_manager->clear_active_world();
         _world_manager = {};
-        if (_service_provider->has_service<WorldManager>())
-            _service_provider->deregister_service<WorldManager>();
+        if (_services.get().has_service<WorldManager>())
+            _services.get().deregister_service<WorldManager>();
         _settings = {};
         asset_manager->unload_all();
 
@@ -631,7 +474,7 @@ namespace tbx
         thread_manager = {};
         asset_manager = {};
         msg_coordinator = {};
-        _service_provider = {};
+        _services.reset();
 
         const auto shutdown_elapsed_ms = std::chrono::duration<double, std::milli>(
                                              std::chrono::steady_clock::now() - shutdown_begin)
@@ -794,12 +637,12 @@ namespace tbx
 
     ServiceProvider& Application::get_service_provider()
     {
-        return *_service_provider;
+        return _services.get();
     }
 
     const ServiceProvider& Application::get_service_provider() const
     {
-        return *_service_provider;
+        return _services.get();
     }
 
     PluginManager& Application::get_plugin_manager()

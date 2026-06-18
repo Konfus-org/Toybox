@@ -343,6 +343,16 @@ namespace tbx
         set_component_value<EntityEnabledComponent>(*_registry, id, enabled);
     }
 
+    bool EntityRegistry::is_handle_enabled(entt::entity handle) const
+    {
+        // Mirrors get_enabled but takes a resolved handle and does not lock: callers hold _mutex.
+        // Absent flag means enabled, matching every other entity-enabled read path.
+        if (!_registry->valid(handle) || !_registry->all_of<EntityEnabledComponent>(handle))
+            return true;
+
+        return _registry->get<EntityEnabledComponent>(handle).value;
+    }
+
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);

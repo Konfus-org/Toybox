@@ -1,5 +1,7 @@
 #include "tbx/systems/app/command_list.h"
 #include "tbx/utils/string_utils.h"
+#include <sstream>
+#include <string>
 #include <string_view>
 
 namespace tbx
@@ -58,5 +60,25 @@ namespace tbx
     const std::vector<std::string>& CommandList::get_positionals() const
     {
         return _positionals;
+    }
+
+    std::string CommandList::to_string() const
+    {
+        auto stream = std::ostringstream();
+        auto first = true;
+        const auto append = [&](std::string_view token)
+        {
+            if (!first)
+                stream << ' ';
+            stream << token;
+            first = false;
+        };
+
+        for (const auto& positional : _positionals)
+            append(positional);
+        for (const auto& [name, value] : _args)
+            append("--" + name + "=" + value);
+
+        return stream.str();
     }
 }

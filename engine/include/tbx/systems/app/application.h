@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/interfaces/file_ops.h"
-#include "tbx/interfaces/input_manager.h"
 #include "tbx/interfaces/window_manager.h"
+#include "tbx/systems/input/input_manager.h"
+#include "tbx/systems/app/app_service_provider.h"
 #include "tbx/systems/app/command_list.h"
 #include "tbx/systems/app/settings.h"
 #include "tbx/systems/assets/manager.h"
@@ -64,6 +65,18 @@ namespace tbx
         virtual void fixed_update(const DeltaTime& delta_time);
 
       private:
+        // Startup phases, called in order by initialize(). Each owns one //// INITIALIZE //// stage
+        // so the top-level flow reads as a sequence of named steps instead of one long body.
+        void build_core_services(
+            const std::filesystem::path& root_directory,
+            std::vector<std::filesystem::path> startup_asset_directories);
+        void load_plugins(const CommandList& command_list);
+        int register_runtime_services(const CommandList& command_list);
+        void register_message_handlers(const Handle& startup_settings_handle);
+        int open_main_window(const CommandList& command_list);
+        void log_startup_environment(const CommandList& command_list) const;
+        void start_parent_watchdog(const CommandList& command_list);
+
         std::shared_ptr<AppSettings> load_app_settings(const Handle& settings_handle);
         std::vector<std::string> resolve_plugins(
             const std::vector<std::string>& settings_plugins,
@@ -81,7 +94,7 @@ namespace tbx
         bool _is_paused = false;
         std::string _name = "Toybox App";
 
-        std::shared_ptr<ServiceProvider> _service_provider = {};
+        AppServiceProvider _services = {};
         std::unique_ptr<PluginManager> _plugin_manager = {};
         std::weak_ptr<IFileOps> _file_ops = {};
         std::weak_ptr<IMessageCoordinator> _msg_coordinator = {};
@@ -90,7 +103,7 @@ namespace tbx
         std::weak_ptr<WorldManager> _world_manager = {};
         std::weak_ptr<ThreadManager> _thread_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
-        std::weak_ptr<IInputManager> _input_manager = {};
+        std::weak_ptr<InputManager> _input_manager = {};
         std::weak_ptr<Physics> _physics = {};
         std::weak_ptr<Rendering> _rendering = {};
         std::weak_ptr<ScriptSystem> _script_system = {};

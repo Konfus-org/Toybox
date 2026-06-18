@@ -1,6 +1,8 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/async/job_system.h"
+#include "tbx/systems/async/parallel_for.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/types/assets/model.h"
@@ -427,15 +429,21 @@ namespace tbx
         delete record;
     }
 
+    constexpr auto PHYSICS_LANE_NAME = std::string_view("physics");
+
     Physics::Physics(
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<ThreadManager> thread_manager,
+        std::weak_ptr<JobSystem> job_system,
         const PhysicsSettings& settings)
         : Physics(
               std::move(backend),
               std::move(asset_manager),
               std::move(world_manager),
+              std::move(thread_manager),
+              std::move(job_system),
               std::weak_ptr<IMessageCoordinator>(),
               settings)
     {
@@ -445,12 +453,16 @@ namespace tbx
         std::weak_ptr<IPhysicsBackend> backend,
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
+        std::weak_ptr<ThreadManager> thread_manager,
+        std::weak_ptr<JobSystem> job_system,
         std::weak_ptr<IMessageCoordinator> message_coordinator,
         const PhysicsSettings& settings)
         : _backend(std::move(backend))
         , _asset_manager(std::move(asset_manager))
         , _message_coordinator(message_coordinator)
         , _world_manager(std::move(world_manager))
+        , _thread_manager(std::move(thread_manager))
+        , _job_system(std::move(job_system))
     {
         if (auto coordinator = _message_coordinator.lock())
         {
@@ -462,14 +474,36 @@ namespace tbx
                 });
         }
 
+        // The simulation step runs on its own lane so it overlaps frame work on the main thread.
+        // Without the lane (e.g. headless tooling that omits the thread manager) the step still runs
+        // synchronously inside dispatch_step, so physics stays correct either way.
+        if (auto thread_manager_service = _thread_manager.lock())
+        {
+            _has_physics_lane = thread_manager_service->has_lane(PHYSICS_LANE_NAME)
+                                || thread_manager_service->try_create_lane(PHYSICS_LANE_NAME);
+            if (!_has_physics_lane)
+                TBX_TRACE_WARNING(
+                    "Physics: failed to create the physics lane; simulation will run on the main "
+                    "thread.");
+        }
+
         if (auto backend_strong = _backend.lock())
             backend_strong->initialize(get_backend_settings(settings));
     }
 
     Physics::~Physics() noexcept
     {
+        // The backend is about to be torn down, so the in-flight step must finish touching it first.
+        wait_for_pending_step();
+
         if (auto coordinator = _message_coordinator.lock())
             coordinator->deregister_handler(_asset_reload_handler);
+
+        if (_has_physics_lane)
+        {
+            if (auto thread_manager = _thread_manager.lock())
+                thread_manager->stop_lane(PHYSICS_LANE_NAME);
+        }
 
         clear_resources();
         if (auto backend = _backend.lock())
@@ -481,6 +515,9 @@ namespace tbx
         auto backend = _backend.lock();
         if (!backend)
             return {};
+
+        // Backend queries cannot run while a simulation step is in flight, so join it first.
+        wait_for_pending_step();
 
         auto ignored_rigidbody = PhysicsRigidbodyHandle {};
         if (raycast_query.ignore_entity && raycast_query.ignored_entity_id.is_valid())
@@ -522,6 +559,23 @@ namespace tbx
             worlds = asset_manager->get_loaded<World>();
         }
 
+        // The simulation step for the previous call ran on the physics lane while the rest of the
+        // frame (rendering, asset work) proceeded. Join it now and commit its results to the ECS
+        // before reading the latest entity state back into the backend.
+        wait_for_pending_step();
+        if (_results_pending)
+        {
+            for (const auto& world : worlds)
+            {
+                if (!world)
+                    continue;
+
+                sync_backend_to_entities(*world);
+                process_trigger_colliders(*world);
+            }
+            _results_pending = false;
+        }
+
         for (const auto& world : worlds)
         {
             if (!world)
@@ -529,17 +583,45 @@ namespace tbx
 
             sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
         }
-        if (auto backend = _backend.lock())
-            backend->update(get_backend_settings(settings), dt);
-        for (const auto& world : worlds)
-        {
-            if (!world)
-                continue;
-
-            sync_backend_to_entities(*world);
-            process_trigger_colliders(*world);
-        }
         _pending_model_reloads.clear();
+
+        // Hand the heavy step off to the lane and return; its results are committed on the next call.
+        dispatch_step(settings, dt);
+    }
+
+    void Physics::dispatch_step(const PhysicsSettings& settings, const DeltaTime& dt)
+    {
+        auto backend = _backend.lock();
+        if (!backend)
+            return;
+
+        const auto backend_settings = get_backend_settings(settings);
+        if (_has_physics_lane)
+        {
+            if (auto thread_manager = _thread_manager.lock())
+            {
+                _pending_step = thread_manager->post_with_future(
+                    PHYSICS_LANE_NAME,
+                    [backend, backend_settings, dt]()
+                    {
+                        backend->update(backend_settings, dt);
+                    });
+                _results_pending = true;
+                return;
+            }
+        }
+
+        // No lane available: run synchronously so physics still advances.
+        backend->update(backend_settings, dt);
+        _results_pending = true;
+    }
+
+    void Physics::wait_for_pending_step() const noexcept
+    {
+        if (!_pending_step.valid())
+            return;
+
+        TBX_TRY_CATCH_ASSERT(_pending_step.get();, "Physics simulation step failed.");
     }
 
     void Physics::clear_resources()
@@ -848,10 +930,36 @@ namespace tbx
         if (!backend)
             return;
 
+        // Snapshot the records into an indexable buffer so the per-body state reads can be chunked
+        // across job-system workers. The reads are safe to run in parallel: the simulation step is
+        // already joined (no PhysicsSystem::Update in flight), each read only touches its own body's
+        // state plus the now read-only record map, and each job writes its own slot. The ECS
+        // write-back below stays serial — it mutates components and walks parent chains, which the
+        // entt registry does not synchronize for compound access.
+        _sync_readback.clear();
+        _sync_readback.reserve(_records_by_entity.size());
         for (auto& record_entry : _records_by_entity)
+            _sync_readback.push_back(
+                SyncReadback {
+                    .entity_id = record_entry.first,
+                    .record = record_entry.second.get(),
+                });
+
+        auto job_system = _job_system.lock();
+        parallel_for(
+            job_system.get(),
+            _sync_readback.size(),
+            [this, &backend](size index)
+            {
+                auto& item = _sync_readback[index];
+                if (item.record->rigidbody.is_valid())
+                    item.state = backend->get_rigidbody_state(item.record->rigidbody);
+            });
+
+        for (auto& item : _sync_readback)
         {
-            const Uuid& entity_id = record_entry.first;
-            auto& record = *record_entry.second;
+            const Uuid& entity_id = item.entity_id;
+            auto& record = *item.record;
 
             if (!world.has<Transform>(entity_id))
                 continue;
@@ -872,7 +980,7 @@ namespace tbx
                 continue;
             }
 
-            PhysicsRigidbodyState state = backend->get_rigidbody_state(record.rigidbody);
+            const PhysicsRigidbodyState& state = item.state;
             if (!state.is_valid)
                 continue;
 

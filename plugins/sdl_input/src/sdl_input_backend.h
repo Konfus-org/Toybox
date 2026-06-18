@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/interfaces/input_manager.h"
+#include "tbx/interfaces/input_backend.h"
 #include <SDL3/SDL.h>
 
 namespace sdl_input

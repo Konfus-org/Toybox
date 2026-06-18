@@ -1,6 +1,6 @@
 #pragma once
 #include "rpc_server.h"
-#include "tbx/interfaces/input_manager.h"
+#include "tbx/systems/input/input_manager.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/log_level.h"
@@ -179,7 +179,7 @@ namespace tbx::studio_bridge
         std::weak_ptr<tbx::WorldManager> _world_manager = {};
         std::weak_ptr<tbx::Rendering> _rendering = {};
         std::weak_ptr<tbx::AssetManager> _asset_manager = {};
-        std::weak_ptr<tbx::IInputManager> _input_manager = {};
+        std::weak_ptr<tbx::InputManager> _input_manager = {};
 
         // Editor/game view cameras live here, separate from the game world, so the world holds only the
         // user's scene. This registry is updated and rendered by the plugin every frame regardless of

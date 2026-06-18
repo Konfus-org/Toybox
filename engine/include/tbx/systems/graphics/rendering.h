@@ -11,6 +11,8 @@
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
+#include <filesystem>
+#include <functional>
 #include <future>
 #include <mutex>
 #include <unordered_map>
@@ -74,6 +76,19 @@ namespace tbx
             std::function<
                 void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
                 callback);
+
+        /// @brief
+        /// Purpose: Captures the next fully rendered frame to a 32-bit BMP at path via GPU
+        /// readback, then invokes on_complete(succeeded) exactly once. A few warm-up frames are
+        /// skipped first so the world's synchronous first-frame asset load finishes before the
+        /// capture, and the readback is retried until it becomes ready or a frame budget elapses.
+        /// @details
+        /// Thread Safety: Safe to call from any thread; the capture runs on the render lane.
+        /// This is the reliable way to validate rendering headlessly — window captures
+        /// (GDI/PrintWindow) return black for hardware OpenGL surfaces regardless of content.
+        void capture_screenshot(
+            std::filesystem::path path,
+            std::function<void(bool succeeded)> on_complete = {});
 
         /// @brief
         /// Purpose: Blocks until any previously dispatched render frame has finished.

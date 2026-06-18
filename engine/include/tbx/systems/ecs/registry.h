@@ -140,6 +140,11 @@ namespace tbx
         bool get_enabled(const Uuid& id) const;
         void set_enabled(const Uuid& id, bool enabled);
 
+        // Enabled check for an already-resolved handle, assuming the caller already holds _mutex.
+        // Lets the templated queries filter disabled entities under a single lock instead of
+        // re-locking through get_enabled per entity. Absence of the flag means enabled.
+        bool is_handle_enabled(entt::entity handle) const;
+
         std::string get_layer(const Uuid& id) const;
         void set_layer(const Uuid& id, const std::string& layer);
 

@@ -959,7 +959,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 float open_speed = 1.0F;
 
                 [[inject]]
-                std::weak_ptr<tbx::IInputManager> input = {};
+                std::weak_ptr<tbx::InputManager> input = {};
             };
             }
             """

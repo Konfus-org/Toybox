@@ -1,4 +1,4 @@
-#include "tbx/interfaces/input_manager.h"
+#include "tbx/systems/input/input_manager.h"
 #include <ranges>
 
 namespace tbx
@@ -474,15 +474,18 @@ namespace tbx
 
     void InputManager::set_mouse_lock_mode(MouseLockMode mode)
     {
+        // Record the gameplay intent and forward it to the backend. The intent is what we report (see
+        // get_mouse_lock_mode): the backend may fail to apply it — e.g. a hidden, unfocused engine
+        // window under Studio has no window to grab — but the host still needs the intent to lock its
+        // own cursor.
+        _mouse_lock_mode = mode;
         if (const auto backend = _backend.lock())
             backend->set_mouse_lock_mode(mode);
     }
 
     MouseLockMode InputManager::get_mouse_lock_mode() const
     {
-        if (const auto backend = _backend.lock())
-            return backend->get_mouse_lock_mode();
-        return MouseLockMode::UNLOCKED;
+        return _mouse_lock_mode;
     }
 
     void InputManager::set_input_injection_enabled(bool enabled)

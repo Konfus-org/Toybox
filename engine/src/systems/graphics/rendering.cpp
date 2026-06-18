@@ -1,11 +1,58 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
+#include <cstdint>
+#include <fstream>
 #include <tuple>
+#include <vector>
 
 namespace tbx
 {
     constexpr auto RENDER_LANE_NAME = std::string_view("render");
+
+    // Writes BGRA, top-down pixels (the layout IGraphicsBackend::read_back_buffer delivers) as a
+    // 32-bit BMP. Used by capture_screenshot so a real rendered frame can be inspected without a
+    // window-capture step (GDI/PrintWindow return black for hardware GL surfaces).
+    static bool write_bgra_bmp(
+        const std::filesystem::path& path,
+        uint32 width,
+        uint32 height,
+        const std::vector<uint8>& bgra_top_down)
+    {
+        if (width == 0U || height == 0U
+            || bgra_top_down.size() < static_cast<size>(width) * height * 4U)
+            return false;
+
+        const uint32 pixel_bytes = width * height * 4U;
+        const uint32 file_size = 54U + pixel_bytes;
+        auto put_u32 = [](uint8* out, uint32 value)
+        {
+            out[0] = static_cast<uint8>(value & 0xFFU);
+            out[1] = static_cast<uint8>((value >> 8U) & 0xFFU);
+            out[2] = static_cast<uint8>((value >> 16U) & 0xFFU);
+            out[3] = static_cast<uint8>((value >> 24U) & 0xFFU);
+        };
+
+        uint8 header[54] = {};
+        header[0] = 'B';
+        header[1] = 'M';
+        put_u32(header + 2, file_size);
+        put_u32(header + 10, 54U); // pixel data offset
+        put_u32(header + 14, 40U); // DIB header size
+        put_u32(header + 18, width);
+        // Negative height marks the rows as top-down, matching the readback's delivered order.
+        put_u32(header + 22, static_cast<uint32>(-static_cast<int32>(height)));
+        header[26] = 1U; // planes
+        header[28] = 32U; // bits per pixel
+        put_u32(header + 34, pixel_bytes);
+
+        auto stream = std::ofstream(path, std::ios::binary | std::ios::trunc);
+        if (!stream)
+            return false;
+        stream.write(reinterpret_cast<const char*>(header), sizeof(header));
+        stream.write(reinterpret_cast<const char*>(bgra_top_down.data()), pixel_bytes);
+        return stream.good();
+    }
 
     // A target untouched for this many dispatches is treated as a closed view and its lane dropped.
     // Mirrors the OpenGL backend's readback-ring eviction so the two per-target maps age in step.
@@ -137,6 +184,61 @@ namespace tbx
             callback)
     {
         _pipeline.set_pre_present_callback(std::move(callback));
+    }
+
+    void Rendering::capture_screenshot(
+        std::filesystem::path path,
+        std::function<void(bool succeeded)> on_complete)
+    {
+        // Warm-up frames let the world finish its synchronous first-frame asset load before the
+        // first capture attempt, so the screenshot isn't of an empty scene. The shared state lets
+        // the render-lane callback count attempts across frames and fire on_complete exactly once;
+        // the callback never clears itself (the pipeline holds its mutex while invoking it), so a
+        // 'finished' flag makes every later invocation a no-op instead.
+        struct CaptureState
+        {
+            std::filesystem::path path = {};
+            std::function<void(bool)> on_complete = {};
+            int attempts = 0;
+            bool finished = false;
+        };
+        auto state = std::make_shared<CaptureState>(
+            CaptureState {.path = std::move(path), .on_complete = std::move(on_complete)});
+
+        set_pre_present_callback(
+            [state](IGraphicsBackend& backend, const RenderTarget&, const Size& backbuffer_size)
+            {
+                constexpr int WARMUP_FRAMES = 8;
+                constexpr int MAX_ATTEMPTS = 240;
+                if (state->finished)
+                    return;
+
+                const int attempt = state->attempts++;
+                if (attempt < WARMUP_FRAMES)
+                    return;
+
+                auto pixels = std::vector<uint8>();
+                if (backend.read_back_buffer(backbuffer_size, pixels) && !pixels.empty())
+                {
+                    const bool wrote = write_bgra_bmp(
+                        state->path, backbuffer_size.width, backbuffer_size.height, pixels);
+                    if (wrote)
+                        TBX_TRACE_INFO("Saved screenshot to '{}'.", state->path.string());
+                    else
+                        TBX_TRACE_ERROR("Failed to write screenshot '{}'.", state->path.string());
+
+                    state->finished = true;
+                    if (state->on_complete)
+                        state->on_complete(wrote);
+                }
+                else if (attempt >= MAX_ATTEMPTS)
+                {
+                    TBX_TRACE_ERROR("Screenshot readback never became ready; giving up.");
+                    state->finished = true;
+                    if (state->on_complete)
+                        state->on_complete(false);
+                }
+            });
     }
 
     void Rendering::wait_for_pending_frame() noexcept

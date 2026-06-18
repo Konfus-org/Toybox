@@ -238,7 +238,7 @@ namespace tbx::studio_bridge
             _world_manager = services.try_get_service<tbx::WorldManager>();
             _rendering = services.try_get_service<tbx::Rendering>();
             _asset_manager = services.try_get_service<tbx::AssetManager>();
-            _input_manager = services.try_get_service<tbx::IInputManager>();
+            _input_manager = services.try_get_service<tbx::InputManager>();
         }
     }
 

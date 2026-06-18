@@ -52,5 +52,15 @@ void main()
 
     // Keep a faint colored-glass cast on whatever still shows through the clear part of the pane.
     color += tint.rgb * 0.06;
+
+    // The albedo color's alpha is the pane's overall presence: 1 is the fully-realised glass (the look
+    // above), lower values a thinner, more see-through pane, 0 effectively no glass at all. The alpha
+    // blend is a colored composite (final = src.rgb * (src.a + dst)), so presence has to drive both
+    // halves — scale the reflected glint (src.a) down with it, and fade the colored filter (src.rgb)
+    // toward white, an identity filter that leaves the background untouched, as the pane thins out.
+    // At alpha = 1 both are no-ops, so existing glass renders exactly as before.
+    float presence = tbx_saturate(tint.a);
+    opacity *= presence;
+    color = mix(vec3(1.0), color, presence);
     o_color = vec4(color, opacity);
 }

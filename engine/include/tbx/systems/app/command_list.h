@@ -110,6 +110,14 @@ namespace tbx
         /// Thread Safety: Thread-safe for concurrent reads after construction.
         const std::vector<std::string>& get_positionals() const;
 
+        /// @brief
+        /// Purpose: Renders the parsed arguments back into a single command-line string for
+        /// diagnostics (positionals first, then "--name=value" options).
+        /// @details
+        /// Ownership: Returns an owned string.
+        /// Thread Safety: Thread-safe for concurrent reads after construction.
+        std::string to_string() const;
+
       private:
         std::map<std::string, std::string> _args = {};
         std::vector<std::string> _positionals = {};
