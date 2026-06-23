@@ -2,6 +2,8 @@
 #include "script_system_state_key.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/plugin_api/messages.h"
+#include "tbx/systems/scripting/scripting_registry.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/script_container.h"
 #include <algorithm>
@@ -26,8 +28,8 @@ namespace tbx
 
     struct ScriptSystemStateRecord
     {
-        std::shared_ptr<Script> script = {};
-        std::shared_ptr<GameplayScript> gameplay_script = {};
+        std::shared_ptr<IScriptInstance> instance = {};
+        std::weak_ptr<IScriptingBackend> backend = {};
         bool started = false;
         bool touched = false;
     };
@@ -83,6 +85,8 @@ namespace tbx
                 {
                     if (const auto reloaded = handle_message<AssetReloadedEvent>(message))
                         on_asset_reloaded(reloaded->get());
+                    else if (handle_message<PluginUnloadingEvent>(message))
+                        on_plugins_unloading();
                 });
         }
     }
@@ -94,79 +98,10 @@ namespace tbx
 
         for (auto& entry : _state->instances)
         {
-            if (entry.second.gameplay_script)
-                entry.second.gameplay_script->on_destroy();
+            if (entry.second.instance)
+                entry.second.instance->on_destroy();
         }
         _state->instances.clear();
-    }
-
-    static std::shared_ptr<Script> clone_script_prototype(const Script& prototype)
-    {
-        auto registration = get_asset_type_registration(std::type_index(typeid(prototype)));
-        if (!registration.has_value() || !registration->create_asset)
-            return {};
-
-        auto asset = registration->create_asset();
-        if (!asset)
-            return {};
-
-        if (registration->write_body && registration->read_body)
-        {
-            auto data = std::string();
-            auto write_result = registration->write_body(&prototype, data);
-            if (!write_result.succeeded())
-                return {};
-
-            auto read_result = registration->read_body(data, asset.get());
-            if (!read_result.succeeded())
-                return {};
-        }
-
-        asset->id = prototype.id;
-        asset->version = prototype.version;
-        auto* script = dynamic_cast<Script*>(asset.release());
-        if (script == nullptr)
-            return {};
-
-        return std::shared_ptr<Script>(script);
-    }
-
-    static std::shared_ptr<Script> create_script_instance(
-        AssetManager& asset_manager,
-        const ScriptContainerBinding& binding)
-    {
-        auto prototype_asset = asset_manager.load(binding.script);
-        auto prototype = std::dynamic_pointer_cast<Script>(prototype_asset);
-        if (!prototype)
-        {
-            TBX_TRACE_WARNING("Failed to load script asset id={}.", binding.script.id);
-            return {};
-        }
-
-        auto instance = clone_script_prototype(*prototype);
-        if (!instance)
-        {
-            TBX_TRACE_WARNING("Failed to create script instance id={}.", binding.script.id);
-            return {};
-        }
-
-        auto* instance_ptr = instance.get();
-        auto registration = get_asset_type_registration(std::type_index(typeid(*instance_ptr)));
-        if (registration.has_value() && registration->apply_overrides
-            && !binding.overrides.is_null() && !binding.overrides.empty())
-        {
-            auto result = registration->apply_overrides(binding.overrides, instance.get());
-            if (!result.succeeded())
-            {
-                TBX_TRACE_WARNING(
-                    "Failed to apply script overrides id={}: {}",
-                    binding.script.id,
-                    result.get_report());
-                return {};
-            }
-        }
-
-        return instance;
     }
 
     static std::vector<std::shared_ptr<World>> get_script_worlds(
@@ -184,11 +119,19 @@ namespace tbx
         return asset_manager.get_loaded<World>();
     }
 
-    void ScriptSystem::fixed_update(const DeltaTime& dt)
+    void ScriptSystem::update(const DeltaTime& dt, bool fixed)
     {
-        auto asset_manager = _asset_manager.lock();
         auto services = _services.lock();
-        if (!asset_manager || !services)
+        auto asset_manager = _asset_manager.lock();
+        if (!services || !asset_manager)
+            return;
+
+        auto registry = services->try_get_service<ScriptingRegistry>().lock();
+        if (!registry)
+            return;
+
+        const auto backends = registry->backends();
+        if (backends.empty())
             return;
 
         consume_script_reloads();
@@ -203,7 +146,7 @@ namespace tbx
                 continue;
 
             world->for_each_with<ScriptContainer>(
-                [this, &asset_manager, &dt, &world, &services](Entity& entity)
+                [this, &backends, &dt, &world, &services, fixed](Entity& entity)
                 {
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
@@ -214,13 +157,21 @@ namespace tbx
                         const auto key = State::make_key(*world, entity, binding);
                         auto& record = _state->instances[key];
                         record.touched = true;
-                        if (!record.script)
+                        if (!record.instance)
                         {
-                            record.script = create_script_instance(*asset_manager, binding);
-                            record.gameplay_script =
-                                std::dynamic_pointer_cast<GameplayScript>(record.script);
+                            // First backend that recognizes the asset owns this binding for its lifetime.
+                            for (const auto& backend : backends)
+                            {
+                                if (auto created =
+                                        backend->instantiate(binding.script, binding.overrides))
+                                {
+                                    record.instance = std::move(created);
+                                    record.backend = backend;
+                                    break;
+                                }
+                            }
                         }
-                        if (!record.script)
+                        if (!record.instance)
                             continue;
 
                         const auto script_binding = ScriptBinding {
@@ -235,124 +186,26 @@ namespace tbx
                             world,
                             *services,
                             *this);
-                        record.script->bind(context);
-                        auto* script_ptr = record.script.get();
-                        if (auto registration =
-                                get_asset_type_registration(std::type_index(typeid(*script_ptr)));
-                            registration.has_value() && registration->bind_runtime)
-                        {
-                            registration->bind_runtime(record.script.get(), context);
-                        }
+                        if (auto backend = record.backend.lock())
+                            backend->bind(*record.instance, context);
 
-                        if (record.gameplay_script && !record.started)
+                        if (!record.started)
                         {
-                            record.gameplay_script->on_start();
+                            record.instance->on_start();
                             record.started = true;
                         }
-                        if (record.gameplay_script)
-                            record.gameplay_script->on_fixed_update(dt);
+                        if (fixed)
+                            record.instance->on_fixed_update(dt);
+                        else
+                            record.instance->on_update(dt);
                     }
                 });
         }
-    }
 
-    std::weak_ptr<Script> ScriptSystem::try_get_script(const ScriptLookup& lookup)
-    {
-        if (lookup.binding_id.is_valid())
-        {
-            auto iterator = _state->instances.find(
-                ScriptSystemStateKey {
-                    .world = lookup.world,
-                    .entity = lookup.entity,
-                    .script = lookup.script,
-                    .binding_id = lookup.binding_id,
-                });
-            return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
-                                                       : iterator->second.script;
-        }
-
-        const auto iterator = std::ranges::find_if(
-            _state->instances,
-            [&lookup](const auto& entry)
-            {
-                return entry.first.world == lookup.world && entry.first.entity == lookup.entity
-                       && entry.first.script == lookup.script;
-            });
-        return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
-                                                   : iterator->second.script;
-    }
-
-    void ScriptSystem::update(const DeltaTime& dt)
-    {
-        auto asset_manager = _asset_manager.lock();
-        auto services = _services.lock();
-        if (!asset_manager || !services)
+        if (fixed)
             return;
 
-        consume_script_reloads();
-
-        for (auto& entry : _state->instances)
-            entry.second.touched = false;
-
-        const auto worlds = get_script_worlds(*asset_manager, _world_manager);
-        for (const auto& world : worlds)
-        {
-            if (!world)
-                continue;
-
-            world->for_each_with<ScriptContainer>(
-                [this, &asset_manager, &dt, &world, &services](Entity& entity)
-                {
-                    auto& container = entity.get_component<ScriptContainer>();
-                    for (const auto& binding : container.scripts)
-                    {
-                        if (!binding.enabled || !binding.script.id.is_valid())
-                            continue;
-
-                        const auto key = State::make_key(*world, entity, binding);
-                        auto& record = _state->instances[key];
-                        record.touched = true;
-                        if (!record.script)
-                        {
-                            record.script = create_script_instance(*asset_manager, binding);
-                            record.gameplay_script =
-                                std::dynamic_pointer_cast<GameplayScript>(record.script);
-                        }
-                        if (!record.script)
-                            continue;
-
-                        const auto script_binding = ScriptBinding {
-                            .entity = entity.get_id(),
-                            .script = binding.script.id,
-                            .binding_id = binding.binding_id,
-                        };
-                        auto context = ScriptContext(
-                            world->id,
-                            script_binding,
-                            entity,
-                            world,
-                            *services,
-                            *this);
-                        record.script->bind(context);
-                        auto* script_ptr = record.script.get();
-                        if (auto registration =
-                                get_asset_type_registration(std::type_index(typeid(*script_ptr)));
-                            registration.has_value() && registration->bind_runtime)
-                        {
-                            registration->bind_runtime(record.script.get(), context);
-                        }
-
-                        if (record.gameplay_script && !record.started)
-                        {
-                            record.gameplay_script->on_start();
-                            record.started = true;
-                        }
-                        if (record.gameplay_script)
-                            record.gameplay_script->on_update(dt);
-                    }
-                });
-        }
-
+        // Only the variable-rate pass reaps: destroy instances whose bindings disappeared this frame.
         auto stale_keys = std::vector<ScriptSystemStateKey> {};
         for (const auto& entry : _state->instances)
         {
@@ -364,11 +217,47 @@ namespace tbx
         {
             if (auto iterator = _state->instances.find(key); iterator != _state->instances.end())
             {
-                if (iterator->second.gameplay_script)
-                    iterator->second.gameplay_script->on_destroy();
+                if (iterator->second.instance)
+                    iterator->second.instance->on_destroy();
                 _state->instances.erase(iterator);
             }
         }
+    }
+
+    void ScriptSystem::fixed_update(const DeltaTime& dt)
+    {
+        update(dt, true);
+    }
+
+    void ScriptSystem::update(const DeltaTime& dt)
+    {
+        update(dt, false);
+    }
+
+    std::weak_ptr<IScriptInstance> ScriptSystem::try_get_script(const ScriptLookup& lookup)
+    {
+        if (lookup.binding_id.is_valid())
+        {
+            auto iterator = _state->instances.find(
+                ScriptSystemStateKey {
+                    .world = lookup.world,
+                    .entity = lookup.entity,
+                    .script = lookup.script,
+                    .binding_id = lookup.binding_id,
+                });
+            return iterator == _state->instances.end() ? std::weak_ptr<IScriptInstance> {}
+                                                       : iterator->second.instance;
+        }
+
+        const auto iterator = std::ranges::find_if(
+            _state->instances,
+            [&lookup](const auto& entry)
+            {
+                return entry.first.world == lookup.world && entry.first.entity == lookup.entity
+                       && entry.first.script == lookup.script;
+            });
+        return iterator == _state->instances.end() ? std::weak_ptr<IScriptInstance> {}
+                                                   : iterator->second.instance;
     }
 
     void ScriptSystem::consume_script_reloads()
@@ -381,11 +270,11 @@ namespace tbx
             if (!_state->pending_script_reloads.contains(entry.first.script))
                 continue;
 
-            if (entry.second.gameplay_script)
-                entry.second.gameplay_script->on_destroy();
+            if (entry.second.instance)
+                entry.second.instance->on_destroy();
 
-            entry.second.script = {};
-            entry.second.gameplay_script = {};
+            entry.second.instance = {};
+            entry.second.backend = {};
             entry.second.started = false;
         }
         _state->pending_script_reloads.clear();
@@ -397,5 +286,20 @@ namespace tbx
             return;
 
         _state->pending_script_reloads.insert(event.affected_asset.id);
+    }
+
+    void ScriptSystem::on_plugins_unloading()
+    {
+        // Runs synchronously while the unloading plugin is still mapped (e.g. a scripts plugin hot-
+        // reload). A runtime instance is an object whose vtable and on_destroy live in that module, so
+        // destroy every instance and clear the records now — before the library unloads. The next update
+        // recreates them against whatever script types are registered after the reload, so the live
+        // world (entity state) is preserved; only transient per-instance script state restarts.
+        for (auto& entry : _state->instances)
+        {
+            if (entry.second.instance)
+                entry.second.instance->on_destroy();
+        }
+        _state->instances.clear();
     }
 }

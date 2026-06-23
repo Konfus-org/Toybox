@@ -37,7 +37,7 @@ namespace tbx
     struct TBX_API Model : Asset
     {
         Model();
-        Model(Mesh mesh);
+        explicit Model(Mesh mesh);
         Model(Mesh mesh, Material material);
 
         std::vector<Mesh> meshes = {};
@@ -45,4 +45,15 @@ namespace tbx
         std::vector<ModelPart> parts = {};
     };
 
+    /// @brief
+    /// Purpose: Provides model-specific read parameters for serialized model assets.
+    /// @details
+    /// Ownership: Value type settings owned by the caller.
+    /// Thread Safety: Safe to copy between threads.
+    struct ModelLoadParameters
+    {
+        bool operator==(const ModelLoadParameters& other) const = default;
+    };
+
+    ModelLoadParameters load_parameters_of(const Model&);
 }

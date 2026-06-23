@@ -101,7 +101,9 @@ namespace tbx
             });
     }
 
-    std::vector<FileWatchChange> diff_file_watch_snapshots(
+    // Computes file changes between two filesystem snapshots. Returns a caller-owned list of change
+    // records. Safe to call concurrently.
+    static std::vector<FileWatchChange> diff_file_watch_snapshots(
         const FileWatchSnapshot& previous_snapshot,
         const FileWatchSnapshot& current_snapshot)
     {

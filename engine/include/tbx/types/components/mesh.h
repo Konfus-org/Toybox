@@ -118,7 +118,7 @@ namespace tbx
     struct TBX_API DynamicMeshData
     {
         DynamicMeshData() = default;
-        DynamicMeshData(Mesh mesh);
+        explicit DynamicMeshData(Mesh mesh);
 
         const Mesh& get_mesh() const;
         Mesh& edit_mesh();

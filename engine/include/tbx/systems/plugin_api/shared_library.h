@@ -43,11 +43,7 @@ namespace tbx
         template <typename T>
         T get_symbol(const char* name) const;
 
-        // TODO: Move all methods that are defined in .h files into .cpp files where possible
-        const std::filesystem::path& get_path() const
-        {
-            return _path;
-        }
+        const std::filesystem::path& get_path() const;
 
         /// @brief
         /// Purpose: Returns the operating-system error captured during the last library load

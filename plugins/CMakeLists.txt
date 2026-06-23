@@ -10,6 +10,7 @@ foreach(plugin_dir IN ITEMS
     shader_include_loader
     assimp_model_loader
     performance_monitor
+    cpp_scripting
     sdl_base_systems
     sdl_opengl_context_manager
     sdl_windowing

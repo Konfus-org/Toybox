@@ -18,8 +18,6 @@
 
 namespace tbx
 {
-    // TODO: move all variables to use camelCase
-
     // GPU resources untouched for longer than the grace window are purged on the eviction interval.
     constexpr double GPU_RESOURCE_IDLE_GRACE_SECONDS = 10.0;
     constexpr double GPU_RESOURCE_EVICTION_INTERVAL_SECONDS = 2.0;

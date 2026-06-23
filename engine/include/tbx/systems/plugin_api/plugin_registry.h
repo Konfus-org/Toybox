@@ -8,6 +8,11 @@ namespace tbx
 {
     class Plugin;
 
+    // The registry observes plugin instances but never owns them — they live in unique_ptrs in the
+    // plugin loader (see plugin_loader.cpp / plugin_ownership.h). This alias makes that explicit at
+    // every storage site; the loader is responsible for unregistering before it destroys a plugin.
+    using NonOwningPlugin = Plugin*;
+
     // Global registry tracking plugin names and live instances.
     // Ownership: Does not own LoadedPlugin instances; callers manage lifetimes.
     // Thread-safety: Not thread-safe; access must be serialized on the main thread.
@@ -51,8 +56,7 @@ namespace tbx
         ~PluginRegistry() noexcept = default;
 
       private:
-        // TODO: weak pointer?
-        std::vector<Plugin*> _plugins;
-        std::unordered_map<std::string, Plugin*> _plugins_by_name;
+        std::vector<NonOwningPlugin> _plugins;
+        std::unordered_map<std::string, NonOwningPlugin> _plugins_by_name;
     };
 }

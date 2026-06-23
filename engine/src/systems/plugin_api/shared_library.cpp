@@ -138,6 +138,11 @@ namespace tbx
         return get_symbol_raw(name) != nullptr;
     }
 
+    const std::filesystem::path& SharedLibrary::get_path() const
+    {
+        return _path;
+    }
+
     bool SharedLibrary::try_get_load_error_message(std::string& out_error_message) const
     {
         if (_load_error_message.empty())

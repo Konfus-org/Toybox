@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/types/ray.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
@@ -21,11 +22,9 @@ namespace tbx
         }
     };
 
-    // TODO: use 'Ray' struct
     struct TBX_API RaycastQuery
     {
-        Vec3 origin = Vec3(0.0F, 0.0F, 0.0F);
-        Vec3 direction = Vec3(0.0F, 0.0F, -1.0F);
+        Ray ray = {};
         float max_distance = 100.0F;
         bool ignore_entity = false;
         Uuid ignored_entity_id = {};

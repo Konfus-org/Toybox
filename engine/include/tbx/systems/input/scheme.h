@@ -9,12 +9,10 @@ namespace tbx
     /// @details
     /// Ownership: Owns stored actions.
     /// Thread Safety: Not thread-safe; synchronize external access.
-    // TODO: make all constructors specify explicit. Except for Result, Uuid, and Handle those
-    // should be implicit.
     class TBX_API InputScheme
     {
       public:
-        InputScheme(std::string scheme_name);
+        explicit InputScheme(std::string scheme_name);
         InputScheme(std::string scheme_name, std::initializer_list<InputAction> actions);
         InputScheme(std::string scheme_name, std::vector<InputAction> actions);
 

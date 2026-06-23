@@ -153,7 +153,7 @@ namespace tbx
     class TBX_API EntityScope
     {
       public:
-        EntityScope(Entity& source);
+        explicit EntityScope(Entity& source);
         ~EntityScope() noexcept;
 
         Entity entity;

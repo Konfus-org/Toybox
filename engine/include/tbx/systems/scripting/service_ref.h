@@ -4,8 +4,6 @@
 
 namespace tbx
 {
-    class ScriptContext;
-
     template <typename TValue>
     inline void bind_service_field(TValue&, ServiceProvider&)
     {
@@ -36,12 +34,4 @@ namespace tbx
         if constexpr (requires { tbx_register_services(value, services); })
             tbx_register_services(value, services);
     }
-
-    template <typename TValue>
-    inline void bind_script_field(TValue&, ScriptContext&)
-    {
-    }
-
-    template <typename TService>
-    inline void bind_script_field(std::weak_ptr<TService>& service, ScriptContext& context);
 }

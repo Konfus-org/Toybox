@@ -12,7 +12,8 @@ namespace tbx
     struct Uuid
     {
         TBX_API Uuid();
-        TBX_API Uuid(uint64 v);
+        // Intentionally implicit: a Uuid is conceptually its uint64 value.
+        TBX_API explicit(false) Uuid(uint64 v);
 
         TBX_API static Uuid generate();
 

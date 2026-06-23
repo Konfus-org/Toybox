@@ -42,6 +42,7 @@ namespace tbx
         AUDIO [[name("audio")]] = 200,
         PHYSICS [[name("physics")]] = 300,
         RENDERING [[name("rendering")]] = 400,
+        SCRIPTING [[name("scripting")]] = 450,
         GAMEPLAY [[name("gameplay")]] = 500
     };
 

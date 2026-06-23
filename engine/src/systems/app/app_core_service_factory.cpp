@@ -1,6 +1,7 @@
 #include "tbx/systems/app/app_core_service_factory.h"
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/async/job_system.h"
+#include "tbx/systems/scripting/scripting_registry.h"
 #include "tbx/types/handle.h"
 
 namespace tbx
@@ -40,6 +41,12 @@ namespace tbx
 
         auto world_manager = _services.ensure<WorldManager>(
             [&] { return std::make_shared<WorldManager>(asset_manager, message_coordinator); });
+
+        // The scripting registry is the engine-owned directory of language backends. It is created
+        // empty here; backends register themselves from their plugins on attach (the CppScripting
+        // plugin registers the C++ backend, Lua/C# follow). ScriptSystem resolves backends through
+        // this service.
+        _services.ensure<ScriptingRegistry>([] { return std::make_shared<ScriptingRegistry>(); });
 
         auto script_system = _services.ensure<ScriptSystem>(
             [&]

@@ -7,14 +7,14 @@ namespace tbx
 {
     struct TBX_API ApplicationInitializedEvent : public Event
     {
-        ApplicationInitializedEvent(Application& app);
+        explicit ApplicationInitializedEvent(Application& app);
 
         Application& application;
     };
 
     struct TBX_API ApplicationShutdownEvent : public Event
     {
-        ApplicationShutdownEvent(Application& app);
+        explicit ApplicationShutdownEvent(Application& app);
 
         Application& application;
     };

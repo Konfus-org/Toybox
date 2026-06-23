@@ -50,7 +50,7 @@ namespace tbx
 
       public:
         Window() = default;
-        Window(RenderTarget render_target)
+        explicit Window(RenderTarget render_target)
             : RenderTarget(std::move(render_target))
         {
         }

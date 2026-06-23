@@ -384,9 +384,9 @@ namespace tbx
         GpuResource shadow_sample_group = {};
         if (has_directional_shadows || has_local_shadows)
         {
-            // TODO: implement a new 'Clamp' type that clamps its values, can clamp to a min or max
-            // or both. Then use this in the settings.
-            const uint32 base_resolution = std::max(settings.shadow_map_resolution, 256U);
+            // shadow_map_resolution is a Clamp<uint32, 256> so it can never drop below the floor the
+            // cascade atlas needs — read it straight through.
+            const uint32 base_resolution = settings.shadow_map_resolution;
             if (has_directional_shadows
                 && (base_resolution != _resources->shadow_base_resolution
                     || !_resources->shadow_cascades[0].is_valid()))

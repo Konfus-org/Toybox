@@ -79,6 +79,7 @@ PLUGIN_CATEGORY_EXPRESSIONS = {
     "audio": "::tbx::PluginCategory::AUDIO",
     "physics": "::tbx::PluginCategory::PHYSICS",
     "rendering": "::tbx::PluginCategory::RENDERING",
+    "scripting": "::tbx::PluginCategory::SCRIPTING",
     "gameplay": "::tbx::PluginCategory::GAMEPLAY",
 }
 
@@ -372,6 +373,9 @@ def emit_script_asset_declarations(type_info: SerializableType, prop_fields: lis
         *emit_json_function_declarations(type_info),
         f"::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value);",
         f"void {bind_helper}({type_info.name}& tbx_value, ::tbx::ScriptContext& tbx_context);",
+        # Wraps the comma-bearing register_cpp_script_type<...> template call in a function so callers
+        # (the auto-register macro, and the plugin registration) invoke it without template-arg commas.
+        f"bool tbx_register_script_type_{type_info.name}();",
         "",
     ]
 
@@ -518,12 +522,16 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
     lines.extend(
         [
             "}",
+            f"bool tbx_register_script_type_{type_info.name}()",
+            "{",
+            "    return ::tbx::register_cpp_script_type<",
+            f"        {type_info.name},",
+            f"        &{override_helper},",
+            f"        &{bind_helper}>({version});",
+            "}",
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_script_asset_type_registration_,",
-            f"    ::tbx::register_script_asset_type<{type_info.name}>(",
-            f"        {version},",
-            f"        {override_helper},",
-            f"        {bind_helper}));",
+            f"    tbx_register_script_type_{type_info.name}());",
             "",
         ]
     )
@@ -1027,13 +1035,8 @@ def emit_plugin_source(
                     f"{script_type.name} is a script and requires [[tbx::version(N)]]."
                 )
             namespace_prefix = f"{script_type.namespace}::" if script_type.namespace else ""
-            lines.extend(
-                [
-                    f"    static_cast<void>(::tbx::register_script_asset_type<{qualified_name(script_type)}>(",
-                    f"        {version},",
-                    f"        {namespace_prefix}tbx_apply_script_overrides_{script_type.name},",
-                    f"        {namespace_prefix}tbx_bind_script_runtime_{script_type.name}));",
-                ]
+            lines.append(
+                f"    static_cast<void>({namespace_prefix}tbx_register_script_type_{script_type.name}());"
             )
         if script_types and (register_attrs or register_fields):
             lines.append("")

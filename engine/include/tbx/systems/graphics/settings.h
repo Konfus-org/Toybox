@@ -2,6 +2,7 @@
 #include "tbx/systems/graphics/api.h"
 #include "tbx/systems/graphics/settings.generated.h"
 #include "tbx/tbx_api.h"
+#include "tbx/types/clamp.h"
 #include "tbx/types/size.h"
 
 namespace tbx
@@ -47,7 +48,7 @@ namespace tbx
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
         [[prop]]
-        uint32 shadow_map_resolution = 4096U;
+        Clamp<uint32, 256U> shadow_map_resolution = 4096U;
 
         /// @brief
         /// Purpose: Controls how far directional shadows reach. The shadow frustum is split into

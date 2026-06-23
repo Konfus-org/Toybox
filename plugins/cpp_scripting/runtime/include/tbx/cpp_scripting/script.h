@@ -1,26 +1,20 @@
 #pragma once
+#include "tbx/cpp_scripting/cpp_script_registry.h"
+#include "tbx/cpp_scripting/cpp_scripting_api.h"
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/systems/ecs/entity.h"
-#include "tbx/systems/plugin_api/service_provider.h"
-#include "tbx/systems/scripting/script.generated.h"
+#include "tbx/systems/scripting/script_context.h"
 #include "tbx/systems/scripting/service_ref.h"
 #include "tbx/systems/time/delta_time.h"
-#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/handle.h"
-#include "tbx/types/uuid.h"
 #include <concepts>
-#include <functional>
 #include <memory>
 #include <optional>
-#include <string>
 #include <string_view>
 
 namespace tbx
 {
     class Script;
-    class ScriptContext;
-    class ScriptSystem;
     class World;
 
     template <typename TJson, typename TScript>
@@ -44,73 +38,12 @@ namespace tbx
         std::weak_ptr<TScript>& script,
         ScriptContext& context);
 
-    struct ScriptLookup
+    // Binds a script's [[tbx::inject]] service field from the runtime context. The no-op base leaves
+    // plain (non-service) fields untouched; the weak_ptr overload resolves the service.
+    template <typename TValue>
+    inline void bind_script_field(TValue&, ScriptContext&)
     {
-        Uuid world = {};
-        Uuid entity = {};
-        Uuid script = {};
-        Uuid binding_id = {};
-    };
-
-    /// @brief
-    /// Purpose: Serialized binding identity for a weak script reference.
-    [[serializable]];
-    struct TBX_API ScriptBinding
-    {
-        [[prop]]
-        [[readonly]]
-        [[hidden]]
-        Uuid entity = {};
-
-        [[prop]]
-        Uuid script = {};
-
-        [[prop]]
-        [[readonly]]
-        [[hidden]]
-        Uuid binding_id = {};
-    };
-
-    class IScriptResolver
-    {
-      public:
-        virtual ~IScriptResolver() noexcept = default;
-
-        virtual std::weak_ptr<Script> try_get_script(const ScriptLookup& lookup) = 0;
-    };
-
-    /// @brief
-    /// Purpose: Provides runtime context bound to one active script instance.
-    class TBX_API ScriptContext final
-    {
-      public:
-        ScriptContext() = default;
-        ScriptContext(
-            Uuid world_id,
-            ScriptBinding binding,
-            Entity entity,
-            std::weak_ptr<World> world,
-            ServiceProvider& services,
-            IScriptResolver& resolver);
-
-      public:
-        Entity& get_entity() const;
-        Uuid get_entity_id() const;
-        ScriptBinding get_script_binding() const;
-        IScriptResolver& get_resolver() const;
-        ServiceProvider& get_services() const;
-        std::weak_ptr<World> get_world_ptr() const;
-        World& get_world() const;
-        Uuid get_world_id() const;
-
-      private:
-        Uuid _world_id = {};
-        std::weak_ptr<World> _world = {};
-        Entity _entity = {};
-        ScriptBinding _binding = {};
-        std::optional<std::reference_wrapper<ServiceProvider>> _services = std::nullopt;
-        std::optional<std::reference_wrapper<IScriptResolver>> _resolver = std::nullopt;
-    };
+    }
 
     template <typename TService>
     inline void bind_script_field(std::weak_ptr<TService>& service, ScriptContext& context)
@@ -119,8 +52,13 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Base asset type for C++ script prototypes with shared context and binding support.
-    class TBX_API Script : public Asset
+    /// Purpose: Base class for C++ script prototypes with shared runtime context and binding support.
+    /// @details
+    /// Lifetime hooks are driven by ScriptSystem (via the C++ scripting backend): on_start once before
+    /// the first update, on_update / on_fixed_update each tick, and on_destroy when the binding is
+    /// removed. Subclasses override the hooks they need; the empty defaults make every hook optional.
+    /// A Script is both an Asset (serialized prototype) and an IScriptInstance (runtime lifetime).
+    class TBX_CPP_SCRIPTING_API Script : public Asset, public IScriptInstance
     {
       public:
         Script() = default;
@@ -132,14 +70,21 @@ namespace tbx
         Script(Script&&) noexcept = delete;
         Script& operator=(Script&&) noexcept = delete;
 
+      public:
+        void on_start() override {}
+        void on_update(const DeltaTime&) override {}
+        void on_fixed_update(const DeltaTime&) override {}
+        void on_destroy() override {}
+
+        // Binds the per-tick runtime context (entity/world/services). Driven by the C++ scripting
+        // backend before the lifecycle hooks run.
+        void bind(ScriptContext context);
+
       protected:
         Entity& get_entity() const;
         ServiceProvider& get_services() const;
         std::weak_ptr<World> get_world_ptr() const;
         World& get_world() const;
-
-      private:
-        friend class ScriptSystem;
 
       private:
         template <typename TJson, typename TScript>
@@ -164,31 +109,9 @@ namespace tbx
             ScriptContext& context);
 
       private:
-        void bind(ScriptContext context);
         std::optional<ScriptBinding> get_script_binding() const;
         std::optional<ScriptBinding> get_script_reference(std::string_view field_name) const;
         void set_script_reference(std::string_view field_name, ScriptBinding binding);
-    };
-
-    /// @brief
-    /// Purpose: Base asset type for gameplay scripts driven by ScriptSystem lifetime hooks.
-    class TBX_API GameplayScript : public Script
-    {
-      public:
-        GameplayScript() = default;
-        ~GameplayScript() noexcept override = default;
-
-      public:
-        GameplayScript(const GameplayScript&) = delete;
-        GameplayScript& operator=(const GameplayScript&) = delete;
-        GameplayScript(GameplayScript&&) noexcept = delete;
-        GameplayScript& operator=(GameplayScript&&) noexcept = delete;
-
-      public:
-        virtual void on_destroy() {}
-        virtual void on_fixed_update(const DeltaTime&) {}
-        virtual void on_start() {}
-        virtual void on_update(const DeltaTime&) {}
     };
 
     // A script reference is serialized as just the referenced script asset's id, carried as a Handle so

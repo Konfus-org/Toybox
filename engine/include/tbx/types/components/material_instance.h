@@ -46,7 +46,7 @@ namespace tbx
     struct TBX_API MaterialInstance : Component
     {
         MaterialInstance();
-        MaterialInstance(Handle handle);
+        explicit MaterialInstance(Handle handle);
         MaterialInstance(Handle handle, MaterialOverrides material_overrides);
         MaterialInstance(
             Handle handle,

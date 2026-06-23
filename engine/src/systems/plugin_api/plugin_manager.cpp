@@ -3,8 +3,10 @@
 #include "plugin_ownership_tracker.h"
 #include "plugin_unloader.h"
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/plugin_api/messages.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
@@ -398,6 +400,16 @@ namespace tbx
 
         if (unloaded_plugins.empty())
             return false;
+
+        // Warn listeners synchronously, while the libraries are still mapped, so they can release any
+        // objects whose code lives in the plugins about to unload (e.g. ScriptSystem drops its runtime
+        // script instances and evicts cached script prototypes before a scripts plugin reloads).
+        if (const auto service_provider = _service_provider.lock())
+        {
+            if (const auto coordinator =
+                    service_provider->try_get_service<IMessageCoordinator>().lock())
+                coordinator->send<PluginUnloadingEvent>(plugin_name);
+        }
 
         unload_plugin_group(unloaded_plugins);
 

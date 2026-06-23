@@ -21,13 +21,14 @@ namespace tbx
     {
         Handle() = default;
 
-        Handle(std::string handle_name)
+        // Intentionally implicit: a Handle is addressable by either its name or its id.
+        explicit(false) Handle(std::string handle_name)
             : name(std::move(handle_name))
             , id(hash_string_to_id(name))
         {
         }
 
-        Handle(Uuid handle_id)
+        explicit(false) Handle(Uuid handle_id)
             : id(handle_id)
         {
         }

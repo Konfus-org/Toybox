@@ -454,7 +454,7 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn('#include "tbx/tests/door_controller.h"', output)
         self.assertIn("void tbx_register_plugin_services(", output)
-        self.assertIn("register_script_asset_type<tbx::tests::DoorController>", output)
+        self.assertIn("register_cpp_script_type<", output)
         self.assertIn("tbx::tests::tbx_apply_script_overrides_DoorController", output)
         self.assertIn("tbx::tests::tbx_bind_script_runtime_DoorController", output)
         self.assertNotIn("tbx_register_plugin_scripts", output)
@@ -964,7 +964,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_script_asset_type<DoorController>", output)
+        self.assertIn("register_cpp_script_type<", output)
         self.assertIn("tbx_value.open_speed);", output)
         self.assertIn("bind_script_field(tbx_value.open_speed", output)
         self.assertIn("bind_script_field(tbx_value.input", output)
@@ -1043,7 +1043,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_script_asset_type<ExtractFrameRenderPipelineScript>", output)
+        self.assertIn("register_cpp_script_type<", output)
         self.assertIn("tbx_json = ::tbx::Json::object();", output)
 
     def test_script_weak_ptr_props_generate_script_reference_glue(self) -> None:

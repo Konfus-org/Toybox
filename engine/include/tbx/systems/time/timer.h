@@ -16,17 +16,9 @@ namespace tbx
         Timer(
             const TimeSpan& time_span = {},
             CancellationSource cancellation_source = CancellationSource());
-        ~Timer() noexcept = default;
 
-      public:
-        // TODO: Do we need a copy constructor and assignment ops? I would think this wouldn't be
-        // required as we don't have anything that needs lifetime transfer right?
-
-        Timer(Timer&& other) noexcept;
-
-      public:
-        Timer& operator=(const Timer& other);
-        Timer& operator=(Timer&& other) noexcept;
+        // All members are value types (TimeSpans, std::functions, a CancellationSource, and bools),
+        // so the compiler-generated copy/move special members are correct. Rule of zero.
 
         void reset();
         bool tick(const TimeSpan& delta_time);

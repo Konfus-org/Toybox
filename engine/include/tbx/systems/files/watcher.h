@@ -33,16 +33,6 @@ namespace tbx
         FileWatchFilter filter = {};
     };
 
-    // TODO: This seems private, hide in cpp and don't use TBX_API?
-    /// @brief
-    /// Purpose: Computes file changes between two filesystem snapshots.
-    /// @details
-    /// Ownership: Returns a caller-owned list of change records.
-    /// Thread Safety: Safe to call concurrently.
-    TBX_API std::vector<FileWatchChange> diff_file_watch_snapshots(
-        const FileWatchSnapshot& previous_snapshot,
-        const FileWatchSnapshot& current_snapshot);
-
     /// @brief
     /// Purpose: Watches file(s) at a given path and invokes callbacks when a file changes.
     /// @details

@@ -28,7 +28,7 @@ namespace tbx
         using Job = std::move_only_function<void()>;
 
       public:
-        JobSystem(size worker_count = {});
+        explicit JobSystem(size worker_count = {});
         ~JobSystem() noexcept;
 
       public:

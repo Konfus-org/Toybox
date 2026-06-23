@@ -141,4 +141,15 @@ namespace tbx
         return value;
     }
 
+    /// @brief
+    /// Purpose: Provides shader-specific read parameters for serialized shader assets.
+    /// @details
+    /// Ownership: Value type settings owned by the caller.
+    /// Thread Safety: Safe to copy between threads.
+    struct ShaderLoadParameters
+    {
+        bool operator==(const ShaderLoadParameters& other) const = default;
+    };
+
+    ShaderLoadParameters load_parameters_of(const Shader&);
 }

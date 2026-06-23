@@ -24,7 +24,7 @@ namespace tbx
         using Handle::Handle;
 
         RenderTarget() = default;
-        RenderTarget(Handle handle)
+        explicit RenderTarget(Handle handle)
             : Handle(std::move(handle))
         {
         }

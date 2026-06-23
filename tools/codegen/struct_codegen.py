@@ -16,6 +16,7 @@ from model import (
 )
 
 _OBSERVABLE_PATTERN = re.compile(r"^(?:::)?(?:tbx::)?Observable\s*<\s*(.+)\s*>$")
+_CLAMP_PATTERN = re.compile(r"^(?:::)?(?:tbx::)?Clamp\s*<\s*(.+)\s*>$")
 _WRAPPER_PATTERN = re.compile(
     r"^(?:::)?(?:std::)?(?:vector|weak_ptr|shared_ptr|unique_ptr|optional)\s*<\s*(.+)\s*>$"
 )
@@ -32,6 +33,13 @@ def _unwrap_field_type(type_name: str) -> str:
         if observable is not None:
             arguments = split_attribute_values(observable.group(1))
             current = arguments[-1].strip() if arguments else current
+            continue
+        clamp = _CLAMP_PATTERN.match(current)
+        if clamp is not None:
+            # Clamp<T, Min, Max> carries its editable value in the first argument; the bounds are
+            # compile-time only, so the wire/editor type is just T.
+            arguments = split_attribute_values(clamp.group(1))
+            current = arguments[0].strip() if arguments else current
             continue
         keyed = _MAP_PATTERN.match(current)
         if keyed is not None:

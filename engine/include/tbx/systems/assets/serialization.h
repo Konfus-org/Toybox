@@ -40,6 +40,9 @@ namespace tbx
     template <typename TOwner, typename TProp>
     class Observable;
 
+    template <typename T, T Min, T Max>
+    struct Clamp;
+
     struct SerializableTypeRegistration
     {
         std::string name = {};
@@ -61,8 +64,9 @@ namespace tbx
     /// @brief
     /// Purpose: Describes how an asset type is created and serialized after codegen registration.
     /// @details
-    /// Ownership: Stores type-erased callbacks. Script runtime callbacks are optional because
-    /// regular assets only need body/meta serialization.
+    /// Ownership: Stores type-erased callbacks. Backend-agnostic: `is_script` is the only nod to
+    /// scripting — the script-specific override/bind callbacks live in the C++ scripting runtime's own
+    /// registry, not here.
     struct AssetTypeRegistration
     {
         std::string type_name = {};
@@ -72,8 +76,9 @@ namespace tbx
         std::function<Result(std::string_view, void*)> read_body = {};
         std::function<Result(const void*, std::string&)> write_body = {};
         std::function<Result(std::string_view, void*)> transform_meta = {};
-        std::function<Result(const Json&, void*)> apply_overrides = {};
-        std::function<void(void*, ScriptContext&)> bind_runtime = {};
+        // True when this asset type is a script (in any language). Lets the editor build a script
+        // catalog without knowing how any backend runs scripts.
+        bool is_script = false;
     };
 
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
@@ -347,6 +352,16 @@ namespace tbx
     {
     };
 
+    template <typename TValue>
+    struct IsClamp : std::false_type
+    {
+    };
+
+    template <typename T, T Min, T Max>
+    struct IsClamp<Clamp<T, Min, Max>> : std::true_type
+    {
+    };
+
     template <typename TValue, typename = void>
     struct IsStaticIndexedSerializable : std::false_type
     {
@@ -409,6 +424,10 @@ namespace tbx
             return json;
         }
         else if constexpr (IsObservable<TValue>::value)
+        {
+            return write_serialization_value<TJson>(value.value);
+        }
+        else if constexpr (IsClamp<TValue>::value)
         {
             return write_serialization_value<TJson>(value.value);
         }
@@ -485,6 +504,14 @@ namespace tbx
                 read_serialization_value(json, next_value);
                 value = std::move(next_value);
             }
+        }
+        else if constexpr (IsClamp<TValue>::value)
+        {
+            // Read the raw underlying value then assign through Clamp's operator= so the configured
+            // bounds are re-applied to whatever came off disk or the wire.
+            auto next_value = value.value;
+            read_serialization_value(json, next_value);
+            value = next_value;
         }
         else if constexpr (IsStaticIndexedSerializable<TValue>::value)
         {
@@ -740,6 +767,12 @@ namespace tbx
         using type = TProp;
     };
 
+    template <typename T, T Min, T Max>
+    struct PropertyValueType<Clamp<T, Min, Max>>
+    {
+        using type = T;
+    };
+
     // ---------------------------------------------------------------------------------------------------
     // Serializable type metadata
     //
@@ -772,7 +805,7 @@ namespace tbx
     static PropertyTypeIcon get_property_type_icon()
     {
         using Clean = std::remove_cvref_t<TValue>;
-        if constexpr (IsObservable<Clean>::value)
+        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
             return get_property_type_icon<typename PropertyValueType<Clean>::type>();
         else
             return tbx_property_type_icon(static_cast<const Clean*>(nullptr));
@@ -815,7 +848,7 @@ namespace tbx
     static std::vector<std::string> get_property_choices()
     {
         using Clean = std::remove_cvref_t<TValue>;
-        if constexpr (IsObservable<Clean>::value)
+        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
             return get_property_choices<typename PropertyValueType<Clean>::type>();
         else
             return tbx_property_choices(static_cast<const Clean*>(nullptr));
@@ -835,7 +868,7 @@ namespace tbx
             // its value is just the referenced id, so the inspector shows an entity picker.
             return "entity";
         }
-        else if constexpr (IsObservable<Clean>::value)
+        else if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
         {
             return get_property_type_token<typename PropertyValueType<Clean>::type>();
         }
@@ -1256,39 +1289,6 @@ namespace tbx
             return transform_meta(data, *static_cast<TAsset*>(asset));
         };
         register_asset_type_entry(std::move(entry));
-        return true;
-    }
-
-    template <typename TScript, typename TApplyOverrides, typename TBindRuntime>
-    static bool register_script_asset_type(
-        uint32 version,
-        TApplyOverrides apply_overrides,
-        TBindRuntime bind_runtime)
-    {
-        auto entry = make_asset_type_registration<TScript>(version);
-        entry.read_body = [](std::string_view data, void* asset)
-        {
-            return read_json_asset_body(data, *static_cast<TScript*>(asset));
-        };
-        entry.write_body = [](const void* asset, std::string& output)
-        {
-            return write_json_asset_body(*static_cast<const TScript*>(asset), output);
-        };
-        // Script instances use the normal asset serializer for defaults, plus two runtime-only
-        // callbacks for per-binding overrides and dependency injection.
-        entry.apply_overrides =
-            [apply_overrides = std::move(apply_overrides)](const Json& json, void* asset)
-        {
-            return apply_overrides(json, *static_cast<TScript*>(asset));
-        };
-        entry.bind_runtime =
-            [bind_runtime = std::move(bind_runtime)](void* asset, ScriptContext& context)
-        {
-            bind_runtime(*static_cast<TScript*>(asset), context);
-        };
-
-        register_asset_type_entry(std::move(entry));
-
         return true;
     }
 

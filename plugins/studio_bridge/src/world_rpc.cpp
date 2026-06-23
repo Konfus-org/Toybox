@@ -205,11 +205,11 @@ namespace tbx::studio_bridge
             }
         }
 
-        // The script catalog is the set of registered asset types that carry runtime script glue
-        // (regular assets leave bind_runtime empty). It lets the editor label/validate script refs.
+        // The script catalog is the set of registered asset types flagged as scripts (regular assets
+        // leave is_script false). It lets the editor label/validate script refs.
         for (const auto& registration : tbx::get_asset_type_registrations())
         {
-            if (!registration.bind_runtime)
+            if (!registration.is_script)
                 continue;
 
             auto script = tbx::Json::object();

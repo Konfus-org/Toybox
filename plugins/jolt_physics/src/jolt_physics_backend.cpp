@@ -258,13 +258,13 @@ namespace jolt_physics
             return false;
 
         const tbx::Vec3 ray_direction =
-            get_safe_normalized(raycast_query.direction, tbx::Vec3(0.0F, 0.0F, -1.0F));
+            get_safe_normalized(raycast_query.ray.direction, tbx::Vec3(0.0F, 0.0F, -1.0F));
         const float max_distance = std::max(0.0F, raycast_query.max_distance);
         if (max_distance <= 0.0F)
             return false;
 
         const JPH::RRayCast ray = JPH::RRayCast(
-            to_jolt_rvec3(raycast_query.origin),
+            to_jolt_rvec3(raycast_query.ray.origin),
             to_jolt_vec3(ray_direction * max_distance));
 
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();

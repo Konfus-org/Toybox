@@ -141,4 +141,24 @@ namespace tbx
         Size resolution = {1, 1};
     };
 
+    /// @brief
+    /// Purpose: Provides texture-specific read parameters for serialized texture assets.
+    /// @details
+    /// Ownership: Value type settings owned by the caller.
+    /// Thread Safety: Safe to copy between threads.
+    struct TextureLoadParameters
+    {
+        Texture texture = Texture(
+            Size(1, 1),
+            TextureWrap::REPEAT,
+            TextureFilter::LINEAR,
+            TextureFormat::RGBA,
+            TextureMipmaps::ENABLED,
+            TextureCompression::AUTO,
+            std::vector<Pixel> {255, 255, 255, 255});
+
+        bool operator==(const TextureLoadParameters& other) const = default;
+    };
+
+    TextureLoadParameters load_parameters_of(const Texture&);
 }
