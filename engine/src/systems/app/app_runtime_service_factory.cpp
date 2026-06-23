@@ -70,14 +70,20 @@ namespace tbx
                 return std::nullopt;
             }
 
+            // Gizmos is created before Rendering so the renderer can draw the frame's gizmos.
+            auto gizmos = std::make_shared<Gizmos>(graphics_backend, asset_manager);
+            provider.register_service<Gizmos>(gizmos);
+
             auto rendering = std::make_shared<Rendering>(
                 graphics_backend,
                 asset_manager,
                 thread_manager,
                 window_manager_service,
                 world_manager,
-                message_coordinator);
+                message_coordinator,
+                gizmos);
             provider.register_service<Rendering>(rendering);
+            services.gizmos = std::move(gizmos);
             services.rendering = std::move(rendering);
         }
 

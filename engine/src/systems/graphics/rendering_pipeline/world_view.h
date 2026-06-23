@@ -50,6 +50,10 @@ namespace tbx
         // GpuLightData::shadow_data carries its base layer + view count into this list. Bounded by
         // MAX_LOCAL_SHADOW_VIEWS.
         std::vector<Mat4> local_shadow_matrices = {};
+        // Visible draw commands for entities carrying one of the active masked tags (a subset of
+        // draw_commands, referencing the same instances buffer). The pipeline draws these into the
+        // tag mask that a tag-gated post effect samples.
+        std::vector<GpuIndexedDrawCommand> mask_draw_commands = {};
         bool has_camera = false;
     };
 
@@ -77,7 +81,8 @@ namespace tbx
         /// capture(), so consume it before capturing again (the render lane does, synchronously).
         const WorldViewResult& capture(AssetManager& assets, World& world, GpuResourceCache& cache,
             const CameraView& camera_view, const Size& output_size, float elapsed_time,
-            float light_cull_distance, float shadow_distance, float shadow_softness);
+            float light_cull_distance, float shadow_distance, float shadow_softness,
+            const std::vector<std::string>& masked_tags = {});
 
       private:
         GpuMaterialData pack_material(GpuResourceCache& cache, const Material& material,
@@ -85,7 +90,8 @@ namespace tbx
         uint32 bucket_for_pipeline(GpuId pipeline, bool is_transparent, WorldViewResult& result);
         void add_renderable(GpuResourceCache& cache, WorldViewResult& result,
             const Mat4& model_matrix, uint64 mesh_key, uint64 material_key, const Mesh& mesh,
-            const Material& material, const std::string& material_name, RenderFailure forced_failure);
+            const Material& material, const std::string& material_name, RenderFailure forced_failure,
+            bool masked);
 
       private:
         RenderValidation _validation = {};

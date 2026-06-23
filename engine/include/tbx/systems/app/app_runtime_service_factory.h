@@ -2,6 +2,7 @@
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/input/input_manager.h"
 #include "tbx/systems/app/app_service_provider.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/physics/settings.h"
@@ -19,6 +20,7 @@ namespace tbx
     {
         std::shared_ptr<IWindowManager> window_manager = {};
         std::shared_ptr<Physics> physics = {};
+        std::shared_ptr<Gizmos> gizmos = {};
         std::shared_ptr<Rendering> rendering = {};
         std::shared_ptr<InputManager> input_manager = {};
     };

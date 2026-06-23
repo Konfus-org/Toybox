@@ -13,9 +13,14 @@ namespace tbx
         std::string value = "";
     };
 
-    struct EntityTagComponent
+    // UE-style gameplay tags. An entity carries any number of hierarchical, dot-delimited tags
+    // (e.g. "editor.selected"), each held in exactly one of two lists: serialized tags persist with
+    // the world; runtime tags are transient editor/gameplay state that is never written. has_tag
+    // matches hierarchically (a query "editor" matches the tag "editor.selected").
+    struct EntityTagsComponent
     {
-        std::string value = "";
+        std::vector<std::string> serialized = {};
+        std::vector<std::string> runtime = {};
     };
 
     struct EntityLayerComponent
@@ -56,6 +61,23 @@ namespace tbx
     {
         const auto handle_value = static_cast<uint32>(entt::to_integral(handle));
         return Uuid(handle_value + 1U);
+    }
+
+    // Hierarchical gameplay-tag match: an exact match, or the query naming a parent segment of the
+    // tag ("editor" matches "editor.selected", but not "editorial").
+    static bool tag_matches(const std::string& tag, const std::string& query)
+    {
+        if (tag == query)
+            return true;
+        return tag.size() > query.size() && tag.starts_with(query) && tag[query.size()] == '.';
+    }
+
+    static bool list_contains(const std::vector<std::string>& list, const std::string& value)
+    {
+        for (const auto& entry : list)
+            if (entry == value)
+                return true;
+        return false;
     }
 
     template <typename TComponent, typename TValue>
@@ -135,7 +157,6 @@ namespace tbx
 
     Uuid EntityRegistry::add(
         const std::string& name,
-        const std::string& tag,
         const std::string& layer,
         const Uuid& parent)
     {
@@ -150,7 +171,6 @@ namespace tbx
         _registry->emplace<EntityNameComponent>(
             handle,
             EntityNameComponent {.value = resolvedName});
-        _registry->emplace<EntityTagComponent>(handle, EntityTagComponent {.value = tag});
         _registry->emplace<EntityLayerComponent>(handle, EntityLayerComponent {.value = layer});
         _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
         _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
@@ -164,12 +184,11 @@ namespace tbx
     Uuid EntityRegistry::add(
         const Uuid& id,
         const std::string& name,
-        const std::string& tag,
         const std::string& layer,
         const Uuid& parent)
     {
         if (!id.is_valid())
-            return add(name, tag, layer, parent);
+            return add(name, layer, parent);
 
         auto guard = std::unique_lock(_mutex);
         const EntityHandle handle = to_entity_handle(id);
@@ -186,9 +205,6 @@ namespace tbx
         _registry->emplace_or_replace<EntityNameComponent>(
             handle,
             EntityNameComponent {.value = resolvedName});
-        _registry->emplace_or_replace<EntityTagComponent>(
-            handle,
-            EntityTagComponent {.value = tag});
         _registry->emplace_or_replace<EntityLayerComponent>(
             handle,
             EntityLayerComponent {.value = layer});
@@ -289,16 +305,87 @@ namespace tbx
         set_component_value<EntityNameComponent>(*_registry, id, name);
     }
 
-    std::string EntityRegistry::get_tag(const Uuid& id) const
+    void EntityRegistry::add_tag(const Uuid& id, const std::string& name, bool serialized)
     {
-        auto guard = std::shared_lock(_mutex);
-        return get_component_value<EntityTagComponent, std::string>(*_registry, id);
+        if (name.empty())
+            return;
+
+        auto guard = std::unique_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        if (!_registry->valid(handle))
+            return;
+
+        if (!_registry->all_of<EntityTagsComponent>(handle))
+            _registry->emplace<EntityTagsComponent>(handle);
+        auto& tags = _registry->get<EntityTagsComponent>(handle);
+
+        // A tag lives in exactly one list; re-adding with the other persistence promotes/demotes it.
+        auto& target = serialized ? tags.serialized : tags.runtime;
+        auto& other = serialized ? tags.runtime : tags.serialized;
+        std::erase(other, name);
+        if (!list_contains(target, name))
+            target.push_back(name);
     }
 
-    void EntityRegistry::set_tag(const Uuid& id, const std::string& tag)
+    void EntityRegistry::remove_tag(const Uuid& id, const std::string& name)
     {
         auto guard = std::unique_lock(_mutex);
-        set_component_value<EntityTagComponent>(*_registry, id, tag);
+        const auto handle = to_entity_handle(id);
+        if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
+            return;
+
+        auto& tags = _registry->get<EntityTagsComponent>(handle);
+        std::erase(tags.serialized, name);
+        std::erase(tags.runtime, name);
+    }
+
+    bool EntityRegistry::has_tag(const Uuid& id, const std::string& query) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
+            return false;
+
+        const auto& tags = _registry->get<EntityTagsComponent>(handle);
+        for (const auto& tag : tags.serialized)
+            if (tag_matches(tag, query))
+                return true;
+        for (const auto& tag : tags.runtime)
+            if (tag_matches(tag, query))
+                return true;
+        return false;
+    }
+
+    std::vector<std::string> EntityRegistry::get_tags(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        std::vector<std::string> all = {};
+        if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
+            return all;
+
+        const auto& tags = _registry->get<EntityTagsComponent>(handle);
+        all.insert(all.end(), tags.serialized.begin(), tags.serialized.end());
+        all.insert(all.end(), tags.runtime.begin(), tags.runtime.end());
+        return all;
+    }
+
+    std::vector<std::string> EntityRegistry::get_persistent_tags(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
+            return {};
+        return _registry->get<EntityTagsComponent>(handle).serialized;
+    }
+
+    std::vector<std::string> EntityRegistry::get_runtime_tags(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
+            return {};
+        return _registry->get<EntityTagsComponent>(handle).runtime;
     }
 
     Uuid EntityRegistry::get_parent_id(const Uuid& id) const
@@ -353,6 +440,41 @@ namespace tbx
         return _registry->get<EntityEnabledComponent>(handle).value;
     }
 
+    bool EntityRegistry::is_handle_effectively_enabled(entt::entity handle) const
+    {
+        // An entity is effectively enabled only when it AND every ancestor is enabled, so disabling a parent
+        // turns its whole subtree off for the runtime queries without touching each child's own stored flag.
+        // Walks up the parent chain under the caller-held lock, depth-capped and self-parent guarded like
+        // Transform::to_world_space so a malformed cycle can't spin forever.
+        static constexpr int MAX_PARENT_DEPTH = 1024;
+        auto cursor = handle;
+        for (auto depth = 0; depth < MAX_PARENT_DEPTH; ++depth)
+        {
+            if (!is_handle_enabled(cursor))
+                return false;
+            if (!_registry->valid(cursor) || !_registry->all_of<EntityParentComponent>(cursor))
+                return true;
+
+            const auto parent = _registry->get<EntityParentComponent>(cursor).value;
+            if (!parent.is_valid())
+                return true;
+
+            const auto parent_handle = to_entity_handle(parent);
+            if (parent_handle == cursor || !_registry->valid(parent_handle))
+                return true;
+
+            cursor = parent_handle;
+        }
+
+        return true;
+    }
+
+    bool EntityRegistry::get_effective_enabled(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        return is_handle_effectively_enabled(to_entity_handle(id));
+    }
+
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
@@ -376,9 +498,15 @@ namespace tbx
             return;
 
         // Recreate identity metadata in this registry, then copy each registered component by value.
-        add(id, source.get_name(), source.get_tag(), source.get_layer(), source.get_parent());
+        add(id, source.get_name(), source.get_layer(), source.get_parent());
         set_order_value(id, source.get_order());
         set_enabled(id, source.is_enabled());
+        // Copy only the persistent tags. Runtime tags (selection, editor state) are intentionally NOT
+        // carried across a registry copy: they are transient per-registry state, so a play-mode
+        // snapshot or a saved chunk never inherits e.g. "editor.selected" (which would otherwise outline
+        // entities in the played/loaded world). The editor re-applies them to the live world as needed.
+        for (const auto& tag : source.get_persistent_tags())
+            add_tag(id, tag, /*serialized*/ true);
 
         const auto entries = get_entity_component_type_registrations();
         const auto handle = to_entity_handle(id);

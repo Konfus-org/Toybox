@@ -4,14 +4,10 @@
 #include <string>
 #include <string_view>
 
-namespace tbx::studio_bridge
+namespace tbx::windows_rpc
 {
-    constexpr int JSON_RPC_PARSE_ERROR_CODE = -32700;
-    constexpr int JSON_RPC_METHOD_NOT_FOUND_CODE = -32601;
-    constexpr int JSON_RPC_VIEW_UNAVAILABLE_CODE = -32000;
-    constexpr int JSON_RPC_APPLY_FAILED_CODE = -32001;
-    constexpr int JSON_RPC_INVALID_PARAMS_CODE = -32602;
-
+    // JSON-RPC wire formatting. Standard error codes live in tbx/interfaces/rpc_router.h
+    // (RPC_PARSE_ERROR_CODE etc.) so transport and consumers share them.
     std::optional<Json> try_parse_message(const std::string& line);
     std::string make_result_response(const Json& id, const Json& result);
     std::string make_error_response(const Json& id, int code, std::string_view message);

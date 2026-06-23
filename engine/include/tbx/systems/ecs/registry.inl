@@ -40,9 +40,10 @@ namespace tbx
         for (const auto entityHandle : view)
         {
             // Disabled entities are turned off wholesale: skip them so no runtime system that gathers
-            // through this query (rendering, physics, scripting) ever touches them. The editor lists
-            // them via the unfiltered get_all / serialize path instead.
-            if (!is_handle_enabled(entityHandle))
+            // through this query (rendering, physics, scripting) ever touches them. A disabled ancestor
+            // turns the whole subtree off too (effective check). The editor lists them via the unfiltered
+            // get_all / serialize path instead.
+            if (!is_handle_effectively_enabled(entityHandle))
                 continue;
 
             auto entity = Entity {};
@@ -58,14 +59,15 @@ namespace tbx
         requires(std::derived_from<TComponent, Component> && ...)
     Entity EntityRegistry::first_with() const
     {
-        // The first *enabled* match: a disabled entity is turned off wholesale, so it can't be the one
-        // a runtime system (e.g. the sky / post-processing / camera lookups) acts on. Filtered under
-        // the same shared lock as the view, returning as soon as a match is found.
+        // The first *enabled* match: a disabled entity (or one under a disabled ancestor) is turned off
+        // wholesale, so it can't be the one a runtime system (e.g. the sky / post-processing / camera
+        // lookups) acts on. Filtered under the same shared lock as the view, returning as soon as a
+        // match is found.
         auto guard = std::shared_lock(_mutex);
         auto view = _registry->view<TComponent...>();
         for (const auto entityHandle : view)
         {
-            if (!is_handle_enabled(entityHandle))
+            if (!is_handle_effectively_enabled(entityHandle))
                 continue;
 
             auto entity = Entity {};
@@ -97,8 +99,9 @@ namespace tbx
 
         for (const auto& id : ids)
         {
-            // Skip disabled entities so for_each_with-based systems (scripting) leave them wholly inert.
-            if (!get_enabled(id))
+            // Skip disabled entities (and any under a disabled ancestor) so for_each_with-based systems
+            // (scripting) leave the whole subtree wholly inert.
+            if (!get_effective_enabled(id))
                 continue;
 
             auto entity = get(id);

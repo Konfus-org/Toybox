@@ -64,6 +64,9 @@ namespace tbx
     // GPU_BINDING_SCENE_COLOR mirrors TBX_SHADER_BINDING_FINAL_HDR (23) in ShaderBase.glsl.
     constexpr uint32 GPU_BINDING_POST_UNIFORMS = 5U;
     constexpr uint32 GPU_BINDING_SCENE_COLOR = 23U;
+    // Tag mask: a tag-gated post effect samples this to find the silhouette of the entities it gates
+    // on (the engine renders matching entities into it). Mirrors TBX_SHADER_BINDING_TAG_MASK (24).
+    constexpr uint32 GPU_BINDING_TAG_MASK = 24U;
 
     // ----------------------------------------------------
     // Hardware Abstraction Alignments

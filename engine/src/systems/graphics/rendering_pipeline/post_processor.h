@@ -3,9 +3,11 @@
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/types/assets/world.h"
+#include "tbx/types/components/post_processing.h"
 #include "tbx/types/size.h"
 #include "tbx/utils/result.h"
 #include <memory>
+#include <vector>
 
 namespace tbx
 {
@@ -30,8 +32,17 @@ namespace tbx
         PostProcessor& operator=(const PostProcessor&) = delete;
 
       public:
-        /// @brief True if the world has an enabled PostProcessing component with >=1 enabled effect.
-        bool wants_post(World& world) const;
+        /// @brief True when post-processing should run this frame: any enabled effect (from a world
+        /// PostProcessing component or the caller-supplied extra_effects) whose tag gate is satisfied
+        /// (≥1 matching entity). extra_effects lets a caller contribute effects from outside the world
+        /// (e.g. the editor's overlay), processed exactly like the world's own.
+        bool wants_post(World& world, const std::vector<PostProcessingEffect>& extra_effects = {}) const;
+
+        /// @brief The union of tag queries across all active tag-gated effects (world + extra). The
+        /// pipeline renders entities matching any of these into the tag mask.
+        std::vector<std::string> masked_tags(
+            World& world,
+            const std::vector<PostProcessingEffect>& extra_effects = {}) const;
 
         /// @brief (Re)creates the offscreen targets when the size changes; idempotent otherwise.
         Result ensure_targets(const Size& size);
@@ -40,15 +51,20 @@ namespace tbx
         GpuId get_scene_color() const;
         /// @brief The scene depth target paired with get_scene_color() for the forward pass.
         GpuId get_scene_depth() const;
+        /// @brief The tag mask target the pipeline draws tagged silhouettes into (bound to effects at
+        /// GPU_BINDING_TAG_MASK).
+        GpuId get_tag_mask() const;
 
         /// @brief Chains the enabled effects scene_color -> ... -> swapchain. uniforms_buffer is this
-        /// frame's scene uniforms (binding GPU_BINDING_UNIFORMS). Never fatal on a single bad effect.
+        /// frame's scene uniforms (binding GPU_BINDING_UNIFORMS). extra_effects are appended after the
+        /// world's own stack. Never fatal on a single bad effect.
         Result run(
             GpuResourceCache& cache,
             AssetManager& assets,
             World& world,
             const Size& output_size,
-            GpuId uniforms_buffer);
+            GpuId uniforms_buffer,
+            const std::vector<PostProcessingEffect>& extra_effects = {});
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};
@@ -56,6 +72,7 @@ namespace tbx
         GpuResource _scene_color = {};
         GpuResource _scratch = {};
         GpuResource _scene_depth = {};
+        GpuResource _tag_mask = {};
         GpuResource _post_uniforms = {};
     };
 }

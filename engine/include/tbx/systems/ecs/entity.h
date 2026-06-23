@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace tbx
 {
@@ -21,10 +22,9 @@ namespace tbx
     [[serializable]];
     [[custom_serialization(serialize, deserialize)]];
     [[printable(
-        "Entity{{id={}, name='{}', tag='{}', layer='{}', parent={}}}",
+        "Entity{{id={}, name='{}', layer='{}', parent={}}}",
         get_id().value,
         get_name(),
-        get_tag(),
         get_layer(),
         get_parent().value)]];
     class TBX_API Entity
@@ -43,8 +43,16 @@ namespace tbx
         std::string get_name() const;
         void set_name(const std::string& name);
 
-        std::string get_tag() const;
-        void set_tag(const std::string& tag);
+        // Gameplay tags (UE-style, hierarchical dot-names e.g. "editor.selected"). A tag is either
+        // serialized (persists with the world) or runtime (transient editor/gameplay state, never
+        // written). has_tag matches hierarchically — query "editor" matches the tag
+        // "editor.selected".
+        void add_tag(const std::string& name, bool serialized = true);
+        void remove_tag(const std::string& name);
+        bool has_tag(const std::string& query) const;
+        std::vector<std::string> get_tags() const;
+        std::vector<std::string> get_persistent_tags() const;
+        std::vector<std::string> get_runtime_tags() const;
 
         std::string get_layer() const;
         void set_layer(const std::string& layer);
@@ -53,14 +61,15 @@ namespace tbx
         void set_parent(const Uuid& parent);
         bool try_get_parent_entity(Entity& out_parent) const;
 
-        // Explicit ordering among siblings (entities sharing a parent); lower sorts first. Editor-driven
-        // and persisted, so a user-arranged world reloads in the same order.
+        // Explicit ordering among siblings (entities sharing a parent); lower sorts first.
+        // Editor-driven and persisted, so a user-arranged world reloads in the same order.
         int get_order() const;
         void set_order(int order);
 
         // Wholesale enable flag. A disabled entity is skipped by every typed component query
-        // (get_with / first_with / for_each_with), so rendering, physics and scripting all pass it over —
-        // it stays in the world (and the editor) but is inert until re-enabled. Persisted; defaults true.
+        // (get_with / first_with / for_each_with), so rendering, physics and scripting all pass it
+        // over — it stays in the world (and the editor) but is inert until re-enabled. Persisted;
+        // defaults true.
         bool is_enabled() const;
         void set_enabled(bool enabled);
 
@@ -128,10 +137,11 @@ namespace tbx
         Uuid _id = {};
     };
 
-    // Entity-reference serialization. A tbx::Entity used as a component/script *field* is a reference to
-    // another entity, so it serializes as just the target id (token "entity"), not the whole entity — the
-    // generic serializer finds these ADL hooks and special-cases the field. The inspector then shows an
-    // entity picker. A bound reference holds only the id (no registry); the game resolves it via the world.
+    // Entity-reference serialization. A tbx::Entity used as a component/script *field* is a
+    // reference to another entity, so it serializes as just the target id (token "entity"), not the
+    // whole entity — the generic serializer finds these ADL hooks and special-cases the field. The
+    // inspector then shows an entity picker. A bound reference holds only the id (no registry); the
+    // game resolves it via the world.
     TBX_API Uuid tbx_reference_id(const Entity& entity);
     TBX_API void tbx_bind_reference(Entity& entity, const Uuid& id);
 

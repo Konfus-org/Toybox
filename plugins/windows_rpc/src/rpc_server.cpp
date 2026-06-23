@@ -1,8 +1,9 @@
 #include "rpc_server.h"
+#include "rpc_protocol.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-namespace tbx::studio_bridge
+namespace tbx::windows_rpc
 {
     static constexpr int IO_POLL_TIMEOUT_MILLISECONDS = 100;
 
@@ -54,6 +55,7 @@ namespace tbx::studio_bridge
             return Result(false, "Failed to listen on the bound socket.");
         }
 
+        _port = port;
         _listen_socket = static_cast<uint64>(listen_socket);
         _is_running = true;
         _io_thread = std::thread([this]() { run_io_loop(); });
@@ -83,6 +85,16 @@ namespace tbx::studio_bridge
     bool RpcServer::has_client() const
     {
         return _has_client;
+    }
+
+    void RpcServer::send_notification(std::string_view method, const tbx::Json& params)
+    {
+        send_line(make_notification(method, params));
+    }
+
+    uint16 RpcServer::port() const
+    {
+        return _port;
     }
 
     std::vector<std::string> RpcServer::take_received_lines()

@@ -24,6 +24,17 @@ namespace tbx
 {
     //// STATIC HELPERS ////
 
+    // Whether an entity carries any of the masked tags (so its geometry feeds the tag mask).
+    static bool has_any_masked_tag(const Entity& entity, const std::vector<std::string>* masked_tags)
+    {
+        if (masked_tags == nullptr)
+            return false;
+        for (const auto& tag : *masked_tags)
+            if (entity.has_tag(tag))
+                return true;
+        return false;
+    }
+
     // cascade_splits is packed into a Vec4, so at most four cascades are supported.
     static_assert(SHADOW_CASCADE_COUNT <= 4U, "cascade_splits packs into a Vec4 (max 4 cascades)");
 
@@ -236,7 +247,8 @@ namespace tbx
         const Mesh& mesh,
         const Material& material,
         const std::string& material_name,
-        const RenderFailure forced_failure)
+        const RenderFailure forced_failure,
+        const bool masked)
     {
 
         // Visible in the camera view? Room shells opt out of culling and are always drawn. A
@@ -375,6 +387,10 @@ namespace tbx
                                         && material.config.blend_mode != MaterialBlendMode::OPAQUE;
             const uint32 bucket = bucket_for_pipeline(pipeline, is_transparent, result);
             _bucket_commands[bucket].push_back(draw_command);
+
+            // Tag-masked entities also feed the tag mask (same instance/geometry).
+            if (masked)
+                result.mask_draw_commands.push_back(draw_command);
         }
 
         // Mirror shadow-casting renderables into the shadow pass's per-category command list,
@@ -403,7 +419,8 @@ namespace tbx
         const float elapsed_time,
         const float light_cull_distance,
         const float shadow_distance,
-        const float shadow_softness)
+        const float shadow_softness,
+        const std::vector<std::string>& masked_tags)
     {
         // Reuse the persistent result buffer: clear each vector (keeping its capacity) and reset the
         // scalar fields, so a steady-state frame does no heap allocation for the view arrays.
@@ -417,6 +434,7 @@ namespace tbx
         result.shadow_draw_commands.clear();
         result.shadow_category_counts = {};
         result.local_shadow_matrices.clear();
+        result.mask_draw_commands.clear();
         result.has_camera = false;
 
         _bucket_of_pipeline.clear();
@@ -558,7 +576,8 @@ namespace tbx
                 sky_mesh,
                 sky_material,
                 sky_name,
-                sky_failure);
+                sky_failure,
+                false); // the sky never contributes to the selection mask
         }
 
         // Material cache key: a per-instance override is dynamic (key by component address); an
@@ -584,6 +603,7 @@ namespace tbx
         // Static meshes reference a Model asset; emit one instance per model part.
         for (Entity entity : world.get_with<StaticMesh, Transform>())
         {
+            const bool masked = has_any_masked_tag(entity, &masked_tags);
             const Handle model_handle = entity.get_component<StaticMesh>().handle;
             const Mat4 world_matrix =
                 build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
@@ -612,7 +632,8 @@ namespace tbx
                     Mesh::CUBE,
                     effective,
                     name,
-                    RenderFailure::MISSING_MESH);
+                    RenderFailure::MISSING_MESH,
+                    masked);
                 continue;
             }
 
@@ -643,7 +664,8 @@ namespace tbx
                         mesh,
                         effective,
                         name,
-                        failed);
+                        failed,
+                        masked);
                 }
             }
             else
@@ -671,7 +693,8 @@ namespace tbx
                         mesh,
                         effective,
                         name,
-                        failed);
+                        failed,
+                        masked);
                 }
             }
         }
@@ -679,6 +702,7 @@ namespace tbx
         // Dynamic meshes carry runtime geometry directly on the entity.
         for (Entity entity : world.get_with<DynamicMesh, Transform>())
         {
+            const bool masked = has_any_masked_tag(entity, &masked_tags);
             const Mesh& mesh = entity.get_component<DynamicMesh>().get_mesh();
             const Mat4 world_matrix =
                 build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
@@ -695,7 +719,8 @@ namespace tbx
                 mesh,
                 effective,
                 name,
-                failed);
+                failed,
+                masked);
         }
 
         //// LIGHTS (point/spot/area distance-culled + faded on the CPU) ////

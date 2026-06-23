@@ -3,14 +3,17 @@
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/components/post_processing.h"
 #include "tbx/utils/result.h"
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 namespace tbx
 {
@@ -51,7 +54,9 @@ namespace tbx
             const GraphicsSettings& settings,
             const DeltaTime& delta_time,
             const CameraView& camera_view,
-            const RenderTarget& output_target);
+            const RenderTarget& output_target,
+            Gizmos* gizmos = nullptr,
+            const std::vector<PostProcessingEffect>& extra_post_effects = {});
 
         /// @brief
         /// Purpose: Invalidates cached GPU state affected by asset reloads.

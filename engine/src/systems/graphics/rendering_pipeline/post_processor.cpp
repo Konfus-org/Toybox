@@ -14,18 +14,60 @@ namespace tbx
     {
     }
 
-    bool PostProcessor::wants_post(World& world) const
+    // A tag-gated effect runs only while at least one entity carries a matching tag. Untagged effects
+    // (empty tags) always pass.
+    static bool effect_passes_gate(World& world, const PostProcessingEffect& effect)
     {
-        const Entity entity = world.first_with<PostProcessing>();
-        if (!entity.get_id().is_valid())
-            return false;
-        const PostProcessing& post = entity.get_component<PostProcessing>();
-        if (!post.is_enabled)
-            return false;
-        for (const auto& effect : post.effects)
-            if (effect.is_enabled)
+        if (effect.tags.empty())
+            return true;
+        for (const auto& tag : effect.tags)
+            if (world.find_by_tag(tag).get_id().is_valid())
                 return true;
         return false;
+    }
+
+    // Every enabled effect whose tag gate is satisfied, in application order: each world PostProcessing
+    // component's stack (in entity order) followed by the caller's extra effects. The extras let a
+    // caller outside the world (e.g. the editor) contribute effects processed exactly like the world's.
+    static std::vector<const PostProcessingEffect*> active_effects(
+        World& world,
+        const std::vector<PostProcessingEffect>& extra)
+    {
+        std::vector<const PostProcessingEffect*> active;
+        const auto consider = [&](const PostProcessingEffect& effect)
+        {
+            if (effect.is_enabled && effect_passes_gate(world, effect))
+                active.push_back(&effect);
+        };
+        for (Entity entity : world.get_with<PostProcessing>())
+        {
+            const PostProcessing& post = entity.get_component<PostProcessing>();
+            if (post.is_enabled)
+                for (const auto& effect : post.effects)
+                    consider(effect);
+        }
+        for (const auto& effect : extra)
+            consider(effect);
+        return active;
+    }
+
+    bool PostProcessor::wants_post(
+        World& world,
+        const std::vector<PostProcessingEffect>& extra_effects) const
+    {
+        return !active_effects(world, extra_effects).empty();
+    }
+
+    std::vector<std::string> PostProcessor::masked_tags(
+        World& world,
+        const std::vector<PostProcessingEffect>& extra_effects) const
+    {
+        std::vector<std::string> tags = {};
+        for (const PostProcessingEffect* effect : active_effects(world, extra_effects))
+            for (const auto& tag : effect->tags)
+                if (std::ranges::find(tags, tag) == tags.end())
+                    tags.push_back(tag);
+        return tags;
     }
 
     Result PostProcessor::ensure_targets(const Size& size)
@@ -70,6 +112,18 @@ namespace tbx
         if (auto result = make_color(_scratch); !result)
             return result;
 
+        // Tag mask: a cheap single-channel-ish target the pipeline draws tagged silhouettes into
+        // (white = tagged). RGBA8 is plenty — tag-gated effects only test presence.
+        auto mask_desc = TextureDesc {
+            .usage = TextureUsage::SAMPLED_RENDER_TARGET,
+            .format = TextureFormat::RGBA8,
+            .size = target,
+            .is_linear_filtering_enabled = true};
+        auto mask_id = INVALID_GPU_ID;
+        if (auto result = backend.create_texture(mask_desc, mask_id); !result)
+            return result;
+        _tag_mask = GpuResource(_backend, mask_id);
+
         auto depth_desc = TextureDesc {
             .usage = TextureUsage::DEPTH_STENCIL,
             .format = TextureFormat::DEPTH24_STENCIL8,
@@ -94,28 +148,27 @@ namespace tbx
         return _scene_depth.get();
     }
 
+    GpuId PostProcessor::get_tag_mask() const
+    {
+        return _tag_mask.get();
+    }
+
     Result PostProcessor::run(
         GpuResourceCache& cache,
         AssetManager& assets,
         World& world,
         const Size& output_size,
-        const GpuId uniforms_buffer)
+        const GpuId uniforms_buffer,
+        const std::vector<PostProcessingEffect>& extra_effects)
     {
         const auto backend_service = _backend.lock();
         if (!backend_service)
             return Result(false, "Post-processing has no graphics backend.");
         IGraphicsBackend& backend = *backend_service;
 
-        const Entity entity = world.first_with<PostProcessing>();
-        if (!entity.get_id().is_valid())
-            return Result::OK;
-        const PostProcessing& post = entity.get_component<PostProcessing>();
-
-        std::vector<const PostProcessingEffect*> effects;
-        effects.reserve(post.effects.size());
-        for (const auto& effect : post.effects)
-            if (effect.is_enabled)
-                effects.push_back(&effect);
+        // The effect chain is every active effect (the world's own PostProcessing stacks plus any
+        // caller-supplied extras), in application order. Each is enabled and passes its tag gate.
+        const std::vector<const PostProcessingEffect*> effects = active_effects(world, extra_effects);
         if (effects.empty())
             return Result::OK;
 
@@ -206,7 +259,10 @@ namespace tbx
                         .resource_handle = textures_buffer},
                     ResourceBinding {
                         .binding_slot = GPU_BINDING_SCENE_COLOR,
-                        .resource_handle = input}}};
+                        .resource_handle = input},
+                    ResourceBinding {
+                        .binding_slot = GPU_BINDING_TAG_MASK,
+                        .resource_handle = _tag_mask.get()}}};
             auto group_id = INVALID_GPU_ID;
             if (auto result = backend.create_bind_group(desc, group_id); !result)
                 return result;

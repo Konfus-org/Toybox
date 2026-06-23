@@ -4,6 +4,7 @@
 #include "rendering_pipeline/post_processor.h"
 #include "rendering_pipeline/world_view.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
@@ -62,6 +63,14 @@ namespace tbx
         Handle("Shaders/Material/ShadowColor.vert");
     static const Handle SHADOW_COLOR_FRAGMENT_SHADER_HANDLE =
         Handle("Shaders/Material/ShadowColor.frag");
+
+    // Tag mask: tagged entities are drawn flat (white) into the tag mask target. Reuses the SSBO-pull
+    // Fallback vertex stage (camera viewProjection) with a flat white fragment; a tag-gated post effect
+    // (e.g. an outline) samples the result.
+    static const Handle MASK_VERTEX_SHADER_HANDLE =
+        Handle("Shaders/Material/Fallback.vert");
+    static const Handle MASK_FRAGMENT_SHADER_HANDLE =
+        Handle("Shaders/Post/SelectionMask.frag");
 
     static ShaderProgram shader_program(const Handle& vertex, const Handle& fragment)
     {
@@ -220,7 +229,9 @@ namespace tbx
         const GraphicsSettings& settings,
         const DeltaTime& delta_time,
         const CameraView& camera_view,
-        const RenderTarget& output_target)
+        const RenderTarget& output_target,
+        Gizmos* gizmos,
+        const std::vector<PostProcessingEffect>& extra_post_effects)
     {
         const auto backend_service = _backend.lock();
         if (!backend_service)
@@ -241,8 +252,18 @@ namespace tbx
 
         // The target arrives fully resolved from the main thread, size included.
         const auto output_size = output_target.size;
-        const auto finish_frame = [this, &backend, &output_target, &output_size]() -> Result
+        const auto finish_frame =
+            [this, &backend, &output_target, &output_size, &camera_view, gizmos]() -> Result
         {
+            // Draw the frame's gizmos on top of the finished scene before presenting. The buffer is
+            // empty in a shipped game (nothing submits), so this is a no-op there; debug/editor code
+            // populates it via the Gizmos service.
+            if (gizmos != nullptr)
+                gizmos->render(
+                    backend,
+                    camera_view.camera.get_view_projection_matrix(
+                        camera_view.position, camera_view.rotation));
+
             invoke_pre_present_callback(backend, output_target, output_size);
             const auto present_result = backend.present();
             const auto end_result = backend.end_frame();
@@ -270,6 +291,9 @@ namespace tbx
         if (!world)
             return finish_frame();
 
+        // Tags whose entities feed the tag mask this frame (from the active tag-gated post effects,
+        // world and caller-supplied). Collected by capture() into view.mask_draw_commands.
+        const auto masked_tags = _resources->post.masked_tags(*world, extra_post_effects);
         const WorldViewResult& view = _resources->view.capture(
             *asset_manager,
             *world,
@@ -279,7 +303,8 @@ namespace tbx
             _elapsed_time,
             light_cull_distance,
             settings.shadow_render_distance,
-            settings.shadow_softness);
+            settings.shadow_softness,
+            masked_tags);
 
         if (!view.has_camera || view.instances.empty())
         {
@@ -332,7 +357,7 @@ namespace tbx
         // When post-processing is active the forward pass renders into an offscreen scene target
         // the effect chain consumes; otherwise it renders straight to the swapchain (unchanged
         // path).
-        const bool use_post = _resources->post.wants_post(*world);
+        const bool use_post = _resources->post.wants_post(*world, extra_post_effects);
         if (use_post)
         {
             if (auto result = _resources->post.ensure_targets(output_size); !result)
@@ -695,6 +720,59 @@ namespace tbx
         if (auto result = backend.end_render_pass(); !result)
             return fail_frame(result);
 
+        //// TAG MASK ////
+        // Draw the tag-masked entities flat (white) into the tag mask a tag-gated post effect samples.
+        // Always cleared so a stale mask never lingers; the silhouette is drawn only when something is
+        // tagged. Runs only on the offscreen (post) path, where the mask target exists.
+        if (use_post)
+        {
+            auto mask_pass = RenderPassDesc {
+                .clear_color = Color(0.0F, 0.0F, 0.0F, 0.0F),
+                .clear_flags = ClearFlags::COLOR};
+            mask_pass.color_targets = {_resources->post.get_tag_mask()};
+            mask_pass.viewport.dimensions = output_size;
+            if (auto result = backend.begin_render_pass(mask_pass); !result)
+                return fail_frame(result);
+
+            if (!view.mask_draw_commands.empty())
+            {
+                const GpuId mask_args = frame.store(
+                    view.mask_draw_commands.data(),
+                    view.mask_draw_commands.size() * sizeof(GpuIndexedDrawCommand),
+                    BufferUsage::INDIRECT_ARGS);
+                // Silhouette through walls: depth test off, two-sided, no blend (presence only).
+                const auto mask_state = RasterState {
+                    .is_blending_enabled = false,
+                    .is_two_sided = true,
+                    .is_depth_test_enabled = false,
+                    .is_depth_write_enabled = false};
+                const ShaderProgram mask_program = shader_program(
+                    MASK_VERTEX_SHADER_HANDLE,
+                    MASK_FRAGMENT_SHADER_HANDLE);
+                const GpuId mask_pipeline =
+                    _resources->cache
+                        .add_pipeline(hash(mask_program, mask_state), mask_program, mask_state, true)
+                        .value_or(INVALID_GPU_ID);
+                if (mask_args != INVALID_GPU_ID && mask_pipeline != INVALID_GPU_ID)
+                {
+                    if (auto result = backend.bind_raster_pipeline(mask_pipeline); !result)
+                        return fail_frame(result);
+                    if (auto result = backend.bind_group(0U, world_group.get()); !result)
+                        return fail_frame(result);
+                    if (auto result = backend.draw_indirect(
+                            mask_args,
+                            0U,
+                            static_cast<uint32>(view.mask_draw_commands.size()),
+                            stride);
+                        !result)
+                        return fail_frame(result);
+                }
+            }
+
+            if (auto result = backend.end_render_pass(); !result)
+                return fail_frame(result);
+        }
+
         //// POST-PROCESSING ////
         // chain the enabled material-driven effects from the scene target to the
         // swapchain. The final effect presents; a broken effect is skipped (warned), never the
@@ -706,7 +784,8 @@ namespace tbx
                     *asset_manager,
                     *world,
                     output_size,
-                    uniforms_buffer);
+                    uniforms_buffer,
+                    extra_post_effects);
                 !result)
                 return fail_frame(result);
         }

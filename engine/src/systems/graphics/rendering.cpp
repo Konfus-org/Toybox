@@ -1,6 +1,7 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include <cstdint>
 #include <fstream>
 #include <tuple>
@@ -65,11 +66,13 @@ namespace tbx
         std::weak_ptr<IWindowManager> window_manager,
         std::weak_ptr<WorldManager> world_manager,
         std::weak_ptr<IMessageCoordinator> message_coordinator,
+        std::weak_ptr<Gizmos> gizmos,
         Handle)
         : _thread_manager(std::move(thread_manager))
         , _message_coordinator(message_coordinator)
         , _backend(std::move(backend))
         , _window_manager(window_manager)
+        , _gizmos(std::move(gizmos))
         , _pipeline(
               _backend,
               std::move(asset_manager),
@@ -133,7 +136,8 @@ namespace tbx
         const DeltaTime& delta_time,
         const GraphicsSettings& settings,
         const CameraView& camera_view,
-        const RenderTarget& output_target)
+        const RenderTarget& output_target,
+        const std::vector<PostProcessingEffect>& extra_post_effects)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -160,11 +164,20 @@ namespace tbx
 
         TBX_TRY_CATCH_ASSERT(
             {
+                auto gizmos = _gizmos.lock();
+                // Everything the render lane needs is captured by value (the lane runs later, off this
+                // thread) — including the caller's extra post effects, copied so their source can change.
                 auto future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
-                    [this, delta_time, settings, camera_view, resolved_target]()
+                    [this, delta_time, settings, camera_view, resolved_target, gizmos, extra_post_effects]()
                     {
-                        render_frame(delta_time, settings, camera_view, resolved_target);
+                        render_frame(
+                            delta_time,
+                            settings,
+                            camera_view,
+                            resolved_target,
+                            gizmos,
+                            extra_post_effects);
                     });
 
                 // Each target owns its own lane so its completion is tracked independently; all
@@ -271,7 +284,9 @@ namespace tbx
         const DeltaTime& delta_time,
         const GraphicsSettings& settings,
         const CameraView& camera_view,
-        const RenderTarget& output_target)
+        const RenderTarget& output_target,
+        std::shared_ptr<Gizmos> gizmos,
+        const std::vector<PostProcessingEffect>& extra_post_effects)
     {
         const auto backend = _backend.lock();
         if (!backend)
@@ -292,7 +307,8 @@ namespace tbx
             }
         }
 
-        const auto result = _pipeline.execute(settings, delta_time, camera_view, output_target);
+        const auto result = _pipeline.execute(
+            settings, delta_time, camera_view, output_target, gizmos.get(), extra_post_effects);
         if (!result)
         {
             TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());

@@ -3,6 +3,8 @@
 #include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/post_processing.generated.h"
 #include <initializer_list>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
@@ -39,6 +41,16 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
         [[prop]]
         float blend = 1.0f;
+
+        /// @brief
+        /// Purpose: Gameplay-tag gate. When non-empty, the effect runs only while at least one entity
+        /// carries a matching tag, and the engine renders those tagged entities into the tag mask the
+        /// effect samples (binding GPU_BINDING_TAG_MASK). Empty = the effect always runs.
+        /// @details
+        /// Ownership: Owns the tag-name list.
+        /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
+        [[prop]]
+        std::vector<std::string> tags = {};
     };
 
     /// @brief

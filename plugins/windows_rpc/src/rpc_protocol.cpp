@@ -1,6 +1,6 @@
 #include "rpc_protocol.h"
 
-namespace tbx::studio_bridge
+namespace tbx::windows_rpc
 {
     std::optional<Json> try_parse_message(const std::string& line)
     {

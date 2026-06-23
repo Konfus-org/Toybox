@@ -65,13 +65,11 @@ namespace tbx
         TComponent& add(const Uuid& id, TArgs&&... args);
         Uuid add(
             const std::string& name = "",
-            const std::string& tag = "",
             const std::string& layer = "",
             const Uuid& parent = Uuid());
         Uuid add(
             const Uuid& id,
             const std::string& name = "",
-            const std::string& tag = "",
             const std::string& layer = "",
             const Uuid& parent = Uuid());
 
@@ -128,8 +126,12 @@ namespace tbx
         std::string get_name(const Uuid& id) const;
         void set_name(const Uuid& id, const std::string& name);
 
-        std::string get_tag(const Uuid& id) const;
-        void set_tag(const Uuid& id, const std::string& tag);
+        void add_tag(const Uuid& id, const std::string& name, bool serialized);
+        void remove_tag(const Uuid& id, const std::string& name);
+        bool has_tag(const Uuid& id, const std::string& query) const;
+        std::vector<std::string> get_tags(const Uuid& id) const;
+        std::vector<std::string> get_persistent_tags(const Uuid& id) const;
+        std::vector<std::string> get_runtime_tags(const Uuid& id) const;
 
         Uuid get_parent_id(const Uuid& id) const;
         void set_parent_id(const Uuid& id, const Uuid& parent);
@@ -138,12 +140,19 @@ namespace tbx
         void set_order_value(const Uuid& id, int order);
 
         bool get_enabled(const Uuid& id) const;
+        // Effective enabled: false when this entity OR any ancestor is disabled, so a disabled parent
+        // disables its whole subtree for the typed queries. Takes the lock; for_each_with uses it.
+        bool get_effective_enabled(const Uuid& id) const;
         void set_enabled(const Uuid& id, bool enabled);
 
         // Enabled check for an already-resolved handle, assuming the caller already holds _mutex.
         // Lets the templated queries filter disabled entities under a single lock instead of
         // re-locking through get_enabled per entity. Absence of the flag means enabled.
         bool is_handle_enabled(entt::entity handle) const;
+
+        // Like is_handle_enabled, but also walks the parent chain (caller holds _mutex): the filter used by
+        // get_with / first_with so a disabled ancestor turns its whole subtree off.
+        bool is_handle_effectively_enabled(entt::entity handle) const;
 
         std::string get_layer(const Uuid& id) const;
         void set_layer(const Uuid& id, const std::string& layer);

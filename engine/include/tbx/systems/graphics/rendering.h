@@ -6,9 +6,11 @@
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/world/manager.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/components/post_processing.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/typedefs.h"
 #include <filesystem>
@@ -16,6 +18,7 @@
 #include <future>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 namespace tbx
 {
@@ -46,6 +49,7 @@ namespace tbx
             std::weak_ptr<IWindowManager> window_manager,
             std::weak_ptr<WorldManager> world_manager = {},
             std::weak_ptr<IMessageCoordinator> message_coordinator = {},
+            std::weak_ptr<Gizmos> gizmos = {},
             Handle render_pipeline_script = {});
         ~Rendering() noexcept;
 
@@ -65,7 +69,8 @@ namespace tbx
             const DeltaTime& delta_time,
             const GraphicsSettings& settings,
             const CameraView& camera_view,
-            const RenderTarget& output_target);
+            const RenderTarget& output_target,
+            const std::vector<PostProcessingEffect>& extra_post_effects = {});
 
         /// @brief
         /// Purpose: Registers a callback invoked on the render lane right before each present,
@@ -93,7 +98,7 @@ namespace tbx
         /// @brief
         /// Purpose: Blocks until any previously dispatched render frame has finished.
         /// @details
-        /// Thread Safety: Call from the main thread before mutating scene data shared with the
+        /// Thread Safety: Call from the main thread before mutating world data shared with the
         /// renderer.
         void wait_for_pending_frame() noexcept;
 
@@ -103,7 +108,9 @@ namespace tbx
             const DeltaTime& delta_time,
             const GraphicsSettings& settings,
             const CameraView& camera_view,
-            const RenderTarget& output_target);
+            const RenderTarget& output_target,
+            std::shared_ptr<Gizmos> gizmos,
+            const std::vector<PostProcessingEffect>& extra_post_effects);
         void wait_for_render_frame() noexcept;
         void evict_stale_lanes();
 
@@ -112,6 +119,7 @@ namespace tbx
         std::weak_ptr<IMessageCoordinator> _message_coordinator;
         std::weak_ptr<IGraphicsBackend> _backend;
         std::weak_ptr<IWindowManager> _window_manager;
+        std::weak_ptr<Gizmos> _gizmos;
         RenderingPipeline _pipeline;
 
         std::unordered_map<uint64, RenderLane> _render_lanes = {};

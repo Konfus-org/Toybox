@@ -15,7 +15,7 @@ namespace tbx
 
     Entity World::create_entity(const std::string& name, const Uuid& parent)
     {
-        const auto id = _registry.add(name, "", "", parent);
+        const auto id = _registry.add(name, "", parent);
         return _registry.get(id);
     }
 
@@ -116,9 +116,10 @@ namespace tbx
 
     Entity World::find_by_tag(std::string_view tag) const
     {
+        const auto query = std::string(tag);
         for (const auto& entity : get_all())
         {
-            if (entity.get_tag() == tag)
+            if (entity.has_tag(query))
                 return entity;
         }
 

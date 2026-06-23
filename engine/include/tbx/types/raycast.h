@@ -21,6 +21,7 @@ namespace tbx
         }
     };
 
+    // TODO: use 'Ray' struct
     struct TBX_API RaycastQuery
     {
         Vec3 origin = Vec3(0.0F, 0.0F, 0.0F);

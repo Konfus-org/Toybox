@@ -8,6 +8,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/world/manager.h"
+#include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
@@ -105,6 +106,7 @@ namespace tbx
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<InputManager> _input_manager = {};
         std::weak_ptr<Physics> _physics = {};
+        std::weak_ptr<Gizmos> _gizmos = {};
         std::weak_ptr<Rendering> _rendering = {};
         std::weak_ptr<ScriptSystem> _script_system = {};
 

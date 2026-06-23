@@ -23,7 +23,7 @@ namespace tbx
     {
         Uuid id = {};
         std::string name = {};
-        std::string tag = {};
+        std::vector<std::string> tags = {};
         std::string layer = {};
         Uuid parent = {};
         int order = 0;
@@ -82,7 +82,17 @@ namespace tbx
             // Envelope scalars use the self-describing { "type", "value" } wrapper.
             read_typed_serialization_field(json, "id", payload.id, Uuid {});
             read_typed_serialization_field(json, "name", payload.name, std::string {});
-            read_typed_serialization_field(json, "tag", payload.tag, std::string {});
+            read_typed_serialization_field(
+                json, "tags", payload.tags, std::vector<std::string> {});
+            // Back-compat: worlds written before the multi-tag migration carry a single "tag" string;
+            // seed it as the entity's one serialized tag when the new "tags" field is absent/empty.
+            if (payload.tags.empty())
+            {
+                auto legacy_tag = std::string {};
+                read_typed_serialization_field(json, "tag", legacy_tag, std::string {});
+                if (!legacy_tag.empty())
+                    payload.tags.push_back(legacy_tag);
+            }
             read_typed_serialization_field(json, "layer", payload.layer, std::string {});
             read_typed_serialization_field(json, "parent", payload.parent, Uuid {});
             read_typed_serialization_field(json, "order", payload.order, 0);
@@ -226,7 +236,7 @@ namespace tbx
         // specifies its type. The id is always written (identity must never be omitted).
         write_typed_serialization_field(json, "id", entity.get_id());
         write_typed_serialization_field(json, "name", entity.get_name());
-        write_typed_serialization_field(json, "tag", entity.get_tag());
+        write_typed_serialization_field(json, "tags", entity.get_persistent_tags());
         write_typed_serialization_field(json, "layer", entity.get_layer());
         write_typed_serialization_field(json, "parent", entity.get_parent());
         write_typed_serialization_field(json, "order", entity.get_order());
@@ -302,11 +312,13 @@ namespace tbx
             return false;
 
         entity = Entity();
-        entity._id =
-            registry.add(payload.id, payload.name, payload.tag, payload.layer, payload.parent);
+        entity._id = registry.add(payload.id, payload.name, payload.layer, payload.parent);
         entity._registry = std::ref(registry);
         entity.set_order(payload.order);
         entity.set_enabled(payload.is_enabled);
+        // Persisted tags are all serialized (runtime tags are never written); restore them as such.
+        for (const auto& tag : payload.tags)
+            entity.add_tag(tag, /*serialized*/ true);
 
         if (payload.components.is_null())
             return true;

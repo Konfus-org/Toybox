@@ -30,6 +30,7 @@
 #define TBX_SHADER_BINDING_LOCAL_SHADOW_MATRICES 2
 #define TBX_SHADER_BINDING_SHADOW_PASS 6
 #define TBX_SHADER_BINDING_FINAL_HDR 23
+#define TBX_SHADER_BINDING_TAG_MASK 24
 
 #define TBX_SHADER_LIGHT_TYPE_DIRECTIONAL 0u
 #define TBX_SHADER_LIGHT_TYPE_POINT 1u
@@ -107,6 +108,9 @@ layout(std430, binding = TBX_SHADER_BINDING_GLOBAL_TEXTURES) readonly buffer Tbx
 
 // HDR scene color, sampled by the tonemap blit.
 layout(binding = TBX_SHADER_BINDING_FINAL_HDR) uniform sampler2D tbx_scene_color;
+// Silhouette mask of the entities a tag-gated post effect gates on (white where tagged). Bound for
+// every post effect; a gated effect (e.g. an outline) edge-detects it. Empty/black when nothing is tagged.
+layout(binding = TBX_SHADER_BINDING_TAG_MASK) uniform sampler2D tbx_tag_mask;
 
 // Directional shadow cascades (depth, each in its own light clip space). Cascade 0 is the nearest,
 // highest-resolution slice; the furthest cascade is the lowest resolution and reaches the configured

@@ -72,7 +72,7 @@ namespace tbx
         bool is_global(const Uuid& id) const;
         // Marks (or unmarks) an existing entity as global — a full-lifetime resident that survives chunk
         // streaming. Editor-facing: lets the world view promote/demote entities between its Globals section
-        // and the scene tree.
+        // and the world tree.
         void set_global(const Uuid& id, bool global);
 
         Entity find_by_name(std::string_view name) const;

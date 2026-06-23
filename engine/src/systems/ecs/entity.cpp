@@ -16,7 +16,7 @@ namespace tbx
 
     Entity::Entity(const std::string& name, const Uuid& parent, EntityRegistry& registry)
         : _registry(std::ref(registry))
-        , _id(registry.add(name, "", "", parent))
+        , _id(registry.add(name, "", parent))
     {
     }
 
@@ -91,33 +91,76 @@ namespace tbx
         registry.set_name(_id, name);
     }
 
-    std::string Entity::get_tag() const
+    void Entity::add_tag(const std::string& name, bool serialized)
     {
         if (!_registry.has_value())
-            return "";
+            return;
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
-            TBX_ASSERT(false, "Attempted to read entity tag from a stale handle.");
-            return "";
+            TBX_ASSERT(false, "Attempted to add a tag to a stale entity handle.");
+            return;
         }
 
-        return registry.get_tag(_id);
+        registry.add_tag(_id, name, serialized);
     }
 
-    void Entity::set_tag(const std::string& tag)
+    void Entity::remove_tag(const std::string& name)
     {
         if (!_registry.has_value())
             return;
-
         auto& registry = _registry->get();
         if (!registry.has(_id))
         {
-            TBX_ASSERT(false, "Attempted to write entity tag to a stale handle.");
+            TBX_ASSERT(false, "Attempted to remove a tag from a stale entity handle.");
             return;
         }
 
-        registry.set_tag(_id, tag);
+        registry.remove_tag(_id, name);
+    }
+
+    bool Entity::has_tag(const std::string& query) const
+    {
+        if (!_registry.has_value())
+            return false;
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+            return false;
+
+        return registry.has_tag(_id, query);
+    }
+
+    std::vector<std::string> Entity::get_tags() const
+    {
+        if (!_registry.has_value())
+            return {};
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+            return {};
+
+        return registry.get_tags(_id);
+    }
+
+    std::vector<std::string> Entity::get_persistent_tags() const
+    {
+        if (!_registry.has_value())
+            return {};
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+            return {};
+
+        return registry.get_persistent_tags(_id);
+    }
+
+    std::vector<std::string> Entity::get_runtime_tags() const
+    {
+        if (!_registry.has_value())
+            return {};
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+            return {};
+
+        return registry.get_runtime_tags(_id);
     }
 
     std::string Entity::get_layer() const
