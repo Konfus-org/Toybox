@@ -129,6 +129,12 @@ namespace tbx
             const Entity& entity,
             std::string_view component_name,
             std::string_view value_json);
+        friend TBX_API Result add_default_component(
+            const Entity& entity,
+            std::string_view component_name);
+        friend TBX_API Result remove_component(
+            const Entity& entity,
+            std::string_view component_name);
         // Binds an entity-reference field to a target id during serialization (see below).
         friend TBX_API void bind_reference(Entity& entity, const Uuid& id);
 

@@ -3,6 +3,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/components/script_container.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include <string>
 #include <typeindex>
 #include <typeinfo>
+#include <utility>
 #include <vector>
 
 namespace tbx::studio_bridge
@@ -107,8 +109,8 @@ namespace tbx::studio_bridge
         auto world = _services.active_world();
         if (world)
         {
-            // One script schema per type, reused across every entity in this describe pass.
-            auto schema_cache = std::unordered_map<uint64, tbx::Json>();
+            // One (lean, attributed) script-schema pair per type, reused across every entity in this pass.
+            auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
             for (const auto& entity : world->get_all())
             {
                 // The editor needs every field plus reflection metadata, so serialize with both
@@ -156,7 +158,7 @@ namespace tbx::studio_bridge
         return component_types;
     }
 
-    tbx::Json WorldRpc::describe_script_schema(uint64 script_id) const
+    tbx::Json WorldRpc::describe_script_schema(uint64 script_id, bool attributed) const
     {
         if (script_id == 0U)
             return tbx::Json::object();
@@ -179,13 +181,13 @@ namespace tbx::studio_bridge
         if (!registration || !registration->is_script || !registration->describe)
             return tbx::Json::object();
 
-        auto schema = tbx::Json::parse(registration->describe(true), nullptr, false);
+        auto schema = tbx::Json::parse(registration->describe(attributed), nullptr, false);
         return schema.is_object() ? std::move(schema) : tbx::Json::object();
     }
 
     void WorldRpc::enrich_script_overrides(
         tbx::Json& entity_json,
-        std::unordered_map<uint64, tbx::Json>& schema_cache) const
+        std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>& schema_cache) const
     {
         const auto components_iterator = entity_json.find("components");
         if (components_iterator == entity_json.end() || !components_iterator->is_object())
@@ -215,41 +217,71 @@ namespace tbx::studio_bridge
 
             const auto* script_value = describe_field_value(*script_iterator);
             auto* overrides = describe_field_value(*overrides_iterator);
+            // The override blob must be an object, but it may legitimately be empty (a freshly attached
+            // script overrides nothing yet) — we still expand it to the script's full field set below.
             if (script_value == nullptr || !script_value->is_number_unsigned()
-                || overrides == nullptr || !overrides->is_object() || overrides->empty())
+                || overrides == nullptr || !overrides->is_object())
                 continue;
 
             const auto script_id = script_value->get<uint64>();
             auto cached = schema_cache.find(script_id);
             if (cached == schema_cache.end())
-                cached = schema_cache.emplace(script_id, describe_script_schema(script_id)).first;
+                cached = schema_cache
+                             .emplace(
+                                 script_id,
+                                 std::make_pair(
+                                     describe_script_schema(script_id, /*attributed=*/false),
+                                     describe_script_schema(script_id, /*attributed=*/true)))
+                             .first;
 
-            const auto& schema = cached->second;
-            if (!schema.is_object() || schema.empty())
+            const auto& lean_schema = cached->second.first;
+            const auto& attr_schema = cached->second.second;
+            if (!lean_schema.is_object() || lean_schema.empty())
                 continue;
 
-            // Fold each override's asset-type filter in from the script's schema, so an overridden
-            // handle picks from the same restricted asset list the script's own field would. The
-            // override stays the lean { type, value } wrapper the editor already reads choices from, so
-            // nothing else about the override changes.
-            for (auto& [field_name, override_field] : overrides->items())
+            // Rebuild the override blob as the script's FULL field set: every field the script exposes,
+            // carrying its current value (the existing override if set, else the script's default), the
+            // declared type token + asset-type choices (for the right widget/filter), an is_default flag,
+            // and the lean default value. The editor renders all of them and, on save, sends back only the
+            // fields whose value differs from this default — so the persisted blob stays lean.
+            auto rebuilt = tbx::Json::object();
+            for (const auto& [field_name, lean_field] : lean_schema.items())
             {
-                if (!override_field.is_object())
+                if (!lean_field.is_object())
                     continue;
 
-                const auto field_iterator = schema.find(field_name);
-                if (field_iterator == schema.end())
+                // The lean schema field is { "type", "value" }; its value is the script's default for
+                // this field. (describe_field_value takes a mutable node, so reach "value" directly here.)
+                const auto default_iterator = lean_field.find("value");
+                if (default_iterator == lean_field.end())
                     continue;
+                const tbx::Json* default_value = &(*default_iterator);
 
-                // Restore the field's declared type token onto the lean override. A persisted override only
-                // carries the structural token of the serialized id (e.g. "uuid"), so a reference field
-                // (tbx::Entity / tbx::Handle) would otherwise render as a bare number instead of its picker.
-                if (const auto* type = describe_field_type(*field_iterator))
-                    override_field["type"] = *type;
+                // Use the existing override's value when this field is overridden; else the default.
+                const tbx::Json* override_value = nullptr;
+                if (const auto existing = overrides->find(field_name);
+                    existing != overrides->end() && existing->is_object())
+                    override_value = describe_field_value(*existing);
 
-                if (const auto* choices = describe_field_choices(*field_iterator))
-                    override_field["choices"] = *choices;
+                auto field = tbx::Json::object();
+                // The reference token (entity/handle/…) and any [[tbx::asset]] choices ride under the
+                // attributed schema, where the parser reads them to pick the right picker + filter.
+                const auto attr_iterator = attr_schema.find(field_name);
+                if (attr_iterator != attr_schema.end())
+                {
+                    if (const auto* type = describe_field_type(*attr_iterator))
+                        field["type"] = *type;
+                    if (const auto* choices = describe_field_choices(*attr_iterator))
+                        field["choices"] = *choices;
+                }
+
+                field["value"] = override_value != nullptr ? *override_value : *default_value;
+                field["is_default"] = override_value == nullptr || *override_value == *default_value;
+                field["default"] = *default_value;
+                rebuilt[field_name] = std::move(field);
             }
+
+            *overrides = std::move(rebuilt);
         }
     }
 
@@ -272,7 +304,7 @@ namespace tbx::studio_bridge
         if (auto world = _services.active_world())
             entity_json["is_global"] = world->is_global(entity.get_id());
 
-        auto schema_cache = std::unordered_map<uint64, tbx::Json>();
+        auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
         enrich_script_overrides(entity_json, schema_cache);
 
         out_reply["entity"] = std::move(entity_json);
@@ -346,6 +378,11 @@ namespace tbx::studio_bridge
         auto assets = tbx::Json::array();
         auto scripts = tbx::Json::array();
 
+        // A scripting backend claims its source extension (e.g. ".h" for C++), so an asset whose file
+        // extension a backend recognises is a script source the editor can bind to an entity. Resolved
+        // once per list so each asset can be flagged for the editor's script picker.
+        auto scripting = _services.scripting_registry.lock();
+
         if (auto asset_manager = _services.asset_manager.lock())
         {
             for (const auto& entry : asset_manager->get_registered_assets())
@@ -354,11 +391,24 @@ namespace tbx::studio_bridge
                                               ? entry.normalized_path
                                               : entry.resolved_path.stem().string();
 
+                // A self-describing script meta (e.g. "X.h.meta") IS the asset, so its registered path
+                // ends in ".meta"; the source extension a scripting backend claims is the part before it.
+                // Strip a trailing ".meta" so the lookup sees ".h" rather than ".meta".
+                auto source_path = entry.resolved_path;
+                if (source_path.extension() == ".meta")
+                    source_path = source_path.stem();
+                auto extension = source_path.extension().string();
+                for (auto& character : extension)
+                    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+                const auto is_script =
+                    scripting && !extension.empty() && !scripting->for_extension(extension).expired();
+
                 auto asset = tbx::Json::object();
                 asset["id"] = entry.asset_id.value;
                 asset["name"] = display_name;
                 asset["type"] = asset_type_from_path(entry.resolved_path);
                 asset["path"] = entry.normalized_path;
+                asset["isScript"] = is_script;
                 assets.push_back(std::move(asset));
             }
         }
@@ -407,6 +457,118 @@ namespace tbx::studio_bridge
             return Result(false, "Entity not found.");
 
         return tbx::apply_component(entity, component, value_iterator->dump());
+    }
+
+    tbx::Json WorldRpc::list_component_types() const
+    {
+        // The component catalog the editor's "Add Component" picker draws from: every registered
+        // component type by wire name, with its [[tbx::icon]] badge. The editor humanises the name for
+        // display and filters out the ones an entity already carries.
+        auto result = tbx::Json::object();
+        auto components = tbx::Json::array();
+        for (const auto& registration : tbx::get_entity_component_type_registrations())
+        {
+            if (registration.name.empty())
+                continue;
+
+            auto component = tbx::Json::object();
+            component["name"] = registration.name;
+            if (!registration.icon.empty())
+                component["icon"] = registration.icon;
+            if (!registration.icon_color.empty())
+                component["iconColor"] = registration.icon_color;
+            components.push_back(std::move(component));
+        }
+        result["components"] = std::move(components);
+        return result;
+    }
+
+    Result WorldRpc::add_component(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        auto world = _services.active_world();
+        if (!world)
+            return Result(false, "No active world.");
+
+        const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        return tbx::add_default_component(entity, component);
+    }
+
+    Result WorldRpc::remove_component(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto component = params.value("component", std::string());
+        if (component.empty())
+            return Result(false, "Missing 'component'.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        auto world = _services.active_world();
+        if (!world)
+            return Result(false, "No active world.");
+
+        const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        return tbx::remove_component(entity, component);
+    }
+
+    Result WorldRpc::add_script(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'entityId'.");
+
+        const auto script_iterator = params.find("script");
+        if (script_iterator == params.end() || !script_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'script'.");
+
+        auto world = _services.active_world();
+        if (!world)
+            return Result(false, "No active world.");
+
+        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
+
+        const auto script_id = script_iterator->get<uint64>();
+
+        // Reuse the entity's existing script container or attach a fresh one, then append a binding to the
+        // chosen script asset. The binding_id is engine-assigned (it is a [[readonly]][[hidden]] identity);
+        // overrides start empty so the script runs at its source defaults.
+        auto& container = entity.has_component<tbx::ScriptContainer>()
+                              ? entity.get_component<tbx::ScriptContainer>()
+                              : entity.add_component<tbx::ScriptContainer>();
+
+        auto binding = tbx::ScriptContainerBinding();
+        binding.script = tbx::Handle(tbx::Uuid(script_id));
+        binding.enabled = true;
+        binding.binding_id = tbx::Uuid::generate();
+        binding.overrides = tbx::Json::object();
+        container.scripts.push_back(std::move(binding));
+
+        return Result::OK;
     }
 
     Result WorldRpc::create_entity(const tbx::Json& params, tbx::Json& out_reply) const

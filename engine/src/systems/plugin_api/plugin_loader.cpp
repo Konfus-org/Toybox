@@ -7,6 +7,7 @@
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <system_error>
 #include <thread>
@@ -47,12 +48,41 @@ namespace tbx
     }
 
     static std::filesystem::path make_plugin_shadow_copy_path(
-        const std::filesystem::path& library_path)
+        const std::filesystem::path& library_path,
+        uint64 unique_token)
     {
+        // Each load gets a UNIQUE copy name. A fixed name collides with the previous copy that is still
+        // memory-mapped during a hot reload — the old plugin is not unloaded until after the new copy is
+        // made — so overwriting it fails with a sharing violation. That failure stalls the loader (it
+        // burns the whole retry budget on the engine's update thread) and then forces a fall back to
+        // mapping the freshly-built ORIGINAL module in place, which both locks the build output (breaking
+        // every subsequent rebuild's link step) and has been observed to take the engine down. A fresh
+        // name per load never contends. The marker stays in the stem so discovery keeps skipping copies.
         const auto copy_stem = library_path.stem().string();
-        const auto copy_name =
-            copy_stem + std::string(PluginShadowCopyMarker) + library_path.extension().string();
+        const auto copy_name = copy_stem + std::string(PluginShadowCopyMarker) + "."
+                               + std::to_string(unique_token) + library_path.extension().string();
         return library_path.parent_path() / copy_name;
+    }
+
+    static void remove_stale_plugin_shadow_copies(
+        const std::filesystem::path& library_path,
+        IFileOps& file_ops)
+    {
+        // Best-effort sweep of leftover copies of THIS plugin from earlier loads (or a prior run that
+        // crashed before its cleanup ran) so unique-named copies don't accumulate on disk. The copy still
+        // mapped by the previous instance is locked and is simply skipped; it is removed on its unload.
+        const auto prefix = library_path.stem().string() + std::string(PluginShadowCopyMarker);
+        const auto parent = file_ops.resolve(library_path).parent_path();
+        for (const std::filesystem::path& entry : file_ops.read_directory(parent))
+        {
+            if (file_ops.get_type(entry) != FileType::FILE)
+                continue;
+            if (!entry.filename().string().starts_with(prefix))
+                continue;
+
+            auto remove_error = std::error_code {};
+            std::filesystem::remove(file_ops.resolve(entry), remove_error);
+        }
     }
 
     static bool is_plugin_shadow_copy_path(const std::filesystem::path& library_path)
@@ -73,7 +103,13 @@ namespace tbx
         if (is_plugin_shadow_copy_path(library_path))
             return {};
 
-        const auto shadow_copy_path = make_plugin_shadow_copy_path(library_path);
+        // A monotonic per-process token keeps every shadow copy's filename distinct, so a reload's copy
+        // never lands on the path the still-mapped previous copy holds open.
+        static std::atomic<uint64> next_shadow_copy_token = {0U};
+        remove_stale_plugin_shadow_copies(library_path, file_ops);
+
+        const auto shadow_copy_path =
+            make_plugin_shadow_copy_path(library_path, next_shadow_copy_token.fetch_add(1U));
         if (shadow_copy_path.empty())
             return {};
 

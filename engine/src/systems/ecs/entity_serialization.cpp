@@ -453,6 +453,91 @@ namespace tbx
         return Result::OK;
     }
 
+    Result add_default_component(const Entity& entity, std::string_view component_name)
+    {
+        if (!entity._registry.has_value())
+            return Result(false, "Entity is not bound to a registry.");
+
+        auto& registry = entity._registry->get();
+        if (!registry.has(entity._id))
+            return Result(false, "Entity no longer exists.");
+
+        const auto entries = get_entity_component_type_registrations();
+        const auto entry = std::ranges::find_if(
+            entries,
+            [&component_name](const EntityComponentTypeRegistration& candidate)
+            { return candidate.name == component_name; });
+        if (entry == entries.end() || !entry->read_value)
+            return Result(
+                false,
+                std::string("Unknown component '").append(component_name).append("'."));
+
+        const auto handle = to_entity_handle(entity._id);
+        auto guard = std::unique_lock(registry._mutex);
+        if (!registry._registry->valid(handle))
+            return Result(false, "Entity handle is no longer valid.");
+
+        if (const auto* storage = registry._registry->storage(entry->type_id);
+            storage != nullptr && storage->contains(handle))
+            return Result(
+                false,
+                std::string("Entity already has a '").append(component_name).append("' component."));
+
+        // Emplace the component at its defaults by deserializing the type's describe(false) body — a lean,
+        // all-fields { "type", "value" } serialization of a default-constructed instance, the same shape
+        // read_value consumes. Falls back to an empty object when the type captured no describe (the
+        // generated deserialize then leaves every field at its in-source default).
+        auto body = std::string("{}");
+        if (entry->describe)
+        {
+            auto described = entry->describe(false);
+            if (!described.empty())
+                body = std::move(described);
+        }
+
+        if (!entry->read_value(body, *registry._registry, handle))
+            return Result(
+                false,
+                std::string("Failed to add component '").append(component_name).append("'."));
+
+        return Result::OK;
+    }
+
+    Result remove_component(const Entity& entity, std::string_view component_name)
+    {
+        if (!entity._registry.has_value())
+            return Result(false, "Entity is not bound to a registry.");
+
+        auto& registry = entity._registry->get();
+        if (!registry.has(entity._id))
+            return Result(false, "Entity no longer exists.");
+
+        const auto entries = get_entity_component_type_registrations();
+        const auto entry = std::ranges::find_if(
+            entries,
+            [&component_name](const EntityComponentTypeRegistration& candidate)
+            { return candidate.name == component_name; });
+        if (entry == entries.end())
+            return Result(
+                false,
+                std::string("Unknown component '").append(component_name).append("'."));
+
+        const auto handle = to_entity_handle(entity._id);
+        auto guard = std::unique_lock(registry._mutex);
+        if (!registry._registry->valid(handle))
+            return Result(false, "Entity handle is no longer valid.");
+
+        auto* storage = registry._registry->storage(entry->type_id);
+        if (storage == nullptr || !storage->contains(handle))
+            return Result(
+                false,
+                std::string("Entity has no '").append(component_name).append("' component."));
+
+        // Erasing from the type's storage runs the component's destructor and frees the slot.
+        storage->remove(handle);
+        return Result::OK;
+    }
+
     Result serialize_component_property(
         const Entity& entity,
         std::string_view component_name,

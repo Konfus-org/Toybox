@@ -28,6 +28,14 @@ namespace tbx
         std::string_view component_name,
         std::string_view value_json);
 
+    /// @brief Adds the named component to an entity at its default values. Fails when the component is
+    /// unknown or the entity already has it.
+    TBX_API Result add_default_component(const Entity& entity, std::string_view component_name);
+
+    /// @brief Removes the named component from an entity. Fails when the component is unknown or the
+    /// entity does not have it.
+    TBX_API Result remove_component(const Entity& entity, std::string_view component_name);
+
     /// @brief Reads one property of one component as a self-describing { "type", "value" } node.
     /// Fails when the component or property is unknown.
     TBX_API Result serialize_component_property(

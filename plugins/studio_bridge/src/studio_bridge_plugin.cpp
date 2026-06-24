@@ -110,6 +110,7 @@ namespace tbx::studio_bridge
             _services.asset_manager = services.try_get_service<tbx::AssetManager>();
             _services.input_manager = services.try_get_service<tbx::InputManager>();
             _services.gizmos = services.try_get_service<tbx::Gizmos>();
+            _services.scripting_registry = services.try_get_service<tbx::ScriptingRegistry>();
         }
     }
 
@@ -221,10 +222,34 @@ namespace tbx::studio_bridge
                 r.respond(result, reply);
             });
         add(
+            "editor.listComponentTypes",
+            [this](const tbx::Json&, tbx::RpcResponder& r)
+            {
+                r.result(_world_rpc.list_component_types());
+            });
+        add(
             "entity.setComponent",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 r.respond(_world_rpc.apply_component(params));
+            });
+        add(
+            "entity.addComponent",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(_world_rpc.add_component(params));
+            });
+        add(
+            "entity.removeComponent",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(_world_rpc.remove_component(params));
+            });
+        add(
+            "entity.addScript",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(_world_rpc.add_script(params));
             });
         add(
             "entity.describe",

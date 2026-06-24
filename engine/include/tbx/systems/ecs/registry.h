@@ -122,6 +122,12 @@ namespace tbx
             const Entity& entity,
             std::string_view component_name,
             std::string_view value_json);
+        friend TBX_API Result add_default_component(
+            const Entity& entity,
+            std::string_view component_name);
+        friend TBX_API Result remove_component(
+            const Entity& entity,
+            std::string_view component_name);
 
         std::string get_name(const Uuid& id) const;
         void set_name(const Uuid& id, const std::string& name);

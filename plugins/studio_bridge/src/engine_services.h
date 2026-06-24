@@ -5,6 +5,7 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/input/input_manager.h"
+#include "tbx/systems/scripting/scripting_registry.h"
 #include "tbx/systems/world/manager.h"
 #include <memory>
 #include <string>
@@ -25,6 +26,7 @@ namespace tbx::studio_bridge
         std::weak_ptr<tbx::AssetManager> asset_manager = {};
         std::weak_ptr<tbx::InputManager> input_manager = {};
         std::weak_ptr<tbx::Gizmos> gizmos = {};
+        std::weak_ptr<tbx::ScriptingRegistry> scripting_registry = {};
 
         // The RPC transport (published by the WindowsRPC plugin) the subsystems push notifications
         // through. Set by the bridge once bound; subsystems lock it at the point of use.
