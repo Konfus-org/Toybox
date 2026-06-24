@@ -6,14 +6,14 @@ from struct_codegen import emit_json_function_declarations, emit_json_function_d
 
 def emit_asset_type_registration_declarations(type_info: SerializableType) -> list[str]:
     return [
-        f"std::true_type tbx_has_asset_serialization(const {type_info.name}*);",
+        f"std::true_type has_asset_serialization(const {type_info.name}*);",
         "",
     ]
 
 
 def emit_asset_type_registration(type_info: SerializableType, version: str) -> list[str]:
     return [
-        f"std::true_type tbx_has_asset_serialization(const {type_info.name}*)",
+        f"std::true_type has_asset_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
@@ -26,7 +26,7 @@ def emit_asset_type_registration(type_info: SerializableType, version: str) -> l
 
 def emit_asset_body_declarations(type_info: SerializableType) -> list[str]:
     return [
-        f"std::true_type tbx_has_asset_json_fields(const {type_info.name}*);",
+        f"std::true_type has_asset_json_fields(const {type_info.name}*);",
         *emit_json_function_declarations(type_info),
     ]
 
@@ -34,7 +34,7 @@ def emit_asset_body_declarations(type_info: SerializableType) -> list[str]:
 def emit_asset_body(type_info: SerializableType, version: str, fields: list[Field]) -> list[str]:
     return (
         [
-            f"std::true_type tbx_has_asset_json_fields(const {type_info.name}*)",
+            f"std::true_type has_asset_json_fields(const {type_info.name}*)",
             "{",
             "    return {};",
             "}",
@@ -53,7 +53,7 @@ def emit_asset_body(type_info: SerializableType, version: str, fields: list[Fiel
 
 
 def emit_asset_meta_declarations(type_info: SerializableType) -> list[str]:
-    helper = f"tbx_read_json_asset_meta_{sanitized_name(type_info.name)}"
+    helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
     source_path = type_info.source_path.replace("\\", "/")
     api_macro = (
         type_info.api_macro
@@ -61,21 +61,21 @@ def emit_asset_meta_declarations(type_info: SerializableType) -> list[str]:
     )
     api_prefix = f"{api_macro} " if api_macro else ""
     return [
-        f"std::true_type tbx_has_meta_serialization(const {type_info.name}*);",
-        f"std::true_type tbx_has_meta_json_fields(const {type_info.name}*);",
+        f"std::true_type has_meta_serialization(const {type_info.name}*);",
+        f"std::true_type has_meta_json_fields(const {type_info.name}*);",
         f"{api_prefix}::tbx::Result {helper}(std::string_view data, {type_info.name}& asset);",
         "",
     ]
 
 
 def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Field]) -> list[str]:
-    helper = f"tbx_read_json_asset_meta_{sanitized_name(type_info.name)}"
+    helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
     lines = [
-        f"std::true_type tbx_has_meta_serialization(const {type_info.name}*)",
+        f"std::true_type has_meta_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
-        f"std::true_type tbx_has_meta_json_fields(const {type_info.name}*)",
+        f"std::true_type has_meta_json_fields(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
@@ -119,7 +119,7 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
 
 def emit_custom_asset_declarations(type_info: SerializableType) -> list[str]:
     return [
-        f"std::true_type tbx_has_custom_asset_serialization(const {type_info.name}*);",
+        f"std::true_type has_custom_asset_serialization(const {type_info.name}*);",
         "",
     ]
 
@@ -131,7 +131,7 @@ def emit_custom_asset(
     read_callable: str,
 ) -> list[str]:
     return [
-        f"std::true_type tbx_has_custom_asset_serialization(const {type_info.name}*)",
+        f"std::true_type has_custom_asset_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
@@ -161,19 +161,19 @@ def emit_custom_asset(
 
 def emit_text_asset_declarations(type_info: SerializableType) -> list[str]:
     return [
-        f"std::true_type tbx_has_text_serialization(const {type_info.name}*);",
-        f"void tbx_set_text_serialization({type_info.name}& value, std::string text);",
+        f"std::true_type has_text_serialization(const {type_info.name}*);",
+        f"void set_text_serialization({type_info.name}& value, std::string text);",
         "",
     ]
 
 
 def emit_text_asset(type_info: SerializableType, version: str, field: Field) -> list[str]:
     return [
-        f"std::true_type tbx_has_text_serialization(const {type_info.name}*)",
+        f"std::true_type has_text_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
-        f"void tbx_set_text_serialization({type_info.name}& value, std::string text)",
+        f"void set_text_serialization({type_info.name}& value, std::string text)",
         "{",
         f"    value.{field.name} = std::move(text);",
         "}",

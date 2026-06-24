@@ -42,7 +42,7 @@ namespace tbx
     /// @brief
     /// Registers a compiled C++ script type: as a normal JSON asset body (so the AssetManager can load
     /// its prototype, marked is_script for the editor), plus its override/bind callbacks in the C++
-    /// script registry. Emitted by codegen for every [[tbx::script]] type.
+    /// script registry. Emitted by codegen for every [[tbx::register_script]] type.
     /// @details
     /// The apply/bind helpers are non-type template parameters so the type-erasing thunks below are
     /// non-capturing lambdas, which decay to plain function pointers stored in the registry.
@@ -61,11 +61,24 @@ namespace tbx
         {
             return write_json_asset_body(*static_cast<const TScript*>(asset), output);
         };
+        // Describes the script's overridable fields as the editor's schema. Entering the scopes and
+        // running the serialize together here (the script's own module) is what makes the per-module
+        // attribute thread-local line up, so a [[tbx::asset]] handle field's asset-type filter (its
+        // baked choices) reaches the editor's script-override pickers.
+        entry.describe = [](bool include_attributes) -> std::string
+        {
+            const auto include_all = OmitDefaultFieldsScope(false);
+            const auto include_attrs = AttributeSerializationScope(include_attributes);
+            auto output = std::string();
+            if (!write_json_asset_body(TScript {}, output).succeeded())
+                return std::string();
+            return output;
+        };
         entry.is_script = true;
         register_asset_type_entry(std::move(entry));
 
         register_cpp_script_entry(
-            std::string(tbx_serialization_type_name(static_cast<const TScript*>(nullptr))),
+            std::string(serialization_type_name(static_cast<const TScript*>(nullptr))),
             CppScriptRegistration {
                 .apply_overrides = [](const Json& json, void* asset) -> Result
                 {

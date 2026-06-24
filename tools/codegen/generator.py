@@ -41,6 +41,7 @@ from model import (
     is_asset,
     json_key,
     qualified_name,
+    serialized_fields,
     type_version,
 )
 from parser import parse_source
@@ -63,6 +64,7 @@ from struct_codegen import (
     emit_lifecycle_hook_definitions,
     emit_serializable_registration,
     emit_struct_serialization_declarations,
+    emit_struct_value_serialization,
     emit_typed_write_field,
 )
 from variant_codegen import emit_variant, emit_variant_declarations
@@ -106,7 +108,7 @@ def service_register_attrs(type_info: SerializableType) -> list[Attribute]:
 
 
 def plugin_metadata_arg(type_info: SerializableType, index: int, default: str | None = None) -> str | None:
-    plugin_attr = find_attr(type_info.attrs, "plugin")
+    plugin_attr = find_attr(type_info.attrs, "register_plugin")
     if plugin_attr is None:
         return default
     names = ["name", "version", "category", "priority"]
@@ -132,7 +134,7 @@ def plugin_category_expression(type_info: SerializableType) -> tuple[str, str]:
 
 
 def plugin_dependencies(type_info: SerializableType) -> list[str]:
-    plugin_attr = find_attr(type_info.attrs, "plugin")
+    plugin_attr = find_attr(type_info.attrs, "register_plugin")
     if plugin_attr is None:
         return []
 
@@ -248,11 +250,11 @@ def emit_runtime_service_declarations(type_info: SerializableType) -> list[str]:
     lines: list[str] = []
     if fields_of(type_info, "inject"):
         lines.append(
-            f"void tbx_bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
+            f"void bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
         )
     if service_register_attrs(type_info) or service_register_fields(type_info):
         lines.append(
-            f"void tbx_register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
+            f"void register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services);"
         )
     if lines:
         lines.append("")
@@ -266,7 +268,7 @@ def emit_runtime_service_definitions(type_info: SerializableType) -> list[str]:
     if inject_fields:
         lines.extend(
             [
-                f"void tbx_bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
+                f"void bind_runtime({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
                 "{",
             ]
         )
@@ -279,7 +281,7 @@ def emit_runtime_service_definitions(type_info: SerializableType) -> list[str]:
     if register_attrs or register_fields:
         lines.extend(
             [
-                f"void tbx_register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
+                f"void register_services({type_info.name}& tbx_value, ::tbx::ServiceProvider& tbx_services)",
                 "{",
             ]
         )
@@ -366,16 +368,16 @@ def serializable_mode(type_info: SerializableType) -> str:
 
 
 def emit_script_asset_declarations(type_info: SerializableType, prop_fields: list[Field]) -> list[str]:
-    override_helper = f"tbx_apply_script_overrides_{type_info.name}"
-    bind_helper = f"tbx_bind_script_runtime_{type_info.name}"
+    override_helper = f"apply_script_overrides_{type_info.name}"
+    bind_helper = f"bind_script_runtime_{type_info.name}"
     return [
-        f"std::true_type tbx_has_asset_serialization(const {type_info.name}*);",
+        f"std::true_type has_asset_serialization(const {type_info.name}*);",
         *emit_json_function_declarations(type_info),
         f"::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value);",
         f"void {bind_helper}({type_info.name}& tbx_value, ::tbx::ScriptContext& tbx_context);",
         # Wraps the comma-bearing register_cpp_script_type<...> template call in a function so callers
         # (the auto-register macro, and the plugin registration) invoke it without template-arg commas.
-        f"bool tbx_register_script_type_{type_info.name}();",
+        f"bool register_script_type_{type_info.name}();",
         "",
     ]
 
@@ -440,14 +442,16 @@ def emit_script_json_function_definitions(type_info: SerializableType, fields: l
 
 def emit_script_asset(type_info: SerializableType, version: str, prop_fields: list[Field]) -> list[str]:
     if "Script" not in type_info.bases:
-        raise CodegenError(f"{type_info.name} uses [[tbx::script]] but does not derive from tbx::Script.")
+        raise CodegenError(
+            f"{type_info.name} uses [[tbx::register_script]] but does not derive from tbx::Script."
+        )
     validate_inject_fields(type_info)
 
     bind_fields = prop_fields + fields_of(type_info, "inject")
-    override_helper = f"tbx_apply_script_overrides_{type_info.name}"
-    bind_helper = f"tbx_bind_script_runtime_{type_info.name}"
+    override_helper = f"apply_script_overrides_{type_info.name}"
+    bind_helper = f"bind_script_runtime_{type_info.name}"
     lines = [
-        f"std::true_type tbx_has_asset_serialization(const {type_info.name}*)",
+        f"std::true_type has_asset_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
@@ -522,7 +526,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
     lines.extend(
         [
             "}",
-            f"bool tbx_register_script_type_{type_info.name}()",
+            f"bool register_script_type_{type_info.name}()",
             "{",
             "    return ::tbx::register_cpp_script_type<",
             f"        {type_info.name},",
@@ -531,7 +535,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
             "}",
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_script_asset_type_registration_,",
-            f"    tbx_register_script_type_{type_info.name}());",
+            f"    register_script_type_{type_info.name}());",
             "",
         ]
     )
@@ -540,14 +544,8 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
 
 def emit_serialization_type(type_info: SerializableType, target: str) -> list[str]:
     version = type_version(type_info)
-    prop_fields = fields_of(type_info, "prop")
-    type_prop_attr = find_attr(type_info.attrs, "prop")
+    prop_fields = serialized_fields(type_info)
     type_meta_attr = find_attr(type_info.attrs, "meta")
-    if type_prop_attr is not None:
-        raise CodegenError(
-            f"{type_info.name} uses unsupported type-level [[tbx::prop(...)]] fields. "
-            "Place [[tbx::prop]] on each exposed property instead."
-        )
     if type_meta_attr is not None:
         raise CodegenError(
             f"{type_info.name} uses unsupported type-level [[tbx::meta(...)]] fields. "
@@ -580,7 +578,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
             custom_read_raw,
         )
 
-    if has_attr(type_info.attrs, "script"):
+    if has_attr(type_info.attrs, "register_script"):
         if version is None:
             raise CodegenError(f"{type_info.name} is a script and requires [[tbx::version(N)]].")
         if target == "header":
@@ -633,7 +631,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                 if target == "header":
                     lines.extend(emit_struct_serialization_declarations(type_info))
                 else:
-                    lines.extend(emit_json_function_definitions(type_info, prop_fields))
+                    lines.extend(emit_struct_value_serialization(type_info, prop_fields))
                     lines.extend(emit_serializable_registration(type_info))
             elif "variant" in type_info.alias_value:
                 lines.extend(
@@ -657,11 +655,11 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     raise CodegenError(f"{type_info.name} can only have one [[tbx::text]] field.")
                 if mode == "text" and text_fields:
                     raise CodegenError(
-                        f"{type_info.name} text mode uses one [[tbx::prop]] field instead of [[tbx::text]]."
+                        f"{type_info.name} text mode uses one serialized field instead of [[tbx::text]]."
                     )
                 if mode == "text" and len(prop_fields) != 1:
                     raise CodegenError(
-                        f"{type_info.name} text mode requires exactly one [[tbx::prop]] field."
+                        f"{type_info.name} text mode requires exactly one serialized field."
                     )
 
                 lines.extend(
@@ -755,7 +753,7 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     if target == "header":
                         lines.extend(emit_struct_serialization_declarations(type_info))
                     else:
-                        lines.extend(emit_json_function_definitions(type_info, prop_fields))
+                        lines.extend(emit_struct_value_serialization(type_info, prop_fields))
                         lines.extend(emit_serializable_registration(type_info))
                 elif custom_write_callable is not None and custom_read_callable is not None:
                     if target == "header":
@@ -970,7 +968,7 @@ def emit_plugin_source(
     plugin_version = plugin_metadata_arg(type_info, 1)
     if plugin_version is None:
         raise CodegenError(
-            f"{type_info.name} is a plugin and requires [[tbx::plugin(\"name\", \"version\", ...)]]"
+            f"{type_info.name} is a plugin and requires [[tbx::register_plugin(\"name\", \"version\", ...)]]"
         )
 
     category_expression, category_key = plugin_category_expression(type_info)
@@ -1036,7 +1034,7 @@ def emit_plugin_source(
                 )
             namespace_prefix = f"{script_type.namespace}::" if script_type.namespace else ""
             lines.append(
-                f"    static_cast<void>({namespace_prefix}tbx_register_script_type_{script_type.name}());"
+                f"    static_cast<void>({namespace_prefix}register_script_type_{script_type.name}());"
             )
         if script_types and (register_attrs or register_fields):
             lines.append("")
@@ -1081,14 +1079,11 @@ def emit_plugin_source(
             "",
             "TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* tbx_create_plugin()",
             "{",
-            f"    ::tbx::Plugin* plugin = new {qualified_plugin_name}();",
-            f"    ::tbx::PluginRegistry::get_instance().register_plugin({cpp_string(plugin_name)}, plugin);",
-            "    return plugin;",
+            f"    return new {qualified_plugin_name}();",
             "}",
             "",
             "TBX_PLUGIN_ENTRY_EXPORT void tbx_destroy_plugin(::tbx::Plugin* plugin)",
             "{",
-            f"    ::tbx::PluginRegistry::get_instance().unregister_plugin({cpp_string(plugin_name)});",
             "    delete plugin;",
             "}",
             "",
@@ -1106,7 +1101,7 @@ def generate_plugin_meta(
     plugin_version = plugin_metadata_arg(type_info, 1)
     if plugin_version is None:
         raise CodegenError(
-            f"{type_info.name} is a plugin and requires [[tbx::plugin(\"name\", \"version\", ...)]]"
+            f"{type_info.name} is a plugin and requires [[tbx::register_plugin(\"name\", \"version\", ...)]]"
         )
 
     _, category_key = plugin_category_expression(type_info)
@@ -1186,7 +1181,7 @@ def generate_source(
     if len(app_types) + len(plugin_types) > 1:
         names = ", ".join(type_info.name for type_info in app_types + plugin_types)
         raise CodegenError(
-            f"Only one [[tbx::plugin]] or [[tbx::app]] declaration is supported per generated source: {names}."
+            f"Only one [[tbx::register_plugin]] or [[tbx::app]] declaration is supported per generated source: {names}."
         )
 
     if app_types:
@@ -1284,7 +1279,7 @@ def run_codegen(
         plugin_types = [type_info for type_info in types if plugin_processor.interested(type_info)]
         if len(plugin_types) != 1:
             raise CodegenError(
-                "Plugin meta generation requires exactly one [[tbx::plugin]] declaration."
+                "Plugin meta generation requires exactly one [[tbx::register_plugin]] declaration."
             )
         write_if_different(
             output_plugin_meta_path,

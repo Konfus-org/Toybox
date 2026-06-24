@@ -2,6 +2,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/assets/registry.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/messages.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
@@ -327,6 +328,20 @@ namespace tbx
             _watched_directories.erase(
                 _watched_directories.begin() + static_cast<std::ptrdiff_t>(index));
             _file_watchers.erase(_file_watchers.begin() + static_cast<std::ptrdiff_t>(index));
+        }
+    }
+
+    void AssetManager::evict_scripts()
+    {
+        std::lock_guard lock(_mutex);
+        for (auto& store : _stores)
+        {
+            // The store is keyed by the asset's std::type_index, the same key the script registration
+            // uses, so is_script identifies a script-prototype store whose vtable lives in a script
+            // module. Clear those records before that module unloads; the prototype reloads on next use.
+            const auto registration = get_asset_type_registration(store.first);
+            if (registration.has_value() && registration->is_script)
+                store.second->clear();
         }
     }
 

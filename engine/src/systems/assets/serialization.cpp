@@ -148,6 +148,8 @@ namespace tbx
                 existing->write_body = std::move(entry.write_body);
             if (entry.transform_meta)
                 existing->transform_meta = std::move(entry.transform_meta);
+            if (entry.describe)
+                existing->describe = std::move(entry.describe);
             if (entry.is_script)
                 existing->is_script = true;
             return;

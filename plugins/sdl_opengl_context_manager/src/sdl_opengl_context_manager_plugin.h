@@ -12,7 +12,7 @@ namespace sdl_opengl_context_manager
     /// @details
     /// Ownership: Shares the registered context manager with the service provider.
     /// Thread Safety: Expected to be attached/detached on the main thread.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "SdlOpenGlContextManager",
         version = "1.0.0",
         category = tbx::PluginCategory::RENDERING,

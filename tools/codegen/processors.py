@@ -40,24 +40,26 @@ class AttributeSchemaRegistry:
             "category": AttributeSchema(1, frozenset({"value"})),
             "custom_serialization": AttributeSchema(2, frozenset({"read", "write"})),
             "description": AttributeSchema(1, frozenset({"value"})),
+            "do_not_serialize": AttributeSchema(0, frozenset()),
             "hidden": AttributeSchema(0, frozenset()),
             "inject": AttributeSchema(),
             "label": AttributeSchema(1, frozenset({"value"})),
             "meta": AttributeSchema(None, frozenset({"fields"})),
             "name": AttributeSchema(1, frozenset({"value"})),
-            "plugin": AttributeSchema(
-                None,
-                frozenset({"category", "dependencies", "name", "priority", "version"}),
-            ),
             "post_deserialize": AttributeSchema(1, frozenset({"method"})),
             "post_serialize": AttributeSchema(1, frozenset({"method"})),
             "pre_deserialize": AttributeSchema(1, frozenset({"method"})),
             "pre_serialize": AttributeSchema(1, frozenset({"method"})),
             "printable": AttributeSchema(None, frozenset({"fields", "format"})),
-            "prop": AttributeSchema(None, frozenset({"fields"})),
             "readonly": AttributeSchema(0, frozenset()),
             "register": AttributeSchema(2, frozenset({"factory", "service"})),
+            "register_plugin": AttributeSchema(
+                None,
+                frozenset({"category", "dependencies", "name", "priority", "version"}),
+            ),
+            "register_script": AttributeSchema(0, frozenset()),
             "serializable": AttributeSchema(1, frozenset({"mode"})),
+            "serialize": AttributeSchema(0, frozenset()),
             "text": AttributeSchema(None, frozenset({"field"})),
             "version": AttributeSchema(1, frozenset({"value"})),
             "view": AttributeSchema(1, frozenset({"value"})),
@@ -150,7 +152,9 @@ class SerializationProcessor(CodegenProcessor):
         self._emit_serialization_type = emit_serialization_type
 
     def interested(self, type_info: SerializableType) -> bool:
-        return has_attr(type_info.attrs, "serializable") or has_attr(type_info.attrs, "script")
+        return has_attr(type_info.attrs, "serializable") or has_attr(
+            type_info.attrs, "register_script"
+        )
 
     def emit_header(self, context: CodegenContext, type_info: SerializableType) -> list[str]:
         return self._emit_serialization_type(type_info, "header")
@@ -200,7 +204,7 @@ class PluginProcessor(CodegenProcessor):
     """Marks plugin types so plugin source generation can take over."""
 
     def interested(self, type_info: SerializableType) -> bool:
-        return has_attr(type_info.attrs, "plugin")
+        return has_attr(type_info.attrs, "register_plugin")
 
 
 class AppProcessor(CodegenProcessor):

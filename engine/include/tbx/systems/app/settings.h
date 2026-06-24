@@ -22,25 +22,18 @@ namespace tbx
     [[version(1U)]];
     struct TBX_API AppSettings : public Asset
     {
-        [[prop]]
         GraphicsSettings graphics = {};
 
-        [[prop]]
         WorldSettings world = {};
 
-        [[prop]]
         PhysicsSettings physics = {};
 
-        [[prop]]
         AsyncSettings async = {};
 
-        [[prop]]
         Handle icon = tbx::ToyboxIconTexture::HANDLE;
 
-        [[prop]]
         std::string name = "Toybox App";
 
-        [[prop]]
         std::vector<std::string> plugins = {
             "PerformanceMonitor",
             "SdlInput",

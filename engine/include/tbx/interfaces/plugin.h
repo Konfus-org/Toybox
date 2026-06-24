@@ -3,13 +3,14 @@
 #include "tbx/systems/messaging/message.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_registry.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/time/delta_time.h"
 #include <future>
 
 namespace tbx
 {
+    class Plugin;
+
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
     using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);

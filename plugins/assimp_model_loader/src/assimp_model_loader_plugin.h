@@ -6,7 +6,7 @@
 
 namespace assimp_model_loader
 {
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "AssimpModelLoader",
         version = "1.0.0",
         category = tbx::PluginCategory::DEFAULT)]];

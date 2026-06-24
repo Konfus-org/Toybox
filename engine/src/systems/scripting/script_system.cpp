@@ -301,5 +301,12 @@ namespace tbx
                 entry.second.instance->on_destroy();
         }
         _state->instances.clear();
+
+        // The instances are clones of cached Script prototypes whose vtables also live in the unloading
+        // module. AssetManager::remove_directory only evicts prototypes under the plugin's resource
+        // directory, so a prototype cached from anywhere else would survive with a dangling vtable. Drop
+        // every cached script prototype here so none outlives its module; they reload fresh on next use.
+        if (auto asset_manager = _asset_manager.lock())
+            asset_manager->evict_scripts();
     }
 }

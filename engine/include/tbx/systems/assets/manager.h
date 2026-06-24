@@ -235,6 +235,17 @@ namespace tbx
         void remove_directory(const std::filesystem::path& path);
 
         /// @brief
+        /// Purpose: Drops every cached asset whose type registration is marked is_script, regardless of
+        /// source directory.
+        /// @details
+        /// Ownership: Releases the manager-owned script prototype instances. A script prototype's vtable
+        /// lives in the script-owning module, so these must be evicted before that module unloads (a
+        /// plugin hot-reload) even when the prototype was cached from a path outside the plugin's
+        /// resource directory. They are reloaded fresh on the next access.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        void evict_scripts();
+
+        /// @brief
         /// Purpose: Pins or unpins a tracked asset to prevent automatic streaming out.
         /// @details
         /// Ownership: Retains manager ownership of the asset instance while pinned.

@@ -12,10 +12,9 @@ namespace tbx
     [[serializable]];
     struct TBX_API Lod
     {
-        [[prop]]
+        [[asset("fbx", "obj", "gltf", "glb")]]
         Handle handle = {};
 
-        [[prop]]
         float max_distance = 0.0f;
     };
 
@@ -28,10 +27,8 @@ namespace tbx
     [[icon("Layers", Color::GREY)]];
     struct TBX_API Lods : Component
     {
-        [[prop]]
         std::vector<Lod> values = {};
 
-        [[prop]]
         float render_distance = 0.0f;
     };
 }

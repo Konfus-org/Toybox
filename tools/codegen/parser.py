@@ -161,54 +161,214 @@ def current_namespace(lines: list[str], upto: int) -> str:
     return namespace
 
 
-def parse_fields(lines: list[str], start: int, end: int) -> list[Field]:
-    """Parse every attributed field without assigning subsystem ownership."""
+ACCESS_LABELS = {"public", "private", "protected"}
+# Leading keywords that mark a class-body declaration as something other than a serializable data
+# member (type aliases, friends, statics, function specifiers, nested types, templates).
+_NON_MEMBER_LEADING = re.compile(
+    r"^(?:using|typedef|friend|static|constexpr|consteval|constinit|inline|virtual|explicit|"
+    r"template|struct|class|union|enum)\b"
+)
 
-    fields: list[Field] = []
-    pending: list[Attribute] = []
-    body_lines = lines[start + 1 : end]
+
+def _skip_string(text: str, index: int) -> int:
+    """``text[index]`` is a quote character; return the index just past the closing quote."""
+    quote = text[index]
+    index += 1
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == quote:
+            return index + 1
+        index += 1
+    return index
+
+
+def _skip_block(text: str, index: int) -> int:
+    """``text[index]`` is ``{``; return the index just past the matching ``}``."""
+    depth = 0
+    while index < len(text):
+        character = text[index]
+        if character in "\"'":
+            index = _skip_string(text, index)
+            continue
+        if text.startswith("//", index):
+            newline = text.find("\n", index)
+            index = len(text) if newline == -1 else newline
+            continue
+        if text.startswith("/*", index):
+            close = text.find("*/", index + 2)
+            index = len(text) if close == -1 else close + 2
+            continue
+        if text.startswith("[[", index):
+            close = text.find("]]", index + 2)
+            index = len(text) if close == -1 else close + 2
+            continue
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+        index += 1
+    return index
+
+
+def _extract_class_body(type_text: str) -> str:
+    """Return the text strictly inside a type's outermost ``{ ... }`` braces."""
     index = 0
-    while index < len(body_lines):
-        line = body_lines[index]
-        stripped = line.strip()
-        if not stripped or stripped.startswith("//"):
+    while index < len(type_text):
+        character = type_text[index]
+        if character in "\"'":
+            index = _skip_string(type_text, index)
+            continue
+        if type_text.startswith("//", index):
+            newline = type_text.find("\n", index)
+            index = len(type_text) if newline == -1 else newline
+            continue
+        if type_text.startswith("/*", index):
+            close = type_text.find("*/", index + 2)
+            index = len(type_text) if close == -1 else close + 2
+            continue
+        if type_text.startswith("[[", index):
+            close = type_text.find("]]", index + 2)
+            index = len(type_text) if close == -1 else close + 2
+            continue
+        if character == "{":
+            close = _skip_block(type_text, index)
+            return type_text[index + 1 : close - 1]
+        index += 1
+    return ""
+
+
+def _remove_angle_groups(text: str) -> str:
+    """Strip balanced ``<...>`` template-argument groups so a parameter-list ``(`` can be detected
+    without confusing it for a ``(`` nested inside a template argument (e.g. std::function<void()>)."""
+    out: list[str] = []
+    depth = 0
+    for character in text:
+        if character == "<":
+            depth += 1
+        elif character == ">":
+            if depth > 0:
+                depth -= 1
+        elif depth == 0:
+            out.append(character)
+    return "".join(out)
+
+
+def _make_field_from_head(head: str, access: str) -> Field | None:
+    """Build a data-member Field from a class-body declaration head, or None when the declaration is
+    not a serializable data member (function, ctor/dtor, operator, alias, nested type, static, ...)."""
+    attrs = parse_attributes(head)
+    declaration = re.sub(r"\s+", " ", remove_attributes(head)).strip()
+    if not declaration:
+        return None
+    if _NON_MEMBER_LEADING.match(declaration):
+        return None
+    if re.search(r"\boperator\b", declaration):
+        return None
+    before_initializer = declaration.split("=", 1)[0]
+    if "(" in _remove_angle_groups(before_initializer):
+        return None
+
+    match = FIELD_PATTERN.match(declaration + ";")
+    if not match:
+        return None
+    return Field(
+        name=match.group(2),
+        type_name=match.group(1).strip(),
+        attrs=attrs,
+        access=access,
+    )
+
+
+def parse_fields(lines: list[str], start: int, end: int, default_access: str) -> list[Field]:
+    """Parse a type's class-body data members, tracking access and skipping every non-data-member
+    declaration. All data members are recorded (not just attributed ones); subsystem ownership and
+    the public-by-default serialization decision are left to downstream processors."""
+
+    body = _extract_class_body("\n".join(lines[start : end + 1]))
+    fields: list[Field] = []
+    access = default_access
+    accumulated: list[str] = []
+    paren_depth = 0
+    index = 0
+    length = len(body)
+    while index < length:
+        character = body[index]
+        if character in "\"'":
+            close = _skip_string(body, index)
+            accumulated.append(body[index:close])
+            index = close
+            continue
+        if body.startswith("//", index):
+            newline = body.find("\n", index)
+            index = length if newline == -1 else newline
+            continue
+        if body.startswith("/*", index):
+            close = body.find("*/", index + 2)
+            index = length if close == -1 else close + 2
+            continue
+        if body.startswith("[[", index):
+            close = body.find("]]", index + 2)
+            close = length if close == -1 else close + 2
+            accumulated.append(body[index:close])
+            index = close
+            continue
+        if character == "(":
+            paren_depth += 1
+            accumulated.append(character)
             index += 1
             continue
-
-        attrs = parse_attributes(line)
-        without_attrs = remove_attributes(line).strip()
-        if attrs and not without_attrs:
-            pending.extend(attrs)
+        if character == ")":
+            if paren_depth > 0:
+                paren_depth -= 1
+            accumulated.append(character)
             index += 1
             continue
-
-        active_attrs = pending + attrs
-        pending = []
-        if not active_attrs:
+        if character == "{" and paren_depth == 0:
+            # A class-body brace ends the current declaration: it is either a data member's braced
+            # initializer, a function body, or a nested type body. The text before the brace decides;
+            # in every case the brace block (and any trailing ';') is consumed here.
+            head = "".join(accumulated)
+            after_block = _skip_block(body, index)
+            cursor = after_block
+            while cursor < length and body[cursor] in " \t\r\n":
+                cursor += 1
+            if cursor < length and body[cursor] == ";":
+                cursor += 1
+            field = _make_field_from_head(head, access)
+            if field is not None:
+                fields.append(field)
+            accumulated = []
+            index = cursor
+            continue
+        if character == "{":
+            # Brace inside a parameter list (e.g. a default argument) — keep it balanced verbatim.
+            after_block = _skip_block(body, index)
+            accumulated.append(body[index:after_block])
+            index = after_block
+            continue
+        if character == ";" and paren_depth == 0:
+            field = _make_field_from_head("".join(accumulated), access)
+            if field is not None:
+                fields.append(field)
+            accumulated = []
             index += 1
             continue
-
-        declaration = without_attrs
-        while ";" not in declaration and index + 1 < len(body_lines):
-            index += 1
-            continuation = remove_attributes(body_lines[index]).strip()
-            if not continuation or continuation.startswith("//"):
+        if character == ":" and paren_depth == 0:
+            token = re.sub(r"\s+", " ", remove_attributes("".join(accumulated))).strip()
+            if token in ACCESS_LABELS:
+                access = token
+                accumulated = []
+                index += 1
                 continue
-            declaration = f"{declaration} {continuation}".strip()
-
-        match = FIELD_PATTERN.match(declaration)
-        if not match:
-            raise CodegenError(
-                f"Could not parse attributed field declaration: {declaration.strip()}"
-            )
-
-        fields.append(
-            Field(
-                name=match.group(2),
-                type_name=match.group(1).strip(),
-                attrs=active_attrs,
-            )
-        )
+            accumulated.append(character)
+            index += 1
+            continue
+        accumulated.append(character)
         index += 1
 
     return fields
@@ -310,7 +470,8 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
         if type_match:
             end = find_matching_type_end(lines, index)
             type_name = type_match.group(3)
-            fields = parse_fields(lines, index, end)
+            default_access = "public" if type_match.group(1) == "struct" else "private"
+            fields = parse_fields(lines, index, end, default_access)
             if active_attrs or fields:
                 metadata_types.append(
                     SerializableType(

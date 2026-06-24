@@ -45,7 +45,6 @@ namespace tbx
         TBX_API bool operator==(const Uuid& other) const;
         TBX_API bool operator!=(const Uuid& other) const;
 
-        [[prop]]
         uint64 value = 0U;
 
         static const Uuid NONE;

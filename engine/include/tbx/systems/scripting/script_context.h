@@ -29,13 +29,13 @@ namespace tbx
     [[serializable]];
     struct TBX_API ScriptBinding
     {
-        [[prop]] [[readonly]] [[hidden]]
+        [[readonly]] [[hidden]]
         Uuid entity = {};
 
-        [[prop]]
+        [[do_not_serialize]]
         Uuid script = {};
 
-        [[prop]] [[readonly]] [[hidden]]
+        [[readonly]] [[hidden]]
         Uuid binding_id = {};
     };
 

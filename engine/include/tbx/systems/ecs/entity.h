@@ -130,7 +130,7 @@ namespace tbx
             std::string_view component_name,
             std::string_view value_json);
         // Binds an entity-reference field to a target id during serialization (see below).
-        friend TBX_API void tbx_bind_reference(Entity& entity, const Uuid& id);
+        friend TBX_API void bind_reference(Entity& entity, const Uuid& id);
 
         std::shared_ptr<class EntityRegistry> _owned_registry = nullptr;
         std::optional<std::reference_wrapper<class EntityRegistry>> _registry = std::nullopt;
@@ -142,8 +142,8 @@ namespace tbx
     // whole entity — the generic serializer finds these ADL hooks and special-cases the field. The
     // inspector then shows an entity picker. A bound reference holds only the id (no registry); the
     // game resolves it via the world.
-    TBX_API Uuid tbx_reference_id(const Entity& entity);
-    TBX_API void tbx_bind_reference(Entity& entity, const Uuid& id);
+    TBX_API Uuid reference_id(const Entity& entity);
+    TBX_API void bind_reference(Entity& entity, const Uuid& id);
 
     /// @brief
     /// Purpose: RAII wrapper that destroys the wrapped entity on scope exit.

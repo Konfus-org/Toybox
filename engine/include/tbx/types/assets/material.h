@@ -87,10 +87,8 @@ namespace tbx
         template <typename TValue>
         MaterialParameter(const char* parameter_name, TValue&& parameter_data);
 
-        [[prop]]
         std::string name = "";
 
-        [[prop]]
         MaterialParameterData data = 0.0f;
     };
 
@@ -130,7 +128,6 @@ namespace tbx
         const_iterator end() const;
         const_iterator cend() const;
 
-        [[prop]]
         std::vector<MaterialParameter> values = {};
     };
 
@@ -148,10 +145,9 @@ namespace tbx
         MaterialTextureBinding(const char* binding_name, Handle texture_handle);
         MaterialTextureBinding(std::string_view binding_name, Handle texture_handle);
 
-        [[prop]]
         std::string name = "";
 
-        [[prop]]
+        [[asset("png", "jpg", "jpeg", "tga", "bmp")]]
         Handle texture = {};
     };
 
@@ -189,7 +185,6 @@ namespace tbx
         const_iterator end() const;
         const_iterator cend() const;
 
-        [[prop]]
         std::vector<MaterialTextureBinding> values = {};
     };
 
@@ -210,28 +205,20 @@ namespace tbx
         shadow_mode)]];
     struct TBX_API MaterialConfig
     {
-        [[prop]]
         bool is_depth_test_enabled = true;
 
-        [[prop]]
         bool is_depth_write_enabled = true;
 
-        [[prop]]
         bool is_depth_prepass_enabled = false;
 
-        [[prop]]
         bool is_two_sided = false;
 
-        [[prop]]
         bool is_cullable = true;
 
-        [[prop]]
         MaterialDepthFunction depth_function = MaterialDepthFunction::LESS;
 
-        [[prop]]
         MaterialBlendMode blend_mode = MaterialBlendMode::OPAQUE;
 
-        [[prop]]
         ShadowMode shadow_mode = ShadowMode::ON;
     };
 
@@ -281,16 +268,12 @@ namespace tbx
     [[version(1U)]];
     struct TBX_API Material : Asset
     {
-        [[prop]]
         ShaderProgram shader = {};
 
-        [[prop]]
         MaterialParameterBindings parameters = {};
 
-        [[prop]]
         MaterialTextureBindings textures = {};
 
-        [[prop]]
         MaterialConfig config = {};
     };
 

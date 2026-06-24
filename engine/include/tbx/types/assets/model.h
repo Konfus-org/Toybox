@@ -40,8 +40,13 @@ namespace tbx
         explicit Model(Mesh mesh);
         Model(Mesh mesh, Material material);
 
+        // Geometry, materials, and hierarchy are populated by the model loader from the source asset
+        // rather than persisted in the .model file (a version-only asset), so none are serialized.
+        [[do_not_serialize]]
         std::vector<Mesh> meshes = {};
+        [[do_not_serialize]]
         std::vector<Material> materials = {};
+        [[do_not_serialize]]
         std::vector<ModelPart> parts = {};
     };
 

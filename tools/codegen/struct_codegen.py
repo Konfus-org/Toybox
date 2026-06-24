@@ -83,9 +83,10 @@ def _attribute_descriptor_literal(field: Field, order: int) -> str:
     attribute-aware write so the metadata is emitted inline next to the value when attribute serialization
     is on. The type token and enum choices are derived from the field's static type at write time; only the
     editor attributes ([[tbx::category/description/view/readonly/hidden]]), the nested wire-type name
-    (so the editor can tell e.g. a quaternion from a plain vec4), and the field's declaration order (so the
-    editor lists properties in source order, not the alphabetical key order the JSON map imposes) are baked
-    here."""
+    (so the editor can tell e.g. a quaternion from a plain vec4), the asset-type filter for a handle field
+    ([[tbx::asset("mat", ...)]], baked as the editor's choices so its picker only offers those asset
+    types), and the field's declaration order (so the editor lists properties in source order, not the
+    alphabetical key order the JSON map imposes) are baked here."""
     parts: list[str] = []
     category = editor_attr_value(field.attrs, "category")
     if category is not None:
@@ -102,6 +103,12 @@ def _attribute_descriptor_literal(field: Field, order: int) -> str:
     nested = _wire_type_name(_unwrap_field_type(field.type_name))
     if nested:
         parts.append(f".nested = {cpp_string(nested)}")
+    # A handle field can restrict its picker to specific asset types via [[tbx::asset("mat", ...)]]; the
+    # listed types are baked as the editor's choices (the handle picker reads them as its type filter).
+    asset = find_attr(field.attrs, "asset")
+    if asset is not None and asset.args:
+        choices = ", ".join(cpp_string(value) for value in asset.args)
+        parts.append(f".choices = {{ {choices} }}")
     if has_editor_attr(field.attrs, "readonly"):
         parts.append(".readonly = true")
     if has_editor_attr(field.attrs, "hidden"):
@@ -136,15 +143,15 @@ def emit_typed_write_field(field: Field, order: int, with_default: bool = False)
 
 
 def emit_property_icon_declaration(type_info: SerializableType) -> list[str]:
-    """Forward-declares the type's tbx_property_type_icon overload in the generated header so any
+    """Forward-declares the type's property_type_icon overload in the generated header so any
     translation unit serializing a field of this type can advertise its [[tbx::icon]]."""
     if find_attr(type_info.attrs, "icon") is None:
         return []
-    return [f"::tbx::PropertyTypeIcon tbx_property_type_icon(const {type_info.name}*);"]
+    return [f"::tbx::PropertyTypeIcon property_type_icon(const {type_info.name}*);"]
 
 
 def emit_property_icon_overload(type_info: SerializableType) -> list[str]:
-    """Defines the tbx_property_type_icon overload for a type tagged [[tbx::icon("Name", Color::X)]], so
+    """Defines the property_type_icon overload for a type tagged [[tbx::icon("Name", Color::X)]], so
     write_typed_serialization_field advertises the type's editor icon. Returns [] when absent."""
     attr = find_attr(type_info.attrs, "icon")
     if attr is None:
@@ -158,7 +165,7 @@ def emit_property_icon_overload(type_info: SerializableType) -> list[str]:
     color = attr_arg(attr, 1, "color") or ""
     color = color.rsplit("::", 1)[-1].strip()
     return [
-        f"::tbx::PropertyTypeIcon tbx_property_type_icon(const {type_info.name}*)",
+        f"::tbx::PropertyTypeIcon property_type_icon(const {type_info.name}*)",
         "{",
         f"    return {{ {cpp_string(name)}, {cpp_string(color)} }};",
         "}",
@@ -314,6 +321,57 @@ def emit_json_function_definitions(type_info: SerializableType, fields: list[Fie
     return lines
 
 
+def emit_access_broker_serialization(type_info: SerializableType, fields: list[Field]) -> list[str]:
+    """Emit serialize/deserialize for a type with non-public serialized members. The bodies live in a
+    ``::tbx::SerializationAccess<T>`` specialization (befriended in-class via TBX_EXPOSE_PRIVATES_TO_SERIALIZATION,
+    so it can touch private members); the free serialize/deserialize functions delegate to it. The
+    specialization is defined in the generated source where the type is complete, and — because it
+    specializes ``::tbx::SerializationAccess`` — it must be emitted inside ``namespace tbx``."""
+    if type_info.namespace != "tbx":
+        raise CodegenError(
+            f"{type_info.name} has non-public [[tbx::serialize]] members, which are currently only "
+            "supported for types in namespace tbx."
+        )
+
+    body_functions = emit_json_function_definitions(type_info, fields)
+    specialization_body: list[str] = []
+    for line in body_functions:
+        if line.startswith("void serialize(") or line.startswith("void deserialize("):
+            specialization_body.append(f"    static {line}")
+        elif line:
+            specialization_body.append(f"    {line}")
+        else:
+            specialization_body.append(line)
+
+    return [
+        "template <>",
+        f"struct SerializationAccess<{type_info.name}>",
+        "{",
+        *specialization_body,
+        "};",
+        "",
+        f"void serialize(::tbx::Json& tbx_json, const {type_info.name}& tbx_value)",
+        "{",
+        f"    ::tbx::SerializationAccess<{type_info.name}>::serialize(tbx_json, tbx_value);",
+        "}",
+        f"void deserialize(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value)",
+        "{",
+        f"    ::tbx::SerializationAccess<{type_info.name}>::deserialize(tbx_json, tbx_value);",
+        "}",
+        "",
+    ]
+
+
+def emit_struct_value_serialization(type_info: SerializableType, fields: list[Field]) -> list[str]:
+    """Emit serialize/deserialize for a value struct, routing through the access broker when any
+    serialized member is non-public, otherwise emitting plain free functions."""
+    from model import non_public_serialized_fields
+
+    if non_public_serialized_fields(type_info):
+        return emit_access_broker_serialization(type_info, fields)
+    return emit_json_function_definitions(type_info, fields)
+
+
 def emit_struct_serialization_declarations(
     type_info: SerializableType,
     needs_json: bool = True,
@@ -327,8 +385,8 @@ def emit_struct_serialization_declarations(
     api_macro = type_info.api_macro or default_api_macro
     api_prefix = f"{api_macro} " if api_macro else ""
     lines = [
-        f"std::true_type tbx_has_struct_serialization(const {type_info.name}*);",
-        f"{api_prefix}bool tbx_register_serializable_type(const {type_info.name}*);",
+        f"std::true_type has_struct_serialization(const {type_info.name}*);",
+        f"{api_prefix}bool register_serializable_type(const {type_info.name}*);",
     ]
     lines.extend(emit_property_icon_declaration(type_info))
     if needs_json:
@@ -339,7 +397,7 @@ def emit_struct_serialization_declarations(
 
 def emit_struct_trait_definition(type_info: SerializableType) -> list[str]:
     return [
-        f"std::true_type tbx_has_struct_serialization(const {type_info.name}*)",
+        f"std::true_type has_struct_serialization(const {type_info.name}*)",
         "{",
         "    return {};",
         "}",
@@ -361,13 +419,13 @@ def emit_serializable_registration(type_info: SerializableType, custom: bool = F
                 f"    if (!::tbx::Serializer<{type_info.name}>::deserialize(tbx_json.dump(), tbx_value))",
                 "        throw std::runtime_error(\"Failed to parse custom Toybox serializable type.\");",
                 "}",
-                f"bool tbx_register_serializable_type(const {type_info.name}*)",
+                f"bool register_serializable_type(const {type_info.name}*)",
                 "{",
                 f"    return ::tbx::register_serializable_type<{type_info.name}>();",
                 "}",
                 "TBX_SERIALIZATION_AUTO_REGISTER(",
                 "    tbx_serializable_type_registration_,",
-                f"    tbx_register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
+                f"    register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
                 "",
             ]
             + emit_property_icon_overload(type_info)
@@ -376,7 +434,7 @@ def emit_serializable_registration(type_info: SerializableType, custom: bool = F
     return (
         emit_struct_trait_definition(type_info)
         + [
-            f"std::string tbx_write_json_serializable_value(const {type_info.name}& tbx_serialization_value)",
+            f"std::string write_json_serializable_value(const {type_info.name}& tbx_serialization_value)",
             "{",
             "    pre_serialize(tbx_serialization_value);",
             "    auto tbx_serialization_json = ::tbx::Json();",
@@ -385,7 +443,7 @@ def emit_serializable_registration(type_info: SerializableType, custom: bool = F
             "    post_serialize(tbx_serialization_value);",
             "    return tbx_serialization_data;",
             "}",
-            "bool tbx_read_json_serializable_value(",
+            "bool read_json_serializable_value(",
             "    std::string_view tbx_serialization_data,",
             f"    {type_info.name}& tbx_serialization_value)",
             "{",
@@ -403,23 +461,23 @@ def emit_serializable_registration(type_info: SerializableType, custom: bool = F
             "        return false;",
             "    }",
             "}",
-            f"bool tbx_register_serializable_type(const {type_info.name}*)",
+            f"bool register_serializable_type(const {type_info.name}*)",
             "{",
             f"    return ::tbx::register_serializable_type<{type_info.name}>(",
             f"        [](const {type_info.name}& tbx_serialization_value)",
             "        {",
-            "            return tbx_write_json_serializable_value(tbx_serialization_value);",
+            "            return write_json_serializable_value(tbx_serialization_value);",
             "        },",
             f"        [](std::string_view tbx_serialization_data, {type_info.name}& tbx_serialization_value)",
             "        {",
-            "            return tbx_read_json_serializable_value(",
+            "            return read_json_serializable_value(",
             "                tbx_serialization_data,",
             "                tbx_serialization_value);",
             "        });",
             "}",
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_serializable_type_registration_,",
-            f"    tbx_register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
+            f"    register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
             "",
         ]
         + emit_property_icon_overload(type_info)
@@ -443,14 +501,14 @@ def emit_custom_serializable_registration(
             f"    if (!{read_callable}(tbx_json.dump(), tbx_value))",
             "        throw std::runtime_error(\"Failed to parse custom Toybox serializable type.\");",
             "}",
-            f"std::string tbx_write_json_serializable_value(const {type_info.name}& tbx_serialization_value)",
+            f"std::string write_json_serializable_value(const {type_info.name}& tbx_serialization_value)",
             "{",
             "    pre_serialize(tbx_serialization_value);",
             f"    const auto tbx_serialization_data = {write_callable}(tbx_serialization_value);",
             "    post_serialize(tbx_serialization_value);",
             "    return tbx_serialization_data;",
             "}",
-            "bool tbx_read_json_serializable_value(",
+            "bool read_json_serializable_value(",
             "    std::string_view tbx_serialization_data,",
             f"    {type_info.name}& tbx_serialization_value)",
             "{",
@@ -460,23 +518,23 @@ def emit_custom_serializable_registration(
             "    post_deserialize(tbx_serialization_value);",
             "    return true;",
             "}",
-            f"bool tbx_register_serializable_type(const {type_info.name}*)",
+            f"bool register_serializable_type(const {type_info.name}*)",
             "{",
             f"    return ::tbx::register_serializable_type<{type_info.name}>(",
             f"        [](const {type_info.name}& tbx_serialization_value)",
             "        {",
-            "            return tbx_write_json_serializable_value(tbx_serialization_value);",
+            "            return write_json_serializable_value(tbx_serialization_value);",
             "        },",
             f"        [](std::string_view tbx_serialization_data, {type_info.name}& tbx_serialization_value)",
             "        {",
-            "            return tbx_read_json_serializable_value(",
+            "            return read_json_serializable_value(",
             "                tbx_serialization_data,",
             "                tbx_serialization_value);",
             "        });",
             "}",
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_serializable_type_registration_,",
-            f"    tbx_register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
+            f"    register_serializable_type(static_cast<const {type_info.name}*>(nullptr)));",
             "",
         ]
     )

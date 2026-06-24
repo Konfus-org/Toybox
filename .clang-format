@@ -100,7 +100,10 @@ OneLineFormatOffRegex: '(\[\[tbx::|name,|id\s*\]\])'
 # Force Clang to treat your dynamic attributes as unformattable black boxes
 AttributeMacros:
   - '[[tbx::serializable]]'
-  - '[[tbx::prop]]'
+  - '[[tbx::serialize]]'
+  - '[[tbx::do_not_serialize]]'
+  - '[[tbx::register_script]]'
+  - '[[tbx::register_plugin]]'
 
 # Tell Clang that these multi-line arguments belong to macros, which changes the layout math
 Macros:

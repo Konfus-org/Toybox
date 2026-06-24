@@ -18,6 +18,7 @@ namespace tbx
         virtual ~IStore() = default;
         virtual std::string_view get_asset_type_name() const = 0;
         virtual void collect_completed_reloads(std::vector<StoreReloadResult>& reload_results) = 0;
+        virtual void clear() = 0;
         virtual void erase(Uuid asset_id) = 0;
         virtual StoreReloadResult reload(
             const AssetRegistryEntry& entry,
@@ -52,6 +53,11 @@ namespace tbx
     struct AssetManager::Store final : IStore
     {
         std::unordered_map<Uuid, Record<TAsset>> records = {};
+
+        void clear() override
+        {
+            records.clear();
+        }
 
         void erase(Uuid asset_id) override
         {

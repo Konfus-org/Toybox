@@ -522,20 +522,28 @@ namespace tbx::studio_bridge
                     break;
                 }
 
-                // Drag the handle out from the pivot to grow (object-space scale on the chosen axis).
+                // Drag the handle out from the pivot to grow. The handle is a world axis, so the drag
+                // amount is measured in world space, but scale is applied in the entity's local space.
                 const auto param =
                     closest_param_on_axis(ray_origin, ray_direction, gizmo.pivot, gizmo.axis_dir);
                 const auto factor = std::max(
                     0.01F,
                     1.0F + ((param - gizmo.start_param) / std::max(gizmo.drag_size, 1e-4F)));
-                const auto index = gizmo.active_axis == GizmoAxis::X   ? 0
-                                   : gizmo.active_axis == GizmoAxis::Y ? 1
-                                                                       : 2;
                 for (const auto& target : gizmo.targets)
                 {
                     auto entity = world.get(target.id);
                     if (!entity.get_id().is_valid() || !entity.has_component<tbx::Transform>())
                         continue;
+
+                    // Map the world handle direction into the entity's local space and scale the
+                    // local axis it lines up with, so the affected axis matches the visual handle even
+                    // when the entity is rotated (a world-axis index would scale the wrong local axis).
+                    const auto local_dir =
+                        glm::inverse(target.start_world.rotation) * glm::vec3(gizmo.axis_dir);
+                    const auto abs_dir = glm::abs(local_dir);
+                    const auto index = (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) ? 0
+                                       : (abs_dir.y >= abs_dir.z)                         ? 1
+                                                                                         : 2;
 
                     auto scale = target.start_local.scale;
                     scale[index] = target.start_local.scale[index] * factor;

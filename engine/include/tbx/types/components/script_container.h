@@ -17,19 +17,15 @@ namespace tbx
     [[serializable]];
     struct TBX_API ScriptContainerBinding
     {
-        [[prop]]
         [[description("The script asset this binding runs.")]]
         Handle script = {};
 
-        [[prop]]
         bool enabled = true;
 
-        [[prop]]
         [[readonly]]
         [[hidden]]
         Uuid binding_id = {};
 
-        [[prop]]
         Json overrides = Json::object();
     };
 
@@ -39,7 +35,6 @@ namespace tbx
     [[icon("ScrollText", Color::GREEN)]];
     struct TBX_API ScriptContainer : Component
     {
-        [[prop]]
         std::vector<ScriptContainerBinding> scripts = {};
     };
 }

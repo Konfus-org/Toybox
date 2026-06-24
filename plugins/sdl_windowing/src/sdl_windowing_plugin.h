@@ -7,7 +7,7 @@
 
 namespace sdl_windowing
 {
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "SdlWindowing",
         version = "1.0.0",
         category = tbx::PluginCategory::INPUT)]];

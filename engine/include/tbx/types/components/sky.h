@@ -28,10 +28,8 @@ namespace tbx
         Sky() = default;
         Sky(MaterialInstance material, SkyType type = SkyType::SPHERE);
 
-        [[prop]]
         MaterialInstance material = {};
 
-        [[prop]]
         SkyType type = SkyType::SPHERE;
     };
 }

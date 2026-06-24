@@ -10,7 +10,7 @@ namespace sdl_base_systems
     /// @details
     /// Ownership: Owns the SDL subsystems it initializes and shuts them down on detach.
     /// Thread Safety: Expected to be used on the main thread.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "SdlBaseSystems",
         version = "1.0.0",
         category = tbx::PluginCategory::INPUT)]];

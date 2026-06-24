@@ -13,7 +13,6 @@ namespace tbx
     [[serializable]];
     struct TBX_API AsyncSettings
     {
-        [[prop]]
         size worker_count = {};
     };
 }

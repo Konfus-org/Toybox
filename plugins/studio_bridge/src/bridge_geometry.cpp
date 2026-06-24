@@ -193,6 +193,10 @@ namespace tbx::studio_bridge
         if (std::abs(denom) < 1e-6F)
             return false;
         const auto t = glm::dot(p0 - origin, normal) / denom;
+        // Forward-only: a plane sitting behind the ray origin (e.g. an interaction plane behind the
+        // camera) yields a negative t whose "hit" would be behind the cursor, making the handle jump.
+        if (t < 0.0F)
+            return false;
         out_hit = origin + (t * direction);
         return true;
     }

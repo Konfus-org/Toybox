@@ -42,20 +42,19 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
-        friend TBX_API void serialize(Json& tbx_json, const Camera& tbx_value);
-        friend TBX_API void deserialize(const Json& tbx_json, Camera& tbx_value);
+        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
 
-        [[prop]]
+        [[serialize]]
         RenderTarget _render_target = {};
-        [[prop]]
+        [[serialize]]
         Viewport _viewport = {};
-        [[prop]]
+        [[serialize]]
         bool _is_perspective = true;
-        [[prop]]
+        [[serialize]]
         float _z_near = 0.1f;
-        [[prop]]
+        [[serialize]]
         float _z_far = 1000.0f;
-        [[prop]]
+        [[serialize]]
         float _fov = 60.0f;
 
         float _aspect = 1.78f;

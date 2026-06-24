@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from generator import resolve_include_path, run_codegen
-from model import CodegenError
+from model import CodegenError, has_attr
 from parser import parse_source
 from tests import AttributeCodegenTests
 
@@ -57,7 +57,13 @@ def main(argv: list[str]) -> int:
         script_types = []
         script_include_paths = []
         for script_input in args.script_input:
-            script_types.extend(parse_source(script_input.read_text(encoding="utf-8"), str(script_input)))
+            # A script-input file may also declare helper types (e.g. a nested data struct); only the
+            # types actually marked [[tbx::register_script]] are registered as scripts by the plugin.
+            parsed = parse_source(script_input.read_text(encoding="utf-8"), str(script_input))
+            script_types_in_file = [t for t in parsed if has_attr(t.attrs, "register_script")]
+            if not script_types_in_file:
+                continue
+            script_types.extend(script_types_in_file)
             script_include_paths.append(resolve_include_path(script_input, args.script_include_root))
 
         run_codegen(

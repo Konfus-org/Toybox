@@ -202,13 +202,13 @@ namespace tbx
 
         static std::shared_future<Result> make_ready_future(Result result);
         static Result make_failed_result(std::string report);
-        static Result try_read_tbx_asset_common_meta(
+        static Result try_read_asset_common_meta(
             const Json& data,
             const std::filesystem::path& meta_path,
             uint32 expected_version,
             AssetLoadMetadata& out_metadata);
 
-        static void apply_tbx_asset_common_meta(const AssetLoadMetadata& metadata, Asset& asset);
+        static void apply_asset_common_meta(const AssetLoadMetadata& metadata, Asset& asset);
         std::shared_ptr<IFileOps> lock_file_ops() const;
 
         template <typename TAsset>
@@ -231,7 +231,14 @@ namespace tbx
             const AssetTypeRegistration& asset_registration,
             const void* asset);
 
-        Result try_read_tbx_serialized_asset_meta(
+        // Writes a self-describing script meta (`*.h.meta`): identity only (id/version/type), never a
+        // serialized body — so saving a script asset cannot clobber its identity.
+        static Result write_self_describing_script_meta(
+            IFileOps& file_ops,
+            const std::filesystem::path& asset_path,
+            const AssetTypeRegistration& asset_registration);
+
+        Result try_read_serialized_asset_meta(
             const std::filesystem::path& asset_path,
             const IFileOps& file_ops,
             uint32 expected_version,

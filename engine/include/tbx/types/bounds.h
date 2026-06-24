@@ -29,16 +29,12 @@ namespace tbx
         // Thread Safety: stateless; safe to call concurrently.
         static Bounds from_perspective_projection(float fov, float aspect_ratio, float z_near);
 
-        [[prop]]
         float left = 0.0f;
 
-        [[prop]]
         float right = 0.0f;
 
-        [[prop]]
         float top = 0.0f;
 
-        [[prop]]
         float bottom = 0.0f;
     };
 }

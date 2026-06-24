@@ -58,7 +58,8 @@ namespace tbx::studio_bridge
     // Distance from a 2D point to a 2D segment.
     float distance_point_segment(float px, float py, float ax, float ay, float bx, float by);
 
-    // Intersects a ray with a plane (point p0, normal n). False when (almost) parallel.
+    // Intersects a ray with a plane (point p0, normal n). False when (almost) parallel, or when the
+    // intersection lies behind the ray origin (forward-only).
     bool ray_plane(
         const glm::vec3& origin,
         const glm::vec3& direction,

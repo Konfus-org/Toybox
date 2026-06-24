@@ -29,7 +29,7 @@ namespace tbx::studio_bridge
     /// @details
     /// Ownership: Owns every subsystem; borrows the RPC router + host as services. Thread Safety: Not
     /// thread-safe; requests are handled on the main thread.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "StudioBridge",
         version = "0.1.0",
         category = tbx::PluginCategory::DEFAULT,

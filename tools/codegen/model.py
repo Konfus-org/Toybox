@@ -22,6 +22,7 @@ class Field:
     name: str
     type_name: str = ""
     attrs: list[Attribute] = dataclasses.field(default_factory=list)
+    access: str = "public"
 
 
 @dataclasses.dataclass
@@ -181,6 +182,32 @@ def cpp_string(value: str) -> str:
 
 def fields_of(type_info: SerializableType, kind: str) -> list[Field]:
     return [field for field in type_info.fields if has_attr(field.attrs, kind)]
+
+
+# Field attributes that route a member through a dedicated channel rather than the default
+# value-serialization path; such members are never auto-serialized as plain props.
+SPECIAL_FIELD_ATTRS = ("meta", "text", "inject", "register")
+
+
+def is_serialized_field(field: Field) -> bool:
+    """Public members of a serializable type serialize by default; ``[[do_not_serialize]]`` opts a
+    public member out and ``[[serialize]]`` opts a non-public member in. Members owned by a dedicated
+    channel ([[meta]]/[[text]]/[[inject]]/[[register]]) are never treated as plain serialized props."""
+    if has_attr(field.attrs, "do_not_serialize"):
+        return False
+    if any(has_attr(field.attrs, kind) for kind in SPECIAL_FIELD_ATTRS):
+        return False
+    if has_attr(field.attrs, "serialize"):
+        return True
+    return field.access == "public"
+
+
+def serialized_fields(type_info: SerializableType) -> list[Field]:
+    return [field for field in type_info.fields if is_serialized_field(field)]
+
+
+def non_public_serialized_fields(type_info: SerializableType) -> list[Field]:
+    return [field for field in serialized_fields(type_info) if field.access != "public"]
 
 
 def is_asset(type_info: SerializableType) -> bool:

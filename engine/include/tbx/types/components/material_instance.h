@@ -8,10 +8,8 @@ namespace tbx
     [[serializable]];
     struct TBX_API MaterialOverrides
     {
-        [[prop]]
         std::vector<MaterialTextureBinding> textures = {};
 
-        [[prop]]
         std::vector<MaterialParameter> parameters = {};
 
         // The has_*_override flags are derived, not stored: an override is "present" exactly when its
@@ -87,11 +85,10 @@ namespace tbx
         template <typename TValue>
         TValue get_parameter_or(const std::string& name, const TValue& fallback) const;
 
-        [[prop]]
         [[label("Base")]]
+        [[asset("mat")]]
         Handle material = {};
 
-        [[prop]]
         MaterialOverrides overrides = {};
 
       private:

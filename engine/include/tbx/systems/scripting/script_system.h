@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
-#include "tbx/systems/world/manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script_context.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/tbx_api.h"
 #include <memory>
 
@@ -17,8 +17,10 @@ namespace tbx
     class TBX_API ScriptSystem final : public IScriptResolver
     {
       public:
-        ScriptSystem(std::shared_ptr<AssetManager> asset_manager, ServiceProvider& services);
-        ScriptSystem(
+        explicit ScriptSystem(
+            std::shared_ptr<AssetManager> asset_manager,
+            ServiceProvider& services);
+        explicit ScriptSystem(
             std::weak_ptr<ServiceProvider> services,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<WorldManager> world_manager,
@@ -32,21 +34,23 @@ namespace tbx
         ScriptSystem& operator=(ScriptSystem&&) noexcept = delete;
 
       public:
+        std::weak_ptr<IScriptInstance> try_get_script(const ScriptLookup& lookup) override;
         void fixed_update(const DeltaTime& dt);
         void update(const DeltaTime& dt);
 
-        std::weak_ptr<IScriptInstance> try_get_script(const ScriptLookup& lookup) override;
-
       private:
         struct State;
-        // Shared per-binding pass for both update rates; only the variable-rate pass (fixed == false)
-        // reaps instances whose bindings disappeared.
+        // Shared per-binding pass for both update rates; only the variable-rate pass (fixed ==
+        // false) reaps instances whose bindings disappeared.
         void update(const DeltaTime& dt, bool fixed);
+
         void consume_script_reloads();
         void on_asset_reloaded(const AssetReloadedEvent& event);
-        // Drops all runtime instances and evicts cached script prototypes before a plugin unloads, so
-        // no script object outlives the module its vtable lives in. Instances are lazily recreated on
-        // the next update against whatever script types are registered after the reload.
+
+        // Drops all runtime instances and evicts cached script prototypes before a plugin unloads,
+        // so no script object outlives the module its vtable lives in. Instances are lazily
+        // recreated on the next update against whatever script types are registered after the
+        // reload.
         void on_plugins_unloading();
 
       private:

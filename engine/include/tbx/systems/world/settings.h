@@ -14,13 +14,10 @@ namespace tbx
     [[serializable]];
     struct TBX_API WorldSettings
     {
-        [[prop]]
         Handle startup_world = {};
 
-        [[prop]]
         float chunk_size = 32.0F;
 
-        [[prop]]
         uint32 unload_radius_chunks = 6U;
     };
 }

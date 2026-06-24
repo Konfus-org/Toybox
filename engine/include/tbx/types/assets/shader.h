@@ -53,7 +53,6 @@ namespace tbx
         {
         }
 
-        [[prop]]
         std::string source = "";
 
         [[meta]]
@@ -74,7 +73,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Handle vertex = {};
 
         /// @brief
@@ -82,7 +80,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Handle fragment = {};
 
         /// @brief
@@ -90,7 +87,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Handle tesselation = {};
 
         /// @brief
@@ -98,7 +94,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Handle geometry = {};
 
         /// @brief
@@ -106,7 +101,6 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         std::vector<Handle> computes = {};
 
         /// @brief

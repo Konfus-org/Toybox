@@ -30,7 +30,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[name("renamed")]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -55,7 +54,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -75,10 +73,8 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
 
-                [[prop]]
                 int count = 0;
             };
             }
@@ -98,13 +94,11 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 [[category("Group")]]
                 [[description("A tooltip.")]]
                 [[readonly]]
                 int amount = 0;
 
-                [[prop]]
                 [[view("script")]]
                 [[hidden]]
                 int other = 0;
@@ -131,10 +125,8 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
 
-                [[prop]]
                 int other = 0;
             };
             }
@@ -152,7 +144,7 @@ class AttributeCodegenTests(unittest.TestCase):
         # The serializable registration is still emitted; the describe/icon metadata is added generically
         # by make_serializable_type_registration, not per-type codegen.
         self.assertIn(
-            "tbx_register_serializable_type(static_cast<const Value*>(nullptr))",
+            "register_serializable_type(static_cast<const Value*>(nullptr))",
             output,
         )
 
@@ -164,7 +156,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[icon("Cube", Color::BLUE)]]
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -173,8 +164,8 @@ class AttributeCodegenTests(unittest.TestCase):
         header = self.generate(source)
         source_output = self.generate_source(source)
 
-        self.assertIn("::tbx::PropertyTypeIcon tbx_property_type_icon(const Value*);", header)
-        self.assertIn("::tbx::PropertyTypeIcon tbx_property_type_icon(const Value*)", source_output)
+        self.assertIn("::tbx::PropertyTypeIcon property_type_icon(const Value*);", header)
+        self.assertIn("::tbx::PropertyTypeIcon property_type_icon(const Value*)", source_output)
         self.assertIn('return { "Cube", "BLUE" };', source_output)
 
     def test_multiline_field_initializer_is_parsed(self) -> None:
@@ -184,7 +175,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 std::vector<int> values = {
                     1,
                     2,
@@ -207,15 +197,14 @@ class AttributeCodegenTests(unittest.TestCase):
             [[name("renamed")]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
             """
         )
 
-        self.assertIn("std::true_type tbx_has_struct_serialization(const Value*);", output)
-        self.assertIn("bool tbx_register_serializable_type(const Value*);", output)
+        self.assertIn("std::true_type has_struct_serialization(const Value*);", output)
+        self.assertIn("bool register_serializable_type(const Value*);", output)
         self.assertNotIn("tbx_value.", output)
         self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", output)
 
@@ -232,7 +221,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin(
+                [[register_plugin(
                     "ExamplePlugin",
                     "1.2.3",
                     tbx::PluginCategory::RENDERING,
@@ -263,7 +252,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin(
+                [[register_plugin(
                     name = "ExamplePlugin",
                     version = "1.2.3",
                     category = tbx::PluginCategory::RENDERING,
@@ -329,7 +318,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[version(value = 3U)]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -349,7 +337,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 [[inject]]
                 [[name("display_value")]]
                 int amount = 0;
@@ -360,10 +347,9 @@ class AttributeCodegenTests(unittest.TestCase):
         types = parse_source(textwrap.dedent(source))
         field = types[0].fields[0]
 
-        self.assertIsNotNone(find_attr(field.attrs, "prop"))
+        self.assertEqual(field.access, "public")
         self.assertIsNotNone(find_attr(field.attrs, "inject"))
         self.assertEqual(external_name(field), "display_value")
-        self.assertEqual(fields_of(types[0], "prop"), [field])
         self.assertEqual(fields_of(types[0], "inject"), [field])
 
     def test_name_attribute_can_feed_independent_metadata_consumers(self) -> None:
@@ -373,7 +359,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 [[name("display_value")]]
                 int amount = 0;
             };
@@ -396,7 +381,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3", tbx::PluginCategory::GAMEPLAY)]];
+                [[register_plugin("ExamplePlugin", "1.2.3", tbx::PluginCategory::GAMEPLAY)]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                 };
@@ -421,7 +406,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3")]];
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                 };
@@ -434,7 +419,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[script]];
+                [[register_script]];
                 [[version(7U)]];
                 class DoorController final : public tbx::Script
                 {
@@ -452,14 +437,24 @@ class AttributeCodegenTests(unittest.TestCase):
             script_include_paths=["tbx/tests/door_controller.h"],
         )
 
+        # The plugin source includes each script header and invokes its registration wrapper; the
+        # script glue itself (register_cpp_script_type<...>, override/bind helpers) is defined in the
+        # script's own generated source, not the plugin source.
         self.assertIn('#include "tbx/tests/door_controller.h"', output)
         self.assertIn("void tbx_register_plugin_services(", output)
-        self.assertIn("register_cpp_script_type<", output)
-        self.assertIn("tbx::tests::tbx_apply_script_overrides_DoorController", output)
-        self.assertIn("tbx::tests::tbx_bind_script_runtime_DoorController", output)
+        self.assertIn("tbx::tests::register_script_type_DoorController()", output)
         self.assertNotIn("tbx_register_plugin_scripts", output)
         self.assertNotIn("tbx_unregister_plugin_scripts", output)
         self.assertNotIn("unregister_asset_type_entry", output)
+
+        script_output = generate_source(
+            "door_controller.generated.h",
+            script_types,
+            "tbx/tests/door_controller.h",
+        )
+        self.assertIn("register_cpp_script_type<", script_output)
+        self.assertIn("apply_script_overrides_DoorController", script_output)
+        self.assertIn("bind_script_runtime_DoorController", script_output)
 
     def test_plugin_source_generates_service_registration_method(self) -> None:
         types = parse_source(
@@ -467,7 +462,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3")]];
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
                 [[register(tbx::IWindowManager, create_window_manager)]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
@@ -483,7 +478,7 @@ class AttributeCodegenTests(unittest.TestCase):
         output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
 
         self.assertIn("void tbx_register_plugin_services(", output)
-        self.assertIn("void tbx_register_services(ExamplePlugin& tbx_value", output)
+        self.assertIn("void register_services(ExamplePlugin& tbx_value", output)
         self.assertIn("dynamic_cast<tbx::tests::ExamplePlugin*>", output)
         self.assertIn("tbx_value.create_window_manager(tbx_services)", output)
         self.assertIn(
@@ -498,7 +493,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3")]];
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
                 [[register(service = tbx::IWindowManager, factory = create_window_manager)]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
@@ -525,7 +520,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3")]];
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                   public:
@@ -598,7 +593,7 @@ class AttributeCodegenTests(unittest.TestCase):
                 """
                 namespace tbx::tests
                 {
-                [[plugin("ExamplePlugin", "1.2.3")]];
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
                 class ExamplePlugin final : public tbx::Plugin
                 {
                   public:
@@ -614,7 +609,7 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn('#include "tbx/systems/scripting/service_ref.h"', output)
         self.assertIn("void tbx_bind_plugin_runtime(", output)
-        self.assertIn("void tbx_bind_runtime(ExamplePlugin& tbx_value", output)
+        self.assertIn("void bind_runtime(ExamplePlugin& tbx_value", output)
         self.assertIn("bind_service_field(tbx_value.window_manager", output)
         self.assertIn("::tbx::bind_runtime_fields(*typed_plugin, *service_provider);", output)
 
@@ -635,10 +630,10 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn('#include "tbx/systems/scripting/service_ref.h"', header_output)
         self.assertIn(
-            "void tbx_register_services(RuntimeServices& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            "void register_services(RuntimeServices& tbx_value, ::tbx::ServiceProvider& tbx_services);",
             header_output,
         )
-        self.assertIn("void tbx_register_services(RuntimeServices& tbx_value", source_output)
+        self.assertIn("void register_services(RuntimeServices& tbx_value", source_output)
         self.assertIn("tbx_value.create_window_manager(tbx_services)", source_output)
         self.assertIn(
             "tbx_services.register_service<tbx::IWindowManager>(std::move(tbx_service_0));",
@@ -661,10 +656,10 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn('#include "tbx/systems/scripting/service_ref.h"', header_output)
         self.assertIn(
-            "void tbx_bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            "void bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
             header_output,
         )
-        self.assertIn("void tbx_bind_runtime(RuntimeConsumer& tbx_value", source_output)
+        self.assertIn("void bind_runtime(RuntimeConsumer& tbx_value", source_output)
         self.assertIn("::tbx::bind_service_field(tbx_value.window_manager, tbx_services);", source_output)
 
     def test_runtime_injection_accepts_weak_ptr(self) -> None:
@@ -682,7 +677,7 @@ class AttributeCodegenTests(unittest.TestCase):
         source_output = self.generate_source(source)
 
         self.assertIn(
-            "void tbx_bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
+            "void bind_runtime(RuntimeConsumer& tbx_value, ::tbx::ServiceProvider& tbx_services);",
             header_output,
         )
         self.assertIn("::tbx::bind_service_field(tbx_value.window_manager, tbx_services);", source_output)
@@ -752,7 +747,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[version(2)]];
             struct Value : Asset
             {
-                [[prop]]
                 int amount = 0;
                 [[meta]]
                 int import_version = 0;
@@ -771,7 +765,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[name("renamed")]]
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -791,12 +784,10 @@ class AttributeCodegenTests(unittest.TestCase):
             [[name("renamed")]];
             struct Value
             {
-                [[prop]]
                 [[description("A tooltip.")]]
                 [[readonly]]
                 int amount = 0;
 
-                [[prop]]
                 int count = 0;
             };
             }
@@ -808,12 +799,10 @@ class AttributeCodegenTests(unittest.TestCase):
             [[tbx::name("renamed")]];
             struct Value
             {
-                [[tbx::prop]]
                 [[tbx::description("A tooltip.")]]
                 [[tbx::readonly]]
                 int amount = 0;
 
-                [[tbx::prop]]
                 int count = 0;
             };
             }
@@ -829,7 +818,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]]
             struct Value : Base
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -841,7 +829,6 @@ class AttributeCodegenTests(unittest.TestCase):
             {
             struct Base
             {
-                [[prop]]
                 int id = 0;
             };
             }
@@ -858,36 +845,6 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("tbx_default_value.id);", output)
         self.assertIn("tbx_value.amount,", output)
         self.assertIn("tbx_default_value.amount);", output)
-
-    def test_type_level_struct_props_are_rejected(self) -> None:
-        with self.assertRaises(CodegenError):
-            self.generate(
-                """
-                namespace tbx::tests
-                {
-                [[serializable]]
-                [[prop(id, value)]]
-                struct Value
-                {
-                    int id = 0;
-                    int value = 0;
-                };
-                }
-                """
-            )
-
-    def test_type_level_alias_props_are_rejected(self) -> None:
-        with self.assertRaises(CodegenError):
-            self.generate(
-                """
-                namespace glm
-                {
-                [[serializable]]
-                [[prop(x, y, z)]]
-                using TbxVec3 = tbx::Vec3;
-                }
-                """
-            )
 
     def test_type_level_meta_is_rejected(self) -> None:
         with self.assertRaises(CodegenError):
@@ -914,7 +871,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]]
             struct Value : Base
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -926,7 +882,6 @@ class AttributeCodegenTests(unittest.TestCase):
             {
             struct Base
             {
-                [[prop]]
                 int id = 0;
             };
             }
@@ -949,13 +904,12 @@ class AttributeCodegenTests(unittest.TestCase):
             """
             namespace tbx::tests
             {
-            [[script]]
+            [[register_script]]
             [[name("door_controller")]]
             [[version(1)]]
             class DoorController : public tbx::Script
             {
               public:
-                [[prop]]
                 float open_speed = 1.0F;
 
                 [[inject]]
@@ -981,16 +935,13 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Inner
             {
-                [[prop]]
                 int a = 0;
             };
             [[serializable]];
             struct Outer
             {
-                [[prop]]
                 Inner inner = {};
 
-                [[prop]]
                 std::vector<Inner> items = {};
             };
             }
@@ -1008,16 +959,13 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Inner
             {
-                [[prop]]
                 int a = 0;
             };
             [[serializable]];
             struct Outer
             {
-                [[prop]]
                 std::map<Uuid, Inner> by_id = {};
 
-                [[prop]]
                 int count = 0;
             };
             }
@@ -1034,7 +982,7 @@ class AttributeCodegenTests(unittest.TestCase):
             """
             namespace tbx
             {
-            [[script]]
+            [[register_script]]
             [[name("ExtractFrame")]]
             [[version(1)]]
             class ExtractFrameRenderPipelineScript : public tbx::RenderPipelineScript
@@ -1051,12 +999,11 @@ class AttributeCodegenTests(unittest.TestCase):
             """
             namespace tbx::tests
             {
-            [[script]]
+            [[register_script]]
             [[version(1)]]
             class DoorController : public tbx::Script
             {
               public:
-                [[prop]]
                 std::weak_ptr<DoorController> linked_door = {};
             };
             }
@@ -1078,6 +1025,7 @@ class AttributeCodegenTests(unittest.TestCase):
             [[version(3)]];
             struct Value : Asset
             {
+                [[do_not_serialize]]
                 int amount = 0;
             };
             }
@@ -1104,7 +1052,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("tbx_has_text_serialization", output)
+        self.assertIn("has_text_serialization", output)
         self.assertIn("register_asset_body_type<Value>", output)
         self.assertIn("register_asset_meta_type<Value>", output)
 
@@ -1137,6 +1085,7 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
+                [[do_not_serialize]]
                 int amount = 0;
             };
 
@@ -1144,6 +1093,7 @@ class AttributeCodegenTests(unittest.TestCase):
             [[version(5)]];
             struct AssetValue : Asset
             {
+                [[do_not_serialize]]
                 int amount = 0;
             };
 
@@ -1213,7 +1163,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[post_deserialize(rebuild_runtime_state)]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -1232,7 +1181,6 @@ class AttributeCodegenTests(unittest.TestCase):
             [[serializable]];
             struct Value
             {
-                [[prop]]
                 int amount = 0;
             };
             }
@@ -1513,8 +1461,157 @@ class AttributeCodegenTests(unittest.TestCase):
                 [[serializable]];
                 struct Value : Asset
                 {
-                    [[prop]]
+                    [[do_not_serialize]]
                     int amount = 0;
+                };
+                }
+                """
+            )
+
+    def test_public_members_serialize_by_default(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            struct Value
+            {
+                int amount = 0;
+                float ratio = 1.0F;
+            };
+            }
+            """
+        )
+        self.assertIn('"amount"', output)
+        self.assertIn('"ratio"', output)
+        self.assertIn("tbx_value.amount", output)
+        self.assertIn("tbx_value.ratio", output)
+
+    def test_do_not_serialize_excludes_public_member(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            struct Value
+            {
+                int amount = 0;
+                [[do_not_serialize]]
+                int runtime_only = 0;
+            };
+            }
+            """
+        )
+        self.assertIn("tbx_value.amount", output)
+        self.assertNotIn("runtime_only", output)
+
+    def test_private_members_are_not_serialized_by_default(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            class Value
+            {
+              public:
+                int amount = 0;
+
+              private:
+                int _hidden = 0;
+            };
+            }
+            """
+        )
+        self.assertIn("tbx_value.amount", output)
+        self.assertNotIn("_hidden", output)
+
+    def test_serialize_attribute_opts_in_private_member_via_access_broker(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx
+            {
+            [[serializable]];
+            class Value
+            {
+              public:
+                TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
+
+              private:
+                [[serialize]]
+                int _amount = 0;
+                int _runtime = 0;
+            };
+            }
+            """
+        )
+        # The bodies live in a SerializationAccess<Value> specialization, and the free serialize /
+        # deserialize functions delegate to it.
+        self.assertIn("struct SerializationAccess<Value>", output)
+        self.assertIn("::tbx::SerializationAccess<Value>::serialize(tbx_json, tbx_value);", output)
+        self.assertIn("::tbx::SerializationAccess<Value>::deserialize(tbx_json, tbx_value);", output)
+        self.assertIn("tbx_value._amount", output)
+        self.assertNotIn("tbx_value._runtime", output)
+
+    def test_non_public_serialize_outside_tbx_namespace_is_rejected(self) -> None:
+        with self.assertRaises(CodegenError):
+            self.generate_source(
+                """
+                namespace other
+                {
+                [[tbx::serializable]];
+                class Value
+                {
+                  public:
+                    TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
+
+                  private:
+                    [[tbx::serialize]]
+                    int _amount = 0;
+                };
+                }
+                """
+            )
+
+    def test_parser_skips_non_data_member_declarations(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            struct Value
+            {
+                using alias = int;
+                static const Value DEFAULT;
+                Value() = default;
+                ~Value() = default;
+                Value(int seed) : amount(seed) {}
+                bool operator==(const Value& other) const { return amount == other.amount; }
+                float compute() const
+                {
+                    auto scratch = 0.0F;
+                    return scratch + static_cast<float>(amount);
+                }
+                template <typename T>
+                T cast() const;
+
+                int amount = 0;
+                std::vector<int> values = { 1, 2, 3 };
+            };
+            }
+            """
+        types = parse_source(textwrap.dedent(source))
+        field_names = [field.name for field in types[0].fields]
+        self.assertEqual(field_names, ["amount", "values"])
+
+    def test_register_script_requires_script_base(self) -> None:
+        with self.assertRaises(CodegenError):
+            self.generate_source(
+                """
+                namespace tbx::tests
+                {
+                [[register_script]]
+                [[version(1)]]
+                class NotAScript
+                {
                 };
                 }
                 """

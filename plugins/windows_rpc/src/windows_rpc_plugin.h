@@ -21,7 +21,7 @@ namespace tbx::windows_rpc
     /// Ownership: The server + router service objects are provider-owned (codegen make_shared); this
     /// plugin holds weak views and drives the drain/dispatch loop each frame. Thread Safety:
     /// Main-thread only; the server's IO runs on its own thread and hands lines across a mutex.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "WindowsRPC",
         version = "0.1.0",
         category = tbx::PluginCategory::DEFAULT)]];

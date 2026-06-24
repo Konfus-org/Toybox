@@ -80,7 +80,7 @@ namespace tbx
         /// @details
         /// Ownership: Stores a non-owning handle reference.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
+        [[asset("fbx", "obj", "gltf", "glb")]]
         Handle handle = {};
     };
 

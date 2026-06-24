@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/debugging/macros.h"
 #include <mutex>
 
 namespace tbx
@@ -115,6 +116,12 @@ namespace tbx
     {
         auto guard = std::shared_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
+        // entt's get<> is UB on a stale handle or a missing component, so guard before access like the
+        // sibling accessors (remove / has) do — the value queries never touch entt::get without a prior
+        // valid/all_of check. The return is still a reference into storage by this method's contract.
+        TBX_ASSERT(
+            _registry->valid(handle) && _registry->all_of<TComponent...>(handle),
+            "Cannot read component(s) from a stale entity handle or a missing component.");
         return _registry->get<TComponent...>(handle);
     }
 

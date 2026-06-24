@@ -27,10 +27,8 @@ namespace tbx
             return static_cast<float>(width) / static_cast<float>(height);
         }
 
-        [[prop]]
         uint32 width = 0;
 
-        [[prop]]
         uint32 height = 0;
     };
 }

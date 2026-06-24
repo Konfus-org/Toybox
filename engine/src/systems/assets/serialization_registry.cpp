@@ -38,22 +38,64 @@ namespace tbx
             return read;
         }
 
-        // Registered polymorphic assets still use the normal Toybox .meta file for stable id and
+        // A script asset is a self-describing `*.h.meta`: that one file carries identity only
+        // (id/version/type) and has no body. Every other registered asset keeps a payload file with
+        // a separate `<payload>.meta` sidecar.
+        const auto self_describing = is_self_describing_asset_meta(asset_path.generic_string());
+
+        // Registered polymorphic assets still use the normal Toybox meta for a stable id and
         // version. The expected version is resolved after the concrete C++ type is known.
         auto metadata = AssetLoadMetadata {};
         auto meta_data = std::optional<std::string> {};
-        auto loaded_meta = false;
-        auto meta_result = try_read_tbx_serialized_asset_meta(
-            asset_path,
-            *file_ops,
-            0U,
-            metadata,
-            meta_data,
-            loaded_meta);
-        if (!meta_result.succeeded())
+        auto self_describing_json = Json {};
+        if (self_describing)
         {
-            read.result = std::move(meta_result);
-            return read;
+            auto contents = std::string();
+            if (!file_ops->read_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
+            {
+                read.result = make_failed_result(
+                    std::string("Failed to read script asset meta '")
+                        .append(asset_path.string())
+                        .append("'."));
+                return read;
+            }
+            try
+            {
+                self_describing_json = JsonParser::parse(contents);
+            }
+            catch (const std::exception& exception)
+            {
+                read.result = make_failed_result(
+                    std::string("Failed to parse script asset meta '")
+                        .append(asset_path.string())
+                        .append("': ")
+                        .append(exception.what()));
+                return read;
+            }
+            auto meta_result =
+                try_read_asset_common_meta(self_describing_json, asset_path, 0U, metadata);
+            if (!meta_result.succeeded())
+            {
+                read.result = std::move(meta_result);
+                return read;
+            }
+            meta_data = std::move(contents);
+        }
+        else
+        {
+            auto loaded_meta = false;
+            auto meta_result = try_read_serialized_asset_meta(
+                asset_path,
+                *file_ops,
+                0U,
+                metadata,
+                meta_data,
+                loaded_meta);
+            if (!meta_result.succeeded())
+            {
+                read.result = std::move(meta_result);
+                return read;
+            }
         }
         if (!metadata.id.is_valid())
         {
@@ -103,9 +145,6 @@ namespace tbx
             return read;
         }
 
-        // Body files are optional for script assets because the C++ class already provides default
-        // property values. If a body exists, it overlays those defaults through the registered
-        // serializer.
         auto asset = asset_registration->create_asset();
         if (!asset)
         {
@@ -116,7 +155,10 @@ namespace tbx
             return read;
         }
 
-        if (file_ops->exists(asset_path) && asset_registration->read_body)
+        // A self-describing script meta carries identity only — no body to overlay. The script's
+        // default values come from its source (compiled-in for C++), and per-entity values are
+        // applied later from the entity's binding overrides.
+        if (!self_describing && file_ops->exists(asset_path) && asset_registration->read_body)
         {
             auto body_result = try_load_registered_asset_body(
                 asset_path,
@@ -130,14 +172,14 @@ namespace tbx
             }
         }
 
-        apply_tbx_asset_common_meta(metadata, *asset);
+        apply_asset_common_meta(metadata, *asset);
         read.metadata = metadata;
         read.asset = std::shared_ptr<Asset>(std::move(asset));
         read.result.ok();
         return read;
     }
 
-    Result SerializationRegistry::try_read_tbx_asset_common_meta(
+    Result SerializationRegistry::try_read_asset_common_meta(
         const Json& data,
         const std::filesystem::path& meta_path,
         uint32 expected_version,
@@ -187,7 +229,7 @@ namespace tbx
         return Result();
     }
 
-    void SerializationRegistry::apply_tbx_asset_common_meta(
+    void SerializationRegistry::apply_asset_common_meta(
         const AssetLoadMetadata& metadata,
         Asset& asset)
     {
@@ -212,7 +254,53 @@ namespace tbx
         if (!file_ops)
             return make_failed_result("Serialization registry has no file operations.");
 
+        if (is_self_describing_asset_meta(asset_path.generic_string()))
+            return write_self_describing_script_meta(*file_ops, asset_path, asset_registration);
+
         return try_write_registered_asset_body(asset_path, *file_ops, asset_registration, asset);
+    }
+
+    Result SerializationRegistry::write_self_describing_script_meta(
+        IFileOps& file_ops,
+        const std::filesystem::path& asset_path,
+        const AssetTypeRegistration& asset_registration)
+    {
+        // A script meta carries identity only — there is no body to serialize (defaults live in the
+        // script source, per-entity values on the entity). Preserve the existing id and keep the
+        // asset-system keys authoritative from the registration so the file stays valid. Saving a
+        // script asset must never clobber its identity meta with a property body.
+        auto meta_json = Json::object();
+        auto existing = std::string();
+        if (file_ops.exists(asset_path)
+            && file_ops.read_file(asset_path, FileDataFormat::UTF8_TEXT, existing))
+        {
+            try
+            {
+                if (auto parsed = JsonParser::parse(existing); parsed.is_object())
+                    meta_json = std::move(parsed);
+            }
+            catch (...)
+            {
+                // A corrupt existing meta is rebuilt from the registration below.
+            }
+        }
+
+        // Identity only — strip any stale serialized body a legacy meta may have carried.
+        meta_json.erase("properties");
+        meta_json["type"] = asset_registration.type_name;
+        meta_json["polymorphic"] = true;
+        if (asset_registration.version != 0U)
+            meta_json["version"] = asset_registration.version;
+
+        if (!file_ops.write_file(asset_path, FileDataFormat::UTF8_TEXT, meta_json.dump(4).append("\n")))
+        {
+            return make_failed_result(
+                std::string("Failed to write script asset meta '")
+                    .append(asset_path.string())
+                    .append("'."));
+        }
+
+        return Result();
     }
 
     std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const

@@ -23,10 +23,8 @@ namespace tbx
     [[version(1U)]];
     struct TBX_API WorldChunk : Asset
     {
-        [[prop]]
         IVec3 coord = {};
 
-        [[prop]]
         EntityRegistry entities = {};
     };
 
@@ -36,7 +34,6 @@ namespace tbx
     [[version(1U)]];
     struct TBX_API WorldGlobals : Asset
     {
-        [[prop]]
         EntityRegistry entities = {};
     };
 
@@ -100,10 +97,8 @@ namespace tbx
         void for_each_with(const std::function<void(Entity&)>& callback);
 
       public:
-        [[prop]]
         Handle globals = {};
 
-        [[prop]]
         std::vector<Handle> chunks = {};
 
       private:

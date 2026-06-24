@@ -37,14 +37,14 @@ namespace tbx
         registry.remove(*this);
     }
 
-    Uuid tbx_reference_id(const Entity& entity)
+    Uuid reference_id(const Entity& entity)
     {
         // A reference field's stored id; get_id() returns the raw _id when there is no bound registry,
         // which is exactly the state of a reference entity.
         return entity.get_id();
     }
 
-    void tbx_bind_reference(Entity& entity, const Uuid& id)
+    void bind_reference(Entity& entity, const Uuid& id)
     {
         // A reference holds only the target id — no registry. The game resolves it against the live world.
         entity._id = id;

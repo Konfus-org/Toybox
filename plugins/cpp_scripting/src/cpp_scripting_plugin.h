@@ -15,7 +15,7 @@ namespace cpp_scripting
     /// Ownership: Owns the backend instance for the plugin's lifetime; deregisters on detach so the
     /// engine drops it before this module unloads.
     /// Thread Safety: Attach/detach run on the main thread.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "CppScripting",
         version = "1.0.0",
         category = tbx::PluginCategory::SCRIPTING)]];

@@ -7,7 +7,7 @@
 
 namespace jolt_physics
 {
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "JoltPhysics",
         version = "1.0.0",
         category = tbx::PluginCategory::PHYSICS)]];

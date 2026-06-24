@@ -42,19 +42,20 @@ namespace tbx
     [[serializable]];
     struct TBX_API ColliderTrigger
     {
-        [[prop]]
         bool is_trigger_only = false;
 
-        [[prop]]
         ColliderOverlapExecutionMode overlap_execution_mode = ColliderOverlapExecutionMode::AUTO;
 
-        [[prop]]
         bool is_overlap_enabled = false;
 
         bool is_manual_scan_requested = false;
 
+        // Runtime overlap subscribers, registered at play time and never persisted.
+        [[do_not_serialize]]
         std::vector<ColliderOverlapCallback> overlap_begin_callbacks = {};
+        [[do_not_serialize]]
         std::vector<ColliderOverlapCallback> overlap_stay_callbacks = {};
+        [[do_not_serialize]]
         std::vector<ColliderOverlapCallback> overlap_end_callbacks = {};
 
         /// @brief
@@ -78,10 +79,8 @@ namespace tbx
         MeshCollider() = default;
         MeshCollider(bool is_convex, ColliderTrigger trigger = {});
 
-        [[prop]]
         bool is_convex = true;
 
-        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -97,10 +96,8 @@ namespace tbx
         CubeCollider() = default;
         CubeCollider(Vec3 half_extents, ColliderTrigger trigger = {});
 
-        [[prop]]
         Vec3 half_extents = Vec3(0.5F, 0.5F, 0.5F);
 
-        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -116,10 +113,8 @@ namespace tbx
         SphereCollider() = default;
         SphereCollider(float radius, ColliderTrigger trigger = {});
 
-        [[prop]]
         float radius = 0.5F;
 
-        [[prop]]
         ColliderTrigger trigger = {};
     };
 
@@ -135,13 +130,10 @@ namespace tbx
         CapsuleCollider() = default;
         CapsuleCollider(float radius, float half_height, ColliderTrigger trigger = {});
 
-        [[prop]]
         float radius = 0.5F;
 
-        [[prop]]
         float half_height = 0.5F;
 
-        [[prop]]
         ColliderTrigger trigger = {};
     };
 

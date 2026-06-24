@@ -8,10 +8,8 @@ namespace tbx
     [[serializable]];
     struct TBX_API Viewport
     {
-        [[prop]]
         Vec2 position = Vec2(0.0f);
 
-        [[prop]]
         Size dimensions = {};
 
         bool is_zero()

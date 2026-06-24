@@ -3,6 +3,7 @@
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/result.h"
+#include <unordered_map>
 
 namespace tbx::studio_bridge
 {
@@ -50,6 +51,19 @@ namespace tbx::studio_bridge
         tbx::Json component_type_icons() const;
         // Resolves and validates an entityId param against the active world.
         Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
+
+        // Folds each bound script's field schema (its [[tbx::asset]] handle filters) into a described
+        // entity's script_container overrides, so script-override handle pickers get the same asset-type
+        // filter a normal component handle field does. The override blob is otherwise an opaque lean
+        // { type, value } map with no attributes. The cache reuses one schema per script type across the
+        // entities of a single describe pass.
+        void enrich_script_overrides(
+            tbx::Json& entity_json,
+            std::unordered_map<uint64, tbx::Json>& schema_cache) const;
+        // The attribute-enriched field schema of the script asset with the given id (its overridable
+        // fields and their baked choices), or an empty object when the id resolves to no describable
+        // script.
+        tbx::Json describe_script_schema(uint64 script_id) const;
 
         EngineServices& _services;
     };

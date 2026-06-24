@@ -8,7 +8,7 @@
 
 namespace tbx::shader_loader
 {
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "ShaderIncludeLoader",
         version = "1.0.0",
         category = tbx::PluginCategory::DEFAULT)]];

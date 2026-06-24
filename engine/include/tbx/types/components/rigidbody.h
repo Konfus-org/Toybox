@@ -27,43 +27,30 @@ namespace tbx
     [[icon("Atom", Color::GREEN)]];
     struct TBX_API Rigidbody : Component
     {
-        [[prop]]
         float mass = 1.0F;
 
-        [[prop]]
         bool is_kinematic = false;
 
-        [[prop]]
         bool is_gravity_enabled = true;
 
-        [[prop]]
         PhysicsTransformSyncMode transform_sync_mode = PhysicsTransformSyncMode::SWEEP;
 
-        [[prop]]
         Vec3 linear_velocity = Vec3(0.0F, 0.0F, 0.0F);
 
-        [[prop]]
         Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
 
-        [[prop]]
         float friction = 0.5F;
 
-        [[prop]]
         float restitution = 0.0F;
 
-        [[prop]]
         float linear_damping = 0.05F;
 
-        [[prop]]
         float angular_damping = 0.05F;
 
-        [[prop]]
         bool is_sleep_enabled = true;
 
-        [[prop]]
         float sleep_velocity_threshold = 0.03F;
 
-        [[prop]]
         float sleep_time_seconds = 0.5F;
 
         bool is_valid() const;

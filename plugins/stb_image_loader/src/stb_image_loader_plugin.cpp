@@ -76,7 +76,7 @@ namespace stb_image_loader
                 return result;
             }
 
-            const auto meta_result = tbx::tbx_read_json_asset_meta_Texture(meta_data, load_texture);
+            const auto meta_result = tbx::read_json_asset_meta_Texture(meta_data, load_texture);
             if (!meta_result.succeeded())
             {
                 result.failure(meta_result.get_report());

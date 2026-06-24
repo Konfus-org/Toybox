@@ -22,7 +22,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Color color = Color(1.0f, 1.0f, 1.0f, 1.0f);
 
         /// @brief
@@ -33,7 +32,6 @@ namespace tbx
         /// renderer normalizes the light color so intensity scales total light energy independent
         /// of hue (e.g., a red light at intensity 1.0 should be comparable to a white light at
         /// intensity 1.0).
-        [[prop]]
         float intensity = 1.0f;
 
         /// @brief
@@ -41,7 +39,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         bool cast_shadows = true;
     };
 
@@ -61,7 +58,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         float range = 10.0f;
     };
 
@@ -86,7 +82,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         float range = 10.0f;
 
         /// @brief
@@ -94,7 +89,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         float inner_angle = 20.0f;
 
         /// @brief
@@ -102,7 +96,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         float outer_angle = 35.0f;
     };
 
@@ -126,7 +119,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         float range = 10.0f;
 
         /// @brief
@@ -134,7 +126,6 @@ namespace tbx
         /// @details
         /// Ownership: Stored by value.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[prop]]
         Vec2 area_size = Vec2(1.0f, 1.0f);
     };
 
@@ -156,7 +147,6 @@ namespace tbx
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally. Notes: The
         /// renderer averages directional light colors and scales that color by the sum of
         /// (ambient * intensity) across directional lights.
-        [[prop]]
         float ambient = 0.03f;
     };
 

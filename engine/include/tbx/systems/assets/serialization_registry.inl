@@ -150,7 +150,7 @@ namespace tbx
         auto loaded_meta = false;
         const auto expected_version =
             asset_registration.has_value() ? asset_registration->version : 0U;
-        auto meta_result = try_read_tbx_serialized_asset_meta(
+        auto meta_result = try_read_serialized_asset_meta(
             asset_path,
             *file_ops,
             expected_version,
@@ -266,7 +266,7 @@ namespace tbx
 
         const auto expected_version =
             asset_registration.has_value() ? asset_registration->version : 0U;
-        auto meta_result = try_read_tbx_serialized_asset_meta(
+        auto meta_result = try_read_serialized_asset_meta(
             asset_path,
             *file_ops,
             expected_version,
@@ -518,7 +518,7 @@ namespace tbx
                const AssetLoadMetadata& metadata,
                TAsset& asset)
             {
-                apply_tbx_asset_common_meta(metadata, asset);
+                apply_asset_common_meta(metadata, asset);
                 return Result();
             });
 
@@ -575,7 +575,7 @@ namespace tbx
         return Result();
     }
 
-    inline Result SerializationRegistry::try_read_tbx_serialized_asset_meta(
+    inline Result SerializationRegistry::try_read_serialized_asset_meta(
         const std::filesystem::path& asset_path,
         const IFileOps& file_ops,
         uint32 expected_version,
@@ -601,7 +601,7 @@ namespace tbx
         {
             auto data = JsonParser::parse(contents);
             auto common_meta_result =
-                try_read_tbx_asset_common_meta(data, meta_path, expected_version, out_metadata);
+                try_read_asset_common_meta(data, meta_path, expected_version, out_metadata);
             if (!common_meta_result.succeeded())
                 return common_meta_result;
 

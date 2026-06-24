@@ -1,5 +1,6 @@
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/string_utils.h"
@@ -105,6 +106,11 @@ namespace tbx
 
     static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
     {
+        // A self-describing script meta (`*.h.meta`) is its own metadata file — there is no separate
+        // sidecar. Every other asset's metadata lives at `<asset>.meta`.
+        if (is_self_describing_asset_meta(asset_path.generic_string()))
+            return asset_path;
+
         auto meta_path = asset_path;
         meta_path += ".meta";
         return meta_path;
@@ -165,7 +171,11 @@ namespace tbx
             return false;
         if (is_non_asset_file(asset_path))
             return false;
-        return asset_path.extension() != ".meta";
+        // Ordinary `.meta` files are sidecars, not assets in their own right. Script metas are the
+        // exception: a `*.h.meta` IS the asset (it has no separate payload file), so track it.
+        if (asset_path.extension() == ".meta")
+            return is_self_describing_asset_meta(asset_path.generic_string());
+        return true;
     }
 
     AssetRegistry::AssetRegistry(

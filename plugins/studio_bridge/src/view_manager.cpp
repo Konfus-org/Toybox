@@ -107,11 +107,15 @@ namespace tbx::studio_bridge
             // GL/D3D teardown is only safe on the render lane, so hand the surface to the next
             // present callback rather than freeing it here on the main thread.
             _pending_shared_destroys.push_back(removed->texture);
+
+            // The camera destroy mutates _view_registry, which render_views reads on the render lane
+            // under this same mutex. entt's per-call locks don't protect references read after the
+            // call returns, so the mutation must happen under _views_mutex too. destroy_view_camera
+            // only touches _view_registry (no nested lock), so holding the lock here cannot deadlock
+            // against render_views.
+            destroy_view_camera(removed->camera_id);
         }
 
-        // Tear the camera down outside the lock; the render lane never touches a view once it is
-        // out of _views.
-        destroy_view_camera(removed->camera_id);
         refresh_present_callback();
         TBX_TRACE_INFO("StudioBridge: view stopped ('{}').", removed->name);
     }
@@ -128,10 +132,12 @@ namespace tbx::studio_bridge
             _views.clear();
             for (auto& view : removed)
                 _pending_shared_destroys.push_back(view->texture);
-        }
 
-        for (auto& view : removed)
-            destroy_view_camera(view->camera_id);
+            // Destroy the cameras under the lock for the same reason as stop_view: the registry
+            // mutation must not race render_views' registry reads on the render lane.
+            for (auto& view : removed)
+                destroy_view_camera(view->camera_id);
+        }
 
         refresh_present_callback();
         TBX_TRACE_INFO("StudioBridge: all views stopped.");

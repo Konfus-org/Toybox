@@ -82,9 +82,10 @@ namespace tbx
             shared_validity()->store(false);
         }
 
+        // Runtime-only debug label; the handle's identity (and what is persisted) is its id.
+        [[do_not_serialize]]
         std::string name = {};
 
-        [[prop]]
         Uuid id = {};
 
       private:

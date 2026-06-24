@@ -20,7 +20,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         VsyncMode vsync_enabled = VsyncMode::OFF;
 
         /// @brief
@@ -28,7 +27,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         GraphicsApi graphics_api = GraphicsApi::OPEN_GL;
 
         /// @brief
@@ -37,7 +35,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         Size resolution = {1280, 720};
 
         /// @brief
@@ -47,7 +44,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         Clamp<uint32, 256U> shadow_map_resolution = 4096U;
 
         /// @brief
@@ -58,7 +54,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         float shadow_render_distance = 500.0F;
 
         /// @brief
@@ -67,7 +62,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         float shadow_softness = 1.0F;
 
         /// @brief
@@ -79,7 +73,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         float local_light_max_distance = 200.0F;
 
         /// @brief
@@ -89,7 +82,6 @@ namespace tbx
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        [[prop]]
         float shadow_caster_max_distance = 96.0F;
     };
 

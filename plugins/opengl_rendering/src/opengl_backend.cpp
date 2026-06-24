@@ -503,13 +503,20 @@ namespace opengl_rendering
             auto* mutex = static_cast<IDXGIKeyedMutex*>(shared.keyed_mutex);
             if (mutex->AcquireSync(0U, SHARED_TARGET_ACQUIRE_TIMEOUT_MS) == S_OK)
             {
-                g_wglDXLockObjectsNV(_interop_device, 1, &shared.gl_interop_object);
-                shared.is_locked = true;
-                _active_shared_target = &shared;
-                _state.current_target = _contexts.front();
-                clear_bound_state();
-                _is_texture_frame = true;
-                return make_success();
+                // Only treat the texture as ours to draw into if GL actually locked it. On a lock
+                // failure, release the keyed mutex back to the producer side (key 0, unchanged state)
+                // so end_frame doesn't unlock/present a never-locked object, and fall through to the
+                // throwaway framebuffer for this frame.
+                if (g_wglDXLockObjectsNV(_interop_device, 1, &shared.gl_interop_object))
+                {
+                    shared.is_locked = true;
+                    _active_shared_target = &shared;
+                    _state.current_target = _contexts.front();
+                    clear_bound_state();
+                    _is_texture_frame = true;
+                    return make_success();
+                }
+                mutex->ReleaseSync(0U);
             }
         }
 #endif
@@ -885,6 +892,12 @@ namespace opengl_rendering
 
     void OpenGlGraphicsBackend::destroy_all_shared_targets()
     {
+        // release_shared_target issues GL deletes (framebuffers/renderbuffers), so it needs a current
+        // context. cleanup() can call this after the lane's context is no longer current, so make one
+        // current explicitly, mirroring destroy_shared_target.
+        if (!_contexts.empty())
+            (void)make_current(_contexts.front());
+
         for (auto& [id, target] : _shared_targets)
             release_shared_target(target);
         _shared_targets.clear();

@@ -24,14 +24,14 @@ namespace tbx
     template <typename TValue>
     inline void bind_runtime_fields(TValue& value, ServiceProvider& services)
     {
-        if constexpr (requires { tbx_bind_runtime(value, services); })
-            tbx_bind_runtime(value, services);
+        if constexpr (requires { bind_runtime(value, services); })
+            bind_runtime(value, services);
     }
 
     template <typename TValue>
     inline void register_runtime_services(TValue& value, ServiceProvider& services)
     {
-        if constexpr (requires { tbx_register_services(value, services); })
-            tbx_register_services(value, services);
+        if constexpr (requires { register_services(value, services); })
+            register_services(value, services);
     }
 }

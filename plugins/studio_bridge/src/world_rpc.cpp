@@ -3,15 +3,70 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/handle.h"
+#include "tbx/types/uuid.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <ranges>
 #include <string>
+#include <typeindex>
+#include <typeinfo>
 #include <vector>
 
 namespace tbx::studio_bridge
 {
+    // The value payload of a described field, under either the lean { "type", "value" } wrapper or the
+    // attribute-enriched { "attributes", "value", "is_default" } one (both carry "value"). Null when the
+    // node is not such a wrapper.
+    static tbx::Json* describe_field_value(tbx::Json& node)
+    {
+        if (!node.is_object())
+            return nullptr;
+
+        const auto value_iterator = node.find("value");
+        return value_iterator == node.end() ? nullptr : &(*value_iterator);
+    }
+
+    // The asset-type filter (baked [[tbx::asset]] choices) on a described schema field, or null when the
+    // field declares none. The schema comes from the attribute-enriched describe, so choices ride under
+    // "attributes".
+    static const tbx::Json* describe_field_choices(const tbx::Json& field)
+    {
+        if (!field.is_object())
+            return nullptr;
+
+        const auto attributes_iterator = field.find("attributes");
+        if (attributes_iterator == field.end() || !attributes_iterator->is_object())
+            return nullptr;
+
+        const auto choices_iterator = attributes_iterator->find("choices");
+        if (choices_iterator == attributes_iterator->end() || !choices_iterator->is_array()
+            || choices_iterator->empty())
+            return nullptr;
+
+        return &(*choices_iterator);
+    }
+
+    // The declared type token of a described schema field (e.g. "entity"/"handle"), read from the
+    // attribute-enriched describe where the token rides under "attributes". Null when absent.
+    static const tbx::Json* describe_field_type(const tbx::Json& field)
+    {
+        if (!field.is_object())
+            return nullptr;
+
+        const auto attributes_iterator = field.find("attributes");
+        if (attributes_iterator == field.end() || !attributes_iterator->is_object())
+            return nullptr;
+
+        const auto type_iterator = attributes_iterator->find("type");
+        if (type_iterator == attributes_iterator->end() || !type_iterator->is_string()
+            || type_iterator->get_ref<const std::string&>().empty())
+            return nullptr;
+
+        return &(*type_iterator);
+    }
+
     // Lower-cased file extension without the leading dot, used as the asset's editor "type" so the
     // handle picker can filter (e.g. "mat", "png", "world"). Empty extensions fall back to "asset".
     static std::string asset_type_from_path(const std::filesystem::path& path)
@@ -52,6 +107,8 @@ namespace tbx::studio_bridge
         auto world = _services.active_world();
         if (world)
         {
+            // One script schema per type, reused across every entity in this describe pass.
+            auto schema_cache = std::unordered_map<uint64, tbx::Json>();
             for (const auto& entity : world->get_all())
             {
                 // The editor needs every field plus reflection metadata, so serialize with both
@@ -68,6 +125,7 @@ namespace tbx::studio_bridge
                     // Globalness is World-level state (not on the entity/registry), so the describe
                     // layer tags it for the editor's Globals section.
                     entity_json["is_global"] = world->is_global(entity.get_id());
+                    enrich_script_overrides(entity_json, schema_cache);
                     entities.push_back(std::move(entity_json));
                 }
             }
@@ -98,6 +156,103 @@ namespace tbx::studio_bridge
         return component_types;
     }
 
+    tbx::Json WorldRpc::describe_script_schema(uint64 script_id) const
+    {
+        if (script_id == 0U)
+            return tbx::Json::object();
+
+        auto asset_manager = _services.asset_manager.lock();
+        if (!asset_manager)
+            return tbx::Json::object();
+
+        // The override's "script" value is just the asset id (the only serialized part of the handle);
+        // an id-only handle is what the scripting backend itself loads from, so it resolves the asset.
+        auto asset = asset_manager->load(tbx::Handle(tbx::Uuid(script_id)));
+        if (!asset)
+            return tbx::Json::object();
+
+        // typeid on the loaded prototype identifies the concrete script type; its registration carries
+        // the module-correct describe that emits attributes (including handle asset-type filters).
+        const auto& prototype = *asset;
+        const auto registration =
+            tbx::get_asset_type_registration(std::type_index(typeid(prototype)));
+        if (!registration || !registration->is_script || !registration->describe)
+            return tbx::Json::object();
+
+        auto schema = tbx::Json::parse(registration->describe(true), nullptr, false);
+        return schema.is_object() ? std::move(schema) : tbx::Json::object();
+    }
+
+    void WorldRpc::enrich_script_overrides(
+        tbx::Json& entity_json,
+        std::unordered_map<uint64, tbx::Json>& schema_cache) const
+    {
+        const auto components_iterator = entity_json.find("components");
+        if (components_iterator == entity_json.end() || !components_iterator->is_object())
+            return;
+
+        const auto container_iterator = components_iterator->find("script_container");
+        if (container_iterator == components_iterator->end() || !container_iterator->is_object())
+            return;
+
+        const auto scripts_iterator = container_iterator->find("scripts");
+        if (scripts_iterator == container_iterator->end())
+            return;
+
+        auto* bindings = describe_field_value(*scripts_iterator);
+        if (bindings == nullptr || !bindings->is_array())
+            return;
+
+        for (auto& binding : *bindings)
+        {
+            if (!binding.is_object())
+                continue;
+
+            const auto script_iterator = binding.find("script");
+            const auto overrides_iterator = binding.find("overrides");
+            if (script_iterator == binding.end() || overrides_iterator == binding.end())
+                continue;
+
+            const auto* script_value = describe_field_value(*script_iterator);
+            auto* overrides = describe_field_value(*overrides_iterator);
+            if (script_value == nullptr || !script_value->is_number_unsigned()
+                || overrides == nullptr || !overrides->is_object() || overrides->empty())
+                continue;
+
+            const auto script_id = script_value->get<uint64>();
+            auto cached = schema_cache.find(script_id);
+            if (cached == schema_cache.end())
+                cached = schema_cache.emplace(script_id, describe_script_schema(script_id)).first;
+
+            const auto& schema = cached->second;
+            if (!schema.is_object() || schema.empty())
+                continue;
+
+            // Fold each override's asset-type filter in from the script's schema, so an overridden
+            // handle picks from the same restricted asset list the script's own field would. The
+            // override stays the lean { type, value } wrapper the editor already reads choices from, so
+            // nothing else about the override changes.
+            for (auto& [field_name, override_field] : overrides->items())
+            {
+                if (!override_field.is_object())
+                    continue;
+
+                const auto field_iterator = schema.find(field_name);
+                if (field_iterator == schema.end())
+                    continue;
+
+                // Restore the field's declared type token onto the lean override. A persisted override only
+                // carries the structural token of the serialized id (e.g. "uuid"), so a reference field
+                // (tbx::Entity / tbx::Handle) would otherwise render as a bare number instead of its picker.
+                if (const auto* type = describe_field_type(*field_iterator))
+                    override_field["type"] = *type;
+
+                if (const auto* choices = describe_field_choices(*field_iterator))
+                    override_field["choices"] = *choices;
+            }
+        }
+    }
+
     Result WorldRpc::describe_entity(const tbx::Json& params, tbx::Json& out_reply) const
     {
         // Reuses the reflect entity resolver (reads/validates entityId against the active world).
@@ -116,6 +271,9 @@ namespace tbx::studio_bridge
 
         if (auto world = _services.active_world())
             entity_json["is_global"] = world->is_global(entity.get_id());
+
+        auto schema_cache = std::unordered_map<uint64, tbx::Json>();
+        enrich_script_overrides(entity_json, schema_cache);
 
         out_reply["entity"] = std::move(entity_json);
         out_reply["component_types"] = component_type_icons();

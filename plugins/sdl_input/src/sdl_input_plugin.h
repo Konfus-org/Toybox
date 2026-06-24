@@ -14,7 +14,7 @@ namespace sdl_input
     /// @details
     /// Ownership: Owns initialization state for the SDL gamepad subsystem.
     /// Thread Safety: Not thread-safe; expected to run on the main thread.
-    [[tbx::plugin(
+    [[tbx::register_plugin(
         name = "SdlInput",
         version = "1.0.0",
         category = tbx::PluginCategory::INPUT)]];
