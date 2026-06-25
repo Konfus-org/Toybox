@@ -2,6 +2,7 @@
 #include "bridge_geometry.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/vectors.h"
+#include <algorithm>
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -51,8 +52,61 @@ namespace tbx::studio_bridge
                 {
                     // Game views feed the game input system, not a fly camera (handled in
                     // update_game_input, which owns consuming their deltas), so leave them untouched.
-                    if (view->is_game)
+                    if (view->kind == ViewKind::Game)
                         continue;
+
+                    // Asset-preview views orbit a target instead of flying free: drag rotates around
+                    // the asset, the wheel zooms in/out, and the camera always looks inward. Its world
+                    // is the isolated preview world, so the active-world checks below don't apply.
+                    if (view->kind == ViewKind::AssetPreview)
+                    {
+                        auto camera = registry.get(view->camera_id);
+                        if (!camera.get_id().is_valid() || !camera.has_component<tbx::Transform>())
+                            continue;
+                        auto& orbit_transform = camera.get_component<tbx::Transform>();
+
+                        if (view->focused)
+                        {
+                            constexpr uint32 LEFT_BUTTON = 0x1U;
+                            constexpr uint32 RIGHT_BUTTON = 0x2U;
+                            constexpr float ORBIT_SENSITIVITY = 0.01F; // radians per pixel
+                            constexpr float ZOOM_SENSITIVITY = 0.12F;  // per wheel notch
+                            constexpr float MIN_PITCH = -1.5F;         // just short of straight down
+                            constexpr float MAX_PITCH = 1.5F;          // just short of straight up
+                            constexpr float MIN_DISTANCE = 0.1F;
+
+                            if ((view->buttons & (LEFT_BUTTON | RIGHT_BUTTON)) != 0U)
+                            {
+                                view->orbit_yaw -= view->accumulated_mouse_dx * ORBIT_SENSITIVITY;
+                                view->orbit_pitch += view->accumulated_mouse_dy * ORBIT_SENSITIVITY;
+                                view->orbit_pitch =
+                                    std::clamp(view->orbit_pitch, MIN_PITCH, MAX_PITCH);
+                            }
+                            if (view->accumulated_wheel != 0.0F)
+                                view->orbit_distance = std::max(
+                                    MIN_DISTANCE,
+                                    view->orbit_distance
+                                        * std::exp(-view->accumulated_wheel * ZOOM_SENSITIVITY));
+                        }
+
+                        const auto cos_pitch = std::cos(view->orbit_pitch);
+                        const auto offset = glm::vec3(
+                            cos_pitch * std::sin(view->orbit_yaw),
+                            std::sin(view->orbit_pitch),
+                            cos_pitch * std::cos(view->orbit_yaw));
+                        const auto target = glm::vec3(
+                            view->orbit_target.x, view->orbit_target.y, view->orbit_target.z);
+                        const auto position = target + (offset * view->orbit_distance);
+                        orbit_transform.position = tbx::Vec3(position.x, position.y, position.z);
+                        const auto heading = target - position;
+                        if (glm::length(heading) > 0.001F)
+                            orbit_transform.rotation = look_rotation(heading, world_up);
+
+                        view->accumulated_mouse_dx = 0.0F;
+                        view->accumulated_mouse_dy = 0.0F;
+                        view->accumulated_wheel = 0.0F;
+                        continue;
+                    }
 
                     if (!view->camera_id.is_valid() || !world)
                     {
@@ -176,7 +230,7 @@ namespace tbx::studio_bridge
             {
                 for (auto& view : views)
                 {
-                    if (!view->is_game)
+                    if (view->kind != ViewKind::Game)
                         continue;
 
                     // The first focused game view drives the game while playing; build its input

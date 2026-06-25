@@ -137,7 +137,8 @@ namespace tbx
         const GraphicsSettings& settings,
         const CameraView& camera_view,
         const RenderTarget& output_target,
-        const std::vector<PostProcessingEffect>& extra_post_effects)
+        const std::vector<PostProcessingEffect>& extra_post_effects,
+        const std::shared_ptr<World>& world_override)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -169,7 +170,7 @@ namespace tbx
                 // thread) — including the caller's extra post effects, copied so their source can change.
                 auto future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
-                    [this, delta_time, settings, camera_view, resolved_target, gizmos, extra_post_effects]()
+                    [this, delta_time, settings, camera_view, resolved_target, gizmos, extra_post_effects, world_override]()
                     {
                         render_frame(
                             delta_time,
@@ -177,7 +178,8 @@ namespace tbx
                             camera_view,
                             resolved_target,
                             gizmos,
-                            extra_post_effects);
+                            extra_post_effects,
+                            world_override);
                     });
 
                 // Each target owns its own lane so its completion is tracked independently; all
@@ -286,7 +288,8 @@ namespace tbx
         const CameraView& camera_view,
         const RenderTarget& output_target,
         std::shared_ptr<Gizmos> gizmos,
-        const std::vector<PostProcessingEffect>& extra_post_effects)
+        const std::vector<PostProcessingEffect>& extra_post_effects,
+        std::shared_ptr<World> world_override)
     {
         const auto backend = _backend.lock();
         if (!backend)
@@ -308,7 +311,8 @@ namespace tbx
         }
 
         const auto result = _pipeline.execute(
-            settings, delta_time, camera_view, output_target, gizmos.get(), extra_post_effects);
+            settings, delta_time, camera_view, output_target, gizmos.get(), extra_post_effects,
+            world_override.get());
         if (!result)
         {
             TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());

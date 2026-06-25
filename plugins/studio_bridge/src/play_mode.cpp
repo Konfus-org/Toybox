@@ -28,6 +28,10 @@ namespace tbx::studio_bridge
         {
             _set_paused(true);
             restore_world();
+            // The world data is back to its pre-play snapshot, but the simulation systems still hold
+            // state built from the played world (physics bodies/velocities, an in-flight step, live
+            // script instances). Reset them too so leaving play is a full reset, not just a data swap.
+            reset_simulation();
         }
 
         _is_playing = playing;
@@ -83,5 +87,18 @@ namespace tbx::studio_bridge
 
         _runtime_snapshot.clear();
         _global_snapshot.clear();
+    }
+
+    void PlayMode::reset_simulation()
+    {
+        // Drop every physics body so the next play rebuilds them from the restored transforms (and
+        // discard the in-flight step, whose result is from the played world).
+        if (auto physics = _services.physics.lock())
+            physics->reset();
+
+        // Destroy every live script instance so the next play re-runs on_start from the restored
+        // bindings rather than resuming the previous session's per-script state.
+        if (auto scripts = _services.script_system.lock())
+            scripts->reset();
     }
 }

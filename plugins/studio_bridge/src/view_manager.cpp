@@ -1,6 +1,8 @@
 #include "view_manager.h"
+#include "asset_preview.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/handle.h"
@@ -48,7 +50,7 @@ namespace tbx::studio_bridge
         return entity.get_component<tbx::PostProcessing>().effects;
     }
 
-    Result ViewManager::start_view(bool is_game, std::string& out_name)
+    Result ViewManager::start_view(ViewKind kind, uint32 asset_id, std::string& out_name)
     {
         auto rendering = _services.rendering.lock();
         if (!rendering)
@@ -56,9 +58,28 @@ namespace tbx::studio_bridge
         if (_services.graphics_settings == nullptr)
             return Result(false, "Graphics settings are unavailable.");
 
-        auto world = _services.active_world();
-        if (!world)
-            return Result(false, "No active world to view.");
+        // An AssetPreview view builds and owns an isolated world holding just the previewed asset;
+        // Editor/Game views draw the active world.
+        std::shared_ptr<tbx::World> preview_world;
+        auto framing = AssetPreviewFraming();
+        if (kind == ViewKind::AssetPreview)
+        {
+            auto assets = _services.asset_manager.lock();
+            if (!assets)
+                return Result(false, "Asset manager is unavailable.");
+            preview_world = std::make_shared<tbx::World>();
+            // Empty option/skybox use the type defaults (sphere/plane/metal presentation, day sky);
+            // the editor can change them later via set_preview_option / set_preview_skybox.
+            if (!build_asset_preview(
+                    *assets, asset_id, std::string(), std::string(), *preview_world, framing))
+                return Result(false, "Asset cannot be previewed.");
+        }
+
+        // The camera is created against (and an asset preview renders) the preview world when present,
+        // otherwise the active world.
+        auto camera_world = preview_world ? preview_world : _services.active_world();
+        if (!camera_world)
+            return Result(false, "No world to view.");
 
         // A fresh index per view keeps every render texture (and its shared surface) distinct, so
         // the editor can stream and tear down each viewport independently.
@@ -66,12 +87,19 @@ namespace tbx::studio_bridge
         const auto port = rpc_port();
         auto view = std::make_unique<ViewStream>();
         view->name = std::format("ToyboxStudioFrame_{}_{}", port, index);
-        view->is_game = is_game;
+        view->kind = kind;
+        view->preview_world = preview_world;
+        view->preview_asset_id = asset_id;
 
         view->texture = tbx::RenderTexture(std::format("StudioView_{}_{}", port, index));
         // Show the game at its real size: the view renders at the configured graphics resolution.
         view->texture.size = _services.graphics_settings->resolution;
-        view->camera_id = create_view_camera(*world, view->texture, is_game);
+        view->camera_id = create_view_camera(*camera_world, view->texture, kind);
+        if (kind == ViewKind::AssetPreview)
+        {
+            view->orbit_target = framing.target;
+            view->orbit_distance = framing.distance;
+        }
 
         out_name = view->name;
         {
@@ -80,10 +108,10 @@ namespace tbx::studio_bridge
         }
 
         refresh_present_callback();
-        TBX_TRACE_INFO(
-            "StudioBridge: {} view started ('{}').",
-            is_game ? "game" : "editor",
-            out_name);
+        const auto* kind_name = kind == ViewKind::Game            ? "game"
+                                : kind == ViewKind::AssetPreview  ? "asset preview"
+                                                                  : "editor";
+        TBX_TRACE_INFO("StudioBridge: {} view started ('{}').", kind_name, out_name);
         return Result::OK;
     }
 
@@ -252,11 +280,15 @@ namespace tbx::studio_bridge
     tbx::Uuid ViewManager::create_view_camera(
         tbx::World& world,
         const tbx::RenderTexture& texture,
-        bool is_game)
+        ViewKind kind)
     {
-        // Both editor and game cameras start aligned with the world's own (game) camera, so a new
-        // view always opens somewhere useful. Editor cameras then move freely; game cameras get
-        // re-synced to the game camera every frame in sync_game_views().
+        const bool is_game = kind == ViewKind::Game;
+
+        // Editor and game cameras start aligned with the world's own (game) camera, so a new view
+        // always opens somewhere useful. Editor cameras then move freely; game cameras get re-synced
+        // to the game camera every frame in sync_game_views(). An asset-preview world has no camera,
+        // so its initial transform stays at the origin and is overwritten by the orbit camera on the
+        // first input update.
         auto initial_transform = tbx::Transform();
         auto game_camera = find_first_game_camera(world);
         if (game_camera.get_id().is_valid() && game_camera.has_component<tbx::Transform>())
@@ -272,8 +304,10 @@ namespace tbx::studio_bridge
         // View cameras are tooling owned by the studio bridge, so they are created in the plugin's
         // own registry — never in the game world — and so never appear in the world or the play
         // snapshot.
-        auto camera_entity =
-            tbx::Entity(is_game ? "GameViewCamera" : "EditorCamera", _view_registry);
+        const auto* camera_name = kind == ViewKind::Game            ? "GameViewCamera"
+                                  : kind == ViewKind::AssetPreview  ? "AssetPreviewCamera"
+                                                                    : "EditorCamera";
+        auto camera_entity = tbx::Entity(camera_name, _view_registry);
         camera_entity.add_component<tbx::Transform>(initial_transform);
 
         auto camera = tbx::Camera();
@@ -311,7 +345,8 @@ namespace tbx::studio_bridge
         auto overlay_camera = tbx::CameraView();
         for (const auto& view : _views)
         {
-            if (view->is_game || !view->camera_id.is_valid())
+            // Only editor views carry the transform gizmo; game and asset-preview views don't.
+            if (view->kind != ViewKind::Editor || !view->camera_id.is_valid())
                 continue;
             auto camera_entity = _view_registry.get(view->camera_id);
             if (!camera_entity.get_id().is_valid())
@@ -357,12 +392,17 @@ namespace tbx::studio_bridge
             if (!camera_view.is_valid)
                 continue;
 
+            // Game views show exactly what the player sees (no editor overlay); editor and asset-
+            // preview views get the selection-outline overlay. An asset-preview view renders its own
+            // isolated world (preview_world); editor/game views pass null and draw the active world.
             rendering->render(
                 dt,
                 *_services.graphics_settings,
                 camera_view,
                 camera_view.camera.get_render_target(),
-                view->is_game ? std::vector<tbx::PostProcessingEffect>() : overlay_effects);
+                view->kind == ViewKind::Game ? std::vector<tbx::PostProcessingEffect>()
+                                             : overlay_effects,
+                view->preview_world);
         }
     }
 
@@ -374,7 +414,7 @@ namespace tbx::studio_bridge
             _views.end(),
             [](const std::unique_ptr<ViewStream>& view)
             {
-                return view->is_game;
+                return view->kind == ViewKind::Game;
             });
         if (!has_game_view)
             return;
@@ -391,7 +431,7 @@ namespace tbx::studio_bridge
         const auto has_camera = game_camera.has_component<tbx::Camera>();
         for (auto& view : _views)
         {
-            if (!view->is_game || !view->camera_id.is_valid())
+            if (view->kind != ViewKind::Game || !view->camera_id.is_valid())
                 continue;
 
             auto mirror = _view_registry.get(view->camera_id);
@@ -460,6 +500,89 @@ namespace tbx::studio_bridge
         }
     }
 
+    Result ViewManager::set_preview_option(const std::string& view_name, const std::string& option)
+    {
+        {
+            auto lock = std::lock_guard(_views_mutex);
+            for (auto& view : _views)
+            {
+                if (view->name != view_name)
+                    continue;
+                if (view->kind != ViewKind::AssetPreview)
+                    return Result(false, "View is not an asset preview.");
+                view->preview_option = option;
+                break;
+            }
+        }
+        return rebuild_preview(view_name);
+    }
+
+    Result ViewManager::set_preview_skybox(const std::string& view_name, const std::string& skybox)
+    {
+        {
+            auto lock = std::lock_guard(_views_mutex);
+            for (auto& view : _views)
+            {
+                if (view->name != view_name)
+                    continue;
+                if (view->kind != ViewKind::AssetPreview)
+                    return Result(false, "View is not an asset preview.");
+                view->preview_skybox = skybox;
+                break;
+            }
+        }
+        return rebuild_preview(view_name);
+    }
+
+    Result ViewManager::rebuild_preview(const std::string& view_name)
+    {
+        auto assets = _services.asset_manager.lock();
+        if (!assets)
+            return Result(false, "Asset manager is unavailable.");
+
+        // Snapshot the view's asset id + current options under the lock, then build the new world
+        // OUTSIDE it so the (cached) asset load can't stall the render lane, which also takes this
+        // mutex each frame.
+        auto asset_id = uint32(0);
+        auto option = std::string();
+        auto skybox = std::string();
+        auto found = false;
+        {
+            auto lock = std::lock_guard(_views_mutex);
+            for (const auto& view : _views)
+            {
+                if (view->name != view_name || view->kind != ViewKind::AssetPreview)
+                    continue;
+                asset_id = view->preview_asset_id;
+                option = view->preview_option;
+                skybox = view->preview_skybox;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return Result(false, "Unknown view.");
+
+        auto new_world = std::make_shared<tbx::World>();
+        auto framing = AssetPreviewFraming();
+        if (!build_asset_preview(*assets, asset_id, option, skybox, *new_world, framing))
+            return Result(false, "Asset cannot be previewed with that option.");
+
+        // Swap the world in under the lock; an in-flight frame keeps the old world alive via its
+        // captured shared_ptr, and the orbit camera (in the view registry) is left untouched so the
+        // view doesn't jump. Re-find the view in case it was stopped while we built.
+        auto lock = std::lock_guard(_views_mutex);
+        for (auto& view : _views)
+        {
+            if (view->name == view_name && view->kind == ViewKind::AssetPreview)
+            {
+                view->preview_world = std::move(new_world);
+                return Result::OK;
+            }
+        }
+        return Result(false, "View is no longer available.");
+    }
+
     Result ViewManager::resolve_view_camera(const std::string& view_name, tbx::CameraView& out_camera)
     {
         // Snapshot the view's camera id under the lock, then resolve it outside.
@@ -484,5 +607,35 @@ namespace tbx::studio_bridge
             return Result(false, "View camera is unavailable.");
 
         return Result::OK;
+    }
+
+    std::shared_ptr<tbx::World> ViewManager::resolve_view_world(const std::string& view_name) const
+    {
+        {
+            auto lock = std::lock_guard(_views_mutex);
+            for (const auto& view : _views)
+            {
+                if (view->name != view_name)
+                    continue;
+                // An asset-preview view draws and picks against its isolated world; every other view
+                // uses the active world.
+                if (view->kind == ViewKind::AssetPreview)
+                    return view->preview_world;
+                break;
+            }
+        }
+        return _services.active_world();
+    }
+
+    std::shared_ptr<tbx::World> ViewManager::find_preview_world_with(const tbx::Uuid& id) const
+    {
+        auto lock = std::lock_guard(_views_mutex);
+        for (const auto& view : _views)
+        {
+            if (view->kind == ViewKind::AssetPreview && view->preview_world
+                && view->preview_world->has(id))
+                return view->preview_world;
+        }
+        return nullptr;
     }
 }

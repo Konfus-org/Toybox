@@ -75,6 +75,16 @@ namespace tbx
                 startup_asset_directories.push_back(settings_parent);
         }
 
+        // Extra asset roots passed explicitly via --register-assets=<path> (repeatable). The editor
+        // points the engine at its bundled asset-viewer content this way, so previews can load a
+        // shared sky/world regardless of which project is open.
+        for (const auto& directory : command_list.get_list<std::string>("register-assets"))
+        {
+            if (!directory.empty())
+                startup_asset_directories.push_back(
+                    std::filesystem::path(directory).lexically_normal());
+        }
+
         build_core_services(root_directory, std::move(startup_asset_directories));
 
         // The plugin manager must exist before plugins are loaded below, but its plugins attach
@@ -254,7 +264,7 @@ namespace tbx
 
         const auto requested_plugins = resolve_plugins(
             get_settings().plugins,
-            command_list.get_list<std::string>("load-plugins"));
+            command_list.get_list<std::string>("inject-plugins"));
         const auto plugin_root_directory = file_ops->get_working_directory();
 
         // Headless apps are pure simulation hosts: interaction and visualization plugins are
@@ -721,7 +731,7 @@ namespace tbx
         const std::vector<std::string>& command_plugins)
     {
         // Command-line plugins are additive on top of the project's own list: a host (e.g. Studio)
-        // injects extra plugins like the studio bridge via --load-plugins without restating the
+        // injects extra plugins like the studio bridge via --inject-plugins without restating the
         // project's plugins, and standalone runs that pass nothing keep exactly the settings list.
         auto resolved = settings_plugins;
         for (const auto& plugin : command_plugins)

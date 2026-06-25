@@ -61,8 +61,11 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Renders the world from the given camera view into the given target, which
-        /// may be a window or an in-memory render texture.
+        /// Purpose: Renders a world from the given camera view into the given target, which
+        /// may be a window or an in-memory render texture. Renders the active world unless
+        /// world_override is given (e.g. the editor's isolated asset-preview world), in which case
+        /// the override is rendered instead. The caller must keep the override alive across the
+        /// dispatch; the render lambda captures the shared_ptr to guarantee that.
         /// @details
         /// Thread Safety: Call from the message dispatch thread while no frame is pending.
         void render(
@@ -70,7 +73,8 @@ namespace tbx
             const GraphicsSettings& settings,
             const CameraView& camera_view,
             const RenderTarget& output_target,
-            const std::vector<PostProcessingEffect>& extra_post_effects = {});
+            const std::vector<PostProcessingEffect>& extra_post_effects = {},
+            const std::shared_ptr<World>& world_override = {});
 
         /// @brief
         /// Purpose: Registers a callback invoked on the render lane right before each present,
@@ -110,7 +114,8 @@ namespace tbx
             const CameraView& camera_view,
             const RenderTarget& output_target,
             std::shared_ptr<Gizmos> gizmos,
-            const std::vector<PostProcessingEffect>& extra_post_effects);
+            const std::vector<PostProcessingEffect>& extra_post_effects,
+            std::shared_ptr<World> world_override);
         void wait_for_render_frame() noexcept;
         void evict_stale_lanes();
 

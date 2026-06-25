@@ -54,6 +54,12 @@ namespace tbx
         RaycastResult raycast(const RaycastQuery& raycast_query) const;
         void update(const DeltaTime& dt, const PhysicsSettings& settings);
 
+        /// @brief Abandons the in-flight simulation step and destroys every backend body, so the
+        /// simulation starts fresh from the live entity transforms on the next update. Used when the
+        /// world is wholesale replaced (e.g. an editor leaving play mode restores its pre-play
+        /// snapshot) so no body position, velocity, or uncommitted step carries across the reset.
+        void reset();
+
       private:
         void clear_resources();
         static PhysicsBackendSettings get_backend_settings(const PhysicsSettings& settings);

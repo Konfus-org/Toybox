@@ -2,6 +2,7 @@
 #include "bridge_geometry.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/renderer.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/ray.h"
@@ -28,10 +29,12 @@ namespace tbx::studio_bridge
             !resolved)
             return resolved;
 
-        auto world = _services.active_world();
+        // Pick against the view's own world: an asset-preview view's isolated preview world, otherwise
+        // the active world.
+        auto world = _views.resolve_view_world(params.value("view", std::string()));
         auto assets = _services.asset_manager.lock();
         if (!world || !assets)
-            return Result(false, "No active world to pick in.");
+            return Result(false, "No world to pick in.");
 
         // Unproject the normalized click into a world-space ray (correct for both perspective and
         // orthographic cameras); shared with the gizmo picker so the two stay in lock-step.
@@ -45,10 +48,10 @@ namespace tbx::studio_bridge
         // rotation/scale are exact.
         auto best_distance = std::numeric_limits<float>::max();
         auto hit = tbx::Entity();
-        for (auto entity : world->get_with<tbx::StaticMesh, tbx::Transform>())
+        for (auto entity : world->get_with<tbx::Renderer, tbx::Transform>())
         {
             const auto model =
-                assets->load<tbx::Model>(entity.get_component<tbx::StaticMesh>().handle);
+                assets->load<tbx::Model>(entity.get_component<tbx::Renderer>().model);
             if (!model || model->meshes.empty())
                 continue;
 
@@ -96,10 +99,10 @@ namespace tbx::studio_bridge
             !resolved)
             return resolved;
 
-        auto world = _services.active_world();
+        auto world = _views.resolve_view_world(params.value("view", std::string()));
         auto assets = _services.asset_manager.lock();
         if (!world || !assets)
-            return Result(false, "No active world to pick in.");
+            return Result(false, "No world to pick in.");
 
         // Normalized marquee rect, top-left origin (the editor's coordinate convention).
         const auto min_u = std::min(params.value("u0", 0.0F), params.value("u1", 0.0F));
@@ -115,7 +118,7 @@ namespace tbx::studio_bridge
         // inside the marquee (and is in front of the camera). Centre-inside is predictable and
         // avoids the partial off-screen edge cases a full-bounds test would introduce.
         auto ids = tbx::Json::array();
-        for (auto entity : world->get_with<tbx::StaticMesh, tbx::Transform>())
+        for (auto entity : world->get_with<tbx::Renderer, tbx::Transform>())
         {
             auto minimum = glm::vec3(std::numeric_limits<float>::max());
             auto maximum = glm::vec3(std::numeric_limits<float>::lowest());

@@ -231,7 +231,8 @@ namespace tbx
         const CameraView& camera_view,
         const RenderTarget& output_target,
         Gizmos* gizmos,
-        const std::vector<PostProcessingEffect>& extra_post_effects)
+        const std::vector<PostProcessingEffect>& extra_post_effects,
+        World* world_override)
     {
         const auto backend_service = _backend.lock();
         if (!backend_service)
@@ -281,14 +282,30 @@ namespace tbx
         _resources->cache.update(delta_time);
 
         const auto asset_manager = _asset_manager.lock();
-        const auto world_manager = _world_manager.lock();
-        if (!asset_manager || !world_manager || !world_manager->has_active_world())
+        if (!asset_manager)
         {
             clear_swapchain(backend, Color::BLACK, output_size);
             return finish_frame();
         }
-        const auto world = world_manager->get_active_world().lock();
-        if (!world)
+
+        // An explicit override world (e.g. the editor's isolated asset-preview view) renders in
+        // place of the active world; otherwise the active world from the world manager is used as
+        // before. active_world keeps the active world alive for the frame; the override's lifetime
+        // is owned by the caller, held alive across the render dispatch.
+        auto active_world = std::shared_ptr<World>();
+        World* world = world_override;
+        if (world == nullptr)
+        {
+            const auto world_manager = _world_manager.lock();
+            if (!world_manager || !world_manager->has_active_world())
+            {
+                clear_swapchain(backend, Color::BLACK, output_size);
+                return finish_frame();
+            }
+            active_world = world_manager->get_active_world().lock();
+            world = active_world.get();
+        }
+        if (world == nullptr)
             return finish_frame();
 
         // Tags whose entities feed the tag mask this frame (from the active tag-gated post effects,

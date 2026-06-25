@@ -1,6 +1,6 @@
 #include "tbx/types/assets/material.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/types/components/material_instance.h"
+#include "tbx/types/assets/material_instance.h"
 
 namespace tbx
 {
@@ -289,21 +289,6 @@ namespace tbx
         overrides.parameters = std::move(parameter_overrides.values);
     }
 
-    bool MaterialInstance::is_dirty() const
-    {
-        return _is_dirty;
-    }
-
-    void MaterialInstance::clear_dirty()
-    {
-        _is_dirty = false;
-    }
-
-    void MaterialInstance::mark_dirty()
-    {
-        _is_dirty = true;
-    }
-
     const Handle& MaterialInstance::get_handle() const
     {
         return material;
@@ -315,7 +300,6 @@ namespace tbx
             existing->get().data = std::move(value);
         else
             overrides.parameters.emplace_back(name, std::move(value));
-        mark_dirty();
     }
 
     void MaterialInstance::set_texture(const std::string& name, Handle texture)
@@ -324,7 +308,6 @@ namespace tbx
             existing->get().texture = std::move(texture);
         else
             overrides.textures.emplace_back(name, std::move(texture));
-        mark_dirty();
     }
 
     void MaterialInstance::set_bool(const std::string& name, const bool value)

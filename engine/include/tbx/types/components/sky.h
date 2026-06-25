@@ -1,6 +1,6 @@
 #pragma once
+#include "tbx/types/assets/material_instance.h"
 #include "tbx/types/components/component.h"
-#include "tbx/types/components/material_instance.h"
 #include "tbx/types/components/sky.generated.h"
 
 namespace tbx

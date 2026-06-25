@@ -27,7 +27,7 @@ namespace tbx::studio_bridge
               {
                   post_message<tbx::SetApplicationPausedRequest>(paused);
               })
-        , _world_rpc(_services)
+        , _world_rpc(_services, _views)
         , _log(_services)
     {
     }
@@ -111,6 +111,8 @@ namespace tbx::studio_bridge
             _services.input_manager = services.try_get_service<tbx::InputManager>();
             _services.gizmos = services.try_get_service<tbx::Gizmos>();
             _services.scripting_registry = services.try_get_service<tbx::ScriptingRegistry>();
+            _services.physics = services.try_get_service<tbx::Physics>();
+            _services.script_system = services.try_get_service<tbx::ScriptSystem>();
         }
     }
 
@@ -196,6 +198,13 @@ namespace tbx::studio_bridge
                 r.respond(_world_rpc.save_world());
             });
         add(
+            "world.open",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // Opens a world/chunk asset as the active editing world (replacing the current one).
+                r.respond(_world_rpc.open_world(params));
+            });
+        add(
             "asset.save",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
@@ -226,6 +235,14 @@ namespace tbx::studio_bridge
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
                 r.result(_world_rpc.list_component_types());
+            });
+        add(
+            "editor.modelSlots",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                auto reply = tbx::Json::object();
+                const auto result = _world_rpc.model_slots(params, reply);
+                r.respond(result, reply);
             });
         add(
             "entity.setComponent",
@@ -342,9 +359,15 @@ namespace tbx::studio_bridge
             "view.start",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                const auto is_game = params.value("kind", std::string()) == "game";
+                const auto kind_token = params.value("kind", std::string());
+                const auto kind = kind_token == "game"  ? ViewKind::Game
+                                  : kind_token == "asset" ? ViewKind::AssetPreview
+                                                          : ViewKind::Editor;
+                // Only an asset-preview view uses the asset id; it selects the asset loaded into the
+                // view's isolated preview world.
+                const auto asset_id = params.value("assetId", 0U);
                 auto view_name = std::string();
-                auto view_result = _views.start_view(is_game, view_name);
+                auto view_result = _views.start_view(kind, asset_id, view_name);
                 if (view_result)
                 {
                     auto view_info = tbx::Json::object();
@@ -375,6 +398,26 @@ namespace tbx::studio_bridge
                 // High-frequency notification from the focused editor viewport; no response.
                 _views.apply_view_input(params);
             });
+        add(
+            "view.setPreviewOption",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // Rebuilds an asset-preview view with a different mesh/material option (the editor's
+                // preview picker).
+                const auto name = params.value("view", std::string());
+                const auto option = params.value("option", std::string());
+                r.respond(_views.set_preview_option(name, option));
+            });
+        add(
+            "view.setPreviewSkybox",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // Rebuilds an asset-preview view with a different background sky (the editor's skybox
+                // picker).
+                const auto name = params.value("view", std::string());
+                const auto skybox = params.value("skybox", std::string());
+                r.respond(_views.set_preview_skybox(name, skybox));
+            });
 
         // --- Picking + selection (PickService / Selection) ---
         add(
@@ -400,14 +443,21 @@ namespace tbx::studio_bridge
                 // Notification from the editor whenever the selection changes; no response. The
                 // selection is shown as an outline by the engine's tag-gated selection-outline post
                 // effect, so mark the newly selected entities with the runtime SELECTION_TAG and clear
-                // it from the previously selected ones (a no-op on stale/absent ids).
-                const auto world = _services.active_world();
-                if (world)
-                    for (const auto& id : _selection.ids())
+                // it from the previously selected ones (a no-op on stale/absent ids). An id may live in
+                // the active world or in an asset-preview view's world, so resolve each id's world.
+                const auto world_of = [this](const tbx::Uuid& id) -> std::shared_ptr<tbx::World>
+                {
+                    if (auto world = _services.active_world(); world && world->has(id))
+                        return world;
+                    return _views.find_preview_world_with(id);
+                };
+
+                for (const auto& id : _selection.ids())
+                    if (auto world = world_of(id))
                         world->get(id).remove_tag(SELECTION_TAG);
                 _selection.set_from_params(params);
-                if (world)
-                    for (const auto& id : _selection.ids())
+                for (const auto& id : _selection.ids())
+                    if (auto world = world_of(id))
                         world->get(id).add_tag(SELECTION_TAG, /*serialized*/ false);
             });
 

@@ -1,10 +1,15 @@
 #pragma once
+#include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/material.h"
-#include "tbx/types/components/component.h"
-#include "tbx/types/components/material_instance.generated.h"
+#include "tbx/types/assets/material_instance.generated.h"
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: Stores the per-instance parameter and texture overrides layered onto a base material.
+    /// @details
+    /// Ownership: Owns all override bindings by value.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
     struct TBX_API MaterialOverrides
     {
@@ -14,7 +19,7 @@ namespace tbx
 
         // The has_*_override flags are derived, not stored: an override is "present" exactly when its
         // list is non-empty. Computed on demand so they never need serializing or keeping in sync with
-        // edits. Render config is not overridable per-instance — it lives on the Material asset and is
+        // edits. Render config is not overridable per-instance — it lives on the base Material and is
         // shared by every instance of that material — so there is no config override here.
         bool has_texture_override() const
         {
@@ -28,11 +33,16 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores a material asset handle plus flat runtime override data.
+    /// Purpose: An asset that layers parameter/texture overrides onto a parent material, Unreal-style.
     /// @details
-    /// Ownership: Owns the material handle and all override bindings by value.
+    /// A MaterialInstance references a base Material (its `material` handle) and overrides only its
+    /// shader parameters and texture bindings; render config (depth/blend/cull/shadow) stays on the
+    /// base and is shared by every instance. Model material slots are filled with MaterialInstance
+    /// handles; an FBX import auto-creates one per source material (deduplicated by name).
+    /// Ownership: Owns the base handle and all override bindings by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
+    [[version(1U)]];
     [[hash(
         material.id,
         material.name,
@@ -41,7 +51,7 @@ namespace tbx
         overrides.has_texture_override(),
         overrides.textures)]];
     [[icon("Palette", Color::MAGENTA)]];
-    struct TBX_API MaterialInstance : Component
+    struct TBX_API MaterialInstance : Asset
     {
         MaterialInstance();
         explicit MaterialInstance(Handle handle);
@@ -50,10 +60,6 @@ namespace tbx
             Handle handle,
             MaterialParameterBindings parameter_overrides,
             MaterialTextureBindings texture_overrides = {});
-
-        bool is_dirty() const;
-        void clear_dirty();
-        void mark_dirty();
 
         const Handle& get_handle() const;
 
@@ -85,15 +91,21 @@ namespace tbx
         template <typename TValue>
         TValue get_parameter_or(const std::string& name, const TValue& fallback) const;
 
+        // The base material this instance derives from (a Material asset). Named the base in the
+        // editor; overrides layer on top of it.
         [[label("Base")]]
         [[asset("mat")]]
         Handle material = {};
 
         MaterialOverrides overrides = {};
-
-      private:
-        bool _is_dirty = true;
     };
+
+    struct MaterialInstanceLoadParameters
+    {
+        bool operator==(const MaterialInstanceLoadParameters& other) const = default;
+    };
+
+    MaterialInstanceLoadParameters load_parameters_of(const MaterialInstance&);
 }
 
-#include "tbx/types/components/material_instance.inl"
+#include "tbx/types/assets/material_instance.inl"

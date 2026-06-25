@@ -4,7 +4,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/graphics/shader_bindings.h"
 #include "tbx/types/assets/material.h"
-#include "tbx/types/components/material_instance.h"
+#include "tbx/types/assets/material_instance.h"
 #include <string>
 
 namespace tbx

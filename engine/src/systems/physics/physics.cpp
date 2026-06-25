@@ -8,59 +8,69 @@
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/collider.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/renderer.h"
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"
 
 namespace tbx
 {
+    // A solid collision shape of any kind.
+    static bool has_collider_shape(const Entity& entity)
+    {
+        return entity.has_component<BoxCollider>() || entity.has_component<SphereCollider>()
+               || entity.has_component<CapsuleCollider>() || entity.has_component<MeshCollider>();
+    }
+
+    // An overlap trigger of any shape.
+    static bool has_trigger_shape(const Entity& entity)
+    {
+        return entity.has_component<BoxTrigger>() || entity.has_component<SphereTrigger>()
+               || entity.has_component<CapsuleTrigger>() || entity.has_component<MeshTrigger>();
+    }
+
     static bool has_any_collider(const Entity& entity)
     {
-        return entity.has_component<SphereCollider>() || entity.has_component<CapsuleCollider>()
-               || entity.has_component<CubeCollider>() || entity.has_component<MeshCollider>();
+        return has_collider_shape(entity) || has_trigger_shape(entity);
     }
 
-    static const ColliderTrigger* try_get_trigger_collider(const Entity& entity)
+    // The shared Trigger behavior of whichever shaped trigger the entity carries, when any.
+    static const Trigger* try_get_trigger_collider(const Entity& entity)
     {
-        if (entity.has_component<SphereCollider>())
-            return &entity.get_component<SphereCollider>().trigger;
-
-        if (entity.has_component<CapsuleCollider>())
-            return &entity.get_component<CapsuleCollider>().trigger;
-
-        if (entity.has_component<CubeCollider>())
-            return &entity.get_component<CubeCollider>().trigger;
-
-        if (entity.has_component<MeshCollider>())
-            return &entity.get_component<MeshCollider>().trigger;
-
+        if (entity.has_component<BoxTrigger>())
+            return &entity.get_component<BoxTrigger>();
+        if (entity.has_component<SphereTrigger>())
+            return &entity.get_component<SphereTrigger>();
+        if (entity.has_component<CapsuleTrigger>())
+            return &entity.get_component<CapsuleTrigger>();
+        if (entity.has_component<MeshTrigger>())
+            return &entity.get_component<MeshTrigger>();
         return nullptr;
     }
 
-    static ColliderTrigger* try_get_trigger_collider(Entity& entity)
+    static Trigger* try_get_trigger_collider(Entity& entity)
     {
-        if (entity.has_component<SphereCollider>())
-            return &entity.get_component<SphereCollider>().trigger;
-
-        if (entity.has_component<CapsuleCollider>())
-            return &entity.get_component<CapsuleCollider>().trigger;
-
-        if (entity.has_component<CubeCollider>())
-            return &entity.get_component<CubeCollider>().trigger;
-
-        if (entity.has_component<MeshCollider>())
-            return &entity.get_component<MeshCollider>().trigger;
-
+        if (entity.has_component<BoxTrigger>())
+            return &entity.get_component<BoxTrigger>();
+        if (entity.has_component<SphereTrigger>())
+            return &entity.get_component<SphereTrigger>();
+        if (entity.has_component<CapsuleTrigger>())
+            return &entity.get_component<CapsuleTrigger>();
+        if (entity.has_component<MeshTrigger>())
+            return &entity.get_component<MeshTrigger>();
         return nullptr;
     }
 
+    // The backend body is a non-solid sensor when the entity has a trigger but no solid collider; an
+    // entity with both gets a solid body that still reports overlaps.
     static bool is_trigger_only_collider(const Entity& entity)
     {
-        const ColliderTrigger* trigger = try_get_trigger_collider(entity);
-        if (trigger == nullptr)
-            return false;
+        return has_trigger_shape(entity) && !has_collider_shape(entity);
+    }
 
-        return trigger->is_trigger_only;
+    static bool uses_mesh_shape(const Entity& entity)
+    {
+        return entity.has_component<MeshCollider>() || entity.has_component<MeshTrigger>();
     }
 
     static bool should_execute_overlap_query(
@@ -248,28 +258,14 @@ namespace tbx
         vertices.clear();
         triangles.clear();
 
-        if (entity.has_component<DynamicMesh>())
-        {
-            const auto& mesh_component = entity.get_component<DynamicMesh>();
-            if (!mesh_component.get_data())
-                return false;
-
-            return try_append_mesh_geometry(
-                mesh_component.get_mesh(),
-                Mat4(1.0F),
-                scale,
-                vertices,
-                triangles);
-        }
-
-        if (!entity.has_component<StaticMesh>())
+        if (!entity.has_component<Renderer>())
             return false;
 
-        const auto& static_mesh = entity.get_component<StaticMesh>();
-        if (!static_mesh.handle.id.is_valid())
+        const auto& renderer = entity.get_component<Renderer>();
+        if (!renderer.model.id.is_valid())
             return false;
 
-        auto model = asset_manager.load<Model>(static_mesh.handle);
+        auto model = asset_manager.load<Model>(renderer.model);
         if (!model || model->meshes.empty())
             return false;
 
@@ -363,36 +359,49 @@ namespace tbx
         auto create_info = PhysicsColliderCreateInfo {};
         create_info.is_trigger_only = is_trigger_only_collider(entity);
 
-        if (entity.has_component<SphereCollider>())
+        if (entity.has_component<BoxCollider>() || entity.has_component<BoxTrigger>())
         {
-            const auto& sphere = entity.get_component<SphereCollider>();
-            create_info.shape_type = PhysicsColliderShapeType::SPHERE;
-            create_info.radius = sphere.radius;
-            return create_info;
-        }
-
-        if (entity.has_component<CapsuleCollider>())
-        {
-            const auto& capsule = entity.get_component<CapsuleCollider>();
-            create_info.shape_type = PhysicsColliderShapeType::CAPSULE;
-            create_info.radius = capsule.radius;
-            create_info.half_height = capsule.half_height;
-            return create_info;
-        }
-
-        if (entity.has_component<CubeCollider>())
-        {
-            const auto& cube = entity.get_component<CubeCollider>();
             create_info.shape_type = PhysicsColliderShapeType::BOX;
-            create_info.half_extents = cube.half_extents;
+            create_info.half_extents = entity.has_component<BoxCollider>()
+                                           ? entity.get_component<BoxCollider>().half_extents
+                                           : entity.get_component<BoxTrigger>().half_extents;
             return create_info;
         }
 
-        if (entity.has_component<MeshCollider>())
+        if (entity.has_component<SphereCollider>() || entity.has_component<SphereTrigger>())
         {
-            const auto& mesh_collider = entity.get_component<MeshCollider>();
+            create_info.shape_type = PhysicsColliderShapeType::SPHERE;
+            create_info.radius = entity.has_component<SphereCollider>()
+                                     ? entity.get_component<SphereCollider>().radius
+                                     : entity.get_component<SphereTrigger>().radius;
+            return create_info;
+        }
+
+        if (entity.has_component<CapsuleCollider>() || entity.has_component<CapsuleTrigger>())
+        {
+            create_info.shape_type = PhysicsColliderShapeType::CAPSULE;
+            if (entity.has_component<CapsuleCollider>())
+            {
+                const auto& capsule = entity.get_component<CapsuleCollider>();
+                create_info.radius = capsule.radius;
+                create_info.half_height = capsule.half_height;
+            }
+            else
+            {
+                const auto& capsule = entity.get_component<CapsuleTrigger>();
+                create_info.radius = capsule.radius;
+                create_info.half_height = capsule.half_height;
+            }
+            return create_info;
+        }
+
+        if (entity.has_component<MeshCollider>() || entity.has_component<MeshTrigger>())
+        {
+            const bool is_convex = entity.has_component<MeshCollider>()
+                                       ? entity.get_component<MeshCollider>().is_convex
+                                       : entity.get_component<MeshTrigger>().is_convex;
             create_info.shape_type = PhysicsColliderShapeType::MESH;
-            create_info.is_convex = mesh_collider.is_convex || is_physics_driven;
+            create_info.is_convex = is_convex || is_physics_driven;
             if (try_get_mesh_collider_data(
                     asset_manager,
                     entity,
@@ -402,8 +411,8 @@ namespace tbx
                 return create_info;
 
             TBX_TRACE_WARNING(
-                "Physics: tbx::MeshCollider on entity {} has no usable mesh geometry, using "
-                "fallback box shape.",
+                "Physics: mesh collider on entity {} has no usable mesh geometry, using fallback "
+                "box shape.",
                 entity.get_id());
         }
 
@@ -587,6 +596,23 @@ namespace tbx
 
         // Hand the heavy step off to the lane and return; its results are committed on the next call.
         dispatch_step(settings, dt);
+    }
+
+    void Physics::reset()
+    {
+        if (_backend.expired())
+            return;
+
+        // Join and discard the in-flight step: its result is from the world as it was before the
+        // reset, so committing it (the _results_pending path in update) would write a stale simulation
+        // step over the freshly-replaced entity state.
+        wait_for_pending_step();
+        _results_pending = false;
+
+        // Destroy every backend body/collider and forget all tracking; the next sync rebuilds them
+        // from the live entity transforms, so no position or velocity survives the reset.
+        clear_resources();
+        _pending_model_reloads.clear();
     }
 
     void Physics::dispatch_step(const PhysicsSettings& settings, const DeltaTime& dt)
@@ -804,10 +830,10 @@ namespace tbx
             if (record_it != _records_by_entity.end()
                 && (record_it->second->is_physics_driven != is_physics_driven
                     || record_it->second->is_trigger_only != is_trigger_only
-                    || (entity.has_component<StaticMesh>()
+                    || (entity.has_component<Renderer>()
                         && _pending_model_reloads.contains(
-                            entity.get_component<StaticMesh>().handle.id))
-                    || (entity.has_component<MeshCollider>()
+                            entity.get_component<Renderer>().model.id))
+                    || (uses_mesh_shape(entity)
                         && record_it->second->has_last_transform
                         && has_scale_changed(
                             world_transform.scale,

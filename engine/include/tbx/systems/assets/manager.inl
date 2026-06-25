@@ -522,6 +522,74 @@ namespace tbx
         return asset_record.asset;
     }
 
+    template <typename TAsset, typename TFactory>
+        requires std::derived_from<TAsset, Asset>
+    std::shared_ptr<TAsset> AssetManager::get_or_register(
+        const Handle& handle,
+        TFactory&& factory)
+    {
+        std::lock_guard lock(_mutex);
+
+        // Resolve the canonical id through the same path load() uses, so a later load(handle) keys the
+        // same store record. Fall back to the handle's own id (a name-derived handle always carries
+        // one) if the registry can't assign one.
+        Uuid id = {};
+        if (!_registry->ensure_asset_id(handle, id).succeeded() || !id.is_valid())
+            id = handle.id.is_valid() ? handle.id : Uuid::generate();
+
+        auto store = get_asset_store<TAsset>(_stores, true);
+        if (!store.has_value())
+            return {};
+
+        auto& records = store->get().records;
+        if (const auto iterator = records.find(id);
+            iterator != records.end() && iterator->second.asset)
+            return iterator->second.asset;
+
+        std::shared_ptr<TAsset> asset = factory();
+        if (!asset)
+            return {};
+
+        asset->id = id;
+
+        auto& record = records[id];
+        record.asset = asset;
+        record.asset_id = id;
+        record.normalized_path =
+            handle.name.empty() ? std::to_string(static_cast<uint32>(id)) : handle.name;
+        record.is_pinned = true;
+        record.stream_state = AssetStreamState::LOADED;
+        record.last_access = std::chrono::steady_clock::now();
+        // Mark parameters present so load()'s parameter-match check short-circuits to this asset
+        // instead of trying to read it from a (non-existent) file.
+        record.has_load_parameters = true;
+        return asset;
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
+    std::shared_ptr<TAsset> AssetManager::find_loaded(const Handle& handle) const
+    {
+        std::lock_guard lock(_mutex);
+        auto store = get_asset_store<TAsset>(_stores);
+        if (!store.has_value())
+            return {};
+
+        // Prefer the registered entry's id; fall back to the handle's own id (in-memory assets
+        // register under the resolved id, and a name-derived handle carries that same hashed id).
+        Uuid id = handle.id;
+        if (const auto entry = _registry->find_entry(handle);
+            entry.has_value() && entry->get().asset_id.is_valid())
+            id = entry->get().asset_id;
+
+        const auto& records = store->get().records;
+        if (const auto iterator = records.find(id);
+            iterator != records.end() && iterator->second.asset)
+            return iterator->second.asset;
+
+        return {};
+    }
+
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
     AssetUsage AssetManager::get_usage(const Handle& handle) const

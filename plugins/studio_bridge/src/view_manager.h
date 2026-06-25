@@ -37,13 +37,25 @@ namespace tbx::studio_bridge
         using SubmitOverlayFn =
             std::function<void(const tbx::CameraView* focused_camera, const GizmoState* focused_gizmo)>;
 
-        Result start_view(bool is_game, std::string& out_name);
+        // Starts a view of the given kind. For AssetPreview, asset_id selects the asset to load into
+        // the view's isolated preview world (ignored for Editor/Game). Fails when the kind needs a
+        // world that is unavailable, or when an asset preview cannot be built for the id.
+        Result start_view(ViewKind kind, uint32 asset_id, std::string& out_name);
         void stop_view(const std::string& name);
         void stop_all_views();
 
         // Applies a view.input notification to its target view (focus, buttons, move keys, mouse/wheel
         // deltas, raw game keys, and the normalized gizmo cursor).
         void apply_view_input(const tbx::Json& params);
+
+        // Rebuilds an asset-preview view with a different presentation option (e.g. show a material on
+        // a cube, or as a skybox; a model under a different built-in material), preserving the chosen
+        // background sky and the camera/orbit. Fails for an unknown or non-asset-preview view.
+        Result set_preview_option(const std::string& view_name, const std::string& option);
+
+        // Rebuilds an asset-preview view with a different background sky (day/night/none), preserving
+        // the presentation option and the camera/orbit. Fails for an unknown or non-asset-preview view.
+        Result set_preview_skybox(const std::string& view_name, const std::string& skybox);
 
         // Mirrors the live game camera's pose + lens onto every game view's mirror camera each frame.
         void sync_game_views();
@@ -62,6 +74,15 @@ namespace tbx::studio_bridge
         // Resolves a view's camera into a CameraView (for picking). Fails for an unknown/invalid view.
         Result resolve_view_camera(const std::string& view_name, tbx::CameraView& out_camera);
 
+        // The world a view draws and picks against: an AssetPreview view's isolated preview world,
+        // otherwise the active world. Null when the view is unknown or its world is unavailable.
+        std::shared_ptr<tbx::World> resolve_view_world(const std::string& view_name) const;
+
+        // The first AssetPreview preview world that contains the given entity id, or null when none do.
+        // Lets entity resolution (describe/reflect) reach entities that live in a preview world rather
+        // than the active world.
+        std::shared_ptr<tbx::World> find_preview_world_with(const tbx::Uuid& id) const;
+
         // Runs fn(views, view_registry) under the views lock, so input/gizmo subsystems can read and
         // mutate the existing view cameras without owning the collection.
         template <typename Fn>
@@ -72,9 +93,13 @@ namespace tbx::studio_bridge
         }
 
       private:
+        // Rebuilds an asset-preview view's world from its stored asset id + option + skybox, hot-
+        // swapping it in so the orbit camera is preserved. Shared by set_preview_option/skybox.
+        Result rebuild_preview(const std::string& view_name);
+
         void refresh_present_callback();
         tbx::Entity find_first_game_camera(tbx::World& world) const;
-        tbx::Uuid create_view_camera(tbx::World& world, const tbx::RenderTexture& texture, bool is_game);
+        tbx::Uuid create_view_camera(tbx::World& world, const tbx::RenderTexture& texture, ViewKind kind);
         void destroy_view_camera(const tbx::Uuid& camera_id);
 
         // Creates the editor's selection-outline post effect on a runtime entity in the view registry.

@@ -59,6 +59,11 @@ namespace tbx
         // Wireframe presets.
         void wire_box(const Vec3& center, const Vec3& size, const Quat& rotation = Quat(1, 0, 0, 0));
         void wire_sphere(const Vec3& center, float radius);
+        /// @brief A wireframe capsule: a cylinder of `half_height` (half the straight section) capped by
+        /// two hemispheres of `radius`, aligned to the rotated local Y axis. Matches the engine's
+        /// capsule collider shape.
+        void wire_capsule(
+            const Vec3& center, float radius, float half_height, const Quat& rotation = Quat(1, 0, 0, 0));
         void ring(const Vec3& center, const Vec3& axis, float radius);
         void arrow(const Vec3& from, const Vec3& to);
         /// @brief A solid arrow with body thickness: a square-section shaft of `shaft_radius` plus a

@@ -140,6 +140,40 @@ namespace tbx
         ring(center, glm::vec3(0.0F, 0.0F, 1.0F), radius);
     }
 
+    void Gizmos::wire_capsule(
+        const Vec3& center, float radius, float half_height, const Quat& rotation)
+    {
+        const auto up = glm::vec3(rotation * glm::vec3(0.0F, 1.0F, 0.0F));
+        const auto u = glm::vec3(rotation * glm::vec3(1.0F, 0.0F, 0.0F));
+        const auto v = glm::vec3(rotation * glm::vec3(0.0F, 0.0F, 1.0F));
+        const auto top = center + (up * half_height);
+        const auto bottom = center - (up * half_height);
+
+        // Cap rings (perpendicular to the axis) and the four straight side lines.
+        ring(top, up, radius);
+        ring(bottom, up, radius);
+        for (const auto& side : {u, -u, v, -v})
+            push_line(top + (side * radius), bottom + (side * radius));
+
+        // Hemisphere arcs over each cap, in the two planes that contain the axis.
+        constexpr auto SEGMENTS = 16;
+        const auto arc = [&](const glm::vec3& cap, const glm::vec3& plane_axis, float sign) {
+            auto previous = cap + (plane_axis * radius);
+            for (auto i = 1; i <= SEGMENTS; ++i)
+            {
+                const auto a = (static_cast<float>(i) / static_cast<float>(SEGMENTS)) * PI;
+                const auto point =
+                    cap + (radius * ((std::cos(a) * plane_axis) + (sign * std::sin(a) * up)));
+                push_line(previous, point);
+                previous = point;
+            }
+        };
+        arc(top, u, 1.0F);
+        arc(top, v, 1.0F);
+        arc(bottom, u, -1.0F);
+        arc(bottom, v, -1.0F);
+    }
+
     void Gizmos::arrow(const Vec3& from, const Vec3& to)
     {
         push_line(from, to);

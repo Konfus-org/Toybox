@@ -1,8 +1,10 @@
 #include "world_rpc.h"
+#include "view_manager.h"
 #include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/components/script_container.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
@@ -96,8 +98,9 @@ namespace tbx::studio_bridge
         return parent_value == 0U ? tbx::Uuid() : tbx::Uuid(parent_value);
     }
 
-    WorldRpc::WorldRpc(EngineServices& services)
+    WorldRpc::WorldRpc(EngineServices& services, ViewManager& views)
         : _services(services)
+        , _views(views)
     {
     }
 
@@ -370,6 +373,37 @@ namespace tbx::studio_bridge
         }
 
         return Result(false, "Asset not found.");
+    }
+
+    Result WorldRpc::model_slots(const tbx::Json& params, tbx::Json& out_reply) const
+    {
+        out_reply["slots"] = tbx::Json::array();
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto model_id = params.value("modelId", static_cast<uint64>(0U));
+        if (model_id == 0U)
+            return Result::OK; // no model assigned yet -> no slots
+
+        auto asset_manager = _services.asset_manager.lock();
+        if (!asset_manager)
+            return Result(false, "No asset manager.");
+
+        const auto model = asset_manager->load<tbx::Model>(tbx::Handle(tbx::Uuid(model_id)));
+        if (!model)
+            return Result(false, "Failed to load model.");
+
+        auto slots = tbx::Json::array();
+        for (const auto& slot : model->slots)
+        {
+            auto entry = tbx::Json::object();
+            entry["name"] = slot.name.empty() ? std::to_string(static_cast<uint32>(slot.id))
+                                              : slot.name;
+            entry["id"] = slot.id.value;
+            slots.push_back(std::move(entry));
+        }
+        out_reply["slots"] = std::move(slots);
+        return Result::OK;
     }
 
     tbx::Json WorldRpc::list_assets() const
@@ -684,11 +718,19 @@ namespace tbx::studio_bridge
         // Gather the destination siblings (excluding the moved entity) in their current order,
         // splice the moved entity in at the requested slot, then renumber 0..n so order stays dense
         // and stable.
+        //
+        // Streamed and global entities both live at parent 0 but the editor presents them as two
+        // separate ordered lists (the world tree and the Globals section), each indexing its drop
+        // against its own siblings. Globalness is World-level state, not a parent link, so renumber
+        // only the moved entity's own bucket — otherwise a streamed reorder would interleave the
+        // globals into the order space and land the row at an order that re-sorts it right back.
+        const auto moved_is_global = world->is_global(entity_id);
         auto siblings = std::vector<tbx::Entity>();
         for (const auto& candidate : world->get_all())
         {
             if (candidate.get_id().value != entity_id.value
-                && candidate.get_parent().value == parent.value)
+                && candidate.get_parent().value == parent.value
+                && world->is_global(candidate.get_id()) == moved_is_global)
                 siblings.push_back(candidate);
         }
         std::ranges::sort(
@@ -817,6 +859,40 @@ namespace tbx::studio_bridge
         return serialization->write(path, *registration, asset.get());
     }
 
+    Result WorldRpc::open_world(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return Result(false, "Missing request parameters.");
+
+        const auto id_iterator = params.find("assetId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid 'assetId'.");
+        const auto asset_id = id_iterator->get<uint32>();
+
+        auto world_manager = _services.world_manager.lock();
+        auto asset_manager = _services.asset_manager.lock();
+        if (!world_manager || !asset_manager)
+            return Result(false, "World or asset manager unavailable.");
+
+        // Find the registered world/chunk asset by id (the value editor.listAssets advertises) and
+        // activate it; set_active_world preserves the current world on failure.
+        for (const auto& entry : asset_manager->get_registered_assets())
+        {
+            if (entry.asset_id.value != asset_id)
+                continue;
+
+            const auto type = asset_type_from_path(entry.resolved_path);
+            if (type != "world" && type != "chunk")
+                return Result(false, "Asset is not a world.");
+
+            if (!world_manager->set_active_world(tbx::Handle(entry.normalized_path, entry.asset_id)))
+                return Result(false, "Failed to open the world.");
+            return Result::OK;
+        }
+
+        return Result(false, "Asset not found.");
+    }
+
     Result WorldRpc::resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const
     {
         if (!params.is_object())
@@ -826,15 +902,24 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
-        if (!world)
-            return Result(false, "No active world.");
+        const auto id = tbx::Uuid(id_iterator->get<uint32>());
 
-        out_entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!out_entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
+        // Prefer the active world, but fall back to any asset-preview world so the inspector can
+        // describe and edit an entity that lives in a preview view rather than the active world.
+        if (auto world = _services.active_world())
+        {
+            out_entity = world->get(id);
+            if (out_entity.get_id().is_valid())
+                return Result::OK;
+        }
+        if (auto preview = _views.find_preview_world_with(id))
+        {
+            out_entity = preview->get(id);
+            if (out_entity.get_id().is_valid())
+                return Result::OK;
+        }
 
-        return Result::OK;
+        return Result(false, "Entity not found.");
     }
 
     Result WorldRpc::reflect_get(const tbx::Json& params, tbx::Json& out_node) const

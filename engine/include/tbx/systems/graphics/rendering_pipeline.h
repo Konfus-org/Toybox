@@ -49,14 +49,17 @@ namespace tbx
       public:
         /// @brief
         /// Purpose: Runs transient allocation, frame graph construction, backend submission, and
-        /// presentation of the active world as seen by the given camera into the given target.
+        /// presentation of a world as seen by the given camera into the given target. Renders the
+        /// active world unless world_override is non-null (e.g. the editor's isolated asset-preview
+        /// world), in which case the override is rendered instead.
         Result execute(
             const GraphicsSettings& settings,
             const DeltaTime& delta_time,
             const CameraView& camera_view,
             const RenderTarget& output_target,
             Gizmos* gizmos = nullptr,
-            const std::vector<PostProcessingEffect>& extra_post_effects = {});
+            const std::vector<PostProcessingEffect>& extra_post_effects = {},
+            World* world_override = nullptr);
 
         /// @brief
         /// Purpose: Invalidates cached GPU state affected by asset reloads.

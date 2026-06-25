@@ -7,18 +7,20 @@
 
 namespace tbx::studio_bridge
 {
+    class ViewManager;
+
     /// @brief
     /// Purpose: Serves the editor's world/entity/asset queries and edits over RPC — describing the
     /// world, entities, assets and the settings schema; per-property reflection (get/set/reset/
     /// is-default); component edits; entity create/destroy/move/rename/global/enable; and world/asset
     /// saves.
     /// @details
-    /// Ownership: Stateless; borrows the engine services. Thread Safety: Main-thread only (request
-    /// handling).
+    /// Ownership: Borrows the engine services and the view manager (to reach asset-preview worlds).
+    /// Thread Safety: Main-thread only (request handling).
     class WorldRpc
     {
       public:
-        explicit WorldRpc(EngineServices& services);
+        WorldRpc(EngineServices& services, ViewManager& views);
 
         // Describe / list (read).
         tbx::Json describe_world() const;
@@ -27,6 +29,9 @@ namespace tbx::studio_bridge
         tbx::Json describe_settings() const;
         tbx::Json list_assets() const;
         tbx::Json list_component_types() const;
+        // Returns a model's hard material slots ({name, id} per slot) so the Renderer inspector can
+        // size its slot list and auto-fill each slot's default material from the model.
+        Result model_slots(const tbx::Json& params, tbx::Json& out_reply) const;
 
         // Per-property reflection.
         Result reflect_get(const tbx::Json& params, tbx::Json& out_node) const;
@@ -50,10 +55,14 @@ namespace tbx::studio_bridge
         Result save_world() const;
         Result save_asset(const tbx::Json& params) const;
 
+        // Opens a world/chunk asset (by id) as the active editing world, replacing the current one.
+        Result open_world(const tbx::Json& params) const;
+
       private:
         // The component-type icon side table shared by describe_world and describe_entity.
         tbx::Json component_type_icons() const;
-        // Resolves and validates an entityId param against the active world.
+        // Resolves and validates an entityId param against the active world, falling back to any
+        // asset-preview world so the inspector can describe/edit a previewed asset's entity.
         Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
 
         // Expands each bound script's overrides into the script's FULL editable field set so the inspector
@@ -71,5 +80,6 @@ namespace tbx::studio_bridge
         tbx::Json describe_script_schema(uint64 script_id, bool attributed) const;
 
         EngineServices& _services;
+        ViewManager& _views;
     };
 }

@@ -28,6 +28,9 @@ namespace tbx::studio_bridge
       private:
         void snapshot_world();
         void restore_world();
+        // Resets the simulation systems (physics, scripts) so no state held outside the ECS — body
+        // positions/velocities, in-flight steps, per-script runtime state — survives the world restore.
+        void reset_simulation();
 
         EngineServices& _services;
         SetPausedFn _set_paused;

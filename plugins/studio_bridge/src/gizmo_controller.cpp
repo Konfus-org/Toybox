@@ -324,7 +324,7 @@ namespace tbx::studio_bridge
                 {
                     // Only the focused editor view interacts; a view dragging the fly camera
                     // (right/middle) is busy.
-                    if (view->is_game || !view->focused || !view->camera_id.is_valid())
+                    if (view->kind != ViewKind::Editor || !view->focused || !view->camera_id.is_valid())
                         continue;
 
                     auto camera_entity = registry.get(view->camera_id);

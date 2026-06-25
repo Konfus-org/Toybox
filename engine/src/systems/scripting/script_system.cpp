@@ -224,6 +224,20 @@ namespace tbx
         }
     }
 
+    void ScriptSystem::reset()
+    {
+        // Tear down every live instance (running its on_destroy) and forget it, so the next update
+        // re-instantiates the bindings from scratch — on_start runs again and no per-instance state
+        // survives. Instances are keyed by entity + binding id, both preserved across a world restore,
+        // so without this an entity that kept its id would silently resume its previous play's state.
+        for (auto& entry : _state->instances)
+        {
+            if (entry.second.instance)
+                entry.second.instance->on_destroy();
+        }
+        _state->instances.clear();
+    }
+
     void ScriptSystem::fixed_update(const DeltaTime& dt)
     {
         update(dt, true);

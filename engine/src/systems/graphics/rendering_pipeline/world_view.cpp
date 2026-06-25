@@ -1,12 +1,14 @@
 #include "world_view.h"
 #include "material_packing.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/types/assets/material_instance.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/lights.h"
-#include "tbx/types/components/material_instance.h"
+#include "tbx/types/components/renderer.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
+#include <memory>
 #include "tbx/types/frustum.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/quaternions.h"
@@ -14,7 +16,9 @@
 #include "tbx/types/vectors.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
+#include <filesystem>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -206,6 +210,15 @@ namespace tbx
         if (!handle.name.empty())
             return handle.name;
         return std::string("<id ") + std::to_string(static_cast<uint32>(handle.id)) + ">";
+    }
+
+    // Lower-cased file extension (including the dot) of a resolved asset path, e.g. ".mti" / ".mat".
+    static std::string lower_extension(const std::filesystem::path& path)
+    {
+        auto extension = path.extension().string();
+        for (char& character : extension)
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+        return extension;
     }
 
     //// WorldView ////
@@ -509,32 +522,6 @@ namespace tbx
                     out_material.textures.set(texture.name, texture.texture);
         };
 
-        const auto resolve_effective_material = [&](Entity& entity,
-                                                    const Material* model_material,
-                                                    Material& out_material,
-                                                    std::string& out_name,
-                                                    RenderFailure& out_failure) -> void
-        {
-            out_failure = RenderFailure::NONE;
-            if (entity.has_component<MaterialInstance>())
-            {
-                resolve_material_from_instance(
-                    entity.get_component<MaterialInstance>(),
-                    out_material,
-                    out_name,
-                    out_failure);
-                return;
-            }
-            if (model_material != nullptr)
-            {
-                out_material = *model_material;
-                out_name = "model_material";
-                return;
-            }
-            out_name = "missing_material";
-            out_failure = RenderFailure::MISSING_MATERIAL;
-        };
-
         // The sky mesh is centered on the camera so the viewer always sits inside it, and the sky
         // shader pins every vertex to the far plane (gl_Position.z = w). Paired with the material's
         // less-equal depth test and disabled depth writes, the sky fills only the pixels no
@@ -580,31 +567,91 @@ namespace tbx
                 false); // the sky never contributes to the selection mask
         }
 
-        // Material cache key: a per-instance override is dynamic (key by component address); an
-        // un-overridden material instance keys by its asset Handle; a model's embedded material
-        // keys by the model Handle + index; the synthesized fallback uses a fixed key.
-        const auto material_key_for = [&](Entity& entity,
-                                          const Handle& model_handle,
-                                          uint32 material_index,
-                                          bool has_model_material) -> uint64
+        // Registers a model's slot base materials + default instances with the asset manager the
+        // first time the model is drawn, so they become shared, name-addressable assets: two models
+        // whose slots share a name (a stable id) resolve to the same base material, so editing it
+        // updates every model that uses it.
+        // Resolves the effective material for one model slot. A Renderer carrying exactly one
+        // material applies it to the whole model (the legacy whole-entity override); several entries
+        // override per slot; none falls back to the model's own slot handles. The chosen handle
+        // resolves to a MaterialInstance (whose param/texture overrides layer onto its base Material)
+        // or directly to a Material; render config always comes from the base. When the slot's name
+        // lines up with no material asset, the not-found validation material is used.
+        const auto resolve_slot_material = [&](const Renderer& renderer,
+                                               const Model& model,
+                                               uint32 slot_index,
+                                               Material& out_material,
+                                               std::string& out_name,
+                                               RenderFailure& out_failure,
+                                               uint64& out_key) -> void
         {
-            if (entity.has_component<MaterialInstance>())
+            out_failure = RenderFailure::NONE;
+
+            Handle instance_handle = {};
+            if (renderer.materials.size() == 1U && renderer.materials.front().id.is_valid())
+                instance_handle = renderer.materials.front();
+            else if (slot_index < renderer.materials.size()
+                     && renderer.materials[slot_index].id.is_valid())
+                instance_handle = renderer.materials[slot_index];
+            else if (slot_index < model.slots.size() && model.slots[slot_index].id.is_valid())
+                instance_handle = model.slots[slot_index];
+
+            // The handle may name a MaterialInstance (.mti) or a Material (.mat). Dispatch by the
+            // resolved file extension so a Material is never parsed as an instance (and vice versa);
+            // an in-memory asset (no path) falls back to a registered-instance probe. A handle that
+            // resolves to no asset file and no registered instance (e.g. a model slot whose name
+            // lines up with nothing) is left unresolved so it falls back to the not-found material
+            // WITHOUT a per-frame load() that would spam failures and tank the framerate.
+            std::shared_ptr<MaterialInstance> instance;
+            Handle base_handle = {};
+            if (instance_handle.id.is_valid())
             {
-                const MaterialInstance& instance = entity.get_component<MaterialInstance>();
-                return material_instance_has_overrides(instance)
-                           ? hash_pointer(&instance)
-                           : hash_handle(instance.material.id);
+                const auto extension = lower_extension(assets.resolve_path(instance_handle));
+                if (extension == ".mti")
+                    instance = assets.load<MaterialInstance>(instance_handle);
+                else if (extension == ".mat")
+                    base_handle = instance_handle;
+                else
+                    instance = assets.find_loaded<MaterialInstance>(instance_handle);
+
+                if (instance)
+                    base_handle = instance->material;
             }
-            if (has_model_material)
-                return hash_combine(hash_handle(model_handle.id), material_index);
-            return 0U; // no material -> MISSING_MATERIAL; the validation fallback ignores this key
+            const auto base =
+                base_handle.id.is_valid() ? assets.load<Material>(base_handle) : nullptr;
+            if (!base)
+            {
+                // Nothing lined up with this slot's name -> not-found validation material.
+                out_name = "missing_material";
+                out_failure = RenderFailure::MISSING_MATERIAL;
+                out_key = 0U;
+                return;
+            }
+            out_material = *base;
+
+            if (instance)
+            {
+                for (const auto& parameter : instance->overrides.parameters)
+                    out_material.parameters.set(parameter.name, parameter.data);
+                for (const auto& texture : instance->overrides.textures)
+                    out_material.textures.set(texture.name, texture.texture);
+            }
+
+            out_name = "material_" + std::to_string(static_cast<uint32>(base_handle.id));
+            // An overridden instance keys by its handle + slot (its overrides are dynamic); a plain
+            // slot keys by its base handle so identical bases share a GPU material record.
+            out_key = instance && material_instance_has_overrides(*instance)
+                          ? hash_combine(hash_handle(instance_handle.id), slot_index)
+                          : hash_handle(base_handle.id);
         };
 
-        // Static meshes reference a Model asset; emit one instance per model part.
-        for (Entity entity : world.get_with<StaticMesh, Transform>())
+        // A Renderer references a Model asset; emit one renderable per model part, resolving each
+        // part's material from its slot (Renderer override > model slot).
+        for (Entity entity : world.get_with<Renderer, Transform>())
         {
             const bool masked = has_any_masked_tag(entity, &masked_tags);
-            const Handle model_handle = entity.get_component<StaticMesh>().handle;
+            const Renderer& renderer = entity.get_component<Renderer>();
+            const Handle model_handle = renderer.model;
             const Mat4 world_matrix =
                 build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
 
@@ -617,110 +664,61 @@ namespace tbx
                 TBX_TRACE_WARNING_ONCE(
                     "Model '{}' failed to load; using the red question-mark validation mesh.",
                     describe_handle(model_handle));
-                // The mesh/model asset is missing -> red question-mark validation (the passed mesh
-                // is ignored; add_renderable substitutes the question mesh for MISSING_MESH).
-                auto effective = Material();
-                std::string name;
-                RenderFailure failed = RenderFailure::NONE;
-                resolve_effective_material(entity, nullptr, effective, name, failed);
+                // The model asset is missing -> red question-mark validation (the passed mesh is
+                // ignored; add_renderable substitutes the question mesh for MISSING_MESH).
                 add_renderable(
                     cache,
                     result,
                     world_matrix,
                     0U, // unused: MISSING_MESH substitutes the question mesh
-                    material_key_for(entity, model_handle, 0U, false),
+                    0U,
                     Mesh::CUBE,
-                    effective,
-                    name,
+                    Material(),
+                    "missing_material",
                     RenderFailure::MISSING_MESH,
                     masked);
                 continue;
             }
 
-            if (!model->parts.empty())
+            const bool has_parts = !model->parts.empty();
+            const size renderable_count = has_parts ? model->parts.size() : model->meshes.size();
+            for (size index = 0U; index < renderable_count; ++index)
             {
-                for (const ModelPart& part : model->parts)
-                {
-                    if (part.mesh_index >= model->meshes.size())
-                        continue;
-                    const Mesh& mesh = model->meshes[part.mesh_index];
-                    const Material* model_material = part.material_index < model->materials.size()
-                                                         ? &model->materials[part.material_index]
-                                                         : nullptr;
-                    auto effective = Material();
-                    std::string name;
-                    RenderFailure failed = RenderFailure::NONE;
-                    resolve_effective_material(entity, model_material, effective, name, failed);
-                    add_renderable(
-                        cache,
-                        result,
-                        world_matrix * part.transform,
-                        hash_combine(hash_handle(model_handle.id), part.mesh_index),
-                        material_key_for(
-                            entity,
-                            model_handle,
-                            part.material_index,
-                            model_material != nullptr),
-                        mesh,
-                        effective,
-                        name,
-                        failed,
-                        masked);
-                }
-            }
-            else
-            {
-                for (size mesh_index = 0U; mesh_index < model->meshes.size(); ++mesh_index)
-                {
-                    const Mesh& mesh = model->meshes[mesh_index];
-                    const Material* model_material = mesh_index < model->materials.size()
-                                                         ? &model->materials[mesh_index]
-                                                         : nullptr;
-                    auto effective = Material();
-                    std::string name;
-                    RenderFailure failed = RenderFailure::NONE;
-                    resolve_effective_material(entity, model_material, effective, name, failed);
-                    add_renderable(
-                        cache,
-                        result,
-                        world_matrix,
-                        hash_combine(hash_handle(model_handle.id), static_cast<uint64>(mesh_index)),
-                        material_key_for(
-                            entity,
-                            model_handle,
-                            static_cast<uint32>(mesh_index),
-                            model_material != nullptr),
-                        mesh,
-                        effective,
-                        name,
-                        failed,
-                        masked);
-                }
-            }
-        }
+                const uint32 mesh_index =
+                    has_parts ? model->parts[index].mesh_index : static_cast<uint32>(index);
+                if (mesh_index >= model->meshes.size())
+                    continue;
 
-        // Dynamic meshes carry runtime geometry directly on the entity.
-        for (Entity entity : world.get_with<DynamicMesh, Transform>())
-        {
-            const bool masked = has_any_masked_tag(entity, &masked_tags);
-            const Mesh& mesh = entity.get_component<DynamicMesh>().get_mesh();
-            const Mat4 world_matrix =
-                build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
-            auto effective = Material();
-            std::string name;
-            RenderFailure failed = RenderFailure::NONE;
-            resolve_effective_material(entity, nullptr, effective, name, failed);
-            add_renderable(
-                cache,
-                result,
-                world_matrix,
-                hash_pointer(&mesh), // runtime geometry: keyed by its in-memory address
-                material_key_for(entity, Handle {}, 0U, false),
-                mesh,
-                effective,
-                name,
-                failed,
-                masked);
+                const Mesh& mesh = model->meshes[mesh_index];
+                const Mat4 part_matrix =
+                    has_parts ? world_matrix * model->parts[index].transform : world_matrix;
+                const uint32 slot_index =
+                    has_parts ? model->parts[index].material_index : static_cast<uint32>(index);
+
+                auto effective = Material();
+                std::string name;
+                RenderFailure failed = RenderFailure::NONE;
+                uint64 material_key = 0U;
+                resolve_slot_material(
+                    renderer,
+                    *model,
+                    slot_index,
+                    effective,
+                    name,
+                    failed,
+                    material_key);
+                add_renderable(
+                    cache,
+                    result,
+                    part_matrix,
+                    hash_combine(hash_handle(model_handle.id), static_cast<uint64>(mesh_index)),
+                    material_key,
+                    mesh,
+                    effective,
+                    name,
+                    failed,
+                    masked);
+            }
         }
 
         //// LIGHTS (point/spot/area distance-culled + faded on the CPU) ////

@@ -1,6 +1,5 @@
 #include "assimp_model_loader_plugin.h"
 #include "tbx/systems/assets/serialization_registry.h"
-#include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/matrices.h"
@@ -12,6 +11,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/types.h>
+#include <string>
 
 namespace assimp_model_loader
 {
@@ -98,15 +98,20 @@ namespace assimp_model_loader
         return get_default_scale_to_meters_for_path(source_path);
     }
 
-    static tbx::Color get_material_diffuse_color(const aiMaterial& material)
+    // Derives a model material slot's identity from a source material name. Supports the optional
+    // "Type:Name" convention (a "Pbr:" / "Flat:" prefix is stripped) so the identity is the shared
+    // key. The identity is converted to a slot Handle; the engine resolves that handle to a
+    // MaterialInstance/Material asset of the same name, or falls back to a not-found material when
+    // none exists. Import does NOT synthesize materials.
+    static std::string material_slot_identity(const std::string& raw_name)
     {
-        aiColor4D diffuse = {};
-        if (aiGetMaterialColor(&material, AI_MATKEY_COLOR_DIFFUSE, &diffuse) == AI_SUCCESS)
+        if (const auto colon = raw_name.find(':'); colon != std::string::npos)
         {
-            return to_color(diffuse);
+            auto identity = raw_name.substr(colon + 1U);
+            if (!identity.empty())
+                return identity;
         }
-
-        return tbx::Color(1.0f, 1.0f, 1.0f, 1.0f);
+        return raw_name;
     }
 
     static tbx::VertexBufferLayout get_default_mesh_layout()
@@ -356,26 +361,26 @@ namespace assimp_model_loader
             return result;
         }
 
-        // Build materials from Assimp material data.
-        std::vector<tbx::Material> materials;
-        materials.reserve(scene->mNumMaterials);
+        // Build per-slot material identity handles from the source material names. Import is purely
+        // name-based: each slot handle is the source material's (identity) name; the engine resolves
+        // it to a matching MaterialInstance/Material asset at draw time, or falls back to a not-found
+        // material. No materials are synthesized here.
+        std::vector<tbx::Handle> slots;
+        slots.reserve(scene->mNumMaterials);
         for (uint32 material_index = 0; material_index < scene->mNumMaterials; ++material_index)
         {
             const aiMaterial* source_material = scene->mMaterials[material_index];
-            tbx::Material material = {};
+            aiString source_name;
             if (source_material)
-            {
-                material.parameters.set(
-                    "albedo_color",
-                    get_material_diffuse_color(*source_material));
-            }
-            materials.push_back(material);
+                source_material->Get(AI_MATKEY_NAME, source_name);
+            const std::string raw_name = source_name.length > 0U
+                                             ? std::string(source_name.C_Str())
+                                             : "Material_" + std::to_string(material_index);
+            slots.emplace_back(material_slot_identity(raw_name));
         }
-        // Ensure at least one material exists for mesh references.
-        if (materials.empty())
-        {
-            materials.push_back(tbx::Material());
-        }
+        // Ensure at least one slot exists for mesh references.
+        if (slots.empty())
+            slots.emplace_back("Default");
 
         // Convert Assimp meshes into engine tbx::Mesh instances.
         std::vector<tbx::Mesh> meshes;
@@ -398,8 +403,8 @@ namespace assimp_model_loader
                 continue;
             }
 
-            // Clamp material index to available materials.
-            uint32 material_index = mesh->mMaterialIndex < materials.size()
+            // Clamp material index to available slots.
+            uint32 material_index = mesh->mMaterialIndex < slots.size()
                                         ? static_cast<uint32>(mesh->mMaterialIndex)
                                         : 0U;
             mesh_material_indices.push_back(material_index);
@@ -486,8 +491,8 @@ namespace assimp_model_loader
 
         // Assemble the final model payload.
         model.meshes = std::move(baked_meshes);
-        model.materials = std::move(materials);
         model.parts = std::move(parts);
+        model.slots = std::move(slots);
         result.ok();
         return result;
     }

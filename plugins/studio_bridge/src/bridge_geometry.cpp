@@ -1,6 +1,7 @@
 #include "bridge_geometry.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/mesh.h"
+#include "tbx/types/components/renderer.h"
 #include "tbx/types/matrices.h"
 #include <algorithm>
 #include <cmath>
@@ -26,7 +27,7 @@ namespace tbx::studio_bridge
     {
         auto sum = glm::vec3(0.0F);
         auto count = 0;
-        for (auto& entity : world.get_with<tbx::StaticMesh>())
+        for (auto& entity : world.get_with<tbx::Renderer>())
         {
             if (!entity.has_component<tbx::Transform>())
                 continue;
@@ -48,10 +49,10 @@ namespace tbx::studio_bridge
         glm::vec3& out_min,
         glm::vec3& out_max)
     {
-        if (!entity.has_component<tbx::StaticMesh>() || !entity.has_component<tbx::Transform>())
+        if (!entity.has_component<tbx::Renderer>() || !entity.has_component<tbx::Transform>())
             return false;
 
-        const auto model = assets.load<tbx::Model>(entity.get_component<tbx::StaticMesh>().handle);
+        const auto model = assets.load<tbx::Model>(entity.get_component<tbx::Renderer>().model);
         if (!model || model->meshes.empty())
             return false;
 

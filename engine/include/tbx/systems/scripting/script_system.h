@@ -38,6 +38,13 @@ namespace tbx
         void fixed_update(const DeltaTime& dt);
         void update(const DeltaTime& dt);
 
+        /// @brief Destroys every live script instance so the next update re-instantiates them fresh
+        /// (running on_start again) against the current world. Used when the world is wholesale
+        /// replaced (e.g. an editor leaving play mode restores its pre-play snapshot) so no per-script
+        /// runtime state carries across the reset. Instances are otherwise reaped lazily on a
+        /// simulating frame, which never runs while play is stopped.
+        void reset();
+
       private:
         struct State;
         // Shared per-binding pass for both update rates; only the variable-rate pass (fixed ==

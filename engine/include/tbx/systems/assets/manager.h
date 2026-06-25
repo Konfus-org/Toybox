@@ -86,6 +86,35 @@ namespace tbx
         std::shared_ptr<Asset> load(const Handle& handle);
 
         /// @brief
+        /// Purpose: Returns the asset registered under `handle`, creating and registering it in-memory
+        /// from `factory` when absent.
+        /// @details
+        /// Used for assets that have no backing file (e.g. materials synthesized while importing a
+        /// model): the handle's stable id keys an in-memory record so the same handle resolves to the
+        /// same shared asset across callers and across loads — this is what lets models share a
+        /// material by name. The created asset is pinned so it is not streamed out. `factory` is only
+        /// invoked on a miss and must return a `std::shared_ptr<TAsset>`.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        template <typename TAsset, typename TFactory>
+            requires std::derived_from<TAsset, Asset>
+        std::shared_ptr<TAsset> get_or_register(const Handle& handle, TFactory&& factory);
+
+        /// @brief
+        /// Purpose: Returns an already-loaded/registered asset for `handle` without triggering a load.
+        /// @details
+        /// Unlike `load`, this never reads from disk and never warns on a miss — it just returns the
+        /// in-memory record's asset when present, else null. Used to probe whether a handle names an
+        /// asset of a given type (e.g. a MaterialInstance) before falling back to another type, so the
+        /// render path can resolve handles that may name either a MaterialInstance or a Material
+        /// without spamming load failures for the type that isn't backed by a loader.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        std::shared_ptr<TAsset> find_loaded(const Handle& handle) const;
+
+        /// @brief
         /// Purpose: Advances asset lifecycle timers and unloads stale unreferenced assets.
         /// @details
         /// Ownership: Does not transfer ownership. Thread Safety: Safe to call concurrently;

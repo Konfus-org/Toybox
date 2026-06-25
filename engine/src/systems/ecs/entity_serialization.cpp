@@ -305,11 +305,144 @@ namespace tbx
         return true;
     }
 
+    // Unwraps a typed { "type", "value" } node to its inner value (or returns the node as-is when it is
+    // already a bare value).
+    static const Json& typed_value(const Json& node)
+    {
+        if (node.is_object())
+            if (const auto value = node.find("value"); value != node.end())
+                return *value;
+        return node;
+    }
+
+    // Rewrites one legacy shape-typed collider (cube/sphere/capsule/mesh, each with an embedded
+    // trigger) into the matching new per-shape component: the shaped collider, or — when the old
+    // collider's trigger was trigger-only — the shaped trigger carrying its overlap settings. The old
+    // dimension fields/id/is_enabled carry over verbatim; the stale embedded trigger field is dropped.
+    static void migrate_legacy_collider(
+        Json& components,
+        const char* legacy_key,
+        const char* collider_key,
+        const char* trigger_key)
+    {
+        const auto legacy = components.find(legacy_key);
+        if (legacy == components.end())
+            return;
+
+        Json old = *legacy;
+        components.erase(legacy_key);
+        if (!old.is_object())
+            return;
+
+        auto component = Json::object();
+        for (const char* field : {"half_extents", "radius", "half_height", "is_convex", "id",
+                                  "is_enabled"})
+            if (const auto value = old.find(field); value != old.end())
+                component[field] = *value;
+
+        // The legacy trigger bit lived inside the collider; a trigger-only collider becomes a shaped
+        // trigger carrying its overlap settings.
+        bool is_trigger_only = false;
+        if (const auto trigger = old.find("trigger"); trigger != old.end())
+        {
+            const Json& trigger_body = typed_value(*trigger);
+            if (trigger_body.is_object())
+            {
+                if (const auto flag = trigger_body.find("is_trigger_only"); flag != trigger_body.end())
+                {
+                    const Json& value = typed_value(*flag);
+                    is_trigger_only = value.is_boolean() && value.get<bool>();
+                }
+                if (is_trigger_only)
+                    for (const char* field : {"overlap_execution_mode", "is_overlap_enabled"})
+                        if (const auto value = trigger_body.find(field); value != trigger_body.end())
+                            component[field] = *value;
+            }
+        }
+
+        const char* new_key = is_trigger_only ? trigger_key : collider_key;
+        if (!components.contains(new_key))
+            components[new_key] = std::move(component);
+    }
+
+    // Rewrites component bodies written before the mesh/material/collider rework so old worlds still
+    // load: a StaticMesh becomes a Renderer (its `handle` field becomes `model`), the old whole-entity
+    // MaterialInstance override becomes the Renderer's single whole-model material (its `material`
+    // handle), the removed DynamicMesh component is dropped, and each shape-typed collider becomes the
+    // unified Collider/Trigger.
+    static void migrate_legacy_components(Json& components)
+    {
+        if (!components.is_object())
+            return;
+
+        auto renderer = Json::object();
+        bool has_renderer = false;
+
+        if (const auto static_mesh = components.find("static_mesh");
+            static_mesh != components.end())
+        {
+            renderer = *static_mesh;
+            if (renderer.is_object())
+            {
+                if (const auto handle = renderer.find("handle"); handle != renderer.end())
+                {
+                    renderer["model"] = *handle;
+                    renderer.erase("handle");
+                }
+            }
+            has_renderer = true;
+            components.erase("static_mesh");
+        }
+
+        if (const auto material_instance = components.find("material_instance");
+            material_instance != components.end())
+        {
+            if (material_instance->is_object())
+            {
+                const auto material = material_instance->find("material");
+                if (material != material_instance->end() && material->is_object())
+                {
+                    if (const auto value = material->find(std::string(PROPERTY_VALUE_KEY));
+                        value != material->end())
+                    {
+                        // A single Renderer material entry is a whole-model override, matching the
+                        // legacy component's whole-entity semantic.
+                        auto materials_value = Json::array();
+                        materials_value.push_back(*value);
+                        auto materials_node = Json::object();
+                        materials_node[std::string(PROPERTY_TYPE_KEY)] = "array";
+                        materials_node[std::string(PROPERTY_VALUE_KEY)] = std::move(materials_value);
+                        if (!has_renderer)
+                            has_renderer = true;
+                        renderer["materials"] = std::move(materials_node);
+                    }
+                }
+            }
+            components.erase("material_instance");
+        }
+
+        components.erase("dynamic_mesh");
+
+        migrate_legacy_collider(components, "cube_collider", "box_collider", "box_trigger");
+        migrate_legacy_collider(components, "sphere_collider", "sphere_collider", "sphere_trigger");
+        migrate_legacy_collider(
+            components,
+            "capsule_collider",
+            "capsule_collider",
+            "capsule_trigger");
+        migrate_legacy_collider(components, "mesh_collider", "mesh_collider", "mesh_trigger");
+
+        if (has_renderer && !components.contains("renderer"))
+            components["renderer"] = std::move(renderer);
+    }
+
     bool Entity::deserialize(std::string_view data, EntityRegistry& registry, Entity& entity)
     {
         auto payload = SerializedEntityPayload();
         if (!read_entity_payload(data, payload))
             return false;
+
+        migrate_legacy_components(payload.components);
 
         entity = Entity();
         entity._id = registry.add(payload.id, payload.name, payload.layer, payload.parent);

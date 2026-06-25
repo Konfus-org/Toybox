@@ -5,21 +5,21 @@ namespace tbx
     Model::Model()
     {
         meshes = {Mesh::QUAD};
-        materials = {Material()};
         parts = {ModelPart()};
+        slots = {Handle()};
     }
 
     Model::Model(Mesh mesh)
     {
         meshes = {std::move(mesh)};
-        materials = {Material()};
         parts = {ModelPart()};
+        slots = {Handle()};
     }
 
-    Model::Model(Mesh mesh, Material material)
+    Model::Model(Mesh mesh, Handle slot)
     {
         meshes = {std::move(mesh)};
-        materials = {std::move(material)};
         parts = {ModelPart()};
+        slots = {std::move(slot)};
     }
 }
