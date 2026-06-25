@@ -53,6 +53,10 @@ namespace tbx
         // of a component's property schema, defaults and attributes). See SerializableTypeRegistration.
         std::string icon = {};
         std::string icon_color = {};
+        // The component's [[tbx::viewport_icon]] — the icon the editor billboards at the entity's
+        // position in editor viewports (empty for non-billboarded components).
+        std::string viewport_icon = {};
+        std::string viewport_icon_color = {};
         std::function<std::string(bool)> describe = {};
     };
 
@@ -128,6 +132,8 @@ namespace tbx
                 },
                 .icon = registration.icon,
                 .icon_color = registration.icon_color,
+                .viewport_icon = registration.viewport_icon,
+                .viewport_icon_color = registration.viewport_icon_color,
                 .describe = registration.describe,
             });
         return true;

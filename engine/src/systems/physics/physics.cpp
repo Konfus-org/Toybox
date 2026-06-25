@@ -708,6 +708,7 @@ namespace tbx
             if (!trigger_collider->is_overlap_enabled)
             {
                 trigger_collider->is_manual_scan_requested = false;
+                trigger_collider->occupant_count = 0;
                 _overlap_entities_by_trigger.erase(trigger_entity_id);
                 continue;
             }
@@ -774,6 +775,8 @@ namespace tbx
                         callback(event);
                 }
             }
+
+            trigger_collider->occupant_count = static_cast<size>(current_overlaps.size());
 
             if (current_overlaps.empty())
             {

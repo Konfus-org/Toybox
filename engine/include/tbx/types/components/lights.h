@@ -13,6 +13,7 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
     [[serializable]];
     [[icon("Lightbulb", Color::YELLOW)]];
+    [[viewport_icon("Lightbulb", Color::YELLOW)]];
     struct TBX_API Light : Component
     {
         Light();
@@ -135,6 +136,7 @@ namespace tbx
     /// Ownership: Value type; callers own copies and manage component storage.
     /// Thread Safety: Safe to copy between threads; synchronize mutation externally.
     [[serializable]];
+    [[viewport_icon("Sun", Color::YELLOW)]];
     struct TBX_API DirectionalLight : public Light
     {
         DirectionalLight();

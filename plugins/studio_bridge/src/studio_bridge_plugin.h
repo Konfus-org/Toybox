@@ -1,4 +1,6 @@
 #pragma once
+#include "billboard_publisher.h"
+#include "collider_gizmos.h"
 #include "engine_services.h"
 #include "gizmo_controller.h"
 #include "input_controller.h"
@@ -74,6 +76,8 @@ namespace tbx::studio_bridge
         ViewManager _views;
         InputController _input;
         GizmoController _gizmos;
+        ColliderGizmos _collider_gizmos;
+        BillboardPublisher _billboards;
         PickService _picking;
         PlayMode _play;
         WorldRpc _world_rpc;

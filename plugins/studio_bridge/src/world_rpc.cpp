@@ -149,13 +149,22 @@ namespace tbx::studio_bridge
         auto component_types = tbx::Json::object();
         for (const auto& registration : tbx::get_entity_component_type_registrations())
         {
-            if (registration.name.empty() || registration.icon.empty())
+            // A component appears here if it has an inspector icon ([[tbx::icon]]) and/or a viewport
+            // billboard icon ([[tbx::viewport_icon]]); the editor reads viewportIcon to decide which
+            // components to billboard in the 3D viewport and with which glyph.
+            if (registration.name.empty()
+                || (registration.icon.empty() && registration.viewport_icon.empty()))
                 continue;
 
             auto icon = tbx::Json::object();
-            icon["icon"] = registration.icon;
+            if (!registration.icon.empty())
+                icon["icon"] = registration.icon;
             if (!registration.icon_color.empty())
                 icon["iconColor"] = registration.icon_color;
+            if (!registration.viewport_icon.empty())
+                icon["viewportIcon"] = registration.viewport_icon;
+            if (!registration.viewport_icon_color.empty())
+                icon["viewportIconColor"] = registration.viewport_icon_color;
             component_types[registration.name] = std::move(icon);
         }
         return component_types;

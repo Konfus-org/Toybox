@@ -402,7 +402,10 @@ namespace tbx::studio_bridge
                 camera_view.camera.get_render_target(),
                 view->kind == ViewKind::Game ? std::vector<tbx::PostProcessingEffect>()
                                              : overlay_effects,
-                view->preview_world);
+                view->preview_world,
+                // Only editor views draw the gizmo overlay (transform handles + collider
+                // wireframes); game and asset-preview views show exactly what their camera sees.
+                view->kind == ViewKind::Editor);
         }
     }
 

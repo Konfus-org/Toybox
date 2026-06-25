@@ -142,35 +142,60 @@ def emit_typed_write_field(field: Field, order: int, with_default: bool = False)
     ]
 
 
-def emit_property_icon_declaration(type_info: SerializableType) -> list[str]:
-    """Forward-declares the type's property_type_icon overload in the generated header so any
-    translation unit serializing a field of this type can advertise its [[tbx::icon]]."""
-    if find_attr(type_info.attrs, "icon") is None:
+def _emit_property_icon_declaration(
+    type_info: SerializableType, attr_name: str, function_name: str
+) -> list[str]:
+    """Forward-declares a type's icon overload (`function_name`) in the generated header so any
+    translation unit serializing a field of this type can advertise its [[tbx::<attr_name>]]."""
+    if find_attr(type_info.attrs, attr_name) is None:
         return []
-    return [f"::tbx::PropertyTypeIcon property_type_icon(const {type_info.name}*);"]
+    return [f"::tbx::PropertyTypeIcon {function_name}(const {type_info.name}*);"]
 
 
-def emit_property_icon_overload(type_info: SerializableType) -> list[str]:
-    """Defines the property_type_icon overload for a type tagged [[tbx::icon("Name", Color::X)]], so
-    write_typed_serialization_field advertises the type's editor icon. Returns [] when absent."""
-    attr = find_attr(type_info.attrs, "icon")
+def _emit_property_icon_overload(
+    type_info: SerializableType, attr_name: str, function_name: str
+) -> list[str]:
+    """Defines an icon overload (`function_name`) for a type tagged
+    [[tbx::<attr_name>("Name", Color::X)]], so the editor can advertise the type's icon. Returns []
+    when the attribute is absent."""
+    attr = find_attr(type_info.attrs, attr_name)
     if attr is None:
         return []
 
     name = attr_arg(attr, 0, "name")
     if not name:
-        raise CodegenError(f"{type_info.name} uses [[tbx::icon]] without an icon name.")
+        raise CodegenError(f"{type_info.name} uses [[tbx::{attr_name}]] without an icon name.")
 
     # The colour argument is a Color constant (e.g. Color::BLUE); the editor keys off the bare name.
     color = attr_arg(attr, 1, "color") or ""
     color = color.rsplit("::", 1)[-1].strip()
     return [
-        f"::tbx::PropertyTypeIcon property_type_icon(const {type_info.name}*)",
+        f"::tbx::PropertyTypeIcon {function_name}(const {type_info.name}*)",
         "{",
         f"    return {{ {cpp_string(name)}, {cpp_string(color)} }};",
         "}",
         "",
     ]
+
+
+def emit_property_icon_declaration(type_info: SerializableType) -> list[str]:
+    """Forward-declares the property_type_icon ([[tbx::icon]]) and property_type_viewport_icon
+    ([[tbx::viewport_icon]]) overloads for the type."""
+    return _emit_property_icon_declaration(
+        type_info, "icon", "property_type_icon"
+    ) + _emit_property_icon_declaration(
+        type_info, "viewport_icon", "property_type_viewport_icon"
+    )
+
+
+def emit_property_icon_overload(type_info: SerializableType) -> list[str]:
+    """Defines the property_type_icon ([[tbx::icon]], the inspector badge) and
+    property_type_viewport_icon ([[tbx::viewport_icon]], the in-viewport billboard) overloads."""
+    return _emit_property_icon_overload(
+        type_info, "icon", "property_type_icon"
+    ) + _emit_property_icon_overload(
+        type_info, "viewport_icon", "property_type_viewport_icon"
+    )
 
 
 def emit_lifecycle_hook_declarations(type_info: SerializableType) -> list[str]:

@@ -138,7 +138,8 @@ namespace tbx
         const CameraView& camera_view,
         const RenderTarget& output_target,
         const std::vector<PostProcessingEffect>& extra_post_effects,
-        const std::shared_ptr<World>& world_override)
+        const std::shared_ptr<World>& world_override,
+        bool render_gizmos)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -165,7 +166,9 @@ namespace tbx
 
         TBX_TRY_CATCH_ASSERT(
             {
-                auto gizmos = _gizmos.lock();
+                // Editor views opt into the gizmo overlay; game/asset-preview views render exactly
+                // what their camera sees, so they pass render_gizmos=false and skip it entirely.
+                auto gizmos = render_gizmos ? _gizmos.lock() : std::shared_ptr<Gizmos>();
                 // Everything the render lane needs is captured by value (the lane runs later, off this
                 // thread) — including the caller's extra post effects, copied so their source can change.
                 auto future = thread_manager->post_with_future(

@@ -74,7 +74,8 @@ namespace tbx
             const CameraView& camera_view,
             const RenderTarget& output_target,
             const std::vector<PostProcessingEffect>& extra_post_effects = {},
-            const std::shared_ptr<World>& world_override = {});
+            const std::shared_ptr<World>& world_override = {},
+            bool render_gizmos = true);
 
         /// @brief
         /// Purpose: Registers a callback invoked on the render lane right before each present,

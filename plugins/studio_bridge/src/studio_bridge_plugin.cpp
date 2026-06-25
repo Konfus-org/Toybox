@@ -20,6 +20,8 @@ namespace tbx::studio_bridge
         : _views(_services)
         , _input(_services, _views)
         , _gizmos(_services, _views, _selection)
+        , _collider_gizmos(_services, _selection)
+        , _billboards(_services, _views)
         , _picking(_services, _views)
         , _play(
               _services,
@@ -89,8 +91,15 @@ namespace tbx::studio_bridge
             dt,
             [this](const tbx::CameraView* focused_camera, const GizmoState* focused_gizmo)
             {
+                // Collider/trigger wireframes (world-space, every editor view) plus the focused
+                // view's transform handles make up this frame's gizmo overlay.
+                _collider_gizmos.submit();
                 _gizmos.submit_overlay(focused_camera, focused_gizmo);
             });
+
+        // Push this frame's entity screen positions to the editor's billboard overlay (name labels +
+        // viewport-icon stacks), one message per editor view. Editor-only; cheap no-op without a client.
+        _billboards.publish();
 
         // Mirror the game's mouse-lock mode out to the editor so its game panel can capture the
         // cursor.
@@ -434,6 +443,16 @@ namespace tbx::studio_bridge
             {
                 auto reply = tbx::Json::object();
                 const auto result = _picking.pick_rect(params, reply);
+                r.respond(result, reply);
+            });
+        add(
+            "view.queryOcclusion",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // Which of the given entities are hidden behind geometry from a view's camera (billboard
+                // overlay visibility), batched into one scene pass.
+                auto reply = tbx::Json::object();
+                const auto result = _picking.query_occlusion(params, reply);
                 r.respond(result, reply);
             });
         add(

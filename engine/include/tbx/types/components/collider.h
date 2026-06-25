@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/types/components/collider.generated.h"
 #include "tbx/types/components/component.h"
+#include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
 #include <functional>
 #include <vector>
@@ -57,6 +58,11 @@ namespace tbx
         // Runtime overlap state — set at play time and never persisted.
         [[do_not_serialize]]
         bool is_manual_scan_requested = false;
+
+        // Number of bodies currently overlapping this trigger, refreshed by the physics overlap
+        // pass. Drives the editor's red (empty) / green (occupied) trigger wireframe; runtime-only.
+        [[do_not_serialize]]
+        size occupant_count = 0;
         [[do_not_serialize]]
         std::vector<ColliderOverlapCallback> overlap_begin_callbacks = {};
         [[do_not_serialize]]

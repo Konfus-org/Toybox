@@ -99,6 +99,11 @@ namespace tbx
         // not default-constructible.
         std::string icon = {};
         std::string icon_color = {};
+        // viewport_icon/viewport_icon_color come from the type's [[tbx::viewport_icon]] — the icon the
+        // editor billboards at the entity's position in the 3D viewport (empty for non-billboarded
+        // types).
+        std::string viewport_icon = {};
+        std::string viewport_icon_color = {};
         std::function<std::string(bool)> describe = {};
     };
 
@@ -860,6 +865,14 @@ namespace tbx
         return {};
     }
 
+    // ADL hook for the viewport billboard icon ([[tbx::viewport_icon]]), separate from the inspector
+    // icon so a component can show a different glyph (or none) in the 3D viewport. Same catch-all
+    // pattern: types without the attribute get an empty icon.
+    inline PropertyTypeIcon property_type_viewport_icon(...)
+    {
+        return {};
+    }
+
     /// @brief Resolves the editor icon for a type via the generated property_type_icon
     /// overloads. Unwraps Observable like get_property_type_token so a wrapped type reports its
     /// inner type's icon.
@@ -871,6 +884,18 @@ namespace tbx
             return get_property_type_icon<typename PropertyValueType<Clean>::type>();
         else
             return property_type_icon(static_cast<const Clean*>(nullptr));
+    }
+
+    /// @brief Resolves the in-viewport billboard icon for a type via the generated
+    /// property_type_viewport_icon overloads. Mirrors get_property_type_icon.
+    template <typename TValue>
+    static PropertyTypeIcon get_property_type_viewport_icon()
+    {
+        using Clean = std::remove_cvref_t<TValue>;
+        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
+            return get_property_type_viewport_icon<typename PropertyValueType<Clean>::type>();
+        else
+            return property_type_viewport_icon(static_cast<const Clean*>(nullptr));
     }
 
     /// @brief Editor metadata for one [[prop]] field, baked into the generated serialize and
@@ -1248,6 +1273,8 @@ namespace tbx
             .type = std::type_index(typeid(TValue)),
             .icon = std::string(get_property_type_icon<TValue>().name),
             .icon_color = std::string(get_property_type_icon<TValue>().color),
+            .viewport_icon = std::string(get_property_type_viewport_icon<TValue>().name),
+            .viewport_icon_color = std::string(get_property_type_viewport_icon<TValue>().color),
         };
 
         // write_value is the canonical serializer (it routes through the generated serialize, which

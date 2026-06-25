@@ -3,6 +3,8 @@
 #include "view_manager.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/result.h"
+#include <cstdint>
+#include <unordered_set>
 
 namespace tbx::studio_bridge
 {
@@ -26,8 +28,20 @@ namespace tbx::studio_bridge
         // marquee { view, u0,v0,u1,v1 } (top-left origin); replies { ids: [...] }.
         Result pick_rect(const tbx::Json& params, tbx::Json& out_reply);
 
+        // For each entity in { view, ids }, whether it is hidden behind other renderer geometry from the
+        // view's camera: casts a ray from the camera to each entity and reports whether any other mesh
+        // blocks it. Replies { occluded: [bool] } aligned with the input ids. Batched (one pass over the
+        // scene's meshes) so the billboard overlay can refresh all its icons in a single call. CPU mesh
+        // test, so it works in the paused editor (unlike a physics raycast, whose bodies only exist while
+        // playing).
+        Result query_occlusion(const tbx::Json& params, tbx::Json& out_reply);
+
       private:
         EngineServices& _services;
         ViewManager& _views;
+
+        // Renderer model handles that failed to load (dangling/unregistered, e.g. a runtime-only handle):
+        // remembered so per-frame picking/occlusion don't reload — and re-log — them every call.
+        std::unordered_set<std::uint64_t> _unloadable_models = {};
     };
 }
