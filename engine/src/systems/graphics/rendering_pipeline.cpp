@@ -230,6 +230,8 @@ namespace tbx
             light_cull_distance,
             context.settings.shadow_render_distance,
             context.settings.shadow_softness,
+            context.settings.min_screen_size,
+            context.settings.screen_size_fade_fraction,
             masked_tags);
         if (!view.has_camera || view.instances.empty())
             return FrameReadiness::ClearSky;

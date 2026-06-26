@@ -44,12 +44,17 @@ namespace tbx
         double last_used = 0.0;
     };
 
-    /// @brief One material's slot in the material table.
+    /// @brief One material's slot in the material table. last_data caches the bytes last uploaded to
+    /// that slot so add_material can skip the GPU write_buffer when a re-registered material is
+    /// unchanged (the common per-frame case: the same material re-emitted every frame, often by many
+    /// instances) — the slot already holds the data.
     struct GpuMaterialRecord
     {
         GpuId material_id = 0U;
         bool is_pinned = false;
         double last_used = 0.0;
+        GpuMaterialData last_data = {};
+        bool has_data = false;
     };
 
     /// @brief One texture's bindless slot + the RAII handle that owns the GPU texture.

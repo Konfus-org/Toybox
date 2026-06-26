@@ -36,6 +36,8 @@ namespace tbx
         auto& local_shadow_resolution = _local_shadow_resolution;
         auto& last_local_atlas_epoch = _last_local_atlas_epoch;
         auto& last_local_atlas_world = _last_local_atlas_world;
+        auto& shadow_depth_dirty = _shadow_depth_dirty;
+        auto& shadow_color_dirty = _shadow_color_dirty;
 
         const bool has_directional_shadows = view.uniforms.shadow_count > 0U;
         const bool has_local_shadows = !view.local_shadow_matrices.empty();
@@ -85,6 +87,9 @@ namespace tbx
             }
 
             shadow_base_resolution = base_resolution;
+            // Freshly created maps hold undefined contents; force the initial clear-only pass.
+            shadow_depth_dirty = true;
+            shadow_color_dirty = true;
         }
 
         // Local shadow atlas: one DEPTH32 texture array of MAX_LOCAL_SHADOW_VIEWS layers, recreated
@@ -187,6 +192,19 @@ namespace tbx
                 stride);
         };
 
+        // A frame's casters drive which directional sub-passes actually run. The depth maps only
+        // change when an opaque caster draws (and the transmittance maps when a transparent one
+        // draws); an empty family is skipped after a single clear-only pass resets its maps. Most
+        // scenes have opaque casters but no transparent ones, so the 5 transmittance passes vanish.
+        const bool has_opaque_casters =
+            view.shadow_category_counts[SHADOW_CASTER_OPAQUE_ONE_SIDED]
+                + view.shadow_category_counts[SHADOW_CASTER_OPAQUE_TWO_SIDED]
+            > 0U;
+        const bool has_transparent_casters =
+            view.shadow_category_counts[SHADOW_CASTER_TRANSPARENT_ONE_SIDED]
+                + view.shadow_category_counts[SHADOW_CASTER_TRANSPARENT_TWO_SIDED]
+            > 0U;
+
         if (has_directional_shadows)
         {
             // Per-cascade caster matrix groups (one per cascade box).
@@ -198,8 +216,10 @@ namespace tbx
                     !result)
                     return result;
 
-            // (1) Opaque depth sub-pass, one per cascade.
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            // (1) Opaque depth sub-pass, one per cascade. Skipped when nothing opaque casts and the
+            // maps are already cleared (the empty depth map already means "no occluder").
+            const bool render_depth_cascades = has_opaque_casters || shadow_depth_dirty;
+            for (uint32 c = 0U; render_depth_cascades && c < SHADOW_CASCADE_COUNT; ++c)
             {
                 const Size cascade_size {shadow_cascade_sizes[c], shadow_cascade_sizes[c]};
                 auto depth_pass = RenderPassDesc {
@@ -224,11 +244,16 @@ namespace tbx
                     return result;
             }
 
+            // The depth maps now reflect this frame's opaque casters (or were just cleared empty).
+            shadow_depth_dirty = has_opaque_casters;
+
             // (2) Translucent transmittance sub-pass, one per cascade (its own projection). Each clears
             // its color map to white (fully transmissive) but keeps that cascade's opaque depth so
             // transparent casters behind opaque geometry are depth-rejected. Mirrors the per-cascade
-            // depth passes so colored glass shadows are sharp near and reach far.
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            // depth passes so colored glass shadows are sharp near and reach far. Skipped entirely
+            // when nothing transparent casts and the color maps are already white.
+            const bool render_color_cascades = has_transparent_casters || shadow_color_dirty;
+            for (uint32 c = 0U; render_color_cascades && c < SHADOW_CASCADE_COUNT; ++c)
             {
                 const GpuId color_matrix_group = cascade_matrix_groups[c].get();
                 const Size color_size {shadow_cascade_sizes[c], shadow_cascade_sizes[c]};
@@ -251,6 +276,8 @@ namespace tbx
                 if (auto result = backend.end_render_pass(); !result)
                     return result;
             }
+            // The color maps now hold this frame's transparent casters (or were just cleared white).
+            shadow_color_dirty = has_transparent_casters;
         }
 
         if (render_local_atlas)

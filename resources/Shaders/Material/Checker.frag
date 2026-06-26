@@ -12,11 +12,16 @@ layout(location = 2) in vec3 v_world_position;
 layout(location = 3) in vec3 v_world_normal;
 layout(location = 4) in vec4 v_world_tangent;
 layout(location = 5) in flat uint v_material_id;
+layout(location = 6) in flat float v_fade;
 
 layout(location = 0) out vec4 o_color;
 
 void main()
 {
+    // Screen-door size/LOD fade: thin the surface out as it shrinks on screen (or cross-fades LODs).
+    if (tbx_screen_door(v_fade, gl_FragCoord.xy))
+        discard;
+
     uint mid = v_material_id;
     vec4 color_a = tbx_material_param(mid, 0u);
     vec4 color_b = tbx_material_param(mid, 1u);

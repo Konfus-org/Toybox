@@ -84,32 +84,67 @@ namespace tbx
         const WorldViewResult& capture(AssetManager& assets, World& world, GpuResourceCache& cache,
             const CameraView& camera_view, const Size& output_size, float elapsed_time,
             float light_cull_distance, float shadow_distance, float shadow_softness,
+            float min_screen_size, float fade_fraction,
             const std::vector<std::string>& masked_tags = {});
 
       private:
         GpuMaterialData pack_material(GpuResourceCache& cache, const Material& material,
             const std::string& material_name, RenderFailure& out_failure);
         uint32 bucket_for_pipeline(GpuId pipeline, bool is_transparent, WorldViewResult& result);
+        // `fade` < 0 derives the visible/shadow fade from on-screen size; >= 0 is an explicit fade the
+        // LOD path supplies (its distance-based cross-fade weight). Default -1 = size-driven.
         void add_renderable(GpuResourceCache& cache, WorldViewResult& result,
             const Mat4& model_matrix, uint64 mesh_key, uint64 material_key, const Mesh& mesh,
             const Material& material, const std::string& material_name, RenderFailure forced_failure,
-            bool masked);
+            bool masked, float fade = -1.0F);
+        // Fade in [0,1] from projected on-screen size: 1 at/above `min_px` (sphere diameter in
+        // pixels), ramping to 0 across the fade band below it (no hard cutoff). Shared by the
+        // visible-geometry fade and the directional shadow-caster fade.
+        float screen_size_fade(float radius, float dist, float min_px, float fade_fraction) const;
+        // Returns a stable cached "material_<id>" diagnostic label, building it once per id so the
+        // per-renderable name isn't reallocated every frame. The reference stays valid for the
+        // WorldView's lifetime (the backing map only grows).
+        const std::string& material_label(uint32 id);
 
       private:
         RenderValidation _validation = {};
         // Model/material asset ids that already failed to load; skip re-issuing load().
         std::unordered_set<uint32> _failed_assets = {};
+        // A handle's backing asset file type never changes, so the per-slot .mti/.mat dispatch is
+        // resolved once per handle id and reused — sparing a per-frame path resolve + extension
+        // string allocation in the hot material loop.
+        enum class SlotAssetKind
+        {
+            INSTANCE, // .mti — a MaterialInstance
+            MATERIAL, // .mat — a base Material
+            PROBE     // neither extension — probe the in-memory registered instances
+        };
+        std::unordered_map<uint32, SlotAssetKind> _slot_asset_kind = {};
+        // Cached "material_<id>" diagnostic labels by asset id, so the per-renderable name (only read
+        // on a resolve/pack failure path) isn't rebuilt from scratch every frame.
+        std::unordered_map<uint32, std::string> _material_names = {};
         // Models whose async load is in flight, keyed by asset id -> the load's completion future.
         // Lets capture() render entities only once their model has streamed in (skipping them until
         // then) without re-kicking the load every frame or mistaking a slow load for a missing model.
         std::unordered_map<uint32, std::shared_future<Result>> _pending_model_loads = {};
         // Transient working set for the current capture() (reset each frame).
         Frustum _frustum = Frustum(Mat4(1.0F));
-        // Camera position + the radius around it within which an off-screen surface still casts
-        // shadows (the larger of the directional shadow reach and the local-light range), used to
-        // keep off-screen casters in the shadow pass without re-uploading the whole world.
         Vec3 _camera_position = Vec3(0.0F);
-        float _shadow_caster_distance = 0.0F;
+        // Local-light caster reach: a surface within this camera distance stays a SOLID shadow caster
+        // (fade 1) because the point/spot/area lights reuse the same caster list and need their
+        // shadows regardless of the directional screen-size policy.
+        float _local_light_cull_distance = 0.0F;
+        // Screen-size cull/fade policy (set per capture from GraphicsSettings + the camera projection).
+        // _screen_px_factor turns a world radius + camera distance into a projected pixel radius.
+        bool _camera_is_perspective = true;
+        float _screen_px_factor = 0.0F;
+        float _min_screen_size = 0.0F;
+        float _fade_fraction = 0.0F;
+        // Directional shadow caster bound, set by capture()'s pre-pass: whether a caster sun exists and
+        // the furthest cascade's reach. A caster beyond (dist - radius > reach) casts into no cascade,
+        // so add_renderable drops it from the shadow list — a pop-free cost bound, not a visible cutoff.
+        bool _has_shadow_caster = false;
+        float _shadow_far_reach = 0.0F;
         std::unordered_map<GpuId, uint32> _bucket_of_pipeline = {};
         std::vector<std::vector<GpuIndexedDrawCommand>> _bucket_commands = {};
         // Whether each bucket (by creation index) blends. Blended buckets are flushed after all

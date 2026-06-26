@@ -1,65 +1,28 @@
 #pragma once
 #include "tbx/systems/world/manager.h"
+#include "tbx/systems/world/settings.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/transform.h"
-#include <algorithm>
-#include <cmath>
-#include <limits>
+#include "tbx/types/frustum.h"
+#include "tbx/types/sphere.h"
+#include "tbx/types/vectors.h"
 #include <vector>
 
 namespace tbx
 {
-    struct EntityStreamerCameraChunk
+    // One active camera's view this frame: the frustum to test chunks against and its world position
+    // (for the always-loaded bubble). Snapshotted on the main thread; the streamer never touches the
+    // World off the main thread.
+    struct StreamerCameraView
     {
-        IVec3 coord = {};
+        Frustum frustum = {};
+        Vec3 position = Vec3(0.0F);
     };
 
-    static int32 chunk_distance(const IVec3& a, const IVec3& b)
-    {
-        return std::max({std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z)});
-    }
-
-    static std::vector<EntityStreamerCameraChunk> collect_camera_chunks(
-        World& world,
-        float chunk_size)
-    {
-        auto camera_chunks = std::vector<EntityStreamerCameraChunk> {};
-        for (auto& camera_entity : world.get_with<Camera>())
-        {
-            auto position = Vec3(0.0F, 0.0F, 0.0F);
-            if (camera_entity.has_component<Transform>())
-                position =
-                    camera_entity.get_component<Transform>().to_world_space(camera_entity).position;
-
-            const float safe_chunk_size = std::max(chunk_size, 1.0F);
-            camera_chunks.push_back(
-                EntityStreamerCameraChunk {
-                    .coord = IVec3(
-                        static_cast<int32>(std::floor(position.x / safe_chunk_size)),
-                        static_cast<int32>(std::floor(position.y / safe_chunk_size)),
-                        static_cast<int32>(std::floor(position.z / safe_chunk_size))),
-                });
-        }
-
-        return camera_chunks;
-    }
-
-    static bool should_load_chunk(
-        const IVec3& coord,
-        uint32 unload_radius_chunks,
-        const std::vector<EntityStreamerCameraChunk>& camera_chunks)
-    {
-        if (camera_chunks.empty())
-            return false;
-
-        auto nearest_distance = std::numeric_limits<int32>::max();
-        for (const auto& camera : camera_chunks)
-            nearest_distance = std::min(nearest_distance, chunk_distance(coord, camera.coord));
-
-        const auto distance = static_cast<uint32>(std::max(nearest_distance, 0));
-        return distance <= unload_radius_chunks;
-    }
-
+    // Decides which world chunks should be loaded from the camera's point of view, the SAME way the
+    // renderer culls objects: a chunk is wanted when its world bounds are visible to a camera frustum
+    // (so streaming reaches exactly as far as rendering does), or within a small keep-loaded bubble so
+    // turning around / nearby shadow casters don't pop. It owns no state and never loads anything.
     class EntityStreamer final
     {
       public:
@@ -73,25 +36,47 @@ namespace tbx
         EntityStreamer& operator=(EntityStreamer&&) noexcept = delete;
 
       public:
-        std::vector<IVec3> get_desired_chunks(
-            World& world,
-            const std::vector<IVec3>& chunk_coords,
-            const DeltaTime&,
-            const WorldSettings& settings) const
+        // Snapshot every active camera's frustum + position (main thread: it reads the World).
+        std::vector<StreamerCameraView> collect_views(World& world) const
         {
-            const auto camera_chunks = collect_camera_chunks(world, settings.chunk_size);
-            auto desired_chunks = std::vector<IVec3> {};
-            desired_chunks.reserve(chunk_coords.size());
-
-            for (const auto& coord : chunk_coords)
+            auto views = std::vector<StreamerCameraView> {};
+            for (auto& camera_entity : world.get_with<Camera>())
             {
-                if (should_load_chunk(coord, settings.unload_radius_chunks, camera_chunks))
+                auto position = Vec3(0.0F);
+                auto rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
+                if (camera_entity.has_component<Transform>())
                 {
-                    desired_chunks.push_back(coord);
+                    const auto transform =
+                        camera_entity.get_component<Transform>().to_world_space(camera_entity);
+                    position = transform.position;
+                    rotation = transform.rotation;
                 }
+                const auto& camera = camera_entity.get_component<Camera>();
+                views.push_back(
+                    StreamerCameraView {
+                        .frustum = camera.get_frustum(position, rotation),
+                        .position = position,
+                    });
             }
+            return views;
+        }
 
-            return desired_chunks;
+        // Whether a chunk with world bounds `bounds` should be loaded: visible to any camera (same
+        // frustum/sphere test the renderer culls objects with), or within keep_radius of a camera.
+        bool is_chunk_visible(
+            const std::vector<StreamerCameraView>& views,
+            const Sphere& bounds,
+            float keep_radius) const
+        {
+            for (const auto& view : views)
+            {
+                if (keep_radius > 0.0F
+                    && distance(bounds.center, view.position) <= keep_radius + bounds.radius)
+                    return true;
+                if (view.frustum.intersects(bounds))
+                    return true;
+            }
+            return false;
         }
     };
 }

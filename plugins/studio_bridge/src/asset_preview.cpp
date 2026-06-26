@@ -106,27 +106,30 @@ namespace tbx::studio_bridge
         return handle;
     }
 
-    // Loads the editor's bundled asset-preview world (sky + key light) into `world`, so previews open
-    // against a lit sky rather than a black void. Best-effort: the bundled assets are handed to the
-    // engine as an extra asset root at launch (--register-assets); if they aren't present the preview
-    // simply renders without a sky and the caller's fallback light kicks in.
+    // Gives `world` the editor's default background sky, so previews open against a lit sky rather than a
+    // black void. Best-effort: the bundled sky assets are handed to the engine as an extra asset root at
+    // launch (--register-assets); if they aren't present the preview simply renders without a sky and the
+    // caller's fallback light kicks in.
     static void load_preview_base_world(tbx::AssetManager& assets, tbx::World& world)
     {
-        // The bundled preview assets live under the editor's build output, and the asset registry
-        // skips any path containing a "build" directory during its directory scan (it treats build
-        // output as non-source). So none of them get pre-registered by id. Loading each BY PATH
-        // force-registers it on demand (ensure_entry reads its .meta id), after which the id-based
-        // references resolve — so load dependencies first: the texture before Sky.mat that binds
-        // it, and Sky.mat before the globals whose sky entity references it.
+        // The bundled preview assets live under the editor's build output, and the asset registry skips
+        // any path containing a "build" directory during its directory scan (it treats build output as
+        // non-source). So none of them get pre-registered by id. Loading each BY PATH force-registers it
+        // on demand (ensure_entry reads its .meta id), after which Sky.mat's id-based texture references
+        // resolve — so load the textures before the Sky.mat that binds them.
         assets.load<tbx::Texture>(tbx::Handle("SunnySky.png"));
         assets.load<tbx::Texture>(tbx::Handle("DarkSky.png"));
         assets.load<tbx::Material>(tbx::Handle("Sky.mat"));
 
-        if (const auto globals =
-                assets.load<tbx::WorldGlobals>(tbx::Handle("AssetPreview.globals")))
-            world.load_globals(*globals);
-        if (const auto chunk = assets.load<tbx::WorldChunk>(tbx::Handle("AssetPreview.chunk")))
-            world.add_entities(chunk->entities);
+        // Build the sky entity in code rather than loading a serialized world asset. A bundled
+        // .globals/.chunk silently drifts out of format with every entity/component schema change — the
+        // entity deserializer drops an entity whole the moment one component body no longer reads — which
+        // had left previews with a plain (blue) background. Constructing the sky directly is immune to
+        // that drift; the key light is added by the caller's fallback (no directional light present).
+        auto sky = world.create_entity("PreviewSky");
+        sky.add_component<tbx::Transform>(tbx::Transform(tbx::Vec3(0.0F)));
+        sky.add_component<tbx::Sky>(
+            tbx::Sky(tbx::MaterialInstance(tbx::Handle("Sky.mat")), tbx::SkyType::SPHERE));
     }
 
     // Adjusts the preview's background sky to the editor's chosen built-in sky material (the builtin.*

@@ -31,6 +31,11 @@ namespace tbx
         const auto physics_backend = provider.try_get_service<IPhysicsBackend>();
         const auto graphics_backend = provider.try_get_service<IGraphicsBackend>();
 
+        // Hand the world manager the thread manager so chunk streaming can deserialize chunks on a
+        // dedicated lane instead of stalling the main-thread update.
+        if (world_manager && thread_manager)
+            world_manager->set_thread_manager(thread_manager);
+
         auto services = AppRuntimeServices();
 
         // Windowing must come first because rendering depends on a live window manager, and the

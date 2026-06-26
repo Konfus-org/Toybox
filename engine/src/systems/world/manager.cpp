@@ -2,8 +2,11 @@
 #include "chunk_loader.h"
 #include "streamer.h"
 #include "tbx/interfaces/message_dispatcher.h"
+#include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include <algorithm>
+#include <mutex>
+#include <string_view>
 #include <tuple>
 #include <unordered_set>
 #include <utility>
@@ -12,6 +15,21 @@
 namespace tbx
 {
     //// INTERNAL ////
+
+    // The dedicated ThreadManager lane that deserializes world chunks off the main thread.
+    static constexpr auto STREAMING_LANE = std::string_view("streaming");
+
+    // Hand-off between the streaming lane (producer) and the main thread (consumer): chunk assets the
+    // lane has finished deserializing, and the set of chunks currently being loaded so a coord isn't
+    // posted twice. Held by shared_ptr and co-owned by each posted lane task, so an in-flight task can
+    // safely push its result even if it outlives the WorldManager (it won't — stop_all() joins the
+    // lane before teardown — but co-ownership makes the lifetime correct regardless).
+    struct StreamingChannel
+    {
+        std::mutex mutex = {};
+        std::vector<std::pair<IVec3, std::shared_ptr<WorldChunk>>> ready = {};
+        std::unordered_set<IVec3> in_flight = {};
+    };
 
     struct WorldManager::State
     {
@@ -27,8 +45,12 @@ namespace tbx
 
         std::weak_ptr<AssetManager> asset_manager = {};
         std::weak_ptr<IMessageCoordinator> message_coordinator = {};
+        std::weak_ptr<ThreadManager> thread_manager = {};
         std::unique_ptr<ChunkLoader> chunk_loader = {};
         std::unique_ptr<EntityStreamer> entity_streamer = {};
+        std::shared_ptr<StreamingChannel> streaming = std::make_shared<StreamingChannel>();
+        bool streaming_lane_ready = false;
+        bool streaming_enabled = true; // false => keep every chunk loaded (editor; no view culling)
         std::shared_ptr<World> active_world = {};
         Handle active_world_handle = {};
         std::vector<Handle> loaded_globals = {};
@@ -116,6 +138,8 @@ namespace tbx
         _state->active_world = std::move(loaded_world);
         _state->active_world_handle = handle;
         _state->active_world_from_asset = true;
+        if (!_state->streaming_enabled)
+            load_all_chunks(*_state->active_world);
         return true;
     }
 
@@ -131,6 +155,8 @@ namespace tbx
         _state->active_world_handle = Handle(world->id);
         _state->active_world = std::move(world);
         _state->active_world_from_asset = false;
+        if (!_state->streaming_enabled)
+            load_all_chunks(*_state->active_world);
         return true;
     }
 
@@ -212,18 +238,139 @@ namespace tbx
         return true;
     }
 
-    void WorldManager::update(const DeltaTime& dt, const WorldSettings& settings)
+    void WorldManager::set_thread_manager(std::weak_ptr<ThreadManager> thread_manager)
+    {
+        _state->thread_manager = std::move(thread_manager);
+    }
+
+    void WorldManager::set_streaming_enabled(bool enabled)
+    {
+        _state->streaming_enabled = enabled;
+    }
+
+    void WorldManager::update(const DeltaTime&, const WorldSettings& settings)
     {
         if (!_state->active_world)
             return;
 
-        _state->chunk_loader->update(
-            *_state->active_world,
-            _state->entity_streamer->get_desired_chunks(
-                *_state->active_world,
-                _state->chunk_loader->get_chunk_coords(*_state->active_world),
-                dt,
-                settings));
+        World& world = *_state->active_world;
+        auto& chunk_loader = *_state->chunk_loader;
+        auto& streamer = *_state->entity_streamer;
+
+        // 1. Integrate chunks the streaming lane finished deserializing (main-thread ECS mutation).
+        drain_streamed_chunks(world);
+
+        // 2. Decide which chunks are wanted from the camera view(s). A chunk is wanted when its cached
+        // world bounds are visible to a camera (the same frustum test the renderer culls with) or
+        // within the keep-loaded bubble. A chunk whose bounds aren't known yet (never loaded) is
+        // wanted so it loads once and caches them; with no camera at all (or streaming disabled, e.g.
+        // the editor) we keep everything.
+        auto views = std::vector<StreamerCameraView> {};
+        if (_state->streaming_enabled)
+            views = streamer.collect_views(world);
+        auto desired = std::unordered_set<IVec3> {};
+        for (const auto& coord : chunk_loader.get_chunk_coords(world))
+        {
+            auto wanted = true;
+            if (!views.empty())
+            {
+                if (const auto bounds = chunk_loader.get_chunk_bounds(world, coord))
+                    wanted = streamer.is_chunk_visible(views, *bounds, settings.keep_loaded_radius);
+            }
+            if (!wanted)
+                continue;
+
+            desired.insert(coord);
+            // 3. Stream in wanted chunks that aren't loaded yet (async on the streaming lane).
+            if (!chunk_loader.is_chunk_loaded(world, coord))
+                request_chunk_load(world, coord);
+        }
+
+        // 4. Stream out loaded chunks that have left the view.
+        for (const auto& coord : chunk_loader.get_loaded_coords(world))
+            if (!desired.contains(coord))
+                chunk_loader.unload_chunk(world, coord);
+    }
+
+    void WorldManager::drain_streamed_chunks(World& world)
+    {
+        auto ready = std::vector<std::pair<IVec3, std::shared_ptr<WorldChunk>>> {};
+        {
+            std::lock_guard lock(_state->streaming->mutex);
+            ready.swap(_state->streaming->ready);
+        }
+
+        for (auto& [coord, chunk] : ready)
+        {
+            _state->chunk_loader->integrate_loaded(world, coord, chunk);
+            std::lock_guard lock(_state->streaming->mutex);
+            _state->streaming->in_flight.erase(coord);
+        }
+    }
+
+    void WorldManager::request_chunk_load(World& world, const IVec3& coord)
+    {
+        const Handle handle = _state->chunk_loader->get_chunk_handle(world, coord);
+        if (!handle.id.is_valid() && handle.name.empty())
+            return;
+
+        // Async streaming only when enabled (the running game). When disabled (the editor) chunks load
+        // synchronously below so the world is fully populated immediately — the editor describes the
+        // world right after activating it and must see every streamed entity, not wait for a lane.
+        if (_state->streaming_enabled)
+            if (auto thread_manager = _state->thread_manager.lock();
+                thread_manager && ensure_streaming_lane(*thread_manager))
+            {
+                {
+                    std::lock_guard lock(_state->streaming->mutex);
+                    if (_state->streaming->in_flight.contains(coord))
+                        return; // already streaming in
+                    _state->streaming->in_flight.insert(coord);
+                }
+
+                // Lane task: pure asset I/O (the AssetManager is internally synchronized), then push
+                // the deserialized chunk onto the shared channel for the main thread to integrate.
+                // Captures the channel by shared_ptr so its lifetime never depends on teardown order.
+                auto asset_manager = _state->asset_manager;
+                auto channel = _state->streaming;
+                thread_manager->post(
+                    STREAMING_LANE,
+                    [asset_manager, channel, handle, coord]
+                    {
+                        auto manager = asset_manager.lock();
+                        auto chunk = manager ? manager->load<WorldChunk>(handle)
+                                             : std::shared_ptr<WorldChunk> {};
+                        std::lock_guard lock(channel->mutex);
+                        channel->ready.emplace_back(coord, std::move(chunk));
+                    });
+                return;
+            }
+
+        // Streaming disabled, or no lane (headless / tests): load synchronously on this thread.
+        if (const auto asset_manager = _state->asset_manager.lock())
+            _state->chunk_loader->integrate_loaded(
+                world,
+                coord,
+                asset_manager->load<WorldChunk>(handle));
+    }
+
+    void WorldManager::load_all_chunks(World& world)
+    {
+        // With streaming disabled (editor), request_chunk_load is synchronous, so this populates the
+        // whole world immediately — used right after activation so a describe sees every entity.
+        for (const auto& coord : _state->chunk_loader->get_chunk_coords(world))
+            if (!_state->chunk_loader->is_chunk_loaded(world, coord))
+                request_chunk_load(world, coord);
+    }
+
+    bool WorldManager::ensure_streaming_lane(ThreadManager& thread_manager)
+    {
+        if (_state->streaming_lane_ready)
+            return true;
+
+        _state->streaming_lane_ready =
+            thread_manager.has_lane(STREAMING_LANE) || thread_manager.try_create_lane(STREAMING_LANE);
+        return _state->streaming_lane_ready;
     }
 
     bool WorldManager::load_world_globals(World& world)

@@ -4,6 +4,7 @@
 #include "tbx/types/vertex.h"
 #include <algorithm>
 #include <bit>
+#include <cstring>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -307,16 +308,20 @@ namespace tbx
         if (!backend)
             return std::nullopt;
 
-        uint32 material_id = 0U;
-        if (const auto it = _materials.find(id); it != _materials.end())
+        // The material table slot is persistent, so re-uploading byte-identical data is wasted GPU
+        // work — and it was the dominant per-frame render cost: every visible surface re-registers its
+        // material each frame (and many share one), but the packed bytes rarely change. Skip the
+        // write_buffer when the slot already holds these bytes. last_data/has_data are updated only
+        // after a successful upload, so a failed write is retried next frame.
+        auto it = _materials.find(id);
+        if (it != _materials.end())
         {
             it->second.last_used = _now_seconds;
             it->second.is_pinned = it->second.is_pinned || pinned;
-            material_id = it->second.material_id;
         }
         else
         {
-            material_id = _material_count;
+            uint32 material_id = _material_count;
             if (!_free_material_ids.empty())
             {
                 material_id = _free_material_ids.back();
@@ -328,22 +333,31 @@ namespace tbx
             }
             if (material_id >= MAX_MATERIALS)
                 return std::nullopt;
-            _materials.emplace(
-                id,
-                GpuMaterialRecord {
-                    .material_id = material_id,
-                    .is_pinned = pinned,
-                    .last_used = _now_seconds});
+            it = _materials
+                     .emplace(
+                         id,
+                         GpuMaterialRecord {
+                             .material_id = material_id,
+                             .is_pinned = pinned,
+                             .last_used = _now_seconds})
+                     .first;
         }
+
+        GpuMaterialRecord& record = it->second;
+        if (record.has_data
+            && std::memcmp(&record.last_data, &material, sizeof(GpuMaterialData)) == 0)
+            return record.material_id; // slot already holds these bytes
 
         if (auto result = backend->write_buffer(
                 _material_table.get(),
                 &material,
                 sizeof(GpuMaterialData),
-                material_id * sizeof(GpuMaterialData));
+                record.material_id * sizeof(GpuMaterialData));
             !result)
             return std::nullopt;
-        return material_id;
+        record.last_data = material;
+        record.has_data = true;
+        return record.material_id;
     }
 
     std::optional<GpuId> GpuResourceCache::add_texture(

@@ -26,7 +26,7 @@ namespace tbx
     // Number of directional shadow cascades (distance-split shadow maps). Cascade 0 is the
     // highest-resolution near slice; the furthest cascade is the lowest resolution and reaches the
     // configured shadow_render_distance. KEEP IN SYNC with TBX_SHADER_CASCADE_COUNT in ShaderBase.glsl.
-    constexpr uint32 SHADOW_CASCADE_COUNT = 4U;
+    constexpr uint32 SHADOW_CASCADE_COUNT = 5U;
 
     // Directional shadow cascade depth maps occupy consecutive sampler units
     // [GPU_BINDING_SHADOW_CASCADE_BASE, +SHADOW_CASCADE_COUNT). Each is a depth texture sampled by the
@@ -112,8 +112,12 @@ namespace tbx
         uint32 mesh_id;
         uint32 material_id;
 
-        uint32 padding0;
-        uint32 padding1; // Pad end of layout to guarantee uniform safety bounds
+        // Screen-size shadow fade in [0,1]: 1 = full shadow, <1 dithers the caster out of the shadow
+        // maps (screen-door), 0 = no shadow. Set per instance from the projected on-screen size.
+        float shadow_fade;
+        // Visible-geometry fade in [0,1]: 1 = fully opaque, <1 dithers the surface out of the forward
+        // pass (screen-door), 0 = not drawn. Set per instance from on-screen size or LOD cross-fade.
+        float render_fade;
     };
 
     // Mirrors the GLSL `LightData` struct in ShaderBase.glsl exactly (std430, 5 x vec4). Fields are
@@ -176,7 +180,9 @@ namespace tbx
         Vec4 ambient_light;
         Vec4 camera_position_time; // xyz = camera position, w = elapsed time
         Vec4 shadow_settings; // x = slope bias, y = constant bias, z = PCF radius (texels)
-        Vec4 cascade_splits; // x..w = furthest camera distance covered by cascade 0..3
+        // Furthest camera distance covered by each cascade, indexed [i>>2][i&3] (two vec4 lanes hold up
+        // to 8 splits; SHADOW_CASCADE_COUNT are used). A plain Vec4 only fit four cascades.
+        std::array<Vec4, 2> cascade_splits;
         Vec4 sky_color;
         Vec4 sky_params;
         Vec4 screen_size; // xy = size in pixels, zw = inverse size

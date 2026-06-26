@@ -10,7 +10,7 @@
 #define TBX_SHADER_BINDING_GLOBAL_TEXTURES 11
 #define TBX_SHADER_BINDING_SCENE_UNIFORMS 0
 // Directional shadow cascade depth maps occupy consecutive sampler units starting here.
-#define TBX_SHADER_CASCADE_COUNT 4
+#define TBX_SHADER_CASCADE_COUNT 5
 // Fraction of each cascade's distance range over which it cross-fades into the next (larger) cascade
 // so the resolution/bias step is a seamless gradient instead of a hard ring.
 #define TBX_CASCADE_BLEND_FRACTION 0.2
@@ -18,14 +18,16 @@
 #define TBX_SHADER_BINDING_SHADOW_CASCADE_1 13
 #define TBX_SHADER_BINDING_SHADOW_CASCADE_2 14
 #define TBX_SHADER_BINDING_SHADOW_CASCADE_3 15
+#define TBX_SHADER_BINDING_SHADOW_CASCADE_4 16
 // One colored transmittance map per cascade, on consecutive units after the depth cascades.
-#define TBX_SHADER_BINDING_SHADOW_COLOR_0 16
-#define TBX_SHADER_BINDING_SHADOW_COLOR_1 17
-#define TBX_SHADER_BINDING_SHADOW_COLOR_2 18
-#define TBX_SHADER_BINDING_SHADOW_COLOR_3 19
+#define TBX_SHADER_BINDING_SHADOW_COLOR_0 17
+#define TBX_SHADER_BINDING_SHADOW_COLOR_1 18
+#define TBX_SHADER_BINDING_SHADOW_COLOR_2 19
+#define TBX_SHADER_BINDING_SHADOW_COLOR_3 20
+#define TBX_SHADER_BINDING_SHADOW_COLOR_4 21
 // Local (point/spot/area) light shadow depth atlas: a sampler2DArray whose layers are the per-view
 // depth maps (one per spot/area light, six per point light). KEEP IN SYNC with shader_bindings.h.
-#define TBX_SHADER_BINDING_LOCAL_SHADOW_ATLAS 20
+#define TBX_SHADER_BINDING_LOCAL_SHADOW_ATLAS 22
 // Per-view world -> light-clip matrices for the local shadow atlas, indexed by layer (SSBO).
 #define TBX_SHADER_BINDING_LOCAL_SHADOW_MATRICES 2
 #define TBX_SHADER_BINDING_SHADOW_PASS 6
@@ -73,8 +75,8 @@ struct InstanceData
     vec4 boundsMax;
     uint meshId;
     uint materialId;
-    uint padding0;
-    uint padding1;
+    float shadowFade; // screen-size shadow fade in [0,1]; 1 = full shadow, dithered below 1
+    float renderFade; // visible-geometry fade in [0,1]; 1 = opaque, dithered below 1
 };
 
 // Mirrors GpuLightData (packed vec4 lanes).
@@ -120,6 +122,7 @@ layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_0) uniform sampler2D tbx_shad
 layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_1) uniform sampler2D tbx_shadow_cascade_1;
 layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_2) uniform sampler2D tbx_shadow_cascade_2;
 layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_3) uniform sampler2D tbx_shadow_cascade_3;
+layout(binding = TBX_SHADER_BINDING_SHADOW_CASCADE_4) uniform sampler2D tbx_shadow_cascade_4;
 
 // Directional translucent shadow maps (RGB transmittance), one per cascade in that cascade's own light
 // clip space. Transparent casters multiply their tint into them; the forward pass multiplies the
@@ -129,6 +132,7 @@ layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR_0) uniform sampler2D tbx_shadow
 layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR_1) uniform sampler2D tbx_shadow_color_1;
 layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR_2) uniform sampler2D tbx_shadow_color_2;
 layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR_3) uniform sampler2D tbx_shadow_color_3;
+layout(binding = TBX_SHADER_BINDING_SHADOW_COLOR_4) uniform sampler2D tbx_shadow_color_4;
 
 // Local (point/spot/area) light shadow depth atlas. Each layer is one light view's depth map in that
 // view's own light clip space (a spot/area light owns one layer; a point light owns six cube faces).
@@ -148,7 +152,7 @@ layout(std140, binding = TBX_SHADER_BINDING_SCENE_UNIFORMS) uniform TbxSceneUnif
     vec4 ambientLight;
     vec4 cameraPositionTime; // xyz = camera position, w = elapsed time
     vec4 shadowSettings; // x = slope bias, y = constant bias, z = PCF radius (texels)
-    vec4 cascadeSplits; // x..w = furthest camera distance covered by cascade 0..3
+    vec4 cascadeSplits[2]; // furthest camera distance per cascade, indexed [i>>2][i&3]
     vec4 skyColor;
     vec4 skyParams;
     vec4 screenSize; // xy = pixels, zw = inverse size
@@ -350,6 +354,17 @@ float tbx_specular_occlusion(float ndotv, float ao, float roughness)
     return tbx_saturate(pow(ndotv + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ao);
 }
 
+// Screen-door (dithered) cull: true when this fragment should be discarded to thin a surface to
+// `fade` coverage (1 = keep every fragment, 0 = discard all) via an interleaved-gradient-noise
+// threshold over the pixel position. `frag_coord` is passed in (not read from gl_FragCoord) so this
+// stays valid in the shared include, which the vertex stage also compiles. Used by the forward
+// surface shaders (size/LOD fade) and the shadow caster shaders (shadow fade).
+bool tbx_screen_door(float fade, vec2 frag_coord)
+{
+    float ign = fract(52.9829189 * fract(dot(frag_coord, vec2(0.06711056, 0.00583715))));
+    return fade < ign;
+}
+
 // 3x3 PCF over `shadow_map` at `proj` (light NDC remapped to [0,1]), comparing proj.z - bias against
 // stored depth. The sample step is shadowSettings.z texels (shadow_softness), so larger softens edges.
 float tbx_shadow_pcf(sampler2D shadow_map, vec3 proj, float bias)
@@ -379,6 +394,13 @@ float tbx_shadow_pcf(sampler2D shadow_map, vec3 proj, float bias)
     return min(visibility, 1.0 - pinched);
 }
 
+// Furthest camera distance covered by `cascade`. cascadeSplits packs its values across two vec4 lanes
+// (a single vec4 only fit four cascades), so unpack by lane.
+float tbx_cascade_split(int cascade)
+{
+    return cascadeSplits[cascade >> 2][cascade & 3];
+}
+
 // World size of one texel of a cascade's maps (its depth and color map share a resolution). Combined
 // with half_extent it scales the texel-proportional normal offset consistently across cascades.
 float tbx_cascade_texel_world(int cascade, float half_extent)
@@ -390,8 +412,10 @@ float tbx_cascade_texel_world(int cascade, float half_extent)
         res = float(textureSize(tbx_shadow_cascade_1, 0).x);
     else if (cascade == 2)
         res = float(textureSize(tbx_shadow_cascade_2, 0).x);
-    else
+    else if (cascade == 3)
         res = float(textureSize(tbx_shadow_cascade_3, 0).x);
+    else
+        res = float(textureSize(tbx_shadow_cascade_4, 0).x);
     return 2.0 * half_extent / res;
 }
 
@@ -438,7 +462,9 @@ vec3 tbx_cascade_transmittance(int cascade, vec3 offset_position)
         return tbx_transmittance_dilated(tbx_shadow_color_1, proj.xy);
     else if (cascade == 2)
         return tbx_transmittance_dilated(tbx_shadow_color_2, proj.xy);
-    return tbx_transmittance_dilated(tbx_shadow_color_3, proj.xy);
+    else if (cascade == 3)
+        return tbx_transmittance_dilated(tbx_shadow_color_3, proj.xy);
+    return tbx_transmittance_dilated(tbx_shadow_color_4, proj.xy);
 }
 
 // Colored visibility (vec3, 1 = fully lit) from a single cascade: the opaque occlusion test (0 =
@@ -450,7 +476,7 @@ vec3 tbx_cascade_transmittance(int cascade, vec3 offset_position)
 vec3 tbx_cascade_visibility(int cascade, vec3 world_position, vec3 n, float bias)
 {
     mat4 view_proj = cascadeViewProjection[cascade];
-    float half_extent = cascadeSplits[cascade];
+    float half_extent = tbx_cascade_split(cascade);
     float texel_world = tbx_cascade_texel_world(cascade, half_extent);
     vec3 offset_position = world_position + n * (texel_world * TBX_SHADOW_NORMAL_OFFSET);
 
@@ -461,8 +487,10 @@ vec3 tbx_cascade_visibility(int cascade, vec3 world_position, vec3 n, float bias
         opaque = tbx_cascade_sample(tbx_shadow_cascade_1, view_proj, offset_position, bias);
     else if (cascade == 2)
         opaque = tbx_cascade_sample(tbx_shadow_cascade_2, view_proj, offset_position, bias);
-    else
+    else if (cascade == 3)
         opaque = tbx_cascade_sample(tbx_shadow_cascade_3, view_proj, offset_position, bias);
+    else
+        opaque = tbx_cascade_sample(tbx_shadow_cascade_4, view_proj, offset_position, bias);
     return opaque * tbx_cascade_transmittance(cascade, offset_position);
 }
 
@@ -478,7 +506,7 @@ vec3 tbx_directional_shadow(vec3 world_position, vec3 n, vec3 l)
     int count = int(cascadeCount);
     int cascade = count - 1;
     for (int i = 0; i < count; ++i)
-        if (view_dist < cascadeSplits[i])
+        if (view_dist < tbx_cascade_split(i))
         {
             cascade = i;
             break;
@@ -489,8 +517,8 @@ vec3 tbx_directional_shadow(vec3 world_position, vec3 n, vec3 l)
 
     // Cross-fade into the next cascade across the outer TBX_CASCADE_BLEND_FRACTION of this cascade's
     // range. At the split both sides evaluate the same (next) cascade, so the seam is continuous.
-    float split = cascadeSplits[cascade];
-    float prev = cascade > 0 ? cascadeSplits[cascade - 1] : 0.0;
+    float split = tbx_cascade_split(cascade);
+    float prev = cascade > 0 ? tbx_cascade_split(cascade - 1) : 0.0;
     float band = (split - prev) * TBX_CASCADE_BLEND_FRACTION;
     if (cascade + 1 < count && band > 0.0)
     {

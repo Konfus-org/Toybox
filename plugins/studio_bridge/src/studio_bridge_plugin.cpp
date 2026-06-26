@@ -116,6 +116,11 @@ namespace tbx::studio_bridge
             _services.graphics_settings = std::cref(application.get_settings().graphics);
             auto& services = application.get_service_provider();
             _services.world_manager = services.try_get_service<tbx::WorldManager>();
+            // The editor navigates with its own viewport cameras (in the bridge's render registry, not
+            // the world), so the world-camera-driven view streamer would unload everything the editor
+            // is looking at. Keep the whole world resident while editing instead.
+            if (auto world_manager = _services.world_manager.lock())
+                world_manager->set_streaming_enabled(false);
             _services.rendering = services.try_get_service<tbx::Rendering>();
             _services.graphics_backend = services.try_get_service<tbx::IGraphicsBackend>();
             _services.asset_manager = services.try_get_service<tbx::AssetManager>();

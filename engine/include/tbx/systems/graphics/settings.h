@@ -76,13 +76,26 @@ namespace tbx
         float local_light_max_distance = 200.0F;
 
         /// @brief
-        /// Purpose: Maximum distance from the active camera at which opaque meshes may cast
-        /// shadows for local lights and directional cascades. Zero or negative values disable the
-        /// limit.
+        /// Purpose: Projected on-screen size, in pixels (sphere diameter), at or above which an object
+        /// renders and casts shadows at full strength — regardless of its distance (view distance is
+        /// effectively infinite; size is the cull, not distance). Below this an object fades out
+        /// smoothly (screen-door dither). Governs both the visible-geometry fade and the directional
+        /// shadow-caster fade. Entities that author their own LODs use distance bands instead and
+        /// ignore this.
         /// @details
         /// Ownership: Value owned by this settings object.
         /// Thread Safety: Not thread-safe; synchronize access externally.
-        float shadow_caster_max_distance = 96.0F;
+        float min_screen_size = 3.0F;
+
+        /// @brief
+        /// Purpose: Fraction of min_screen_size over which an object dithers out as it shrinks on
+        /// screen, so it fades smoothly instead of popping. Full strength at the threshold, gone at
+        /// threshold * (1 - this); e.g. 0.5 fades across the lower half of the threshold band. Clamped
+        /// to [0, 1].
+        /// @details
+        /// Ownership: Value owned by this settings object.
+        /// Thread Safety: Not thread-safe; synchronize access externally.
+        float screen_size_fade_fraction = 0.5F;
     };
 
 }

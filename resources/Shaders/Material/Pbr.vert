@@ -9,6 +9,7 @@ layout(location = 2) out vec3 v_world_position;
 layout(location = 3) out vec3 v_world_normal;
 layout(location = 4) out vec4 v_world_tangent;
 layout(location = 5) out flat uint v_material_id;
+layout(location = 6) out flat float v_fade; // size/LOD screen-door fade (1 = opaque)
 
 void main()
 {
@@ -24,6 +25,7 @@ void main()
     v_world_normal = normalize(normal_matrix * vertex.normal.xyz);
     v_world_tangent = vec4(normalize(normal_matrix * vertex.tangent.xyz), vertex.tangent.w);
     v_material_id = instance.materialId;
+    v_fade = instance.renderFade;
 
     gl_Position = viewProjection * world_position;
 }

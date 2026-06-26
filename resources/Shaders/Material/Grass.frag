@@ -16,6 +16,7 @@ layout(location = 0) in vec3 g_world_position;
 layout(location = 1) in vec3 g_world_normal;
 layout(location = 2) in flat uint g_material_id;
 layout(location = 3) in float g_shell; // 0 at the ground, 1 at the tallest tuft tip
+layout(location = 4) in flat float g_fade;
 
 layout(location = 0) out vec4 o_color;
 
@@ -33,6 +34,10 @@ vec2 grass_hash2(vec2 p)
 
 void main()
 {
+    // Screen-door size/LOD fade: thin the grass out as it shrinks on screen (or cross-fades LODs).
+    if (tbx_screen_door(g_fade, gl_FragCoord.xy))
+        discard;
+
     uint mid = g_material_id;
     vec4 base = tbx_material_param(mid, 0u);
     vec4 cfg = tbx_material_param(mid, 1u); // (blade_scale, fuzz, roughness, height)

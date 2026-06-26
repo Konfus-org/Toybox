@@ -5,6 +5,7 @@
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/camera.h"
 #include "tbx/types/components/lights.h"
+#include "tbx/types/components/lods.h"
 #include "tbx/types/components/renderer.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
@@ -39,13 +40,17 @@ namespace tbx
         return false;
     }
 
-    // cascade_splits is packed into a Vec4, so at most four cascades are supported.
-    static_assert(SHADOW_CASCADE_COUNT <= 4U, "cascade_splits packs into a Vec4 (max 4 cascades)");
+    // cascade_splits packs into two Vec4 lanes (indexed [i>>2][i&3]), so up to eight cascades fit.
+    static_assert(SHADOW_CASCADE_COUNT <= 8U, "cascade_splits packs into two Vec4 lanes (max 8 cascades)");
 
     // Half-extent (world units) of the nearest, sharpest directional shadow cascade centered on the
     // camera. Further cascades grow geometrically out to half the configured shadow render
     // distance, so the nearest gets the most texels per world unit and the furthest reaches the
     // farthest.
+    // Fraction of a LOD's distance band over which it cross-dissolves into the next (coarser) level,
+    // so LOD swaps fade smoothly instead of popping. Also the fade band before Lods::render_distance.
+    static constexpr float LOD_FADE_FRACTION = 0.15F;
+
     static constexpr float SHADOW_NEAR_CASCADE_RADIUS = 12.0F;
 
     // Extra depth (world units) the cascade box extends along the light beyond its own half-extent,
@@ -176,10 +181,10 @@ namespace tbx
         return instance.overrides.has_parameter_override() || instance.overrides.has_texture_override();
     }
 
-    static bool is_inside_frustum(
-        const Frustum& frustum,
-        const Mat4& model,
-        const MeshBounds& bounds)
+    // World-space bounding sphere of a mesh under `model`: the AABB of the eight transformed local
+    // corners, enclosed by a sphere. Shared by the camera-frustum visibility test, the screen-size
+    // shadow decision, and the directional caster cull, so each surface derives it once.
+    static Sphere world_bounding_sphere(const Mat4& model, const MeshBounds& bounds)
     {
         Vec3 minimum(std::numeric_limits<float>::max());
         Vec3 maximum(std::numeric_limits<float>::lowest());
@@ -202,7 +207,7 @@ namespace tbx
         }
         const Vec3 center = (minimum + maximum) * 0.5F;
         const float radius = length(maximum - minimum) * 0.5F;
-        return frustum.intersects(Sphere {.center = center, .radius = radius});
+        return Sphere {.center = center, .radius = radius};
     }
 
     static std::string describe_handle(const Handle& handle)
@@ -221,7 +226,42 @@ namespace tbx
         return extension;
     }
 
+    // Shared label for a material that could not be resolved (a stable backing string so the failure
+    // path forwards a reference, never an allocation).
+    static const std::string MISSING_MATERIAL_LABEL = "missing_material";
+
     //// WorldView ////
+
+    float WorldView::screen_size_fade(
+        const float radius,
+        const float dist,
+        const float min_px,
+        const float fade_fraction) const
+    {
+        if (min_px <= 0.0F)
+            return 1.0F; // threshold disabled -> always full strength
+
+        // Projected radius in pixels. Perspective shrinks with distance (radius * factor / dist);
+        // orthographic size is distance-independent (radius * factor). A near-zero distance is treated
+        // as on-screen-huge so it never spuriously fades.
+        const float px_radius = _camera_is_perspective
+            ? (dist > 1.0e-3F ? radius * _screen_px_factor / dist : 1.0e9F)
+            : radius * _screen_px_factor;
+        const float px_size = px_radius * 2.0F; // projected diameter, compared against the threshold
+
+        const float high = min_px; // full strength at/above this many pixels
+        const float low = high * (1.0F - std::clamp(fade_fraction, 0.0F, 1.0F));
+        if (high <= low)
+            return px_size >= high ? 1.0F : 0.0F; // no fade band -> size-based on/off
+        return std::clamp((px_size - low) / (high - low), 0.0F, 1.0F);
+    }
+
+    const std::string& WorldView::material_label(const uint32 id)
+    {
+        if (const auto it = _material_names.find(id); it != _material_names.end())
+            return it->second;
+        return _material_names.emplace(id, "material_" + std::to_string(id)).first->second;
+    }
 
     GpuMaterialData WorldView::pack_material(
         GpuResourceCache& cache,
@@ -261,22 +301,47 @@ namespace tbx
         const Material& material,
         const std::string& material_name,
         const RenderFailure forced_failure,
-        const bool masked)
+        const bool masked,
+        const float fade)
     {
 
-        // Visible in the camera view? Room shells opt out of culling and are always drawn. A
-        // surface that fails the camera frustum is still kept when it casts shadows and is within
-        // shadow range — otherwise an off-screen caster (the skylight frame above you when you look
-        // down at the floor it shadows) would stop writing the shadow map and its shadow would pop
-        // in and out as you turn. Such a kept-but-invisible surface feeds only the shadow pass.
-        const bool visible =
-            !material.config.is_cullable || is_inside_frustum(_frustum, model_matrix, mesh.bounds);
-        const Vec3 model_position(model_matrix[3]);
-        const bool may_cast_shadow = forced_failure == RenderFailure::NONE
-                                     && material.config.shadow_mode == ShadowMode::ON
-                                     && distance(model_position, _camera_position)
-                                            <= _shadow_caster_distance;
-        if (!visible && !may_cast_shadow)
+        // World bounding sphere shared by the frustum test, the screen-size fade, and the shadow cull.
+        const Sphere world_sphere = world_bounding_sphere(model_matrix, mesh.bounds);
+        const float dist = distance(world_sphere.center, _camera_position);
+
+        // Effective fade in [0,1]: an explicit value (the LOD path's distance cross-fade weight) when
+        // `fade` >= 0, otherwise derived from on-screen size — the "cull by size, not distance"
+        // fallback for geometry without authored LODs. View distance is effectively infinite; size is
+        // the cull.
+        const float size_fade =
+            screen_size_fade(world_sphere.radius, dist, _min_screen_size, _fade_fraction);
+        const float effective = fade >= 0.0F ? std::clamp(fade, 0.0F, 1.0F) : size_fade;
+
+        // Visible draw: in the camera frustum (room shells opt out) and not fully faded. Validation
+        // fallbacks (missing model/material) always render crisp so the error stays unmistakable.
+        const bool in_frustum = !material.config.is_cullable || _frustum.intersects(world_sphere);
+        const float render_fade = forced_failure != RenderFailure::NONE ? 1.0F : effective;
+        const bool visible_draw = in_frustum && render_fade > 0.0F;
+
+        // Shadow casting follows the same fade (so an entity's shadow cross-fades with it), with NO
+        // hard lateral/distance cutoff — only a pop-free far bound at the furthest cascade's reach (a
+        // caster beyond it draws into no cascade box, so dropping it changes nothing on screen).
+        // Independently, any caster within a local light's reach stays a SOLID caster (fade 1) so the
+        // point/spot/area light shadows — which reuse this same caster list — are never thinned.
+        float shadow_fade = 0.0F;
+        bool may_cast_shadow = false;
+        if (forced_failure == RenderFailure::NONE && material.config.shadow_mode == ShadowMode::ON)
+        {
+            const bool local_relevant = dist <= _local_light_cull_distance;
+            const bool directional_relevant = _has_shadow_caster && effective > 0.0F
+                                              && dist - world_sphere.radius <= _shadow_far_reach;
+            if (local_relevant || directional_relevant)
+            {
+                may_cast_shadow = true;
+                shadow_fade = local_relevant ? 1.0F : effective;
+            }
+        }
+        if (!visible_draw && !may_cast_shadow)
             return;
 
         // Any failed resource surfaces as its colored, unlit validation fallback (see
@@ -377,8 +442,8 @@ namespace tbx
         auto instance = GpuInstanceData {
             .mesh_id = mesh_id,
             .material_id = material_id,
-            .padding0 = 0U,
-            .padding1 = 0U};
+            .shadow_fade = shadow_fade,
+            .render_fade = render_fade};
         instance.model_matrix = model_matrix;
         instance.prev_model_matrix = model_matrix;
         const uint32 instance_index = static_cast<uint32>(result.instances.size());
@@ -391,10 +456,11 @@ namespace tbx
             .base_vertex = 0,
             .first_instance = instance_index};
 
-        // Only surfaces inside the camera frustum draw to the screen. Blended (non-opaque) surfaces
-        // draw after all opaque ones (validation fallbacks are always opaque unlit). Off-screen
-        // shadow casters fall through to the shadow list below without producing a visible draw.
-        if (visible)
+        // Only in-frustum, not-fully-faded surfaces draw to the screen (the forward shader dithers by
+        // render_fade). Blended (non-opaque) surfaces draw after all opaque ones (validation fallbacks
+        // are always opaque unlit). Off-screen / faded shadow casters fall through to the shadow list
+        // below without producing a visible draw.
+        if (visible_draw)
         {
             const bool is_transparent = failure == RenderFailure::NONE
                                         && material.config.blend_mode != MaterialBlendMode::OPAQUE;
@@ -406,14 +472,14 @@ namespace tbx
                 result.mask_draw_commands.push_back(draw_command);
         }
 
-        // Mirror shadow-casting renderables into the shadow pass's per-category command list,
-        // whether or not they're on screen. The sky dome and any ShadowMode::OFF material are
-        // excluded here — this is what stops the camera-centered sky sphere from writing the shadow
-        // map and casting a blob under the camera. Validation fallbacks (failure != NONE) never
-        // cast. The category drives the shadow pass's raster state: opaque -> depth map, transparent
-        // -> colored transmittance map; two-sided variants disable face culling so the material's
-        // sidedness is honored.
-        if (failure == RenderFailure::NONE && material.config.shadow_mode == ShadowMode::ON)
+        // Mirror shadow-relevant renderables into the shadow pass's per-category command list, whether
+        // or not they're on screen. may_cast_shadow already enforces ShadowMode::ON plus the
+        // screen-size / caster-cull / local-light policy (and carried shadow_fade into the instance);
+        // here we additionally require failure == NONE so a validation fallback never casts. The
+        // category drives the shadow pass's raster state: opaque -> depth map, transparent -> colored
+        // transmittance map; two-sided variants disable face culling so the material's sidedness is
+        // honored.
+        if (may_cast_shadow && failure == RenderFailure::NONE)
         {
             const bool transparent = material.config.blend_mode != MaterialBlendMode::OPAQUE;
             const uint32 category =
@@ -433,6 +499,8 @@ namespace tbx
         const float light_cull_distance,
         const float shadow_distance,
         const float shadow_softness,
+        const float min_screen_size,
+        const float fade_fraction,
         const std::vector<std::string>& masked_tags)
     {
         // Reuse the persistent result buffer: clear each vector (keeping its capacity) and reset the
@@ -468,11 +536,18 @@ namespace tbx
             camera.get_view_projection_matrix(camera_position, camera_view.rotation);
         _frustum = camera.get_frustum(camera_position, camera_view.rotation);
 
-        // Off-screen surfaces still cast shadows within the larger of the directional shadow reach
-        // and the local-light range, so shadows don't pop as casters leave the camera frustum.
+        // Screen-size cull/fade policy for this view: geometry (and shadows) without authored LODs are
+        // kept by projected on-screen size, not distance. _screen_px_factor turns a world radius +
+        // camera distance into a projected pixel radius (proj[1][1] = 1/tan(fovY/2) for perspective,
+        // 1/orthoHalfHeight for orthographic). A surface within the local-light reach stays a solid
+        // shadow caster regardless.
         _camera_position = camera_position;
-        _shadow_caster_distance =
-            std::max(shadow_distance > 0.0F ? shadow_distance : 0.0F, light_cull_distance);
+        _local_light_cull_distance = light_cull_distance;
+        _camera_is_perspective = camera.is_perspective();
+        _screen_px_factor =
+            static_cast<float>(output_size.height) * 0.5F * camera.get_projection_matrix()[1][1];
+        _min_screen_size = min_screen_size;
+        _fade_fraction = fade_fraction;
 
         GpuUniforms& uniforms = result.uniforms;
         uniforms.view_projection = view_projection;
@@ -488,12 +563,66 @@ namespace tbx
             output_size.width > 0U ? 1.0F / static_cast<float>(output_size.width) : 0.0F,
             output_size.height > 0U ? 1.0F / static_cast<float>(output_size.height) : 0.0F);
 
+        //// DIRECTIONAL SHADOW PRE-PASS ////
+        // Pick the caster sun and build its cascades + far bound BEFORE walking geometry, so
+        // add_renderable can decide each surface's shadow fade. The matching GPU light record is
+        // tagged later, when the light loop adds it. The directional set is queried once here and
+        // reused by the light loop below (the query locks the registry and allocates a vector).
+        const std::vector<Entity> directional_lights = world.get_with<DirectionalLight, Transform>();
+        _has_shadow_caster = false;
+        for (const Entity& entity : directional_lights)
+        {
+            const DirectionalLight& light = entity.get_component<DirectionalLight>();
+            if (!light.cast_shadows || light.intensity <= 0.0F)
+                continue; // matches the caster the light loop tags below (first qualifying sun)
+            const Transform transform = entity.get_component<Transform>().to_world_space(entity);
+            const Mat4 light_model = build_transform_matrix(transform);
+            const Vec3 light_forward = normalize(-Vec3(light_model[2]));
+
+            // Full directional reach. Cascades 0..N-2 keep the near detail; the furthest cascade is a
+            // low-res far slice reaching the configured shadow_render_distance, so big distant casters
+            // that pass the screen-size test still land in a shadow map. cascade_splits[c] is the
+            // camera distance that cascade covers (packed across two Vec4 lanes).
+            const float reach =
+                shadow_distance > 0.0F ? shadow_distance : SHADOW_NEAR_CASCADE_RADIUS * 8.0F;
+            const float near_radius = std::min(SHADOW_NEAR_CASCADE_RADIUS, reach * 0.5F);
+            const float far_radius = std::max(reach, near_radius);
+            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
+            {
+                const float t =
+                    SHADOW_CASCADE_COUNT > 1U
+                        ? static_cast<float>(c) / static_cast<float>(SHADOW_CASCADE_COUNT - 1U)
+                        : 1.0F;
+                const float radius = near_radius * std::pow(far_radius / near_radius, t);
+                uniforms.cascade_view_projection[c] = build_cascade_matrix(
+                    camera_position,
+                    light_forward,
+                    radius,
+                    radius + SHADOW_DEPTH_MARGIN);
+                uniforms.cascade_splits[c >> 2U][c & 3U] = radius;
+            }
+            uniforms.cascade_count = SHADOW_CASCADE_COUNT;
+            // x = slope bias, y = constant bias (both tiny — the shader's texel-scaled normal offset
+            // does the anti-acne work), z = PCF radius in texels (shadow_softness).
+            uniforms.shadow_settings =
+                Vec4(0.0006F, 0.0002F, std::max(shadow_softness, 1.0F), 0.0F);
+
+            // Pop-free far bound = the furthest cascade box's reach (its half-extent plus the
+            // along-light depth margin). A caster past it (dist - radius > reach) lies outside every
+            // cascade box, so it already casts no shadow — dropping it from the list only saves the
+            // draw, with no visible change. No lateral/frustum cull: an off-screen caster between the
+            // sun and the view still casts in, and rotating the camera no longer pops shadows.
+            _shadow_far_reach = far_radius + SHADOW_DEPTH_MARGIN;
+            _has_shadow_caster = true;
+            break;
+        }
+
         //// RENDERABLES ////
         // Loads a material instance's asset, applies its overrides, and reports the failure kind if
         // the asset is missing. Shared by entity renderables and the sky.
         const auto resolve_material_from_instance = [&](const MaterialInstance& instance,
                                                         Material& out_material,
-                                                        std::string& out_name,
+                                                        const std::string*& out_name,
                                                         RenderFailure& out_failure) -> void
         {
             out_failure = RenderFailure::NONE;
@@ -507,12 +636,12 @@ namespace tbx
                 TBX_TRACE_WARNING_ONCE(
                     "Material '{}' failed to load; using red validation.",
                     describe_handle(instance.material));
-                out_name = "missing_material";
+                out_name = &MISSING_MATERIAL_LABEL;
                 out_failure = RenderFailure::MISSING_MATERIAL;
                 return;
             }
             out_material = *base;
-            out_name = "material_" + std::to_string(static_cast<uint32>(instance.material.id));
+            out_name = &material_label(material_key);
             const MaterialOverrides& overrides = instance.overrides;
             if (overrides.has_parameter_override())
                 for (const auto& parameter : overrides.parameters)
@@ -540,11 +669,11 @@ namespace tbx
             const Mesh& sky_mesh = sky.type == SkyType::BOX ? Mesh::CUBE : Mesh::SPHERE;
 
             auto sky_material = Material();
-            std::string sky_name;
+            const std::string* sky_name = &MISSING_MATERIAL_LABEL;
             RenderFailure sky_failure = RenderFailure::NONE;
             resolve_material_from_instance(sky.material, sky_material, sky_name, sky_failure);
-            TBX_TRACE_WARNING_ONCE(
-                "SKY DIAG: failure={} depth_test={} depth_write={} func={} two_sided={}",
+            TBX_TRACE_INFO_ONCE(
+                "Sky Diagnostics: failure={} depth_test={} depth_write={} func={} two_sided={}",
                 static_cast<int>(sky_failure),
                 sky_material.config.is_depth_test_enabled,
                 sky_material.config.is_depth_write_enabled,
@@ -562,7 +691,7 @@ namespace tbx
                 sky_material_key,
                 sky_mesh,
                 sky_material,
-                sky_name,
+                *sky_name,
                 sky_failure,
                 false); // the sky never contributes to the selection mask
         }
@@ -581,7 +710,7 @@ namespace tbx
                                                const Model& model,
                                                uint32 slot_index,
                                                Material& out_material,
-                                               std::string& out_name,
+                                               const std::string*& out_name,
                                                RenderFailure& out_failure,
                                                uint64& out_key) -> void
         {
@@ -606,13 +735,31 @@ namespace tbx
             Handle base_handle = {};
             if (instance_handle.id.is_valid())
             {
-                const auto extension = lower_extension(assets.resolve_path(instance_handle));
-                if (extension == ".mti")
-                    instance = assets.load<MaterialInstance>(instance_handle);
-                else if (extension == ".mat")
-                    base_handle = instance_handle;
-                else
-                    instance = assets.find_loaded<MaterialInstance>(instance_handle);
+                // A handle's backing file type is immutable, so resolve the .mti/.mat dispatch once per
+                // handle and cache it. The path resolve + extension string build it replaces was a
+                // per-slot, per-frame heap allocation in this hot loop.
+                const uint32 handle_id = static_cast<uint32>(instance_handle.id);
+                auto kind_it = _slot_asset_kind.find(handle_id);
+                if (kind_it == _slot_asset_kind.end())
+                {
+                    const auto extension = lower_extension(assets.resolve_path(instance_handle));
+                    const SlotAssetKind kind = extension == ".mti" ? SlotAssetKind::INSTANCE
+                        : extension == ".mat"                      ? SlotAssetKind::MATERIAL
+                                                                   : SlotAssetKind::PROBE;
+                    kind_it = _slot_asset_kind.emplace(handle_id, kind).first;
+                }
+                switch (kind_it->second)
+                {
+                    case SlotAssetKind::INSTANCE:
+                        instance = assets.load<MaterialInstance>(instance_handle);
+                        break;
+                    case SlotAssetKind::MATERIAL:
+                        base_handle = instance_handle;
+                        break;
+                    case SlotAssetKind::PROBE:
+                        instance = assets.find_loaded<MaterialInstance>(instance_handle);
+                        break;
+                }
 
                 if (instance)
                     base_handle = instance->material;
@@ -622,7 +769,7 @@ namespace tbx
             if (!base)
             {
                 // Nothing lined up with this slot's name -> not-found validation material.
-                out_name = "missing_material";
+                out_name = &MISSING_MATERIAL_LABEL;
                 out_failure = RenderFailure::MISSING_MATERIAL;
                 out_key = 0U;
                 return;
@@ -637,7 +784,7 @@ namespace tbx
                     out_material.textures.set(texture.name, texture.texture);
             }
 
-            out_name = "material_" + std::to_string(static_cast<uint32>(base_handle.id));
+            out_name = &material_label(static_cast<uint32>(base_handle.id));
             // An overridden instance keys by its handle + slot (its overrides are dynamic); a plain
             // slot keys by its base handle so identical bases share a GPU material record.
             out_key = instance && material_instance_has_overrides(*instance)
@@ -645,20 +792,20 @@ namespace tbx
                           : hash_handle(base_handle.id);
         };
 
-        // A Renderer references a Model asset; emit one renderable per model part, resolving each
-        // part's material from its slot (Renderer override > model slot).
-        for (Entity entity : world.get_with<Renderer, Transform>())
+        // Loads `model_handle` (async, non-blocking) and emits its parts/meshes through add_renderable
+        // at the given fade (passed straight through: < 0 = derive from on-screen size, >= 0 = the LOD
+        // cross-fade weight). An invalid handle (an empty LOD level) emits nothing. A model that isn't
+        // ready yet is kicked onto the job pool and skipped this frame; one that fails to load falls
+        // back to the red question-mark validation mesh.
+        const auto emit_model = [&](const Handle& model_handle,
+                                    const Mat4& world_matrix,
+                                    const Renderer& renderer,
+                                    const bool masked,
+                                    const float fade) -> void
         {
-            const bool masked = has_any_masked_tag(entity, &masked_tags);
-            const Renderer& renderer = entity.get_component<Renderer>();
-            const Handle model_handle = renderer.model;
-            const Mat4 world_matrix =
-                build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
+            if (!model_handle.id.is_valid())
+                return; // empty LOD level: render nothing
 
-            // Resolve the model without blocking: a model that isn't loaded yet is kicked onto the
-            // async job pool and the entity is skipped until it streams in, so the first frames render
-            // immediately instead of stalling on the whole world's geometry. A known-failed model
-            // (cached in _failed_assets) falls straight through to the missing-mesh fallback.
             const uint32 model_key = static_cast<uint32>(model_handle.id);
             std::shared_ptr<Model> model;
             if (!_failed_assets.contains(model_key))
@@ -676,12 +823,12 @@ namespace tbx
                     {
                         // First sighting: start the async load and track its future; render next time.
                         _pending_model_loads[model_key] = assets.load_async<Model>(model_handle).promise;
-                        continue;
+                        return;
                     }
                     if (pending->second.valid()
                         && pending->second.wait_for(0s) != std::future_status::ready)
                     {
-                        continue; // still loading — don't draw it (or fail it) yet
+                        return; // still loading — don't draw it (or fail it) yet
                     }
                     // The load finished but find_ready still has nothing -> it failed; drop the
                     // tracking entry and fall through to the missing-mesh fallback below.
@@ -705,10 +852,10 @@ namespace tbx
                     0U,
                     Mesh::CUBE,
                     Material(),
-                    "missing_material",
+                    MISSING_MATERIAL_LABEL,
                     RenderFailure::MISSING_MESH,
                     masked);
-                continue;
+                return;
             }
 
             const bool has_parts = !model->parts.empty();
@@ -727,7 +874,7 @@ namespace tbx
                     has_parts ? model->parts[index].material_index : static_cast<uint32>(index);
 
                 auto effective = Material();
-                std::string name;
+                const std::string* name = &MISSING_MATERIAL_LABEL;
                 RenderFailure failed = RenderFailure::NONE;
                 uint64 material_key = 0U;
                 resolve_slot_material(
@@ -746,9 +893,79 @@ namespace tbx
                     material_key,
                     mesh,
                     effective,
-                    name,
+                    *name,
                     failed,
-                    masked);
+                    masked,
+                    fade);
+            }
+        };
+
+        // A Renderer references a Model asset. With a Lods component the model is chosen by camera
+        // distance (LOD bands, cross-faded, an empty level = render nothing); without one the single
+        // model is kept by on-screen size (fade = -1 => the screen-size fallback).
+        for (Entity entity : world.get_with<Renderer, Transform>())
+        {
+            const bool masked = has_any_masked_tag(entity, &masked_tags);
+            const Renderer& renderer = entity.get_component<Renderer>();
+            const Mat4 world_matrix =
+                build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
+
+            if (!entity.has_component<Lods>() || entity.get_component<Lods>().values.empty())
+            {
+                emit_model(renderer.model, world_matrix, renderer, masked, -1.0F);
+                continue;
+            }
+
+            const Lods& lods = entity.get_component<Lods>();
+            const float dist = distance(Vec3(world_matrix[3]), _camera_position);
+
+            // Optional whole-entity fade-out approaching render_distance (0 = never distance-cull, so
+            // the coarsest level persists — infinite view distance).
+            float entity_fade = 1.0F;
+            if (lods.render_distance > 0.0F)
+            {
+                const float band = std::max(lods.render_distance * LOD_FADE_FRACTION, 1.0e-3F);
+                entity_fade =
+                    1.0F - smoothstep01((dist - (lods.render_distance - band)) / band);
+                if (entity_fade <= 0.0F)
+                    continue; // past the entity's render distance
+            }
+
+            // Active level = the first whose max_distance still contains `dist`; max_distance <= 0 is a
+            // "no far limit" persistent level. Levels are authored finest -> coarsest.
+            const size count = lods.values.size();
+            size active = count; // count == "past every finite level"
+            for (size i = 0U; i < count; ++i)
+            {
+                const float md = lods.values[i].max_distance;
+                if (md <= 0.0F || dist <= md)
+                {
+                    active = i;
+                    break;
+                }
+            }
+            if (active >= count)
+                continue; // past the last finite LOD with no persistent level -> culled
+
+            // Cross-dissolve across the outer LOD_FADE_FRACTION of the active band into the next level.
+            const float md = lods.values[active].max_distance;
+            const float prev = active > 0U ? lods.values[active - 1U].max_distance : 0.0F;
+            const float band = md > 0.0F ? (md - prev) * LOD_FADE_FRACTION : 0.0F;
+            if (band > 0.0F && dist > md - band)
+            {
+                const float t = std::clamp((dist - (md - band)) / band, 0.0F, 1.0F);
+                emit_model(
+                    lods.values[active].handle, world_matrix, renderer, masked,
+                    (1.0F - t) * entity_fade);
+                if (active + 1U < count)
+                    emit_model(
+                        lods.values[active + 1U].handle, world_matrix, renderer, masked,
+                        t * entity_fade);
+                // No next level: the active simply fades to nothing past md (culled next frame).
+            }
+            else
+            {
+                emit_model(lods.values[active].handle, world_matrix, renderer, masked, entity_fade);
             }
         }
 
@@ -833,7 +1050,7 @@ namespace tbx
         };
 
         bool shadow_caster_assigned = false;
-        for (Entity entity : world.get_with<DirectionalLight, Transform>())
+        for (const Entity& entity : directional_lights)
         {
             const DirectionalLight& light = entity.get_component<DirectionalLight>();
             const Transform transform = entity.get_component<Transform>().to_world_space(entity);
@@ -841,52 +1058,12 @@ namespace tbx
             ambient_accum += Vec3(light.color.r, light.color.g, light.color.b)
                              * (light.ambient * light.intensity);
 
-            // The first visible directional light becomes the shadow caster: build the cascade
-            // light-space transforms (camera-centered ortho boxes growing with distance) and tag
-            // this light's GPU record with shadow index 0 so the shader occlusion-tests only it.
-            if (shadow_caster_assigned || !light.cast_shadows || light.intensity <= 0.0F)
+            // Tag the same caster sun the pre-pass chose (first cast_shadows, lit directional light):
+            // its cascades + caster-cull volume are already built, so here we only mark its GPU record
+            // with shadow index 0 so the shader occlusion-tests only it.
+            if (shadow_caster_assigned || !_has_shadow_caster || !light.cast_shadows
+                || light.intensity <= 0.0F)
                 continue;
-            const Mat4 light_model = build_transform_matrix(transform);
-            const Vec3 light_forward = normalize(-Vec3(light_model[2]));
-
-            // Full directional reach (GraphicsSettings::shadow_render_distance). The furthest
-            // cascade spans half of it from the camera; raising it pushes shadows farther (lower
-            // resolution per world unit). The eye sits this far back along the light so
-            // tall/distant casters between the sun and the camera are still captured in every
-            // cascade's depth.
-            const float reach =
-                shadow_distance > 0.0F ? shadow_distance : SHADOW_NEAR_CASCADE_RADIUS * 8.0F;
-            const float near_radius = std::min(SHADOW_NEAR_CASCADE_RADIUS, reach * 0.5F);
-            const float far_radius = std::max(reach * 0.5F, near_radius);
-
-            // Geometric split: cascade 0 hugs the camera (sharp), each subsequent cascade covers a
-            // geometrically larger box out to far_radius (coarse, far-reaching). cascade_splits[c]
-            // is the camera distance the cascade covers — a fragment within it is guaranteed inside
-            // the box (half-extent radius on every light-space axis), so the shader picks the
-            // nearest fit.
-            for (uint32 c = 0U; c < SHADOW_CASCADE_COUNT; ++c)
-            {
-                const float t =
-                    SHADOW_CASCADE_COUNT > 1U
-                        ? static_cast<float>(c) / static_cast<float>(SHADOW_CASCADE_COUNT - 1U)
-                        : 1.0F;
-                const float radius = near_radius * std::pow(far_radius / near_radius, t);
-                uniforms.cascade_view_projection[c] = build_cascade_matrix(
-                    camera_position,
-                    light_forward,
-                    radius,
-                    radius + SHADOW_DEPTH_MARGIN);
-                uniforms.cascade_splits[static_cast<int>(c)] = radius;
-            }
-            // Each cascade renders its own colored transmittance map in this same per-cascade
-            // projection (see the shadow pass), so transparent casters tint at every distance.
-            uniforms.cascade_count = SHADOW_CASCADE_COUNT;
-            // x = slope bias, y = constant bias (both small — texel-scaled normal offset in the
-            // shader does the heavy lifting against acne, so these stay tiny to avoid peter-panning
-            // / leak), z = PCF radius in texels (GraphicsSettings::shadow_softness — larger softens
-            // the edges).
-            uniforms.shadow_settings =
-                Vec4(0.0006F, 0.0002F, std::max(shadow_softness, 1.0F), 0.0F);
             uniforms.shadow_count = 1U;
             result.lights.back().shadow_data.x = 0.0F;
             shadow_caster_assigned = true;

@@ -1,6 +1,12 @@
 #pragma once
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/world/manager.h"
+#include "tbx/types/components/transform.h"
+#include "tbx/types/sphere.h"
+#include "tbx/types/vectors.h"
+#include <algorithm>
+#include <limits>
+#include <optional>
 #include <ranges>
 #include <unordered_map>
 #include <unordered_set>
@@ -29,6 +35,11 @@ namespace tbx
         Handle full_chunk = {};
         bool is_loaded = false;
         std::vector<Uuid> entities = {};
+        // World-space bounds of the chunk's contents, computed the first time it loads and kept across
+        // unloads so the view-based streamer can decide to re-load it without first deserializing it.
+        // (Chunk coords are logical ids, not spatial cells, so bounds must come from the entities.)
+        Sphere bounds = {};
+        bool has_bounds = false;
     };
 
     struct ChunkLoaderWorldRecord
@@ -54,6 +65,41 @@ namespace tbx
             return left.id == right.id;
 
         return !left.name.empty() && left.name == right.name;
+    }
+
+    // World-space bounding sphere of a chunk's entities (AABB of their world positions, enclosed). A
+    // coarse but synchronous bound for streaming — chunk coords are logical ids, not spatial cells, so
+    // where a chunk actually sits has to come from its entities. Entities without a transform are
+    // skipped; an empty chunk yields a zero-radius sphere at the origin.
+    static Sphere compute_chunk_bounds(const EntityRegistry& entities)
+    {
+        auto minimum = Vec3(std::numeric_limits<float>::max());
+        auto maximum = Vec3(std::numeric_limits<float>::lowest());
+        auto any = false;
+        for (const auto& entity : entities.get_all())
+        {
+            if (!entity.has_component<Transform>())
+                continue;
+
+            const auto position =
+                entity.get_component<Transform>().to_world_space(entity).position;
+            minimum = Vec3(
+                std::min(minimum.x, position.x),
+                std::min(minimum.y, position.y),
+                std::min(minimum.z, position.z));
+            maximum = Vec3(
+                std::max(maximum.x, position.x),
+                std::max(maximum.y, position.y),
+                std::max(maximum.z, position.z));
+            any = true;
+        }
+
+        if (!any)
+            return Sphere {.center = Vec3(0.0F), .radius = 0.0F};
+
+        return Sphere {
+            .center = (minimum + maximum) * 0.5F,
+            .radius = length(maximum - minimum) * 0.5F};
     }
 
     class ChunkLoader final
@@ -229,60 +275,106 @@ namespace tbx
             return true;
         }
 
-        void update(World& world, const std::vector<IVec3>& desired_chunks)
+        // Coords of the chunks currently loaded into `world`.
+        std::vector<IVec3> get_loaded_coords(const World& world) const
         {
-            const auto asset_manager = _asset_manager.lock();
-            if (!asset_manager)
+            auto coords = std::vector<IVec3> {};
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return coords;
+
+            for (const auto& [coord, record] : world_it->second.chunks)
+                if (record.is_loaded)
+                    coords.push_back(coord);
+
+            return coords;
+        }
+
+        bool is_chunk_loaded(const World& world, const IVec3& coord) const
+        {
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return false;
+
+            const auto chunk_it = world_it->second.chunks.find(coord);
+            return chunk_it != world_it->second.chunks.end() && chunk_it->second.is_loaded;
+        }
+
+        // The chunk asset handle to load for a coord (so the streaming lane can deserialize it off the
+        // main thread); invalid when the coord is unknown.
+        Handle get_chunk_handle(const World& world, const IVec3& coord) const
+        {
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return {};
+
+            const auto chunk_it = world_it->second.chunks.find(coord);
+            return chunk_it != world_it->second.chunks.end() ? chunk_it->second.full_chunk : Handle {};
+        }
+
+        // Integrate an already-loaded WorldChunk asset (the streaming lane did the deserialize): swap
+        // its entities into the world and mark the chunk loaded. Main thread only (it mutates the ECS).
+        void integrate_loaded(
+            World& world,
+            const IVec3& coord,
+            const std::shared_ptr<WorldChunk>& chunk)
+        {
+            if (!chunk)
                 return;
 
-            auto& world_state = _worlds[world.id];
+            auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return;
 
-            auto touched_chunks = std::unordered_set<IVec3> {};
-            for (const auto& coord : desired_chunks)
+            auto chunk_it = world_it->second.chunks.find(coord);
+            if (chunk_it == world_it->second.chunks.end() || chunk_it->second.is_loaded)
+                return;
+
+            TBX_TRACE_INFO("Loading world chunk ({}, {}, {})", coord.x, coord.y, coord.z);
+
+            auto& record = chunk_it->second;
+            world.remove_entities(record.entities);
+            world.add_entities(chunk->entities);
+            record.entities = collect_entity_ids(chunk->entities);
+            record.is_loaded = true;
+            if (!record.has_bounds)
             {
-                auto chunk_state_it = world_state.chunks.find(coord);
-                if (chunk_state_it == world_state.chunks.end())
-                    continue;
-
-                touched_chunks.insert(coord);
-                auto& chunk_state = chunk_state_it->second;
-                if (chunk_state.is_loaded)
-                    continue;
-
-                auto chunk = asset_manager->load<WorldChunk>(chunk_state.full_chunk);
-                if (!chunk)
-                    continue;
-
-                TBX_TRACE_INFO(
-                    "Loading world chunk ({}, {}, {})",
-                    chunk->coord.x,
-                    chunk->coord.y,
-                    chunk->coord.z);
-
-                world.add_entities(chunk->entities);
-                chunk_state.entities = collect_entity_ids(chunk->entities);
-                chunk_state.is_loaded = true;
+                record.bounds = compute_chunk_bounds(chunk->entities);
+                record.has_bounds = true;
             }
+        }
 
-            auto chunks_to_unload = std::vector<IVec3> {};
-            for (const auto& chunk_entry : world_state.chunks)
-            {
-                if (!touched_chunks.contains(chunk_entry.first))
-                    chunks_to_unload.push_back(chunk_entry.first);
-            }
+        // The chunk's cached world bounds, or nullopt if it has never been loaded (so its real extent
+        // isn't known yet). Used by view-based streaming to decide whether a chunk is in view.
+        std::optional<Sphere> get_chunk_bounds(const World& world, const IVec3& coord) const
+        {
+            const auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return std::nullopt;
 
-            for (const auto& coord : chunks_to_unload)
-            {
-                auto chunk_it = world_state.chunks.find(coord);
-                if (chunk_it == world_state.chunks.end())
-                    continue;
+            const auto chunk_it = world_it->second.chunks.find(coord);
+            if (chunk_it == world_it->second.chunks.end() || !chunk_it->second.has_bounds)
+                return std::nullopt;
 
-                TBX_TRACE_INFO("Unloading world chunk ({}, {}, {})", coord.x, coord.y, coord.z);
+            return chunk_it->second.bounds;
+        }
 
-                world.remove_entities(chunk_it->second.entities);
-                chunk_it->second.entities.clear();
-                chunk_it->second.is_loaded = false;
-            }
+        // Stream a chunk out: remove its entities and mark it unloaded. Main thread only.
+        void unload_chunk(World& world, const IVec3& coord)
+        {
+            auto world_it = _worlds.find(world.id);
+            if (world_it == _worlds.end())
+                return;
+
+            auto chunk_it = world_it->second.chunks.find(coord);
+            if (chunk_it == world_it->second.chunks.end() || !chunk_it->second.is_loaded)
+                return;
+
+            TBX_TRACE_INFO("Unloading world chunk ({}, {}, {})", coord.x, coord.y, coord.z);
+
+            world.remove_entities(chunk_it->second.entities);
+            chunk_it->second.entities.clear();
+            chunk_it->second.is_loaded = false;
         }
 
       private:

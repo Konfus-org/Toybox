@@ -25,11 +25,13 @@ out gl_PerVertex
 layout(location = 2) in vec3 v_world_position[];
 layout(location = 3) in vec3 v_world_normal[];
 layout(location = 5) in flat uint v_material_id[];
+layout(location = 6) in flat float v_fade[];
 
 layout(location = 0) out vec3 g_world_position;
 layout(location = 1) out vec3 g_world_normal;
 layout(location = 2) out flat uint g_material_id;
 layout(location = 3) out float g_shell; // 0 at the ground, 1 at the tallest blade tip
+layout(location = 4) out flat float g_fade; // size/LOD screen-door fade (1 = opaque)
 
 const int TBX_GRASS_SHELLS = 16;
 
@@ -48,6 +50,7 @@ void main()
             g_world_normal = v_world_normal[v];
             g_material_id = mid;
             g_shell = shell;
+            g_fade = v_fade[v];
             gl_Position = viewProjection * vec4(world_position, 1.0);
             EmitVertex();
         }

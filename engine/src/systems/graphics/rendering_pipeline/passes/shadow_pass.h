@@ -33,6 +33,15 @@ namespace tbx
         std::array<uint32, SHADOW_CASCADE_COUNT> _shadow_cascade_sizes = {};
         std::array<GpuResource, SHADOW_CASCADE_COUNT> _shadow_color_maps = {};
         uint32 _shadow_base_resolution = 0U;
+        // Whether the cascade depth / colored-transmittance maps currently hold rendered caster data.
+        // When a frame has no opaque (resp. transparent) casters the per-cascade sub-passes are
+        // skipped entirely; these flags trigger a single clear-only pass to reset the maps to their
+        // empty state (far depth / white transmittance) the first such frame, after which the maps
+        // are known-clean and the passes stay skipped. Set true on (re)creation so the maps get an
+        // initial clear. This is what turns the common no-glass scene's 10 directional sub-passes
+        // into 5 (depth only).
+        bool _shadow_depth_dirty = true;
+        bool _shadow_color_dirty = true;
         GpuResource _local_shadow_atlas = {};
         uint32 _local_shadow_resolution = 0U;
         // The local atlas is camera-independent, so it is regenerated only once per application frame

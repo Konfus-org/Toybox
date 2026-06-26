@@ -585,7 +585,13 @@ namespace tbx
         const auto& records = store->get().records;
         if (const auto iterator = records.find(id);
             iterator != records.end() && iterator->second.asset)
+        {
+            // Fetching a loaded asset refreshes its idle timer (see find_ready) so a per-frame probe
+            // keeps it resident instead of letting the GC unload and reload it.
+            const_cast<Record<TAsset>&>(iterator->second).last_access =
+                std::chrono::steady_clock::now();
             return iterator->second.asset;
+        }
 
         return {};
     }
@@ -608,7 +614,15 @@ namespace tbx
         auto& asset_record = const_cast<Record<TAsset>&>(record->get());
         update_asset_stream_state(asset_record);
         if (asset_record.stream_state == AssetStreamState::LOADED && asset_record.asset)
+        {
+            // Fetching a ready asset IS using it: refresh the idle timer so an asset pulled every
+            // frame (e.g. a model the renderer resolves via find_ready, never re-load()s) stays
+            // resident. Without this it goes idle after ASSET_UNLOAD_IDLE_GRACE, the GC unloads it
+            // (use_count falls to 1 between frames), and it reloads — a periodic FBX-reimport hitch
+            // and visible pop as it streams back in.
+            asset_record.last_access = std::chrono::steady_clock::now();
             return asset_record.asset;
+        }
         return {};
     }
 

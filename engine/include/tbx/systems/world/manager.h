@@ -5,11 +5,13 @@
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/vectors.h"
 #include <memory>
 
 namespace tbx
 {
     class IMessageCoordinator;
+    class ThreadManager;
 
     /// @brief
     /// Purpose: Owns the active world reference and coordinates world streaming.
@@ -65,10 +67,27 @@ namespace tbx
         bool save_active_world();
 
         /// @brief
-        /// Purpose: Updates world streaming for the active world.
+        /// Purpose: Supplies the thread manager that hosts the async world-streaming lane. When unset,
+        /// streaming falls back to synchronous chunk loading on the calling thread.
+        void set_thread_manager(std::weak_ptr<ThreadManager> thread_manager);
+
+        /// @brief
+        /// Purpose: Enables/disables view-based chunk streaming. When disabled, every chunk stays
+        /// loaded (no camera-view culling) — used by the editor, whose viewport cameras live outside
+        /// the world and so can't drive the world-camera streamer. Enabled by default.
+        void set_streaming_enabled(bool enabled);
+
+        /// @brief
+        /// Purpose: Updates world streaming for the active world. Call from the application main thread:
+        /// it reads cameras and mutates the world (chunk entities); only the chunk-asset deserialize is
+        /// offloaded to the streaming lane.
         void update(const DeltaTime& dt, const WorldSettings& settings);
 
       private:
+        void drain_streamed_chunks(World& world);
+        void request_chunk_load(World& world, const IVec3& coord);
+        void load_all_chunks(World& world);
+        bool ensure_streaming_lane(ThreadManager& thread_manager);
         bool refresh_active_world_from_asset();
         bool refresh_world_chunk(const Handle& chunk);
         bool refresh_world_globals();

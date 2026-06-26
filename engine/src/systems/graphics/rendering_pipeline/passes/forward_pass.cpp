@@ -44,7 +44,7 @@ namespace tbx
         const bool diag = frame_index == 2U;
         if (diag)
             TBX_TRACE_INFO(
-                "DRAW INFO: buckets={} instances={} lights={}",
+                "Rendering Diagnostics: buckets={} instances={} lights={}",
                 view.bucket_pipelines.size(),
                 view.instances.size(),
                 view.lights.size());
@@ -54,7 +54,7 @@ namespace tbx
             const GpuId pipeline = view.bucket_pipelines[bucket];
             if (diag)
                 TBX_TRACE_INFO(
-                    "DRAW BUCKET INFO {}: pipeline={} count={}",
+                    "Rendering Diagnostics - bucket {}: pipeline={} count={}",
                     bucket,
                     static_cast<uint64>(pipeline),
                     count);

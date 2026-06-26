@@ -108,9 +108,9 @@ namespace tbx
     }
 
     // Per-cascade shadow-map resolution: the configured base resolution (cascade 0) halved each
-    // cascade, clamped to a floor so the furthest cascade stays usable. With a 2048 base this yields
-    // 2048 / 1024 / 512 / 256 — the furthest cascade is deliberately low resolution since it spreads
-    // over the whole far range.
+    // cascade, clamped to a floor so the furthest cascade stays usable. With a 4096 base and five
+    // cascades this yields 4096 / 2048 / 1024 / 512 / 256 — the furthest cascade is deliberately low
+    // resolution since it spreads over the whole far range.
     inline constexpr uint32 SHADOW_MIN_CASCADE_RESOLUTION = 256U;
 
     inline uint32 cascade_resolution(uint32 base_resolution, uint32 cascade)
