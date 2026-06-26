@@ -616,6 +616,13 @@ namespace tbx
                         _hidden_context_primed = true;
                 }
             }
+
+            // External cameras (editor viewports / asset previews) the engine renders that are NOT
+            // entities in the active world. A host plugin (Studio) registered them and updated their
+            // poses/worlds earlier this frame in its update; render them after the world cameras so they
+            // observe the same simulated world this frame.
+            if (rendering)
+                rendering->render_external_cameras(delta_time, get_settings().graphics);
         }
 
         //// UPDATE: BROADCAST FRAME END AND COMMIT ASSET WORK ////

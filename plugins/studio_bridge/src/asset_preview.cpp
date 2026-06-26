@@ -1,22 +1,25 @@
 #include "asset_preview.h"
-#include "bridge_geometry.h"
+#include "bridge_utils.h"
+#include "builtin_assets.h"
+#include "view_stream.h"
+#include "tbx/types/assets/material.h"
 #include "tbx/types/assets/material_instance.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/texture.h"
-#include "tbx/types/color.h"
 #include "tbx/types/components/lights.h"
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/renderer.h"
 #include "tbx/types/components/sky.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/handle.h"
+#include "tbx/types/quaternions.h"
+#include "tbx/types/uuid.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -44,71 +47,25 @@ namespace tbx::studio_bridge
         return type == "fbx" || type == "obj" || type == "gltf" || type == "glb";
     }
 
-    // Maps an editor mesh token to a built-in mesh; unknown/empty tokens fall back to the type
-    // default.
-    static const tbx::Mesh& mesh_for_token(const std::string& token, const tbx::Mesh& fallback)
-    {
-        if (token == "triangle")
-            return tbx::Mesh::TRIANGLE;
-        if (token == "quad" || token == "plane")
-            return tbx::Mesh::QUAD;
-        if (token == "cube")
-            return tbx::Mesh::CUBE;
-        if (token == "sphere")
-            return tbx::Mesh::SPHERE;
-        if (token == "capsule")
-            return tbx::Mesh::CAPSULE;
-        if (token == "half_sphere")
-            return tbx::Mesh::HALF_SPHERE;
-        return fallback;
-    }
-
-    // Builds the chosen built-in preview MaterialInstance. "original" returns nullopt (leave the
-    // model's own materials in place); everything else is a uniform built-in look so the shape reads
-    // clearly. Defaults to gray semi-shiny metal.
-    static std::optional<tbx::MaterialInstance> build_preview_material(const std::string& option)
-    {
-        if (option == "original")
-            return std::nullopt;
-
-        const auto gray = tbx::Color(0.6F, 0.6F, 0.6F, 1.0F);
-        if (option == "unlit")
-        {
-            auto material = tbx::MaterialInstance(tbx::Handle("Materials/Flat.mat"));
-            material.set_color("albedo_color", gray);
-            return material;
-        }
-
-        auto material = tbx::MaterialInstance(tbx::Handle("Materials/Pbr.mat"));
-        material.set_color("albedo_color", gray);
-        if (option == "matte")
-        {
-            material.set_float("metallic", 0.0F);
-            material.set_float("roughness", 0.9F);
-        }
-        else // "metal" (default)
-        {
-            material.set_float("metallic", 1.0F);
-            material.set_float("roughness", 0.4F);
-        }
-        return material;
-    }
-
-    // Overrides a model-preview entity's materials with a uniform built-in look. Registers the look
-    // as an in-memory MaterialInstance and sets it as the Renderer's single whole-model material.
+    // Overrides a model-preview entity's materials with the chosen built-in surface material. A
+    // material_id of 0 leaves the model's own materials in place; otherwise the id names a registered
+    // built-in Material (the builtin.* catalog) wrapped in an in-memory MaterialInstance (deduplicated
+    // by id) and set as the Renderer's single whole-model override.
     static void apply_model_material(
         tbx::AssetManager& assets,
         tbx::Entity& entity,
-        const std::string& option)
+        uint32 material_id)
     {
-        const auto material = build_preview_material(option);
-        if (!material.has_value())
+        if (material_id == 0U)
             return;
 
-        const auto instance_handle = tbx::Handle("__preview_model_material:" + option);
+        const auto base = tbx::Handle(tbx::Uuid(material_id));
+        assets.load<tbx::Material>(base);
+        const auto instance_handle =
+            tbx::Handle("__preview_model_material:" + std::to_string(material_id));
         assets.get_or_register<tbx::MaterialInstance>(
             instance_handle,
-            [&material] { return std::make_shared<tbx::MaterialInstance>(*material); });
+            [&base] { return std::make_shared<tbx::MaterialInstance>(base); });
 
         entity.get_component<tbx::Renderer>().materials = {instance_handle};
     }
@@ -149,10 +106,10 @@ namespace tbx::studio_bridge
         return handle;
     }
 
-    // Loads the editor's bundled asset-preview world (skybox + key light) into `world`, so previews
-    // open against a lit sky rather than a black void. Best-effort: the bundled assets are handed
-    // to the engine as an extra asset root at launch (--register-assets); if they aren't present
-    // the preview simply renders without a sky and the caller's fallback light kicks in.
+    // Loads the editor's bundled asset-preview world (sky + key light) into `world`, so previews open
+    // against a lit sky rather than a black void. Best-effort: the bundled assets are handed to the
+    // engine as an extra asset root at launch (--register-assets); if they aren't present the preview
+    // simply renders without a sky and the caller's fallback light kicks in.
     static void load_preview_base_world(tbx::AssetManager& assets, tbx::World& world)
     {
         // The bundled preview assets live under the editor's build output, and the asset registry
@@ -172,15 +129,19 @@ namespace tbx::studio_bridge
             world.add_entities(chunk->entities);
     }
 
-    // Adjusts the preview's background sky: "night" blends the base sky fully to its night texture,
-    // "none" removes the sky entirely (plain background), and "day"/"" keep the default day sky.
-    static void apply_skybox(tbx::World& world, const std::string& skybox)
+    // Adjusts the preview's background sky to the editor's chosen built-in sky material (the builtin.*
+    // catalog): PREVIEW_SKYBOX_DEFAULT keeps the bundled world's authored day sky, 0 removes the sky
+    // entirely (plain background), and any other id retargets the sky entity to that sky material.
+    static void apply_skybox(tbx::AssetManager& assets, tbx::World& world, uint32 skybox_id)
     {
         auto sky_entity = world.first_with<tbx::Sky>();
         if (!sky_entity.get_id().is_valid())
             return;
 
-        if (skybox == "none")
+        if (skybox_id == PREVIEW_SKYBOX_DEFAULT)
+            return;
+
+        if (skybox_id == 0U)
         {
             world.destroy(sky_entity);
             return;
@@ -188,17 +149,17 @@ namespace tbx::studio_bridge
 
         if (!sky_entity.has_component<tbx::Sky>())
             return;
-        // The base Sky.mat blends a day (primary) and night (secondary) texture by blend_factor.
-        sky_entity.get_component<tbx::Sky>().material.set_float(
-            "blend_factor",
-            skybox == "night" ? 1.0F : 0.0F);
+        const auto base = tbx::Handle(tbx::Uuid(skybox_id));
+        assets.load<tbx::Material>(base);
+        sky_entity.get_component<tbx::Sky>().material = tbx::MaterialInstance(base);
     }
 
     bool build_asset_preview(
         tbx::AssetManager& assets,
         uint32 asset_id,
         const std::string& option,
-        const std::string& skybox,
+        uint32 material_id,
+        uint32 skybox_id,
         tbx::World& world,
         AssetPreviewFraming& out_framing)
     {
@@ -221,7 +182,7 @@ namespace tbx::studio_bridge
             {
                 auto light = world.create_entity("PreviewLight");
                 auto light_transform = tbx::Transform(tbx::Vec3(0.0F));
-                light_transform.rotation = look_rotation(
+                light_transform.rotation = tbx::look_rotation(
                     glm::normalize(glm::vec3(-0.4F, -1.0F, -0.6F)),
                     glm::vec3(0.0F, 1.0F, 0.0F));
                 light.add_component<tbx::Transform>(light_transform);
@@ -229,19 +190,19 @@ namespace tbx::studio_bridge
                     tbx::DirectionalLight(tbx::Color::WHITE, 1.5F, 0.35F));
             }
 
-            // The chosen background sky (day/night/none) applies to every asset type.
-            apply_skybox(world, skybox);
+            // The chosen background sky applies to every asset type.
+            apply_skybox(assets, world, skybox_id);
 
             if (is_model_type(type))
             {
-                // Models render as-is; the chosen built-in material (default gray metal) overrides
-                // the model's own part materials in the renderer.
+                // Models render as-is; the chosen built-in surface material (when set) overrides the
+                // model's own part materials in the renderer.
                 auto entity = world.create_entity("Preview");
                 if (!entity.get_id().is_valid())
                     return false;
                 entity.add_component<tbx::Transform>(tbx::Transform(tbx::Vec3(0.0F)));
                 entity.add_component<tbx::Renderer>(tbx::Renderer(handle));
-                apply_model_material(assets, entity, option);
+                apply_model_material(assets, entity, material_id);
 
                 // Frame the orbit camera to the model's world bounds so it opens fully in view;
                 // fall back to a sensible default distance if the model hasn't produced bounds yet.
@@ -259,16 +220,26 @@ namespace tbx::studio_bridge
 
             if (type == "mat")
             {
+                // A sky-typed material is the environment itself: default it to a sky-sphere so it opens
+                // as the background rather than on a mesh (the editor offers only a box/sphere shape
+                // toggle for it). Any other material defaults to a mesh primitive.
+                const auto material = assets.load<tbx::Material>(handle);
+                auto effective_option = option;
+                if (effective_option.empty() && material
+                    && material->type == tbx::MaterialType::SKY)
+                    effective_option = "skysphere";
+
                 // Skybox / sky-sphere: show the material AS the environment by retargeting the base
                 // sky entity to it; there is no separate preview mesh.
-                if (option == "skybox" || option == "skysphere")
+                if (effective_option == "skybox" || effective_option == "skysphere")
                 {
                     auto sky_entity = world.first_with<tbx::Sky>();
                     if (sky_entity.get_id().is_valid() && sky_entity.has_component<tbx::Sky>())
                     {
                         auto& sky = sky_entity.get_component<tbx::Sky>();
                         sky.material = tbx::MaterialInstance(handle);
-                        sky.type = option == "skybox" ? tbx::SkyType::BOX : tbx::SkyType::SPHERE;
+                        sky.type =
+                            effective_option == "skybox" ? tbx::SkyType::BOX : tbx::SkyType::SPHERE;
                     }
                     // The sky is camera-centred, so distance is cosmetic; sit just inside it.
                     out_framing.target = tbx::Vec3(0.0F);
@@ -284,11 +255,11 @@ namespace tbx::studio_bridge
                 // whole-model override is an instance referencing the previewed .mat directly.
                 const auto preview_model = register_primitive_model(
                     assets,
-                    "__preview_mat:" + std::to_string(asset_id) + ":" + option,
-                    mesh_for_token(option, tbx::Mesh::SPHERE));
+                    "__preview_mat:" + std::to_string(asset_id) + ":" + effective_option,
+                    builtin::mesh_for(effective_option, tbx::Mesh::SPHERE));
                 const auto preview_instance = register_preview_material(
                     assets,
-                    "__preview_mat_instance:" + std::to_string(asset_id) + ":" + option,
+                    "__preview_mat_instance:" + std::to_string(asset_id) + ":" + effective_option,
                     tbx::MaterialInstance(handle));
                 auto renderer = tbx::Renderer(preview_model);
                 renderer.materials = {preview_instance};
@@ -311,7 +282,7 @@ namespace tbx::studio_bridge
                 const auto preview_model = register_primitive_model(
                     assets,
                     "__preview_tex:" + std::to_string(asset_id) + ":" + option,
-                    mesh_for_token(option, tbx::Mesh::QUAD));
+                    builtin::mesh_for(option, tbx::Mesh::QUAD));
                 const auto preview_instance = register_preview_material(
                     assets,
                     "__preview_tex_instance:" + std::to_string(asset_id) + ":" + option,

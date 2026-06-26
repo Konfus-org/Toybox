@@ -43,4 +43,18 @@ namespace tbx
     /// also excludes a box enclosing the origin). `out_distance` is in the ray-direction's units. Returns
     /// whether the ray hits any triangle.
     TBX_API bool ray_intersects_mesh(const Ray& local_ray, const Mesh& mesh, float& out_distance);
+
+    /// @brief
+    /// Purpose: Parameter along the axis line (through `axis_origin`, along unit `axis_direction`) of the
+    /// point closest to `ray`. The parameter grows in the +axis_direction so a dragged handle follows the
+    /// cursor. Returns 0 when the ray is (almost) parallel to the axis.
+    TBX_API float closest_point_on_axis(
+        const Ray& ray, const Vec3& axis_origin, const Vec3& axis_direction);
+
+    /// @brief
+    /// Purpose: Intersects `ray` with the plane through `plane_point` with normal `plane_normal`, writing
+    /// the hit to `out_hit`. Returns false when (almost) parallel, or when the hit lies behind the ray
+    /// origin (forward-only — a plane behind the origin would otherwise yield a hit behind the cursor).
+    TBX_API bool ray_intersects_plane(
+        const Ray& ray, const Vec3& plane_point, const Vec3& plane_normal, Vec3& out_hit);
 }

@@ -6,11 +6,6 @@
 
 namespace tbx::studio_bridge
 {
-    // Runtime gameplay tag the bridge stamps on selected entities. The editor's selection-outline post
-    // effect (injected by ViewManager) is gated on it; a runtime tag never serializes, so selection
-    // never leaks into a saved world.
-    inline const std::string SELECTION_TAG = "editor.selected";
-
     /// @brief
     /// Purpose: The editor's current selection set (entity ids the viewports highlight and the gizmo
     /// transforms). Owned by the bridge; written by the editor's view.setSelection and read by the
@@ -36,7 +31,10 @@ namespace tbx::studio_bridge
             _ids = std::move(ids);
         }
 
+        /// @brief The selected entity ids.
         const std::vector<tbx::Uuid>& ids() const { return _ids; }
+
+        /// @brief Whether nothing is selected.
         bool empty() const { return _ids.empty(); }
 
       private:

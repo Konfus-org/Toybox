@@ -592,6 +592,28 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
+    std::shared_ptr<TAsset> AssetManager::find_ready(const Handle& handle) const
+    {
+        std::lock_guard lock(_mutex);
+        auto store = get_asset_store<TAsset>(_stores);
+        if (!store.has_value())
+            return {};
+
+        auto record = get_asset_record<TAsset>(*_registry, store->get(), handle);
+        if (!record.has_value())
+            return {};
+
+        // Finalize the pending async load (if its future is ready), then hand back the asset only
+        // when it is fully loaded — never the still-being-filled instance of an in-flight load.
+        auto& asset_record = const_cast<Record<TAsset>&>(record->get());
+        update_asset_stream_state(asset_record);
+        if (asset_record.stream_state == AssetStreamState::LOADED && asset_record.asset)
+            return asset_record.asset;
+        return {};
+    }
+
+    template <typename TAsset>
+        requires std::derived_from<TAsset, Asset>
     AssetUsage AssetManager::get_usage(const Handle& handle) const
     {
         std::lock_guard lock(_mutex);

@@ -1,7 +1,9 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
+#include "tbx/systems/ecs/tag_id.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include <algorithm>
 #include <vector>
 
 namespace tbx
@@ -19,8 +21,12 @@ namespace tbx
     // matches hierarchically (a query "editor" matches the tag "editor.selected").
     struct EntityTagsComponent
     {
+        // Serialized tags persist with the world, so they stay strings (written/read as-is). Runtime
+        // tags are transient editor/gameplay state, so they are stored as interned TagIds — matching is
+        // an int compare and there is no per-entity string storage. Their names round-trip through the
+        // tag-id registry for get_tags.
         std::vector<std::string> serialized = {};
-        std::vector<std::string> runtime = {};
+        std::vector<TagId> runtime = {};
     };
 
     struct EntityLayerComponent
@@ -320,11 +326,20 @@ namespace tbx
         auto& tags = _registry->get<EntityTagsComponent>(handle);
 
         // A tag lives in exactly one list; re-adding with the other persistence promotes/demotes it.
-        auto& target = serialized ? tags.serialized : tags.runtime;
-        auto& other = serialized ? tags.runtime : tags.serialized;
-        std::erase(other, name);
-        if (!list_contains(target, name))
-            target.push_back(name);
+        // Serialized tags are strings (persisted); runtime tags are interned ids.
+        const TagId id_for_runtime = intern_tag(name);
+        if (serialized)
+        {
+            std::erase(tags.runtime, id_for_runtime);
+            if (!list_contains(tags.serialized, name))
+                tags.serialized.push_back(name);
+        }
+        else
+        {
+            std::erase(tags.serialized, name);
+            if (std::ranges::find(tags.runtime, id_for_runtime) == tags.runtime.end())
+                tags.runtime.push_back(id_for_runtime);
+        }
     }
 
     void EntityRegistry::remove_tag(const Uuid& id, const std::string& name)
@@ -336,7 +351,7 @@ namespace tbx
 
         auto& tags = _registry->get<EntityTagsComponent>(handle);
         std::erase(tags.serialized, name);
-        std::erase(tags.runtime, name);
+        std::erase(tags.runtime, intern_tag(name));
     }
 
     bool EntityRegistry::has_tag(const Uuid& id, const std::string& query) const
@@ -350,8 +365,11 @@ namespace tbx
         for (const auto& tag : tags.serialized)
             if (tag_matches(tag, query))
                 return true;
-        for (const auto& tag : tags.runtime)
-            if (tag_matches(tag, query))
+        // Runtime tags match on id, hierarchically (the query is the ancestor): "editor" matches a
+        // runtime "editor.selected".
+        const TagId query_id = intern_tag(query);
+        for (const TagId tag : tags.runtime)
+            if (tag_is_ancestor(query_id, tag))
                 return true;
         return false;
     }
@@ -366,7 +384,8 @@ namespace tbx
 
         const auto& tags = _registry->get<EntityTagsComponent>(handle);
         all.insert(all.end(), tags.serialized.begin(), tags.serialized.end());
-        all.insert(all.end(), tags.runtime.begin(), tags.runtime.end());
+        for (const TagId tag : tags.runtime)
+            all.push_back(tag_name(tag));
         return all;
     }
 
@@ -385,7 +404,12 @@ namespace tbx
         const auto handle = to_entity_handle(id);
         if (!_registry->valid(handle) || !_registry->all_of<EntityTagsComponent>(handle))
             return {};
-        return _registry->get<EntityTagsComponent>(handle).runtime;
+        const auto& runtime = _registry->get<EntityTagsComponent>(handle).runtime;
+        std::vector<std::string> names = {};
+        names.reserve(runtime.size());
+        for (const TagId tag : runtime)
+            names.push_back(tag_name(tag));
+        return names;
     }
 
     Uuid EntityRegistry::get_parent_id(const Uuid& id) const

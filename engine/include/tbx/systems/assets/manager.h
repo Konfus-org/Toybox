@@ -115,6 +115,21 @@ namespace tbx
         std::shared_ptr<TAsset> find_loaded(const Handle& handle) const;
 
         /// @brief
+        /// Purpose: Returns an asset only once it is fully loaded (stream state LOADED), never while an
+        /// async load is still in flight — the non-blocking counterpart to `load`. Polls the record's
+        /// pending async load to finalize it, then returns the asset if ready, else null.
+        /// @details
+        /// Unlike `find_loaded`, this never hands back a still-being-filled instance: callers that
+        /// kicked a load via `load_async` use this to read the result safely (the finalize consumes
+        /// the load future, establishing the happens-before for the worker's writes). Returns null
+        /// both for "still loading" and "not requested" — callers track which via `load_async`.
+        /// Ownership: Returns a shared asset instance owned jointly by the manager and caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        template <typename TAsset>
+            requires std::derived_from<TAsset, Asset>
+        std::shared_ptr<TAsset> find_ready(const Handle& handle) const;
+
+        /// @brief
         /// Purpose: Advances asset lifecycle timers and unloads stale unreferenced assets.
         /// @details
         /// Ownership: Does not transfer ownership. Thread Safety: Safe to call concurrently;

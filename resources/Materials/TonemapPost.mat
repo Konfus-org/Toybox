@@ -1,4 +1,8 @@
 {
+    "type": {
+        "type": "material_type",
+        "value": "post"
+    },
     "shader": {
         "type": "shader_program",
         "value": {

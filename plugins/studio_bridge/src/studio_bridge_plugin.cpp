@@ -1,8 +1,11 @@
 #include "studio_bridge_plugin.h"
+#include "tags.h"
+#include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/messages.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,16 +23,15 @@ namespace tbx::studio_bridge
         : _views(_services)
         , _input(_services, _views)
         , _gizmos(_services, _views, _selection)
-        , _collider_gizmos(_services, _selection)
-        , _billboards(_services, _views)
-        , _picking(_services, _views)
-        , _play(
+        , _collider_pass(_services, _selection)
+        , _selection_handler(_services, _views)
+        , _game_mode(
               _services,
               [this](bool paused)
               {
                   post_message<tbx::SetApplicationPausedRequest>(paused);
               })
-        , _world_rpc(_services, _views)
+        , _world_manager(_services, _views)
         , _log(_services)
     {
     }
@@ -50,6 +52,10 @@ namespace tbx::studio_bridge
 
     void StudioBridge::on_detach()
     {
+        // Remove our render passes from the engine Rendering service before this plugin unloads, so the
+        // renderer never calls into the freed overlay captured here.
+        _gizmos.unregister_pass();
+        _collider_pass.unregister_pass();
         _views.stop_all_views();
         _log.detach();
         // Remove our handlers before this plugin unloads so the router never calls into freed memory.
@@ -73,37 +79,32 @@ namespace tbx::studio_bridge
                 // The editor went away: tear down its views and leave the engine stopped at the
                 // restored world so it never lingers in a half-played state.
                 _views.stop_all_views();
-                _play.set_playing(false);
+                _game_mode.set_playing(false);
             }
 
             _had_client = has_client;
         }
 
-        // Apply this frame's forwarded input: fly the focused editor cameras and feed the game's
-        // input system, then re-sync game views to the live game camera, all before rendering reads
-        // their transforms. The view manager then renders its own view cameras into their textures,
-        // submitting the gizmo overlay first.
+        // Prepare this frame for the engine's render: fly the focused editor cameras, hit-test/drag the
+        // gizmo, feed the game's input system, and re-sync game views to the live game camera. Then fill
+        // the overlay batches (gizmo handles + collider wireframes) and push every view's camera to the
+        // engine's external-camera registry. The engine renders the external cameras after this update;
+        // the gizmo / collider / selection passes draw the overlays on top (gated on the editor tag).
         _input.update_editor_cameras(dt);
         _gizmos.update(dt);
-        _input.update_game_input(_play.is_playing());
-        _views.sync_game_views();
-        _views.render_views(
-            dt,
-            [this](const tbx::CameraView* focused_camera, const GizmoState* focused_gizmo)
-            {
-                // Collider/trigger wireframes (world-space, every editor view) plus the focused
-                // view's transform handles make up this frame's gizmo overlay.
-                _collider_gizmos.submit();
-                _gizmos.submit_overlay(focused_camera, focused_gizmo);
-            });
+        _input.update_game_input(_game_mode.is_playing());
+        _views.sync_game_cameras();
 
-        // Push this frame's entity screen positions to the editor's billboard overlay (name labels +
-        // viewport-icon stacks), one message per editor view. Editor-only; cheap no-op without a client.
-        _billboards.publish();
+        _gizmos.submit_overlay();
+        _collider_pass.submit();
+        _views.push_external_cameras();
+
+        // The editor's billboard overlay positions are pulled, not pushed: the editor polls
+        // view.projectEntities on its own cadence, so there is nothing to send here per frame.
 
         // Mirror the game's mouse-lock mode out to the editor so its game panel can capture the
         // cursor.
-        _input.report_mouse_lock(_play.is_playing());
+        _input.report_mouse_lock(_game_mode.is_playing());
     }
 
     void StudioBridge::on_recieve_message(tbx::Message& msg)
@@ -112,16 +113,23 @@ namespace tbx::studio_bridge
         {
             auto& application = initialized_event->get().application;
             _services.app_name = application.get_name();
-            _services.graphics_settings = &application.get_settings().graphics;
+            _services.graphics_settings = std::cref(application.get_settings().graphics);
             auto& services = application.get_service_provider();
             _services.world_manager = services.try_get_service<tbx::WorldManager>();
             _services.rendering = services.try_get_service<tbx::Rendering>();
+            _services.graphics_backend = services.try_get_service<tbx::IGraphicsBackend>();
             _services.asset_manager = services.try_get_service<tbx::AssetManager>();
             _services.input_manager = services.try_get_service<tbx::InputManager>();
             _services.gizmos = services.try_get_service<tbx::Gizmos>();
             _services.scripting_registry = services.try_get_service<tbx::ScriptingRegistry>();
             _services.physics = services.try_get_service<tbx::Physics>();
             _services.script_system = services.try_get_service<tbx::ScriptSystem>();
+
+            // The rendering + backend + gizmo services are resolved now, so register the editor's
+            // render passes (the gizmo overlay and the collider-wireframe pass, gated on the
+            // editor.camera tag). They live on the engine Rendering service until on_detach removes them.
+            _gizmos.register_pass();
+            _collider_pass.register_pass();
         }
     }
 
@@ -181,7 +189,7 @@ namespace tbx::studio_bridge
             "engine.setPlaying",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                _play.set_playing(params.value("isPlaying", false));
+                _game_mode.set_playing(params.value("isPlaying", false));
                 r.result(tbx::Json::object());
             });
         add(
@@ -193,96 +201,96 @@ namespace tbx::studio_bridge
                 post_message<tbx::ExitApplicationRequest>();
             });
 
-        // --- World / entity / asset description + edits (WorldRpc) ---
+        // --- World / entity / asset description + edits (WorldManager) ---
         add(
             "world.describe",
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
-                r.result(_world_rpc.describe_world());
+                r.result(_world_manager.describe_world());
             });
         add(
             "world.save",
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.save_world());
+                r.respond(_world_manager.save_world());
             });
         add(
             "world.open",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // Opens a world/chunk asset as the active editing world (replacing the current one).
-                r.respond(_world_rpc.open_world(params));
+                r.respond(_world_manager.open_world(params));
             });
         add(
             "asset.save",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.save_asset(params));
+                r.respond(_world_manager.save_asset(params));
             });
         add(
             "editor.listAssets",
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
-                r.result(_world_rpc.list_assets());
+                r.result(_world_manager.list_assets());
             });
         add(
             "app.describeSettings",
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
-                r.result(_world_rpc.describe_settings());
+                r.result(_world_manager.describe_settings());
             });
         add(
             "asset.describe",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _world_rpc.describe_asset(params, reply);
+                const auto result = _world_manager.describe_asset(params, reply);
                 r.respond(result, reply);
             });
         add(
             "editor.listComponentTypes",
             [this](const tbx::Json&, tbx::RpcResponder& r)
             {
-                r.result(_world_rpc.list_component_types());
+                r.result(_world_manager.list_component_types());
             });
         add(
             "editor.modelSlots",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _world_rpc.model_slots(params, reply);
+                const auto result = _world_manager.model_slots(params, reply);
                 r.respond(result, reply);
             });
         add(
             "entity.setComponent",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.apply_component(params));
+                r.respond(_world_manager.apply_component(params));
             });
         add(
             "entity.addComponent",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.add_component(params));
+                r.respond(_world_manager.add_component(params));
             });
         add(
             "entity.removeComponent",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.remove_component(params));
+                r.respond(_world_manager.remove_component(params));
             });
         add(
             "entity.addScript",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.add_script(params));
+                r.respond(_world_manager.add_script(params));
             });
         add(
             "entity.describe",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _world_rpc.describe_entity(params, reply);
+                const auto result = _world_manager.describe_entity(params, reply);
                 r.respond(result, reply);
             });
         add(
@@ -290,67 +298,67 @@ namespace tbx::studio_bridge
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _world_rpc.create_entity(params, reply);
+                const auto result = _world_manager.create_entity(params, reply);
                 r.respond(result, reply);
             });
         add(
             "entity.destroy",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.destroy_entity(params));
+                r.respond(_world_manager.destroy_entity(params));
             });
         add(
             "entity.setName",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.set_entity_name(params));
+                r.respond(_world_manager.set_entity_name(params));
             });
         add(
             "entity.setGlobal",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.set_entity_global(params));
+                r.respond(_world_manager.set_entity_global(params));
             });
         add(
             "entity.setEnabled",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.set_entity_enabled(params));
+                r.respond(_world_manager.set_entity_enabled(params));
             });
         add(
             "entity.move",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.move_entity(params));
+                r.respond(_world_manager.move_entity(params));
             });
 
-        // --- Per-property reflection (WorldRpc) ---
+        // --- Per-property reflection (WorldManager) ---
         add(
             "reflect.get",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto node = tbx::Json::object();
-                const auto result = _world_rpc.reflect_get(params, node);
+                const auto result = _world_manager.reflect_get(params, node);
                 r.respond(result, node);
             });
         add(
             "reflect.set",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.reflect_set(params));
+                r.respond(_world_manager.reflect_set(params));
             });
         add(
             "reflect.reset",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(_world_rpc.reflect_reset(params));
+                r.respond(_world_manager.reflect_reset(params));
             });
         add(
             "reflect.isDefault",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto is_default = false;
-                const auto result = _world_rpc.reflect_is_default(params, is_default);
+                const auto result = _world_manager.reflect_is_default(params, is_default);
                 if (result)
                 {
                     auto reply = tbx::Json::object();
@@ -368,15 +376,15 @@ namespace tbx::studio_bridge
             "view.start",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
+                // The kind selects which view stream is created; only an asset-preview view uses the
+                // asset id (it selects the asset loaded into the view's isolated preview world).
                 const auto kind_token = params.value("kind", std::string());
-                const auto kind = kind_token == "game"  ? ViewKind::Game
-                                  : kind_token == "asset" ? ViewKind::AssetPreview
-                                                          : ViewKind::Editor;
-                // Only an asset-preview view uses the asset id; it selects the asset loaded into the
-                // view's isolated preview world.
                 const auto asset_id = params.value("assetId", 0U);
                 auto view_name = std::string();
-                auto view_result = _views.start_view(kind, asset_id, view_name);
+                auto view_result =
+                    kind_token == "game"  ? _views.start_game_view(view_name)
+                    : kind_token == "asset" ? _views.start_asset_preview_view(asset_id, view_name)
+                                            : _views.start_editor_view(view_name);
                 if (view_result)
                 {
                     auto view_info = tbx::Json::object();
@@ -411,30 +419,32 @@ namespace tbx::studio_bridge
             "view.setPreviewOption",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                // Rebuilds an asset-preview view with a different mesh/material option (the editor's
-                // preview picker).
+                // Rebuilds an asset-preview view with a different presentation (the editor's preview
+                // picker): a built-in mesh token (material/texture) or "skybox"/"skysphere", plus the
+                // chosen built-in material id (0 = original) for a model — both sourced from builtin.*.
                 const auto name = params.value("view", std::string());
                 const auto option = params.value("option", std::string());
-                r.respond(_views.set_preview_option(name, option));
+                const auto material_id = params.value("materialId", 0U);
+                r.respond(_views.set_preview_option(name, option, material_id));
             });
         add(
             "view.setPreviewSkybox",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // Rebuilds an asset-preview view with a different background sky (the editor's skybox
-                // picker).
+                // picker): the chosen built-in sky material id, or 0 for no sky.
                 const auto name = params.value("view", std::string());
-                const auto skybox = params.value("skybox", std::string());
-                r.respond(_views.set_preview_skybox(name, skybox));
+                const auto skybox_id = params.value("skyboxId", 0U);
+                r.respond(_views.set_preview_skybox(name, skybox_id));
             });
 
-        // --- Picking + selection (PickService / Selection) ---
+        // --- Picking + selection (EntitySelectionHandler / Selection) ---
         add(
             "view.pick",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _picking.pick(params, reply);
+                const auto result = _selection_handler.pick(params, reply);
                 r.respond(result, reply);
             });
         add(
@@ -442,7 +452,17 @@ namespace tbx::studio_bridge
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto reply = tbx::Json::object();
-                const auto result = _picking.pick_rect(params, reply);
+                const auto result = _selection_handler.pick_rect(params, reply);
+                r.respond(result, reply);
+            });
+        add(
+            "view.projectEntities",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // Where a view's entities land on screen (billboard overlay positions). The editor polls
+                // this on its own cadence; the engine projects only when asked.
+                auto reply = tbx::Json::object();
+                const auto result = _selection_handler.project_entities(params, reply);
                 r.respond(result, reply);
             });
         add(
@@ -452,7 +472,7 @@ namespace tbx::studio_bridge
                 // Which of the given entities are hidden behind geometry from a view's camera (billboard
                 // overlay visibility), batched into one scene pass.
                 auto reply = tbx::Json::object();
-                const auto result = _picking.query_occlusion(params, reply);
+                const auto result = _selection_handler.query_occlusion(params, reply);
                 r.respond(result, reply);
             });
         add(
@@ -461,7 +481,7 @@ namespace tbx::studio_bridge
             {
                 // Notification from the editor whenever the selection changes; no response. The
                 // selection is shown as an outline by the engine's tag-gated selection-outline post
-                // effect, so mark the newly selected entities with the runtime SELECTION_TAG and clear
+                // effect, so mark the newly selected entities with the runtime selected tag and clear
                 // it from the previously selected ones (a no-op on stale/absent ids). An id may live in
                 // the active world or in an asset-preview view's world, so resolve each id's world.
                 const auto world_of = [this](const tbx::Uuid& id) -> std::shared_ptr<tbx::World>
@@ -473,11 +493,11 @@ namespace tbx::studio_bridge
 
                 for (const auto& id : _selection.ids())
                     if (auto world = world_of(id))
-                        world->get(id).remove_tag(SELECTION_TAG);
+                        world->get(id).remove_tag(Tags::SELECTED);
                 _selection.set_from_params(params);
                 for (const auto& id : _selection.ids())
                     if (auto world = world_of(id))
-                        world->get(id).add_tag(SELECTION_TAG, /*serialized*/ false);
+                        world->get(id).add_tag(Tags::SELECTED, /*serialized*/ false);
             });
 
         // --- Gizmo tool (GizmoController) ---

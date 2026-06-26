@@ -144,4 +144,29 @@ namespace tbx
             out_distance = best;
         return hit;
     }
+
+    float closest_point_on_axis(const Ray& ray, const Vec3& axis_origin, const Vec3& axis_direction)
+    {
+        const auto r = ray.origin - axis_origin;
+        const auto b = glm::dot(axis_direction, ray.direction);
+        const auto d = glm::dot(axis_direction, r);
+        const auto e = glm::dot(ray.direction, r);
+        const auto denom = 1.0F - (b * b);
+        if (std::abs(denom) < 1e-5F)
+            return 0.0F; // ray (almost) parallel to the axis
+        return (d - (b * e)) / denom;
+    }
+
+    bool ray_intersects_plane(
+        const Ray& ray, const Vec3& plane_point, const Vec3& plane_normal, Vec3& out_hit)
+    {
+        const auto denom = glm::dot(ray.direction, plane_normal);
+        if (std::abs(denom) < 1e-6F)
+            return false;
+        const auto t = glm::dot(plane_point - ray.origin, plane_normal) / denom;
+        if (t < 0.0F)
+            return false;
+        out_hit = ray.origin + (t * ray.direction);
+        return true;
+    }
 }

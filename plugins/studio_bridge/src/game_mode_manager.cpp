@@ -1,17 +1,17 @@
-#include "play_mode.h"
+#include "game_mode_manager.h"
 #include "tbx/types/assets/world.h"
 #include <utility>
 #include <vector>
 
 namespace tbx::studio_bridge
 {
-    PlayMode::PlayMode(EngineServices& services, SetPausedFn set_paused)
+    GameModeManager::GameModeManager(EngineServices& services, SetPausedFn set_paused)
         : _services(services)
         , _set_paused(std::move(set_paused))
     {
     }
 
-    void PlayMode::set_playing(bool playing)
+    void GameModeManager::set_playing(bool playing)
     {
         if (_is_playing == playing)
             return;
@@ -37,12 +37,12 @@ namespace tbx::studio_bridge
         _is_playing = playing;
     }
 
-    void PlayMode::snapshot_world()
+    void GameModeManager::snapshot_world()
     {
         _runtime_snapshot.clear();
         _global_snapshot.clear();
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return;
 
@@ -57,14 +57,14 @@ namespace tbx::studio_bridge
         }
     }
 
-    void PlayMode::restore_world()
+    void GameModeManager::restore_world()
     {
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (world)
         {
             // Remove every entity play spawned or mutated, then replay the snapshot with each
-            // entity's original persistence. View cameras are unaffected — they live in the view
-            // manager's own registry.
+            // entity's original persistence. View cameras are unaffected — they live in the bridge's
+            // own rendering registry.
             auto to_destroy = std::vector<tbx::Uuid>();
             for (const auto& entity : world->get_all())
                 to_destroy.push_back(entity.get_id());
@@ -89,16 +89,16 @@ namespace tbx::studio_bridge
         _global_snapshot.clear();
     }
 
-    void PlayMode::reset_simulation()
+    void GameModeManager::reset_simulation()
     {
         // Drop every physics body so the next play rebuilds them from the restored transforms (and
         // discard the in-flight step, whose result is from the played world).
-        if (auto physics = _services.physics.lock())
+        if (auto physics = _services.get().physics.lock())
             physics->reset();
 
         // Destroy every live script instance so the next play re-runs on_start from the restored
         // bindings rather than resuming the previous session's per-script state.
-        if (auto scripts = _services.script_system.lock())
+        if (auto scripts = _services.get().script_system.lock())
             scripts->reset();
     }
 }

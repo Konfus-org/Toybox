@@ -1,10 +1,12 @@
-#include "world_rpc.h"
+#include "world_manager.h"
+#include "builtin_assets.h"
 #include "view_manager.h"
 #include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
+#include "tbx/types/assets/texture.h"
 #include "tbx/types/components/script_container.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
@@ -15,6 +17,7 @@
 #include <string>
 #include <typeindex>
 #include <typeinfo>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -87,6 +90,34 @@ namespace tbx::studio_bridge
         return extension;
     }
 
+    // The render-role token of a material asset (its MaterialType), or empty when the handle does not
+    // resolve to a loadable material. Lets the editor treat a material by its type — e.g. preview a sky
+    // material as the environment background. The load is cached, and a material load only parses the
+    // .mat (its shader/texture handles stay lazy). The tokens mirror the enum's [[name]]s; the engine's
+    // generated enum serializer isn't DLL-exported, so the wire names are spelled out here.
+    static std::string material_type_token(tbx::AssetManager& assets, const tbx::Handle& handle)
+    {
+        const auto material = assets.load<tbx::Material>(handle);
+        if (!material)
+            return std::string();
+
+        switch (material->type)
+        {
+            case tbx::MaterialType::RASTER:
+                return "raster";
+            case tbx::MaterialType::SKY:
+                return "sky";
+            case tbx::MaterialType::POST:
+                return "post";
+            case tbx::MaterialType::GEO:
+                return "geo";
+            case tbx::MaterialType::COMPUTE:
+                return "compute";
+        }
+
+        return "raster";
+    }
+
     // Reads an optional "parent" param: a missing/0 value means the root (an invalid Uuid).
     static tbx::Uuid read_parent_param(const tbx::Json& params)
     {
@@ -98,18 +129,18 @@ namespace tbx::studio_bridge
         return parent_value == 0U ? tbx::Uuid() : tbx::Uuid(parent_value);
     }
 
-    WorldRpc::WorldRpc(EngineServices& services, ViewManager& views)
+    WorldManager::WorldManager(EngineServices& services, ViewManager& views)
         : _services(services)
         , _views(views)
     {
     }
 
-    tbx::Json WorldRpc::describe_world() const
+    tbx::Json WorldManager::describe_world() const
     {
         auto result = tbx::Json::object();
         auto entities = tbx::Json::array();
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (world)
         {
             // One (lean, attributed) script-schema pair per type, reused across every entity in this pass.
@@ -141,7 +172,7 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    tbx::Json WorldRpc::component_type_icons() const
+    tbx::Json WorldManager::component_type_icons() const
     {
         // A side table of component-type icons ([[tbx::icon]]), keyed by wire name, so the inspector
         // can badge component headers without bloating every persisted component payload. The icon is
@@ -170,12 +201,12 @@ namespace tbx::studio_bridge
         return component_types;
     }
 
-    tbx::Json WorldRpc::describe_script_schema(uint64 script_id, bool attributed) const
+    tbx::Json WorldManager::describe_script_schema(uint64 script_id, bool attributed) const
     {
         if (script_id == 0U)
             return tbx::Json::object();
 
-        auto asset_manager = _services.asset_manager.lock();
+        auto asset_manager = _services.get().asset_manager.lock();
         if (!asset_manager)
             return tbx::Json::object();
 
@@ -197,7 +228,7 @@ namespace tbx::studio_bridge
         return schema.is_object() ? std::move(schema) : tbx::Json::object();
     }
 
-    void WorldRpc::enrich_script_overrides(
+    void WorldManager::enrich_script_overrides(
         tbx::Json& entity_json,
         std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>& schema_cache) const
     {
@@ -297,7 +328,7 @@ namespace tbx::studio_bridge
         }
     }
 
-    Result WorldRpc::describe_entity(const tbx::Json& params, tbx::Json& out_reply) const
+    Result WorldManager::describe_entity(const tbx::Json& params, tbx::Json& out_reply) const
     {
         // Reuses the reflect entity resolver (reads/validates entityId against the active world).
         auto entity = tbx::Entity();
@@ -313,7 +344,7 @@ namespace tbx::studio_bridge
         if (entity_json.is_discarded() || !entity_json.is_object())
             return Result(false, "Failed to serialize entity.");
 
-        if (auto world = _services.active_world())
+        if (auto world = _services.get().active_world())
             entity_json["is_global"] = world->is_global(entity.get_id());
 
         auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
@@ -324,7 +355,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    tbx::Json WorldRpc::describe_settings() const
+    tbx::Json WorldManager::describe_settings() const
     {
         // Hand the editor the full AppSettings schema with every field's engine default — graphics,
         // physics, async, etc. The project's own AppSettings.json is lean (only the values it
@@ -340,7 +371,7 @@ namespace tbx::studio_bridge
         return reply;
     }
 
-    Result WorldRpc::describe_asset(const tbx::Json& params, tbx::Json& out_reply) const
+    Result WorldManager::describe_asset(const tbx::Json& params, tbx::Json& out_reply) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -350,7 +381,7 @@ namespace tbx::studio_bridge
             return Result(false, "Missing or invalid 'assetId'.");
         const auto asset_id = id_iterator->get<uint32>();
 
-        auto asset_manager = _services.asset_manager.lock();
+        auto asset_manager = _services.get().asset_manager.lock();
         if (!asset_manager)
             return Result(false, "No asset manager.");
 
@@ -384,7 +415,7 @@ namespace tbx::studio_bridge
         return Result(false, "Asset not found.");
     }
 
-    Result WorldRpc::model_slots(const tbx::Json& params, tbx::Json& out_reply) const
+    Result WorldManager::model_slots(const tbx::Json& params, tbx::Json& out_reply) const
     {
         out_reply["slots"] = tbx::Json::array();
         if (!params.is_object())
@@ -394,7 +425,7 @@ namespace tbx::studio_bridge
         if (model_id == 0U)
             return Result::OK; // no model assigned yet -> no slots
 
-        auto asset_manager = _services.asset_manager.lock();
+        auto asset_manager = _services.get().asset_manager.lock();
         if (!asset_manager)
             return Result(false, "No asset manager.");
 
@@ -415,7 +446,25 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    tbx::Json WorldRpc::list_assets() const
+    // Force-registers a built-in preview asset (its directory is skipped by the registry's startup
+    // scan, so loading by path is what registers it — reading its .meta id) and returns its canonical
+    // id, or an invalid id when it cannot be loaded. The load is type-dispatched by extension.
+    static tbx::Uuid register_builtin_asset(tbx::AssetManager& assets, const tbx::Handle& handle)
+    {
+        auto extension = std::filesystem::path(handle.name).extension().string();
+        for (auto& character : extension)
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+
+        if (extension == ".png" || extension == ".jpg" || extension == ".jpeg"
+            || extension == ".tga" || extension == ".bmp")
+            assets.load<tbx::Texture>(handle);
+        else
+            assets.load<tbx::Material>(handle);
+
+        return assets.resolve_id(handle);
+    }
+
+    tbx::Json WorldManager::list_assets() const
     {
         auto result = tbx::Json::object();
         auto assets = tbx::Json::array();
@@ -424,10 +473,18 @@ namespace tbx::studio_bridge
         // A scripting backend claims its source extension (e.g. ".h" for C++), so an asset whose file
         // extension a backend recognises is a script source the editor can bind to an entity. Resolved
         // once per list so each asset can be flagged for the editor's script picker.
-        auto scripting = _services.scripting_registry.lock();
+        auto scripting = _services.get().scripting_registry.lock();
 
-        if (auto asset_manager = _services.asset_manager.lock())
+        if (auto asset_manager = _services.get().asset_manager.lock())
         {
+            // Surface the engine/bridge-provided preview assets alongside the project's: their directory
+            // is skipped by the registry scan, so register them here (once registered they come through
+            // get_registered_assets like any other) and remember their ids so each entry can be flagged.
+            auto builtin_ids = std::unordered_set<uint64>();
+            for (const auto& handle : builtin::assets())
+                if (const auto id = register_builtin_asset(*asset_manager, handle); id.is_valid())
+                    builtin_ids.insert(id.value);
+
             for (const auto& entry : asset_manager->get_registered_assets())
             {
                 const auto display_name = entry.resolved_path.empty()
@@ -446,12 +503,22 @@ namespace tbx::studio_bridge
                 const auto is_script =
                     scripting && !extension.empty() && !scripting->for_extension(extension).expired();
 
+                const auto asset_type = asset_type_from_path(entry.resolved_path);
+
                 auto asset = tbx::Json::object();
                 asset["id"] = entry.asset_id.value;
                 asset["name"] = display_name;
-                asset["type"] = asset_type_from_path(entry.resolved_path);
+                asset["type"] = asset_type;
                 asset["path"] = entry.normalized_path;
                 asset["isScript"] = is_script;
+                asset["isBuiltin"] = builtin_ids.contains(entry.asset_id.value);
+                // A material also advertises its render-role type so the editor can preview a sky
+                // material as the background (and hide the mesh/material pickers for it).
+                if (asset_type == "mat")
+                    if (auto material_type = material_type_token(
+                            *asset_manager, tbx::Handle(entry.normalized_path, entry.asset_id));
+                        !material_type.empty())
+                        asset["materialType"] = std::move(material_type);
                 assets.push_back(std::move(asset));
             }
         }
@@ -474,7 +541,7 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    Result WorldRpc::apply_component(const tbx::Json& params) const
+    Result WorldManager::apply_component(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -491,7 +558,7 @@ namespace tbx::studio_bridge
         if (value_iterator == params.end())
             return Result(false, "Missing 'value'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -502,7 +569,7 @@ namespace tbx::studio_bridge
         return tbx::apply_component(entity, component, value_iterator->dump());
     }
 
-    tbx::Json WorldRpc::list_component_types() const
+    tbx::Json WorldManager::list_component_types() const
     {
         // The component catalog the editor's "Add Component" picker draws from: every registered
         // component type by wire name, with its [[tbx::icon]] badge. The editor humanises the name for
@@ -526,7 +593,7 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    Result WorldRpc::add_component(const tbx::Json& params) const
+    Result WorldManager::add_component(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -539,7 +606,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -550,7 +617,7 @@ namespace tbx::studio_bridge
         return tbx::add_default_component(entity, component);
     }
 
-    Result WorldRpc::remove_component(const tbx::Json& params) const
+    Result WorldManager::remove_component(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -563,7 +630,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -574,7 +641,7 @@ namespace tbx::studio_bridge
         return tbx::remove_component(entity, component);
     }
 
-    Result WorldRpc::add_script(const tbx::Json& params) const
+    Result WorldManager::add_script(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -587,7 +654,7 @@ namespace tbx::studio_bridge
         if (script_iterator == params.end() || !script_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'script'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -614,12 +681,12 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::create_entity(const tbx::Json& params, tbx::Json& out_reply) const
+    Result WorldManager::create_entity(const tbx::Json& params, tbx::Json& out_reply) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -647,7 +714,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::destroy_entity(const tbx::Json& params) const
+    Result WorldManager::destroy_entity(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -656,7 +723,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -687,7 +754,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::move_entity(const tbx::Json& params) const
+    Result WorldManager::move_entity(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -700,7 +767,7 @@ namespace tbx::studio_bridge
         if (index_iterator == params.end() || !index_iterator->is_number_integer())
             return Result(false, "Missing or invalid 'index'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -759,7 +826,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::set_entity_name(const tbx::Json& params) const
+    Result WorldManager::set_entity_name(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -768,7 +835,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -780,7 +847,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::set_entity_global(const tbx::Json& params) const
+    Result WorldManager::set_entity_global(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -789,7 +856,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -801,7 +868,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::set_entity_enabled(const tbx::Json& params) const
+    Result WorldManager::set_entity_enabled(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -810,7 +877,7 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return Result(false, "No active world.");
 
@@ -822,9 +889,9 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::save_world() const
+    Result WorldManager::save_world() const
     {
-        auto world_manager = _services.world_manager.lock();
+        auto world_manager = _services.get().world_manager.lock();
         if (!world_manager)
             return Result(false, "No active world.");
 
@@ -834,7 +901,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::save_asset(const tbx::Json& params) const
+    Result WorldManager::save_asset(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -859,7 +926,7 @@ namespace tbx::studio_bridge
         if (auto read = registration->read_body(value_iterator->dump(), asset.get()); !read)
             return read;
 
-        auto asset_manager = _services.asset_manager.lock();
+        auto asset_manager = _services.get().asset_manager.lock();
         auto serialization =
             asset_manager ? asset_manager->get_serialization_registry().lock() : nullptr;
         if (!serialization)
@@ -868,7 +935,7 @@ namespace tbx::studio_bridge
         return serialization->write(path, *registration, asset.get());
     }
 
-    Result WorldRpc::open_world(const tbx::Json& params) const
+    Result WorldManager::open_world(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -878,8 +945,8 @@ namespace tbx::studio_bridge
             return Result(false, "Missing or invalid 'assetId'.");
         const auto asset_id = id_iterator->get<uint32>();
 
-        auto world_manager = _services.world_manager.lock();
-        auto asset_manager = _services.asset_manager.lock();
+        auto world_manager = _services.get().world_manager.lock();
+        auto asset_manager = _services.get().asset_manager.lock();
         if (!world_manager || !asset_manager)
             return Result(false, "World or asset manager unavailable.");
 
@@ -902,7 +969,7 @@ namespace tbx::studio_bridge
         return Result(false, "Asset not found.");
     }
 
-    Result WorldRpc::resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const
+    Result WorldManager::resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
@@ -915,13 +982,13 @@ namespace tbx::studio_bridge
 
         // Prefer the active world, but fall back to any asset-preview world so the inspector can
         // describe and edit an entity that lives in a preview view rather than the active world.
-        if (auto world = _services.active_world())
+        if (auto world = _services.get().active_world())
         {
             out_entity = world->get(id);
             if (out_entity.get_id().is_valid())
                 return Result::OK;
         }
-        if (auto preview = _views.find_preview_world_with(id))
+        if (auto preview = _views.get().find_preview_world_with(id))
         {
             out_entity = preview->get(id);
             if (out_entity.get_id().is_valid())
@@ -931,7 +998,7 @@ namespace tbx::studio_bridge
         return Result(false, "Entity not found.");
     }
 
-    Result WorldRpc::reflect_get(const tbx::Json& params, tbx::Json& out_node) const
+    Result WorldManager::reflect_get(const tbx::Json& params, tbx::Json& out_node) const
     {
         auto entity = tbx::Entity();
         if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
@@ -958,7 +1025,7 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldRpc::reflect_set(const tbx::Json& params) const
+    Result WorldManager::reflect_set(const tbx::Json& params) const
     {
         auto entity = tbx::Entity();
         if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
@@ -979,7 +1046,7 @@ namespace tbx::studio_bridge
         return tbx::apply_component_property(entity, component, property, value_iterator->dump());
     }
 
-    Result WorldRpc::reflect_reset(const tbx::Json& params) const
+    Result WorldManager::reflect_reset(const tbx::Json& params) const
     {
         auto entity = tbx::Entity();
         if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
@@ -996,7 +1063,7 @@ namespace tbx::studio_bridge
         return tbx::reset_component_property(entity, component, property);
     }
 
-    Result WorldRpc::reflect_is_default(const tbx::Json& params, bool& out_is_default) const
+    Result WorldManager::reflect_is_default(const tbx::Json& params, bool& out_is_default) const
     {
         auto entity = tbx::Entity();
         if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)

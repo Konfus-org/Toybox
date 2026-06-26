@@ -1,4 +1,8 @@
 {
+    "type": {
+        "type": "material_type",
+        "value": "sky"
+    },
     "shader": {
         "type": "shader_program",
         "value": {

@@ -11,7 +11,9 @@
 #include "tbx/types/frustum.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/size.h"
+#include "tbx/utils/result.h"
 #include <array>
+#include <future>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -97,6 +99,10 @@ namespace tbx
         RenderValidation _validation = {};
         // Model/material asset ids that already failed to load; skip re-issuing load().
         std::unordered_set<uint32> _failed_assets = {};
+        // Models whose async load is in flight, keyed by asset id -> the load's completion future.
+        // Lets capture() render entities only once their model has streamed in (skipping them until
+        // then) without re-kicking the load every frame or mistaking a slow load for a missing model.
+        std::unordered_map<uint32, std::shared_future<Result>> _pending_model_loads = {};
         // Transient working set for the current capture() (reset each frame).
         Frustum _frustum = Frustum(Mat4(1.0F));
         // Camera position + the radius around it within which an off-screen surface still casts

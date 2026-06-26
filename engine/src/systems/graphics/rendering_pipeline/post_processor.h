@@ -36,13 +36,15 @@ namespace tbx
         /// PostProcessing component or the caller-supplied extra_effects) whose tag gate is satisfied
         /// (≥1 matching entity). extra_effects lets a caller contribute effects from outside the world
         /// (e.g. the editor's overlay), processed exactly like the world's own.
-        bool wants_post(World& world, const std::vector<PostProcessingEffect>& extra_effects = {}) const;
+        // Static: depends only on the world + effects, not on any post target state, so the pipeline can
+        // ask it during prepare_frame without reaching into the post pass that owns the PostProcessor.
+        static bool wants_post(World& world, const std::vector<PostProcessingEffect>& extra_effects = {});
 
         /// @brief The union of tag queries across all active tag-gated effects (world + extra). The
         /// pipeline renders entities matching any of these into the tag mask.
-        std::vector<std::string> masked_tags(
+        static std::vector<std::string> masked_tags(
             World& world,
-            const std::vector<PostProcessingEffect>& extra_effects = {}) const;
+            const std::vector<PostProcessingEffect>& extra_effects = {});
 
         /// @brief (Re)creates the offscreen targets when the size changes; idempotent otherwise.
         Result ensure_targets(const Size& size);

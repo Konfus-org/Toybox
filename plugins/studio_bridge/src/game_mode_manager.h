@@ -6,23 +6,27 @@
 namespace tbx::studio_bridge
 {
     /// @brief
-    /// Purpose: Owns play-mode, which lives in the bridge rather than the engine: snapshots the whole
-    /// game world on entering play and restores it on exit, driving the engine's neutral pause to gate
-    /// simulation.
+    /// Purpose: Manages game mode (play/stop), which lives in the bridge rather than the engine:
+    /// snapshots the whole game world on entering play and restores it on exit, driving the engine's
+    /// neutral pause to gate simulation.
     /// @details
-    /// Ownership: Owns the runtime/global world snapshots and the is-playing flag. Borrows the engine
-    /// services and a pause callback. Thread Safety: Main-thread only.
-    class PlayMode
+    /// Ownership: Owns the runtime/global world snapshots and the is-playing flag. Holds a non-owning
+    /// reference to the engine services and a pause callback. Thread Safety: Main-thread only.
+    class GameModeManager
     {
       public:
-        // Pauses/unpauses the engine simulation (wired to the application's pause request).
+        /// @brief Pauses/unpauses the engine simulation (wired to the application's pause request).
         using SetPausedFn = std::function<void(bool paused)>;
 
-        PlayMode(EngineServices& services, SetPausedFn set_paused);
+      public:
+        GameModeManager(EngineServices& services, SetPausedFn set_paused);
 
-        // Enters/exits play: snapshot then unpause on enter; pause then restore on exit. No-op when
-        // already in the requested state.
+      public:
+        /// @brief Enters/exits play: snapshot then unpause on enter; pause then restore on exit. No-op
+        /// when already in the requested state.
         void set_playing(bool playing);
+
+        /// @brief Whether the game is currently in play mode.
         bool is_playing() const { return _is_playing; }
 
       private:
@@ -32,7 +36,8 @@ namespace tbx::studio_bridge
         // positions/velocities, in-flight steps, per-script runtime state — survives the world restore.
         void reset_simulation();
 
-        EngineServices& _services;
+      private:
+        std::reference_wrapper<EngineServices> _services;
         SetPausedFn _set_paused;
         bool _is_playing = false;
 

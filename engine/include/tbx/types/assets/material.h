@@ -69,6 +69,22 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Classifies a material by the render role it plays, so systems (and the editor) can
+    /// reason about a material without inspecting its shader/config. A sky material, for instance, is
+    /// previewed as the environment background rather than on a mesh.
+    /// @details
+    /// Ownership: Value type. Thread Safety: Safe to copy between threads.
+    [[serializable]];
+    enum class MaterialType : uint8_t
+    {
+        RASTER [[name("raster")]] = 0,   // A standard rasterized surface drawn on mesh geometry.
+        SKY [[name("sky")]] = 1,         // An environment/background material (skybox or sky-sphere).
+        POST [[name("post")]] = 2,       // A full-screen post-process effect.
+        GEO [[name("geo")]] = 3,         // A geometry/depth pass (e.g. shadow or depth pre-pass).
+        COMPUTE [[name("compute")]] = 4, // A compute-shader material (no rasterized surface).
+    };
+
+    /// @brief
     /// Purpose: Stores one material parameter value keyed by shader binding name.
     /// @details
     /// Ownership: Stores the parameter payload inline.
@@ -268,6 +284,8 @@ namespace tbx
     [[version(1U)]];
     struct TBX_API Material : Asset
     {
+        MaterialType type = MaterialType::RASTER;
+
         ShaderProgram shader = {};
 
         MaterialParameterBindings parameters = {};

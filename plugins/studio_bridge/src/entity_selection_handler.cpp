@@ -1,5 +1,6 @@
-#include "pick_service.h"
-#include "bridge_geometry.h"
+#include "entity_selection_handler.h"
+#include "bridge_utils.h"
+#include "tbx/systems/graphics/screen_projection.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/components/collider.h"
@@ -214,37 +215,33 @@ namespace tbx::studio_bridge
         return contributed;
     }
 
-    PickService::PickService(EngineServices& services, ViewManager& views)
+    EntitySelectionHandler::EntitySelectionHandler(EngineServices& services, ViewManager& views)
         : _services(services)
         , _views(views)
     {
     }
 
-    Result PickService::pick(const tbx::Json& params, tbx::Json& out_reply)
+    Result EntitySelectionHandler::pick(const tbx::Json& params, tbx::Json& out_reply)
     {
         const auto u = params.value("u", 0.0F);
         const auto v = params.value("v", 0.0F);
 
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
             !resolved)
             return resolved;
 
         // Pick against the view's own world: an asset-preview view's isolated preview world, otherwise
         // the active world.
-        auto world = _views.resolve_view_world(params.value("view", std::string()));
-        auto assets = _services.asset_manager.lock();
+        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to pick in.");
 
         // Unproject the normalized click into a world-space ray (correct for both perspective and
-        // orthographic cameras); shared with the gizmo picker so the two stay in lock-step.
-        auto ray_origin = glm::vec3(0.0F);
-        auto ray_direction = glm::vec3(0.0F, 0.0F, -1.0F);
-        make_cursor_ray(camera_view, u, v, ray_origin, ray_direction);
-
-        const auto world_ray = tbx::Ray {.origin = ray_origin, .direction = ray_direction};
+        // orthographic cameras); the same CameraView helper the gizmo uses, so the two stay in lock-step.
+        const auto world_ray = camera_view.cursor_ray(u, v);
         auto best_distance = std::numeric_limits<float>::max();
         auto hit = tbx::Entity();
 
@@ -282,8 +279,8 @@ namespace tbx::studio_bridge
                 continue;
 
             auto distance = 0.0F;
-            if (ray_aabb(ray_origin, ray_direction, minimum, maximum, distance) && distance > 1e-3F
-                && distance < best_distance)
+            if (ray_aabb(world_ray.origin, world_ray.direction, minimum, maximum, distance)
+                && distance > 1e-3F && distance < best_distance)
             {
                 best_distance = distance;
                 hit = entity;
@@ -294,10 +291,10 @@ namespace tbx::studio_bridge
         // hits while playing, when bodies exist).
         if (!hit.get_id().is_valid())
         {
-            if (const auto physics = _services.physics.lock())
+            if (const auto physics = _services.get().physics.lock())
             {
                 const auto query = tbx::RaycastQuery {
-                    .ray = tbx::Ray {.origin = ray_origin, .direction = ray_direction},
+                    .ray = world_ray,
                     .max_distance = 100000.0F,
                 };
                 if (const auto result = physics->raycast(query))
@@ -312,16 +309,16 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result PickService::pick_rect(const tbx::Json& params, tbx::Json& out_reply)
+    Result EntitySelectionHandler::pick_rect(const tbx::Json& params, tbx::Json& out_reply)
     {
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
             !resolved)
             return resolved;
 
-        auto world = _views.resolve_view_world(params.value("view", std::string()));
-        auto assets = _services.asset_manager.lock();
+        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to pick in.");
 
@@ -367,16 +364,46 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result PickService::query_occlusion(const tbx::Json& params, tbx::Json& out_reply)
+    Result EntitySelectionHandler::project_entities(const tbx::Json& params, tbx::Json& out_reply)
     {
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
             !resolved)
             return resolved;
 
-        auto world = _views.resolve_view_world(params.value("view", std::string()));
-        auto assets = _services.asset_manager.lock();
+        // Project against the view's own world (an asset-preview view's isolated world, otherwise the
+        // active world). The engine projector owns the world→screen maths; the editor polls this and
+        // draws/filters the overlay, so the bridge just answers the request.
+        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        if (!world)
+            return Result(false, "No world to project.");
+
+        auto items = tbx::Json::array();
+        for (const auto& position : tbx::project_entities_to_screen(camera_view, *world))
+        {
+            auto entry = tbx::Json::object();
+            entry["id"] = position.id.value;
+            entry["u"] = position.u;
+            entry["v"] = position.v;
+            entry["depth"] = position.depth;
+            items.push_back(std::move(entry));
+        }
+
+        out_reply["items"] = std::move(items);
+        return Result::OK;
+    }
+
+    Result EntitySelectionHandler::query_occlusion(const tbx::Json& params, tbx::Json& out_reply)
+    {
+        auto camera_view = tbx::CameraView();
+        if (const auto resolved =
+                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
+            !resolved)
+            return resolved;
+
+        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to test occlusion in.");
 

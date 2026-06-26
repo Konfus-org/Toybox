@@ -125,4 +125,20 @@ namespace tbx
     /// Ownership: Returns a value type.
     /// Thread Safety: Stateless; safe to call concurrently.
     TBX_API float distance(const Vec3& a, const Vec3& b);
+
+    /// @brief
+    /// Purpose: Signed angle from `a` to `b` measured about `axis` (radians). Zero when either vector
+    /// is degenerate.
+    /// @details
+    /// Ownership: Returns a value type.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    TBX_API float signed_angle(const Vec3& a, const Vec3& b, const Vec3& axis);
+
+    /// @brief
+    /// Purpose: Shortest distance from the 2D point (px,py) to the 2D segment (ax,ay)-(bx,by).
+    /// @details
+    /// Ownership: Returns a value type.
+    /// Thread Safety: Stateless; safe to call concurrently.
+    TBX_API float distance_point_segment(
+        float px, float py, float ax, float ay, float bx, float by);
 }

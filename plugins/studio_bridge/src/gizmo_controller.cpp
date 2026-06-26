@@ -1,13 +1,21 @@
 #include "gizmo_controller.h"
-#include "bridge_geometry.h"
+#include "bridge_utils.h"
+#include "tags.h"
+#include "tbx/systems/graphics/frame_pass_context.h"
 #include "tbx/systems/graphics/gizmos.h"
+#include "tbx/systems/graphics/render_pass.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/transform.h"
+#include "tbx/types/ray.h"
+#include "tbx/types/vectors.h"
 #include <algorithm>
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <limits>
+#include <memory>
+#include <unordered_set>
+#include <vector>
 
 namespace tbx::studio_bridge
 {
@@ -102,7 +110,7 @@ namespace tbx::studio_bridge
     {
         auto pu = 0.0F;
         auto pv = 0.0F;
-        if (!project_to_screen(view_projection, pivot, pu, pv))
+        if (!tbx::project_to_screen(view_projection, pivot, pu, pv))
             return GizmoAxis::NONE;
 
         constexpr auto THRESHOLD = 0.018F;
@@ -112,9 +120,9 @@ namespace tbx::studio_bridge
         {
             auto tu = 0.0F;
             auto tv = 0.0F;
-            if (!project_to_screen(view_projection, pivot + (gizmo_axis_dir(axis) * size), tu, tv))
+            if (!tbx::project_to_screen(view_projection, pivot + (gizmo_axis_dir(axis) * size), tu, tv))
                 continue;
-            const auto distance = distance_point_segment(cu, cv, pu, pv, tu, tv);
+            const auto distance = tbx::distance_point_segment(cu, cv, pu, pv, tu, tv);
             if (distance < best)
             {
                 best = distance;
@@ -144,18 +152,18 @@ namespace tbx::studio_bridge
 
             auto prev_u = 0.0F;
             auto prev_v = 0.0F;
-            auto have_prev = project_to_screen(view_projection, pivot + (size * u), prev_u, prev_v);
+            auto have_prev = tbx::project_to_screen(view_projection, pivot + (size * u), prev_u, prev_v);
             for (auto i = 1; i <= SEGMENTS; ++i)
             {
                 const auto a = (static_cast<float>(i) / static_cast<float>(SEGMENTS)) * 6.2831853F;
                 const auto point = pivot + (size * ((std::cos(a) * u) + (std::sin(a) * v)));
                 auto cur_u = 0.0F;
                 auto cur_v = 0.0F;
-                const auto ok = project_to_screen(view_projection, point, cur_u, cur_v);
+                const auto ok = tbx::project_to_screen(view_projection, point, cur_u, cur_v);
                 if (have_prev && ok)
                 {
                     const auto distance =
-                        distance_point_segment(cu, cv, prev_u, prev_v, cur_u, cur_v);
+                        tbx::distance_point_segment(cu, cv, prev_u, prev_v, cur_u, cur_v);
                     if (distance < best)
                     {
                         best = distance;
@@ -180,7 +188,7 @@ namespace tbx::studio_bridge
     {
         auto pu = 0.0F;
         auto pv = 0.0F;
-        if (!project_to_screen(view_projection, pivot, pu, pv))
+        if (!tbx::project_to_screen(view_projection, pivot, pu, pv))
             return false;
 
         constexpr auto THRESHOLD = 0.022F;
@@ -197,6 +205,61 @@ namespace tbx::studio_bridge
         , _views(views)
         , _selection(selection)
     {
+    }
+
+    void GizmoController::register_pass()
+    {
+        auto rendering = _services.get().rendering.lock();
+        if (!rendering)
+            return;
+
+        // The gizmo overlay is an editor concern gated on the editor.camera tag (carried by editor view
+        // cameras), so the engine's renderer stays unaware of it. It draws the shared Gizmos service's
+        // per-frame batch (the transform handles submit_overlay fills each frame) on top of the finished
+        // scene: PassType::Overlay runs it last; its execute (render lane) only touches the backend and a
+        // locked Gizmos, using the view-projection from the context.
+        if (_pass.is_valid())
+            rendering->remove_render_pass(_pass);
+        auto execute = [gizmos = _services.get().gizmos](tbx::FramePassContext& context) -> tbx::Result
+        {
+            if (const auto service = gizmos.lock())
+            {
+                const auto view_projection = context.camera_view.camera.get_view_projection_matrix(
+                    context.camera_view.position, context.camera_view.rotation);
+                service->render(context.backend, view_projection);
+            }
+            return tbx::Result::OK;
+        };
+        _pass = rendering->add_render_pass(std::make_shared<tbx::CallbackRenderPass>(
+            tbx::PassType::Overlay,
+            std::vector<std::string> {Tags::EDITOR_CAMERA},
+            tbx::CallbackRenderPass::Callback(),
+            std::move(execute)));
+    }
+
+    void GizmoController::unregister_pass()
+    {
+        if (auto rendering = _services.get().rendering.lock(); rendering && _pass.is_valid())
+            rendering->remove_render_pass(_pass);
+        _pass = {};
+    }
+
+    void GizmoController::prune_gizmo_states()
+    {
+        auto live = std::unordered_set<std::string>();
+        _views.get().with_views_locked(
+            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            {
+                for (auto& view : views)
+                    if (dynamic_cast<EditorViewStream*>(view.get()) != nullptr)
+                        live.insert(view->name);
+            });
+        std::erase_if(
+            _gizmo_states,
+            [&live](const std::pair<const std::string, GizmoState>& entry)
+            {
+                return !live.contains(entry.first);
+            });
     }
 
     void GizmoController::set_mode(const tbx::Json& params)
@@ -216,7 +279,7 @@ namespace tbx::studio_bridge
     {
         auto sum = glm::vec3(0.0F);
         auto count = 0;
-        for (const auto& id : _selection.ids())
+        for (const auto& id : _selection.get().ids())
         {
             auto entity = world.get(id);
             if (!entity.get_id().is_valid() || !entity.has_component<tbx::Transform>())
@@ -232,29 +295,61 @@ namespace tbx::studio_bridge
         return true;
     }
 
-    void GizmoController::submit_overlay(
-        const tbx::CameraView* focused_camera,
-        const GizmoState* focused_gizmo)
+    void GizmoController::submit_overlay()
     {
-        auto gizmos = _services.gizmos.lock();
+        auto gizmos = _services.get().gizmos.lock();
         if (!gizmos)
             return;
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return;
 
-        // The selection highlight is now an outline drawn by the engine's tag-gated selection-outline
-        // post effect (entities are tagged "editor.selected" by the bridge), not a wire box here.
-
-        // Transform handles for the focused view (sized to it; the active/hovered axis highlights).
-        if (focused_camera == nullptr || focused_gizmo == nullptr || _gizmo_mode == GizmoMode::NONE)
+        // The selection highlight is an outline drawn by the engine's tag-gated selection-outline post
+        // effect (entities are tagged "editor.selected" by the bridge), not a wire box here.
+        if (_gizmo_mode == GizmoMode::NONE)
             return;
         auto pivot = glm::vec3(0.0F);
         if (!compute_pivot(*world, pivot))
             return;
 
-        const auto size = gizmo_world_size(*focused_camera, pivot);
+        // Pick the editor view that drives the overlay: the focused one if any (so its hover/drag
+        // highlight shows), else the first editor view so the gizmo is still visible on the selection
+        // before the viewport is focused. Geometry is world-space, so submitting once draws in every view.
+        auto camera_view = tbx::CameraView();
+        auto gizmo = GizmoState();
+        auto found = false;
+        _views.get().with_views_locked(
+            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            {
+                for (auto& view_ptr : views)
+                {
+                    auto* view = dynamic_cast<EditorViewStream*>(view_ptr.get());
+                    if (view == nullptr || !view->view.is_valid)
+                        continue;
+                    const auto it = _gizmo_states.find(view->name);
+                    auto state = it != _gizmo_states.end() ? it->second : GizmoState();
+                    if (view->focused)
+                    {
+                        camera_view = view->view;
+                        gizmo = std::move(state);
+                        found = true;
+                        return;
+                    }
+                    if (!found)
+                    {
+                        camera_view = view->view;
+                        gizmo = std::move(state);
+                        found = true;
+                    }
+                }
+            });
+        if (!found)
+            return;
+
+        // Transform handles for the chosen view (sized to it; the active/hovered axis highlights).
+        const auto* focused_gizmo = &gizmo;
+        const auto size = gizmo_world_size(camera_view, pivot);
         const auto highlight =
             focused_gizmo->dragging ? focused_gizmo->active_axis : focused_gizmo->hovered_axis;
         for (const auto axis : {GizmoAxis::X, GizmoAxis::Y, GizmoAxis::Z})
@@ -306,10 +401,13 @@ namespace tbx::studio_bridge
 
     void GizmoController::update(const tbx::DeltaTime&)
     {
-        if (_gizmo_mode == GizmoMode::NONE || _selection.empty())
+        // Drop interaction state for views that have stopped, keeping the map bounded across a session.
+        prune_gizmo_states();
+
+        if (_gizmo_mode == GizmoMode::NONE || _selection.get().empty())
             return;
 
-        auto world = _services.active_world();
+        auto world = _services.get().active_world();
         if (!world)
             return;
 
@@ -317,31 +415,23 @@ namespace tbx::studio_bridge
         if (!compute_pivot(*world, pivot))
             return;
 
-        _views.with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views, tbx::EntityRegistry& registry)
+        _views.get().with_views_locked(
+            [&](std::vector<std::unique_ptr<ViewStream>>& views)
             {
-                for (auto& view : views)
+                for (auto& view_ptr : views)
                 {
                     // Only the focused editor view interacts; a view dragging the fly camera
                     // (right/middle) is busy.
-                    if (view->kind != ViewKind::Editor || !view->focused || !view->camera_id.is_valid())
+                    auto* view = dynamic_cast<EditorViewStream*>(view_ptr.get());
+                    if (view == nullptr || !view->focused || !view->view.is_valid)
                         continue;
 
-                    auto camera_entity = registry.get(view->camera_id);
-                    if (!camera_entity.get_id().is_valid())
-                        continue;
-                    const auto camera_view = tbx::CameraView::from_entity(camera_entity);
-                    if (!camera_view.is_valid)
-                        continue;
-
-                    auto& gizmo = view->gizmo;
+                    const auto& camera_view = view->view;
+                    auto& gizmo = _gizmo_states[view->name];
                     const auto left_down = (view->buttons & 0x1U) != 0U;
                     const auto camera_dragging = (view->buttons & 0x6U) != 0U;
 
-                    auto ray_origin = glm::vec3(0.0F);
-                    auto ray_direction = glm::vec3(0.0F);
-                    make_cursor_ray(
-                        camera_view, gizmo.cursor_u, gizmo.cursor_v, ray_origin, ray_direction);
+                    const auto cursor = camera_view.cursor_ray(view->cursor_u, view->cursor_v);
 
                     if (gizmo.dragging)
                     {
@@ -351,7 +441,7 @@ namespace tbx::studio_bridge
                             // the world dirty.
                             gizmo.dragging = false;
                             gizmo.active_axis = GizmoAxis::NONE;
-                            if (const auto host = _services.rpc_host.lock(); host && host->has_client())
+                            if (const auto host = _services.get().rpc_host.lock(); host && host->has_client())
                             {
                                 auto ids = tbx::Json::array();
                                 for (const auto& target : gizmo.targets)
@@ -365,7 +455,7 @@ namespace tbx::studio_bridge
                             continue;
                         }
 
-                        apply_drag(*world, gizmo, camera_view, ray_origin, ray_direction);
+                        apply_drag(*world, gizmo, camera_view, cursor, view->cursor_u, view->cursor_v);
                         gizmo.left_was_down = left_down;
                         continue;
                     }
@@ -378,13 +468,13 @@ namespace tbx::studio_bridge
                     const auto size = gizmo_world_size(camera_view, pivot);
                     gizmo.hovered_axis =
                         (_gizmo_mode == GizmoMode::ROTATE)
-                            ? hit_test_rings(view_projection, pivot, size, gizmo.cursor_u, gizmo.cursor_v)
-                            : hit_test_axes(view_projection, pivot, size, gizmo.cursor_u, gizmo.cursor_v);
+                            ? hit_test_rings(view_projection, pivot, size, view->cursor_u, view->cursor_v)
+                            : hit_test_axes(view_projection, pivot, size, view->cursor_u, view->cursor_v);
 
                     // The scale gizmo's centre cube (uniform scale) wins over the axis handles that
                     // all pass through the pivot.
                     if (_gizmo_mode == GizmoMode::SCALE
-                        && hit_test_center(view_projection, pivot, gizmo.cursor_u, gizmo.cursor_v))
+                        && hit_test_center(view_projection, pivot, view->cursor_u, view->cursor_v))
                         gizmo.hovered_axis = GizmoAxis::ALL;
 
                     // Begin a drag on the left-button rising edge over a handle (unless the camera is
@@ -398,26 +488,26 @@ namespace tbx::studio_bridge
                         gizmo.axis_dir = gizmo_axis_dir(gizmo.hovered_axis);
                         gizmo.drag_size = size;
                         gizmo.start_param =
-                            closest_param_on_axis(ray_origin, ray_direction, pivot, gizmo.axis_dir);
+                            tbx::closest_point_on_axis(cursor, pivot, gizmo.axis_dir);
                         // The centre (uniform-scale) handle has no axis; track the cursor's screen
                         // distance from the pivot instead, so dragging outward grows the object.
                         if (gizmo.hovered_axis == GizmoAxis::ALL)
                         {
                             auto pu = 0.0F;
                             auto pv = 0.0F;
-                            project_to_screen(view_projection, pivot, pu, pv);
-                            const auto du = gizmo.cursor_u - pu;
-                            const auto dv = gizmo.cursor_v - pv;
+                            tbx::project_to_screen(view_projection, pivot, pu, pv);
+                            const auto du = view->cursor_u - pu;
+                            const auto dv = view->cursor_v - pv;
                             gizmo.start_param = std::sqrt((du * du) + (dv * dv));
                         }
                         auto hit = glm::vec3(0.0F);
                         gizmo.start_vector =
-                            ray_plane(ray_origin, ray_direction, pivot, gizmo.axis_dir, hit)
+                            tbx::ray_intersects_plane(cursor, pivot, gizmo.axis_dir, hit)
                                 ? (hit - pivot)
                                 : glm::vec3(0.0F);
 
                         gizmo.targets.clear();
-                        for (const auto& id : _selection.ids())
+                        for (const auto& id : _selection.get().ids())
                         {
                             auto entity = world->get(id);
                             if (!entity.get_id().is_valid()
@@ -442,8 +532,9 @@ namespace tbx::studio_bridge
         tbx::World& world,
         GizmoState& gizmo,
         const tbx::CameraView& camera_view,
-        const tbx::Vec3& ray_origin,
-        const tbx::Vec3& ray_direction)
+        const tbx::Ray& cursor,
+        float cursor_u,
+        float cursor_v)
     {
         switch (_gizmo_mode)
         {
@@ -451,7 +542,7 @@ namespace tbx::studio_bridge
             {
                 // Re-derive each entity's position from the anchor + current cursor (no drift).
                 const auto param =
-                    closest_param_on_axis(ray_origin, ray_direction, gizmo.pivot, gizmo.axis_dir);
+                    tbx::closest_point_on_axis(cursor, gizmo.pivot, gizmo.axis_dir);
                 const auto translation = gizmo.axis_dir * (param - gizmo.start_param);
                 for (const auto& target : gizmo.targets)
                 {
@@ -469,11 +560,11 @@ namespace tbx::studio_bridge
             case GizmoMode::ROTATE:
             {
                 auto hit = glm::vec3(0.0F);
-                if (!ray_plane(ray_origin, ray_direction, gizmo.pivot, gizmo.axis_dir, hit))
+                if (!tbx::ray_intersects_plane(cursor, gizmo.pivot, gizmo.axis_dir, hit))
                     break;
 
                 const auto angle =
-                    signed_angle(gizmo.start_vector, hit - gizmo.pivot, gizmo.axis_dir);
+                    tbx::signed_angle(gizmo.start_vector, hit - gizmo.pivot, gizmo.axis_dir);
                 gizmo.drag_angle = angle; // for the drag-amount arc indicator
                 const auto rotation = glm::angleAxis(angle, gizmo.axis_dir);
                 for (const auto& target : gizmo.targets)
@@ -504,9 +595,9 @@ namespace tbx::studio_bridge
                         camera_view.position, camera_view.rotation);
                     auto pu = 0.0F;
                     auto pv = 0.0F;
-                    project_to_screen(view_projection, gizmo.pivot, pu, pv);
-                    const auto du = gizmo.cursor_u - pu;
-                    const auto dv = gizmo.cursor_v - pv;
+                    tbx::project_to_screen(view_projection, gizmo.pivot, pu, pv);
+                    const auto du = cursor_u - pu;
+                    const auto dv = cursor_v - pv;
                     const auto radius = std::sqrt((du * du) + (dv * dv));
                     constexpr auto UNIFORM_SENSITIVITY = 5.0F;
                     const auto factor =
@@ -525,7 +616,7 @@ namespace tbx::studio_bridge
                 // Drag the handle out from the pivot to grow. The handle is a world axis, so the drag
                 // amount is measured in world space, but scale is applied in the entity's local space.
                 const auto param =
-                    closest_param_on_axis(ray_origin, ray_direction, gizmo.pivot, gizmo.axis_dir);
+                    tbx::closest_point_on_axis(cursor, gizmo.pivot, gizmo.axis_dir);
                 const auto factor = std::max(
                     0.01F,
                     1.0F + ((param - gizmo.start_param) / std::max(gizmo.drag_size, 1e-4F)));

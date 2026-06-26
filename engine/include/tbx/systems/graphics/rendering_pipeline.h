@@ -3,7 +3,7 @@
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/graphics/gizmos.h"
+#include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/systems/time/delta_time.h"
@@ -17,6 +17,8 @@
 
 namespace tbx
 {
+    struct PipelineResources;
+
     /// @brief
     /// Purpose: Executes the backend-facing render pipeline for one frame.
     /// @details
@@ -57,9 +59,9 @@ namespace tbx
             const DeltaTime& delta_time,
             const CameraView& camera_view,
             const RenderTarget& output_target,
-            Gizmos* gizmos = nullptr,
-            const std::vector<PostProcessingEffect>& extra_post_effects = {},
-            World* world_override = nullptr);
+            const std::vector<std::shared_ptr<RenderPass>>& caller_passes = {},
+            World* world_override = nullptr,
+            uint64 frame_epoch = 0U);
 
         /// @brief
         /// Purpose: Invalidates cached GPU state affected by asset reloads.
@@ -77,20 +79,45 @@ namespace tbx
                 callback);
 
       private:
-        struct Resources;
-
-      private:
         void invoke_pre_present_callback(
             IGraphicsBackend& backend,
             const RenderTarget& output_target,
             const Size& backbuffer_size);
+
+        // Builds the ordered list of built-in frame passes (shadow, forward, tag mask, post) the
+        // pipeline owns and runs each frame. Called once at construction.
+        void build_passes();
+
+        // Whether the shared per-frame setup produced a renderable frame, or why it did not.
+        enum class FrameReadiness
+        {
+            Ready,      // The context is set up; the passes can run.
+            ClearBlack, // No asset manager or no active world — clear to black and present.
+            ClearSky,   // A valid world with nothing visible — clear to the sky color and present.
+            Failed,     // A GPU setup step failed; out_failure carries the reason (fail the frame).
+        };
+
+        // Sets up the shared per-frame state every pass needs: advances the cache, resolves the world,
+        // captures the world view, uploads this frame's transient buffers, builds the world bind group,
+        // and fills the context's shared GPU handles (and the pipeline's transient frame state). Run
+        // once per frame after the passes' prepare phase, before any pass executes.
+        FrameReadiness prepare_frame(
+            FramePassContext& context,
+            const DeltaTime& delta_time,
+            float light_cull_distance,
+            World* world_override,
+            Result& out_failure);
 
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
         std::weak_ptr<IWindowManager> _window_manager = {};
         std::weak_ptr<WorldManager> _world_manager = {};
-        std::unique_ptr<Resources> _resources = {};
+        std::unique_ptr<PipelineResources> _resources = {};
+        // The pipeline's own built-in frame passes (ShadowPass, ForwardPass, PostPass — each in its own
+        // file). Built once and run each frame, merged with the camera-matched caller passes the
+        // Rendering service hands to execute(). Owned here as polymorphic RenderPass pointers.
+        std::vector<std::unique_ptr<RenderPass>> _passes = {};
         std::mutex _pre_present_mutex = {};
         std::function<void(IGraphicsBackend&, const RenderTarget&, const Size&)> _pre_present_callback = {};
         float _elapsed_time = 0.0F;

@@ -1,7 +1,7 @@
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/graphics/gizmos.h"
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <tuple>
@@ -66,13 +66,11 @@ namespace tbx
         std::weak_ptr<IWindowManager> window_manager,
         std::weak_ptr<WorldManager> world_manager,
         std::weak_ptr<IMessageCoordinator> message_coordinator,
-        std::weak_ptr<Gizmos> gizmos,
         Handle)
         : _thread_manager(std::move(thread_manager))
         , _message_coordinator(message_coordinator)
         , _backend(std::move(backend))
         , _window_manager(window_manager)
-        , _gizmos(std::move(gizmos))
         , _pipeline(
               _backend,
               std::move(asset_manager),
@@ -132,14 +130,27 @@ namespace tbx
             "Toybox renderer shutdown failed.");
     }
 
+    // A tag gate applies to a camera when it is empty, or the camera carries at least one of its tags.
+    // Tag matching is exact — registrants own the tag strings they gate on.
+    static bool tags_match_camera(
+        const std::vector<std::string>& camera_tags,
+        const CameraView& camera_view)
+    {
+        if (camera_tags.empty())
+            return true;
+        for (const auto& tag : camera_tags)
+            if (std::ranges::find(camera_view.tags, tag) != camera_view.tags.end())
+                return true;
+        return false;
+    }
+
+
     void Rendering::render(
         const DeltaTime& delta_time,
         const GraphicsSettings& settings,
         const CameraView& camera_view,
         const RenderTarget& output_target,
-        const std::vector<PostProcessingEffect>& extra_post_effects,
-        const std::shared_ptr<World>& world_override,
-        bool render_gizmos)
+        const std::shared_ptr<World>& world_override)
     {
         auto thread_manager = _thread_manager.lock();
         if (!thread_manager || !thread_manager->has_lane(RENDER_LANE_NAME))
@@ -164,25 +175,35 @@ namespace tbx
             resolved_target.size = window_manager->get_size(target_window);
         }
 
+        // Resolve the registered render passes whose tag gate matches this camera. Snapshotted (copied)
+        // under the mutex so registration can run on the main thread concurrently; the pipeline runs
+        // these alongside its own built-in passes on the render lane.
+        auto passes = std::vector<std::shared_ptr<RenderPass>>();
+        {
+            auto guard = std::lock_guard(_render_passes_mutex);
+            for (const auto& [id, pass] : _render_passes)
+                if (pass && tags_match_camera(pass->camera_tags, camera_view))
+                    passes.push_back(pass);
+        }
+
         TBX_TRY_CATCH_ASSERT(
             {
-                // Editor views opt into the gizmo overlay; game/asset-preview views render exactly
-                // what their camera sees, so they pass render_gizmos=false and skip it entirely.
-                auto gizmos = render_gizmos ? _gizmos.lock() : std::shared_ptr<Gizmos>();
                 // Everything the render lane needs is captured by value (the lane runs later, off this
-                // thread) — including the caller's extra post effects, copied so their source can change.
+                // thread) — including the resolved matching passes.
+                const uint64 frame_epoch = _frame_epoch;
                 auto future = thread_manager->post_with_future(
                     RENDER_LANE_NAME,
-                    [this, delta_time, settings, camera_view, resolved_target, gizmos, extra_post_effects, world_override]()
+                    [this, delta_time, settings, camera_view, resolved_target,
+                     passes = std::move(passes), world_override, frame_epoch]() mutable
                     {
                         render_frame(
                             delta_time,
                             settings,
                             camera_view,
                             resolved_target,
-                            gizmos,
-                            extra_post_effects,
-                            world_override);
+                            std::move(passes),
+                            world_override,
+                            frame_epoch);
                     });
 
                 // Each target owns its own lane so its completion is tracked independently; all
@@ -262,6 +283,11 @@ namespace tbx
     void Rendering::wait_for_pending_frame() noexcept
     {
         wait_for_render_frame();
+        // One application frame has elapsed (this is called once at each frame's start). Advance the
+        // epoch so the pipeline refreshes view-independent per-frame work — notably the
+        // camera-independent local-light shadow atlas — once across all of this frame's views rather
+        // than regenerating it for every view.
+        ++_frame_epoch;
     }
 
     void Rendering::on_asset_reloaded(const AssetReloadedEvent& event)
@@ -290,9 +316,9 @@ namespace tbx
         const GraphicsSettings& settings,
         const CameraView& camera_view,
         const RenderTarget& output_target,
-        std::shared_ptr<Gizmos> gizmos,
-        const std::vector<PostProcessingEffect>& extra_post_effects,
-        std::shared_ptr<World> world_override)
+        std::vector<std::shared_ptr<RenderPass>> passes,
+        std::shared_ptr<World> world_override,
+        uint64 frame_epoch)
     {
         const auto backend = _backend.lock();
         if (!backend)
@@ -314,12 +340,80 @@ namespace tbx
         }
 
         const auto result = _pipeline.execute(
-            settings, delta_time, camera_view, output_target, gizmos.get(), extra_post_effects,
-            world_override.get());
+            settings, delta_time, camera_view, output_target, passes, world_override.get(),
+            frame_epoch);
         if (!result)
         {
             TBX_TRACE_ERROR("Toybox rendering pipeline execution failed. {}", result.get_report());
         }
+    }
+
+    Uuid Rendering::add_render_pass(std::shared_ptr<RenderPass> pass)
+    {
+        const auto id = Uuid::generate();
+        auto guard = std::lock_guard(_render_passes_mutex);
+        _render_passes.emplace_back(id, std::move(pass));
+        return id;
+    }
+
+    void Rendering::remove_render_pass(const Uuid& id)
+    {
+        auto guard = std::lock_guard(_render_passes_mutex);
+        std::erase_if(
+            _render_passes,
+            [&id](const std::pair<Uuid, std::shared_ptr<RenderPass>>& entry)
+            {
+                return entry.first == id;
+            });
+    }
+
+    ExternalCameraId Rendering::register_external_camera(ExternalCamera camera)
+    {
+        const auto id = Uuid::generate();
+        auto guard = std::lock_guard(_external_cameras_mutex);
+        _external_cameras.emplace_back(id, std::move(camera));
+        return id;
+    }
+
+    void Rendering::update_external_camera(const ExternalCameraId& id, ExternalCamera camera)
+    {
+        auto guard = std::lock_guard(_external_cameras_mutex);
+        for (auto& [existing_id, existing] : _external_cameras)
+            if (existing_id == id)
+            {
+                existing = std::move(camera);
+                return;
+            }
+    }
+
+    void Rendering::unregister_external_camera(const ExternalCameraId& id)
+    {
+        auto guard = std::lock_guard(_external_cameras_mutex);
+        std::erase_if(
+            _external_cameras,
+            [&id](const std::pair<ExternalCameraId, ExternalCamera>& entry)
+            {
+                return entry.first == id;
+            });
+    }
+
+    void Rendering::render_external_cameras(
+        const DeltaTime& delta_time,
+        const GraphicsSettings& settings)
+    {
+        // Snapshot the registry under the lock, then render OUTSIDE it: render() posts to the render
+        // lane and takes other locks, so holding this mutex across it would serialize the owner's
+        // update_external_camera() against frame dispatch (and risk lock-ordering issues).
+        auto snapshot = std::vector<ExternalCamera>();
+        {
+            auto guard = std::lock_guard(_external_cameras_mutex);
+            snapshot.reserve(_external_cameras.size());
+            for (const auto& [id, camera] : _external_cameras)
+                snapshot.push_back(camera);
+        }
+
+        for (const auto& camera : snapshot)
+            render(delta_time, settings, camera.view, camera.target, camera.world_override);
     }
 
     void Rendering::wait_for_render_frame() noexcept

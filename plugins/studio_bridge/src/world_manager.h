@@ -1,61 +1,108 @@
 #pragma once
 #include "engine_services.h"
+#include "view_manager.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/utils/result.h"
+#include <functional>
 #include <unordered_map>
 
 namespace tbx::studio_bridge
 {
-    class ViewManager;
-
     /// @brief
     /// Purpose: Serves the editor's world/entity/asset queries and edits over RPC — describing the
     /// world, entities, assets and the settings schema; per-property reflection (get/set/reset/
     /// is-default); component edits; entity create/destroy/move/rename/global/enable; and world/asset
     /// saves.
     /// @details
-    /// Ownership: Borrows the engine services and the view manager (to reach asset-preview worlds).
-    /// Thread Safety: Main-thread only (request handling).
-    class WorldRpc
+    /// Ownership: Holds non-owning references to the engine services and the view manager (to
+    /// reach asset-preview worlds). Thread Safety: Main-thread only (request handling).
+    class WorldManager
     {
       public:
-        WorldRpc(EngineServices& services, ViewManager& views);
+        WorldManager(EngineServices& services, ViewManager& views);
 
-        // Describe / list (read).
+      public:
+        // --- Describe / list (read) ---
+
+        /// @brief Snapshots the active world (its entities + components) for the editor's world tree.
         tbx::Json describe_world() const;
+
+        /// @brief Describes one { entityId } (its components + values) for the inspector.
         Result describe_entity(const tbx::Json& params, tbx::Json& out_reply) const;
+
+        /// @brief Describes an { assetId }'s editable properties for the asset inspector.
         Result describe_asset(const tbx::Json& params, tbx::Json& out_reply) const;
+
+        /// @brief The application settings schema for the settings editor.
         tbx::Json describe_settings() const;
+
+        /// @brief Lists every registered asset plus the script catalog (for the asset/script pickers).
         tbx::Json list_assets() const;
+
+        /// @brief Lists the addable component types (for the inspector's add-component menu).
         tbx::Json list_component_types() const;
-        // Returns a model's hard material slots ({name, id} per slot) so the Renderer inspector can
-        // size its slot list and auto-fill each slot's default material from the model.
+
+        /// @brief Returns a model's hard material slots ({name, id} per slot) so the Renderer inspector
+        /// can size its slot list and auto-fill each slot's default material from the model.
         Result model_slots(const tbx::Json& params, tbx::Json& out_reply) const;
 
-        // Per-property reflection.
+        // --- Per-property reflection ---
+
+        /// @brief Reads one property node ({ entityId, component, path }) for the property grid.
         Result reflect_get(const tbx::Json& params, tbx::Json& out_node) const;
+
+        /// @brief Writes one property to the value in params.
         Result reflect_set(const tbx::Json& params) const;
+
+        /// @brief Resets one property to its default.
         Result reflect_reset(const tbx::Json& params) const;
+
+        /// @brief Whether one property currently holds its default value.
         Result reflect_is_default(const tbx::Json& params, bool& out_is_default) const;
 
-        // Component + entity edits.
+        // --- Component + entity edits ---
+
+        /// @brief Replaces a component's whole serialized state on an entity.
         Result apply_component(const tbx::Json& params) const;
+
+        /// @brief Adds a component of the named type to an entity.
         Result add_component(const tbx::Json& params) const;
+
+        /// @brief Removes a component from an entity.
         Result remove_component(const tbx::Json& params) const;
+
+        /// @brief Binds a script to an entity.
         Result add_script(const tbx::Json& params) const;
+
+        /// @brief Creates an entity, replying with its new id.
         Result create_entity(const tbx::Json& params, tbx::Json& out_reply) const;
+
+        /// @brief Destroys an entity (and its descendants).
         Result destroy_entity(const tbx::Json& params) const;
+
+        /// @brief Reparents and/or reorders an entity in the world tree.
         Result move_entity(const tbx::Json& params) const;
+
+        /// @brief Renames an entity.
         Result set_entity_name(const tbx::Json& params) const;
+
+        /// @brief Toggles whether an entity is global (persists across world chunks).
         Result set_entity_global(const tbx::Json& params) const;
+
+        /// @brief Toggles an entity's enabled flag.
         Result set_entity_enabled(const tbx::Json& params) const;
 
-        // Persistence.
+        // --- Persistence ---
+
+        /// @brief Saves the active world to disk.
         Result save_world() const;
+
+        /// @brief Saves an edited asset ({ assetId } + values) to disk.
         Result save_asset(const tbx::Json& params) const;
 
-        // Opens a world/chunk asset (by id) as the active editing world, replacing the current one.
+        /// @brief Opens a world/chunk asset (by id) as the active editing world, replacing the current
+        /// one.
         Result open_world(const tbx::Json& params) const;
 
       private:
@@ -79,7 +126,8 @@ namespace tbx::studio_bridge
         // Empty object when the id resolves to no describable script.
         tbx::Json describe_script_schema(uint64 script_id, bool attributed) const;
 
-        EngineServices& _services;
-        ViewManager& _views;
+      private:
+        std::reference_wrapper<EngineServices> _services;
+        std::reference_wrapper<ViewManager> _views;
     };
 }

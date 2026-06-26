@@ -444,10 +444,10 @@ namespace tbx
 
     KeyboardState InputManager::get_keyboard_state() const
     {
-        // Host-forwarded input takes over while injection is enabled (e.g. a hidden, unfocused engine
-        // window driven by Studio); otherwise read the physical device through the backend.
-        if (_injection_enabled)
-            return _injected_keyboard;
+        // Host-forwarded input takes over while external input is enabled (e.g. a hidden, unfocused
+        // engine window driven by Studio); otherwise read the physical device through the backend.
+        if (_external_input.enabled)
+            return _external_input.keyboard;
         if (const auto backend = _backend.lock())
             return backend->get_keyboard_state();
         return {};
@@ -455,8 +455,8 @@ namespace tbx
 
     MouseState InputManager::get_mouse_state() const
     {
-        if (_injection_enabled)
-            return _injected_mouse;
+        if (_external_input.enabled)
+            return _external_input.mouse;
         if (const auto backend = _backend.lock())
             return backend->get_mouse_state();
         return {};
@@ -488,19 +488,9 @@ namespace tbx
         return _mouse_lock_mode;
     }
 
-    void InputManager::set_input_injection_enabled(bool enabled)
+    void InputManager::set_external_input(const ExternalInput& input)
     {
-        _injection_enabled = enabled;
-    }
-
-    void InputManager::set_injected_keyboard(const KeyboardState& keyboard)
-    {
-        _injected_keyboard = keyboard;
-    }
-
-    void InputManager::set_injected_mouse(const MouseState& mouse)
-    {
-        _injected_mouse = mouse;
+        _external_input = input;
     }
 
     InputDeviceSnapshot InputManager::query_snapshot() const

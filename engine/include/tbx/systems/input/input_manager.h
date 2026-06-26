@@ -23,6 +23,20 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Input supplied by an external host (e.g. Studio forwarding a focused game view's input
+    /// to a hidden engine window) in place of the physical device. While `enabled`, the InputManager
+    /// reports this keyboard/mouse state instead of reading the IInputBackend.
+    /// @details
+    /// Ownership: Value type owning the copied input state. Thread Safety: Set and read on the
+    /// main-thread update loop.
+    struct TBX_API ExternalInput
+    {
+        bool enabled = false;
+        KeyboardState keyboard = {};
+        MouseState mouse = {};
+    };
+
+    /// @brief
     /// Purpose: Engine-owned input service. Owns scheme/action evaluation and host injection, and
     /// reads raw device state from an IInputBackend supplied by a plugin.
     /// @details
@@ -53,12 +67,11 @@ namespace tbx
         void set_mouse_lock_mode(MouseLockMode mode);
         MouseLockMode get_mouse_lock_mode() const;
 
-        // Lets a host (e.g. Studio) feed input in place of the physical device. While injection is
-        // enabled the manager reports the injected keyboard/mouse state instead of the backend, so a
-        // hidden, unfocused engine window can still drive gameplay from forwarded input.
-        void set_input_injection_enabled(bool enabled);
-        void set_injected_keyboard(const KeyboardState& keyboard);
-        void set_injected_mouse(const MouseState& mouse);
+        // Lets a host (e.g. Studio) feed input in place of the physical device. While the supplied
+        // ExternalInput is enabled the manager reports its keyboard/mouse state instead of the backend,
+        // so a hidden, unfocused engine window can still drive gameplay from forwarded input. Pass a
+        // default (disabled) ExternalInput to revert to the backend.
+        void set_external_input(const ExternalInput& input);
 
         /// @brief
         /// Purpose: Evaluates bindings and sends action lifecycle callbacks.
@@ -84,8 +97,6 @@ namespace tbx
         // under Studio has no window for the backend to grab, yet the editor still needs the intent to
         // capture the cursor on its side.
         MouseLockMode _mouse_lock_mode = MouseLockMode::UNLOCKED;
-        bool _injection_enabled = false;
-        KeyboardState _injected_keyboard = {};
-        MouseState _injected_mouse = {};
+        ExternalInput _external_input = {};
     };
 }

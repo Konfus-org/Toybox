@@ -70,7 +70,8 @@ namespace tbx
                 return std::nullopt;
             }
 
-            // Gizmos is created before Rendering so the renderer can draw the frame's gizmos.
+            // Gizmos is a shared immediate-mode debug-draw service; tooling (the editor) draws it by
+            // registering a render pass on Rendering, so the renderer itself needs no direct handle.
             auto gizmos = std::make_shared<Gizmos>(graphics_backend, asset_manager);
             provider.register_service<Gizmos>(gizmos);
 
@@ -80,8 +81,7 @@ namespace tbx
                 thread_manager,
                 window_manager_service,
                 world_manager,
-                message_coordinator,
-                gizmos);
+                message_coordinator);
             provider.register_service<Rendering>(rendering);
             services.gizmos = std::move(gizmos);
             services.rendering = std::move(rendering);

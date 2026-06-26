@@ -53,14 +53,14 @@ namespace tbx
 
     bool PostProcessor::wants_post(
         World& world,
-        const std::vector<PostProcessingEffect>& extra_effects) const
+        const std::vector<PostProcessingEffect>& extra_effects)
     {
         return !active_effects(world, extra_effects).empty();
     }
 
     std::vector<std::string> PostProcessor::masked_tags(
         World& world,
-        const std::vector<PostProcessingEffect>& extra_effects) const
+        const std::vector<PostProcessingEffect>& extra_effects)
     {
         std::vector<std::string> tags = {};
         for (const PostProcessingEffect* effect : active_effects(world, extra_effects))

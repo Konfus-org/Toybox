@@ -655,12 +655,43 @@ namespace tbx
             const Mat4 world_matrix =
                 build_transform_matrix(entity.get_component<Transform>().to_world_space(entity));
 
+            // Resolve the model without blocking: a model that isn't loaded yet is kicked onto the
+            // async job pool and the entity is skipped until it streams in, so the first frames render
+            // immediately instead of stalling on the whole world's geometry. A known-failed model
+            // (cached in _failed_assets) falls straight through to the missing-mesh fallback.
             const uint32 model_key = static_cast<uint32>(model_handle.id);
-            const auto model =
-                _failed_assets.contains(model_key) ? nullptr : assets.load<Model>(model_handle);
+            std::shared_ptr<Model> model;
+            if (!_failed_assets.contains(model_key))
+            {
+                model = assets.find_ready<Model>(model_handle);
+                if (model)
+                {
+                    _pending_model_loads.erase(model_key);
+                }
+                else
+                {
+                    using namespace std::chrono_literals;
+                    const auto pending = _pending_model_loads.find(model_key);
+                    if (pending == _pending_model_loads.end())
+                    {
+                        // First sighting: start the async load and track its future; render next time.
+                        _pending_model_loads[model_key] = assets.load_async<Model>(model_handle).promise;
+                        continue;
+                    }
+                    if (pending->second.valid()
+                        && pending->second.wait_for(0s) != std::future_status::ready)
+                    {
+                        continue; // still loading — don't draw it (or fail it) yet
+                    }
+                    // The load finished but find_ready still has nothing -> it failed; drop the
+                    // tracking entry and fall through to the missing-mesh fallback below.
+                    _pending_model_loads.erase(model_key);
+                }
+            }
             if (!model || model->meshes.empty())
             {
                 _failed_assets.insert(model_key);
+                _pending_model_loads.erase(model_key);
                 TBX_TRACE_WARNING_ONCE(
                     "Model '{}' failed to load; using the red question-mark validation mesh.",
                     describe_handle(model_handle));

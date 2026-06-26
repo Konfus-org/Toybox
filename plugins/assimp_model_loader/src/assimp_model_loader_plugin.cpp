@@ -329,8 +329,38 @@ namespace assimp_model_loader
 
     void AssimpModelLoader::on_attach()
     {
-        if (auto registry = serialization_registry.lock())
-            registry->register_loader<tbx::Model>(read_model);
+        auto registry = serialization_registry.lock();
+        if (!registry)
+            return;
+
+        // Async loader: run the Assimp parse on the shared job pool so the heavy work happens off the
+        // calling (render/main) thread. read_async pre-allocates the Model and hands it in; the job
+        // fills it and the returned future completes when done. The sync loader stays registered as
+        // the fallback (callers that use load() still parse inline).
+        auto async_loader =
+            [job_system = job_system](
+                const std::filesystem::path& asset_path,
+                const tbx::ModelLoadParameters& parameters,
+                tbx::AssetLoadMetadata metadata,
+                const std::shared_ptr<tbx::Model>& asset) -> std::shared_future<tbx::Result>
+        {
+            const auto system = job_system.lock();
+            if (!system || !asset)
+            {
+                std::promise<tbx::Result> ready;
+                ready.set_value(
+                    tbx::Result(false, "Assimp async loader: job system or asset unavailable."));
+                return ready.get_future().share();
+            }
+            return system
+                ->schedule_with_future(
+                    [asset_path, parameters, metadata, asset]() -> tbx::Result
+                    {
+                        return read_model(asset_path, parameters, metadata, *asset);
+                    })
+                .share();
+        };
+        registry->register_loader<tbx::Model>(read_model, std::move(async_loader));
     }
 
     void AssimpModelLoader::on_detach()

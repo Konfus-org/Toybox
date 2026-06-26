@@ -91,7 +91,7 @@ namespace tbx::studio_bridge
     {
         if (t_suppress_log_forward)
             return;
-        const auto host = _services.rpc_host.lock();
+        const auto host = _services.get().rpc_host.lock();
         if (!host || !host->has_client())
             return;
 

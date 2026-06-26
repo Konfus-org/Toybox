@@ -1,15 +1,14 @@
 #pragma once
-#include "billboard_publisher.h"
-#include "collider_gizmos.h"
+#include "collider_pass.h"
 #include "engine_services.h"
+#include "entity_selection_handler.h"
+#include "game_mode_manager.h"
 #include "gizmo_controller.h"
 #include "input_controller.h"
 #include "log_bridge.h"
-#include "pick_service.h"
-#include "play_mode.h"
-#include "world_rpc.h"
 #include "selection.h"
 #include "view_manager.h"
+#include "world_manager.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/interfaces/rpc_host.h"
 #include "tbx/interfaces/rpc_router.h"
@@ -70,17 +69,17 @@ namespace tbx::studio_bridge
         void register_builtin_handlers();
         tbx::Json handle_hello() const;
 
+      private:
         EngineServices _services = {};
         Selection _selection = {};
 
         ViewManager _views;
         InputController _input;
         GizmoController _gizmos;
-        ColliderGizmos _collider_gizmos;
-        BillboardPublisher _billboards;
-        PickService _picking;
-        PlayMode _play;
-        WorldRpc _world_rpc;
+        ColliderPass _collider_pass;
+        EntitySelectionHandler _selection_handler;
+        GameModeManager _game_mode;
+        WorldManager _world_manager;
         LogBridge _log;
 
         bool _had_client = false;

@@ -35,12 +35,10 @@ namespace tbx::studio_bridge
         tbx::Transform start_local = {};
     };
 
-    /// @brief Per-view transform-gizmo interaction state (hover + in-progress drag).
+    /// @brief Per-view transform-gizmo interaction state (hover + in-progress drag). Owned by the
+    /// GizmoController, keyed by view; the cursor itself lives on the view stream (forwarded input).
     struct GizmoState
     {
-        // Normalized cursor in the view's rendered image (top-left origin), forwarded each frame.
-        float cursor_u = 0.0F;
-        float cursor_v = 0.0F;
         bool left_was_down = false;
 
         GizmoAxis hovered_axis = GizmoAxis::NONE;
