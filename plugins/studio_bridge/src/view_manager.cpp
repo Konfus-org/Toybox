@@ -1,5 +1,6 @@
 #include "view_manager.h"
 #include "asset_preview.h"
+#include "bridge_utils.h"
 #include "tags.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
@@ -8,6 +9,8 @@
 #include "tbx/types/components/transform.h"
 #include <algorithm>
 #include <format>
+#include <glm/glm.hpp>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -128,7 +131,8 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result ViewManager::start_asset_preview_view(uint32 asset_id, std::string& out_name)
+    Result ViewManager::start_asset_preview_view(
+        uint32 asset_id, std::string& out_name, uint32& out_world_id)
     {
         if (!_services.get().rendering.lock())
             return Result(false, "Rendering service is unavailable.");
@@ -139,14 +143,11 @@ namespace tbx::studio_bridge
         if (!assets)
             return Result(false, "Asset manager is unavailable.");
 
-        // Build the isolated preview world holding just the previewed asset. The defaults (no
-        // mesh/material override, the bundled day sky) match the editor's seeded pickers; the editor
-        // changes them later via set_preview_option / set_preview_skybox.
+        // Seed an isolated world with the shared base (key light + sky assets). The sky entity and the
+        // previewed asset's entity are created by the editor through the world/entity API; the editor calls
+        // view.frameAssetPreview once they exist so the orbit camera frames them.
         auto preview_world = std::make_shared<tbx::World>();
-        auto framing = AssetPreviewFraming();
-        if (!build_asset_preview(
-                *assets, asset_id, std::string(), 0U, PREVIEW_SKYBOX_DEFAULT, *preview_world, framing))
-            return Result(false, "Asset cannot be previewed.");
+        seed_preview_world(*assets, *preview_world);
 
         auto view = std::make_unique<AssetPreviewViewStream>();
         auto [name, texture] = make_view_target();
@@ -155,10 +156,12 @@ namespace tbx::studio_bridge
         view->view = seed_camera_view(view->texture, /*editor_tag*/ false, /*game_lens*/ false, /*pose*/ false);
         view->preview_world = preview_world;
         view->preview_asset_id = asset_id;
-        view->orbit_target = framing.target;
-        view->orbit_distance = framing.distance;
+        view->world_id = _next_world_id++;
+        view->orbit_target = tbx::Vec3(0.0F);
+        view->orbit_distance = 3.0F;
 
         out_name = name;
+        out_world_id = view->world_id;
         register_and_add(std::move(view), preview_world);
         TBX_TRACE_INFO("StudioBridge: asset preview view started ('{}').", out_name);
         return Result::OK;
@@ -396,97 +399,42 @@ namespace tbx::studio_bridge
         }
     }
 
-    Result ViewManager::set_preview_option(
-        const std::string& view_name,
-        const std::string& option,
-        uint32 material_id)
-    {
-        {
-            auto lock = std::lock_guard(_views_mutex);
-            for (auto& view : _views)
-            {
-                if (view->name != view_name)
-                    continue;
-                auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get());
-                if (preview == nullptr)
-                    return Result(false, "View is not an asset preview.");
-                preview->preview_option = option;
-                preview->preview_material_id = material_id;
-                break;
-            }
-        }
-        return rebuild_preview(view_name);
-    }
-
-    Result ViewManager::set_preview_skybox(const std::string& view_name, uint32 skybox_id)
-    {
-        {
-            auto lock = std::lock_guard(_views_mutex);
-            for (auto& view : _views)
-            {
-                if (view->name != view_name)
-                    continue;
-                auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get());
-                if (preview == nullptr)
-                    return Result(false, "View is not an asset preview.");
-                preview->preview_skybox_id = skybox_id;
-                break;
-            }
-        }
-        return rebuild_preview(view_name);
-    }
-
-    Result ViewManager::rebuild_preview(const std::string& view_name)
+    Result ViewManager::frame_asset_preview(uint32 world_id)
     {
         auto assets = _services.get().asset_manager.lock();
         if (!assets)
             return Result(false, "Asset manager is unavailable.");
 
-        // Snapshot the view's asset id + current options under the lock, then build the new world
-        // OUTSIDE it so the (cached) asset load can't stall the render lane, which also takes this mutex.
-        auto asset_id = uint32(0);
-        auto option = std::string();
-        auto material_id = uint32(0);
-        auto skybox_id = PREVIEW_SKYBOX_DEFAULT;
-        auto found = false;
-        {
-            auto lock = std::lock_guard(_views_mutex);
-            for (const auto& view : _views)
-            {
-                auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get());
-                if (preview == nullptr || view->name != view_name)
-                    continue;
-                asset_id = preview->preview_asset_id;
-                option = preview->preview_option;
-                material_id = preview->preview_material_id;
-                skybox_id = preview->preview_skybox_id;
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-            return Result(false, "Unknown view.");
-
-        auto new_world = std::make_shared<tbx::World>();
-        auto framing = AssetPreviewFraming();
-        if (!build_asset_preview(
-                *assets, asset_id, option, material_id, skybox_id, *new_world, framing))
-            return Result(false, "Asset cannot be previewed with that option.");
-
-        // Swap the world in under the lock; the next push_external_cameras hands it to the engine. An
-        // in-flight frame keeps the old world alive via its captured shared_ptr, and the orbit camera is
-        // left untouched so the view doesn't jump. Re-find the view in case it was stopped while we built.
         auto lock = std::lock_guard(_views_mutex);
         for (auto& view : _views)
         {
             auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get());
-            if (preview != nullptr && view->name == view_name)
+            if (preview == nullptr || preview->world_id != world_id || !preview->preview_world)
+                continue;
+
+            // Frame the orbit camera to the renderable bounds the editor built in this world (the previewed
+            // entity), so it opens fully in view; fall back to a sensible default when nothing has bounds yet.
+            auto minimum = glm::vec3(std::numeric_limits<float>::max());
+            auto maximum = glm::vec3(std::numeric_limits<float>::lowest());
+            auto any_bounds = false;
+            for (auto& entity : preview->preview_world->get_all())
+                any_bounds |= accumulate_entity_world_bounds(*assets, entity, minimum, maximum);
+
+            if (any_bounds)
             {
-                preview->preview_world = std::move(new_world);
-                return Result::OK;
+                const auto center = (minimum + maximum) * 0.5F;
+                const auto radius = glm::length(maximum - minimum) * 0.5F;
+                preview->orbit_target = tbx::Vec3(center.x, center.y, center.z);
+                preview->orbit_distance = std::max(radius * 2.5F, 1.0F);
             }
+            else
+            {
+                preview->orbit_target = tbx::Vec3(0.0F);
+                preview->orbit_distance = 3.0F;
+            }
+            return Result::OK;
         }
-        return Result(false, "View is no longer available.");
+        return Result(false, "Unknown preview world.");
     }
 
     Result ViewManager::resolve_view_camera(const std::string& view_name, tbx::CameraView& out_camera) const
@@ -518,6 +466,19 @@ namespace tbx::studio_bridge
             }
         }
         return _services.get().active_world();
+    }
+
+    std::shared_ptr<tbx::World> ViewManager::resolve_world_by_id(uint32 world_id) const
+    {
+        if (world_id == 0U)
+            return nullptr;
+
+        auto lock = std::lock_guard(_views_mutex);
+        for (const auto& view : _views)
+            if (auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get());
+                preview != nullptr && preview->world_id == world_id)
+                return preview->preview_world;
+        return nullptr;
     }
 
     std::shared_ptr<tbx::World> ViewManager::find_preview_world_with(const tbx::Uuid& id) const

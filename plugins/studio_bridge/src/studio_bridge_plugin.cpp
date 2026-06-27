@@ -209,9 +209,9 @@ namespace tbx::studio_bridge
         // --- World / entity / asset description + edits (WorldManager) ---
         add(
             "world.describe",
-            [this](const tbx::Json&, tbx::RpcResponder& r)
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.result(_world_manager.describe_world());
+                r.result(_world_manager.describe_world(params));
             });
         add(
             "world.save",
@@ -264,6 +264,14 @@ namespace tbx::studio_bridge
             {
                 auto reply = tbx::Json::object();
                 const auto result = _world_manager.model_slots(params, reply);
+                r.respond(result, reply);
+            });
+        add(
+            "editor.previewTextureMaterial",
+            [this](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                auto reply = tbx::Json::object();
+                const auto result = _world_manager.preview_texture_material(params, reply);
                 r.respond(result, reply);
             });
         add(
@@ -386,15 +394,19 @@ namespace tbx::studio_bridge
                 const auto kind_token = params.value("kind", std::string());
                 const auto asset_id = params.value("assetId", 0U);
                 auto view_name = std::string();
+                // World id 0 = the active editing world; an asset-preview view fills in its isolated
+                // world's id so the editor can target it for world.describe / entity.create.
+                auto world_id = 0U;
                 auto view_result =
                     kind_token == "game"  ? _views.start_game_view(view_name)
-                    : kind_token == "asset" ? _views.start_asset_preview_view(asset_id, view_name)
+                    : kind_token == "asset" ? _views.start_asset_preview_view(asset_id, view_name, world_id)
                                             : _views.start_editor_view(view_name);
                 if (view_result)
                 {
                     auto view_info = tbx::Json::object();
                     view_info["name"] = view_name;
                     view_info["format"] = "bgra8";
+                    view_info["worldId"] = world_id;
                     r.result(view_info);
                 }
                 else
@@ -421,26 +433,13 @@ namespace tbx::studio_bridge
                 _views.apply_view_input(params);
             });
         add(
-            "view.setPreviewOption",
+            "view.frameAssetPreview",
             [this](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                // Rebuilds an asset-preview view with a different presentation (the editor's preview
-                // picker): a built-in mesh token (material/texture) or "skybox"/"skysphere", plus the
-                // chosen built-in material id (0 = original) for a model — both sourced from builtin.*.
-                const auto name = params.value("view", std::string());
-                const auto option = params.value("option", std::string());
-                const auto material_id = params.value("materialId", 0U);
-                r.respond(_views.set_preview_option(name, option, material_id));
-            });
-        add(
-            "view.setPreviewSkybox",
-            [this](const tbx::Json& params, tbx::RpcResponder& r)
-            {
-                // Rebuilds an asset-preview view with a different background sky (the editor's skybox
-                // picker): the chosen built-in sky material id, or 0 for no sky.
-                const auto name = params.value("view", std::string());
-                const auto skybox_id = params.value("skyboxId", 0U);
-                r.respond(_views.set_preview_skybox(name, skybox_id));
+                // Frames the orbit camera of an asset-preview world to the renderable bounds the editor
+                // built in it; called after the editor creates/swaps the previewed entity.
+                const auto world_id = params.value("worldId", 0U);
+                r.respond(_views.frame_asset_preview(world_id));
             });
 
         // --- Picking + selection (EntitySelectionHandler / Selection) ---

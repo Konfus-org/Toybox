@@ -1,10 +1,12 @@
 #include "world_manager.h"
+#include "asset_preview.h"
 #include "builtin_assets.h"
 #include "view_manager.h"
 #include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material.h"
+#include "tbx/types/assets/material_instance.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/types/components/script_container.h"
@@ -135,12 +137,40 @@ namespace tbx::studio_bridge
     {
     }
 
-    tbx::Json WorldManager::describe_world() const
+    std::shared_ptr<tbx::World> WorldManager::world_for(const tbx::Json& params) const
+    {
+        if (params.is_object())
+        {
+            const auto world_id = params.value("worldId", 0U);
+            if (world_id != 0U)
+            {
+                if (auto preview = _views.get().resolve_world_by_id(world_id))
+                    return preview;
+            }
+        }
+        return _services.get().active_world();
+    }
+
+    std::shared_ptr<tbx::World> WorldManager::owning_world(const tbx::Json& params) const
+    {
+        if (!params.is_object())
+            return nullptr;
+        const auto id_iterator = params.find("entityId");
+        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
+            return nullptr;
+
+        const auto id = tbx::Uuid(id_iterator->get<uint32>());
+        if (auto active = _services.get().active_world(); active && active->has(id))
+            return active;
+        return _views.get().find_preview_world_with(id);
+    }
+
+    tbx::Json WorldManager::describe_world(const tbx::Json& params) const
     {
         auto result = tbx::Json::object();
         auto entities = tbx::Json::array();
 
-        auto world = _services.get().active_world();
+        auto world = world_for(params);
         if (world)
         {
             // One (lean, attributed) script-schema pair per type, reused across every entity in this pass.
@@ -464,6 +494,37 @@ namespace tbx::studio_bridge
         return assets.resolve_id(handle);
     }
 
+    Result WorldManager::preview_texture_material(const tbx::Json& params, tbx::Json& out_reply) const
+    {
+        auto assets = _services.get().asset_manager.lock();
+        if (!assets)
+            return Result(false, "Asset manager is unavailable.");
+
+        const auto texture_id = params.value("textureId", 0U);
+        if (texture_id == 0U)
+            return Result(false, "Missing or invalid 'textureId'.");
+
+        // An in-memory unlit material instance (Flat.mat) with the texture bound to its base-colour slot,
+        // deduplicated per texture id, so a Renderer can show the texture flat on a primitive.
+        const auto texture = tbx::Handle(tbx::Uuid(texture_id));
+        const auto handle = tbx::Handle("__preview_tex_material:" + std::to_string(texture_id));
+        assets->get_or_register<tbx::MaterialInstance>(
+            handle,
+            [&]
+            {
+                auto instance = std::make_shared<tbx::MaterialInstance>(tbx::Handle("Materials/Flat.mat"));
+                instance->set_texture("albedo_map", texture);
+                return instance;
+            });
+
+        const auto id = assets->resolve_id(handle);
+        if (!id.is_valid())
+            return Result(false, "Failed to register the preview material.");
+
+        out_reply["id"] = id.value;
+        return Result::OK;
+    }
+
     tbx::Json WorldManager::list_assets() const
     {
         auto result = tbx::Json::object();
@@ -483,6 +544,13 @@ namespace tbx::studio_bridge
             auto builtin_ids = std::unordered_set<uint64>();
             for (const auto& handle : builtin::assets())
                 if (const auto id = register_builtin_asset(*asset_manager, handle); id.is_valid())
+                    builtin_ids.insert(id.value);
+
+            // The preview-mesh primitives are in-memory model assets (sphere/cube/…), so the editor can set
+            // a Renderer's model to one to show a material/texture on it. Registering them here surfaces them
+            // through get_registered_assets like the rest, flagged built-in.
+            for (const auto& mesh : register_preview_meshes(*asset_manager))
+                if (const auto id = asset_manager->resolve_id(mesh.handle); id.is_valid())
                     builtin_ids.insert(id.value);
 
             for (const auto& entry : asset_manager->get_registered_assets())
@@ -558,9 +626,9 @@ namespace tbx::studio_bridge
         if (value_iterator == params.end())
             return Result(false, "Missing 'value'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())
@@ -606,9 +674,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())
@@ -630,9 +698,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())
@@ -654,9 +722,9 @@ namespace tbx::studio_bridge
         if (script_iterator == params.end() || !script_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'script'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())
@@ -686,7 +754,7 @@ namespace tbx::studio_bridge
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        auto world = _services.get().active_world();
+        auto world = world_for(params);
         if (!world)
             return Result(false, "No active world.");
 
@@ -723,9 +791,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto root_id = tbx::Uuid(id_iterator->get<uint32>());
         if (!world->has(root_id))
@@ -767,9 +835,9 @@ namespace tbx::studio_bridge
         if (index_iterator == params.end() || !index_iterator->is_number_integer())
             return Result(false, "Missing or invalid 'index'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto entity_id = tbx::Uuid(id_iterator->get<uint32>());
         auto entity = world->get(entity_id);
@@ -835,9 +903,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())
@@ -856,9 +924,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         const auto id = tbx::Uuid(id_iterator->get<uint32>());
         if (!world->has(id))
@@ -877,9 +945,9 @@ namespace tbx::studio_bridge
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
 
-        auto world = _services.get().active_world();
+        auto world = owning_world(params);
         if (!world)
-            return Result(false, "No active world.");
+            return Result(false, "Entity not found.");
 
         auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
         if (!entity.get_id().is_valid())

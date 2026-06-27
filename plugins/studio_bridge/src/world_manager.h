@@ -25,8 +25,10 @@ namespace tbx::studio_bridge
       public:
         // --- Describe / list (read) ---
 
-        /// @brief Snapshots the active world (its entities + components) for the editor's world tree.
-        tbx::Json describe_world() const;
+        /// @brief Snapshots a world (its entities + components) for the editor's world tree. Targets the
+        /// world named by an optional { worldId } param (an asset-preview world); defaults to the active
+        /// editing world.
+        tbx::Json describe_world(const tbx::Json& params) const;
 
         /// @brief Describes one { entityId } (its components + values) for the inspector.
         Result describe_entity(const tbx::Json& params, tbx::Json& out_reply) const;
@@ -46,6 +48,12 @@ namespace tbx::studio_bridge
         /// @brief Returns a model's hard material slots ({name, id} per slot) so the Renderer inspector
         /// can size its slot list and auto-fill each slot's default material from the model.
         Result model_slots(const tbx::Json& params, tbx::Json& out_reply) const;
+
+        /// @brief Ensures an in-memory MaterialInstance that shows the given { textureId } on the bundled
+        /// unlit preview material, replying with its id. The asset-preview editor sets a Renderer slot to it
+        /// to show a texture on a primitive (a texture isn't itself a material, and the editor can't register
+        /// in-memory assets, so the bridge vends this preview material). Reused (deduplicated) per texture.
+        Result preview_texture_material(const tbx::Json& params, tbx::Json& out_reply) const;
 
         // --- Per-property reflection ---
 
@@ -106,6 +114,16 @@ namespace tbx::studio_bridge
         Result open_world(const tbx::Json& params) const;
 
       private:
+        // The world a world-level op targets: the asset-preview world named by an optional { worldId }
+        // param, else the active editing world. Used by create/describe (which carry a worldId).
+        std::shared_ptr<tbx::World> world_for(const tbx::Json& params) const;
+
+        // The world that owns the entity named by { entityId }: the active world when it holds the id,
+        // else the asset-preview world that does. Lets per-entity structural ops (set/add/remove
+        // component, move/destroy/rename/global/enable) edit a previewed asset's entity, not just the
+        // active world's. Null when no world holds the id.
+        std::shared_ptr<tbx::World> owning_world(const tbx::Json& params) const;
+
         // The component-type icon side table shared by describe_world and describe_entity.
         tbx::Json component_type_icons() const;
         // Resolves and validates an entityId param against the active world, falling back to any

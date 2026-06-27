@@ -12,11 +12,6 @@
 
 namespace tbx::studio_bridge
 {
-    // Sentinel preview_skybox_id meaning "no override": keep the bundled preview world's authored sky
-    // (the day sky), as opposed to 0 which means "no sky at all". The editor sends a real sky material
-    // id (or 0) once the user picks from the skybox picker.
-    inline constexpr uint32 PREVIEW_SKYBOX_DEFAULT = 0xFFFFFFFFU;
-
     /// @brief
     /// Purpose: The cross-process shared-surface lifecycle of one view. Pending until the first present
     /// attempts to create the surface, then Ready (created + handle announced) → Presented (first real
@@ -101,15 +96,14 @@ namespace tbx::studio_bridge
         // active world.
         std::shared_ptr<tbx::World> preview_world = {};
 
-        // The registered asset this preview shows + the editor-driven presentation, kept so the preview
-        // can be rebuilt with different options without restarting the view. preview_option is a built-in
-        // mesh token (material/texture) or "skybox"/"skysphere"; preview_material_id is the built-in
-        // surface material a model is shown under (0 = the model's own); preview_skybox_id is the built-in
-        // sky material (0 = no sky, PREVIEW_SKYBOX_DEFAULT = the authored day sky).
+        // A stable, non-zero numeric id the editor uses to target this preview world for world-level
+        // ops (world.describe / entity.create). World id 0 is reserved for the active editing world;
+        // per-entity ops resolve the owning world from the entity id instead.
+        uint32 world_id = 0U;
+
+        // The registered asset this preview shows (the editor builds + configures the previewed entity in
+        // this world through the world/entity API; the bridge only seeds the shared light + sky assets).
         uint32 preview_asset_id = 0U;
-        std::string preview_option = {};
-        uint32 preview_material_id = 0U;
-        uint32 preview_skybox_id = PREVIEW_SKYBOX_DEFAULT;
 
         // Orbit-camera state: the camera sits at orbit_target + spherical(orbit_yaw, orbit_pitch) *
         // orbit_distance, always facing the target. Seeded from the asset's bounds when the view starts.

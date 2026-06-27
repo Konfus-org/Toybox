@@ -37,8 +37,9 @@ namespace tbx::studio_bridge
         Result start_game_view(std::string& out_name);
 
         /// @brief Starts an asset-preview view orbiting an isolated world that holds the given asset.
-        /// Returns its name; fails when the asset cannot be previewed.
-        Result start_asset_preview_view(uint32 asset_id, std::string& out_name);
+        /// Returns its name and the isolated world's stable numeric id (which the editor targets for
+        /// world-level ops). Fails when the asset cannot be previewed.
+        Result start_asset_preview_view(uint32 asset_id, std::string& out_name, uint32& out_world_id);
 
         /// @brief Stops the named view: unregisters its external camera and queues its shared surface
         /// for teardown.
@@ -51,18 +52,11 @@ namespace tbx::studio_bridge
         /// deltas, the gizmo cursor, plus editor move-keys / raw game keys + mouse position).
         void apply_view_input(const tbx::Json& params);
 
-        /// @brief Rebuilds an asset-preview view with a different presentation (built-in mesh token /
-        /// "skybox"/"skysphere", plus a built-in surface material id for a model; 0 = the model's own).
-        /// Preserves the chosen background sky and the camera/orbit. Fails for an unknown / non-preview
-        /// view.
-        Result set_preview_option(
-            const std::string& view_name,
-            const std::string& option,
-            uint32 material_id);
-
-        /// @brief Rebuilds an asset-preview view with a different background sky (built-in sky material
-        /// id, or 0 for no sky). Preserves the presentation option and the camera/orbit.
-        Result set_preview_skybox(const std::string& view_name, uint32 skybox_id);
+        /// @brief Frames the orbit camera of the asset-preview world with the given id to the renderable
+        /// bounds the editor built in it (the previewed entity), or a sensible default when nothing has
+        /// bounds yet. The editor calls this after creating/swapping the previewed entity. Fails for an
+        /// unknown preview world.
+        Result frame_asset_preview(uint32 world_id);
 
         /// @brief Mirrors the live game camera's pose + lens onto every game view's camera each frame.
         void sync_game_cameras();
@@ -86,6 +80,10 @@ namespace tbx::studio_bridge
         /// @brief The world a view draws and picks against: an asset-preview view's isolated world,
         /// otherwise the active world. Null when the view is unknown or its world is unavailable.
         std::shared_ptr<tbx::World> resolve_view_world(const std::string& view_name) const;
+
+        /// @brief The asset-preview world with the given stable numeric id, or null when none matches
+        /// (the caller falls back to the active world). World id 0 never matches a preview world.
+        std::shared_ptr<tbx::World> resolve_world_by_id(uint32 world_id) const;
 
         /// @brief The first asset-preview world that contains the given entity id, or null when none do.
         std::shared_ptr<tbx::World> find_preview_world_with(const tbx::Uuid& id) const;
@@ -116,7 +114,6 @@ namespace tbx::studio_bridge
         void register_and_add(
             std::unique_ptr<ViewStream> view,
             const std::shared_ptr<tbx::World>& world_override);
-        Result rebuild_preview(const std::string& view_name);
         void refresh_present_callback();
 
         // The RPC port (from the host), woven into each view/texture name so concurrent editors stay
@@ -130,6 +127,8 @@ namespace tbx::studio_bridge
       private:
         std::reference_wrapper<EngineServices> _services;
         uint32 _next_view_index = 0U;
+        // Hands each new asset-preview world a unique non-zero id (0 is reserved for the active world).
+        uint32 _next_world_id = 1U;
 
         std::vector<std::unique_ptr<ViewStream>> _views = {};
         // Render textures of stopped views awaiting shared-surface teardown on the render lane.
