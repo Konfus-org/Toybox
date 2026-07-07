@@ -2,6 +2,7 @@
 #include "asset_preview.h"
 #include "bridge_utils.h"
 #include "tags.h"
+#include "wire.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/assets/world.h"
@@ -66,15 +67,23 @@ namespace tbx::studio_bridge
         return view;
     }
 
-    std::pair<std::string, tbx::RenderTexture> ViewManager::make_view_target()
+    std::pair<std::string, tbx::RenderTexture> ViewManager::make_view_target(float scale)
     {
         // A fresh index per view keeps every render texture (and its shared surface) distinct, so the
         // editor can stream and tear down each viewport independently.
         const auto index = _next_view_index++;
         const auto port = rpc_port();
         auto texture = tbx::RenderTexture(std::format("StudioView_{}_{}", port, index));
-        // Show the game at its real size: the view renders at the configured graphics resolution.
-        texture.size = _services.get().graphics_settings->get().resolution;
+        // Default to the configured graphics resolution; a sub-1 scale renders cheaper for a small preview
+        // (e.g. the browser hover card), with a floor so the texture never degenerates.
+        auto size = _services.get().graphics_settings->get().resolution;
+        if (scale > 0.0F && scale < 1.0F)
+        {
+            constexpr uint32 min_extent = 64U;
+            size.width = std::max(min_extent, static_cast<uint32>(static_cast<float>(size.width) * scale));
+            size.height = std::max(min_extent, static_cast<uint32>(static_cast<float>(size.height) * scale));
+        }
+        texture.size = size;
         return {std::format("ToyboxStudioFrame_{}_{}", port, index), std::move(texture)};
     }
 
@@ -88,6 +97,9 @@ namespace tbx::studio_bridge
 
         {
             auto lock = std::lock_guard(_views_mutex);
+            // Give the view a fresh input slot so the map mirrors the live views exactly (consumers can
+            // assume an entry exists for every view they iterate).
+            _view_inputs.emplace(view->name, ViewInput {});
             _views.push_back(std::move(view));
         }
         refresh_present_callback();
@@ -132,7 +144,7 @@ namespace tbx::studio_bridge
     }
 
     Result ViewManager::start_asset_preview_view(
-        uint32 asset_id, std::string& out_name, uint32& out_world_id)
+        uint32 asset_id, bool turntable, float render_scale, std::string& out_name, uint32& out_world_id)
     {
         if (!_services.get().rendering.lock())
             return Result(false, "Rendering service is unavailable.");
@@ -150,12 +162,13 @@ namespace tbx::studio_bridge
         seed_preview_world(*assets, *preview_world);
 
         auto view = std::make_unique<AssetPreviewViewStream>();
-        auto [name, texture] = make_view_target();
+        auto [name, texture] = make_view_target(render_scale);
         view->name = name;
         view->texture = std::move(texture);
         view->view = seed_camera_view(view->texture, /*editor_tag*/ false, /*game_lens*/ false, /*pose*/ false);
         view->preview_world = preview_world;
         view->preview_asset_id = asset_id;
+        view->auto_orbit = turntable;
         view->world_id = _next_world_id++;
         view->orbit_target = tbx::Vec3(0.0F);
         view->orbit_distance = 3.0F;
@@ -184,6 +197,7 @@ namespace tbx::studio_bridge
 
             removed = std::move(*it);
             _views.erase(it);
+            _view_inputs.erase(name);
             // GL/D3D teardown is only safe on the render lane, so hand the surface to the next present
             // callback rather than freeing it here on the main thread.
             _pending_shared_destroys.push_back(removed->texture);
@@ -205,6 +219,7 @@ namespace tbx::studio_bridge
 
             removed = std::move(_views);
             _views.clear();
+            _view_inputs.clear();
             for (auto& view : removed)
                 _pending_shared_destroys.push_back(view->texture);
         }
@@ -288,13 +303,13 @@ namespace tbx::studio_bridge
 
                 // Announce either way; a zero handle tells the editor to show its empty ghost.
                 auto params = tbx::Json::object();
-                params["name"] = view->name;
+                params[Wire::NAME] = view->name;
                 params["sharedHandle"] = view->shared.shared_handle;
                 params["width"] = view->shared.width;
                 params["height"] = view->shared.height;
-                params["format"] = "bgra8";
+                params[Wire::FORMAT] = "bgra8";
                 if (const auto host = _services.get().rpc_host.lock())
-                    host->send_notification("view.surface", params);
+                    host->send_notification(Wire::VIEW_SURFACE, params);
             }
             else if (view->surface_state == ViewSurfaceState::Ready)
             {
@@ -303,9 +318,9 @@ namespace tbx::studio_bridge
                 // done (an Unavailable surface never reaches Ready, so it never "presents").
                 view->surface_state = ViewSurfaceState::Presented;
                 auto params = tbx::Json::object();
-                params["name"] = view->name;
+                params[Wire::NAME] = view->name;
                 if (const auto host = _services.get().rpc_host.lock())
-                    host->send_notification("view.presented", params);
+                    host->send_notification(Wire::VIEW_PRESENTED, params);
             }
             return;
         }
@@ -360,43 +375,38 @@ namespace tbx::studio_bridge
 
     void ViewManager::apply_view_input(const tbx::Json& params)
     {
-        const auto name = params.value("view", std::string());
+        const auto name = params.value(Wire::VIEW, std::string());
         if (name.empty())
             return;
 
         auto lock = std::lock_guard(_views_mutex);
-        for (auto& view : _views)
-        {
-            if (view->name != name)
-                continue;
-
-            view->focused = params.value("focused", false);
-            view->buttons = params.value("buttons", 0U);
-            // Mouse and wheel are deltas since the last message; accumulate until a frame consumes them.
-            view->accumulated_mouse_dx += params.value("dx", 0.0F);
-            view->accumulated_mouse_dy += params.value("dy", 0.0F);
-            view->accumulated_wheel += params.value("wheel", 0.0F);
-            // Normalized cursor in the rendered image (top-left origin), read by the gizmo.
-            view->cursor_u = params.value("cursorU", 0.0F);
-            view->cursor_v = params.value("cursorV", 0.0F);
-
-            if (auto* editor = dynamic_cast<EditorViewStream*>(view.get()))
-                editor->move_keys = params.value("moveKeys", 0U);
-
-            if (auto* game = dynamic_cast<GameViewStream*>(view.get()))
-            {
-                // Game views also carry raw input for the engine input system: pressed tbx::InputKey
-                // codes and the absolute mouse position within the view.
-                game->keys.clear();
-                if (const auto keys = params.find("keys"); keys != params.end() && keys->is_array())
-                    for (const auto& key : *keys)
-                        if (key.is_number_integer())
-                            game->keys.push_back(key.get<int>());
-                game->mouse_x = params.value("mouseX", 0.0F);
-                game->mouse_y = params.value("mouseY", 0.0F);
-            }
+        // Only a live view (one with an input slot) accepts input; a late message for a stopped view is
+        // dropped rather than leaking an orphan entry the consumers never read.
+        const auto it = _view_inputs.find(name);
+        if (it == _view_inputs.end())
             return;
-        }
+
+        auto& input = it->second;
+        input.focused = params.value("focused", false);
+        input.buttons = params.value("buttons", 0U);
+        // Mouse and wheel are deltas since the last message; accumulate until a frame consumes them.
+        input.accumulated_mouse_dx += params.value("dx", 0.0F);
+        input.accumulated_mouse_dy += params.value("dy", 0.0F);
+        input.accumulated_wheel += params.value("wheel", 0.0F);
+        // Normalized cursor in the rendered image (top-left origin), read by the gizmo.
+        input.cursor_u = params.value("cursorU", 0.0F);
+        input.cursor_v = params.value("cursorV", 0.0F);
+        // Editor fly camera move-keys (absent for the other kinds → 0).
+        input.move_keys = params.value("moveKeys", 0U);
+        // Game view raw input for the engine input system (absent for the other kinds): pressed
+        // tbx::InputKey codes and the absolute mouse position within the view.
+        input.keys.clear();
+        if (const auto keys = params.find("keys"); keys != params.end() && keys->is_array())
+            for (const auto& key : *keys)
+                if (key.is_number_integer())
+                    input.keys.push_back(key.get<int>());
+        input.mouse_x = params.value("mouseX", 0.0F);
+        input.mouse_y = params.value("mouseY", 0.0F);
     }
 
     Result ViewManager::frame_asset_preview(uint32 world_id)

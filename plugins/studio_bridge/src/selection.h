@@ -1,4 +1,5 @@
 #pragma once
+#include "wire.h"
 #include "tbx/systems/files/json.h"
 #include "tbx/types/uuid.h"
 #include <string>
@@ -20,7 +21,7 @@ namespace tbx::studio_bridge
         void set_from_params(const tbx::Json& params)
         {
             auto ids = std::vector<tbx::Uuid>();
-            if (const auto it = params.find("ids"); it != params.end() && it->is_array())
+            if (const auto it = params.find(Wire::IDS); it != params.end() && it->is_array())
             {
                 ids.reserve(it->size());
                 for (const auto& value : *it)

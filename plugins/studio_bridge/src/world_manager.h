@@ -10,10 +10,10 @@
 namespace tbx::studio_bridge
 {
     /// @brief
-    /// Purpose: Serves the editor's world/entity/asset queries and edits over RPC — describing the
-    /// world, entities, assets and the settings schema; per-property reflection (get/set/reset/
-    /// is-default); component edits; entity create/destroy/move/rename/global/enable; and world/asset
-    /// saves.
+    /// Purpose: Serves the editor's world/entity queries and edits over RPC — describing the
+    /// world, entities and the settings schema; component edits; entity create/destroy/move/
+    /// rename/global/enable; and world open/save. (The asset-catalog ops live on AssetOps and the
+    /// sync.* path addressing on SyncPathRouter, which routes into the ops here.)
     /// @details
     /// Ownership: Holds non-owning references to the engine services and the view manager (to
     /// reach asset-preview worlds). Thread Safety: Main-thread only (request handling).
@@ -33,17 +33,12 @@ namespace tbx::studio_bridge
         /// @brief Describes one { entityId } (its components + values) for the inspector.
         Result describe_entity(const tbx::Json& params, tbx::Json& out_reply) const;
 
-        /// @brief Describes an { assetId }'s editable properties for the asset inspector.
-        Result describe_asset(const tbx::Json& params, tbx::Json& out_reply) const;
-
         /// @brief The application settings schema for the settings editor.
         tbx::Json describe_settings() const;
 
-        /// @brief Lists every registered asset plus the script catalog (for the asset/script pickers).
-        tbx::Json list_assets() const;
-
-        /// @brief Lists the addable component types (for the inspector's add-component menu).
-        tbx::Json list_component_types() const;
+        /// @brief The sync catalog: every registered component type by wire name with its icon badge (the
+        /// engine-truth source the editor's add-component menu and typed-component reconciliation draw from).
+        tbx::Json sync_catalog() const;
 
         /// @brief Returns a model's hard material slots ({name, id} per slot) so the Renderer inspector
         /// can size its slot list and auto-fill each slot's default material from the model.
@@ -54,20 +49,6 @@ namespace tbx::studio_bridge
         /// to show a texture on a primitive (a texture isn't itself a material, and the editor can't register
         /// in-memory assets, so the bridge vends this preview material). Reused (deduplicated) per texture.
         Result preview_texture_material(const tbx::Json& params, tbx::Json& out_reply) const;
-
-        // --- Per-property reflection ---
-
-        /// @brief Reads one property node ({ entityId, component, path }) for the property grid.
-        Result reflect_get(const tbx::Json& params, tbx::Json& out_node) const;
-
-        /// @brief Writes one property to the value in params.
-        Result reflect_set(const tbx::Json& params) const;
-
-        /// @brief Resets one property to its default.
-        Result reflect_reset(const tbx::Json& params) const;
-
-        /// @brief Whether one property currently holds its default value.
-        Result reflect_is_default(const tbx::Json& params, bool& out_is_default) const;
 
         // --- Component + entity edits ---
 
@@ -92,22 +73,21 @@ namespace tbx::studio_bridge
         /// @brief Reparents and/or reorders an entity in the world tree.
         Result move_entity(const tbx::Json& params) const;
 
-        /// @brief Renames an entity.
-        Result set_entity_name(const tbx::Json& params) const;
+        // --- Sync-router entry points (the minimal surface SyncPathRouter routes into) ---
 
-        /// @brief Toggles whether an entity is global (persists across world chunks).
-        Result set_entity_global(const tbx::Json& params) const;
+        /// @brief Resolves and validates an entityId param against the active world, falling back to any
+        /// asset-preview world so the inspector can describe/edit a previewed asset's entity.
+        Result resolve_sync_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
 
-        /// @brief Toggles an entity's enabled flag.
-        Result set_entity_enabled(const tbx::Json& params) const;
+        /// @brief Routes a sync.set whose path resolved to an entity scalar field (name/is_enabled/
+        /// is_global/tags) to the matching set_entity_* op, placing `value` under the key that op reads.
+        /// `params` already carries the resolved entityId/worldAssetId.
+        Result set_entity_scalar(tbx::Json& params, const std::string& field, const tbx::Json& value) const;
 
         // --- Persistence ---
 
         /// @brief Saves the active world to disk.
         Result save_world() const;
-
-        /// @brief Saves an edited asset ({ assetId } + values) to disk.
-        Result save_asset(const tbx::Json& params) const;
 
         /// @brief Opens a world/chunk asset (by id) as the active editing world, replacing the current
         /// one.
@@ -126,9 +106,26 @@ namespace tbx::studio_bridge
 
         // The component-type icon side table shared by describe_world and describe_entity.
         tbx::Json component_type_icons() const;
-        // Resolves and validates an entityId param against the active world, falling back to any
-        // asset-preview world so the inspector can describe/edit a previewed asset's entity.
-        Result resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const;
+
+        // Validates the { entityId } param and resolves the world that owns it (via owning_world),
+        // returning the id alongside — the shared preamble of every per-entity op.
+        Result resolve_entity_world(
+            const tbx::Json& params,
+            std::shared_ptr<tbx::World>& out_world,
+            tbx::Uuid& out_id) const;
+
+        // The entity scalar-field implementations sync.set's path verb routes into (via
+        // set_entity_scalar), addressed by the resolved { entityId, worldAssetId } params.
+
+        // Renames an entity.
+        Result set_entity_name(const tbx::Json& params) const;
+        // Toggles whether an entity is global (persists across world chunks).
+        Result set_entity_global(const tbx::Json& params) const;
+        // Toggles an entity's enabled flag.
+        Result set_entity_enabled(const tbx::Json& params) const;
+        // Replaces an entity's persistent (serialized) gameplay tags with the provided set; runtime-only
+        // tags (e.g. editor.selected) are left untouched.
+        Result set_entity_tags(const tbx::Json& params) const;
 
         // Expands each bound script's overrides into the script's FULL editable field set so the inspector
         // can show (and edit) every property of a script — not just the ones already set away from default.

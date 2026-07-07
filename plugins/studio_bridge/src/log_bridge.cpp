@@ -1,4 +1,5 @@
 #include "log_bridge.h"
+#include "wire.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/color.h"
@@ -96,18 +97,18 @@ namespace tbx::studio_bridge
             return;
 
         auto params = tbx::Json::object();
-        params["level"] = to_log_level_name(level);
-        params["message"] = message;
-        host->send_notification("engine.log", params);
+        params[Wire::LEVEL] = to_log_level_name(level);
+        params[Wire::MESSAGE] = message;
+        host->send_notification(Wire::ENGINE_LOG, params);
     }
 
     void LogBridge::write_editor_log(const tbx::Json& params)
     {
-        const auto message = params.value("message", std::string());
+        const auto message = params.value(Wire::MESSAGE, std::string());
         if (message.empty())
             return;
 
-        const auto level_name = params.value("level", std::string("info"));
+        const auto level_name = params.value(Wire::LEVEL, std::string("info"));
         auto level = tbx::LogLevel::INFO;
         if (level_name == "warning")
             level = tbx::LogLevel::WARNING;

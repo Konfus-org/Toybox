@@ -1,4 +1,5 @@
 #include "tbx/systems/assets/serialization_registry.h"
+#include "tbx/systems/assets/asset_pairing.h"
 
 namespace tbx
 {
@@ -41,7 +42,8 @@ namespace tbx
         // A script asset is a self-describing `*.h.meta`: that one file carries identity only
         // (id/version/type) and has no body. Every other registered asset keeps a payload file with
         // a separate `<payload>.meta` sidecar.
-        const auto self_describing = is_self_describing_asset_meta(asset_path.generic_string());
+        const auto self_describing =
+            asset_pairing::is_self_describing_metadata(asset_path.generic_string());
 
         // Registered polymorphic assets still use the normal Toybox meta for a stable id and
         // version. The expected version is resolved after the concrete C++ type is known.
@@ -120,6 +122,15 @@ namespace tbx
                 JsonParser::try_get(meta_json, "type", type_name);
             }
         }
+        // Resolve the registered type from the file extension (the data-driven [[tbx::extension]]
+        // mapping) before the legacy stem fallback — so a `Brick.mat` resolves to "Material" rather
+        // than the non-existent "brick".
+        if (type_name.empty())
+        {
+            if (const auto by_extension =
+                    get_asset_type_registration_for_extension(asset_path.extension().string()))
+                type_name = by_extension->type_name;
+        }
         if (type_name.empty())
             type_name = make_serializable_type_name(asset_path.stem().string());
 
@@ -172,8 +183,22 @@ namespace tbx
             }
         }
 
+        // Apply the asset's [[meta]] import settings from the sidecar (e.g. a texture's wrap/filter/format)
+        // — the counterpart to the body read above. The normal AssetManager load applies this as a
+        // transformer; this direct read must do the same or meta-only assets come back at struct defaults.
+        if (!self_describing && asset_registration->transform_meta && meta_data.has_value())
+        {
+            if (auto meta_result = asset_registration->transform_meta(*meta_data, asset.get());
+                !meta_result.succeeded())
+            {
+                read.result = std::move(meta_result);
+                return read;
+            }
+        }
+
         apply_asset_common_meta(metadata, *asset);
         read.metadata = metadata;
+        read.type_name = type_name;
         read.asset = std::shared_ptr<Asset>(std::move(asset));
         read.result.ok();
         return read;
@@ -242,7 +267,7 @@ namespace tbx
         const AssetTypeRegistration& asset_registration,
         const void* asset) const
     {
-        if (!asset_registration.write_body)
+        if (!asset_registration.write_body && !asset_registration.write_meta)
         {
             return make_failed_result(
                 std::string("Asset type '")
@@ -254,10 +279,66 @@ namespace tbx
         if (!file_ops)
             return make_failed_result("Serialization registry has no file operations.");
 
-        if (is_self_describing_asset_meta(asset_path.generic_string()))
+        if (asset_pairing::is_self_describing_metadata(asset_path.generic_string()))
             return write_self_describing_script_meta(*file_ops, asset_path, asset_registration);
 
+        // A meta-only asset (e.g. a texture) has no body file — it persists its [[meta]] import settings to
+        // the flat .meta sidecar instead.
+        if (!asset_registration.write_body)
+            return try_write_registered_asset_meta(asset_path, *file_ops, asset_registration, asset);
+
         return try_write_registered_asset_body(asset_path, *file_ops, asset_registration, asset);
+    }
+
+    Result SerializationRegistry::try_write_registered_asset_meta(
+        const std::filesystem::path& asset_path,
+        IFileOps& file_ops,
+        const AssetTypeRegistration& asset_registration,
+        const void* asset)
+    {
+        auto contents = std::string();
+        if (const auto result = asset_registration.write_meta(asset, contents); !result.succeeded())
+            return result;
+
+        auto written = Json();
+        if (!JsonParser::try_parse(contents, written) || !written.is_object())
+            return make_failed_result("Failed to serialize asset meta JSON.");
+
+        // Merge over the existing meta so any keys the writer doesn't own survive, and so a save can never
+        // drop the asset's identity: a missing/zero id is restored from the on-disk meta.
+        const auto meta_path = asset_pairing::metadata_path(asset_path);
+        auto merged = Json::object();
+        Uuid existing_id = {};
+        if (auto existing = std::string(); file_ops.exists(meta_path)
+            && file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, existing))
+        {
+            auto parsed = Json();
+            if (JsonParser::try_parse(existing, parsed) && parsed.is_object())
+            {
+                merged = std::move(parsed);
+                uint64 numeric_id = 0U;
+                if (JsonParser::try_get(merged, "id", numeric_id))
+                    existing_id = Uuid(numeric_id);
+            }
+        }
+
+        for (auto iterator = written.begin(); iterator != written.end(); ++iterator)
+            merged[iterator.key()] = iterator.value();
+
+        uint64 merged_id = 0U;
+        if ((!JsonParser::try_get(merged, "id", merged_id) || merged_id == 0U) && existing_id.is_valid())
+            merged["id"] = existing_id.value;
+
+        if (!file_ops.write_file(
+                meta_path, FileDataFormat::UTF8_TEXT, merged.dump(4).append("\n")))
+        {
+            return make_failed_result(
+                std::string("Failed to write Toybox asset meta '")
+                    .append(meta_path.string())
+                    .append("'."));
+        }
+
+        return Result();
     }
 
     Result SerializationRegistry::write_self_describing_script_meta(

@@ -49,6 +49,7 @@ namespace tbx
     /// Ownership: Owns mesh and slot data by value. Thread Safety: Safe to construct on any thread.
     [[serializable]];
     [[version(1U)]];
+    [[extension("fbx", "obj", "gltf", "glb")]];
     struct TBX_API Model : Asset
     {
         Model();

@@ -1,4 +1,5 @@
 #pragma once
+#include "asset_ops.h"
 #include "collider_pass.h"
 #include "engine_services.h"
 #include "entity_selection_handler.h"
@@ -7,16 +8,15 @@
 #include "input_controller.h"
 #include "log_bridge.h"
 #include "selection.h"
+#include "sync_path_router.h"
 #include "view_manager.h"
 #include "world_manager.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/interfaces/rpc_host.h"
 #include "tbx/interfaces/rpc_router.h"
-#include "tbx/systems/files/json.h"
 #include "tbx/systems/plugin_api/plugin_export.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/typedefs.h"
-#include "tbx/utils/result.h"
 #include <memory>
 #include <string>
 
@@ -64,10 +64,10 @@ namespace tbx::studio_bridge
         std::weak_ptr<tbx::IRpcHost> rpc_host = {};
 
       private:
-        // Registers every built-in RPC method (the editor protocol) on the router. Called from
-        // on_attach once the router is bound; the editor's methods are owned by this plugin's id.
+        // Registers every built-in RPC method (the editor protocol) on the router, delegating each
+        // category to its `register_*_handlers` free function. Called from on_attach once the router is
+        // bound; the editor's methods are owned by this plugin's id.
         void register_builtin_handlers();
-        tbx::Json handle_hello() const;
 
       private:
         EngineServices _services = {};
@@ -79,7 +79,9 @@ namespace tbx::studio_bridge
         ColliderPass _collider_pass;
         EntitySelectionHandler _selection_handler;
         GameModeManager _game_mode;
+        AssetOps _asset_ops;
         WorldManager _world_manager;
+        SyncPathRouter _sync_router;
         LogBridge _log;
 
         bool _had_client = false;

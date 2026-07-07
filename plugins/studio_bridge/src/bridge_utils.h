@@ -3,11 +3,17 @@
 #include "tbx/systems/world/manager.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/uuid.h"
+#include <filesystem>
 #include <glm/glm.hpp>
+#include <string>
 
 namespace tbx::studio_bridge
 {
-    // Shared bridge utilities — small world/entity helpers used across the bridge subsystems.
+    // Shared bridge utilities — small world/entity/asset helpers used across the bridge subsystems.
+
+    // Lower-cased file extension without the leading dot, used as the asset's editor "type" so the
+    // handle picker can filter (e.g. "mat", "png", "world"). Empty extensions fall back to "asset".
+    std::string asset_type_from_path(const std::filesystem::path& path);
 
     // Average world position of the world's renderable (static-mesh) entities. Gives the editor
     // camera something meaningful to face when it opens. Returns false when the world has no

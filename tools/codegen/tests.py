@@ -1035,6 +1035,42 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertNotIn("register_asset_body_type<Value>", output)
         self.assertNotIn("register_asset_meta_type<Value>", output)
 
+    def test_asset_extension_is_registered(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            [[version(2)]];
+            [[extension("mat", "material")]];
+            struct Value : Asset
+            {
+                [[do_not_serialize]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        self.assertIn('register_asset_type<Value>(2, std::vector<std::string> { "mat", "material" })', output)
+
+    def test_asset_without_extension_registers_no_extension_list(self) -> None:
+        output = self.generate_source(
+            """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            [[version(2)]];
+            struct Value : Asset
+            {
+                [[do_not_serialize]]
+                int amount = 0;
+            };
+            }
+            """
+        )
+        self.assertIn("register_asset_type<Value>(2)", output)
+        self.assertNotIn("std::vector<std::string>", output)
+
     def test_text_and_meta_asset_are_generated(self) -> None:
         output = self.generate_source(
             """

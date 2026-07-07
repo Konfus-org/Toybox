@@ -17,10 +17,12 @@ namespace tbx
     {
         virtual ~Asset() noexcept = default;
 
-        [[meta]]
+        // Identity/versioning live in the .meta but are not user-editable: [[hidden]] keeps them out of the
+        // inspector grid while they still serialize (so an asset save round-trips them, preserving identity).
+        [[meta]] [[hidden]]
         Uuid id = {};
 
-        [[meta]]
+        [[meta]] [[hidden]]
         uint32 version = 1U;
 
         operator Handle()

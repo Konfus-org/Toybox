@@ -451,11 +451,7 @@ namespace tbx
         const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
-            TBX_TRACE_WARNING(
-                "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.name,
-                handle.id,
-                ensure_result.result.get_report());
+            warn_ensure_entry_failure_once(handle, ensure_result.result);
             return {};
         }
         if (!ensure_result.result.get_report().empty())
@@ -687,11 +683,7 @@ namespace tbx
         const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
-            TBX_TRACE_WARNING(
-                "Failed to ensure asset entry for handle (name='{}', id={}): {}",
-                handle.name,
-                handle.id,
-                ensure_result.result.get_report());
+            warn_ensure_entry_failure_once(handle, ensure_result.result);
             return result;
         }
         if (!ensure_result.result.get_report().empty())
@@ -797,11 +789,7 @@ namespace tbx
         const auto ensure_result = _registry->ensure_entry(handle);
         if (!ensure_result.result.succeeded() || !ensure_result.entry.has_value())
         {
-            TBX_TRACE_WARNING(
-                "Failed to ensure asset entry for reload handle (name='{}', id={}): {}",
-                handle.name,
-                handle.id,
-                ensure_result.result.get_report());
+            warn_ensure_entry_failure_once(handle, ensure_result.result);
             return false;
         }
         if (!ensure_result.result.get_report().empty())

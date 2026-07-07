@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from model import Field, SerializableType, cpp_string, json_key, sanitized_name
-from struct_codegen import emit_json_function_declarations, emit_json_function_definitions
+from model import Field, SerializableType, cpp_string, find_attr, json_key, sanitized_name
+from struct_codegen import (
+    attribute_descriptor_literal,
+    emit_json_function_declarations,
+    emit_json_function_definitions,
+)
 
 
 def emit_asset_type_registration_declarations(type_info: SerializableType) -> list[str]:
@@ -12,6 +16,15 @@ def emit_asset_type_registration_declarations(type_info: SerializableType) -> li
 
 
 def emit_asset_type_registration(type_info: SerializableType, version: str) -> list[str]:
+    # [[tbx::extension("mat", ...)]] declares the file extensions this asset type owns, baked into the
+    # registration so the editor/registry resolve a path → type with no hard-coded switch.
+    extension_attr = find_attr(type_info.attrs, "extension")
+    extensions = extension_attr.args if extension_attr is not None else []
+    extensions_arg = (
+        f", std::vector<std::string> {{ {', '.join(cpp_string(e) for e in extensions)} }}"
+        if extensions
+        else ""
+    )
     return [
         f"std::true_type has_asset_serialization(const {type_info.name}*)",
         "{",
@@ -19,7 +32,7 @@ def emit_asset_type_registration(type_info: SerializableType, version: str) -> l
         "}",
         "TBX_SERIALIZATION_AUTO_REGISTER(",
         "    tbx_asset_type_registration_,",
-        f"    ::tbx::register_asset_type<{type_info.name}>({version}));",
+        f"    ::tbx::register_asset_type<{type_info.name}>({version}{extensions_arg}));",
         "",
     ]
 
@@ -53,7 +66,8 @@ def emit_asset_body(type_info: SerializableType, version: str, fields: list[Fiel
 
 
 def emit_asset_meta_declarations(type_info: SerializableType) -> list[str]:
-    helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
+    read_helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
+    write_helper = f"write_json_asset_meta_{sanitized_name(type_info.name)}"
     source_path = type_info.source_path.replace("\\", "/")
     api_macro = (
         type_info.api_macro
@@ -63,13 +77,15 @@ def emit_asset_meta_declarations(type_info: SerializableType) -> list[str]:
     return [
         f"std::true_type has_meta_serialization(const {type_info.name}*);",
         f"std::true_type has_meta_json_fields(const {type_info.name}*);",
-        f"{api_prefix}::tbx::Result {helper}(std::string_view data, {type_info.name}& asset);",
+        f"{api_prefix}::tbx::Result {read_helper}(std::string_view data, {type_info.name}& asset);",
+        f"{api_prefix}::tbx::Result {write_helper}(const {type_info.name}& asset, std::string& output);",
         "",
     ]
 
 
 def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Field]) -> list[str]:
-    helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
+    read_helper = f"read_json_asset_meta_{sanitized_name(type_info.name)}"
+    write_helper = f"write_json_asset_meta_{sanitized_name(type_info.name)}"
     lines = [
         f"std::true_type has_meta_serialization(const {type_info.name}*)",
         "{",
@@ -79,7 +95,10 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
         "{",
         "    return {};",
         "}",
-        f"::tbx::Result {helper}(std::string_view data, {type_info.name}& asset)",
+        # Reader: tolerant of both the flat on-disk .meta (bare values) and the editor's typed save
+        # (the { type, value } / { attributes, value } wrappers asset.describe round-trips), so the same
+        # field decode serves loading from disk and applying an inspector edit.
+        f"::tbx::Result {read_helper}(std::string_view data, {type_info.name}& asset)",
         "{",
         "    try",
         "    {",
@@ -89,7 +108,7 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
     for field in fields:
         lines.extend(
             [
-                "        ::tbx::read_serialization_field(",
+                "        ::tbx::read_typed_serialization_field(",
                 "            json,",
                 f"            {cpp_string(json_key(field))},",
                 f"            asset.{field.name},",
@@ -106,11 +125,45 @@ def emit_asset_meta(type_info: SerializableType, version: str, fields: list[Fiel
             "            \"Failed to parse Toybox asset meta JSON.\");",
             "    }",
             "}",
+            # Writer: flat bare values for persistence (the .meta sidecar's historical shape), the
+            # attribute-rich shape under the editor's AttributeSerializationScope so the inspector can
+            # describe a meta-only asset (e.g. a texture's import settings) with enum dropdowns/categories.
+            f"::tbx::Result {write_helper}(const {type_info.name}& asset, std::string& output)",
+            "{",
+            "    try",
+            "    {",
+            "        auto json = ::tbx::Json::object();",
+            f"        const {type_info.name} default_asset {{}};",
+        ]
+    )
+    for order, field in enumerate(fields):
+        lines.extend(
+            [
+                "        ::tbx::write_meta_serialization_field(",
+                "            json,",
+                f"            {cpp_string(json_key(field))},",
+                f"            asset.{field.name},",
+                f"            default_asset.{field.name},",
+                f"            {attribute_descriptor_literal(field, order)});",
+            ]
+        )
+    lines.extend(
+        [
+            "        output = json.dump(4);",
+            "        return ::tbx::Result();",
+            "    }",
+            "    catch (...)",
+            "    {",
+            "        return ::tbx::make_serialization_failure(",
+            "            \"Failed to serialize Toybox asset meta JSON.\");",
+            "    }",
+            "}",
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_asset_meta_registration_,",
             f"    ::tbx::register_asset_meta_type<{type_info.name}>(",
             f"        {version},",
-            f"        {helper}));",
+            f"        {read_helper},",
+            f"        {write_helper}));",
             "",
         ]
     )

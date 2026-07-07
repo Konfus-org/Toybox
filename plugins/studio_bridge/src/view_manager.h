@@ -1,5 +1,6 @@
 #pragma once
 #include "engine_services.h"
+#include "view_input.h"
 #include "view_stream.h"
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/types/typedefs.h"
@@ -8,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -38,8 +40,10 @@ namespace tbx::studio_bridge
 
         /// @brief Starts an asset-preview view orbiting an isolated world that holds the given asset.
         /// Returns its name and the isolated world's stable numeric id (which the editor targets for
-        /// world-level ops). Fails when the asset cannot be previewed.
-        Result start_asset_preview_view(uint32 asset_id, std::string& out_name, uint32& out_world_id);
+        /// world-level ops). @p turntable auto-orbits the camera; @p render_scale (0..1] scales the view's
+        /// resolution down for a cheaper preview. Fails when the asset cannot be previewed.
+        Result start_asset_preview_view(
+            uint32 asset_id, bool turntable, float render_scale, std::string& out_name, uint32& out_world_id);
 
         /// @brief Stops the named view: unregisters its external camera and queues its shared surface
         /// for teardown.
@@ -88,13 +92,14 @@ namespace tbx::studio_bridge
         /// @brief The first asset-preview world that contains the given entity id, or null when none do.
         std::shared_ptr<tbx::World> find_preview_world_with(const tbx::Uuid& id) const;
 
-        /// @brief Runs fn(views) under the views lock, so input/gizmo subsystems can read and mutate the
-        /// existing view cameras without owning the collection.
+        /// @brief Runs fn(views, inputs) under the views lock, so the input/gizmo subsystems can read and
+        /// mutate the existing view cameras and their forwarded input (keyed by view name) without owning
+        /// the collection.
         template <typename Fn>
         void with_views_locked(Fn&& fn)
         {
             auto lock = std::lock_guard(_views_mutex);
-            fn(_views);
+            fn(_views, _view_inputs);
         }
 
       private:
@@ -107,8 +112,9 @@ namespace tbx::studio_bridge
             bool editor_tag,
             bool copy_game_lens,
             bool seed_pose) const;
-        // Generates a unique view name + a render texture sized to the graphics resolution.
-        std::pair<std::string, tbx::RenderTexture> make_view_target();
+        // Generates a unique view name + a render texture sized to the graphics resolution, optionally scaled
+        // down (0 < scale < 1) for a cheaper low-resolution view such as the browser's small hover preview.
+        std::pair<std::string, tbx::RenderTexture> make_view_target(float scale = 1.0F);
         // Registers the (type-built, camera-seeded) view's external camera with the engine and adds it
         // to the collection. world_override is the preview world (null = active world).
         void register_and_add(
@@ -131,6 +137,9 @@ namespace tbx::studio_bridge
         uint32 _next_world_id = 1U;
 
         std::vector<std::unique_ptr<ViewStream>> _views = {};
+        // The forwarded input for each live view, keyed by view name — created and dropped with the view
+        // so it never outlives its stream. Kept off the stream so a ViewStream is purely render state.
+        std::unordered_map<std::string, ViewInput> _view_inputs = {};
         // Render textures of stopped views awaiting shared-surface teardown on the render lane.
         std::vector<tbx::RenderTexture> _pending_shared_destroys = {};
         mutable std::mutex _views_mutex = {};

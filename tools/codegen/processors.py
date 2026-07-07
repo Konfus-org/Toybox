@@ -41,6 +41,7 @@ class AttributeSchemaRegistry:
             "custom_serialization": AttributeSchema(2, frozenset({"read", "write"})),
             "description": AttributeSchema(1, frozenset({"value"})),
             "do_not_serialize": AttributeSchema(0, frozenset()),
+            "extension": AttributeSchema(None, frozenset()),
             "hidden": AttributeSchema(0, frozenset()),
             "inject": AttributeSchema(),
             "label": AttributeSchema(1, frozenset({"value"})),

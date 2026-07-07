@@ -3,8 +3,11 @@
 #include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/types/assets/asset.h"
+#include <algorithm>
+#include <cctype>
 #include <memory>
 #include <mutex>
+#include <string>
 
 namespace tbx
 {
@@ -92,6 +95,39 @@ namespace tbx
         return *existing;
     }
 
+    std::optional<AssetTypeRegistration> get_asset_type_registration_for_extension(
+        std::string_view extension)
+    {
+        if (extension.empty())
+            return std::nullopt;
+
+        // Normalize to the stored form: no leading dot, lower-case.
+        if (extension.front() == '.')
+            extension.remove_prefix(1);
+        auto normalized = std::string(extension);
+        std::ranges::transform(
+            normalized,
+            normalized.begin(),
+            [](unsigned char character)
+            {
+                return static_cast<char>(std::tolower(character));
+            });
+
+        auto& store = SerializationRegistrationStore::get_instance();
+        auto guard = std::lock_guard(store.asset_type_mutex());
+        const auto& registrations = store.asset_types();
+        const auto existing = std::ranges::find_if(
+            registrations,
+            [&normalized](const AssetTypeRegistration& registered)
+            {
+                return std::ranges::contains(registered.extensions, normalized);
+            });
+        if (existing == registrations.end())
+            return std::nullopt;
+
+        return *existing;
+    }
+
     void unregister_asset_type_entry(std::type_index asset_type)
     {
         if (asset_type == std::type_index(typeid(void)))
@@ -140,6 +176,8 @@ namespace tbx
                 existing->type_name = std::move(entry.type_name);
             if (entry.version != 0U)
                 existing->version = entry.version;
+            if (!entry.extensions.empty())
+                existing->extensions = std::move(entry.extensions);
             if (entry.create_asset)
                 existing->create_asset = std::move(entry.create_asset);
             if (entry.read_body)
@@ -148,6 +186,8 @@ namespace tbx
                 existing->write_body = std::move(entry.write_body);
             if (entry.transform_meta)
                 existing->transform_meta = std::move(entry.transform_meta);
+            if (entry.write_meta)
+                existing->write_meta = std::move(entry.write_meta);
             if (entry.describe)
                 existing->describe = std::move(entry.describe);
             if (entry.is_script)
@@ -206,21 +246,49 @@ namespace tbx
     std::string describe_serializable_asset(std::string_view type_name)
     {
         const auto registration = get_asset_type_registration(type_name);
-        if (!registration || !registration->create_asset || !registration->write_body)
+        if (!registration || !registration->create_asset)
             return {};
 
         auto asset = registration->create_asset();
         if (!asset)
             return {};
 
-        // Enter the editor scopes here, in the engine module, so the generated serialize that write_body
-        // invokes — which reads a per-module thread-local switch — actually emits the enriched, every-field
-        // shape rather than the lean persistence form.
+        // Delegate to the instance describe (body assets and meta-only assets alike) so the two
+        // describes share one serialization path.
+        return describe_serializable_asset_instance(asset.get(), type_name);
+    }
+
+    std::string describe_serializable_asset_instance(const void* asset, std::string_view type_name)
+    {
+        if (asset == nullptr)
+            return {};
+
+        const auto registration = get_asset_type_registration(type_name);
+        if (!registration)
+            return {};
+
+        // Enter the editor scopes here, in the engine module, so the generated serialize the body/meta writer
+        // invokes — which reads a per-module thread-local switch — emits the enriched, every-field shape.
         const auto include_all = OmitDefaultFieldsScope(false);
         const auto include_attrs = AttributeSerializationScope(true);
         auto body = std::string();
-        if (!registration->write_body(asset.get(), body))
+
+        // Body assets (materials, shaders, …) describe their body; meta-only assets (textures) describe their
+        // flat .meta import settings. The same { attributes, value } shape feeds the editor's grid either way.
+        if (registration->write_body)
+        {
+            if (!registration->write_body(asset, body))
+                return {};
+        }
+        else if (registration->write_meta)
+        {
+            if (!registration->write_meta(asset, body))
+                return {};
+        }
+        else
+        {
             return {};
+        }
 
         return body;
     }

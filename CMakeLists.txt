@@ -26,7 +26,12 @@ include(codegen)
 # across build directories instead of re-downloaded per preset. (UPDATES_DISCONNECTED is
 # intentionally left at its default so that bumping a pinned GIT_TAG is always re-applied.)
 if(NOT DEFINED FETCHCONTENT_BASE_DIR)
-    set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/_deps" CACHE PATH
+    # The cache is segmented per generator: FetchContent's sub-build trees are tied to the
+    # generator that created them, and CMake hard-errors when a consumer with a different
+    # generator (e.g. Studio's Visual Studio preset vs a Ninja engine build) reuses them.
+    string(MAKE_C_IDENTIFIER "${CMAKE_GENERATOR}" TBX_FETCHCONTENT_GENERATOR_DIR)
+    set(FETCHCONTENT_BASE_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/_deps/${TBX_FETCHCONTENT_GENERATOR_DIR}" CACHE PATH
         "Location for FetchContent-vendored third-party sources")
 endif()
 include(FetchContent)

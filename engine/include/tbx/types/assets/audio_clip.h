@@ -8,6 +8,7 @@ namespace tbx
     /// Purpose: Represents raw audio sample data for asset loading.
     [[serializable]];
     [[version(1U)]];
+    [[extension("wav", "mp3", "ogg", "flac")]];
     struct TBX_API AudioClip : Asset
     {
         // Decoded by the audio loader from the source clip (a version-only asset), not persisted.

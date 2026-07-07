@@ -9,7 +9,9 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -58,17 +60,31 @@ namespace tbx
         AssetRegistryEntryResult ensure_entry(const Handle& handle);
         std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry(
             const Handle& handle) const;
+        // Finds a registered asset by its bare name (filename stem, case-insensitive), trying the given
+        // file extensions in priority order so an earlier extension wins over a later same-named one.
+        // Used to auto-bind a model's material slot to an asset of the same name. Null when nothing matches.
+        std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry_by_name(
+            std::string_view name, std::span<const std::string_view> extensions) const;
         std::vector<std::filesystem::path> get_asset_directories() const;
         std::vector<AssetRegistryEntry> get_entries() const;
         AssetRegistryMutationResult register_discovered_asset(
             const std::filesystem::path& asset_path);
         AssetRegistryMutationResult unregister_asset(const std::filesystem::path& asset_path);
+        // Forgets an asset addressed by handle rather than path. Unlike the path overload this never routes
+        // through resolve_asset_path (whose root-resolution needs the file to still exist), so it works after
+        // the file has already been deleted: it matches by the stable id when valid, else by the handle's
+        // name used directly as the stored key (verbatim, then lexically normalized).
+        AssetRegistryMutationResult unregister_asset(const Handle& handle);
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
         Result scan_asset_directory(const std::filesystem::path& root);
         static bool should_track_asset_path(const std::filesystem::path& asset_path);
 
       private:
+        // Removes the entry at `iterator` from both indexes (_entries_by_path and _path_by_id),
+        // returning the removed entry. The shared erase tail of the unregister_asset overloads.
+        AssetRegistryEntry erase_entry(
+            std::unordered_map<std::string, AssetRegistryEntry>::iterator iterator);
         std::optional<std::reference_wrapper<AssetRegistryEntry>> find_entry_by_id(Uuid asset_id);
         std::optional<std::reference_wrapper<const AssetRegistryEntry>> find_entry_by_id(
             Uuid asset_id) const;

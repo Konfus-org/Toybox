@@ -1,25 +1,20 @@
 #include "world_manager.h"
-#include "asset_preview.h"
-#include "builtin_assets.h"
+#include "bridge_utils.h"
 #include "view_manager.h"
+#include "wire.h"
 #include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
-#include "tbx/types/assets/material.h"
 #include "tbx/types/assets/material_instance.h"
 #include "tbx/types/assets/model.h"
-#include "tbx/types/assets/texture.h"
 #include "tbx/types/components/script_container.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include <algorithm>
-#include <cctype>
-#include <filesystem>
 #include <ranges>
 #include <string>
 #include <typeindex>
 #include <typeinfo>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -33,7 +28,7 @@ namespace tbx::studio_bridge
         if (!node.is_object())
             return nullptr;
 
-        const auto value_iterator = node.find("value");
+        const auto value_iterator = node.find(Wire::VALUE);
         return value_iterator == node.end() ? nullptr : &(*value_iterator);
     }
 
@@ -45,11 +40,11 @@ namespace tbx::studio_bridge
         if (!field.is_object())
             return nullptr;
 
-        const auto attributes_iterator = field.find("attributes");
+        const auto attributes_iterator = field.find(Wire::ATTRIBUTES);
         if (attributes_iterator == field.end() || !attributes_iterator->is_object())
             return nullptr;
 
-        const auto choices_iterator = attributes_iterator->find("choices");
+        const auto choices_iterator = attributes_iterator->find(Wire::CHOICES);
         if (choices_iterator == attributes_iterator->end() || !choices_iterator->is_array()
             || choices_iterator->empty())
             return nullptr;
@@ -64,11 +59,11 @@ namespace tbx::studio_bridge
         if (!field.is_object())
             return nullptr;
 
-        const auto attributes_iterator = field.find("attributes");
+        const auto attributes_iterator = field.find(Wire::ATTRIBUTES);
         if (attributes_iterator == field.end() || !attributes_iterator->is_object())
             return nullptr;
 
-        const auto type_iterator = attributes_iterator->find("type");
+        const auto type_iterator = attributes_iterator->find(Wire::TYPE);
         if (type_iterator == attributes_iterator->end() || !type_iterator->is_string()
             || type_iterator->get_ref<const std::string&>().empty())
             return nullptr;
@@ -76,54 +71,10 @@ namespace tbx::studio_bridge
         return &(*type_iterator);
     }
 
-    // Lower-cased file extension without the leading dot, used as the asset's editor "type" so the
-    // handle picker can filter (e.g. "mat", "png", "world"). Empty extensions fall back to "asset".
-    static std::string asset_type_from_path(const std::filesystem::path& path)
-    {
-        auto extension = path.extension().string();
-        if (!extension.empty() && extension.front() == '.')
-            extension.erase(extension.begin());
-        if (extension.empty())
-            return "asset";
-
-        for (auto& character : extension)
-            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-
-        return extension;
-    }
-
-    // The render-role token of a material asset (its MaterialType), or empty when the handle does not
-    // resolve to a loadable material. Lets the editor treat a material by its type — e.g. preview a sky
-    // material as the environment background. The load is cached, and a material load only parses the
-    // .mat (its shader/texture handles stay lazy). The tokens mirror the enum's [[name]]s; the engine's
-    // generated enum serializer isn't DLL-exported, so the wire names are spelled out here.
-    static std::string material_type_token(tbx::AssetManager& assets, const tbx::Handle& handle)
-    {
-        const auto material = assets.load<tbx::Material>(handle);
-        if (!material)
-            return std::string();
-
-        switch (material->type)
-        {
-            case tbx::MaterialType::RASTER:
-                return "raster";
-            case tbx::MaterialType::SKY:
-                return "sky";
-            case tbx::MaterialType::POST:
-                return "post";
-            case tbx::MaterialType::GEO:
-                return "geo";
-            case tbx::MaterialType::COMPUTE:
-                return "compute";
-        }
-
-        return "raster";
-    }
-
     // Reads an optional "parent" param: a missing/0 value means the root (an invalid Uuid).
     static tbx::Uuid read_parent_param(const tbx::Json& params)
     {
-        const auto parent_iterator = params.find("parent");
+        const auto parent_iterator = params.find(Wire::PARENT);
         if (parent_iterator == params.end() || !parent_iterator->is_number_unsigned())
             return tbx::Uuid();
 
@@ -141,7 +92,7 @@ namespace tbx::studio_bridge
     {
         if (params.is_object())
         {
-            const auto world_id = params.value("worldId", 0U);
+            const auto world_id = params.value(Wire::WORLD_ASSET_ID, 0U);
             if (world_id != 0U)
             {
                 if (auto preview = _views.get().resolve_world_by_id(world_id))
@@ -155,7 +106,14 @@ namespace tbx::studio_bridge
     {
         if (!params.is_object())
             return nullptr;
-        const auto id_iterator = params.find("entityId");
+
+        // An explicit (non-zero) worldId names the owning world unambiguously. Entity ids are per-world and
+        // can collide between the active world and an asset-preview world, so honour it before the by-id
+        // search below (which would otherwise resolve a colliding active-world entity for a preview edit).
+        if (const auto world_id = params.value(Wire::WORLD_ASSET_ID, 0U); world_id != 0U)
+            return _views.get().resolve_world_by_id(world_id);
+
+        const auto id_iterator = params.find(Wire::ENTITY_ID);
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return nullptr;
 
@@ -190,15 +148,15 @@ namespace tbx::studio_bridge
                 {
                     // Globalness is World-level state (not on the entity/registry), so the describe
                     // layer tags it for the editor's Globals section.
-                    entity_json["is_global"] = world->is_global(entity.get_id());
+                    entity_json[Wire::IS_GLOBAL] = world->is_global(entity.get_id());
                     enrich_script_overrides(entity_json, schema_cache);
                     entities.push_back(std::move(entity_json));
                 }
             }
         }
 
-        result["entities"] = std::move(entities);
-        result["component_types"] = component_type_icons();
+        result[Wire::ENTITIES] = std::move(entities);
+        result[Wire::COMPONENT_TYPES] = component_type_icons();
         return result;
     }
 
@@ -219,13 +177,13 @@ namespace tbx::studio_bridge
 
             auto icon = tbx::Json::object();
             if (!registration.icon.empty())
-                icon["icon"] = registration.icon;
+                icon[Wire::ICON] = registration.icon;
             if (!registration.icon_color.empty())
-                icon["iconColor"] = registration.icon_color;
+                icon[Wire::ICON_COLOR] = registration.icon_color;
             if (!registration.viewport_icon.empty())
-                icon["viewportIcon"] = registration.viewport_icon;
+                icon[Wire::VIEWPORT_ICON] = registration.viewport_icon;
             if (!registration.viewport_icon_color.empty())
-                icon["viewportIconColor"] = registration.viewport_icon_color;
+                icon[Wire::VIEWPORT_ICON_COLOR] = registration.viewport_icon_color;
             component_types[registration.name] = std::move(icon);
         }
         return component_types;
@@ -262,7 +220,7 @@ namespace tbx::studio_bridge
         tbx::Json& entity_json,
         std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>& schema_cache) const
     {
-        const auto components_iterator = entity_json.find("components");
+        const auto components_iterator = entity_json.find(Wire::COMPONENTS);
         if (components_iterator == entity_json.end() || !components_iterator->is_object())
             return;
 
@@ -270,7 +228,7 @@ namespace tbx::studio_bridge
         if (container_iterator == components_iterator->end() || !container_iterator->is_object())
             return;
 
-        const auto scripts_iterator = container_iterator->find("scripts");
+        const auto scripts_iterator = container_iterator->find(Wire::SCRIPTS);
         if (scripts_iterator == container_iterator->end())
             return;
 
@@ -283,7 +241,7 @@ namespace tbx::studio_bridge
             if (!binding.is_object())
                 continue;
 
-            const auto script_iterator = binding.find("script");
+            const auto script_iterator = binding.find(Wire::SCRIPT);
             const auto overrides_iterator = binding.find("overrides");
             if (script_iterator == binding.end() || overrides_iterator == binding.end())
                 continue;
@@ -325,7 +283,7 @@ namespace tbx::studio_bridge
 
                 // The lean schema field is { "type", "value" }; its value is the script's default for
                 // this field. (describe_field_value takes a mutable node, so reach "value" directly here.)
-                const auto default_iterator = lean_field.find("value");
+                const auto default_iterator = lean_field.find(Wire::VALUE);
                 if (default_iterator == lean_field.end())
                     continue;
                 const tbx::Json* default_value = &(*default_iterator);
@@ -343,13 +301,13 @@ namespace tbx::studio_bridge
                 if (attr_iterator != attr_schema.end())
                 {
                     if (const auto* type = describe_field_type(*attr_iterator))
-                        field["type"] = *type;
+                        field[Wire::TYPE] = *type;
                     if (const auto* choices = describe_field_choices(*attr_iterator))
-                        field["choices"] = *choices;
+                        field[Wire::CHOICES] = *choices;
                 }
 
-                field["value"] = override_value != nullptr ? *override_value : *default_value;
-                field["is_default"] = override_value == nullptr || *override_value == *default_value;
+                field[Wire::VALUE] = override_value != nullptr ? *override_value : *default_value;
+                field[Wire::IS_DEFAULT] = override_value == nullptr || *override_value == *default_value;
                 field["default"] = *default_value;
                 rebuilt[field_name] = std::move(field);
             }
@@ -360,9 +318,9 @@ namespace tbx::studio_bridge
 
     Result WorldManager::describe_entity(const tbx::Json& params, tbx::Json& out_reply) const
     {
-        // Reuses the reflect entity resolver (reads/validates entityId against the active world).
+        // Reuses the sync entity resolver (reads/validates entityId against the active world).
         auto entity = tbx::Entity();
-        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
             return resolved;
 
         // Same per-entity shape describe_world emits: every field plus reflection metadata. Lets
@@ -375,13 +333,13 @@ namespace tbx::studio_bridge
             return Result(false, "Failed to serialize entity.");
 
         if (auto world = _services.get().active_world())
-            entity_json["is_global"] = world->is_global(entity.get_id());
+            entity_json[Wire::IS_GLOBAL] = world->is_global(entity.get_id());
 
         auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
         enrich_script_overrides(entity_json, schema_cache);
 
-        out_reply["entity"] = std::move(entity_json);
-        out_reply["component_types"] = component_type_icons();
+        out_reply[Wire::ENTITY] = std::move(entity_json);
+        out_reply[Wire::COMPONENT_TYPES] = component_type_icons();
         return Result::OK;
     }
 
@@ -397,57 +355,13 @@ namespace tbx::studio_bridge
         // fall back to the lean { type, value } form.
         const auto schema = tbx::describe_serializable_asset("AppSettings");
         auto reply = tbx::Json::object();
-        reply["settings"] = schema.empty() ? tbx::Json::object() : tbx::Json::parse(schema);
+        reply[Wire::SETTINGS] = schema.empty() ? tbx::Json::object() : tbx::Json::parse(schema);
         return reply;
-    }
-
-    Result WorldManager::describe_asset(const tbx::Json& params, tbx::Json& out_reply) const
-    {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
-
-        const auto id_iterator = params.find("assetId");
-        if (id_iterator == params.end() || !id_iterator->is_number())
-            return Result(false, "Missing or invalid 'assetId'.");
-        const auto asset_id = id_iterator->get<uint32>();
-
-        auto asset_manager = _services.get().asset_manager.lock();
-        if (!asset_manager)
-            return Result(false, "No asset manager.");
-
-        // Find the registered asset by id and confirm it is a material before loading. The id
-        // matches the value the handle picker wrote (editor.listAssets advertises
-        // entry.asset_id.value as the id).
-        for (const auto& entry : asset_manager->get_registered_assets())
-        {
-            if (entry.asset_id.value != asset_id)
-                continue;
-
-            if (asset_type_from_path(entry.resolved_path) != "mat")
-                return Result(false, "Asset is not a material.");
-
-            const auto material = asset_manager->load<tbx::Material>(
-                tbx::Handle(entry.normalized_path, entry.asset_id));
-            if (!material)
-                return Result(false, "Failed to load material.");
-
-            // Same enriched shape entity.describe emits per field (every field plus reflection
-            // metadata), so the editor parses the base parameters/textures with the existing
-            // JsonParser path.
-            const auto include_all = tbx::OmitDefaultFieldsScope(false);
-            const auto include_attrs = tbx::AttributeSerializationScope(true);
-            auto material_json = tbx::Json::object();
-            serialize(material_json, *material);
-            out_reply["material"] = std::move(material_json);
-            return Result::OK;
-        }
-
-        return Result(false, "Asset not found.");
     }
 
     Result WorldManager::model_slots(const tbx::Json& params, tbx::Json& out_reply) const
     {
-        out_reply["slots"] = tbx::Json::array();
+        out_reply[Wire::SLOTS] = tbx::Json::array();
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
@@ -467,31 +381,13 @@ namespace tbx::studio_bridge
         for (const auto& slot : model->slots)
         {
             auto entry = tbx::Json::object();
-            entry["name"] = slot.name.empty() ? std::to_string(static_cast<uint32>(slot.id))
+            entry[Wire::NAME] = slot.name.empty() ? std::to_string(static_cast<uint32>(slot.id))
                                               : slot.name;
-            entry["id"] = slot.id.value;
+            entry[Wire::ID] = slot.id.value;
             slots.push_back(std::move(entry));
         }
-        out_reply["slots"] = std::move(slots);
+        out_reply[Wire::SLOTS] = std::move(slots);
         return Result::OK;
-    }
-
-    // Force-registers a built-in preview asset (its directory is skipped by the registry's startup
-    // scan, so loading by path is what registers it — reading its .meta id) and returns its canonical
-    // id, or an invalid id when it cannot be loaded. The load is type-dispatched by extension.
-    static tbx::Uuid register_builtin_asset(tbx::AssetManager& assets, const tbx::Handle& handle)
-    {
-        auto extension = std::filesystem::path(handle.name).extension().string();
-        for (auto& character : extension)
-            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-
-        if (extension == ".png" || extension == ".jpg" || extension == ".jpeg"
-            || extension == ".tga" || extension == ".bmp")
-            assets.load<tbx::Texture>(handle);
-        else
-            assets.load<tbx::Material>(handle);
-
-        return assets.resolve_id(handle);
     }
 
     Result WorldManager::preview_texture_material(const tbx::Json& params, tbx::Json& out_reply) const
@@ -521,92 +417,8 @@ namespace tbx::studio_bridge
         if (!id.is_valid())
             return Result(false, "Failed to register the preview material.");
 
-        out_reply["id"] = id.value;
+        out_reply[Wire::ID] = id.value;
         return Result::OK;
-    }
-
-    tbx::Json WorldManager::list_assets() const
-    {
-        auto result = tbx::Json::object();
-        auto assets = tbx::Json::array();
-        auto scripts = tbx::Json::array();
-
-        // A scripting backend claims its source extension (e.g. ".h" for C++), so an asset whose file
-        // extension a backend recognises is a script source the editor can bind to an entity. Resolved
-        // once per list so each asset can be flagged for the editor's script picker.
-        auto scripting = _services.get().scripting_registry.lock();
-
-        if (auto asset_manager = _services.get().asset_manager.lock())
-        {
-            // Surface the engine/bridge-provided preview assets alongside the project's: their directory
-            // is skipped by the registry scan, so register them here (once registered they come through
-            // get_registered_assets like any other) and remember their ids so each entry can be flagged.
-            auto builtin_ids = std::unordered_set<uint64>();
-            for (const auto& handle : builtin::assets())
-                if (const auto id = register_builtin_asset(*asset_manager, handle); id.is_valid())
-                    builtin_ids.insert(id.value);
-
-            // The preview-mesh primitives are in-memory model assets (sphere/cube/…), so the editor can set
-            // a Renderer's model to one to show a material/texture on it. Registering them here surfaces them
-            // through get_registered_assets like the rest, flagged built-in.
-            for (const auto& mesh : register_preview_meshes(*asset_manager))
-                if (const auto id = asset_manager->resolve_id(mesh.handle); id.is_valid())
-                    builtin_ids.insert(id.value);
-
-            for (const auto& entry : asset_manager->get_registered_assets())
-            {
-                const auto display_name = entry.resolved_path.empty()
-                                              ? entry.normalized_path
-                                              : entry.resolved_path.stem().string();
-
-                // A self-describing script meta (e.g. "X.h.meta") IS the asset, so its registered path
-                // ends in ".meta"; the source extension a scripting backend claims is the part before it.
-                // Strip a trailing ".meta" so the lookup sees ".h" rather than ".meta".
-                auto source_path = entry.resolved_path;
-                if (source_path.extension() == ".meta")
-                    source_path = source_path.stem();
-                auto extension = source_path.extension().string();
-                for (auto& character : extension)
-                    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-                const auto is_script =
-                    scripting && !extension.empty() && !scripting->for_extension(extension).expired();
-
-                const auto asset_type = asset_type_from_path(entry.resolved_path);
-
-                auto asset = tbx::Json::object();
-                asset["id"] = entry.asset_id.value;
-                asset["name"] = display_name;
-                asset["type"] = asset_type;
-                asset["path"] = entry.normalized_path;
-                asset["isScript"] = is_script;
-                asset["isBuiltin"] = builtin_ids.contains(entry.asset_id.value);
-                // A material also advertises its render-role type so the editor can preview a sky
-                // material as the background (and hide the mesh/material pickers for it).
-                if (asset_type == "mat")
-                    if (auto material_type = material_type_token(
-                            *asset_manager, tbx::Handle(entry.normalized_path, entry.asset_id));
-                        !material_type.empty())
-                        asset["materialType"] = std::move(material_type);
-                assets.push_back(std::move(asset));
-            }
-        }
-
-        // The script catalog is the set of registered asset types flagged as scripts (regular assets
-        // leave is_script false). It lets the editor label/validate script refs.
-        for (const auto& registration : tbx::get_asset_type_registrations())
-        {
-            if (!registration.is_script)
-                continue;
-
-            auto script = tbx::Json::object();
-            script["name"] = registration.type_name;
-            script["version"] = registration.version;
-            scripts.push_back(std::move(script));
-        }
-
-        result["assets"] = std::move(assets);
-        result["scripts"] = std::move(scripts);
-        return result;
     }
 
     Result WorldManager::apply_component(const tbx::Json& params) const
@@ -614,34 +426,26 @@ namespace tbx::studio_bridge
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        const auto component = params.value("component", std::string());
+        const auto component = params.value(Wire::COMPONENT, std::string());
         if (component.empty())
             return Result(false, "Missing 'component'.");
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
-        const auto value_iterator = params.find("value");
+        const auto value_iterator = params.find(Wire::VALUE);
         if (value_iterator == params.end())
             return Result(false, "Missing 'value'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
 
         return tbx::apply_component(entity, component, value_iterator->dump());
     }
 
-    tbx::Json WorldManager::list_component_types() const
+    tbx::Json WorldManager::sync_catalog() const
     {
-        // The component catalog the editor's "Add Component" picker draws from: every registered
-        // component type by wire name, with its [[tbx::icon]] badge. The editor humanises the name for
-        // display and filters out the ones an entity already carries.
+        // The sync catalog the editor draws from: every registered component type by wire name, with its
+        // [[tbx::icon]] badge. The "Add Component" picker humanises the name for display and filters out the
+        // ones an entity already carries; the typed-component layer reconciles its classes against this.
         auto result = tbx::Json::object();
         auto components = tbx::Json::array();
         for (const auto& registration : tbx::get_entity_component_type_registrations())
@@ -650,14 +454,14 @@ namespace tbx::studio_bridge
                 continue;
 
             auto component = tbx::Json::object();
-            component["name"] = registration.name;
+            component[Wire::NAME] = registration.name;
             if (!registration.icon.empty())
-                component["icon"] = registration.icon;
+                component[Wire::ICON] = registration.icon;
             if (!registration.icon_color.empty())
-                component["iconColor"] = registration.icon_color;
+                component[Wire::ICON_COLOR] = registration.icon_color;
             components.push_back(std::move(component));
         }
-        result["components"] = std::move(components);
+        result[Wire::COMPONENTS] = std::move(components);
         return result;
     }
 
@@ -666,21 +470,13 @@ namespace tbx::studio_bridge
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        const auto component = params.value("component", std::string());
+        const auto component = params.value(Wire::COMPONENT, std::string());
         if (component.empty())
             return Result(false, "Missing 'component'.");
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
         return tbx::add_default_component(entity, component);
     }
@@ -690,45 +486,26 @@ namespace tbx::studio_bridge
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        const auto component = params.value("component", std::string());
+        const auto component = params.value(Wire::COMPONENT, std::string());
         if (component.empty())
             return Result(false, "Missing 'component'.");
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
         return tbx::remove_component(entity, component);
     }
 
     Result WorldManager::add_script(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        const auto script_iterator = params.find("script");
+        const auto script_iterator = params.find(Wire::SCRIPT);
         if (script_iterator == params.end() || !script_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'script'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
 
         const auto script_id = script_iterator->get<uint64>();
 
@@ -758,7 +535,7 @@ namespace tbx::studio_bridge
         if (!world)
             return Result(false, "No active world.");
 
-        const auto name = params.value("name", std::string());
+        const auto name = params.value(Wire::NAME, std::string());
         const auto parent = read_parent_param(params);
         if (parent.is_valid() && !world->has(parent))
             return Result(false, "Parent entity not found.");
@@ -778,24 +555,16 @@ namespace tbx::studio_bridge
         }
         entity.set_order(max_order + 1);
 
-        out_reply["id"] = entity.get_id().value;
+        out_reply[Wire::ID] = entity.get_id().value;
         return Result::OK;
     }
 
     Result WorldManager::destroy_entity(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
-
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto root_id = tbx::Uuid(id_iterator->get<uint32>());
+        auto world = std::shared_ptr<tbx::World>();
+        auto root_id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(params, world, root_id); !resolved)
+            return resolved;
         if (!world->has(root_id))
             return Result(false, "Entity not found.");
 
@@ -824,22 +593,15 @@ namespace tbx::studio_bridge
 
     Result WorldManager::move_entity(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        auto world = std::shared_ptr<tbx::World>();
+        auto entity_id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(params, world, entity_id); !resolved)
+            return resolved;
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        const auto index_iterator = params.find("index");
+        const auto index_iterator = params.find(Wire::INDEX);
         if (index_iterator == params.end() || !index_iterator->is_number_integer())
             return Result(false, "Missing or invalid 'index'.");
 
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto entity_id = tbx::Uuid(id_iterator->get<uint32>());
         auto entity = world->get(entity_id);
         if (!entity.get_id().is_valid())
             return Result(false, "Entity not found.");
@@ -896,64 +658,53 @@ namespace tbx::studio_bridge
 
     Result WorldManager::set_entity_name(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
-
-        entity.set_name(params.value("name", std::string()));
+        entity.set_name(params.value(Wire::NAME, std::string()));
         return Result::OK;
     }
 
     Result WorldManager::set_entity_global(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
-
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
-
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
-
-        const auto id = tbx::Uuid(id_iterator->get<uint32>());
+        auto world = std::shared_ptr<tbx::World>();
+        auto id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(params, world, id); !resolved)
+            return resolved;
         if (!world->has(id))
             return Result(false, "Entity not found.");
 
-        world->set_global(id, params.value("global", false));
+        world->set_global(id, params.value(Wire::GLOBAL, false));
         return Result::OK;
     }
 
     Result WorldManager::set_entity_enabled(const tbx::Json& params) const
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
-        const auto id_iterator = params.find("entityId");
-        if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
-            return Result(false, "Missing or invalid 'entityId'.");
+        entity.set_enabled(params.value(Wire::ENABLED, true));
+        return Result::OK;
+    }
 
-        auto world = owning_world(params);
-        if (!world)
-            return Result(false, "Entity not found.");
+    Result WorldManager::set_entity_tags(const tbx::Json& params) const
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(params, entity); !resolved)
+            return resolved;
 
-        auto entity = world->get(tbx::Uuid(id_iterator->get<uint32>()));
-        if (!entity.get_id().is_valid())
-            return Result(false, "Entity not found.");
+        // Replace the persistent set: drop the current serialized tags (copied by value, so removing while
+        // iterating is safe), then add the provided ones as serialized. Runtime tags are left untouched.
+        for (const auto& existing : entity.get_persistent_tags())
+            entity.remove_tag(existing);
 
-        entity.set_enabled(params.value("enabled", true));
+        if (const auto tags = params.find(Wire::TAGS); tags != params.end() && tags->is_array())
+            for (const auto& tag : *tags)
+                if (tag.is_string())
+                    entity.add_tag(tag.get<std::string>(), /*serialized=*/true);
+
         return Result::OK;
     }
 
@@ -969,46 +720,12 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result WorldManager::save_asset(const tbx::Json& params) const
-    {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
-
-        const auto type = params.value("type", std::string());
-        const auto path = params.value("path", std::string());
-        if (type.empty() || path.empty())
-            return Result(false, "Missing 'type' or 'path'.");
-
-        const auto value_iterator = params.find("json");
-        if (value_iterator == params.end() || !value_iterator->is_object())
-            return Result(false, "Missing 'json' body.");
-
-        const auto registration = tbx::get_asset_type_registration(type);
-        if (!registration || !registration->create_asset || !registration->read_body)
-            return Result(false, "Unknown or non-serializable asset type: " + type);
-
-        auto asset = registration->create_asset();
-        if (!asset)
-            return Result(false, "Could not create asset of type: " + type);
-
-        if (auto read = registration->read_body(value_iterator->dump(), asset.get()); !read)
-            return read;
-
-        auto asset_manager = _services.get().asset_manager.lock();
-        auto serialization =
-            asset_manager ? asset_manager->get_serialization_registry().lock() : nullptr;
-        if (!serialization)
-            return Result(false, "No serialization registry.");
-
-        return serialization->write(path, *registration, asset.get());
-    }
-
     Result WorldManager::open_world(const tbx::Json& params) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        const auto id_iterator = params.find("assetId");
+        const auto id_iterator = params.find(Wire::ASSET_ID);
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'assetId'.");
         const auto asset_id = id_iterator->get<uint32>();
@@ -1037,114 +754,59 @@ namespace tbx::studio_bridge
         return Result(false, "Asset not found.");
     }
 
-    Result WorldManager::resolve_reflect_entity(const tbx::Json& params, tbx::Entity& out_entity) const
+    Result WorldManager::resolve_entity_world(
+        const tbx::Json& params,
+        std::shared_ptr<tbx::World>& out_world,
+        tbx::Uuid& out_id) const
     {
         if (!params.is_object())
             return Result(false, "Missing request parameters.");
 
-        const auto id_iterator = params.find("entityId");
+        const auto id_iterator = params.find(Wire::ENTITY_ID);
         if (id_iterator == params.end() || !id_iterator->is_number_unsigned())
             return Result(false, "Missing or invalid 'entityId'.");
+        out_id = tbx::Uuid(id_iterator->get<uint32>());
 
-        const auto id = tbx::Uuid(id_iterator->get<uint32>());
+        out_world = owning_world(params);
+        return out_world ? Result::OK : Result(false, "Entity not found.");
+    }
 
-        // Prefer the active world, but fall back to any asset-preview world so the inspector can
-        // describe and edit an entity that lives in a preview view rather than the active world.
-        if (auto world = _services.get().active_world())
+    Result WorldManager::resolve_sync_entity(const tbx::Json& params, tbx::Entity& out_entity) const
+    {
+        auto world = std::shared_ptr<tbx::World>();
+        auto id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(params, world, id); !resolved)
+            return resolved;
+
+        out_entity = world->get(id);
+        return out_entity.get_id().is_valid() ? Result::OK : Result(false, "Entity not found.");
+    }
+
+    Result WorldManager::set_entity_scalar(
+        tbx::Json& params, const std::string& field, const tbx::Json& value) const
+    {
+        // Place the value under the key each set_entity_* op reads, then route to it. params already carries
+        // the resolved entityId/worldAssetId from the path.
+        if (field == "name")
         {
-            out_entity = world->get(id);
-            if (out_entity.get_id().is_valid())
-                return Result::OK;
+            params[Wire::NAME] = value;
+            return set_entity_name(params);
         }
-        if (auto preview = _views.get().find_preview_world_with(id))
+        if (field == "is_enabled")
         {
-            out_entity = preview->get(id);
-            if (out_entity.get_id().is_valid())
-                return Result::OK;
+            params[Wire::ENABLED] = value;
+            return set_entity_enabled(params);
         }
-
-        return Result(false, "Entity not found.");
-    }
-
-    Result WorldManager::reflect_get(const tbx::Json& params, tbx::Json& out_node) const
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
-            return resolved;
-
-        const auto component = params.value("component", std::string());
-        if (component.empty())
-            return Result(false, "Missing 'component'.");
-
-        const auto property = params.value("property", std::string());
-        if (property.empty())
-            return Result(false, "Missing 'property'.");
-
-        auto node_json = std::string();
-        if (const auto result =
-                tbx::serialize_component_property(entity, component, property, node_json);
-            !result)
-            return result;
-
-        out_node = tbx::Json::parse(node_json, nullptr, false);
-        if (out_node.is_discarded())
-            return Result(false, "Engine produced an invalid property node.");
-
-        return Result::OK;
-    }
-
-    Result WorldManager::reflect_set(const tbx::Json& params) const
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
-            return resolved;
-
-        const auto component = params.value("component", std::string());
-        if (component.empty())
-            return Result(false, "Missing 'component'.");
-
-        const auto property = params.value("property", std::string());
-        if (property.empty())
-            return Result(false, "Missing 'property'.");
-
-        const auto value_iterator = params.find("value");
-        if (value_iterator == params.end())
-            return Result(false, "Missing 'value'.");
-
-        return tbx::apply_component_property(entity, component, property, value_iterator->dump());
-    }
-
-    Result WorldManager::reflect_reset(const tbx::Json& params) const
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
-            return resolved;
-
-        const auto component = params.value("component", std::string());
-        if (component.empty())
-            return Result(false, "Missing 'component'.");
-
-        const auto property = params.value("property", std::string());
-        if (property.empty())
-            return Result(false, "Missing 'property'.");
-
-        return tbx::reset_component_property(entity, component, property);
-    }
-
-    Result WorldManager::reflect_is_default(const tbx::Json& params, bool& out_is_default) const
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_reflect_entity(params, entity); !resolved)
-            return resolved;
-
-        const auto component = params.value("component", std::string());
-        if (component.empty())
-            return Result(false, "Missing 'component'.");
-
-        const auto property = params.value("property", std::string());
-        if (property.empty())
-            return Result(false, "Missing 'property'.");
-
-        return tbx::is_component_property_default(entity, component, property, out_is_default);
+        if (field == "is_global")
+        {
+            params[Wire::GLOBAL] = value;
+            return set_entity_global(params);
+        }
+        if (field == "tags")
+        {
+            params[Wire::TAGS] = value;
+            return set_entity_tags(params);
+        }
+        return Result(false, "Unknown entity field '" + field + "'.");
     }
 }

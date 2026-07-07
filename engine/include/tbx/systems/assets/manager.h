@@ -16,8 +16,12 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <typeindex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -191,6 +195,19 @@ namespace tbx
         std::filesystem::path resolve_path(const Handle& handle) const;
 
         /// @brief
+        /// Purpose: Resolves a handle to a registered asset's handle (its registered path + stable id).
+        /// First matches the handle directly (by id or exact path); failing that, and when the handle
+        /// carries a name, matches a registered asset of the same name (filename stem) whose extension is
+        /// one of `extensions`, in priority order. This name fallback auto-binds a model's material slot
+        /// to a MaterialInstance/Material asset of the same name when no explicit override is set. Returns
+        /// an empty handle when nothing matches.
+        /// @details
+        /// Ownership: Returns a Handle value owned by the caller.
+        /// Thread Safety: Safe to call concurrently; internal state is synchronized.
+        Handle resolve_to_entry(
+            const Handle& handle, std::span<const std::string_view> extensions) const;
+
+        /// @brief
         /// Purpose: Adds an asset directory to the search list.
         /// @details
         /// Ownership: Copies the provided path into internal storage.
@@ -279,6 +296,16 @@ namespace tbx
         void remove_directory(const std::filesystem::path& path);
 
         /// @brief
+        /// Purpose: Forgets a single asset — drops its registry entry, evicts any cached instance, and posts
+        /// an AssetRemovedEvent. For the editor's own delete: it removes the file itself, then calls this so
+        /// the in-memory registry matches immediately instead of waiting on (or trusting) the async file
+        /// watcher. Matches by id when valid, else by path, so it works even though the file is already gone.
+        /// @details
+        /// Ownership: Releases the manager-owned record for the asset. Returns a failed Result when nothing
+        /// matched the handle. Thread Safety: Safe to call concurrently; internal state is synchronized.
+        Result remove_asset(const Handle& handle);
+
+        /// @brief
         /// Purpose: Drops every cached asset whose type registration is marked is_script, regardless of
         /// source directory.
         /// @details
@@ -308,6 +335,11 @@ namespace tbx
 
       private:
         void dispatch_reload_events(const std::vector<StoreReloadResult>& reload_results) const;
+        // Logs an asset-entry resolution failure for `handle` at most once. The render path resolves a
+        // renderable's material/model every frame, so a renderable that names a missing or
+        // never-id-assigned asset (e.g. the failure-wall test assets) would otherwise log the same
+        // warning every frame. Keyed by the handle's name+id; callers already hold `_mutex`.
+        void warn_ensure_entry_failure_once(const Handle& handle, const Result& result);
         void on_asset_changed(
             const std::filesystem::path& watched_path,
             const FileWatchChange& change);
@@ -395,6 +427,10 @@ namespace tbx
         std::vector<std::unique_ptr<FileWatcher>> _file_watchers = {};
         std::unordered_map<Uuid, uint64> _polymorphic_asset_revisions = {};
         std::unordered_map<std::type_index, std::unique_ptr<IStore>> _stores = {};
+
+        // Handles (name+id keys) already warned about as unresolvable, so the per-frame render path
+        // logs each missing/unregistered asset once rather than every frame. Guarded by `_mutex`.
+        std::unordered_set<std::string> _logged_ensure_failures = {};
 
         double _unload_elapsed_seconds = 0.0;
     };

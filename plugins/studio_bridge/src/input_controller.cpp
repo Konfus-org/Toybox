@@ -1,5 +1,7 @@
 #include "input_controller.h"
 #include "bridge_utils.h"
+#include "view_input.h"
+#include "wire.h"
 #include "tbx/systems/input/input_manager.h"
 #include "tbx/types/quaternions.h"
 #include "tbx/types/vectors.h"
@@ -8,7 +10,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
+#include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace tbx::studio_bridge
@@ -49,7 +53,8 @@ namespace tbx::studio_bridge
         auto world = _services.get().active_world();
 
         _views.get().with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            [&](std::vector<std::unique_ptr<ViewStream>>& views,
+                std::unordered_map<std::string, ViewInput>& inputs)
             {
                 for (auto& view_ptr : views)
                 {
@@ -58,11 +63,13 @@ namespace tbx::studio_bridge
                     if (dynamic_cast<GameViewStream*>(view_ptr.get()) != nullptr)
                         continue;
 
+                    auto& input = inputs[view_ptr->name];
+
                     // Asset-preview views orbit a target instead of flying free: drag rotates around
                     // the asset, the wheel zooms in/out, and the camera always looks inward.
                     if (auto* preview = dynamic_cast<AssetPreviewViewStream*>(view_ptr.get()))
                     {
-                        if (preview->focused)
+                        if (input.focused)
                         {
                             constexpr uint32 LEFT_BUTTON = 0x1U;
                             constexpr uint32 ORBIT_RIGHT_BUTTON = 0x2U;
@@ -72,21 +79,27 @@ namespace tbx::studio_bridge
                             constexpr float MAX_PITCH = 1.5F;          // just short of straight up
                             constexpr float MIN_DISTANCE = 0.1F;
 
-                            if ((preview->buttons & (LEFT_BUTTON | ORBIT_RIGHT_BUTTON)) != 0U)
+                            if ((input.buttons & (LEFT_BUTTON | ORBIT_RIGHT_BUTTON)) != 0U)
                             {
                                 preview->orbit_yaw -=
-                                    preview->accumulated_mouse_dx * ORBIT_SENSITIVITY;
+                                    input.accumulated_mouse_dx * ORBIT_SENSITIVITY;
                                 preview->orbit_pitch +=
-                                    preview->accumulated_mouse_dy * ORBIT_SENSITIVITY;
+                                    input.accumulated_mouse_dy * ORBIT_SENSITIVITY;
                                 preview->orbit_pitch =
                                     std::clamp(preview->orbit_pitch, MIN_PITCH, MAX_PITCH);
                             }
-                            if (preview->accumulated_wheel != 0.0F)
+                            if (input.accumulated_wheel != 0.0F)
                                 preview->orbit_distance = std::max(
                                     MIN_DISTANCE,
                                     preview->orbit_distance
-                                        * std::exp(-preview->accumulated_wheel * ZOOM_SENSITIVITY));
+                                        * std::exp(-input.accumulated_wheel * ZOOM_SENSITIVITY));
                         }
+
+                        // Turntable: spin the camera while no button is held (a drag takes over, then it
+                        // resumes), so previews show the asset rotating on their own.
+                        constexpr float AUTO_ORBIT_SPEED = 0.6F; // radians per second
+                        if (preview->auto_orbit && input.buttons == 0U)
+                            preview->orbit_yaw -= AUTO_ORBIT_SPEED * seconds;
 
                         const auto cos_pitch = std::cos(preview->orbit_pitch);
                         const auto offset = glm::vec3(
@@ -101,9 +114,9 @@ namespace tbx::studio_bridge
                         if (glm::length(heading) > 0.001F)
                             preview->view.rotation = tbx::look_rotation(heading, world_up);
 
-                        preview->accumulated_mouse_dx = 0.0F;
-                        preview->accumulated_mouse_dy = 0.0F;
-                        preview->accumulated_wheel = 0.0F;
+                        input.accumulated_mouse_dx = 0.0F;
+                        input.accumulated_mouse_dy = 0.0F;
+                        input.accumulated_wheel = 0.0F;
                         continue;
                     }
 
@@ -112,9 +125,9 @@ namespace tbx::studio_bridge
                         continue;
                     if (!world)
                     {
-                        editor->accumulated_mouse_dx = 0.0F;
-                        editor->accumulated_mouse_dy = 0.0F;
-                        editor->accumulated_wheel = 0.0F;
+                        input.accumulated_mouse_dx = 0.0F;
+                        input.accumulated_mouse_dy = 0.0F;
+                        input.accumulated_wheel = 0.0F;
                         continue;
                     }
 
@@ -146,27 +159,27 @@ namespace tbx::studio_bridge
 
                     // Only the focused editor view drives the fly camera; clear pending deltas otherwise
                     // so they do not burst when focus returns.
-                    if (!editor->focused)
+                    if (!input.focused)
                     {
-                        editor->accumulated_mouse_dx = 0.0F;
-                        editor->accumulated_mouse_dy = 0.0F;
-                        editor->accumulated_wheel = 0.0F;
+                        input.accumulated_mouse_dx = 0.0F;
+                        input.accumulated_mouse_dy = 0.0F;
+                        input.accumulated_wheel = 0.0F;
                         continue;
                     }
 
                     // Look only while right mouse is held, and rotate the camera's *current* orientation
                     // incrementally (world-up yaw + local-right pitch) so it stays roll-free and the
                     // spawn heading is preserved until the user actually looks around.
-                    if ((editor->buttons & RIGHT_BUTTON) != 0U
-                        && (editor->accumulated_mouse_dx != 0.0F
-                            || editor->accumulated_mouse_dy != 0.0F))
+                    if ((input.buttons & RIGHT_BUTTON) != 0U
+                        && (input.accumulated_mouse_dx != 0.0F
+                            || input.accumulated_mouse_dy != 0.0F))
                     {
                         auto rotated =
-                            glm::angleAxis(-editor->accumulated_mouse_dx * LOOK_SENSITIVITY, world_up)
+                            glm::angleAxis(-input.accumulated_mouse_dx * LOOK_SENSITIVITY, world_up)
                             * camera.rotation;
                         const auto local_right = glm::normalize(rotated * glm::vec3(1.0F, 0.0F, 0.0F));
                         const auto pitched =
-                            glm::angleAxis(-editor->accumulated_mouse_dy * LOOK_SENSITIVITY, local_right)
+                            glm::angleAxis(-input.accumulated_mouse_dy * LOOK_SENSITIVITY, local_right)
                             * rotated;
                         if (std::abs((pitched * glm::vec3(0.0F, 0.0F, -1.0F)).y) < MAX_PITCH_DOT)
                             rotated = pitched;
@@ -178,35 +191,35 @@ namespace tbx::studio_bridge
                     const auto right = rotation * glm::vec3(1.0F, 0.0F, 0.0F);
 
                     auto move = glm::vec3(0.0F);
-                    if ((editor->move_keys & 0x01U) != 0U)
+                    if ((input.move_keys & 0x01U) != 0U)
                         move += forward;
-                    if ((editor->move_keys & 0x02U) != 0U)
+                    if ((input.move_keys & 0x02U) != 0U)
                         move -= forward;
-                    if ((editor->move_keys & 0x04U) != 0U)
+                    if ((input.move_keys & 0x04U) != 0U)
                         move -= right;
-                    if ((editor->move_keys & 0x08U) != 0U)
+                    if ((input.move_keys & 0x08U) != 0U)
                         move += right;
-                    if ((editor->move_keys & 0x10U) != 0U)
+                    if ((input.move_keys & 0x10U) != 0U)
                         move += world_up;
-                    if ((editor->move_keys & 0x20U) != 0U)
+                    if ((input.move_keys & 0x20U) != 0U)
                         move -= world_up;
                     if (glm::dot(move, move) > 0.0F)
                         camera.position += glm::normalize(move) * (MOVE_SPEED * seconds);
 
-                    if (editor->accumulated_wheel != 0.0F)
-                        camera.position += forward * (editor->accumulated_wheel * WHEEL_DOLLY);
+                    if (input.accumulated_wheel != 0.0F)
+                        camera.position += forward * (input.accumulated_wheel * WHEEL_DOLLY);
 
-                    if ((editor->buttons & MIDDLE_BUTTON) != 0U)
+                    if ((input.buttons & MIDDLE_BUTTON) != 0U)
                     {
                         camera.position +=
-                            right * (-editor->accumulated_mouse_dx * PAN_SENSITIVITY);
+                            right * (-input.accumulated_mouse_dx * PAN_SENSITIVITY);
                         camera.position +=
-                            world_up * (editor->accumulated_mouse_dy * PAN_SENSITIVITY);
+                            world_up * (input.accumulated_mouse_dy * PAN_SENSITIVITY);
                     }
 
-                    editor->accumulated_mouse_dx = 0.0F;
-                    editor->accumulated_mouse_dy = 0.0F;
-                    editor->accumulated_wheel = 0.0F;
+                    input.accumulated_mouse_dx = 0.0F;
+                    input.accumulated_mouse_dy = 0.0F;
+                    input.accumulated_wheel = 0.0F;
                 }
             });
     }
@@ -220,7 +233,8 @@ namespace tbx::studio_bridge
         auto external = tbx::ExternalInput();
 
         _views.get().with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            [&](std::vector<std::unique_ptr<ViewStream>>& views,
+                std::unordered_map<std::string, ViewInput>& inputs)
             {
                 for (auto& view_ptr : views)
                 {
@@ -228,33 +242,35 @@ namespace tbx::studio_bridge
                     if (game == nullptr)
                         continue;
 
+                    auto& input = inputs[game->name];
+
                     // The first focused game view drives the game while playing; build its input state
                     // before consuming this view's accumulated deltas.
-                    if (is_playing && game->focused && !external.enabled)
+                    if (is_playing && input.focused && !external.enabled)
                     {
-                        for (const auto key : game->keys)
+                        for (const auto key : input.keys)
                             external.keyboard.pressed_keys.insert(key);
 
                         // Studio button bits (0 left, 1 right, 2 middle) → SDL ids (1 left, 2 middle,
                         // 3 right).
-                        if ((game->buttons & 0x1U) != 0U)
+                        if ((input.buttons & 0x1U) != 0U)
                             external.mouse.pressed_buttons.insert(1);
-                        if ((game->buttons & 0x4U) != 0U)
+                        if ((input.buttons & 0x4U) != 0U)
                             external.mouse.pressed_buttons.insert(2);
-                        if ((game->buttons & 0x2U) != 0U)
+                        if ((input.buttons & 0x2U) != 0U)
                             external.mouse.pressed_buttons.insert(3);
 
-                        external.mouse.position = tbx::Vec2(game->mouse_x, game->mouse_y);
+                        external.mouse.position = tbx::Vec2(input.mouse_x, input.mouse_y);
                         external.mouse.delta =
-                            tbx::Vec2(game->accumulated_mouse_dx, game->accumulated_mouse_dy);
-                        external.mouse.wheel_delta = game->accumulated_wheel;
+                            tbx::Vec2(input.accumulated_mouse_dx, input.accumulated_mouse_dy);
+                        external.mouse.wheel_delta = input.accumulated_wheel;
                         external.enabled = true;
                     }
 
                     // Always consume deltas so they never burst when play/focus resumes.
-                    game->accumulated_mouse_dx = 0.0F;
-                    game->accumulated_mouse_dy = 0.0F;
-                    game->accumulated_wheel = 0.0F;
+                    input.accumulated_mouse_dx = 0.0F;
+                    input.accumulated_mouse_dy = 0.0F;
+                    input.accumulated_wheel = 0.0F;
                 }
             });
 
@@ -277,7 +293,7 @@ namespace tbx::studio_bridge
 
         _last_reported_lock = mode;
         auto params = tbx::Json::object();
-        params["mode"] = to_lock_mode_name(mode);
-        host->send_notification("input.mouseLock", params);
+        params[Wire::MODE] = to_lock_mode_name(mode);
+        host->send_notification(Wire::INPUT_MOUSE_LOCK, params);
     }
 }

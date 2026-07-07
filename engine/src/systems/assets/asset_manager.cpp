@@ -199,6 +199,29 @@ namespace tbx
         return _registry->resolve_asset_path(handle);
     }
 
+    Handle AssetManager::resolve_to_entry(
+        const Handle& handle, const std::span<const std::string_view> extensions) const
+    {
+        std::lock_guard lock(_mutex);
+
+        // A direct match (by id or exact path) wins: this is a renderer override (a bare id) or a slot
+        // that already names a concrete material file.
+        if (const auto direct = _registry->find_entry(handle);
+            direct.has_value() && direct->get().asset_id.is_valid())
+            return Handle(direct->get().normalized_path, direct->get().asset_id);
+
+        // No direct match, but a named slot (a model's default slot carries the source material name):
+        // auto-bind to a registered asset of the same name in the given extension priority order.
+        if (!handle.name.empty())
+        {
+            if (const auto named = _registry->find_entry_by_name(handle.name, extensions);
+                named.has_value())
+                return Handle(named->get().normalized_path, named->get().asset_id);
+        }
+
+        return {};
+    }
+
     void AssetManager::set_pinned(const Handle& handle, bool is_pinned)
     {
         std::lock_guard lock(_mutex);
@@ -287,6 +310,19 @@ namespace tbx
         }
     }
 
+    void AssetManager::warn_ensure_entry_failure_once(const Handle& handle, const Result& result)
+    {
+        auto key = handle.name + '#' + std::to_string(handle.id.value);
+        if (!_logged_ensure_failures.insert(std::move(key)).second)
+            return;
+
+        TBX_TRACE_WARNING(
+            "Failed to ensure asset entry for handle (name='{}', id={}): {}",
+            handle.name,
+            handle.id,
+            result.get_report());
+    }
+
     void AssetManager::remove_directory(const std::filesystem::path& path)
     {
         if (path.empty())
@@ -329,6 +365,39 @@ namespace tbx
                 _watched_directories.begin() + static_cast<std::ptrdiff_t>(index));
             _file_watchers.erase(_file_watchers.begin() + static_cast<std::ptrdiff_t>(index));
         }
+    }
+
+    Result AssetManager::remove_asset(const Handle& handle)
+    {
+        Handle affected_asset = {};
+        std::filesystem::path removed_path = {};
+
+        {
+            std::lock_guard lock(_mutex);
+            const auto unregister_result = _registry->unregister_asset(handle);
+            if (!unregister_result.entry.has_value())
+                return unregister_result.result;
+
+            const auto& registry_entry = *unregister_result.entry;
+            if (registry_entry.asset_id.is_valid())
+            {
+                for (auto& store : _stores)
+                    store.second->erase(registry_entry.asset_id);
+                _polymorphic_asset_revisions.erase(registry_entry.asset_id);
+            }
+
+            removed_path = registry_entry.resolved_path;
+            affected_asset = build_asset_handle(registry_entry);
+            affected_asset.invalidate();
+        }
+
+        // Handlers commonly call back into AssetManager; publish after the registry/store mutations have left
+        // the manager lock (mirrors on_asset_changed's REMOVED path). An editor-initiated delete has no
+        // watched directory to report, so that field is left empty.
+        if (const auto dispatcher = _dispatcher.lock())
+            dispatcher->post<AssetRemovedEvent>(std::filesystem::path {}, removed_path, affected_asset);
+
+        return Result();
     }
 
     void AssetManager::evict_scripts()

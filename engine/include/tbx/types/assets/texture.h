@@ -79,6 +79,7 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[serializable]];
     [[version(1U)]];
+    [[extension("png", "jpg", "jpeg", "tga", "bmp")]];
     struct TBX_API Texture : Asset
     {
         Texture() = default;

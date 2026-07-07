@@ -21,6 +21,7 @@
 #include <cmath>
 #include <filesystem>
 #include <limits>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -217,13 +218,26 @@ namespace tbx
         return std::string("<id ") + std::to_string(static_cast<uint32>(handle.id)) + ">";
     }
 
-    // Lower-cased file extension (including the dot) of a resolved asset path, e.g. ".mti" / ".mat".
-    static std::string lower_extension(const std::filesystem::path& path)
+    // The material-asset file types a model slot can auto-bind to, in priority order: a MaterialInstance
+    // (.mti) wins over a plain Material (.mat) of the same name.
+    static constexpr std::array<std::string_view, 2> MATERIAL_SLOT_EXTENSIONS = {".mti", ".mat"};
+
+    // True when `name` ends with `extension` (case-insensitive), e.g. a resolved asset path ending in
+    // ".mti". A bare suffix compare so the per-frame slot dispatch needs no path build or allocation.
+    static bool has_extension(std::string_view name, std::string_view extension)
     {
-        auto extension = path.extension().string();
-        for (char& character : extension)
-            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-        return extension;
+        if (name.size() < extension.size())
+            return false;
+
+        const auto suffix = name.substr(name.size() - extension.size());
+        for (size_t index = 0U; index < extension.size(); ++index)
+        {
+            const auto left = std::tolower(static_cast<unsigned char>(suffix[index]));
+            const auto right = std::tolower(static_cast<unsigned char>(extension[index]));
+            if (left != right)
+                return false;
+        }
+        return true;
     }
 
     // Shared label for a material that could not be resolved (a stable backing string so the failure
@@ -725,41 +739,37 @@ namespace tbx
             else if (slot_index < model.slots.size() && model.slots[slot_index].id.is_valid())
                 instance_handle = model.slots[slot_index];
 
-            // The handle may name a MaterialInstance (.mti) or a Material (.mat). Dispatch by the
-            // resolved file extension so a Material is never parsed as an instance (and vice versa);
-            // an in-memory asset (no path) falls back to a registered-instance probe. A handle that
-            // resolves to no asset file and no registered instance (e.g. a model slot whose name
-            // lines up with nothing) is left unresolved so it falls back to the not-found material
-            // WITHOUT a per-frame load() that would spam failures and tank the framerate.
+            // The handle may name a MaterialInstance (.mti) or a Material (.mat). Resolve it once per
+            // handle id to the concrete asset to load, then dispatch by the resolved file's extension so
+            // a Material is never parsed as an instance (and vice versa); an in-memory asset (no path)
+            // falls back to a registered-instance probe. The resolution also auto-binds a MODEL slot's
+            // bare material name to a project MaterialInstance/Material of the same name, so an imported
+            // model's blender materials apply with no explicit renderer override. A handle that resolves
+            // to no asset file and no registered instance is left as-is so it falls back to the not-found
+            // material WITHOUT a per-frame load() that would spam failures and tank the framerate.
             std::shared_ptr<MaterialInstance> instance;
             Handle base_handle = {};
             if (instance_handle.id.is_valid())
             {
-                // A handle's backing file type is immutable, so resolve the .mti/.mat dispatch once per
-                // handle and cache it. The path resolve + extension string build it replaces was a
-                // per-slot, per-frame heap allocation in this hot loop.
                 const uint32 handle_id = static_cast<uint32>(instance_handle.id);
-                auto kind_it = _slot_asset_kind.find(handle_id);
-                if (kind_it == _slot_asset_kind.end())
+                auto resolved_it = _slot_material.find(handle_id);
+                if (resolved_it == _slot_material.end())
                 {
-                    const auto extension = lower_extension(assets.resolve_path(instance_handle));
-                    const SlotAssetKind kind = extension == ".mti" ? SlotAssetKind::INSTANCE
-                        : extension == ".mat"                      ? SlotAssetKind::MATERIAL
-                                                                   : SlotAssetKind::PROBE;
-                    kind_it = _slot_asset_kind.emplace(handle_id, kind).first;
+                    auto resolved = assets.resolve_to_entry(instance_handle, MATERIAL_SLOT_EXTENSIONS);
+                    // No registered asset matched: keep the original handle so the in-memory instance
+                    // store is still probed (and an unresolved slot stays cheap, not a per-frame load).
+                    if (!resolved.id.is_valid())
+                        resolved = instance_handle;
+                    resolved_it = _slot_material.emplace(handle_id, std::move(resolved)).first;
                 }
-                switch (kind_it->second)
-                {
-                    case SlotAssetKind::INSTANCE:
-                        instance = assets.load<MaterialInstance>(instance_handle);
-                        break;
-                    case SlotAssetKind::MATERIAL:
-                        base_handle = instance_handle;
-                        break;
-                    case SlotAssetKind::PROBE:
-                        instance = assets.find_loaded<MaterialInstance>(instance_handle);
-                        break;
-                }
+
+                const Handle& resolved = resolved_it->second;
+                if (has_extension(resolved.name, ".mti"))
+                    instance = assets.load<MaterialInstance>(resolved);
+                else if (has_extension(resolved.name, ".mat"))
+                    base_handle = resolved;
+                else
+                    instance = assets.find_loaded<MaterialInstance>(resolved);
 
                 if (instance)
                     base_handle = instance->material;

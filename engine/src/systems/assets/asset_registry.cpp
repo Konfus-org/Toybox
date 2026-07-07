@@ -1,4 +1,5 @@
 #include "tbx/interfaces/file_ops.h"
+#include "tbx/systems/assets/asset_pairing.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
@@ -104,18 +105,6 @@ namespace tbx
                || lowered_extension == ".in" || lowered_extension == ".log";
     }
 
-    static std::filesystem::path make_meta_path(const std::filesystem::path& asset_path)
-    {
-        // A self-describing script meta (`*.h.meta`) is its own metadata file — there is no separate
-        // sidecar. Every other asset's metadata lives at `<asset>.meta`.
-        if (is_self_describing_asset_meta(asset_path.generic_string()))
-            return asset_path;
-
-        auto meta_path = asset_path;
-        meta_path += ".meta";
-        return meta_path;
-    }
-
     static std::unique_ptr<Handle> try_read_handle_from_meta(
         const IFileOps& file_ops,
         const std::filesystem::path& asset_path)
@@ -123,7 +112,7 @@ namespace tbx
         if (asset_path.empty())
             return nullptr;
 
-        const auto meta_path = make_meta_path(asset_path);
+        const auto meta_path = asset_pairing::metadata_path(asset_path);
         if (!file_ops.exists(meta_path))
             return nullptr;
 
@@ -174,7 +163,7 @@ namespace tbx
         // Ordinary `.meta` files are sidecars, not assets in their own right. Script metas are the
         // exception: a `*.h.meta` IS the asset (it has no separate payload file), so track it.
         if (asset_path.extension() == ".meta")
-            return is_self_describing_asset_meta(asset_path.generic_string());
+            return asset_pairing::is_self_describing_metadata(asset_path.generic_string());
         return true;
     }
 
@@ -400,6 +389,33 @@ namespace tbx
         return find_entry_by_id(handle.id);
     }
 
+    std::optional<std::reference_wrapper<const AssetRegistryEntry>>
+    AssetRegistry::find_entry_by_name(
+        const std::string_view name, const std::span<const std::string_view> extensions) const
+    {
+        // Match the bare name to a registered file by its filename stem (case-insensitive), honoring the
+        // extension priority order: scan for each extension in turn so an earlier one (e.g. ".mti") wins
+        // over a later same-named one (".mat"). Entries without a resolved id are skipped — they can't be
+        // loaded.
+        const auto wanted_stem = to_lower(std::string(name));
+        for (const auto& extension : extensions)
+        {
+            for (const auto& [path, entry] : _entries_by_path)
+            {
+                if (!entry.asset_id.is_valid())
+                    continue;
+
+                const auto file = std::filesystem::path(entry.normalized_path);
+                if (to_lower(file.extension().string()) != extension)
+                    continue;
+                if (to_lower(file.stem().string()) == wanted_stem)
+                    return std::cref(entry);
+            }
+        }
+
+        return std::nullopt;
+    }
+
     std::vector<std::filesystem::path> AssetRegistry::get_asset_directories() const
     {
         return _asset_directories;
@@ -452,6 +468,17 @@ namespace tbx
         return result;
     }
 
+    AssetRegistryEntry AssetRegistry::erase_entry(
+        std::unordered_map<std::string, AssetRegistryEntry>::iterator iterator)
+    {
+        auto entry = std::move(iterator->second);
+        if (entry.asset_id.is_valid())
+            _path_by_id.erase(entry.asset_id);
+
+        _entries_by_path.erase(iterator);
+        return entry;
+    }
+
     AssetRegistryMutationResult AssetRegistry::unregister_asset(
         const std::filesystem::path& asset_path)
     {
@@ -467,13 +494,48 @@ namespace tbx
             return result;
         }
 
-        result.entry = iterator->second;
+        result.entry = erase_entry(iterator);
 
-        if (iterator->second.asset_id.is_valid())
-            _path_by_id.erase(iterator->second.asset_id);
+        // Return the populated result (a default-constructed Result succeeds), not a throwaway `{}` whose
+        // empty entry made the caller treat every removal as a failure — skipping the AssetRemovedEvent and
+        // the store eviction that follow a genuine unregister.
+        return result;
+    }
 
-        _entries_by_path.erase(iterator);
-        return {};
+    AssetRegistryMutationResult AssetRegistry::unregister_asset(const Handle& handle)
+    {
+        auto result = AssetRegistryMutationResult();
+
+        // Resolve the stored key WITHOUT requiring the file to exist (the caller may have already deleted it).
+        // Prefer the stable id; fall back to the handle's name used as the key — first verbatim (the catalog
+        // advertises each asset's normalized_path, which IS the key), then lexically normalized.
+        std::string key;
+        if (handle.id.is_valid())
+        {
+            if (const auto id_iterator = _path_by_id.find(handle.id); id_iterator != _path_by_id.end())
+                key = id_iterator->second;
+        }
+        if (key.empty() && !handle.name.empty())
+        {
+            if (_entries_by_path.contains(handle.name))
+                key = handle.name;
+            else if (auto normalized =
+                         std::filesystem::path(handle.name).lexically_normal().generic_string();
+                     _entries_by_path.contains(normalized))
+                key = std::move(normalized);
+        }
+
+        auto iterator = key.empty() ? _entries_by_path.end() : _entries_by_path.find(key);
+        if (iterator == _entries_by_path.end())
+        {
+            result.result = make_failed_result(
+                std::string("Asset is not registered: ")
+                    .append(handle.name.empty() ? std::format("id={}", handle.id) : handle.name));
+            return result;
+        }
+
+        result.entry = erase_entry(iterator);
+        return result;
     }
 
     std::filesystem::path AssetRegistry::resolve_asset_path(
@@ -687,7 +749,7 @@ namespace tbx
             }
         }
 
-        auto meta_path = make_meta_path(entry.resolved_path);
+        auto meta_path = asset_pairing::metadata_path(entry.resolved_path);
         const auto file_ops = lock_file_ops();
         if (!file_ops || !file_ops->exists(meta_path))
         {
@@ -748,7 +810,7 @@ namespace tbx
             return result;
         }
 
-        auto meta_path = make_meta_path(entry.resolved_path);
+        auto meta_path = asset_pairing::metadata_path(entry.resolved_path);
 
         if (file_ops->exists(meta_path))
         {

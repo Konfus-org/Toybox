@@ -34,6 +34,7 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; mutation requires external synchronization.
     [[serializable("text")]];
     [[version(1U)]];
+    [[extension("vert", "frag", "geom", "tesc", "tese", "comp", "glsl")]];
     struct TBX_API Shader : public Asset
     {
         Shader() = default;

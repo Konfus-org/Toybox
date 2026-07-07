@@ -41,6 +41,15 @@ has one framed panel per mode, left → right by `x`:
 |  11 | `BrokenShader.mat` (references a frag that won't compile) | `SHADER_COMPILE` | magenta |
 |  22 | material id `900099` (no such material) | `MISSING_MATERIAL` | red |
 
+The wall's renderers reference the trigger assets **by id**, so the assets themselves live with the engine
+rather than the example project: the three real trigger materials are in
+[`resources/Materials/RenderFailures/`](../resources/Materials/RenderFailures) (`MissingTexture.mat` id
+`539243920`, `InvalidData.mat` id `539243921`, `BrokenShader.mat` id `900001`) and the non-compiling fragment
+is [`resources/Shaders/RenderFailures/BrokenShader.frag`](../resources/Shaders/RenderFailures/BrokenShader.frag)
+(id `900002` — it must stay un-compilable). The other two panels point at ids with no asset on purpose
+(model `999998`, material `900099`). The engine registers `resources/` as an asset root, so the ids resolve
+for any project; keeping these out of `ExampleProject/Assets` keeps the example's own asset list clean.
+
 Each mode also logs a one-time warning (e.g. *"Texture '…' failed to load; using cyan checker
 validation."*), so a quick log scan confirms all five fired.
 

@@ -21,6 +21,7 @@ namespace tbx
     /// Purpose: Stores serialized spatial entities for one chunk asset.
     [[serializable]];
     [[version(1U)]];
+    [[extension("chunk")]];
     struct TBX_API WorldChunk : Asset
     {
         IVec3 coord = {};
@@ -32,6 +33,7 @@ namespace tbx
     /// Purpose: Stores global entities that stay resident for the full application lifetime.
     [[serializable]];
     [[version(1U)]];
+    [[extension("globals")]];
     struct TBX_API WorldGlobals : Asset
     {
         EntityRegistry entities = {};
@@ -41,6 +43,7 @@ namespace tbx
     /// Purpose: Gameplay-facing entity container backed by a plain world asset description.
     [[serializable]];
     [[version(1U)]];
+    [[extension("world")]];
     class TBX_API World : public Asset
     {
       public:

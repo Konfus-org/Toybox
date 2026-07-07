@@ -110,16 +110,15 @@ namespace tbx
         RenderValidation _validation = {};
         // Model/material asset ids that already failed to load; skip re-issuing load().
         std::unordered_set<uint32> _failed_assets = {};
-        // A handle's backing asset file type never changes, so the per-slot .mti/.mat dispatch is
-        // resolved once per handle id and reused — sparing a per-frame path resolve + extension
-        // string allocation in the hot material loop.
-        enum class SlotAssetKind
-        {
-            INSTANCE, // .mti — a MaterialInstance
-            MATERIAL, // .mat — a base Material
-            PROBE     // neither extension — probe the in-memory registered instances
-        };
-        std::unordered_map<uint32, SlotAssetKind> _slot_asset_kind = {};
+        // A slot handle's material binding is immutable for the WorldView's lifetime, so it is resolved
+        // once per handle id and reused — sparing a per-frame path resolve + name search in the hot
+        // material loop. The cached value is the concrete asset handle to load: for a slot that names a
+        // .mti/.mat file it is that asset (carrying its registered path so the .mti/.mat dispatch is a
+        // cheap suffix check); for a MODEL slot whose bare material name matched a project material of
+        // the same name it is that named asset's handle, so imported blender materials bind automatically
+        // when no renderer override is set; for an unresolved slot it is the original handle and the
+        // in-memory instance store is probed.
+        std::unordered_map<uint32, Handle> _slot_material = {};
         // Cached "material_<id>" diagnostic labels by asset id, so the per-renderable name (only read
         // on a resolve/pack failure path) isn't rebuilt from scratch every frame.
         std::unordered_map<uint32, std::string> _material_names = {};

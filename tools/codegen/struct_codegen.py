@@ -78,7 +78,7 @@ def _wire_type_name(type_name: str) -> str:
     return "".join(result)
 
 
-def _attribute_descriptor_literal(field: Field, order: int) -> str:
+def attribute_descriptor_literal(field: Field, order: int) -> str:
     """Builds a ::tbx::PropertyAttributeInfo literal from a field's editor attributes. It is passed to the
     attribute-aware write so the metadata is emitted inline next to the value when attribute serialization
     is on. The type token and enum choices are derived from the field's static type at write time; only the
@@ -132,7 +132,7 @@ def emit_typed_write_field(field: Field, order: int, with_default: bool = False)
             f"        {cpp_string(json_key(field))},",
             f"        tbx_value.{field.name},",
             f"        tbx_default_value.{field.name},",
-            f"        {_attribute_descriptor_literal(field, order)});",
+            f"        {attribute_descriptor_literal(field, order)});",
         ]
     return [
         "    ::tbx::write_typed_serialization_field(",

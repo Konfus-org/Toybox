@@ -8,7 +8,6 @@
 #include "tbx/types/vectors.h"
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace tbx::studio_bridge
 {
@@ -29,7 +28,8 @@ namespace tbx::studio_bridge
     /// Purpose: One editor-facing render view — the shared state every view kind has. A camera
     /// (`view`) the engine renders as an ExternalCamera into a dedicated render texture that is a
     /// shared GPU surface the editor samples directly (zero copy, no readback). Derived structs add
-    /// only what their kind needs (EditorViewStream / GameViewStream / AssetPreviewViewStream).
+    /// only what their kind needs (EditorViewStream / GameViewStream / AssetPreviewViewStream). The
+    /// forwarded viewport input lives off the stream, in the ViewManager's per-view ViewInput.
     /// @details
     /// Ownership: Owns its render texture + the id of the external camera it registered with the engine.
     /// The shared GPU texture itself is owned by the graphics backend (keyed by texture id) and torn
@@ -41,50 +41,32 @@ namespace tbx::studio_bridge
 
         std::string name = {};
         tbx::RenderTexture texture = {};
-        // The camera the engine renders for this view (pose + lens + tags). Updated each frame from
-        // forwarded input (editor/preview) or mirrored from the game camera (game), then pushed to the
-        // engine's external-camera registry. Editor views carry the editor-camera tag so the gizmo /
-        // collider / selection passes apply.
+        // The camera the engine renders for this view (pose + lens + tags). Updated each frame from the
+        // view's forwarded input (editor/preview) or mirrored from the game camera (game), then pushed
+        // to the engine's external-camera registry. Editor views carry the editor-camera tag so the
+        // gizmo / collider / selection passes apply.
         tbx::CameraView view = {};
         tbx::ExternalCameraId external_camera_id = {};
 
         // The view's shared GPU surface and where it is in its lifecycle (see ViewSurfaceState).
         tbx::SharedTargetInfo shared = {};
         ViewSurfaceState surface_state = ViewSurfaceState::Pending;
-
-        // Forwarded input common to every view (from the editor's matching viewport, via view.input).
-        // Buttons are the latest held state; the mouse/wheel deltas accumulate between engine frames and
-        // are consumed when a view's camera applies them. cursor_u/v is the normalized cursor in the
-        // rendered image (top-left origin), read by the gizmo.
-        bool focused = false;
-        uint32 buttons = 0U; // bit0 = left, bit1 = right, bit2 = middle
-        float accumulated_mouse_dx = 0.0F;
-        float accumulated_mouse_dy = 0.0F;
-        float accumulated_wheel = 0.0F;
-        float cursor_u = 0.0F;
-        float cursor_v = 0.0F;
     };
 
     /// @brief
     /// Purpose: An editor view — a free fly camera over the active world.
     struct EditorViewStream : ViewStream
     {
-        uint32 move_keys = 0U; // bit0 fwd, 1 back, 2 left, 3 right, 4 up, 5 down
         // The editor camera aims at the world once, after its geometry has streamed in (the world loads
         // a few frames after the view starts).
         bool needs_orient = true;
     };
 
     /// @brief
-    /// Purpose: A game view — mirrors the live game camera and forwards raw input to the engine input
-    /// system while playing.
+    /// Purpose: A game view — mirrors the live game camera; while playing, its forwarded input (held in
+    /// the ViewManager's ViewInput) is fed into the engine input system.
     struct GameViewStream : ViewStream
     {
-        // Raw game input fed into the engine input system while playing and this view is focused:
-        // pressed tbx::InputKey codes plus the absolute mouse position in the view.
-        std::vector<int> keys = {};
-        float mouse_x = 0.0F;
-        float mouse_y = 0.0F;
     };
 
     /// @brief
@@ -111,5 +93,10 @@ namespace tbx::studio_bridge
         float orbit_yaw = 0.0F;
         float orbit_pitch = 0.3F;
         float orbit_distance = 3.0F;
+
+        // Turntable: when set, the camera slowly auto-orbits the asset while no drag is in progress, so a
+        // preview shows the model rotating on its own. A held button pauses it; it resumes on release. Off by
+        // default (the dockable Asset Viewer stays still); the editor opts in per view (e.g. the hover card).
+        bool auto_orbit = false;
     };
 }

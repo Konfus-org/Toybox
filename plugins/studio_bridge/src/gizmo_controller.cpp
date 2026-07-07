@@ -1,6 +1,8 @@
 #include "gizmo_controller.h"
 #include "bridge_utils.h"
 #include "tags.h"
+#include "view_input.h"
+#include "wire.h"
 #include "tbx/systems/graphics/frame_pass_context.h"
 #include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/render_pass.h"
@@ -14,6 +16,8 @@
 #include <glm/gtc/quaternion.hpp>
 #include <limits>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -248,7 +252,8 @@ namespace tbx::studio_bridge
     {
         auto live = std::unordered_set<std::string>();
         _views.get().with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            [&](std::vector<std::unique_ptr<ViewStream>>& views,
+                std::unordered_map<std::string, ViewInput>&)
             {
                 for (auto& view : views)
                     if (dynamic_cast<EditorViewStream*>(view.get()) != nullptr)
@@ -264,7 +269,7 @@ namespace tbx::studio_bridge
 
     void GizmoController::set_mode(const tbx::Json& params)
     {
-        const auto mode = params.value("mode", std::string("none"));
+        const auto mode = params.value(Wire::MODE, std::string("none"));
         if (mode == "translate")
             _gizmo_mode = GizmoMode::TRANSLATE;
         else if (mode == "rotate")
@@ -320,7 +325,8 @@ namespace tbx::studio_bridge
         auto gizmo = GizmoState();
         auto found = false;
         _views.get().with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            [&](std::vector<std::unique_ptr<ViewStream>>& views,
+                std::unordered_map<std::string, ViewInput>& inputs)
             {
                 for (auto& view_ptr : views)
                 {
@@ -329,7 +335,7 @@ namespace tbx::studio_bridge
                         continue;
                     const auto it = _gizmo_states.find(view->name);
                     auto state = it != _gizmo_states.end() ? it->second : GizmoState();
-                    if (view->focused)
+                    if (inputs[view->name].focused)
                     {
                         camera_view = view->view;
                         gizmo = std::move(state);
@@ -416,22 +422,26 @@ namespace tbx::studio_bridge
             return;
 
         _views.get().with_views_locked(
-            [&](std::vector<std::unique_ptr<ViewStream>>& views)
+            [&](std::vector<std::unique_ptr<ViewStream>>& views,
+                std::unordered_map<std::string, ViewInput>& inputs)
             {
                 for (auto& view_ptr : views)
                 {
                     // Only the focused editor view interacts; a view dragging the fly camera
                     // (right/middle) is busy.
                     auto* view = dynamic_cast<EditorViewStream*>(view_ptr.get());
-                    if (view == nullptr || !view->focused || !view->view.is_valid)
+                    if (view == nullptr || !view->view.is_valid)
+                        continue;
+                    const auto& input = inputs[view->name];
+                    if (!input.focused)
                         continue;
 
                     const auto& camera_view = view->view;
                     auto& gizmo = _gizmo_states[view->name];
-                    const auto left_down = (view->buttons & 0x1U) != 0U;
-                    const auto camera_dragging = (view->buttons & 0x6U) != 0U;
+                    const auto left_down = (input.buttons & 0x1U) != 0U;
+                    const auto camera_dragging = (input.buttons & 0x6U) != 0U;
 
-                    const auto cursor = camera_view.cursor_ray(view->cursor_u, view->cursor_v);
+                    const auto cursor = camera_view.cursor_ray(input.cursor_u, input.cursor_v);
 
                     if (gizmo.dragging)
                     {
@@ -447,15 +457,15 @@ namespace tbx::studio_bridge
                                 for (const auto& target : gizmo.targets)
                                     ids.push_back(target.id.value);
                                 auto edited = tbx::Json::object();
-                                edited["ids"] = std::move(ids);
-                                host->send_notification("view.transformEdited", edited);
+                                edited[Wire::IDS] = std::move(ids);
+                                host->send_notification(Wire::VIEW_TRANSFORM_EDITED, edited);
                             }
 
                             gizmo.left_was_down = left_down;
                             continue;
                         }
 
-                        apply_drag(*world, gizmo, camera_view, cursor, view->cursor_u, view->cursor_v);
+                        apply_drag(*world, gizmo, camera_view, cursor, input.cursor_u, input.cursor_v);
                         gizmo.left_was_down = left_down;
                         continue;
                     }
@@ -468,13 +478,13 @@ namespace tbx::studio_bridge
                     const auto size = gizmo_world_size(camera_view, pivot);
                     gizmo.hovered_axis =
                         (_gizmo_mode == GizmoMode::ROTATE)
-                            ? hit_test_rings(view_projection, pivot, size, view->cursor_u, view->cursor_v)
-                            : hit_test_axes(view_projection, pivot, size, view->cursor_u, view->cursor_v);
+                            ? hit_test_rings(view_projection, pivot, size, input.cursor_u, input.cursor_v)
+                            : hit_test_axes(view_projection, pivot, size, input.cursor_u, input.cursor_v);
 
                     // The scale gizmo's centre cube (uniform scale) wins over the axis handles that
                     // all pass through the pivot.
                     if (_gizmo_mode == GizmoMode::SCALE
-                        && hit_test_center(view_projection, pivot, view->cursor_u, view->cursor_v))
+                        && hit_test_center(view_projection, pivot, input.cursor_u, input.cursor_v))
                         gizmo.hovered_axis = GizmoAxis::ALL;
 
                     // Begin a drag on the left-button rising edge over a handle (unless the camera is
@@ -496,8 +506,8 @@ namespace tbx::studio_bridge
                             auto pu = 0.0F;
                             auto pv = 0.0F;
                             tbx::project_to_screen(view_projection, pivot, pu, pv);
-                            const auto du = view->cursor_u - pu;
-                            const auto dv = view->cursor_v - pv;
+                            const auto du = input.cursor_u - pu;
+                            const auto dv = input.cursor_v - pv;
                             gizmo.start_param = std::sqrt((du * du) + (dv * dv));
                         }
                         auto hit = glm::vec3(0.0F);

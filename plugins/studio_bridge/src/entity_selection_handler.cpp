@@ -1,5 +1,6 @@
 #include "entity_selection_handler.h"
 #include "bridge_utils.h"
+#include "wire.h"
 #include "tbx/systems/graphics/screen_projection.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/types/assets/model.h"
@@ -228,13 +229,13 @@ namespace tbx::studio_bridge
 
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value(Wire::VIEW, std::string()), camera_view);
             !resolved)
             return resolved;
 
         // Pick against the view's own world: an asset-preview view's isolated preview world, otherwise
         // the active world.
-        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto world = _views.get().resolve_view_world(params.value(Wire::VIEW, std::string()));
         auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to pick in.");
@@ -303,9 +304,9 @@ namespace tbx::studio_bridge
         }
 
         if (hit.get_id().is_valid())
-            out_reply["id"] = hit.get_id().value;
+            out_reply[Wire::ID] = hit.get_id().value;
         else
-            out_reply["id"] = nullptr;
+            out_reply[Wire::ID] = nullptr;
         return Result::OK;
     }
 
@@ -313,11 +314,11 @@ namespace tbx::studio_bridge
     {
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value(Wire::VIEW, std::string()), camera_view);
             !resolved)
             return resolved;
 
-        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto world = _views.get().resolve_view_world(params.value(Wire::VIEW, std::string()));
         auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to pick in.");
@@ -360,7 +361,7 @@ namespace tbx::studio_bridge
                 ids.push_back(entity.get_id().value);
         }
 
-        out_reply["ids"] = std::move(ids);
+        out_reply[Wire::IDS] = std::move(ids);
         return Result::OK;
     }
 
@@ -368,14 +369,14 @@ namespace tbx::studio_bridge
     {
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value(Wire::VIEW, std::string()), camera_view);
             !resolved)
             return resolved;
 
         // Project against the view's own world (an asset-preview view's isolated world, otherwise the
         // active world). The engine projector owns the world→screen maths; the editor polls this and
         // draws/filters the overlay, so the bridge just answers the request.
-        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto world = _views.get().resolve_view_world(params.value(Wire::VIEW, std::string()));
         if (!world)
             return Result(false, "No world to project.");
 
@@ -383,7 +384,7 @@ namespace tbx::studio_bridge
         for (const auto& position : tbx::project_entities_to_screen(camera_view, *world))
         {
             auto entry = tbx::Json::object();
-            entry["id"] = position.id.value;
+            entry[Wire::ID] = position.id.value;
             entry["u"] = position.u;
             entry["v"] = position.v;
             entry["depth"] = position.depth;
@@ -398,20 +399,20 @@ namespace tbx::studio_bridge
     {
         auto camera_view = tbx::CameraView();
         if (const auto resolved =
-                _views.get().resolve_view_camera(params.value("view", std::string()), camera_view);
+                _views.get().resolve_view_camera(params.value(Wire::VIEW, std::string()), camera_view);
             !resolved)
             return resolved;
 
-        auto world = _views.get().resolve_view_world(params.value("view", std::string()));
+        auto world = _views.get().resolve_view_world(params.value(Wire::VIEW, std::string()));
         auto assets = _services.get().asset_manager.lock();
         if (!world || !assets)
             return Result(false, "No world to test occlusion in.");
 
         auto occluded = tbx::Json::array();
-        const auto ids_iterator = params.find("ids");
+        const auto ids_iterator = params.find(Wire::IDS);
         if (ids_iterator == params.end() || !ids_iterator->is_array())
         {
-            out_reply["occluded"] = std::move(occluded);
+            out_reply[Wire::OCCLUDED] = std::move(occluded);
             return Result::OK;
         }
 
@@ -490,7 +491,7 @@ namespace tbx::studio_bridge
             occluded.push_back(is_occluded);
         }
 
-        out_reply["occluded"] = std::move(occluded);
+        out_reply[Wire::OCCLUDED] = std::move(occluded);
         return Result::OK;
     }
 }

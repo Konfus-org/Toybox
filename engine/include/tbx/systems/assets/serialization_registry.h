@@ -43,6 +43,9 @@ namespace tbx
     {
         std::shared_ptr<TAsset> asset = {};
         AssetLoadMetadata metadata = {};
+        // The registered asset-type name resolved while reading (e.g. "Material"). Lets a type-erased
+        // caller round-trip the asset without re-deriving its type. Empty on failure.
+        std::string type_name = {};
         Result result = Result();
     };
 
@@ -226,6 +229,16 @@ namespace tbx
             void* asset);
 
         static Result try_write_registered_asset_body(
+            const std::filesystem::path& asset_path,
+            IFileOps& file_ops,
+            const AssetTypeRegistration& asset_registration,
+            const void* asset);
+
+        // Writes an asset's flat .meta sidecar (asset_path + ".meta") from its [[meta]] fields. Used for
+        // meta-only assets (e.g. textures) which have no body file. Merges over any existing meta so legacy
+        // keys survive, and never lets a save drop the asset's identity (a missing/zero id is restored from
+        // the existing meta).
+        static Result try_write_registered_asset_meta(
             const std::filesystem::path& asset_path,
             IFileOps& file_ops,
             const AssetTypeRegistration& asset_registration,

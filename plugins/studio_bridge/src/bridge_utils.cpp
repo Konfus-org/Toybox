@@ -3,9 +3,24 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/components/renderer.h"
 #include "tbx/types/matrices.h"
+#include <cctype>
 
 namespace tbx::studio_bridge
 {
+    std::string asset_type_from_path(const std::filesystem::path& path)
+    {
+        auto extension = path.extension().string();
+        if (!extension.empty() && extension.front() == '.')
+            extension.erase(extension.begin());
+        if (extension.empty())
+            return "asset";
+
+        for (auto& character : extension)
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+
+        return extension;
+    }
+
     bool compute_world_focus(tbx::World& world, glm::vec3& out_focus)
     {
         auto sum = glm::vec3(0.0F);

@@ -60,29 +60,6 @@ namespace tbx
     template <typename T, T Min, T Max>
     struct Clamp;
 
-    /// @brief
-    /// A script asset is described by a single sidecar meta named after its C++ source header —
-    /// `my_script.h.meta`. Unlike an ordinary asset (a payload file with a `<payload>.meta`
-    /// sidecar), this meta IS the asset and carries only its identity (id/version/type). A script's
-    /// default property values live in its source (the C++/Lua/C# file) and its per-entity values
-    /// live on the entity (in the chunk/world/globals), so the meta never serializes property
-    /// values — which keeps it backend agnostic. There is no separate body file; the asset system
-    /// treats the meta path as both the asset and its own metadata.
-    ///
-    /// True when a path names a self-describing script meta (`*.h.meta` / `*.hpp.meta` /
-    /// `*.hh.meta`). The check is on the trailing suffix only, so it is path-separator agnostic.
-    [[nodiscard]]
-    inline bool is_self_describing_asset_meta(std::string_view path)
-    {
-        constexpr std::string_view header_meta_suffixes[] = {".h.meta", ".hpp.meta", ".hh.meta"};
-        return std::ranges::any_of(
-            header_meta_suffixes,
-            [path](std::string_view suffix)
-            {
-                return path.size() > suffix.size() && path.ends_with(suffix);
-            });
-    }
-
     struct SerializableTypeRegistration
     {
         std::string name = {};
@@ -118,10 +95,22 @@ namespace tbx
         std::string type_name = {};
         std::type_index type = std::type_index(typeid(void));
         uint32 version = 0U;
+        // The file extensions (no leading dot, lower-case) this asset type owns, declared via
+        // [[tbx::extension("mat", ...)]]. Lets the editor/registry resolve a path to its registered
+        // type without a hard-coded switch — see get_asset_type_registration_for_extension. Empty for
+        // types that aren't matched by file extension (resolved by a polymorphic meta "type" instead).
+        std::vector<std::string> extensions = {};
         std::function<std::unique_ptr<Asset>()> create_asset = {};
         std::function<Result(std::string_view, void*)> read_body = {};
         std::function<Result(const void*, std::string&)> write_body = {};
         std::function<Result(std::string_view, void*)> transform_meta = {};
+        // Serializes an asset's [[meta]] fields (e.g. a texture's wrap/filter/format import settings) to the
+        // flat .meta sidecar. The shape follows the per-module attribute thread-local: lean flat values for
+        // persistence, the attribute-rich { attributes, value } shape under AttributeSerializationScope so the
+        // inspector can describe meta-only assets the same way it describes body assets. Null for asset types
+        // with no [[meta]] fields. Counterpart to transform_meta, which reads the meta back (tolerant of both
+        // the flat on-disk form and the editor's typed save).
+        std::function<Result(const void*, std::string&)> write_meta = {};
         // Serializes a default-constructed instance as the editor's schema — lean (every field)
         // when include_attributes is false, attribute-enriched (type tokens, choices, nested types)
         // when true — the same per-field shape entity.describe emits. Unlike write_body, the
@@ -142,6 +131,11 @@ namespace tbx
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(
         std::string_view type_name);
+    // Resolves the asset type that owns a file extension (with or without a leading dot, any case),
+    // declared via [[tbx::extension(...)]]. Null when no registered type claims the extension. The
+    // single data-driven path→type mapping the editor and registry use instead of hard-coded switches.
+    TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration_for_extension(
+        std::string_view extension);
     TBX_API void unregister_asset_type_entry(std::type_index asset_type);
     TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
     TBX_API std::vector<AssetTypeRegistration> get_asset_type_registrations();
@@ -1199,6 +1193,32 @@ namespace tbx
     }
 
     /// @brief
+    /// Writes one field of an asset's flat .meta sidecar. The .meta is historically a flat map of bare
+    /// values (e.g. `"wrap": "repeat"`), unlike the self-describing { "type", "value" } body — so on the
+    /// persistence path this emits the bare value directly, keeping the on-disk format stable. Under the
+    /// editor's AttributeSerializationScope it instead defers to write_typed_serialization_field, producing
+    /// the same attribute-rich { attributes, value, is_default } node body fields get, so the inspector can
+    /// describe a meta-only asset (a texture's import settings) with enum dropdowns and categories. The
+    /// tolerant meta reader (read_typed_serialization_field) reads both shapes back.
+    template <typename TJson, typename TValue>
+    static void write_meta_serialization_field(
+        TJson& json,
+        std::string_view field_name,
+        const TValue& value,
+        const TValue& default_value,
+        const PropertyAttributeInfo& attributes = {})
+    {
+        if (serialization_includes_attributes())
+        {
+            write_typed_serialization_field(json, field_name, value, default_value, attributes);
+            return;
+        }
+
+        // Flat persistence form — bare value, every field present (the .meta is not lean).
+        json[make_serialization_json_key(field_name)] = write_serialization_value<TJson>(value);
+    }
+
+    /// @brief
     /// Reads a single node written by write_typed_serialization_field. The node is always the
     /// self-describing { "type", "value", ... } wrapper; its "value" is read by the field's static
     /// type — a variant's value is its own { "type", "value" } alternative, every other value is
@@ -1335,7 +1355,8 @@ namespace tbx
     }
 
     template <typename TAsset>
-    static AssetTypeRegistration make_asset_type_registration(uint32 version)
+    static AssetTypeRegistration make_asset_type_registration(
+        uint32 version, std::vector<std::string> extensions = {})
     {
         // Every asset registration starts with the same stable type name, runtime C++ type, and
         // factory. Specialized registrations append body/meta/runtime callbacks below.
@@ -1344,6 +1365,7 @@ namespace tbx
                 std::string(serialization_type_name(static_cast<const TAsset*>(nullptr))),
             .type = std::type_index(typeid(TAsset)),
             .version = version,
+            .extensions = std::move(extensions),
             .create_asset =
                 []
             {
@@ -1376,9 +1398,10 @@ namespace tbx
     }
 
     template <typename TAsset>
-    static bool register_asset_type(uint32 version)
+    static bool register_asset_type(uint32 version, std::vector<std::string> extensions = {})
     {
-        register_asset_type_entry(make_asset_type_registration<TAsset>(version));
+        register_asset_type_entry(
+            make_asset_type_registration<TAsset>(version, std::move(extensions)));
         return true;
     }
 
@@ -1392,14 +1415,20 @@ namespace tbx
         return true;
     }
 
-    template <typename TAsset, typename TTransformMeta>
-    static bool register_asset_meta_type(uint32 version, TTransformMeta transform_meta)
+    template <typename TAsset, typename TTransformMeta, typename TWriteMeta>
+    static bool register_asset_meta_type(
+        uint32 version, TTransformMeta transform_meta, TWriteMeta write_meta)
     {
         auto entry = make_asset_type_registration<TAsset>(version);
         entry.transform_meta =
             [transform_meta = std::move(transform_meta)](std::string_view data, void* asset)
         {
             return transform_meta(data, *static_cast<TAsset*>(asset));
+        };
+        entry.write_meta =
+            [write_meta = std::move(write_meta)](const void* asset, std::string& output)
+        {
+            return write_meta(*static_cast<const TAsset*>(asset), output);
         };
         register_asset_type_entry(std::move(entry));
         return true;
