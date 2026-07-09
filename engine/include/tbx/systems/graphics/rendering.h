@@ -136,6 +136,15 @@ namespace tbx
                 callback);
 
         /// @brief
+        /// Purpose: Replaces the pipeline's debug view — a render-stage override (normals / diffuse
+        /// / shadows / ... instead of the shaded frame) and a post-processing toggle, applied only
+        /// to cameras matching the view's tag gate (empty = every camera). Editor/tooling state;
+        /// pass a default-constructed view to restore normal rendering.
+        /// @details
+        /// Thread Safety: Safe to call from any thread; each frame snapshots it under a lock.
+        void set_debug_view(RenderDebugView debug_view);
+
+        /// @brief
         /// Purpose: Captures the next fully rendered frame to a 32-bit BMP at path via GPU
         /// readback, then invokes on_complete(succeeded) exactly once. A few warm-up frames are
         /// skipped first so the world's synchronous first-frame asset load finishes before the

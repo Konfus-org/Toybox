@@ -43,6 +43,13 @@ def emit_enum(type_info: SerializableType) -> list[str]:
             "}",
             f"void deserialize(const ::tbx::Json& json, {type_info.name}& value)",
             "{",
+            # Editor-authored files write enums as their underlying numeric values (a name-mangling
+            # scheme between C# and C++ spellings can't round-trip every member); accept both.
+            "    if (json.is_number_integer())",
+            "    {",
+            f"        value = static_cast<{type_info.name}>(json.get<int>());",
+            "        return;",
+            "    }",
             "    if (!json.is_string())",
             "    {",
             f"        value = static_cast<{type_info.name}>(0);",

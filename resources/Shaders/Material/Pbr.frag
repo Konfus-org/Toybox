@@ -54,5 +54,6 @@ void main()
 
     vec3 lit = tbx_shade_pbr(base.rgb, metallic, roughness, ao, normal, v_world_position, view_direction);
 
-    o_color = vec4(tbx_tonemap(lit + emissive), base.a);
+    o_color = tbx_debug_stage_color(
+        vec4(tbx_tonemap(lit + emissive), base.a), base.rgb, normal, v_world_position);
 }

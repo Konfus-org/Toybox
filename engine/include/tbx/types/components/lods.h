@@ -12,7 +12,6 @@ namespace tbx
     [[serializable]];
     struct TBX_API Lod
     {
-        [[asset("fbx", "obj", "gltf", "glb")]]
         Handle handle = {};
 
         float max_distance = 0.0f;
@@ -24,7 +23,6 @@ namespace tbx
     /// Ownership: Owns the LOD collection by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[icon("Layers", Color::GREY)]];
     struct TBX_API Lods : Component
     {
         std::vector<Lod> values = {};

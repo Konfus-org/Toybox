@@ -87,20 +87,15 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn('"amount"', output)
         self.assertIn('"count"', output)
 
-    def test_editor_attributes_emit_property_metadata(self) -> None:
+    def test_fields_emit_declaration_order_metadata(self) -> None:
         source = """
             namespace tbx::tests
             {
             [[serializable]];
             struct Value
             {
-                [[category("Group")]]
-                [[description("A tooltip.")]]
-                [[readonly]]
                 int amount = 0;
 
-                [[view("script")]]
-                [[hidden]]
                 int other = 0;
             };
             }
@@ -108,15 +103,12 @@ class AttributeCodegenTests(unittest.TestCase):
 
         output = self.generate_source(source)
 
-        # Editor metadata is baked into the generated serialize as a PropertyAttributeInfo descriptor,
-        # emitted inline next to the value when attribute serialization is on. There is no separate
-        # reflection record.
+        # Structural metadata (nested wire type, declaration order) is baked into the generated
+        # serialize as a PropertyAttributeInfo descriptor, emitted inline next to the value when
+        # attribute serialization is on. There is no separate reflection record.
         self.assertIn("::tbx::PropertyAttributeInfo", output)
-        self.assertIn('.category = "Group"', output)
-        self.assertIn('.description = "A tooltip."', output)
-        self.assertIn(".readonly = true", output)
-        self.assertIn('.view = "script"', output)
-        self.assertIn(".hidden = true", output)
+        self.assertIn(".order = 0", output)
+        self.assertIn(".order = 1", output)
 
     def test_no_reflection_registry_is_generated(self) -> None:
         source = """
@@ -141,32 +133,12 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertNotIn("register_type_reflection", output)
         self.assertNotIn("TBX_REFLECTION_AUTO_REGISTER", output)
         self.assertNotIn("tbx_build_type_reflection", output)
-        # The serializable registration is still emitted; the describe/icon metadata is added generically
+        # The serializable registration is still emitted; the describe metadata is added generically
         # by make_serializable_type_registration, not per-type codegen.
         self.assertIn(
             "register_serializable_type(static_cast<const Value*>(nullptr))",
             output,
         )
-
-    def test_icon_attribute_emits_type_icon_overload(self) -> None:
-        source = """
-            namespace tbx::tests
-            {
-            [[serializable]];
-            [[icon("Cube", Color::BLUE)]]
-            struct Value
-            {
-                int amount = 0;
-            };
-            }
-            """
-
-        header = self.generate(source)
-        source_output = self.generate_source(source)
-
-        self.assertIn("::tbx::PropertyTypeIcon property_type_icon(const Value*);", header)
-        self.assertIn("::tbx::PropertyTypeIcon property_type_icon(const Value*)", source_output)
-        self.assertIn('return { "Cube", "BLUE" };', source_output)
 
     def test_multiline_field_initializer_is_parsed(self) -> None:
         source = """
@@ -784,8 +756,7 @@ class AttributeCodegenTests(unittest.TestCase):
             [[name("renamed")]];
             struct Value
             {
-                [[description("A tooltip.")]]
-                [[readonly]]
+                [[name("renamed_amount")]]
                 int amount = 0;
 
                 int count = 0;
@@ -799,8 +770,7 @@ class AttributeCodegenTests(unittest.TestCase):
             [[tbx::name("renamed")]];
             struct Value
             {
-                [[tbx::description("A tooltip.")]]
-                [[tbx::readonly]]
+                [[tbx::name("renamed_amount")]]
                 int amount = 0;
 
                 int count = 0;
@@ -808,7 +778,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         self.assertEqual(self.generate_source(bare), self.generate_source(qualified))
-        self.assertIn('.description = "A tooltip."', self.generate_source(qualified))
+        self.assertIn('"renamed_amount"', self.generate_source(qualified))
 
     def test_parent_field_props_are_generated(self) -> None:
         source = textwrap.dedent(
@@ -1034,42 +1004,6 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("register_asset_type<Value>(3)", output)
         self.assertNotIn("register_asset_body_type<Value>", output)
         self.assertNotIn("register_asset_meta_type<Value>", output)
-
-    def test_asset_extension_is_registered(self) -> None:
-        output = self.generate_source(
-            """
-            namespace tbx::tests
-            {
-            [[serializable]];
-            [[version(2)]];
-            [[extension("mat", "material")]];
-            struct Value : Asset
-            {
-                [[do_not_serialize]]
-                int amount = 0;
-            };
-            }
-            """
-        )
-        self.assertIn('register_asset_type<Value>(2, std::vector<std::string> { "mat", "material" })', output)
-
-    def test_asset_without_extension_registers_no_extension_list(self) -> None:
-        output = self.generate_source(
-            """
-            namespace tbx::tests
-            {
-            [[serializable]];
-            [[version(2)]];
-            struct Value : Asset
-            {
-                [[do_not_serialize]]
-                int amount = 0;
-            };
-            }
-            """
-        )
-        self.assertIn("register_asset_type<Value>(2)", output)
-        self.assertNotIn("std::vector<std::string>", output)
 
     def test_text_and_meta_asset_are_generated(self) -> None:
         output = self.generate_source(

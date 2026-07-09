@@ -1,4 +1,5 @@
 #pragma once
+#include "jolt_contact_listener.h"
 #include "tbx/interfaces/physics_backend.h"
 #include <Jolt/Jolt.h>
 
@@ -34,6 +35,7 @@ namespace jolt_physics
         void initialize(const tbx::PhysicsBackendSettings& settings) override;
         void shutdown() override;
         void update(const tbx::PhysicsBackendSettings& settings, const tbx::DeltaTime& dt) override;
+        void drain_contact_events(std::vector<tbx::PhysicsContactEvent>& out_events) override;
         bool raycast(
             const tbx::RaycastQuery& raycast_query,
             tbx::PhysicsRigidbodyHandle ignored_rigidbody,
@@ -45,6 +47,9 @@ namespace jolt_physics
         void update_collider(
             tbx::PhysicsColliderHandle collider,
             const tbx::PhysicsColliderCreateInfo& update_info) override;
+        bool get_shape(
+            tbx::PhysicsColliderHandle collider,
+            std::vector<tbx::Vec3>& out_triangle_vertices) const override;
 
         tbx::PhysicsRigidbodyHandle create_rigidbody(
             const tbx::PhysicsRigidbodyCreateInfo& create_info) override;
@@ -61,15 +66,19 @@ namespace jolt_physics
       private:
         void apply_settings(const tbx::PhysicsBackendSettings& settings);
         void clear_resources();
+        bool is_trigger_only_body(tbx::PhysicsRigidbodyHandle rigidbody) const;
         tbx::PhysicsRigidbodyHandle try_get_rigidbody_for_body(const JPH::BodyID& body_id) const;
 
       private:
         JPH::PhysicsSystem _physics_system = {};
+        JoltContactEventListener _contact_listener = {};
         std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
         std::unordered_map<uint64, JoltColliderResource> _colliders = {};
         std::unordered_map<uint64, JoltRigidbodyResource> _rigidbodies = {};
         std::unordered_map<uint32, tbx::PhysicsRigidbodyHandle> _rigidbody_by_body_key = {};
+        // Reused across drains so contact hand-off does no per-step heap allocation.
+        std::vector<JoltContactRecord> _drained_contacts = {};
         tbx::PhysicsBackendSettings _settings = {};
         uint64 _next_collider_handle = 1U;
         uint64 _next_rigidbody_handle = 1U;

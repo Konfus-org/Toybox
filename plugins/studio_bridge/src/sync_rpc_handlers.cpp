@@ -1,49 +1,75 @@
 #include "sync_rpc_handlers.h"
+#include "engine_services.h"
+#include "game_mode_state.h"
+#include "physics_event_ops.h"
 #include "rpc_registrar.h"
-#include "sync_path_router.h"
+#include "sync_event_ops.h"
+#include "sync_event_state.h"
+#include "sync_path_ops.h"
+#include "view_state.h"
 #include "wire.h"
-#include "world_manager.h"
 #include "tbx/interfaces/rpc_router.h"
 #include "tbx/systems/files/json.h"
 
 namespace tbx::studio_bridge
 {
     void register_sync_handlers(
-        const RpcRegistrar& registrar, SyncPathRouter& sync_router, WorldManager& world_manager)
+        const RpcRegistrar& registrar,
+        const EngineServices& services,
+        ViewState& views,
+        SyncEventState& events,
+        const GameModeState& game_mode)
     {
-        registrar.add(
-            Wire::SYNC_CATALOG,
-            [&world_manager](const tbx::Json&, tbx::RpcResponder& r)
-            {
-                r.result(world_manager.sync_catalog());
-            });
         // The uniform path-addressed sync verbs: every tier (entity, component, …) is one { path }
         // (see EngineAddress on the editor side) instead of a verb family per kind. describe reads an object,
         // set/reset/isDefault write one of its fields (the leaf the path ends on).
         registrar.add_query(
             Wire::SYNC_DESCRIBE,
-            [&sync_router](const tbx::Json& params, tbx::Json& reply)
+            [&services, &views](const tbx::Json& params, tbx::Json& reply)
             {
-                return sync_router.sync_describe_path(params, reply);
+                return sync_describe_path(services, views, params, reply);
             });
+        // Transitional: no editor calls sync.set today — Studio 2.0's family write verbs
+        // (component.set / entity.set / asset.set) land on this same path-addressed set machinery
+        // and retire the method.
         registrar.add(
             Wire::SYNC_SET,
-            [&sync_router](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(sync_router.sync_set_path(params));
+                r.respond(sync_set_path(services, views, params));
             });
         registrar.add(
             Wire::SYNC_RESET,
-            [&sync_router](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                r.respond(sync_router.sync_reset_path(params));
+                r.respond(sync_reset_path(services, views, params));
+            });
+        // The sync.event channel's subscription verbs: which (address, key) raises the editor wants
+        // streamed back (see sync_event_ops).
+        registrar.add(
+            Wire::SYNC_SUBSCRIBE,
+            [&events, &services, &game_mode](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                const auto result = subscribe_sync_event(events, params);
+                // A physics-event subscription made mid-play must forward from this session; the
+                // bind is idempotent, so re-scanning only attaches the newly-subscribed entity.
+                // (While stopped there is nothing to attach to — play-start binds every subscription.)
+                if (result && game_mode.is_playing)
+                    bind_subscribed_physics_events(events, services);
+                r.respond(result);
+            });
+        registrar.add(
+            Wire::SYNC_UNSUBSCRIBE,
+            [&events](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(unsubscribe_sync_event(events, params));
             });
         registrar.add(
             Wire::SYNC_IS_DEFAULT,
-            [&sync_router](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 auto is_default = false;
-                const auto result = sync_router.sync_is_default_path(params, is_default);
+                const auto result = sync_is_default_path(services, views, params, is_default);
                 if (result)
                 {
                     auto reply = tbx::Json::object();

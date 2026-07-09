@@ -1,6 +1,6 @@
 #include "view_rpc_handlers.h"
 #include "rpc_registrar.h"
-#include "view_manager.h"
+#include "view_ops.h"
 #include "wire.h"
 #include "tbx/interfaces/rpc_router.h"
 #include "tbx/systems/files/json.h"
@@ -12,11 +12,12 @@ namespace tbx::studio_bridge
     // (The standard protocol codes live in tbx/interfaces/rpc_router.h.)
     constexpr int RPC_VIEW_UNAVAILABLE_CODE = -32000;
 
-    void register_view_handlers(const RpcRegistrar& registrar, ViewManager& views)
+    void register_view_handlers(
+        const RpcRegistrar& registrar, const EngineServices& services, ViewState& views)
     {
         registrar.add(
             Wire::VIEW_START,
-            [&views](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // The kind selects which view stream is created; only an asset-preview view uses the
                 // asset id (it selects the asset loaded into the view's isolated preview world).
@@ -31,11 +32,11 @@ namespace tbx::studio_bridge
                 // world's id so the editor can target it for world.describe / entity.create.
                 auto world_id = 0U;
                 auto view_result =
-                    kind_token == "game"  ? views.start_game_view(view_name)
+                    kind_token == "game"  ? start_game_view(views, services, view_name)
                     : kind_token == "asset"
-                        ? views.start_asset_preview_view(
-                              asset_id, turntable, render_scale, view_name, world_id)
-                        : views.start_editor_view(view_name);
+                        ? start_asset_preview_view(
+                              views, services, asset_id, turntable, render_scale, view_name, world_id)
+                        : start_editor_view(views, services, view_name);
                 if (view_result)
                 {
                     auto view_info = tbx::Json::object();
@@ -51,13 +52,13 @@ namespace tbx::studio_bridge
             });
         registrar.add(
             Wire::VIEW_STOP,
-            [&views](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 const auto name = params.value(Wire::NAME, std::string());
                 if (name.empty())
-                    views.stop_all_views();
+                    stop_all_views(views, services);
                 else
-                    views.stop_view(name);
+                    stop_view(views, services, name);
                 r.result(tbx::Json::object());
             });
         registrar.add(
@@ -65,16 +66,16 @@ namespace tbx::studio_bridge
             [&views](const tbx::Json& params, tbx::RpcResponder&)
             {
                 // High-frequency notification from the focused editor viewport; no response.
-                views.apply_view_input(params);
+                apply_view_input(views, params);
             });
         registrar.add(
             Wire::VIEW_FRAME_ASSET_PREVIEW,
-            [&views](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // Frames the orbit camera of an asset-preview world to the renderable bounds the editor
                 // built in it; called after the editor creates/swaps the previewed entity.
                 const auto world_id = params.value(Wire::WORLD_ASSET_ID, 0U);
-                r.respond(views.frame_asset_preview(world_id));
+                r.respond(frame_asset_preview(views, services, world_id));
             });
     }
 }

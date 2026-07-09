@@ -24,6 +24,9 @@ endif()
 # glm (header-only math) — used publicly by the engine and by the physics plugin.
 if(NOT TARGET glm)
     set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
+    # glm 1.0.1 declares a cmake_minimum_required old enough that CMake prints deprecation
+    # warnings; raising the policy floor suppresses them without touching glm.
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
     FetchContent_Declare(glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG 1.0.1
@@ -56,7 +59,6 @@ if(NOT TARGET spdlog::spdlog)
         GIT_SHALLOW TRUE
         SYSTEM)
     FetchContent_MakeAvailable(spdlog)
-    set_target_properties(spdlog PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
 endif()
 
 if(CMAKE_CXX_FLAGS MATCHES "-fno-rtti")

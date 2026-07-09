@@ -1,12 +1,22 @@
 #include "studio_bridge_plugin.h"
 #include "asset_rpc_handlers.h"
+#include "collider_pass_ops.h"
 #include "entity_rpc_handlers.h"
+#include "game_mode_ops.h"
+#include "gizmo_layer_ops.h"
+#include "gizmo_ops.h"
 #include "gizmo_rpc_handlers.h"
+#include "input_ops.h"
 #include "lifecycle_rpc_handlers.h"
+#include "log_ops.h"
 #include "log_rpc_handlers.h"
+#include "physics_event_ops.h"
+#include "physics_rpc_handlers.h"
+#include "render_layers_rpc_handlers.h"
 #include "sync_rpc_handlers.h"
 #include "rpc_registrar.h"
 #include "selection_rpc_handlers.h"
+#include "view_ops.h"
 #include "view_rpc_handlers.h"
 #include "world_rpc_handlers.h"
 #include "tbx/interfaces/graphics_backend.h"
@@ -17,23 +27,9 @@
 
 namespace tbx::studio_bridge
 {
-    StudioBridge::StudioBridge()
-        : _views(_services)
-        , _input(_services, _views)
-        , _gizmos(_services, _views, _selection)
-        , _collider_pass(_services, _selection)
-        , _selection_handler(_services, _views)
-        , _game_mode(
-              _services,
-              [this](bool paused)
-              {
-                  post_message<tbx::SetApplicationPausedRequest>(paused);
-              })
-        , _asset_ops(_services)
-        , _world_manager(_services, _views)
-        , _sync_router(_world_manager, _asset_ops)
-        , _log(_services)
+    void StudioBridge::set_engine_paused(bool paused)
     {
+        post_message<tbx::SetApplicationPausedRequest>(paused);
     }
 
     void StudioBridge::on_attach()
@@ -41,23 +37,27 @@ namespace tbx::studio_bridge
         // The RPC router + host (published by the WindowsRPC dependency) are bound by codegen before
         // on_attach. Share the host with the subsystems, then register the editor protocol's methods.
         _services.rpc_host = rpc_host;
-        _log.attach();
+        attach_log(_log, _services);
         register_builtin_handlers();
 
         // A studio-hosted engine opens stopped: pause simulation so the world renders its starting
         // state but does not advance until the editor enters play. (This replaces the old --editor
         // flag; the engine itself has no editor concept and otherwise runs immediately.)
-        post_message<tbx::SetApplicationPausedRequest>(true);
+        set_engine_paused(true);
     }
 
     void StudioBridge::on_detach()
     {
         // Remove our render passes from the engine Rendering service before this plugin unloads, so the
         // renderer never calls into the freed overlay captured here.
-        _gizmos.unregister_pass();
-        _collider_pass.unregister_pass();
-        _views.stop_all_views();
-        _log.detach();
+        unregister_gizmo_pass(_gizmos, _services);
+        unregister_gizmo_layer_pass(_gizmo_layers, _services);
+        unregister_collider_pass(_collider_pass, _services);
+        stop_all_views(_views, _services);
+        detach_log(_log);
+        // Clear our physics-event forwarders off any bound entities before this plugin unloads so a
+        // later physics update never calls into freed bridge state.
+        unbind_all_physics_events(_sync_events, _services);
         // Remove our handlers before this plugin unloads so the router never calls into freed memory.
         if (const auto active_router = router.lock())
             active_router->unregister_all(get_id());
@@ -76,10 +76,17 @@ namespace tbx::studio_bridge
             TBX_TRACE_INFO("StudioBridge: editor {}.", has_client ? "connected" : "disconnected");
             if (!has_client)
             {
-                // The editor went away: tear down its views and leave the engine stopped at the
+                // The editor went away: tear down its views, drop its event subscriptions (its
+                // objects re-subscribe when they re-bind), and leave the engine stopped at the
                 // restored world so it never lingers in a half-played state.
-                _views.stop_all_views();
-                _game_mode.set_playing(false);
+                stop_all_views(_views, _services);
+                _sync_events.subscriptions.clear();
+                set_playing(
+                    _game_mode,
+                    _sync_events,
+                    _services,
+                    [this](bool paused) { set_engine_paused(paused); },
+                    false);
             }
 
             _had_client = has_client;
@@ -90,21 +97,22 @@ namespace tbx::studio_bridge
         // the overlay batches (gizmo handles + collider wireframes) and push every view's camera to the
         // engine's external-camera registry. The engine renders the external cameras after this update;
         // the gizmo / collider / selection passes draw the overlays on top (gated on the editor tag).
-        _input.update_editor_cameras(dt);
-        _gizmos.update(dt);
-        _input.update_game_input(_game_mode.is_playing());
-        _views.sync_game_cameras();
+        update_editor_cameras(_services, _views, dt);
+        update_gizmos(_gizmos, _selection, _services, _views, dt);
+        update_game_input(_services, _views, _game_mode.is_playing);
+        sync_game_cameras(_views, _services);
 
-        _gizmos.submit_overlay();
-        _collider_pass.submit();
-        _views.push_external_cameras();
+        submit_gizmo_overlay(_gizmos, _selection, _services, _views);
+        submit_gizmo_layers(_gizmo_layers, _services);
+        submit_collider_wireframes(_collider_pass, _selection, _render_layers, _services);
+        push_external_cameras(_views, _services);
 
         // The editor's billboard overlay positions are pulled, not pushed: the editor polls
         // view.projectEntities on its own cadence, so there is nothing to send here per frame.
 
         // Mirror the game's mouse-lock mode out to the editor so its game panel can capture the
         // cursor.
-        _input.report_mouse_lock(_game_mode.is_playing());
+        report_mouse_lock(_input, _services, _game_mode.is_playing);
     }
 
     void StudioBridge::on_recieve_message(tbx::Message& msg)
@@ -133,8 +141,14 @@ namespace tbx::studio_bridge
             // The rendering + backend + gizmo services are resolved now, so register the editor's
             // render passes (the gizmo overlay and the collider-wireframe pass, gated on the
             // editor.camera tag). They live on the engine Rendering service until on_detach removes them.
-            _gizmos.register_pass();
-            _collider_pass.register_pass();
+            register_gizmo_pass(_gizmos, _services);
+            register_gizmo_layer_pass(_gizmo_layers, _services);
+            register_collider_pass(_collider_pass, _services);
+
+            // Physics events stream to the editor as sync.event raises while playing. Rather than a
+            // service-wide observer, the bridge attaches its forwarders straight onto the subscribed
+            // entities' Trigger/Collider callback lists when play starts (see physics_event_ops,
+            // driven from set_playing / sync.subscribe); on_detach clears them.
         }
     }
 
@@ -143,7 +157,8 @@ namespace tbx::studio_bridge
         // The editor protocol is split across the per-category `*_rpc_handlers` files; each is a free
         // function that registers its methods through the shared registrar. The handlers that need to
         // reach this plugin's message posting (pause / shutdown) get it as callbacks — everything else
-        // is served by a bridge subsystem the function borrows by reference.
+        // is served by the plugin's state (through the per-domain ops) or a bridge subsystem the
+        // function borrows by reference.
         const auto active_router = router.lock();
         if (!active_router)
         {
@@ -157,15 +172,18 @@ namespace tbx::studio_bridge
             registrar,
             _services,
             _game_mode,
-            [this](bool paused) { post_message<tbx::SetApplicationPausedRequest>(paused); },
+            _sync_events,
+            [this](bool paused) { set_engine_paused(paused); },
             [this]() { post_message<tbx::ExitApplicationRequest>(); });
-        register_world_handlers(registrar, _world_manager);
-        register_asset_handlers(registrar, _asset_ops, _world_manager);
-        register_entity_handlers(registrar, _world_manager);
-        register_sync_handlers(registrar, _sync_router, _world_manager);
-        register_view_handlers(registrar, _views);
-        register_selection_handlers(registrar, _selection_handler, _selection, _services, _views);
-        register_gizmo_handlers(registrar, _gizmos);
-        register_log_handlers(registrar, _log);
+        register_world_handlers(registrar, _services, _views);
+        register_asset_handlers(registrar, _services, _views);
+        register_entity_handlers(registrar, _services, _views);
+        register_sync_handlers(registrar, _services, _views, _sync_events, _game_mode);
+        register_physics_handlers(registrar, _services);
+        register_view_handlers(registrar, _services, _views);
+        register_selection_handlers(registrar, _picking, _selection, _services, _views, _gizmos);
+        register_gizmo_handlers(registrar, _gizmos, _gizmo_layers);
+        register_render_layers_handlers(registrar, _render_layers, _services);
+        register_log_handlers(registrar);
     }
 }

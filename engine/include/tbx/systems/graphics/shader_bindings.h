@@ -197,6 +197,9 @@ namespace tbx
         uint32 cascade_count; // active directional shadow cascades (<= SHADOW_CASCADE_COUNT)
         uint32 max_scene_draw_count;
         uint32 max_shadow_draw_count;
+        // The editor's render-stage debug view for this camera (a RenderDebugStage value; 0 = the
+        // normal shaded frame). Material shaders swap their output for the named intermediate.
+        uint32 debug_stage;
     };
 
     // Mirrors the GLSL `TbxShadowPassUniforms` std140 UBO. One per directional cascade caster

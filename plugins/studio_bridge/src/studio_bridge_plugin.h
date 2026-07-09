@@ -1,16 +1,16 @@
 #pragma once
-#include "asset_ops.h"
-#include "collider_pass.h"
+#include "collider_pass_state.h"
 #include "engine_services.h"
-#include "entity_selection_handler.h"
-#include "game_mode_manager.h"
-#include "gizmo_controller.h"
-#include "input_controller.h"
-#include "log_bridge.h"
-#include "selection.h"
-#include "sync_path_router.h"
-#include "view_manager.h"
-#include "world_manager.h"
+#include "game_mode_state.h"
+#include "gizmo_layer_state.h"
+#include "gizmo_state.h"
+#include "input_state.h"
+#include "log_state.h"
+#include "picking_state.h"
+#include "render_layers_state.h"
+#include "selection_state.h"
+#include "sync_event_state.h"
+#include "view_state.h"
 #include "tbx/interfaces/plugin.h"
 #include "tbx/interfaces/rpc_host.h"
 #include "tbx/interfaces/rpc_router.h"
@@ -38,7 +38,7 @@ namespace tbx::studio_bridge
     class TBX_PLUGIN_API StudioBridge final : public tbx::Plugin
     {
       public:
-        StudioBridge();
+        StudioBridge() = default;
         ~StudioBridge() noexcept override = default;
 
       public:
@@ -70,19 +70,26 @@ namespace tbx::studio_bridge
         void register_builtin_handlers();
 
       private:
-        EngineServices _services = {};
-        Selection _selection = {};
+        // Pauses/unpauses the engine simulation through the plugin's message posting; shared by the
+        // lifecycle handlers and play-mode ops.
+        void set_engine_paused(bool paused);
 
-        ViewManager _views;
-        InputController _input;
-        GizmoController _gizmos;
-        ColliderPass _collider_pass;
-        EntitySelectionHandler _selection_handler;
-        GameModeManager _game_mode;
-        AssetOps _asset_ops;
-        WorldManager _world_manager;
-        SyncPathRouter _sync_router;
-        LogBridge _log;
+      private:
+        EngineServices _services = {};
+
+        // The bridge's plain state, owned by value; the per-domain *_ops free functions carry the
+        // behavior and receive exactly the state they touch.
+        SelectionState _selection = {};
+        RenderLayersState _render_layers = {};
+        GameModeState _game_mode = {};
+        SyncEventState _sync_events = {};
+        LogState _log = {};
+        PickingState _picking = {};
+        ColliderPassState _collider_pass = {};
+        InputState _input = {};
+        GizmoLayerState _gizmo_layers = {};
+        GizmoControllerState _gizmos = {};
+        ViewState _views = {};
 
         bool _had_client = false;
     };

@@ -3,16 +3,20 @@
 namespace tbx::studio_bridge
 {
     class RpcRegistrar;
-    class EntitySelectionHandler;
-    class Selection;
     struct EngineServices;
-    class ViewManager;
+    struct GizmoControllerState;
+    struct PickingState;
+    struct SelectionState;
+    struct ViewState;
 
-    /// @brief Registers the picking + selection editor RPC methods served by the EntitySelectionHandler.
+    /// @brief Registers the picking + selection editor RPC methods, served by the picking_ops and
+    /// selection_ops free functions. The gizmo state is the pick suppressor: a tap on a
+    /// transform handle is gizmo intent, not a scene pick.
     void register_selection_handlers(
         const RpcRegistrar& registrar,
-        EntitySelectionHandler& selection_handler,
-        Selection& selection,
+        PickingState& picking,
+        SelectionState& selection,
         const EngineServices& services,
-        ViewManager& views);
+        ViewState& views,
+        const GizmoControllerState& gizmos);
 }

@@ -11,8 +11,6 @@
 namespace tbx
 {
     [[serializable]];
-    [[icon("Camera", Color::GREEN)]];
-    [[viewport_icon("Camera", Color::GREEN)]];
     class TBX_API Camera : public Component
     {
       public:

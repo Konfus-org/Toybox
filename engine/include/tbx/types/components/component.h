@@ -19,9 +19,6 @@ namespace tbx
     /// Thread Safety: Safe to copy between threads; synchronize shared mutation externally.
     struct TBX_API Component
     {
-        [[readonly]]
-        [[hidden]]
-        [[description("Stable identity of this component. Assigned by the engine.")]]
         Uuid id = Uuid::generate();
 
         /// @brief
@@ -30,8 +27,6 @@ namespace tbx
         /// Ownership: Value type. Hidden from the property grid — the inspector exposes it as the toggle in
         /// the component header rather than as an ordinary row.
         /// Thread Safety: Safe to read concurrently; synchronize mutation externally.
-        [[hidden]]
-        [[description("Whether this component is active. Disabled components are skipped by their systems.")]]
         bool is_enabled = true;
     };
 
@@ -48,15 +43,9 @@ namespace tbx
         // Copies a live component value from one registry into another without going through JSON, so an
         // EntityRegistry can absorb entities from another registry directly (see EntityRegistry::absorb).
         std::function<bool(const void*, entt::registry&, entt::entity)> copy_value = {};
-        // Editor metadata carried over from the serializable registration: the component's [[tbx::icon]]
-        // and a describe(include_attributes) thunk that serializes a default instance (the editor's source
-        // of a component's property schema, defaults and attributes). See SerializableTypeRegistration.
-        std::string icon = {};
-        std::string icon_color = {};
-        // The component's [[tbx::viewport_icon]] — the icon the editor billboards at the entity's
-        // position in editor viewports (empty for non-billboarded components).
-        std::string viewport_icon = {};
-        std::string viewport_icon_color = {};
+        // A describe(include_attributes) thunk carried over from the serializable registration: it
+        // serializes a default instance (the editor's source of a component's property schema,
+        // defaults and attributes). See SerializableTypeRegistration.
         std::function<std::string(bool)> describe = {};
     };
 
@@ -130,10 +119,6 @@ namespace tbx
                         return false;
                     }
                 },
-                .icon = registration.icon,
-                .icon_color = registration.icon_color,
-                .viewport_icon = registration.viewport_icon,
-                .viewport_icon_color = registration.viewport_icon_color,
                 .describe = registration.describe,
             });
         return true;

@@ -8,8 +8,12 @@
 #include "tbx/systems/physics/settings.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
+#include "tbx/types/typedefs.h"
+#include "tbx/types/uuid.h"
+#include "tbx/types/vectors.h"
 #include <future>
 #include <memory>
+#include <vector>
 
 namespace tbx
 {
@@ -52,6 +56,15 @@ namespace tbx
 
       public:
         RaycastResult raycast(const RaycastQuery& raycast_query) const;
+
+        /// @brief Returns the wireframe triangles of the entity's backend collider shape — three
+        /// shape-local vertices per triangle, any baked scale included: the cooked shape the
+        /// simulation actually uses (e.g. a convex mesh collider's hull), for debug drawing. Empty
+        /// when the entity has no physics body yet or the backend cannot produce geometry.
+        /// Main-thread only; joins the in-flight simulation step (like raycast), so cache the result
+        /// rather than querying per frame.
+        std::vector<Vec3> get_shape(const Uuid& entity_id) const;
+
         void update(const DeltaTime& dt, const PhysicsSettings& settings);
 
         /// @brief Abandons the in-flight simulation step and destroys every backend body, so the
@@ -63,6 +76,7 @@ namespace tbx
       private:
         void clear_resources();
         static PhysicsBackendSettings get_backend_settings(const PhysicsSettings& settings);
+        void process_contact_events(const std::vector<std::shared_ptr<World>>& worlds);
         void process_trigger_colliders(World& world);
         void sync_entities_to_backend(World& world, float dt_seconds);
         void sync_backend_to_entities(World& world);
@@ -104,6 +118,8 @@ namespace tbx
         std::unordered_map<Uuid, EntityRecordPtr> _records_by_entity = {};
         // Reused across frames so the read-back pass does no per-frame heap allocation.
         std::vector<SyncReadback> _sync_readback = {};
+        // Reused across frames so the contact drain does no per-frame heap allocation.
+        std::vector<PhysicsContactEvent> _contact_events = {};
         std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
         std::unordered_set<Uuid> _pending_model_reloads = {};

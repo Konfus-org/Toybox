@@ -19,7 +19,16 @@ if(NOT TARGET SDL3::SDL3-shared)
         GIT_SHALLOW TRUE
         SYSTEM)
     FetchContent_MakeAvailable(SDL)
-    set_target_properties(SDL3-shared PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
+
+    # SDL treats a GNU-style clang driver as having a GNU linker and passes ld-only flags;
+    # lld-link ignores them with warnings, so drop them from the shared lib link line.
+    if(WIN32 AND NOT MSVC)
+        get_target_property(_sdl_link_options SDL3-shared LINK_OPTIONS)
+        if(_sdl_link_options)
+            list(FILTER _sdl_link_options EXCLUDE REGEX "--(version-script|no-undefined)")
+            set_target_properties(SDL3-shared PROPERTIES LINK_OPTIONS "${_sdl_link_options}")
+        endif()
+    endif()
 endif()
 
 tbx_add_plugin(

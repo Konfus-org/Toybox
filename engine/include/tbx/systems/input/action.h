@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/systems/input/action.generated.h"
 #include "tbx/systems/time/delta_time.h"
 #include "tbx/types/vectors.h"
 
@@ -9,6 +10,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputKey : int
     {
         UNKNOWN = 0,
@@ -270,6 +272,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputMouseButton : int
     {
         UNKNOWN = 0,
@@ -285,6 +288,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputControllerButton : int
     {
         UNKNOWN = -1,
@@ -310,6 +314,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputControllerAxis : int
     {
         UNKNOWN = -1,
@@ -326,6 +331,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputMouseVectorControl
     {
         POSITION,
@@ -337,6 +343,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type with no ownership semantics.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputMouseAxisControl
     {
         WHEEL,
@@ -347,9 +354,28 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API KeyboardInputControl
     {
         InputKey key = InputKey::UNKNOWN;
+    };
+
+    /// @brief
+    /// Purpose: Associates an action with a keyboard key plus an exact modifier combination (a
+    /// chord such as Ctrl+Shift+S). Unlike KeyboardInputControl, which ignores modifier state, a
+    /// chord only activates while the pressed modifiers match exactly, so editor-style shortcuts
+    /// never fire with extra modifiers held.
+    /// @details
+    /// Ownership: Value type with no dynamic ownership.
+    /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
+    struct TBX_API KeyChordInputControl
+    {
+        InputKey key = InputKey::UNKNOWN;
+        bool ctrl = false;
+        bool shift = false;
+        bool alt = false;
+        bool gui = false;
     };
 
     /// @brief
@@ -357,6 +383,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API MouseButtonInputControl
     {
         InputMouseButton button = InputMouseButton::UNKNOWN;
@@ -367,6 +394,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API MouseVectorInputControl
     {
         InputMouseVectorControl control = InputMouseVectorControl::DELTA;
@@ -377,6 +405,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API MouseAxisInputControl
     {
         InputMouseAxisControl control = InputMouseAxisControl::WHEEL;
@@ -387,6 +416,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API ControllerButtonInputControl
     {
         int controller_index = -1;
@@ -398,6 +428,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API ControllerAxisInputControl
     {
         int controller_index = -1;
@@ -409,6 +440,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API ControllerStickInputControl
     {
         int controller_index = -1;
@@ -421,6 +453,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with no dynamic ownership.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     struct TBX_API KeyboardVector2CompositeInputControl
     {
         InputKey up = InputKey::UNKNOWN;
@@ -434,8 +467,10 @@ namespace tbx
     /// @details
     /// Ownership: Value type; callers own copied values.
     /// Thread Safety: Safe for concurrent read access to immutable instances.
+    [[serializable]];
     using InputControl = std::variant<
         KeyboardInputControl,
+        KeyChordInputControl,
         MouseButtonInputControl,
         MouseVectorInputControl,
         MouseAxisInputControl,
@@ -449,6 +484,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type; owns copied control values.
     /// Thread Safety: Not thread-safe for concurrent mutation.
+    [[serializable]];
     struct TBX_API InputBinding
     {
         /// @brief
@@ -499,6 +535,7 @@ namespace tbx
     /// @details
     /// Ownership: Enum value type.
     /// Thread Safety: Safe for concurrent use.
+    [[serializable]];
     enum class InputActionValueType
     {
         BUTTON,
@@ -511,9 +548,14 @@ namespace tbx
     /// @details
     /// Ownership: Owns bindings and callback lists.
     /// Thread Safety: Not thread-safe; mutate/query from a synchronized context.
+    /// Serialization: The action's identity (name, value type, bindings) round-trips; callbacks
+    /// and runtime state (value, active flag, held time) are runtime-only and settle on the first
+    /// InputManager::update after deserialization.
+    [[serializable]];
     class TBX_API InputAction
     {
       public:
+        InputAction() = default;
         InputAction(std::string action_name, InputActionValueType value_type);
         InputAction(
             std::string action_name,
@@ -551,15 +593,29 @@ namespace tbx
         void add_on_performed_callback(InputActionCallback callback);
         void add_on_cancelled_callback(InputActionCallback callback);
 
+        /// @brief
+        /// Purpose: Drops every registered lifecycle callback — how a script detaches its behavior
+        /// from a data-driven action (e.g. before its plugin unloads) without disturbing the
+        /// action's bindings.
+        /// @details
+        /// Ownership: Releases the stored callables.
+        /// Thread Safety: Not thread-safe; call from the same synchronized context as updates.
+        void clear_callbacks();
+
         void apply_value(const InputActionValue& value, const DeltaTime& delta_time);
 
       private:
+        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
+
         void invoke_on_start() const;
         void invoke_on_performed() const;
         void invoke_on_cancelled() const;
 
+        [[serialize]]
         std::string _name = {};
+        [[serialize]]
         InputActionValueType _value_type = InputActionValueType::BUTTON;
+        [[serialize]]
         std::vector<InputBinding> _bindings = {};
         InputActionValue _value = false;
         bool _is_active = false;

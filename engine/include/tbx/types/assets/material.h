@@ -163,7 +163,6 @@ namespace tbx
 
         std::string name = "";
 
-        [[asset("png", "jpg", "jpeg", "tga", "bmp")]]
         Handle texture = {};
     };
 
@@ -282,7 +281,6 @@ namespace tbx
     /// config by value. Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
     [[version(1U)]];
-    [[extension("mat")]];
     struct TBX_API Material : Asset
     {
         MaterialType type = MaterialType::RASTER;

@@ -2,12 +2,12 @@
 
 namespace tbx::studio_bridge
 {
-    class AssetOps;
+    struct EngineServices;
     class RpcRegistrar;
-    class WorldManager;
+    struct ViewState;
 
     /// @brief Registers the asset.* (and asset-facing editor.*) RPC methods. The catalog ops are served
-    /// by AssetOps; the model-slot and preview-material queries stay on the WorldManager.
+    /// by the asset_ops free functions; the preview-material query lives in world_ops.
     void register_asset_handlers(
-        const RpcRegistrar& registrar, AssetOps& asset_ops, WorldManager& world_manager);
+        const RpcRegistrar& registrar, const EngineServices& services, ViewState& views);
 }

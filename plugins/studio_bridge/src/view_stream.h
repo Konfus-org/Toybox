@@ -29,11 +29,11 @@ namespace tbx::studio_bridge
     /// (`view`) the engine renders as an ExternalCamera into a dedicated render texture that is a
     /// shared GPU surface the editor samples directly (zero copy, no readback). Derived structs add
     /// only what their kind needs (EditorViewStream / GameViewStream / AssetPreviewViewStream). The
-    /// forwarded viewport input lives off the stream, in the ViewManager's per-view ViewInput.
+    /// forwarded viewport input lives off the stream, in the ViewState's per-view ViewInput.
     /// @details
     /// Ownership: Owns its render texture + the id of the external camera it registered with the engine.
     /// The shared GPU texture itself is owned by the graphics backend (keyed by texture id) and torn
-    /// down on the render lane. Thread Safety: mutated on the main thread under the view-manager lock;
+    /// down on the render lane. Thread Safety: mutated on the main thread under the ViewState lock;
     /// the surface fields are also read on the render lane (present callback) under that lock.
     struct ViewStream
     {
@@ -64,7 +64,7 @@ namespace tbx::studio_bridge
 
     /// @brief
     /// Purpose: A game view — mirrors the live game camera; while playing, its forwarded input (held in
-    /// the ViewManager's ViewInput) is fed into the engine input system.
+    /// the ViewState's ViewInput) is fed into the engine input system.
     struct GameViewStream : ViewStream
     {
     };

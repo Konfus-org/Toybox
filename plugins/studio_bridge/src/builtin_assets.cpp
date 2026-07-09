@@ -39,7 +39,7 @@ namespace tbx::studio_bridge::builtin
     const std::vector<tbx::Handle>& assets()
     {
         // Handles by path; the registry resolves each to its real id when the asset is registered (see
-        // WorldManager::list_assets). Order is irrelevant — the editor matches them by name.
+        // asset_ops' list_assets). Order is irrelevant — the editor matches them by name.
         static const std::vector<tbx::Handle> handles = {
             tbx::Handle("PreviewMetal.mat"),
             tbx::Handle("PreviewMatte.mat"),

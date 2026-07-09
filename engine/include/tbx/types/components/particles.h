@@ -11,10 +11,8 @@ namespace tbx
     [[serializable]];
     struct Particles
     {
-        [[asset("mat")]]
         Handle material;
 
-        [[asset("fbx", "obj", "gltf", "glb")]]
         Handle model;
     };
 }

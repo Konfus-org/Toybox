@@ -6,7 +6,8 @@ namespace tbx
         requires std::derived_from<TAsset, Asset>
     void SerializationRegistry::register_loader(
         Loader<TAsset> loader,
-        AsyncLoader<TAsset> async_loader)
+        AsyncLoader<TAsset> async_loader,
+        PathClaim path_claim)
     {
         TBX_ASSERT(
             static_cast<bool>(loader) || static_cast<bool>(async_loader),
@@ -17,6 +18,7 @@ namespace tbx
         auto& registration = get_or_create_registration<TAsset>();
         registration.loader = std::move(loader);
         registration.async_loader = std::move(async_loader);
+        registration.path_claim = std::move(path_claim);
     }
 
     template <typename TAsset>
@@ -30,6 +32,7 @@ namespace tbx
 
         registration->get().loader = {};
         registration->get().async_loader = {};
+        registration->get().path_claim = {};
         erase_registration_if_empty<TAsset>();
     }
 
@@ -475,7 +478,7 @@ namespace tbx
 
         const auto& registration = static_cast<const Registration<TAsset>&>(*iterator->second);
         if (registration.loader || registration.async_loader || !registration.transformers.empty()
-            || registration.writer)
+            || registration.writer || registration.path_claim)
             return;
 
         _registrations.erase(iterator);

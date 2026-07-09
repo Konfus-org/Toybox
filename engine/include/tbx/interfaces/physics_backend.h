@@ -101,6 +101,21 @@ namespace tbx
         Vec3 angular_velocity = Vec3(0.0F, 0.0F, 0.0F);
     };
 
+    enum class PhysicsContactPhase
+    {
+        BEGIN = 0,
+        END = 1,
+    };
+
+    struct PhysicsContactEvent
+    {
+        PhysicsRigidbodyHandle rigidbody_a = {};
+        PhysicsRigidbodyHandle rigidbody_b = {};
+        Vec3 position = Vec3(0.0F, 0.0F, 0.0F);
+        Vec3 normal = Vec3(0.0F, 0.0F, 0.0F);
+        PhysicsContactPhase phase = PhysicsContactPhase::BEGIN;
+    };
+
     struct PhysicsRaycastHit
     {
         bool has_hit = false;
@@ -130,6 +145,14 @@ namespace tbx
 
         virtual void update(const PhysicsBackendSettings& settings, const DeltaTime& dt) = 0;
 
+        /// @brief
+        /// Purpose: Moves all contact events buffered since the last drain into `out_events`
+        /// (appending) and clears the internal buffer.
+        /// @details
+        /// Ownership: Appends value events into caller-owned storage.
+        /// Thread Safety: Must only be called while no simulation step is in flight.
+        virtual void drain_contact_events(std::vector<PhysicsContactEvent>& out_events) = 0;
+
         virtual bool raycast(
             const RaycastQuery& raycast_query,
             PhysicsRigidbodyHandle ignored_rigidbody,
@@ -141,6 +164,21 @@ namespace tbx
         virtual void update_collider(
             PhysicsColliderHandle collider,
             const PhysicsColliderCreateInfo& update_info) = 0;
+
+        /// @brief
+        /// Purpose: Appends the collider's wireframe triangles — three shape-local vertices per
+        /// triangle, any baked scale included — into `out_triangle_vertices`. This is the cooked
+        /// shape the simulation actually uses (e.g. the convex hull built for a convex mesh
+        /// collider), for debug drawing. Returns false when the backend cannot produce geometry
+        /// for the shape; backends without debug geometry keep this default.
+        /// @details
+        /// Ownership: Appends value vertices into caller-owned storage.
+        /// Thread Safety: Must only be called while no simulation step is in flight.
+        virtual bool get_shape(
+            PhysicsColliderHandle /*collider*/, std::vector<Vec3>& /*out_triangle_vertices*/) const
+        {
+            return false;
+        }
 
         virtual PhysicsRigidbodyHandle create_rigidbody(
             const PhysicsRigidbodyCreateInfo& create_info) = 0;

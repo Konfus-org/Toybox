@@ -15,6 +15,16 @@
 
 namespace assimp_model_loader
 {
+    // The model container formats this loader claims when the engine resolves a file path to an
+    // asset type. Claim-only knowledge: an explicit load<Model> on any other extension still
+    // reaches read_model, which lets Assimp inspect the bytes and fail with its own diagnostic.
+    static bool is_supported_model_file(const std::filesystem::path& asset_path)
+    {
+        const auto extension = tbx::to_lower(asset_path.extension().string());
+        return extension == ".fbx" || extension == ".obj" || extension == ".gltf"
+               || extension == ".glb";
+    }
+
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         const char* reason)
@@ -360,7 +370,10 @@ namespace assimp_model_loader
                     })
                 .share();
         };
-        registry->register_loader<tbx::Model>(read_model, std::move(async_loader));
+        registry->register_loader<tbx::Model>(
+            read_model,
+            std::move(async_loader),
+            is_supported_model_file);
     }
 
     void AssimpModelLoader::on_detach()

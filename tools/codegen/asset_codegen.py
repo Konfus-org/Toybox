@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from model import Field, SerializableType, cpp_string, find_attr, json_key, sanitized_name
+from model import Field, SerializableType, cpp_string, json_key, sanitized_name
 from struct_codegen import (
     attribute_descriptor_literal,
     emit_json_function_declarations,
@@ -16,15 +16,6 @@ def emit_asset_type_registration_declarations(type_info: SerializableType) -> li
 
 
 def emit_asset_type_registration(type_info: SerializableType, version: str) -> list[str]:
-    # [[tbx::extension("mat", ...)]] declares the file extensions this asset type owns, baked into the
-    # registration so the editor/registry resolve a path → type with no hard-coded switch.
-    extension_attr = find_attr(type_info.attrs, "extension")
-    extensions = extension_attr.args if extension_attr is not None else []
-    extensions_arg = (
-        f", std::vector<std::string> {{ {', '.join(cpp_string(e) for e in extensions)} }}"
-        if extensions
-        else ""
-    )
     return [
         f"std::true_type has_asset_serialization(const {type_info.name}*)",
         "{",
@@ -32,7 +23,7 @@ def emit_asset_type_registration(type_info: SerializableType, version: str) -> l
         "}",
         "TBX_SERIALIZATION_AUTO_REGISTER(",
         "    tbx_asset_type_registration_,",
-        f"    ::tbx::register_asset_type<{type_info.name}>({version}{extensions_arg}));",
+        f"    ::tbx::register_asset_type<{type_info.name}>({version}));",
         "",
     ]
 
@@ -52,7 +43,7 @@ def emit_asset_body(type_info: SerializableType, version: str, fields: list[Fiel
             "    return {};",
             "}",
         ]
-        + emit_json_function_definitions(type_info, fields)
+        + emit_json_function_definitions(type_info, fields, force_keyed=True)
         + [
             "TBX_SERIALIZATION_AUTO_REGISTER(",
             "    tbx_asset_body_registration_,",

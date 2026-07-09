@@ -68,19 +68,10 @@ namespace tbx
         std::function<std::string(const void*)> write_value = {};
         std::function<bool(std::string_view, void*)> read_value = {};
 
-        // Editor metadata, all derived from codegen so no separate type-reflection registry is
-        // needed.
-        // icon/icon_color come from the type's [[tbx::icon]]. describe(include_attributes) serializes a
-        // default-constructed instance — lean (every field) when false, or attribute-enriched when true — giving the editor a type's full property schema (defaults,
-        // attributes, nested types, choices) without a live instance. Empty/null when the type is
-        // not default-constructible.
-        std::string icon = {};
-        std::string icon_color = {};
-        // viewport_icon/viewport_icon_color come from the type's [[tbx::viewport_icon]] — the icon the
-        // editor billboards at the entity's position in the 3D viewport (empty for non-billboarded
-        // types).
-        std::string viewport_icon = {};
-        std::string viewport_icon_color = {};
+        // describe(include_attributes) serializes a default-constructed instance — lean (every
+        // field) when false, or attribute-enriched when true — giving the editor a type's full
+        // property schema (defaults, attributes, nested types, choices) without a live instance.
+        // Empty/null when the type is not default-constructible.
         std::function<std::string(bool)> describe = {};
     };
 
@@ -95,11 +86,6 @@ namespace tbx
         std::string type_name = {};
         std::type_index type = std::type_index(typeid(void));
         uint32 version = 0U;
-        // The file extensions (no leading dot, lower-case) this asset type owns, declared via
-        // [[tbx::extension("mat", ...)]]. Lets the editor/registry resolve a path to its registered
-        // type without a hard-coded switch — see get_asset_type_registration_for_extension. Empty for
-        // types that aren't matched by file extension (resolved by a polymorphic meta "type" instead).
-        std::vector<std::string> extensions = {};
         std::function<std::unique_ptr<Asset>()> create_asset = {};
         std::function<Result(std::string_view, void*)> read_body = {};
         std::function<Result(const void*, std::string&)> write_body = {};
@@ -120,8 +106,7 @@ namespace tbx
         // write_body across a module boundary under scopes entered elsewhere silently falls back to
         // the lean form. Set by the type's registering module (e.g. a scripts plugin) for body
         // asset types; null when unavailable. Lets the editor describe a plugin-owned asset's
-        // schema (a script's overridable fields and their handle asset-type filters) without a live
-        // instance.
+        // schema (a script's overridable fields and their type tokens) without a live instance.
         std::function<std::string(bool)> describe = {};
         // True when this asset type is a script (in any language). Lets the editor build a script
         // catalog without knowing how any backend runs scripts.
@@ -131,11 +116,6 @@ namespace tbx
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(
         std::string_view type_name);
-    // Resolves the asset type that owns a file extension (with or without a leading dot, any case),
-    // declared via [[tbx::extension(...)]]. Null when no registered type claims the extension. The
-    // single data-driven path→type mapping the editor and registry use instead of hard-coded switches.
-    TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration_for_extension(
-        std::string_view extension);
     TBX_API void unregister_asset_type_entry(std::type_index asset_type);
     TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
     TBX_API std::vector<AssetTypeRegistration> get_asset_type_registrations();
@@ -798,9 +778,9 @@ namespace tbx
     // <value> }. A [[prop]] std::variant carries the token "variant" with its value being the
     // variant's own { "type", "value" } alternative (see get_property_type_token); the reader takes
     // the wrapper's "value" and lets read_serialization_value interpret it by the field's static
-    // type. Editor metadata (category/description/view/readonly/hidden, value-type icons) is not
-    // written here on the persistence path; attribute serialization (see
-    // AttributeSerializationScope) folds it in inline when requested.
+    // type. Structural metadata (nested type, declaration order, enum choices) is not written here
+    // on the persistence path; attribute serialization (see AttributeSerializationScope) folds it
+    // in inline when requested.
     inline constexpr std::string_view PROPERTY_TYPE_KEY = "type";
     inline constexpr std::string_view PROPERTY_VALUE_KEY = "value";
 
@@ -835,86 +815,22 @@ namespace tbx
     // Serializable type metadata
     //
     // There is no separate reflection registry. The code generator bakes each [[prop]] field's
-    // editor metadata (type token, nested type, category/description/view, readonly/hidden, enum
-    // choices) into the generated serialize, which emits it inline next to the value under
+    // structural metadata (type token, nested type, declaration order, enum choices) into the
+    // generated serialize, which emits it inline next to the value under
     // AttributeSerializationScope. The editor reads a type's full schema by serializing a
     // default-constructed instance with attributes on (SerializableTypeRegistration::describe);
-    // property get/set/reset go through the type's own serialize/deserialize. The icon ADL hook
-    // below is the one piece resolved by static type.
+    // property get/set/reset go through the type's own serialize/deserialize.
     // ---------------------------------------------------------------------------------------------------
 
-    /// @brief The editor icon a type advertises through its [[tbx::icon]] attribute. Empty for the common
-    /// (un-iconed) type.
-    struct PropertyTypeIcon
-    {
-        std::string_view name = {};
-        std::string_view color = {};
-    };
-
-    // ADL hook the code generator specialises per iconed type. The variadic catch-all keeps every
-    // other type icon-less; overload resolution prefers the generated `const TValue*` overload when
-    // present.
-    inline PropertyTypeIcon property_type_icon(...)
-    {
-        return {};
-    }
-
-    // ADL hook for the viewport billboard icon ([[tbx::viewport_icon]]), separate from the inspector
-    // icon so a component can show a different glyph (or none) in the 3D viewport. Same catch-all
-    // pattern: types without the attribute get an empty icon.
-    inline PropertyTypeIcon property_type_viewport_icon(...)
-    {
-        return {};
-    }
-
-    /// @brief Resolves the editor icon for a type via the generated property_type_icon
-    /// overloads. Unwraps Observable like get_property_type_token so a wrapped type reports its
-    /// inner type's icon.
-    template <typename TValue>
-    static PropertyTypeIcon get_property_type_icon()
-    {
-        using Clean = std::remove_cvref_t<TValue>;
-        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
-            return get_property_type_icon<typename PropertyValueType<Clean>::type>();
-        else
-            return property_type_icon(static_cast<const Clean*>(nullptr));
-    }
-
-    /// @brief Resolves the in-viewport billboard icon for a type via the generated
-    /// property_type_viewport_icon overloads. Mirrors get_property_type_icon.
-    template <typename TValue>
-    static PropertyTypeIcon get_property_type_viewport_icon()
-    {
-        using Clean = std::remove_cvref_t<TValue>;
-        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
-            return get_property_type_viewport_icon<typename PropertyValueType<Clean>::type>();
-        else
-            return property_type_viewport_icon(static_cast<const Clean*>(nullptr));
-    }
-
-    /// @brief Editor metadata for one [[prop]] field, baked into the generated serialize and
-    /// emitted inline (next to the value) only when attribute serialization is on. The type token,
-    /// nested type
-    /// name, and enum choices are derived from the field's static type; the rest come from its
-    /// [[tbx::category/description/view]] / [[tbx::readonly/hidden]] attributes. Holds string_views into generated string literals — never owns storage.
+    /// @brief Structural metadata for one [[prop]] field, baked into the generated serialize and
+    /// emitted inline (next to the value) only when attribute serialization is on. The type token
+    /// and enum choices are derived from the field's static type. Holds string_views into generated
+    /// string literals — never owns storage.
     struct PropertyAttributeInfo
     {
-        std::string_view category = {};
-        std::string_view description = {};
-        std::string_view view = {};
-        // A display name for the editor, from [[tbx::label]], overriding the humanized field key without
-        // changing the serialized key (e.g. a "material" handle shown as "Base").
-        std::string_view label = {};
         // The wire name of the field's (unwrapped) type, e.g. "quat" for a quaternion rotation that
         // shares the structural "vec4" token. The editor uses it to disambiguate such types.
         std::string_view nested = {};
-        // Explicit editor choices baked from an attribute (a handle's asset-type filter from
-        // [[tbx::asset("mat", ...)]]), as opposed to the enum choices derived from the static type. When
-        // present these win over the type-derived choices on the attribute-serialization path, so the editor's handle picker can restrict its asset chooser to the listed types. Holds
-        // views into generated string literals — never owns storage.
-        std::vector<std::string_view> choices = {};
-        bool readonly = false;
-        bool hidden = false;
         // The field's declaration index within its struct. The serialized JSON object stores keys
         // in alphabetical order, losing source order; the editor sorts by this to present fields as
         // declared.
@@ -1128,28 +1044,9 @@ namespace tbx
             attribute_node["order"] = attributes.order;
             if (!attributes.nested.empty())
                 attribute_node["nested"] = std::string(attributes.nested);
-            if (!attributes.category.empty())
-                attribute_node["category"] = std::string(attributes.category);
-            if (!attributes.description.empty())
-                attribute_node["description"] = std::string(attributes.description);
-            if (!attributes.view.empty())
-                attribute_node["view"] = std::string(attributes.view);
-            if (!attributes.label.empty())
-                attribute_node["label"] = std::string(attributes.label);
-            if (attributes.readonly)
-                attribute_node["readonly"] = true;
-            if (attributes.hidden)
-                attribute_node["hidden"] = true;
-            // Attribute-baked choices (a handle's asset-type filter) take precedence; otherwise
-            // fall back to the choices derived from the static type (an enum's enumerator names).
-            if (!attributes.choices.empty())
-            {
-                auto choices_node = TJson::array();
-                for (const auto& choice : attributes.choices)
-                    choices_node.push_back(std::string(choice));
-                attribute_node["choices"] = std::move(choices_node);
-            }
-            else if (auto choices = get_property_choices<TValue>(); !choices.empty())
+            // Choices derived from the static type (an enum's enumerator names) render as a
+            // dropdown in the editor.
+            if (auto choices = get_property_choices<TValue>(); !choices.empty())
             {
                 auto choices_node = TJson::array();
                 for (const auto& choice : choices)
@@ -1291,10 +1188,6 @@ namespace tbx
             .type_name =
                 std::string(serialization_type_name(static_cast<const TValue*>(nullptr))),
             .type = std::type_index(typeid(TValue)),
-            .icon = std::string(get_property_type_icon<TValue>().name),
-            .icon_color = std::string(get_property_type_icon<TValue>().color),
-            .viewport_icon = std::string(get_property_type_viewport_icon<TValue>().name),
-            .viewport_icon_color = std::string(get_property_type_viewport_icon<TValue>().color),
         };
 
         // write_value is the canonical serializer (it routes through the generated serialize, which
@@ -1355,8 +1248,7 @@ namespace tbx
     }
 
     template <typename TAsset>
-    static AssetTypeRegistration make_asset_type_registration(
-        uint32 version, std::vector<std::string> extensions = {})
+    static AssetTypeRegistration make_asset_type_registration(uint32 version)
     {
         // Every asset registration starts with the same stable type name, runtime C++ type, and
         // factory. Specialized registrations append body/meta/runtime callbacks below.
@@ -1365,7 +1257,6 @@ namespace tbx
                 std::string(serialization_type_name(static_cast<const TAsset*>(nullptr))),
             .type = std::type_index(typeid(TAsset)),
             .version = version,
-            .extensions = std::move(extensions),
             .create_asset =
                 []
             {
@@ -1398,10 +1289,9 @@ namespace tbx
     }
 
     template <typename TAsset>
-    static bool register_asset_type(uint32 version, std::vector<std::string> extensions = {})
+    static bool register_asset_type(uint32 version)
     {
-        register_asset_type_entry(
-            make_asset_type_registration<TAsset>(version, std::move(extensions)));
+        register_asset_type_entry(make_asset_type_registration<TAsset>(version));
         return true;
     }
 

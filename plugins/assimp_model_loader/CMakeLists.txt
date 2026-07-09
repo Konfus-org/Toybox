@@ -16,10 +16,6 @@ if(NOT TARGET assimp::assimp)
         GIT_SHALLOW TRUE
         SYSTEM)
     FetchContent_MakeAvailable(assimp)
-    set_target_properties(assimp PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
-    if(TARGET zlibstatic)
-        set_target_properties(zlibstatic PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
-    endif()
 endif()
 
 tbx_add_plugin(

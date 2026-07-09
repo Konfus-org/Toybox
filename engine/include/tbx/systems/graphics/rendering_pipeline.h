@@ -3,6 +3,7 @@
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/interfaces/window_manager.h"
 #include "tbx/systems/assets/manager.h"
+#include "tbx/systems/graphics/render_debug_view.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/world/manager.h"
 #include "tbx/systems/graphics/settings.h"
@@ -78,6 +79,13 @@ namespace tbx
                 void(IGraphicsBackend& backend, const RenderTarget& output_target, const Size& backbuffer_size)>
                 callback);
 
+        /// @brief
+        /// Purpose: Replaces the pipeline's debug view (render-stage override + post-processing
+        /// toggle, gated to cameras matching its tags). The default view is the normal frame.
+        /// @details
+        /// Thread Safety: Safe to call from any thread; each frame snapshots it under a lock.
+        void set_debug_view(RenderDebugView debug_view);
+
       private:
         void invoke_pre_present_callback(
             IGraphicsBackend& backend,
@@ -120,6 +128,10 @@ namespace tbx
         std::vector<std::unique_ptr<RenderPass>> _passes = {};
         std::mutex _pre_present_mutex = {};
         std::function<void(IGraphicsBackend&, const RenderTarget&, const Size&)> _pre_present_callback = {};
+        // The editor's debug view (see set_debug_view), snapshotted per frame under its own lock —
+        // written from the main thread while frames execute on the render lane.
+        std::mutex _debug_view_mutex = {};
+        RenderDebugView _debug_view = {};
         float _elapsed_time = 0.0F;
         uint64 _frame_index = 0U;
     };

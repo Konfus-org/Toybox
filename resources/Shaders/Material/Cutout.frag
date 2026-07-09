@@ -39,5 +39,5 @@ void main()
         normal = -normal;
     vec3 lit = tbx_shade_pbr(albedo.rgb, metallic, roughness, ao, normal, v_world_position, view_direction);
 
-    o_color = vec4(tbx_tonemap(lit), 1.0);
+    o_color = tbx_debug_stage_color(vec4(tbx_tonemap(lit), 1.0), albedo.rgb, normal, v_world_position);
 }

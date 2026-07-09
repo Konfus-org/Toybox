@@ -22,8 +22,6 @@ namespace tbx
     /// Ownership: Owns the material instance by value.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
     [[serializable]];
-    [[icon("CloudSun", Color::CYAN)]];
-    [[viewport_icon("CloudSun", Color::CYAN)]];
     struct TBX_API Sky : Component
     {
         Sky() = default;

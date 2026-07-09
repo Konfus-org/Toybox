@@ -20,11 +20,9 @@ from model import (
 
 
 # Toybox attributes live in the `tbx::` attribute namespace. Engine code (which is itself inside
-# `namespace tbx`) omits the scope and writes the bare name, e.g. [[prop]] / [[readonly]]; examples
-# and plugins write it out in full, e.g. [[tbx::prop]] / [[tbx::readonly]]. Both forms normalize to
-# the same bare captured name. Editor-only attributes (category, description, hidden, readonly, view)
-# share this namespace; their names never collide with a subsystem attribute, so no extra scope is
-# needed to disambiguate them.
+# `namespace tbx`) omits the scope and writes the bare name, e.g. [[serializable]] / [[serialize]];
+# examples and plugins write it out in full, e.g. [[tbx::serializable]] / [[tbx::serialize]]. Both
+# forms normalize to the same bare captured name.
 ATTRIBUTE_PATTERN = re.compile(
     r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
 )

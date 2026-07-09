@@ -35,6 +35,7 @@ if(NOT DEFINED FETCHCONTENT_BASE_DIR)
         "Location for FetchContent-vendored third-party sources")
 endif()
 include(FetchContent)
+include(third_party_warnings)
 
 # Includes and subdirectories
 add_subdirectory(resources)

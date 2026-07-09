@@ -78,7 +78,7 @@ namespace tbx
         void log_startup_environment(const CommandList& command_list) const;
         void start_parent_watchdog(const CommandList& command_list);
 
-        std::shared_ptr<AppSettings> load_app_settings(const Handle& settings_handle);
+        std::shared_ptr<AppSettings> load_setting(const Handle& settings_handle);
         std::vector<std::string> resolve_plugins(
             const std::vector<std::string>& settings_plugins,
             const std::vector<std::string>& command_plugins);

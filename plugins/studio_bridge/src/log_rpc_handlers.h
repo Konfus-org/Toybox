@@ -3,8 +3,8 @@
 namespace tbx::studio_bridge
 {
     class RpcRegistrar;
-    class LogBridge;
 
-    /// @brief Registers the logging editor RPC methods served by the LogBridge.
-    void register_log_handlers(const RpcRegistrar& registrar, LogBridge& log);
+    /// @brief Registers the log editor RPC methods (editor-originated lines + log colours), served
+    /// by the stateless log_ops functions.
+    void register_log_handlers(const RpcRegistrar& registrar);
 }

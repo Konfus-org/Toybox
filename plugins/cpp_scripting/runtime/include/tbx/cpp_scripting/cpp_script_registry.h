@@ -63,8 +63,8 @@ namespace tbx
         };
         // Describes the script's overridable fields as the editor's schema. Entering the scopes and
         // running the serialize together here (the script's own module) is what makes the per-module
-        // attribute thread-local line up, so a [[tbx::asset]] handle field's asset-type filter (its
-        // baked choices) reaches the editor's script-override pickers.
+        // attribute thread-local line up, so a field's type token and enum choices reach the
+        // editor's script-override widgets.
         entry.describe = [](bool include_attributes) -> std::string
         {
             const auto include_all = OmitDefaultFieldsScope(false);

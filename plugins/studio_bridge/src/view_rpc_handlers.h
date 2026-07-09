@@ -2,9 +2,11 @@
 
 namespace tbx::studio_bridge
 {
+    struct EngineServices;
     class RpcRegistrar;
-    class ViewManager;
+    struct ViewState;
 
-    /// @brief Registers the render-view editor RPC methods served by the ViewManager.
-    void register_view_handlers(const RpcRegistrar& registrar, ViewManager& views);
+    /// @brief Registers the render-view editor RPC methods served by the view_ops free functions.
+    void register_view_handlers(
+        const RpcRegistrar& registrar, const EngineServices& services, ViewState& views);
 }

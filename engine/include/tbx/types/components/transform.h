@@ -11,7 +11,6 @@ namespace tbx
     // Ownership: value type; callers own instances and should copy when sharing across systems.
     // Thread Safety: not inherently thread-safe; synchronize access when sharing instances.
     [[serializable]];
-    [[icon("Move3d", Color::BLUE)]];
     struct TBX_API Transform : Component
     {
         Transform();
@@ -30,19 +29,16 @@ namespace tbx
         // Local-space translation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[description("Local-space position, in metres.")]]
         Vec3 position = Vec3(0.0f);
 
         // Local-space rotation component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[description("Local-space rotation, as a quaternion.")]]
         Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);
 
         // Local-space scale component for the transform.
         // Ownership: stored by value inside the transform.
         // Thread Safety: synchronize external access when sharing instances.
-        [[description("Local-space scale multiplier per axis.")]]
         Vec3 scale = Vec3(1.0f);
     };
 

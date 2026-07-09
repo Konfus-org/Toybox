@@ -86,6 +86,14 @@ namespace tbx
         using Writer =
             std::function<Result(const std::filesystem::path& asset_path, const TAsset& asset)>;
 
+        // Claims a concrete file for a loader's asset type during type-erased path→type resolution
+        // (read_registered_asset_result). This keeps a loader's file-format knowledge inside the
+        // loader (an image loader claims .png/.jpg for Texture) instead of on the asset types. The
+        // claim is advisory only: typed loads (load<TAsset>) never gate on it — the loader itself
+        // validates the file content when asked to load, so an explicitly requested type loads
+        // whatever file it is handed or fails with the loader's own diagnostic.
+        using PathClaim = std::function<bool(const std::filesystem::path& asset_path)>;
+
       public:
         SerializationRegistry();
         explicit SerializationRegistry(std::weak_ptr<IFileOps> file_ops);
@@ -100,7 +108,10 @@ namespace tbx
       public:
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        void register_loader(Loader<TAsset> loader = {}, AsyncLoader<TAsset> async_loader = {});
+        void register_loader(
+            Loader<TAsset> loader = {},
+            AsyncLoader<TAsset> async_loader = {},
+            PathClaim path_claim = {});
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
@@ -175,6 +186,10 @@ namespace tbx
         struct RegistrationBase
         {
             virtual ~RegistrationBase() noexcept = default;
+
+            // Type-erased so path→type resolution can consult every registration without knowing
+            // its asset type; set alongside the loader in register_loader.
+            PathClaim path_claim = {};
         };
 
         template <typename TAsset>
@@ -205,6 +220,10 @@ namespace tbx
 
         static std::shared_future<Result> make_ready_future(Result result);
         static Result make_failed_result(std::string report);
+        // Resolves the registered type name of the loader claiming `asset_path` (via the path claim
+        // registered with its loader), or an empty string when no loader claims it.
+        std::string resolve_loader_claimed_type_name(
+            const std::filesystem::path& asset_path) const;
         static Result try_read_asset_common_meta(
             const Json& data,
             const std::filesystem::path& meta_path,

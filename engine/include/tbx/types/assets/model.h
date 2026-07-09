@@ -5,6 +5,8 @@
 #include "tbx/types/components/mesh.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/matrices.h"
+#include "tbx/types/ray.h"
+#include "tbx/types/vectors.h"
 
 namespace tbx
 {
@@ -49,7 +51,6 @@ namespace tbx
     /// Ownership: Owns mesh and slot data by value. Thread Safety: Safe to construct on any thread.
     [[serializable]];
     [[version(1U)]];
-    [[extension("fbx", "obj", "gltf", "glb")]];
     struct TBX_API Model : Asset
     {
         Model();
@@ -85,4 +86,38 @@ namespace tbx
     };
 
     ModelLoadParameters load_parameters_of(const Model&);
+
+    /// @brief
+    /// Purpose: Visits every drawn mesh of a model with the matrix it draws under: each part's mesh
+    /// under `root_matrix * part.transform` when the model has parts, otherwise every mesh at the
+    /// root — mirroring the renderer's placement rule so geometry queries and drawing can't disagree.
+    template <typename TCallback>
+    void for_each_model_mesh(const Model& model, const Mat4& root_matrix, TCallback&& callback)
+    {
+        if (!model.parts.empty())
+        {
+            for (const auto& part : model.parts)
+                if (part.mesh_index < model.meshes.size())
+                    callback(model.meshes[part.mesh_index], root_matrix * part.transform);
+        }
+        else
+        {
+            for (const auto& mesh : model.meshes)
+                callback(mesh, root_matrix);
+        }
+    }
+
+    /// @brief
+    /// Purpose: Nearest triangle-precise hit of a world-space ray against a model drawn under
+    /// `world_matrix` (geometry-precise picking). `out_distance` is in world units. Returns whether
+    /// the ray hits any of the model's triangles.
+    TBX_API bool ray_intersects_model(
+        const Ray& world_ray, const Model& model, const Mat4& world_matrix, float& out_distance);
+
+    /// @brief
+    /// Purpose: Expands [minimum, maximum] by the world-space corners of the model's valid mesh
+    /// bounds under `world_matrix`. Returns whether any mesh contributed; callers seed the extents
+    /// (float max / lowest) and treat a false return as "no bounds".
+    TBX_API bool expand_aabb_with_model(
+        const Model& model, const Mat4& world_matrix, Vec3& minimum, Vec3& maximum);
 }

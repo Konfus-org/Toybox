@@ -175,10 +175,6 @@ namespace tbx
                 existing->write_value = std::move(entry.write_value);
             if (entry.read_value)
                 existing->read_value = std::move(entry.read_value);
-            if (!entry.icon.empty())
-                existing->icon = std::move(entry.icon);
-            if (!entry.icon_color.empty())
-                existing->icon_color = std::move(entry.icon_color);
             if (entry.describe)
                 existing->describe = std::move(entry.describe);
             return;
@@ -191,7 +187,7 @@ namespace tbx
     // the components carry under attribute serialization. The components themselves are already attributed
     // by their own generated serialize (run under AttributeSerializationScope), so only the engine-managed
     // id — which is written lean by the envelope writer — needs reshaping here. The id is engine-assigned,
-    // hence read-only and never "default".
+    // hence never "default".
     static void enrich_entity_id(Json& json)
     {
         if (!json.is_object())
@@ -206,8 +202,6 @@ namespace tbx
         if (const auto type_iterator = id_node.find(std::string(PROPERTY_TYPE_KEY));
             type_iterator != id_node.end())
             attributes[std::string(PROPERTY_TYPE_KEY)] = *type_iterator;
-        attributes["readonly"] = true;
-        attributes["description"] = "Stable identity of this entity.";
 
         auto rebuilt = Json::object();
         if (const auto value_iterator = id_node.find(std::string(PROPERTY_VALUE_KEY));

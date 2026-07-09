@@ -4,7 +4,6 @@
 #include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include "tbx/types/assets/asset.h"
 #include <algorithm>
-#include <cctype>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -95,39 +94,6 @@ namespace tbx
         return *existing;
     }
 
-    std::optional<AssetTypeRegistration> get_asset_type_registration_for_extension(
-        std::string_view extension)
-    {
-        if (extension.empty())
-            return std::nullopt;
-
-        // Normalize to the stored form: no leading dot, lower-case.
-        if (extension.front() == '.')
-            extension.remove_prefix(1);
-        auto normalized = std::string(extension);
-        std::ranges::transform(
-            normalized,
-            normalized.begin(),
-            [](unsigned char character)
-            {
-                return static_cast<char>(std::tolower(character));
-            });
-
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        const auto& registrations = store.asset_types();
-        const auto existing = std::ranges::find_if(
-            registrations,
-            [&normalized](const AssetTypeRegistration& registered)
-            {
-                return std::ranges::contains(registered.extensions, normalized);
-            });
-        if (existing == registrations.end())
-            return std::nullopt;
-
-        return *existing;
-    }
-
     void unregister_asset_type_entry(std::type_index asset_type)
     {
         if (asset_type == std::type_index(typeid(void)))
@@ -176,8 +142,6 @@ namespace tbx
                 existing->type_name = std::move(entry.type_name);
             if (entry.version != 0U)
                 existing->version = entry.version;
-            if (!entry.extensions.empty())
-                existing->extensions = std::move(entry.extensions);
             if (entry.create_asset)
                 existing->create_asset = std::move(entry.create_asset);
             if (entry.read_body)

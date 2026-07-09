@@ -1,5 +1,5 @@
 #include "log_rpc_handlers.h"
-#include "log_bridge.h"
+#include "log_ops.h"
 #include "rpc_registrar.h"
 #include "wire.h"
 #include "tbx/interfaces/rpc_router.h"
@@ -7,21 +7,21 @@
 
 namespace tbx::studio_bridge
 {
-    void register_log_handlers(const RpcRegistrar& registrar, LogBridge& log)
+    void register_log_handlers(const RpcRegistrar& registrar)
     {
         registrar.add(
             Wire::EDITOR_LOG,
-            [&log](const tbx::Json& params, tbx::RpcResponder&)
+            [](const tbx::Json& params, tbx::RpcResponder&)
             {
                 // Notification from the editor: write its line into the engine's unified log. No
                 // response.
-                log.write_editor_log(params);
+                write_editor_log(params);
             });
         registrar.add(
             Wire::ENGINE_SET_LOG_COLORS,
-            [&log](const tbx::Json& params, tbx::RpcResponder& r)
+            [](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                log.set_log_colors(params);
+                set_log_colors(params);
                 r.result(tbx::Json::object());
             });
     }

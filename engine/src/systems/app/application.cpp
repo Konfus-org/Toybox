@@ -97,7 +97,7 @@ namespace tbx
             settings_path.empty()
                 ? Handle("Settings.json")
                 : Handle(std::filesystem::path(settings_path).lexically_normal().string());
-        _settings = load_app_settings(startup_settings_handle);
+        _settings = load_setting(startup_settings_handle);
         _name = _settings ? _settings->name : "Toybox App";
 
         //// INITIALIZE: LOAD PLUGINS ////
@@ -108,6 +108,16 @@ namespace tbx
 
         if (register_runtime_services(command_list) != 0)
             return -1;
+
+        //// INITIALIZE: LOAD INPUT MAPS ////
+
+        // Input maps load after the runtime services exist (the InputManager is one of them) and
+        // before plugins attach, so scripts find data-driven schemes ready for callbacks. The
+        // manager owns the feeding (and the replace-on-reapply bookkeeping); the app only hands it
+        // the settings' map list.
+        if (const auto input_manager = _input_manager.lock())
+            if (const auto asset_manager = _asset_manager.lock())
+                input_manager->apply_input_maps(*asset_manager, get_settings().input_maps);
 
         //// INITIALIZE: REGISTER MESSAGE HANDLERS ////
 
@@ -223,7 +233,7 @@ namespace tbx
                     // vsync, shadows, physics) is read fresh each frame from get_settings(), so it
                     // self-applies.
                     const auto previous = _settings ? *_settings : AppSettings();
-                    _settings = load_app_settings(startup_settings_handle);
+                    _settings = load_setting(startup_settings_handle);
                     _name = _settings ? _settings->name : "Toybox App";
                     apply_runtime_settings(previous, get_settings());
                 }
@@ -750,7 +760,7 @@ namespace tbx
         return resolved;
     }
 
-    std::shared_ptr<AppSettings> Application::load_app_settings(const Handle& settings_handle)
+    std::shared_ptr<AppSettings> Application::load_setting(const Handle& settings_handle)
     {
         const auto asset_manager = _asset_manager.lock();
         if (!asset_manager)
@@ -773,6 +783,15 @@ namespace tbx
         const AppSettings& previous,
         const AppSettings& current)
     {
+        // Input maps are consumed once (fed to the InputManager), so a changed map list re-feeds
+        // it. This must run even without a main window (e.g. hidden/editor-hosted runs).
+        if (previous.input_maps != current.input_maps)
+        {
+            if (const auto input_manager = _input_manager.lock())
+                if (const auto asset_manager = _asset_manager.lock())
+                    input_manager->apply_input_maps(*asset_manager, current.input_maps);
+        }
+
         const auto window_manager = _window_manager.lock();
         if (!window_manager || !window_manager->has_main_window())
             return;

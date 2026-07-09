@@ -91,5 +91,5 @@ void main()
     // Gentle translucent fill so the tips glow a touch and the lawn reads soft, not hard-lit.
     lit += grass * ambientLight.rgb * (along * 0.25);
 
-    o_color = vec4(tbx_tonemap(lit), 1.0);
+    o_color = tbx_debug_stage_color(vec4(tbx_tonemap(lit), 1.0), grass, normal, g_world_position);
 }

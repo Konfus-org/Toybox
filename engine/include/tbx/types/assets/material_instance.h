@@ -50,8 +50,6 @@ namespace tbx
         overrides.parameters,
         overrides.has_texture_override(),
         overrides.textures)]];
-    [[icon("Palette", Color::MAGENTA)]];
-    [[extension("mti")]];
     struct TBX_API MaterialInstance : Asset
     {
         MaterialInstance();
@@ -92,10 +90,8 @@ namespace tbx
         template <typename TValue>
         TValue get_parameter_or(const std::string& name, const TValue& fallback) const;
 
-        // The base material this instance derives from (a Material asset). Named the base in the
-        // editor; overrides layer on top of it.
-        [[label("Base")]]
-        [[asset("mat")]]
+        // The base material this instance derives from (a Material asset); overrides layer on top
+        // of it.
         Handle material = {};
 
         MaterialOverrides overrides = {};

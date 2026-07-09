@@ -38,5 +38,5 @@ void main()
     vec3 view_direction = normalize(cameraPositionTime.xyz - v_world_position);
     vec3 lit = tbx_shade_pbr(albedo, metallic, roughness, 1.0, normal, v_world_position, view_direction);
 
-    o_color = vec4(tbx_tonemap(lit), 1.0);
+    o_color = tbx_debug_stage_color(vec4(tbx_tonemap(lit), 1.0), albedo, normal, v_world_position);
 }

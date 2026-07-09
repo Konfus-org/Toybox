@@ -32,6 +32,10 @@ namespace tbx
 
         Handle icon = tbx::ToyboxIconTexture::HANDLE;
 
+        // Input map assets whose schemes are fed to the InputManager at startup (and re-fed on a
+        // live settings reload), so an app's keybindings are data instead of code.
+        std::vector<Handle> input_maps = {};
+
         std::string name = "Toybox App";
 
         std::vector<std::string> plugins = {

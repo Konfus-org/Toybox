@@ -225,6 +225,11 @@ namespace tbx
         _pipeline.set_pre_present_callback(std::move(callback));
     }
 
+    void Rendering::set_debug_view(RenderDebugView debug_view)
+    {
+        _pipeline.set_debug_view(std::move(debug_view));
+    }
+
     void Rendering::capture_screenshot(
         std::filesystem::path path,
         std::function<void(bool succeeded)> on_complete)

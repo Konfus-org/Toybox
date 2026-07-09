@@ -2,6 +2,7 @@
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
 #include "tbx/systems/debugging/macros.h"
+#include <Jolt/Geometry/AABox.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Collision/CastResult.h>
@@ -208,6 +209,7 @@ namespace jolt_physics
             get_broad_phase_layer_interface(),
             get_object_vs_broad_phase_layer_filter(),
             get_object_layer_pair_filter());
+        _physics_system.SetContactListener(&_contact_listener);
 
         _settings = settings;
         apply_settings(_settings);
@@ -219,6 +221,7 @@ namespace jolt_physics
         if (!_is_ready && !_temp_allocator && !_job_system)
             return;
 
+        _physics_system.SetContactListener(nullptr);
         clear_resources();
         _job_system.reset();
         _temp_allocator.reset();
@@ -245,6 +248,38 @@ namespace jolt_physics
             TBX_TRACE_WARNING(
                 "Jolt physics update reported error flags: {}",
                 static_cast<std::uint32_t>(update_error));
+        }
+    }
+
+    void JoltPhysicsBackend::drain_contact_events(std::vector<tbx::PhysicsContactEvent>& out_events)
+    {
+        _drained_contacts.clear();
+        _contact_listener.drain(_drained_contacts);
+
+        for (const auto& record : _drained_contacts)
+        {
+            // Bodies destroyed between the step and the drain no longer map to a rigidbody handle;
+            // their events are dropped.
+            const tbx::PhysicsRigidbodyHandle rigidbody_a =
+                try_get_rigidbody_for_body(record.body_a);
+            const tbx::PhysicsRigidbodyHandle rigidbody_b =
+                try_get_rigidbody_for_body(record.body_b);
+            if (!rigidbody_a.is_valid() || !rigidbody_b.is_valid())
+                continue;
+
+            // Sensor bodies report through the trigger overlap path. Contact removal callbacks
+            // carry no body flags, so trigger-only pairs are filtered here for both phases.
+            if (is_trigger_only_body(rigidbody_a) || is_trigger_only_body(rigidbody_b))
+                continue;
+
+            out_events.push_back(
+                tbx::PhysicsContactEvent {
+                    .rigidbody_a = rigidbody_a,
+                    .rigidbody_b = rigidbody_b,
+                    .position = to_tbx_vec3_from_rvec3(record.position),
+                    .normal = to_tbx_vec3(record.normal),
+                    .phase = record.phase,
+                });
         }
     }
 
@@ -325,6 +360,44 @@ namespace jolt_physics
             return;
 
         _colliders.erase(collider.value);
+    }
+
+    bool JoltPhysicsBackend::get_shape(
+        tbx::PhysicsColliderHandle collider, std::vector<tbx::Vec3>& out_triangle_vertices) const
+    {
+        const auto collider_it = _colliders.find(collider.value);
+        if (collider_it == _colliders.end() || collider_it->second.shape == nullptr)
+            return false;
+
+        // Stream the cooked shape's debug triangles (Jolt's own debug-render soup: a convex hull
+        // yields its hull faces, a mesh shape its triangles). Shape-local space, identity pose, unit
+        // scale — any entity scale was baked into the shape's source points at creation.
+        const JPH::Shape& shape = *collider_it->second.shape;
+        JPH::Shape::GetTrianglesContext context = {};
+        shape.GetTrianglesStart(
+            context,
+            JPH::AABox::sBiggest(),
+            JPH::Vec3::sZero(),
+            JPH::Quat::sIdentity(),
+            JPH::Vec3::sReplicate(1.0F));
+
+        const auto start_count = out_triangle_vertices.size();
+        constexpr int TRIANGLE_BATCH = 256; // >= Jolt's cGetTrianglesMinTrianglesRequested
+        std::vector<JPH::Float3> batch(static_cast<size>(TRIANGLE_BATCH) * 3U);
+        for (;;)
+        {
+            const int triangle_count =
+                shape.GetTrianglesNext(context, TRIANGLE_BATCH, batch.data());
+            if (triangle_count <= 0)
+                break;
+
+            for (int vertex = 0; vertex < triangle_count * 3; ++vertex)
+            {
+                const auto& point = batch[static_cast<size>(vertex)];
+                out_triangle_vertices.emplace_back(point.x, point.y, point.z);
+            }
+        }
+        return out_triangle_vertices.size() > start_count;
     }
 
     void JoltPhysicsBackend::update_collider(
@@ -588,6 +661,16 @@ namespace jolt_physics
 
         _colliders.clear();
         _rigidbody_by_body_key.clear();
+    }
+
+    bool JoltPhysicsBackend::is_trigger_only_body(tbx::PhysicsRigidbodyHandle rigidbody) const
+    {
+        const auto rigidbody_it = _rigidbodies.find(rigidbody.value);
+        if (rigidbody_it == _rigidbodies.end())
+            return false;
+
+        const auto collider_it = _colliders.find(rigidbody_it->second.collider.value);
+        return collider_it != _colliders.end() && collider_it->second.is_trigger_only;
     }
 
     tbx::PhysicsRigidbodyHandle JoltPhysicsBackend::try_get_rigidbody_for_body(

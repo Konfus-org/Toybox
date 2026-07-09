@@ -39,6 +39,15 @@
 #define TBX_SHADER_LIGHT_TYPE_SPOT 2u
 #define TBX_SHADER_LIGHT_TYPE_AREA 3u
 
+// The editor's render-stage debug view (debugStage in the scene uniforms): which pipeline
+// intermediate the material shaders output in place of the shaded color. KEEP IN SYNC with
+// tbx::RenderDebugStage in render_debug_view.h.
+#define TBX_DEBUG_STAGE_FINAL 0u
+#define TBX_DEBUG_STAGE_DIFFUSE 1u
+#define TBX_DEBUG_STAGE_NORMALS 2u
+#define TBX_DEBUG_STAGE_SHADOWS 3u
+#define TBX_DEBUG_STAGE_DEPTH 4u
+
 #define TBX_EPSILON 0.00001
 #define TBX_PI 3.14159265358979323846
 #define TBX_INV_PI 0.31830988618379067154
@@ -166,6 +175,7 @@ layout(std140, binding = TBX_SHADER_BINDING_SCENE_UNIFORMS) uniform TbxSceneUnif
     uint cascadeCount;
     uint maxSceneDrawCount;
     uint maxShadowDrawCount;
+    uint debugStage; // the editor's render-stage debug view (TBX_DEBUG_STAGE_*, 0 = final)
 };
 
 // Per-cascade caster matrix, bound only during the directional shadow caster sub-passes. The depth
@@ -750,4 +760,49 @@ vec3 tbx_shade_pbr(
         color += (diffuse + specular) * radiance * ndotl;
     }
     return color;
+}
+
+// Combined shadow visibility from every shadow-casting light (1 = fully lit, colored by translucent
+// directional casters) — the shadows-only debug stage's output.
+vec3 tbx_debug_shadow_visibility(vec3 world_position, vec3 n)
+{
+    vec3 visibility = vec3(1.0);
+    for (uint i = 0u; i < lightCount; ++i)
+    {
+        LightData light = lights[i];
+        uint type = uint(light.directionType.w);
+        if (type == TBX_SHADER_LIGHT_TYPE_DIRECTIONAL && light.shadowData.x >= 0.0)
+        {
+            vec3 l = tbx_light_direction(light, world_position);
+            visibility *= tbx_directional_shadow(world_position, n, l);
+        }
+        else if (light.shadowData.y >= 0.0)
+        {
+            visibility *= vec3(tbx_local_shadow(light, world_position, n));
+        }
+    }
+    return visibility;
+}
+
+// The editor's render-stage debug view: swaps the shaded output for one pipeline intermediate
+// (albedo / world normal / shadow visibility / view depth). Stage FINAL returns the shaded color
+// untouched, so material shaders can call this unconditionally as their last step. The debug
+// outputs are display-ready values — the pipeline disables post for non-final stages, and callers
+// must not tonemap the result again.
+vec4 tbx_debug_stage_color(vec4 final_color, vec3 albedo, vec3 normal, vec3 world_position)
+{
+    if (debugStage == TBX_DEBUG_STAGE_DIFFUSE)
+        return vec4(albedo, 1.0);
+    if (debugStage == TBX_DEBUG_STAGE_NORMALS)
+        return vec4(normalize(normal) * 0.5 + 0.5, 1.0);
+    if (debugStage == TBX_DEBUG_STAGE_SHADOWS)
+        return vec4(tbx_debug_shadow_visibility(world_position, normalize(normal)), 1.0);
+    if (debugStage == TBX_DEBUG_STAGE_DEPTH)
+    {
+        // Exponential falloff reads as a smooth near-white -> far-black gradient without needing
+        // the camera's clip planes.
+        float view_distance = length(world_position - cameraPositionTime.xyz);
+        return vec4(vec3(exp(-view_distance * 0.02)), 1.0);
+    }
+    return final_color;
 }

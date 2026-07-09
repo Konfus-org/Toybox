@@ -2,9 +2,11 @@
 
 namespace tbx::studio_bridge
 {
+    struct EngineServices;
     class RpcRegistrar;
-    class WorldManager;
+    struct ViewState;
 
-    /// @brief Registers the entity.* editor RPC methods served by the WorldManager.
-    void register_entity_handlers(const RpcRegistrar& registrar, WorldManager& world_manager);
+    /// @brief Registers the entity.* editor RPC methods served by the world_ops free functions.
+    void register_entity_handlers(
+        const RpcRegistrar& registrar, const EngineServices& services, ViewState& views);
 }

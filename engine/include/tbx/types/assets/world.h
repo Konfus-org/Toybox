@@ -5,6 +5,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/assets/world.generated.h"
+#include "tbx/types/components/transform.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
@@ -21,7 +22,6 @@ namespace tbx
     /// Purpose: Stores serialized spatial entities for one chunk asset.
     [[serializable]];
     [[version(1U)]];
-    [[extension("chunk")]];
     struct TBX_API WorldChunk : Asset
     {
         IVec3 coord = {};
@@ -33,7 +33,6 @@ namespace tbx
     /// Purpose: Stores global entities that stay resident for the full application lifetime.
     [[serializable]];
     [[version(1U)]];
-    [[extension("globals")]];
     struct TBX_API WorldGlobals : Asset
     {
         EntityRegistry entities = {};
@@ -43,7 +42,6 @@ namespace tbx
     /// Purpose: Gameplay-facing entity container backed by a plain world asset description.
     [[serializable]];
     [[version(1U)]];
-    [[extension("world")]];
     class TBX_API World : public Asset
     {
       public:
@@ -113,6 +111,11 @@ namespace tbx
         EntityRegistry _registry = {};
         std::unordered_set<Uuid> _global_entities = {};
     };
+
+    /// @brief
+    /// Purpose: The local transform that places an entity at the desired world transform,
+    /// accounting for its parent (the world transform verbatim when it has none).
+    TBX_API Transform world_to_local_for(Entity entity, const Transform& new_world);
 }
 
 #include "tbx/types/assets/world.inl"

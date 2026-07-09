@@ -24,12 +24,6 @@ if(NOT TARGET gtest)
     else()
         unset(BUILD_SHARED_LIBS)
     endif()
-
-    foreach(_gtest_target IN ITEMS gtest gtest_main gmock gmock_main)
-        if(TARGET ${_gtest_target})
-            set_target_properties(${_gtest_target} PROPERTIES COMPILE_WARNING_AS_ERROR OFF)
-        endif()
-    endforeach()
 endif()
 
 include(engine_test_targets)

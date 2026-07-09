@@ -67,5 +67,6 @@ void main()
     float presence = tbx_saturate(tint.a);
     opacity *= presence;
     color = mix(vec3(1.0), color, presence);
-    o_color = vec4(color, opacity);
+    // Debug stages render the pane as a solid surface (alpha 1) so its normals/albedo are readable.
+    o_color = tbx_debug_stage_color(vec4(color, opacity), tint.rgb, normal, v_world_position);
 }

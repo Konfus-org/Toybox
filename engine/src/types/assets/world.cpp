@@ -153,4 +153,14 @@ namespace tbx
     {
         _global_entities.erase(id);
     }
+
+    Transform world_to_local_for(Entity entity, const Transform& new_world)
+    {
+        auto parent = Entity();
+        if (entity.try_get_parent_entity(parent) && parent.has_component<Transform>())
+            return world_to_local_tranform(
+                parent.get_component<Transform>().to_world_space(parent),
+                new_world);
+        return new_world;
+    }
 }

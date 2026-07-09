@@ -17,20 +17,17 @@ namespace tbx
     /// Ownership: Stores non-owning handle references. Thread Safety: Safe to copy between threads;
     /// synchronize mutation externally.
     [[serializable]];
-    [[icon("Cuboid", Color::BLUE)]];
     struct TBX_API Renderer : Component
     {
         Renderer() = default;
         explicit Renderer(Handle model_handle);
 
         /// @brief Model asset handle that provides mesh geometry and default material slots.
-        [[asset("fbx", "obj", "gltf", "glb", "model")]]
         Handle model = {};
 
         /// @brief Per-slot material assignments, aligned 1:1 with the model's hard material slots.
         /// Each entry is a MaterialInstance (.mti) or Material (.mat); the editor sizes this to the
         /// model's slot count and offers a picker per slot.
-        [[asset("mti", "mat")]]
         std::vector<Handle> materials = {};
     };
 }

@@ -1,12 +1,33 @@
 #include "bridge_utils.h"
 #include "tbx/types/assets/model.h"
-#include "tbx/types/components/mesh.h"
 #include "tbx/types/components/renderer.h"
 #include "tbx/types/matrices.h"
 #include <cctype>
+#include <charconv>
 
 namespace tbx::studio_bridge
 {
+    Result require_object(const tbx::Json& params)
+    {
+        return params.is_object() ? Result::OK : Result(false, "Missing request parameters.");
+    }
+
+    Result require_uint(const tbx::Json& params, std::string_view key, uint64& out)
+    {
+        const auto iterator = params.find(key);
+        if (iterator == params.end() || !iterator->is_number_unsigned())
+            return Result(false, "Missing or invalid '" + std::string(key) + "'.");
+
+        out = iterator->get<uint64>();
+        return Result::OK;
+    }
+
+    Result require_string(const tbx::Json& params, std::string_view key, std::string& out)
+    {
+        out = params.value(key, std::string());
+        return out.empty() ? Result(false, "Missing '" + std::string(key) + "'.") : Result::OK;
+    }
+
     std::string asset_type_from_path(const std::filesystem::path& path)
     {
         auto extension = path.extension().string();
@@ -56,41 +77,7 @@ namespace tbx::studio_bridge
 
         const auto world_matrix = tbx::build_transform_matrix(
             entity.get_component<tbx::Transform>().to_world_space(entity));
-
-        auto contributed = false;
-        const auto expand = [&](const tbx::Mesh& mesh, const glm::mat4& mesh_matrix)
-        {
-            if (!mesh.bounds.is_valid)
-                return;
-
-            const auto lo = mesh.bounds.minimum;
-            const auto hi = mesh.bounds.maximum;
-            for (auto corner = 0; corner < 8; ++corner)
-            {
-                const auto local = glm::vec3(
-                    (corner & 1) ? hi.x : lo.x,
-                    (corner & 2) ? hi.y : lo.y,
-                    (corner & 4) ? hi.z : lo.z);
-                const auto point = glm::vec3(mesh_matrix * glm::vec4(local, 1.0F));
-                out_min = glm::min(out_min, point);
-                out_max = glm::max(out_max, point);
-            }
-            contributed = true;
-        };
-
-        if (!model->parts.empty())
-        {
-            for (const auto& part : model->parts)
-                if (part.mesh_index < model->meshes.size())
-                    expand(model->meshes[part.mesh_index], world_matrix * part.transform);
-        }
-        else
-        {
-            for (const auto& mesh : model->meshes)
-                expand(mesh, world_matrix);
-        }
-
-        return contributed;
+        return tbx::expand_aabb_with_model(*model, world_matrix, out_min, out_max);
     }
 
     bool is_self_or_descendant(tbx::World& world, tbx::Entity entity, const tbx::Uuid& ancestor)
@@ -111,13 +98,37 @@ namespace tbx::studio_bridge
         return false;
     }
 
-    tbx::Transform world_to_local_for(tbx::Entity entity, const tbx::Transform& new_world)
+    // Parses the decimal segment following `marker` in a slash-delimited address; zero on no match.
+    static uint64 parse_segment_after(std::string_view address, std::string_view marker)
     {
-        auto parent = tbx::Entity();
-        if (entity.try_get_parent_entity(parent) && parent.has_component<tbx::Transform>())
-            return tbx::world_to_local_tranform(
-                parent.get_component<tbx::Transform>().to_world_space(parent),
-                new_world);
-        return new_world;
+        const auto at = address.find(marker);
+        if (at == std::string_view::npos)
+            return 0U;
+
+        const auto start = at + marker.size();
+        const auto end = address.find('/', start);
+        const auto segment =
+            address.substr(start, end == std::string_view::npos ? address.size() - start : end - start);
+
+        auto id = uint64(0);
+        const auto [ptr, ec] = std::from_chars(segment.data(), segment.data() + segment.size(), id);
+        return ec == std::errc() && ptr == segment.data() + segment.size() ? id : 0U;
+    }
+
+    uint64 parse_address_entity(std::string_view address)
+    {
+        if (address.starts_with("entity/"))
+            return parse_segment_after(address, "entity/");
+        return parse_segment_after(address, "/entities/");
+    }
+
+    tbx::Json to_wire_vec3(const tbx::Vec3& value)
+    {
+        return tbx::Json::array({value.x, value.y, value.z});
+    }
+
+    tbx::Json to_wire_quat(const tbx::Quat& value)
+    {
+        return tbx::Json::array({value.x, value.y, value.z, value.w});
     }
 }

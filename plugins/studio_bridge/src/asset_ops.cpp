@@ -2,6 +2,7 @@
 #include "asset_preview.h"
 #include "bridge_utils.h"
 #include "builtin_assets.h"
+#include "engine_services.h"
 #include "wire.h"
 #include "tbx/systems/assets/asset_pairing.h"
 #include "tbx/systems/assets/describe.h"
@@ -87,22 +88,19 @@ namespace tbx::studio_bridge
         return assets.resolve_id(handle);
     }
 
-    AssetOps::AssetOps(EngineServices& services)
-        : _services(services)
+    Result describe_asset(
+        const EngineServices& services, const tbx::Json& params, tbx::Json& out_reply)
     {
-    }
+        if (const auto required = require_object(params); !required)
+            return required;
 
-    Result AssetOps::describe_asset(const tbx::Json& params, tbx::Json& out_reply) const
-    {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        // Full-width read: registry ids are 64-bit (a meta-less asset's generated in-memory id uses
+        // the whole range), so a narrower read would truncate and miss the entry.
+        auto asset_id = uint64(0);
+        if (const auto required = require_uint(params, Wire::ASSET_ID, asset_id); !required)
+            return required;
 
-        const auto id_iterator = params.find(Wire::ASSET_ID);
-        if (id_iterator == params.end() || !id_iterator->is_number())
-            return Result(false, "Missing or invalid 'assetId'.");
-        const auto asset_id = id_iterator->get<uint32>();
-
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         if (!asset_manager)
             return Result(false, "No asset manager.");
         auto serialization = asset_manager->get_serialization_registry().lock();
@@ -110,7 +108,7 @@ namespace tbx::studio_bridge
             return Result(false, "No serialization registry.");
 
         // Find the registered asset by id, read its current on-disk state type-erased (the registry
-        // resolves the concrete type from the file's [[tbx::extension]] mapping — no per-type switch),
+        // resolves the concrete type from the loader path claims and its own serialized-format list),
         // then serialize it with the same enriched per-field shape entity.describe emits so the editor
         // renders it through the existing JsonParser/PropertyGrid path. The body is serialized by
         // describe_serializable_asset_instance IN THE ENGINE MODULE, so the attribute-rich schema (enum
@@ -146,7 +144,7 @@ namespace tbx::studio_bridge
         return Result(false, "Asset not found.");
     }
 
-    tbx::Json AssetOps::asset_preview_stats(const tbx::Json& params) const
+    tbx::Json asset_preview_stats(const EngineServices& services, const tbx::Json& params)
     {
         auto result = tbx::Json::object();
         if (!params.is_object())
@@ -156,7 +154,7 @@ namespace tbx::studio_bridge
         if (asset_id == 0U)
             return result;
 
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         if (!asset_manager)
             return result;
 
@@ -170,41 +168,17 @@ namespace tbx::studio_bridge
         auto any_bounds = false;
         auto triangles = static_cast<uint64>(0U);
 
-        // Accumulate the model-space AABB (and triangle total) across the model's parts/meshes — the same
-        // corner-expansion the orbit framing uses, minus any entity world transform, so the size is the
-        // asset's own dimensions in engine units.
-        const auto expand = [&](const tbx::Mesh& mesh, const glm::mat4& mesh_matrix)
-        {
-            triangles += mesh.indices.size() / 3U;
-            if (!mesh.bounds.is_valid)
-                return;
-
-            const auto lo = mesh.bounds.minimum;
-            const auto hi = mesh.bounds.maximum;
-            for (auto corner = 0; corner < 8; ++corner)
+        // Accumulate the model-space AABB (and triangle total) across the model's parts/meshes — an
+        // identity root so the size is the asset's own dimensions in engine units, minus any entity
+        // world transform.
+        any_bounds = tbx::expand_aabb_with_model(*model, glm::mat4(1.0F), minimum, maximum);
+        tbx::for_each_model_mesh(
+            *model,
+            glm::mat4(1.0F),
+            [&triangles](const tbx::Mesh& mesh, const glm::mat4&)
             {
-                const auto local = glm::vec3(
-                    (corner & 1) ? hi.x : lo.x,
-                    (corner & 2) ? hi.y : lo.y,
-                    (corner & 4) ? hi.z : lo.z);
-                const auto point = glm::vec3(mesh_matrix * glm::vec4(local, 1.0F));
-                minimum = glm::min(minimum, point);
-                maximum = glm::max(maximum, point);
-            }
-            any_bounds = true;
-        };
-
-        if (!model->parts.empty())
-        {
-            for (const auto& part : model->parts)
-                if (part.mesh_index < model->meshes.size())
-                    expand(model->meshes[part.mesh_index], part.transform);
-        }
-        else
-        {
-            for (const auto& mesh : model->meshes)
-                expand(mesh, glm::mat4(1.0F));
-        }
+                triangles += mesh.indices.size() / 3U;
+            });
 
         if (any_bounds)
         {
@@ -219,12 +193,12 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    tbx::Json AssetOps::generate_missing_metas() const
+    tbx::Json generate_missing_metas(const EngineServices& services)
     {
         auto result = tbx::Json::object();
         auto generated = 0;
 
-        if (auto assets = _services.get().asset_manager.lock())
+        if (auto assets = services.asset_manager.lock())
         {
             for (const auto& entry : assets->get_registered_assets())
             {
@@ -251,7 +225,7 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    tbx::Json AssetOps::list_assets() const
+    tbx::Json list_assets(const EngineServices& services)
     {
         auto result = tbx::Json::object();
         auto assets = tbx::Json::array();
@@ -260,9 +234,9 @@ namespace tbx::studio_bridge
         // A scripting backend claims its source extension (e.g. ".h" for C++), so an asset whose file
         // extension a backend recognises is a script source the editor can bind to an entity. Resolved
         // once per list so each asset can be flagged for the editor's script picker.
-        auto scripting = _services.get().scripting_registry.lock();
+        auto scripting = services.scripting_registry.lock();
 
-        if (auto asset_manager = _services.get().asset_manager.lock())
+        if (auto asset_manager = services.asset_manager.lock())
         {
             // Surface the engine/bridge-provided preview assets alongside the project's: their directory
             // is skipped by the registry scan, so register them here (once registered they come through
@@ -348,10 +322,10 @@ namespace tbx::studio_bridge
         return result;
     }
 
-    Result AssetOps::save_asset(const tbx::Json& params) const
+    Result save_asset(const EngineServices& services, const tbx::Json& params)
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        if (const auto required = require_object(params); !required)
+            return required;
 
         const auto type = params.value(Wire::TYPE, std::string());
         const auto path = params.value(Wire::PATH, std::string());
@@ -384,7 +358,7 @@ namespace tbx::studio_bridge
         if (!read)
             return read;
 
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         auto serialization =
             asset_manager ? asset_manager->get_serialization_registry().lock() : nullptr;
         if (!serialization)
@@ -393,17 +367,22 @@ namespace tbx::studio_bridge
         return serialization->write(path, *registration, asset.get());
     }
 
-    Result AssetOps::write_default_asset(
+    // Writes a default-constructed asset of the registered `type` to `resolved` (its body) plus a
+    // fresh-id `<resolved>.meta` sidecar, returning the minted id in `out_id`. The shared core of
+    // create_asset and the world-scaffold helper. Fails when the type is unknown/non-serializable,
+    // something already exists at the path, or the file write fails.
+    static Result write_default_asset(
+        const EngineServices& services,
         const std::string& type,
         const std::filesystem::path& resolved,
         tbx::Uuid& out_id,
-        const tbx::Json* initial_body) const
+        const tbx::Json* initial_body = nullptr)
     {
         const auto registration = tbx::get_asset_type_registration(type);
         if (!registration || !registration->create_asset || !registration->write_body)
             return Result(false, "Unknown or non-creatable asset type: " + type);
 
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         auto serialization =
             asset_manager ? asset_manager->get_serialization_registry().lock() : nullptr;
         if (!serialization)
@@ -436,8 +415,10 @@ namespace tbx::studio_bridge
             resolved, out_id, registration->version != 0U ? registration->version : 1U);
     }
 
-    Result AssetOps::write_default_world(
-        const std::filesystem::path& resolved, tbx::Uuid& out_id) const
+    // Scaffolds a usable, empty world at `resolved` (a `.world`): a fresh `.globals` and `.chunk`
+    // beside it, then the `.world` that links them. Returns the `.world`'s minted id in `out_id`.
+    static Result write_default_world(
+        const EngineServices& services, const std::filesystem::path& resolved, tbx::Uuid& out_id)
     {
         // A world is three linked files: an empty globals + an empty chunk, then the .world that
         // references them by id. Reuse write_default_asset for the two leaf assets, then author the
@@ -451,11 +432,13 @@ namespace tbx::studio_bridge
         chunk_path.replace_extension(".chunk");
 
         auto globals_id = tbx::Uuid();
-        if (const auto written = write_default_asset("WorldGlobals", globals_path, globals_id); !written)
+        if (const auto written = write_default_asset(services, "WorldGlobals", globals_path, globals_id);
+            !written)
             return written;
 
         auto chunk_id = tbx::Uuid();
-        if (const auto written = write_default_asset("WorldChunk", chunk_path, chunk_id); !written)
+        if (const auto written = write_default_asset(services, "WorldChunk", chunk_path, chunk_id);
+            !written)
             return written;
 
         if (std::filesystem::exists(resolved))
@@ -473,17 +456,18 @@ namespace tbx::studio_bridge
         return write_meta_sidecar(resolved, out_id, 1U);
     }
 
-    Result AssetOps::create_asset(const tbx::Json& params, tbx::Json& out_reply) const
+    Result create_asset(
+        const EngineServices& services, const tbx::Json& params, tbx::Json& out_reply)
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        if (const auto required = require_object(params); !required)
+            return required;
 
         const auto type = params.value(Wire::TYPE, std::string());
         const auto path = params.value(Wire::PATH, std::string());
         if (type.empty() || path.empty())
             return Result(false, "Missing 'type' or 'path'.");
 
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         if (!asset_manager)
             return Result(false, "No asset manager.");
 
@@ -497,8 +481,9 @@ namespace tbx::studio_bridge
             body_iterator != params.end() && body_iterator->is_object() ? &(*body_iterator) : nullptr;
 
         auto id = tbx::Uuid();
-        const auto result = type == "World" ? write_default_world(resolved, id)
-                                            : write_default_asset(type, resolved, id, initial_body);
+        const auto result = type == "World"
+                                ? write_default_world(services, resolved, id)
+                                : write_default_asset(services, type, resolved, id, initial_body);
         if (!result)
             return result;
 
@@ -507,12 +492,12 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result AssetOps::forget_asset(const tbx::Json& params) const
+    Result forget_asset(const EngineServices& services, const tbx::Json& params)
     {
-        if (!params.is_object())
-            return Result(false, "Missing request parameters.");
+        if (const auto required = require_object(params); !required)
+            return required;
 
-        auto asset_manager = _services.get().asset_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
         if (!asset_manager)
             return Result(false, "No asset manager.");
 
@@ -527,7 +512,7 @@ namespace tbx::studio_bridge
         return asset_manager->remove_asset(tbx::Handle(path, tbx::Uuid(id)));
     }
 
-    Result AssetOps::new_asset_id(tbx::Json& out_reply) const
+    Result new_asset_id(tbx::Json& out_reply)
     {
         out_reply[Wire::ID] = tbx::Uuid::generate().value;
         return Result::OK;

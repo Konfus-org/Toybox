@@ -1,6 +1,7 @@
 #include "lifecycle_rpc_handlers.h"
 #include "engine_services.h"
-#include "game_mode_manager.h"
+#include "game_mode_ops.h"
+#include "game_mode_state.h"
 #include "rpc_registrar.h"
 #include "wire.h"
 #include "tbx/interfaces/rpc_router.h"
@@ -16,7 +17,8 @@ namespace tbx::studio_bridge
     void register_lifecycle_handlers(
         const RpcRegistrar& registrar,
         const EngineServices& services,
-        GameModeManager& game_mode,
+        GameModeState& game_mode,
+        SyncEventState& events,
         std::function<void(bool paused)> set_paused,
         std::function<void()> request_shutdown)
     {
@@ -38,16 +40,18 @@ namespace tbx::studio_bridge
             });
         registrar.add(
             Wire::ENGINE_SET_PAUSED,
-            [set_paused = std::move(set_paused)](const tbx::Json& params, tbx::RpcResponder& r)
+            [set_paused](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 set_paused(params.value("isPaused", false));
                 r.result(tbx::Json::object());
             });
         registrar.add(
             Wire::ENGINE_SET_PLAYING,
-            [&game_mode](const tbx::Json& params, tbx::RpcResponder& r)
+            [&game_mode, &events, &services, set_paused = std::move(set_paused)](
+                const tbx::Json& params, tbx::RpcResponder& r)
             {
-                game_mode.set_playing(params.value("isPlaying", false));
+                set_playing(
+                    game_mode, events, services, set_paused, params.value("isPlaying", false));
                 r.result(tbx::Json::object());
             });
         registrar.add(

@@ -1,8 +1,46 @@
 #include "tbx/systems/assets/serialization_registry.h"
 #include "tbx/systems/assets/asset_pairing.h"
+#include "tbx/utils/string_utils.h"
+#include <array>
+#include <utility>
 
 namespace tbx
 {
+    // The engine's own serialized asset formats (typed-JSON and shader-text bodies read by the
+    // generated serializers) mapped to their registered type names. This is the single explicit
+    // path→type list for engine-owned formats: the engine is the loader for these files, so the
+    // extension knowledge lives here at the type-erased resolution site rather than on the asset
+    // types. Plugin-loaded binary formats (images, models) resolve through the loader path claims
+    // registered on this registry instead.
+    static constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
+        ENGINE_ASSET_FORMATS = {{
+            {".chunk", "WorldChunk"},
+            {".comp", "Shader"},
+            {".frag", "Shader"},
+            {".geom", "Shader"},
+            {".globals", "WorldGlobals"},
+            {".glsl", "Shader"},
+            {".inputmap", "InputMap"},
+            {".mat", "Material"},
+            {".mti", "MaterialInstance"},
+            {".tesc", "Shader"},
+            {".tese", "Shader"},
+            {".vert", "Shader"},
+            {".world", "World"},
+        }};
+
+    static std::string engine_format_type_name(const std::filesystem::path& asset_path)
+    {
+        const auto extension = to_lower(asset_path.extension().string());
+        for (const auto& [format_extension, type_name] : ENGINE_ASSET_FORMATS)
+        {
+            if (extension == format_extension)
+                return std::string(type_name);
+        }
+
+        return {};
+    }
+
     SerializationRegistry::SerializationRegistry()
         : _owned_file_ops(std::make_shared<FileOperator>())
         , _file_ops(_owned_file_ops)
@@ -122,15 +160,18 @@ namespace tbx
                 JsonParser::try_get(meta_json, "type", type_name);
             }
         }
-        // Resolve the registered type from the file extension (the data-driven [[tbx::extension]]
-        // mapping) before the legacy stem fallback — so a `Brick.mat` resolves to "Material" rather
-        // than the non-existent "brick".
+        // Resolve the registered type from whoever loads the file: first the loader that claims the
+        // path (a plugin image loader claiming .png for Texture), then the engine's own
+        // serialized-format table — before the legacy stem fallback, so a `Brick.mat` resolves to
+        // "Material" rather than the non-existent "brick".
         if (type_name.empty())
-        {
-            if (const auto by_extension =
-                    get_asset_type_registration_for_extension(asset_path.extension().string()))
-                type_name = by_extension->type_name;
-        }
+            type_name = resolve_loader_claimed_type_name(asset_path);
+        if (type_name.empty())
+            type_name = engine_format_type_name(asset_path);
+        // A file literally named after its registered type ("AppSettings.json") resolves by its
+        // verbatim stem — how the extension-less settings asset finds its serializer.
+        if (type_name.empty() && get_asset_type_registration(asset_path.stem().string()).has_value())
+            type_name = asset_path.stem().string();
         if (type_name.empty())
             type_name = make_serializable_type_name(asset_path.stem().string());
 
@@ -382,6 +423,22 @@ namespace tbx
         }
 
         return Result();
+    }
+
+    std::string SerializationRegistry::resolve_loader_claimed_type_name(
+        const std::filesystem::path& asset_path) const
+    {
+        std::lock_guard lock(_mutex);
+        for (const auto& [asset_type, registration] : _registrations)
+        {
+            if (!registration->path_claim || !registration->path_claim(asset_path))
+                continue;
+
+            if (const auto asset_registration = get_asset_type_registration(asset_type))
+                return asset_registration->type_name;
+        }
+
+        return {};
     }
 
     std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const

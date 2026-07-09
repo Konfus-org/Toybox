@@ -13,6 +13,18 @@
 
 namespace tbx
 {
+    // Whether the debug view applies to this camera: an empty tag gate applies everywhere;
+    // otherwise any shared tag matches (the same any-of semantic tag-gated render passes use).
+    static bool debug_view_applies(const RenderDebugView& debug_view, const CameraView& camera_view)
+    {
+        if (debug_view.camera_tags.empty())
+            return true;
+        for (const auto& tag : debug_view.camera_tags)
+            if (std::ranges::find(camera_view.tags, tag) != camera_view.tags.end())
+                return true;
+        return false;
+    }
+
     void RenderingPipeline::build_passes()
     {
         // The pipeline's built-in passes, each in its own file. They share the pipeline's resources by
@@ -237,6 +249,15 @@ namespace tbx
             return FrameReadiness::ClearSky;
         _resources->frame_view = &view;
 
+        // The editor's debug view (render-stage override / post kill), applied only to cameras its
+        // tag gate matches so a game view keeps rendering normally beside a debugging editor view.
+        auto debug_view = RenderDebugView();
+        {
+            auto lock = std::lock_guard(_debug_view_mutex);
+            debug_view = _debug_view;
+        }
+        const bool debug_applies = debug_view_applies(debug_view, context.camera_view);
+
         // Upload this frame's transient buffers into the reusable pool: begin() rewinds the slot
         // cursor, and the buffers persist across frames (the steady state recreates none of them).
         _resources->frame_buffers.begin();
@@ -249,8 +270,12 @@ namespace tbx
             view.lights.data(),
             view.lights.size() * sizeof(GpuLightData),
             BufferUsage::STORAGE);
+        // The captured uniforms are shared frame state; the debug stage is per-camera, so patch a
+        // copy rather than the capture.
+        auto uniforms = view.uniforms;
+        uniforms.debug_stage = debug_applies ? static_cast<uint32>(debug_view.stage) : 0U;
         const GpuId uniforms_buffer =
-            frame.store(&view.uniforms, sizeof(GpuUniforms), BufferUsage::UNIFORM);
+            frame.store(&uniforms, sizeof(GpuUniforms), BufferUsage::UNIFORM);
         const GpuId draw_args_buffer = frame.store(
             view.draw_commands.data(),
             view.draw_commands.size() * sizeof(GpuIndexedDrawCommand),
@@ -292,8 +317,19 @@ namespace tbx
         context.draw_args_buffer = draw_args_buffer;
         context.uniforms_buffer = uniforms_buffer;
         context.stride = static_cast<uint32>(sizeof(GpuIndexedDrawCommand));
-        context.use_post = PostProcessor::wants_post(*world, {});
+        // The debug view can kill post for its cameras: explicitly (the toggle) or implicitly (a
+        // non-final stage outputs raw intermediates that post effects would only distort).
+        context.use_post = PostProcessor::wants_post(*world, {})
+                           && (!debug_applies
+                               || (debug_view.post_processing_enabled
+                                   && debug_view.stage == RenderDebugStage::FINAL));
         return FrameReadiness::Ready;
+    }
+
+    void RenderingPipeline::set_debug_view(RenderDebugView debug_view)
+    {
+        auto lock = std::lock_guard(_debug_view_mutex);
+        _debug_view = std::move(debug_view);
     }
 
 

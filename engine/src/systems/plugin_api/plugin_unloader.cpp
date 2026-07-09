@@ -186,6 +186,15 @@ namespace tbx
                 coordinator->get().flush();
         }
 
+        // Destroy every plugin instance while every plugin library is still mapped: a plugin's
+        // members can hold the last weak_ptr to a service allocated in another plugin's DLL, and
+        // releasing that control block runs the owning DLL's code. Clearing the list directly
+        // would free each library in load order — dependencies first — before dependents'
+        // instances are destroyed. Dependents load after their dependencies, so destroy
+        // back-to-front; the libraries are then freed by clear() once no instance remains.
+        for (auto plugin = loaded_plugins.rbegin(); plugin != loaded_plugins.rend(); ++plugin)
+            plugin->instance.reset();
+
         loaded_plugins.clear();
     }
 

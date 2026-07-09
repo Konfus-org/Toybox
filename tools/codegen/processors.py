@@ -37,14 +37,9 @@ class AttributeSchemaRegistry:
         self._schemas = {
             "array": AttributeSchema(1, frozenset({"value"})),
             "app": AttributeSchema(None, frozenset({"name", "version"})),
-            "category": AttributeSchema(1, frozenset({"value"})),
             "custom_serialization": AttributeSchema(2, frozenset({"read", "write"})),
-            "description": AttributeSchema(1, frozenset({"value"})),
             "do_not_serialize": AttributeSchema(0, frozenset()),
-            "extension": AttributeSchema(None, frozenset()),
-            "hidden": AttributeSchema(0, frozenset()),
             "inject": AttributeSchema(),
-            "label": AttributeSchema(1, frozenset({"value"})),
             "meta": AttributeSchema(None, frozenset({"fields"})),
             "name": AttributeSchema(1, frozenset({"value"})),
             "post_deserialize": AttributeSchema(1, frozenset({"method"})),
@@ -52,7 +47,6 @@ class AttributeSchemaRegistry:
             "pre_deserialize": AttributeSchema(1, frozenset({"method"})),
             "pre_serialize": AttributeSchema(1, frozenset({"method"})),
             "printable": AttributeSchema(None, frozenset({"fields", "format"})),
-            "readonly": AttributeSchema(0, frozenset()),
             "register": AttributeSchema(2, frozenset({"factory", "service"})),
             "register_plugin": AttributeSchema(
                 None,
@@ -63,7 +57,6 @@ class AttributeSchemaRegistry:
             "serialize": AttributeSchema(0, frozenset()),
             "text": AttributeSchema(None, frozenset({"field"})),
             "version": AttributeSchema(1, frozenset({"value"})),
-            "view": AttributeSchema(1, frozenset({"value"})),
         }
 
     def validate_attribute(self, owner_name: str, attr: Attribute) -> None:

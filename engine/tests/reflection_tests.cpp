@@ -9,7 +9,7 @@
 namespace
 {
     // The Transform component is registered by the engine at static-init (its serializable registration
-    // carries the icon + describe thunk), so its schema is available without per-test codegen. Its wire
+    // carries the describe thunk), so its schema is available without per-test codegen. Its wire
     // name is the snake-cased type name.
     constexpr std::string_view TRANSFORM_WIRE_NAME = "transform";
 
@@ -31,35 +31,13 @@ namespace
         EXPECT_TRUE(schema.contains("position"));
     }
 
-    TEST(ReflectionTests, ExposesTypeIcon)
-    {
-        auto icon = std::string();
-        auto icon_color = std::string();
-        for (const auto& registration : tbx::get_entity_component_type_registrations())
-        {
-            if (registration.name != TRANSFORM_WIRE_NAME)
-                continue;
-            icon = registration.icon;
-            icon_color = registration.icon_color;
-        }
-        EXPECT_EQ(icon, "Move3d");
-        EXPECT_EQ(icon_color, "BLUE");
-    }
-
-    TEST(ReflectionTests, ExposesEditorAttributesOnProperties)
+    TEST(ReflectionTests, ExposesTypeMetadataOnProperties)
     {
         const auto schema = describe_component(TRANSFORM_WIRE_NAME);
         ASSERT_TRUE(schema.is_object());
         const auto& position = schema.at("position").at("attributes");
-        EXPECT_EQ(position.at("description"), "Local-space position, in metres.");
         EXPECT_EQ(position.at("type"), "vec3");
-    }
-
-    TEST(ReflectionTests, ComponentIdPropertyIsHidden)
-    {
-        const auto schema = describe_component(TRANSFORM_WIRE_NAME);
-        ASSERT_TRUE(schema.is_object());
-        EXPECT_TRUE(schema.at("id").at("attributes").value("hidden", false));
+        EXPECT_TRUE(position.contains("order"));
     }
 
     TEST(ReflectionTests, UnknownTypeHasNoSchema)
@@ -103,10 +81,10 @@ namespace
         EXPECT_TRUE(is_default);
     }
 
-    TEST(ReflectionTests, SerializedFieldsCarryNoEditorMetadata)
+    TEST(ReflectionTests, SerializedFieldsCarryNoAttributeMetadata)
     {
         // A direct serialize includes every field (no omit scope) and stays lean { "type", "value" }
-        // with no metadata and no attributes wrapper — metadata lives only in the type-metadata record.
+        // with no attributes wrapper — schema metadata travels only on the attribute path.
         const auto transform = tbx::Transform {};
         auto json = tbx::Json();
         tbx::serialize(json, transform);
@@ -116,11 +94,10 @@ namespace
         EXPECT_TRUE(position.contains("type"));
         EXPECT_TRUE(position.contains("value"));
         EXPECT_FALSE(position.contains("attributes"));
-        EXPECT_FALSE(position.contains("category"));
-        EXPECT_FALSE(position.contains("description"));
+        EXPECT_FALSE(position.contains("order"));
     }
 
-    TEST(ReflectionTests, AttributeSerializeReinjectsEditorMetadataThatLeanFormOmits)
+    TEST(ReflectionTests, AttributeSerializeReinjectsMetadataThatLeanFormOmits)
     {
         auto registry = tbx::EntityRegistry();
         const auto id = registry.add("probe");
@@ -144,18 +121,15 @@ namespace
         EXPECT_TRUE(lean_position.contains("type"));
         EXPECT_TRUE(lean_position.contains("value"));
         EXPECT_FALSE(lean_position.contains("attributes"));
-        EXPECT_FALSE(lean_position.contains("category"));
 
         // Attribute enrichment reshapes each node to { "attributes": { "type", <metadata> }, "value" }.
         EXPECT_TRUE(attributed_position.contains("value"));
         EXPECT_EQ(attributed_position.at("attributes").at("type"), "vec3");
-        EXPECT_EQ(
-            attributed_position.at("attributes").at("description"),
-            "Local-space position, in metres.");
+        EXPECT_TRUE(attributed_position.at("attributes").contains("order"));
 
-        // The entity id's read-only flag is re-added by the attribute form but not by the lean form.
+        // The entity id is enriched by the attribute form but stays lean otherwise.
         EXPECT_FALSE(lean.at("id").contains("attributes"));
-        EXPECT_TRUE(attributed.at("id").at("attributes").value("readonly", false));
+        EXPECT_TRUE(attributed.at("id").contains("attributes"));
     }
 
     TEST(ReflectionTests, SerializeOmitsDefaultsWhileAttributeFormIncludesAndFlagsThem)
@@ -270,14 +244,14 @@ namespace
             tbx::Entity::serialize(entity, /*include_defaults=*/true, /*include_attributes=*/true));
         const auto& component = attributed.at("components").at("script_container");
 
-        // The component's own id is hidden, with its metadata under the attributes wrapper.
-        EXPECT_TRUE(component.at("id").at("attributes").value("hidden", false));
+        // The component's own id carries its metadata under the attributes wrapper.
+        EXPECT_TRUE(component.at("id").contains("attributes"));
 
         // The nested binding's script reference is a handle (asset picker), and its binding_id — a
-        // nested id — is tagged hidden by the recursive enrichment. Nested struct fields are reshaped to
+        // nested id — is reshaped by the recursive enrichment. Nested struct fields are reshaped to
         // { "attributes", "value" } too; the array's elements live under the parent's "value".
         const auto& first_binding = component.at("scripts").at("value").at(0);
         EXPECT_EQ(first_binding.at("script").at("attributes").at("type"), "handle");
-        EXPECT_TRUE(first_binding.at("binding_id").at("attributes").value("hidden", false));
+        EXPECT_TRUE(first_binding.at("binding_id").contains("attributes"));
     }
 }

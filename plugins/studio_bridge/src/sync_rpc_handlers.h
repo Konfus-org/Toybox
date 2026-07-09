@@ -2,12 +2,20 @@
 
 namespace tbx::studio_bridge
 {
+    struct EngineServices;
+    struct GameModeState;
     class RpcRegistrar;
-    class SyncPathRouter;
-    class WorldManager;
+    struct SyncEventState;
+    struct ViewState;
 
     /// @brief Registers the sync.* editor RPC methods: the uniform path-addressed property verbs
-    /// (served by the SyncPathRouter) plus sync.catalog (served by the WorldManager).
+    /// (served by the sync_path_ops free functions) and the sync.subscribe/sync.unsubscribe
+    /// event-channel verbs (served by the sync_event_ops functions over the plugin's SyncEventState).
+    /// @p game_mode lets a physics-event sync.subscribe made mid-play bind its forwarder immediately.
     void register_sync_handlers(
-        const RpcRegistrar& registrar, SyncPathRouter& sync_router, WorldManager& world_manager);
+        const RpcRegistrar& registrar,
+        const EngineServices& services,
+        ViewState& views,
+        SyncEventState& events,
+        const GameModeState& game_mode);
 }

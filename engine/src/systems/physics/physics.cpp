@@ -61,6 +61,34 @@ namespace tbx
         return nullptr;
     }
 
+    // Invokes the begin or end contact callbacks of every solid collider component the entity
+    // carries (an entity can stack several shaped colliders on the shared Collider base).
+    static void dispatch_contact_to_colliders(
+        Entity& entity,
+        const ColliderContactEvent& event,
+        bool is_begin_phase)
+    {
+        const auto invoke_callbacks = [&event, is_begin_phase](Collider& collider)
+        {
+            const auto& callbacks =
+                is_begin_phase ? collider.contact_begin_callbacks : collider.contact_end_callbacks;
+            for (const auto& callback : callbacks)
+            {
+                if (callback)
+                    callback(event);
+            }
+        };
+
+        if (entity.has_component<BoxCollider>())
+            invoke_callbacks(entity.get_component<BoxCollider>());
+        if (entity.has_component<SphereCollider>())
+            invoke_callbacks(entity.get_component<SphereCollider>());
+        if (entity.has_component<CapsuleCollider>())
+            invoke_callbacks(entity.get_component<CapsuleCollider>());
+        if (entity.has_component<MeshCollider>())
+            invoke_callbacks(entity.get_component<MeshCollider>());
+    }
+
     // The backend body is a non-solid sensor when the entity has a trigger but no solid collider; an
     // entity with both gets a solid body that still reports overlaps.
     static bool is_trigger_only_collider(const Entity& entity)
@@ -548,6 +576,24 @@ namespace tbx
         };
     }
 
+    std::vector<Vec3> Physics::get_shape(const Uuid& entity_id) const
+    {
+        auto backend = _backend.lock();
+        if (!backend)
+            return {};
+
+        // Backend queries cannot run while a simulation step is in flight, so join it first.
+        wait_for_pending_step();
+
+        const auto record_it = _records_by_entity.find(entity_id);
+        if (record_it == _records_by_entity.end() || !record_it->second->collider.is_valid())
+            return {};
+
+        auto triangle_vertices = std::vector<Vec3>();
+        backend->get_shape(record_it->second->collider, triangle_vertices);
+        return triangle_vertices;
+    }
+
     void Physics::update(const DeltaTime& dt, const PhysicsSettings& settings)
     {
         if (_backend.expired())
@@ -582,6 +628,7 @@ namespace tbx
                 sync_backend_to_entities(*world);
                 process_trigger_colliders(*world);
             }
+            process_contact_events(worlds);
             _results_pending = false;
         }
 
@@ -687,6 +734,61 @@ namespace tbx
             .max_linear_velocity = settings.max_linear_velocity,
             .max_angular_velocity = settings.max_angular_velocity,
         };
+    }
+
+    void Physics::process_contact_events(const std::vector<std::shared_ptr<World>>& worlds)
+    {
+        auto backend = _backend.lock();
+        if (!backend)
+            return;
+
+        _contact_events.clear();
+        backend->drain_contact_events(_contact_events);
+        if (_contact_events.empty())
+            return;
+
+        for (const auto& contact : _contact_events)
+        {
+            const Uuid entity_a_id = try_get_entity_for_rigidbody(contact.rigidbody_a);
+            const Uuid entity_b_id = try_get_entity_for_rigidbody(contact.rigidbody_b);
+            if (!entity_a_id.is_valid() || !entity_b_id.is_valid())
+                continue;
+
+            const bool is_begin_phase = contact.phase == PhysicsContactPhase::BEGIN;
+            for (const auto& world : worlds)
+            {
+                if (!world)
+                    continue;
+
+                if (world->has(entity_a_id))
+                {
+                    auto entity_a = world->get(entity_a_id);
+                    dispatch_contact_to_colliders(
+                        entity_a,
+                        ColliderContactEvent {
+                            .entity_id = entity_a_id,
+                            .other_entity_id = entity_b_id,
+                            .position = contact.position,
+                            .normal = contact.normal,
+                        },
+                        is_begin_phase);
+                }
+
+                if (world->has(entity_b_id))
+                {
+                    auto entity_b = world->get(entity_b_id);
+                    dispatch_contact_to_colliders(
+                        entity_b,
+                        ColliderContactEvent {
+                            .entity_id = entity_b_id,
+                            .other_entity_id = entity_a_id,
+                            .position = contact.position,
+                            .normal = contact.normal,
+                        },
+                        is_begin_phase);
+                }
+            }
+        }
     }
 
     void Physics::process_trigger_colliders(World& world)

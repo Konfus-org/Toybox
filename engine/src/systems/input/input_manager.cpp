@@ -1,4 +1,7 @@
 #include "tbx/systems/input/input_manager.h"
+#include "tbx/systems/assets/manager.h"
+#include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/input/input_map.h"
 #include <ranges>
 
 namespace tbx
@@ -57,6 +60,14 @@ namespace tbx
                    == std::get<KeyboardInputControl>(rhs).key;
         }
 
+        if (std::holds_alternative<KeyChordInputControl>(lhs))
+        {
+            const KeyChordInputControl left = std::get<KeyChordInputControl>(lhs);
+            const KeyChordInputControl right = std::get<KeyChordInputControl>(rhs);
+            return left.key == right.key && left.ctrl == right.ctrl && left.shift == right.shift
+                   && left.alt == right.alt && left.gui == right.gui;
+        }
+
         if (std::holds_alternative<MouseButtonInputControl>(lhs))
         {
             return std::get<MouseButtonInputControl>(lhs).button
@@ -103,6 +114,30 @@ namespace tbx
         const ControllerStickInputControl right = std::get<ControllerStickInputControl>(rhs);
         return left.controller_index == right.controller_index && left.x_axis == right.x_axis
                && left.y_axis == right.y_axis;
+    }
+
+    static bool is_key_pressed(const KeyboardState& keyboard, InputKey key)
+    {
+        return keyboard.pressed_keys.contains(static_cast<int>(key));
+    }
+
+    // A chord requires its exact modifier combination: pressed modifiers the chord does not name
+    // block it, so e.g. Ctrl+S never fires a plain S chord and vice versa.
+    static bool is_chord_pressed(const KeyChordInputControl& chord, const KeyboardState& keyboard)
+    {
+        if (!is_key_pressed(keyboard, chord.key))
+            return false;
+
+        const bool ctrl_pressed = is_key_pressed(keyboard, InputKey::LCTRL)
+                                  || is_key_pressed(keyboard, InputKey::RCTRL);
+        const bool shift_pressed = is_key_pressed(keyboard, InputKey::LSHIFT)
+                                   || is_key_pressed(keyboard, InputKey::RSHIFT);
+        const bool alt_pressed = is_key_pressed(keyboard, InputKey::LALT)
+                                 || is_key_pressed(keyboard, InputKey::RALT);
+        const bool gui_pressed = is_key_pressed(keyboard, InputKey::LGUI)
+                                 || is_key_pressed(keyboard, InputKey::RGUI);
+        return chord.ctrl == ctrl_pressed && chord.shift == shift_pressed
+               && chord.alt == alt_pressed && chord.gui == gui_pressed;
     }
 
     static std::optional<std::reference_wrapper<const ControllerState>> try_get_controller_state(
@@ -204,6 +239,13 @@ namespace tbx
         _on_cancelled_callbacks.push_back(std::move(callback));
     }
 
+    void InputAction::clear_callbacks()
+    {
+        _on_start_callbacks.clear();
+        _on_performed_callbacks.clear();
+        _on_cancelled_callbacks.clear();
+    }
+
     void InputAction::apply_value(const InputActionValue& value, const DeltaTime& delta_time)
     {
         const InputActionValue previous_value = _value;
@@ -289,37 +331,67 @@ namespace tbx
 
     bool InputScheme::add_action(const InputAction& action)
     {
-        return _actions.emplace(action.get_name(), action).second;
+        if (try_get_action(action.get_name()).has_value())
+            return false;
+
+        _actions.push_back(action);
+        return true;
     }
 
     bool InputScheme::remove_action(const std::string& action_name)
     {
-        return _actions.erase(action_name) > 0;
+        const auto iterator = std::find_if(
+            _actions.begin(),
+            _actions.end(),
+            [&](const InputAction& action)
+            {
+                return action.get_name() == action_name;
+            });
+
+        if (iterator == _actions.end())
+            return false;
+
+        _actions.erase(iterator);
+        return true;
     }
 
     std::optional<std::reference_wrapper<InputAction>> InputScheme::try_get_action(
         const std::string& action_name)
     {
-        const auto iterator = _actions.find(action_name);
+        const auto iterator = std::find_if(
+            _actions.begin(),
+            _actions.end(),
+            [&](const InputAction& action)
+            {
+                return action.get_name() == action_name;
+            });
+
         if (iterator == _actions.end())
             return std::nullopt;
-        return std::ref(iterator->second);
+        return std::ref(*iterator);
     }
 
     std::optional<std::reference_wrapper<const InputAction>> InputScheme::try_get_action(
         const std::string& action_name) const
     {
-        const auto iterator = _actions.find(action_name);
+        const auto iterator = std::find_if(
+            _actions.begin(),
+            _actions.end(),
+            [&](const InputAction& action)
+            {
+                return action.get_name() == action_name;
+            });
+
         if (iterator == _actions.end())
             return std::nullopt;
-        return std::cref(iterator->second);
+        return std::cref(*iterator);
     }
 
     std::vector<std::reference_wrapper<InputAction>> InputScheme::get_all_actions()
     {
         std::vector<std::reference_wrapper<InputAction>> actions = {};
         actions.reserve(_actions.size());
-        for (auto& [_, action] : _actions)
+        for (InputAction& action : _actions)
             actions.push_back(std::ref(action));
         return actions;
     }
@@ -328,7 +400,7 @@ namespace tbx
     {
         std::vector<std::reference_wrapper<const InputAction>> actions = {};
         actions.reserve(_actions.size());
-        for (const auto& [_, action] : _actions)
+        for (const InputAction& action : _actions)
             actions.push_back(std::cref(action));
         return actions;
     }
@@ -341,6 +413,44 @@ namespace tbx
     bool InputManager::remove_scheme(const std::string& scheme_name)
     {
         return _schemes.erase(scheme_name) > 0;
+    }
+
+    void InputManager::apply_input_maps(
+        AssetManager& asset_manager, const std::vector<Handle>& map_handles)
+    {
+        // Re-applying replaces the schemes the previous map list contributed; code-registered
+        // schemes are untouched.
+        for (const std::string& scheme_name : _map_scheme_names)
+            remove_scheme(scheme_name);
+        _map_scheme_names.clear();
+
+        for (const Handle& map_handle : map_handles)
+        {
+            if (!map_handle.is_valid())
+                continue;
+
+            const auto input_map = asset_manager.load<InputMap>(map_handle);
+            if (!input_map)
+            {
+                TBX_TRACE_WARNING("Failed to load input map '{}'.", map_handle);
+                continue;
+            }
+
+            for (const InputScheme& scheme : input_map->schemes)
+            {
+                if (add_scheme(scheme))
+                {
+                    _map_scheme_names.push_back(scheme.get_name());
+                    continue;
+                }
+
+                TBX_TRACE_WARNING(
+                    "Input scheme '{}' from input map '{}' collides with an existing scheme and "
+                    "was skipped.",
+                    scheme.get_name(),
+                    map_handle);
+            }
+        }
     }
 
     bool InputManager::activate_scheme(const std::string& scheme_name)
@@ -521,6 +631,12 @@ namespace tbx
                     const InputKey key = std::get<KeyboardInputControl>(binding.control).key;
                     any_pressed = any_pressed
                                   || snapshot.keyboard.pressed_keys.contains(static_cast<int>(key));
+                }
+                else if (std::holds_alternative<KeyChordInputControl>(binding.control))
+                {
+                    const KeyChordInputControl chord =
+                        std::get<KeyChordInputControl>(binding.control);
+                    any_pressed = any_pressed || is_chord_pressed(chord, snapshot.keyboard);
                 }
                 else if (std::holds_alternative<MouseButtonInputControl>(binding.control))
                 {

@@ -3,11 +3,17 @@
 #include "tbx/systems/input/action.h"
 #include "tbx/systems/input/scheme.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/types/handle.h"
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+namespace tbx
+{
+    class AssetManager;
+}
 
 namespace tbx
 {
@@ -55,6 +61,14 @@ namespace tbx
         bool activate_scheme(const std::string& scheme_name);
         bool deactivate_scheme(const std::string& scheme_name);
 
+        /// @brief
+        /// Purpose: Feeds the schemes of the referenced InputMap assets into the manager, replacing
+        /// whatever schemes a previous map list contributed (code-registered schemes are untouched).
+        /// @details
+        /// Ownership: No ownership transfer; the maps are loaded through the given asset manager.
+        /// Thread Safety: Not thread-safe; call from the main thread.
+        void apply_input_maps(AssetManager& asset_manager, const std::vector<Handle>& map_handles);
+
         std::optional<std::reference_wrapper<InputScheme>> get_scheme(const std::string& scheme_name);
         std::optional<std::reference_wrapper<const InputScheme>> get_scheme(
             const std::string& scheme_name) const;
@@ -91,6 +105,9 @@ namespace tbx
 
       private:
         std::unordered_map<std::string, InputScheme> _schemes = {};
+        // Names of the schemes the current input-map list contributed, so re-applying a changed map
+        // list replaces exactly those schemes.
+        std::vector<std::string> _map_scheme_names = {};
         std::weak_ptr<IInputBackend> _backend = {};
         // The mouse-lock mode the game requested. Owned here (the gameplay intent) rather than read back
         // from the backend, whose applied mode can differ — e.g. a headless/unfocused engine window

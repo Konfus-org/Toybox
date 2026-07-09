@@ -103,8 +103,8 @@ namespace tbx
         /// persisted files small; the reader reconstructs them from the type's defaults.
         ///
         /// Pass include_attributes == true to additionally enrich every property node with its
-        /// reflection metadata ({ "attributes": { type, category, description, view, readonly,
-        /// hidden, nested }, "value", "is_default" }); this also forces every field to be written.
+        /// reflection metadata ({ "attributes": { type, nested, order, choices }, "value",
+        /// "is_default" }); this also forces every field to be written.
         /// Persisted files use the lean form (both flags false); tooling that needs the full
         /// reflected view passes both true.
         static std::string serialize(
