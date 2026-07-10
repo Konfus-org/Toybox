@@ -30,9 +30,6 @@ namespace tbx::studio_bridge
         const tbx::Json& params,
         tbx::Json& out_reply);
 
-    /// @brief The application settings schema for the settings editor.
-    tbx::Json describe_settings();
-
     /// @brief Ensures an in-memory MaterialInstance that shows the given { textureId } on the bundled
     /// unlit preview material, replying with its id. The asset-preview editor sets a Renderer slot to it
     /// to show a texture on a primitive (a texture isn't itself a material, and the editor can't register

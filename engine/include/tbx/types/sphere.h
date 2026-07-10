@@ -1,9 +1,11 @@
 #pragma once
+#include "tbx/types/sphere.generated.h"
 #include "tbx/types/vectors.h"
 
 namespace tbx
 {
     // A sphere represented by a center point and radius.
+    [[serializable]];
     struct TBX_API Sphere
     {
         Vec3 center = Vec3(0.0f);

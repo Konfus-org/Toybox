@@ -51,4 +51,12 @@ namespace tbx
 
         bool is_paused = false;
     };
+
+    /// @brief
+    /// Purpose: Advances the simulation by exactly one fixed tick while paused, so an external tool
+    /// (e.g. Studio's game view) can single-step gameplay. Ignored when not paused — an unpaused
+    /// engine already advances every frame.
+    struct TBX_API StepApplicationRequest : public Request<void>
+    {
+    };
 }

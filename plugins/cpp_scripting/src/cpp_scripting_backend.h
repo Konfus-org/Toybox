@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/cpp_scripting/cpp_scripting_api.h"
 #include "tbx/interfaces/scripting_backend.h"
 #include <memory>
 
@@ -17,9 +16,10 @@ namespace cpp_scripting
     /// @details
     /// The one backend that runs compiled code rather than reading source: a C++ script asset's .h is
     /// its identity, but its executable type comes from the module that compiled it. The backend carries
-    /// no script types — it drives the engine asset registry (create/clone) and the C++ script registry
-    /// (apply/bind). Exported so the cpp_scripting plugin can construct and register it.
-    class TBX_CPP_SCRIPTING_API CppScriptingBackend final : public tbx::IScriptingBackend
+    /// no script types — it drives the engine asset registry (create/clone) and the engine script
+    /// registry (apply/bind). Plugin-internal: the cpp_scripting plugin constructs it and registers it
+    /// with the engine's ScriptingRegistry through the IScriptingBackend interface.
+    class CppScriptingBackend final : public tbx::IScriptingBackend
     {
       public:
         explicit CppScriptingBackend(std::weak_ptr<tbx::AssetManager> asset_manager);

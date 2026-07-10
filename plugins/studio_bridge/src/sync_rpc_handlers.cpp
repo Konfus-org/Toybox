@@ -20,9 +20,9 @@ namespace tbx::studio_bridge
         SyncEventState& events,
         const GameModeState& game_mode)
     {
-        // The uniform path-addressed sync verbs: every tier (entity, component, …) is one { path }
-        // (see EngineAddress on the editor side) instead of a verb family per kind. describe reads an object,
-        // set/reset/isDefault write one of its fields (the leaf the path ends on).
+        // The uniform address-addressed sync verbs: every tier (entity, component, asset, …) is one
+        // { address } (see EngineAddress on the editor side) instead of a verb family per kind. describe
+        // reads an object, set/reset/isDefault write one of its fields (the leaf the address ends on).
         registrar.add_query(
             Wire::SYNC_DESCRIBE,
             [&services, &views](const tbx::Json& params, tbx::Json& reply)

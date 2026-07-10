@@ -63,7 +63,10 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn("tbx_json = ::tbx::write_serialization_value<::tbx::Json>(", output)
         self.assertIn("if (tbx_json.is_object() || tbx_json.is_null())", output)
-        self.assertIn("::tbx::read_serialization_field(", output)
+        # The keyed branch must unwrap the self-describing { "type", "value" } wrapper so a typed
+        # single field (e.g. an enum) authored in the keyed form loads its real value instead of
+        # falling back to the type's default.
+        self.assertIn("::tbx::read_typed_serialization_field(", output)
         self.assertIn("::tbx::read_serialization_value(", output)
 
     def test_multi_field_struct_serialization_remains_object_shaped(self) -> None:
@@ -410,7 +413,7 @@ class AttributeCodegenTests(unittest.TestCase):
         )
 
         # The plugin source includes each script header and invokes its registration wrapper; the
-        # script glue itself (register_cpp_script_type<...>, override/bind helpers) is defined in the
+        # script glue itself (register_script_type<...>, override/bind helpers) is defined in the
         # script's own generated source, not the plugin source.
         self.assertIn('#include "tbx/tests/door_controller.h"', output)
         self.assertIn("void tbx_register_plugin_services(", output)
@@ -424,7 +427,7 @@ class AttributeCodegenTests(unittest.TestCase):
             script_types,
             "tbx/tests/door_controller.h",
         )
-        self.assertIn("register_cpp_script_type<", script_output)
+        self.assertIn("register_script_type<", script_output)
         self.assertIn("apply_script_overrides_DoorController", script_output)
         self.assertIn("bind_script_runtime_DoorController", script_output)
 
@@ -888,7 +891,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_cpp_script_type<", output)
+        self.assertIn("register_script_type<", output)
         self.assertIn("tbx_value.open_speed);", output)
         self.assertIn("bind_script_field(tbx_value.open_speed", output)
         self.assertIn("bind_script_field(tbx_value.input", output)
@@ -961,7 +964,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_cpp_script_type<", output)
+        self.assertIn("register_script_type<", output)
         self.assertIn("tbx_json = ::tbx::Json::object();", output)
 
     def test_script_weak_ptr_props_generate_script_reference_glue(self) -> None:

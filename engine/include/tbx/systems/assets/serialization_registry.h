@@ -8,9 +8,13 @@
 #include "tbx/types/assets/shader.h"
 #include "tbx/types/assets/texture.h"
 #include "tbx/utils/result.h"
+#include <cctype>
 #include <concepts>
+#include <functional>
 #include <future>
+#include <string>
 #include <typeindex>
+#include <vector>
 
 namespace tbx
 {
@@ -50,8 +54,13 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores typed serialization loaders, transformers, and writers by asset type.
+    /// Purpose: Stores per-type asset readers (plus transformers) that deserialize a source file into an
+    /// asset, keyed by the file extensions each reader claims.
     /// @details
+    /// A reader owns a binary/foreign format's deserialization (an image reader reads .png/.jpg into a
+    /// Texture, a model reader reads .fbx/.obj into a Model) and registers the extensions it handles, so
+    /// path→type resolution needs no per-asset-type format knowledge. An asset whose extension no reader
+    /// claims falls back to the engine's own JSON serialize/deserialize (the codegen read_body/write_body).
     /// Ownership: Owns registered function objects by value; callers retain ownership of captured
     /// state. Thread Safety: Registration and lookup are synchronized internally.
     class TBX_API SerializationRegistry final
@@ -59,7 +68,7 @@ namespace tbx
       public:
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        using Loader = std::function<Result(
+        using Reader = std::function<Result(
             const std::filesystem::path& asset_path,
             const AssetLoadParameters<TAsset>& parameters,
             const AssetLoadMetadata& metadata,
@@ -67,7 +76,7 @@ namespace tbx
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        using AsyncLoader = std::function<std::shared_future<Result>(
+        using AsyncReader = std::function<std::shared_future<Result>(
             const std::filesystem::path& asset_path,
             const AssetLoadParameters<TAsset>& parameters,
             AssetLoadMetadata metadata,
@@ -81,19 +90,6 @@ namespace tbx
             const AssetLoadMetadata& metadata,
             TAsset& asset)>;
 
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        using Writer =
-            std::function<Result(const std::filesystem::path& asset_path, const TAsset& asset)>;
-
-        // Claims a concrete file for a loader's asset type during type-erased path→type resolution
-        // (read_registered_asset_result). This keeps a loader's file-format knowledge inside the
-        // loader (an image loader claims .png/.jpg for Texture) instead of on the asset types. The
-        // claim is advisory only: typed loads (load<TAsset>) never gate on it — the loader itself
-        // validates the file content when asked to load, so an explicitly requested type loads
-        // whatever file it is handed or fails with the loader's own diagnostic.
-        using PathClaim = std::function<bool(const std::filesystem::path& asset_path)>;
-
       public:
         SerializationRegistry();
         explicit SerializationRegistry(std::weak_ptr<IFileOps> file_ops);
@@ -106,20 +102,23 @@ namespace tbx
         SerializationRegistry& operator=(SerializationRegistry&&) = delete;
 
       public:
+        // Registers the reader for TAsset and the source-file extensions it deserializes (each without a
+        // leading dot, case-insensitive, e.g. {"fbx","obj"}). The extensions drive type-erased path→type
+        // resolution; a file whose extension no reader claims falls back to JSON deserialization.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        void register_loader(
-            Loader<TAsset> loader = {},
-            AsyncLoader<TAsset> async_loader = {},
-            PathClaim path_claim = {});
+        void register_reader(
+            std::vector<std::string> extensions,
+            Reader<TAsset> reader = {},
+            AsyncReader<TAsset> async_reader = {});
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        void deregister_loader();
+        void deregister_reader();
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        bool has_loader() const;
+        bool has_reader() const;
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
@@ -158,18 +157,9 @@ namespace tbx
             const std::filesystem::path& asset_path,
             const AssetLoadParameters<TAsset>& parameters = {}) const;
 
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        void register_writer(Writer<TAsset> writer);
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        void deregister_writer();
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        bool has_writer() const;
-
+        // Serializes an asset to disk. A reader-backed type (model/texture) has no writer, so this always
+        // routes through the engine's JSON serializer (the codegen write_body); it fails when the type has
+        // no serializable body.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
         Result write(const std::filesystem::path& asset_path, const TAsset& asset) const;
@@ -187,18 +177,24 @@ namespace tbx
         {
             virtual ~RegistrationBase() noexcept = default;
 
-            // Type-erased so path→type resolution can consult every registration without knowing
-            // its asset type; set alongside the loader in register_loader.
-            PathClaim path_claim = {};
+            // Type-erased so path→type resolution can consult every registration without knowing its
+            // asset type: the source-file extensions this reader claims (each lower-case, no dot), the
+            // registered type name (for the read reply), and a type-erased read that downcasts to the
+            // concrete asset — set alongside the reader in register_reader. Empty when the type has no
+            // reader (JSON-only assets).
+            std::vector<std::string> extensions = {};
+            std::string type_name = {};
+            std::function<AssetReadResult<Asset>(
+                const SerializationRegistry& registry, const std::filesystem::path& asset_path)>
+                read_erased = {};
         };
 
         template <typename TAsset>
         struct Registration final : RegistrationBase
         {
-            Loader<TAsset> loader = {};
-            AsyncLoader<TAsset> async_loader = {};
+            Reader<TAsset> reader = {};
+            AsyncReader<TAsset> async_reader = {};
             std::vector<Transformer<TAsset>> transformers = {};
-            Writer<TAsset> writer = {};
         };
 
       private:
@@ -220,10 +216,16 @@ namespace tbx
 
         static std::shared_future<Result> make_ready_future(Result result);
         static Result make_failed_result(std::string report);
-        // Resolves the registered type name of the loader claiming `asset_path` (via the path claim
-        // registered with its loader), or an empty string when no loader claims it.
-        std::string resolve_loader_claimed_type_name(
+        // The lower-cased extension of `asset_path` without its leading dot (e.g. "fbx"), for reader
+        // extension matching.
+        static std::string normalized_extension(const std::filesystem::path& asset_path);
+        // The registration whose reader claims `asset_path`'s extension, or null when none does. Caller
+        // holds `_mutex`.
+        const RegistrationBase* find_reader_for_extension(
             const std::filesystem::path& asset_path) const;
+        // Resolves the registered type name of the reader claiming `asset_path`'s extension, or an empty
+        // string when no reader claims it.
+        std::string resolve_reader_type_name(const std::filesystem::path& asset_path) const;
         static Result try_read_asset_common_meta(
             const Json& data,
             const std::filesystem::path& meta_path,

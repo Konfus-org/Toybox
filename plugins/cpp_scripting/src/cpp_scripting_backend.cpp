@@ -1,8 +1,8 @@
-#include "tbx/cpp_scripting/cpp_scripting_backend.h"
-#include "tbx/cpp_scripting/cpp_script_registry.h"
-#include "tbx/cpp_scripting/script.h"
+#include "cpp_scripting_backend.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/scripting/script.h"
+#include "tbx/systems/scripting/script_registry.h"
 #include <string>
 #include <typeindex>
 #include <utility>
@@ -73,14 +73,14 @@ namespace cpp_scripting
         auto* instance_ptr = instance.get();
         const auto asset_registration =
             tbx::get_asset_type_registration(std::type_index(typeid(*instance_ptr)));
-        const auto* cpp_registration =
+        const auto* script_registration =
             asset_registration.has_value()
-                ? tbx::get_cpp_script_registration(asset_registration->type_name)
+                ? tbx::get_script_registration(asset_registration->type_name)
                 : nullptr;
-        if (cpp_registration != nullptr && cpp_registration->apply_overrides
+        if (script_registration != nullptr && script_registration->apply_overrides
             && !overrides.is_null() && !overrides.empty())
         {
-            auto result = cpp_registration->apply_overrides(overrides, instance.get());
+            auto result = script_registration->apply_overrides(overrides, instance.get());
             if (!result.succeeded())
             {
                 TBX_TRACE_WARNING(
@@ -106,10 +106,10 @@ namespace cpp_scripting
             tbx::get_asset_type_registration(std::type_index(typeid(*script)));
         if (asset_registration.has_value())
         {
-            if (const auto* cpp_registration =
-                    tbx::get_cpp_script_registration(asset_registration->type_name);
-                cpp_registration != nullptr && cpp_registration->bind_runtime)
-                cpp_registration->bind_runtime(script, context);
+            if (const auto* script_registration =
+                    tbx::get_script_registration(asset_registration->type_name);
+                script_registration != nullptr && script_registration->bind_runtime)
+                script_registration->bind_runtime(script, context);
         }
     }
 }

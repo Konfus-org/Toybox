@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/tbx_api.h"
+#include "tbx/types/components/mesh.generated.h"
 #include "tbx/types/mesh_bounds.h"
 #include "tbx/types/vertex.h"
 
@@ -7,6 +8,7 @@ namespace tbx
 {
     using IndexBuffer = std::vector<uint32>;
 
+    [[serializable]];
     struct TBX_API Mesh
     {
         // Defaults to a quad.

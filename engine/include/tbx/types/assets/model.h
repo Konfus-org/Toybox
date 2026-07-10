@@ -28,6 +28,7 @@ namespace tbx
     /// @details
     /// Ownership: Stores owned child indices and non-owning references via indices.
     /// Thread Safety: Safe to copy between threads.
+    [[serializable]];
     struct TBX_API ModelPart
     {
         /// @brief
@@ -58,18 +59,15 @@ namespace tbx
         Model(Mesh mesh, Handle slot);
 
         // Static (shared, asset-backed) or Dynamic (runtime-mutable). Default Static.
-        [[do_not_serialize]]
         MeshMode mode = MeshMode::STATIC;
 
-        [[do_not_serialize]]
         std::vector<Mesh> meshes = {};
-        [[do_not_serialize]]
         std::vector<ModelPart> parts = {};
         // Per-slot material identity handles, aligned with ModelPart::material_index. Derived from
         // the source material names at import (Handle name -> stable id). Each handle is resolved at
         // draw time to a MaterialInstance/Material asset of the same name; when none exists the
-        // renderer uses the not-found material. The model never embeds material data.
-        [[do_not_serialize]]
+        // renderer uses the not-found material. The model never embeds material data. Serialized so the
+        // editor's asset describe/mirror can read a model's material slots.
         std::vector<Handle> slots = {};
 
         // Dynamic models set this when geometry changes so the renderer re-uploads; cleared after the

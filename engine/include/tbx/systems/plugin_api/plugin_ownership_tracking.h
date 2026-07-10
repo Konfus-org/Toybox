@@ -54,6 +54,13 @@ namespace tbx
     TBX_API void track_plugin_owned_serializable_registration(std::string_view registration_name);
 
     /// @brief
+    /// Purpose: Records a plugin-owned script-type registration for later cleanup during unload.
+    /// @details
+    /// Ownership: Copies the type name when tracking is active.
+    /// Thread Safety: Delegates synchronization to the active plugin manager tracker.
+    TBX_API void track_plugin_owned_script_registration(std::string_view registration_name);
+
+    /// @brief
     /// Purpose: Records a plugin-owned service registration for later cleanup during unload.
     /// @details
     /// Ownership: Does not take ownership of the type index.

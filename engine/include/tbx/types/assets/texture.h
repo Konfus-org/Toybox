@@ -136,11 +136,10 @@ namespace tbx
         [[meta]]
         TextureCompression compression = TextureCompression::DISABLED;
 
-        // Runtime pixel payload, loaded from the source image rather than persisted in the asset.
-        [[do_not_serialize]]
+        // The decoded pixel payload. Sourced from the image file by the texture reader (not written back
+        // to it), but serialized so the editor's asset describe/mirror can read a texture's pixels.
         std::vector<Pixel> pixels = {255, 255, 255};
 
-        [[do_not_serialize]]
         Size resolution = {1, 1};
     };
 

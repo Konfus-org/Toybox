@@ -74,6 +74,10 @@ namespace tbx::studio_bridge
         // lifecycle handlers and play-mode ops.
         void set_engine_paused(bool paused);
 
+        // Queues a single simulation step through the plugin's message posting (the game view's
+        // next-frame button); the engine advances one paused fixed tick on its next update.
+        void request_engine_step();
+
       private:
         EngineServices _services = {};
 

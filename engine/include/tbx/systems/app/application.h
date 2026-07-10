@@ -56,6 +56,9 @@ namespace tbx
         void request_exit();
         bool is_paused() const;
         void set_paused(bool is_paused);
+        // Queues exactly one simulation step, honored on the next update even while paused (the
+        // editor's next-frame button). Meaningless while unpaused — the engine already advances.
+        void request_step();
 
       protected:
         virtual int initialize(
@@ -93,6 +96,9 @@ namespace tbx
         bool _is_hidden = false;
         bool _hidden_context_primed = false;
         bool _is_paused = false;
+        // Queued single steps to advance while paused (0 normally). Set by request_step(), consumed
+        // one per update in update().
+        uint _pending_steps = 0;
         std::string _name = "Toybox App";
 
         AppServiceProvider _services = {};

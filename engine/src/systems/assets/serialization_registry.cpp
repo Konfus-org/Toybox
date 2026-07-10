@@ -2,16 +2,17 @@
 #include "tbx/systems/assets/asset_pairing.h"
 #include "tbx/utils/string_utils.h"
 #include <array>
+#include <cctype>
 #include <utility>
 
 namespace tbx
 {
     // The engine's own serialized asset formats (typed-JSON and shader-text bodies read by the
     // generated serializers) mapped to their registered type names. This is the single explicit
-    // path→type list for engine-owned formats: the engine is the loader for these files, so the
+    // path→type list for engine-owned JSON formats: the engine deserializes these itself, so the
     // extension knowledge lives here at the type-erased resolution site rather than on the asset
-    // types. Plugin-loaded binary formats (images, models) resolve through the loader path claims
-    // registered on this registry instead.
+    // types. Plugin-read binary formats (images, models) resolve through the extensions their
+    // readers register instead (see register_reader / find_reader_for_extension).
     static constexpr std::array<std::pair<std::string_view, std::string_view>, 13>
         ENGINE_ASSET_FORMATS = {{
             {".chunk", "WorldChunk"},
@@ -75,6 +76,32 @@ namespace tbx
         {
             read.result = make_failed_result("Serialization registry has no file operations.");
             return read;
+        }
+
+        // Respect a registered reader: when a plugin reader claims this file's extension, deserialize
+        // through it (an .fbx yields a fully-built Model with its geometry + material slots), rather than
+        // constructing a default instance and reading a JSON body. Anything no reader claims falls through
+        // to the engine's own JSON serialize/deserialize below.
+        {
+            std::string reader_type_name = {};
+            std::function<AssetReadResult<Asset>(
+                const SerializationRegistry&, const std::filesystem::path&)>
+                reader_read = {};
+            {
+                std::lock_guard lock(_mutex);
+                if (const auto* registration = find_reader_for_extension(asset_path))
+                {
+                    reader_type_name = registration->type_name;
+                    reader_read = registration->read_erased;
+                }
+            }
+            if (reader_read)
+            {
+                read = reader_read(*this, asset_path);
+                if (read.type_name.empty())
+                    read.type_name = std::move(reader_type_name);
+                return read;
+            }
         }
 
         // A script asset is a self-describing `*.h.meta`: that one file carries identity only
@@ -160,12 +187,9 @@ namespace tbx
                 JsonParser::try_get(meta_json, "type", type_name);
             }
         }
-        // Resolve the registered type from whoever loads the file: first the loader that claims the
-        // path (a plugin image loader claiming .png for Texture), then the engine's own
-        // serialized-format table — before the legacy stem fallback, so a `Brick.mat` resolves to
-        // "Material" rather than the non-existent "brick".
-        if (type_name.empty())
-            type_name = resolve_loader_claimed_type_name(asset_path);
+        // Resolve the registered type for the JSON fallback (reader-claimed extensions returned above):
+        // the engine's own serialized-format table, before the legacy stem fallback, so a `Brick.mat`
+        // resolves to "Material" rather than the non-existent "brick".
         if (type_name.empty())
             type_name = engine_format_type_name(asset_path);
         // A file literally named after its registered type ("AppSettings.json") resolves by its
@@ -425,20 +449,41 @@ namespace tbx
         return Result();
     }
 
-    std::string SerializationRegistry::resolve_loader_claimed_type_name(
+    std::string SerializationRegistry::normalized_extension(const std::filesystem::path& asset_path)
+    {
+        auto extension = asset_path.extension().string();
+        if (!extension.empty() && extension.front() == '.')
+            extension.erase(extension.begin());
+        for (auto& character : extension)
+            character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+        return extension;
+    }
+
+    const SerializationRegistry::RegistrationBase* SerializationRegistry::find_reader_for_extension(
+        const std::filesystem::path& asset_path) const
+    {
+        const auto extension = normalized_extension(asset_path);
+        if (extension.empty())
+            return nullptr;
+
+        for (const auto& [asset_type, registration] : _registrations)
+        {
+            if (!registration->read_erased)
+                continue;
+            for (const auto& claimed : registration->extensions)
+                if (claimed == extension)
+                    return registration.get();
+        }
+
+        return nullptr;
+    }
+
+    std::string SerializationRegistry::resolve_reader_type_name(
         const std::filesystem::path& asset_path) const
     {
         std::lock_guard lock(_mutex);
-        for (const auto& [asset_type, registration] : _registrations)
-        {
-            if (!registration->path_claim || !registration->path_claim(asset_path))
-                continue;
-
-            if (const auto asset_registration = get_asset_type_registration(asset_type))
-                return asset_registration->type_name;
-        }
-
-        return {};
+        const auto* registration = find_reader_for_extension(asset_path);
+        return registration != nullptr ? registration->type_name : std::string();
     }
 
     std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const

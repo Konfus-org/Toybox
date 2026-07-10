@@ -32,6 +32,11 @@ namespace tbx::studio_bridge
         post_message<tbx::SetApplicationPausedRequest>(paused);
     }
 
+    void StudioBridge::request_engine_step()
+    {
+        post_message<tbx::StepApplicationRequest>();
+    }
+
     void StudioBridge::on_attach()
     {
         // The RPC router + host (published by the WindowsRPC dependency) are bound by codegen before
@@ -174,6 +179,7 @@ namespace tbx::studio_bridge
             _game_mode,
             _sync_events,
             [this](bool paused) { set_engine_paused(paused); },
+            [this]() { request_engine_step(); },
             [this]() { post_message<tbx::ExitApplicationRequest>(); });
         register_world_handlers(registrar, _services, _views);
         register_asset_handlers(registrar, _services, _views);

@@ -384,6 +384,11 @@ namespace tbx::studio_bridge
             }
         }
 
+        // The active world's asset id, so the editor's World mirror takes on the world's identity (its
+        // asset/{id} address routes sync.describe and asset.save to this world).
+        if (auto manager = services.world_manager.lock(); manager && manager->has_active_world())
+            result[Wire::ID] = manager->get_active_world_handle().id.value;
+
         result[Wire::ENTITIES] = std::move(entities);
         return result;
     }
@@ -416,22 +421,6 @@ namespace tbx::studio_bridge
 
         out_reply[Wire::ENTITY] = std::move(entity_json);
         return Result::OK;
-    }
-
-    tbx::Json describe_settings()
-    {
-        // Hand the editor the full AppSettings schema with every field's engine default — graphics,
-        // physics, async, etc. The project's own AppSettings.json is lean (only the values it
-        // overrides), so the editor merges its values over these defaults and diffs against them
-        // again to save leanly. The enriched per-field shape (type tokens, enum choices, and the
-        // plugins vector's element_template that make that list editable) is produced by the
-        // engine-side describe helper, which enters the attribute scope in the engine module where
-        // the generated serialize runs — serializing across the plugin boundary here would silently
-        // fall back to the lean { type, value } form.
-        const auto schema = tbx::describe_serializable_asset("AppSettings");
-        auto reply = tbx::Json::object();
-        reply[Wire::SETTINGS] = schema.empty() ? tbx::Json::object() : tbx::Json::parse(schema);
-        return reply;
     }
 
     Result preview_texture_material(

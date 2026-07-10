@@ -1,10 +1,10 @@
 #pragma once
-#include "tbx/cpp_scripting/cpp_script_registry.h"
-#include "tbx/cpp_scripting/cpp_scripting_api.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/scripting/script_context.h"
+#include "tbx/systems/scripting/script_registry.h"
 #include "tbx/systems/scripting/service_ref.h"
 #include "tbx/systems/time/delta_time.h"
+#include "tbx/tbx_api.h"
 #include "tbx/types/assets/asset.h"
 #include "tbx/types/handle.h"
 #include <concepts>
@@ -52,13 +52,14 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Base class for C++ script prototypes with shared runtime context and binding support.
+    /// Purpose: Base class for script prototypes with shared runtime context and binding support.
     /// @details
-    /// Lifetime hooks are driven by ScriptSystem (via the C++ scripting backend): on_start once before
-    /// the first update, on_update / on_fixed_update each tick, and on_destroy when the binding is
-    /// removed. Subclasses override the hooks they need; the empty defaults make every hook optional.
-    /// A Script is both an Asset (serialized prototype) and an IScriptInstance (runtime lifetime).
-    class TBX_CPP_SCRIPTING_API Script : public Asset, public IScriptInstance
+    /// Lifetime hooks are driven by ScriptSystem (via a scripting backend): on_start once before the
+    /// first update, on_update / on_fixed_update each tick, and on_destroy when the binding is removed.
+    /// Subclasses override the hooks they need; the empty defaults make every hook optional. A Script is
+    /// both an Asset (serialized prototype) and an IScriptInstance (runtime lifetime). It lives in the
+    /// engine so compiled C++ scripts inherit it directly and future language backends reuse it.
+    class TBX_API Script : public Asset, public IScriptInstance
     {
       public:
         Script() = default;
@@ -76,8 +77,8 @@ namespace tbx
         void on_fixed_update(const DeltaTime&) override {}
         void on_destroy() override {}
 
-        // Binds the per-tick runtime context (entity/world/services). Driven by the C++ scripting
-        // backend before the lifecycle hooks run.
+        // Binds the per-tick runtime context (entity/world/services). Driven by the scripting backend
+        // before the lifecycle hooks run.
         void bind(ScriptContext context);
 
       protected:

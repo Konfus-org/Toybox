@@ -7,17 +7,6 @@
 
 namespace stb_image_loader
 {
-    // The image container formats this loader claims when the engine resolves a file path to an
-    // asset type. Claim-only knowledge: an explicit load<Texture> on any other extension still
-    // reaches read_texture, which content-sniffs via stb and fails with a clear reason when the
-    // bytes are not a decodable image.
-    static bool is_supported_image_file(const std::filesystem::path& asset_path)
-    {
-        const auto extension = tbx::to_lower(asset_path.extension().string());
-        return extension == ".png" || extension == ".jpg" || extension == ".jpeg"
-               || extension == ".tga" || extension == ".bmp";
-    }
-
     static std::string build_load_failure_message(
         const std::filesystem::path& path,
         const char* reason)
@@ -39,7 +28,8 @@ namespace stb_image_loader
         if (!registry)
             return;
 
-        registry->register_loader<tbx::Texture>(
+        registry->register_reader<tbx::Texture>(
+            {"png", "jpg", "jpeg", "tga", "bmp"},
             [this](
                 const std::filesystem::path& asset_path,
                 const tbx::TextureLoadParameters& parameters,
@@ -47,16 +37,14 @@ namespace stb_image_loader
                 tbx::Texture& texture)
             {
                 return read_texture(asset_path, parameters, metadata, texture);
-            },
-            {},
-            is_supported_image_file);
+            });
     }
 
     void StbImageLoader::on_detach()
     {
         if (auto registry = serialization_registry.lock())
         {
-            registry->deregister_loader<tbx::Texture>();
+            registry->deregister_reader<tbx::Texture>();
         }
 
         file_ops = {};

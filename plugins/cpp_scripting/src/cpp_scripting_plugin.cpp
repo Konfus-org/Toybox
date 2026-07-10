@@ -1,6 +1,5 @@
 #include "cpp_scripting_plugin.h"
-#include "tbx/cpp_scripting/cpp_script_registry.h"
-#include "tbx/cpp_scripting/cpp_scripting_backend.h"
+#include "cpp_scripting_backend.h"
 #include "tbx/systems/debugging/macros.h"
 #include <memory>
 
@@ -26,14 +25,10 @@ namespace cpp_scripting
     {
         // Drop the backend before this module unloads. ScriptSystem destroys its script instances
         // earlier in shutdown, so nothing still references the backend by the time we deregister.
+        // The engine owns the script registry now: plugin-owned script entries are purged by the
+        // ownership tracker as each scripts module unloads, and the app module's entries are cleared at
+        // engine shutdown — so this plugin no longer clears anything itself.
         if (const auto registry = scripting_registry.lock())
             registry->unregister_all(get_id());
-
-        // Clear the C++ script registry: its entries are plain function pointers into the script-owning
-        // modules (the scripts plugin / app DLL), which unload during shutdown. Dropping them here, as
-        // the scripting subsystem tears down, keeps no dangling function pointer in the static registry.
-        // A scripts-plugin hot-reload (this plugin stays loaded) re-registers each entry by name, so the
-        // reload path is unaffected.
-        tbx::clear_cpp_script_registrations();
     }
 }

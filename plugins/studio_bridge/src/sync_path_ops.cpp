@@ -1,6 +1,7 @@
 #include "sync_path_ops.h"
 #include "asset_ops.h"
 #include "bridge_utils.h"
+#include "engine_services.h"
 #include "wire.h"
 #include "world_ops.h"
 #include "tbx/systems/ecs/entity_serialization.h"
@@ -205,7 +206,7 @@ namespace tbx::studio_bridge
         const tbx::Json& params,
         tbx::Json& out_reply)
     {
-        const auto path = params.value(Wire::PATH, std::string());
+        const auto path = params.value(Wire::ADDRESS, std::string());
         auto legacy = tbx::Json::object();
         auto scalar = std::string();
         switch (parse_sync_path(path, legacy, scalar))
@@ -243,36 +244,44 @@ namespace tbx::studio_bridge
             }
             case PathKind::AssetDescribe:
             {
-                auto described = tbx::Json::object();
-                if (auto result = describe_asset(services, legacy, described);
-                    !result.succeeded())
+                // A sync.describe on the active world's own asset address answers with the optimized
+                // whole-world describe — the flat entity list, each entity carrying its full components and
+                // is-global flag — rather than the generic .world asset body (a globals handle + chunk
+                // handles). The editor's live World mirror reads its entities from here. A non-active world
+                // asset falls through to the generic asset describe below: only the active world has a live
+                // entity registry to read.
+                const auto asset_id = legacy.value(Wire::ASSET_ID, uint64(0));
+                if (auto manager = services.world_manager.lock();
+                    manager && manager->has_active_world()
+                    && manager->get_active_world_handle().id.value == asset_id)
                 {
-                    return result;
+                    out_reply = describe_world(services, views, tbx::Json::object());
+                    return Result::OK;
                 }
 
-                // The editor's mirror applies the reply's top-level entries as the asset body (the
-                // same shape entity describes answer with). The registered type name rides along as
-                // an ignorable extra key for save routing; the extension token stays out — a body
-                // may carry a real "type" field (a material's render role).
+                auto described = tbx::Json::object();
+                if (auto result = describe_asset(services, legacy, described); !result.succeeded())
+                    return result;
+
+                // The editor's mirror applies the reply's top-level entries as the asset body (the same
+                // shape entity describes answer with). The registered type name rides along as an
+                // ignorable extra key for save routing.
                 out_reply = described[Wire::BODY];
                 out_reply["typeName"] = described["typeName"];
                 return Result::OK;
             }
-            case PathKind::SettingsDescribe:
-                out_reply = describe_settings();
-                return Result::OK;
             case PathKind::WorldDescribe:
                 out_reply = describe_world(services, views, legacy);
                 return Result::OK;
             default:
-                return Result(false, "sync.describe: unsupported path '" + path + "'.");
+                return Result(false, "sync.describe: unsupported address '" + path + "'.");
         }
     }
 
     Result sync_set_path(
         const EngineServices& services, ViewState& views, const tbx::Json& params)
     {
-        const auto path = params.value(Wire::PATH, std::string());
+        const auto path = params.value(Wire::ADDRESS, std::string());
         const auto value_iterator = params.find(Wire::VALUE);
         if (value_iterator == params.end())
             return Result(false, "Missing 'value'.");
@@ -294,7 +303,7 @@ namespace tbx::studio_bridge
     Result sync_reset_path(
         const EngineServices& services, ViewState& views, const tbx::Json& params)
     {
-        const auto path = params.value(Wire::PATH, std::string());
+        const auto path = params.value(Wire::ADDRESS, std::string());
         auto legacy = tbx::Json::object();
         auto scalar = std::string();
         switch (parse_sync_path(path, legacy, scalar))
@@ -314,7 +323,7 @@ namespace tbx::studio_bridge
         const tbx::Json& params,
         bool& out_is_default)
     {
-        const auto path = params.value(Wire::PATH, std::string());
+        const auto path = params.value(Wire::ADDRESS, std::string());
         auto legacy = tbx::Json::object();
         auto scalar = std::string();
         switch (parse_sync_path(path, legacy, scalar))

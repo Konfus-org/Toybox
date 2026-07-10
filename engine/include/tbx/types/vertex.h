@@ -5,6 +5,7 @@
 #include "tbx/types/color.h"
 #include "tbx/types/typedefs.h"
 #include "tbx/types/vectors.h"
+#include "tbx/types/vertex.generated.h"
 #include <algorithm>
 #include <optional>
 #include <string_view>
@@ -103,6 +104,7 @@ namespace tbx
         bool normalized = false;
     };
 
+    [[serializable]];
     struct TBX_API VertexBufferAttribute
     {
         std::string debug_name = {};
@@ -113,6 +115,7 @@ namespace tbx
 
     // Used to describe the layout of a vertex buffer.
     // I.e. does a vertex have position and color? Other properties?
+    [[serializable]];
     struct TBX_API VertexBufferLayout
     {
         VertexBufferLayout() = default;
@@ -248,6 +251,7 @@ namespace tbx
         return flatten_vertex_vector(vertices, get_default_vertex_buffer_layout());
     }
 
+    [[serializable]];
     struct TBX_API VertexBuffer
     {
         VertexBuffer() = default;

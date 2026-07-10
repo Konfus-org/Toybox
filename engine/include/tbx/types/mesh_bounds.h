@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/types/components/transform.h"
+#include "tbx/types/mesh_bounds.generated.h"
 #include "tbx/types/sphere.h"
 #include "tbx/types/vectors.h"
 
@@ -12,6 +13,7 @@ namespace tbx
     /// @details
     /// Ownership: Value type with copied bounds data.
     /// Thread Safety: Safe to copy between threads.
+    [[serializable]];
     struct TBX_API MeshBounds
     {
         Vec3 minimum = Vec3(-1.0F);

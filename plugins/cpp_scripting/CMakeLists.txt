@@ -1,13 +1,7 @@
-# The C++ scripting backend. Two pieces:
-#  - runtime/  -> Tbx::CppScripting, a normal shared lib holding tbx::Script + the C++ script-type
-#                 registry + CppScriptingBackend. The app links it (to compile scripts) and so does this
-#                 plugin. It is NOT a plugin, so the loader never shadow-copies it: one registry instance.
-#  - this dir  -> the CppScripting plugin, which registers the backend with the engine's ScriptingRegistry
-#                 on attach. It links the runtime lib for the backend type.
-add_subdirectory(runtime)
-
+# The C++ scripting backend plugin. Registers CppScriptingBackend with the engine's ScriptingRegistry
+# on attach so ScriptSystem can run compiled tbx::Script types. The Script base class and the script
+# registry now live in the engine (Tbx::Engine), so this plugin is entirely in src/: the backend plus
+# the thin plugin wrapper, the only C++-language-specific pieces.
 tbx_add_plugin(
     NAME CppScripting
-    PRIVATE_LINKS
-        Tbx::CppScripting
 )

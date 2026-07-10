@@ -17,6 +17,7 @@ namespace tbx
         std::unordered_set<std::type_index> component_types = {};
         std::unordered_set<std::string> serializable_type_names = {};
         std::unordered_set<std::type_index> asset_types = {};
+        std::unordered_set<std::string> script_type_names = {};
     };
 
     struct PluginOwnershipTracker::State
@@ -149,6 +150,17 @@ namespace tbx
             std::move(registration_name));
     }
 
+    void PluginOwnershipTracker::track_script_registration(
+        Uuid plugin_id,
+        std::string registration_name)
+    {
+        if (!is_valid_plugin_instance_id(plugin_id) || registration_name.empty())
+            return;
+
+        auto guard = std::lock_guard(_state->mutex);
+        _state->records_by_plugin_id[plugin_id].script_type_names.insert(std::move(registration_name));
+    }
+
     void PluginOwnershipTracker::track_asset_type(
         Uuid plugin_id,
         std::type_index asset_type)
@@ -187,6 +199,9 @@ namespace tbx
             record.serializable_type_names.begin(),
             record.serializable_type_names.end());
         resources.asset_types.assign(record.asset_types.begin(), record.asset_types.end());
+        resources.script_type_names.assign(
+            record.script_type_names.begin(),
+            record.script_type_names.end());
         _state->records_by_plugin_id.erase(iterator);
 
         std::sort(resources.entity_ids.begin(), resources.entity_ids.end());
@@ -224,6 +239,7 @@ namespace tbx
             {
                 return type_index_name(left) < type_index_name(right);
             });
+        std::sort(resources.script_type_names.begin(), resources.script_type_names.end());
         return resources;
     }
 
@@ -314,6 +330,16 @@ namespace tbx
 
         if (const auto tracker = lock_bound_tracker())
             tracker->track_serializable_registration(plugin_id, std::string(registration_name));
+    }
+
+    void track_plugin_owned_script_registration(std::string_view registration_name)
+    {
+        const auto plugin_id = get_tracked_plugin_id();
+        if (!plugin_id.is_valid() || registration_name.empty())
+            return;
+
+        if (const auto tracker = lock_bound_tracker())
+            tracker->track_script_registration(plugin_id, std::string(registration_name));
     }
 
     void track_plugin_owned_service_registration(std::type_index service_type)

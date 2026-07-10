@@ -14,6 +14,7 @@ namespace tbx
         std::vector<std::type_index> component_types = {};
         std::vector<std::string> serializable_type_names = {};
         std::vector<std::type_index> asset_types = {};
+        std::vector<std::string> script_type_names = {};
     };
 
     class PluginOwnershipTracker final
@@ -35,6 +36,7 @@ namespace tbx
         void track_component_registration(Uuid plugin_id, std::type_index component_type);
         void track_entity(Uuid plugin_id, Uuid entity_id);
         void track_serializable_registration(Uuid plugin_id, std::string registration_name);
+        void track_script_registration(Uuid plugin_id, std::string registration_name);
         void track_service(Uuid plugin_id, std::type_index service_type);
 
         OwnedPluginResources snapshot_and_clear(Uuid plugin_id);

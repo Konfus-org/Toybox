@@ -4,6 +4,7 @@
 #include "builtin_assets.h"
 #include "engine_services.h"
 #include "wire.h"
+#include "world_ops.h"
 #include "tbx/systems/assets/asset_pairing.h"
 #include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
@@ -14,10 +15,12 @@
 #include "tbx/types/matrices.h"
 #include "tbx/types/uuid.h"
 #include <cctype>
+#include <charconv>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -322,10 +325,37 @@ namespace tbx::studio_bridge
         return result;
     }
 
+    // Whether an asset.save addresses the active world (its mirror's address is asset/{id}). A world's
+    // save can't go through the generic body write below — its entity edits live in the chunk + globals
+    // files — so it routes to save_active_world.
+    static bool is_active_world_save(const EngineServices& services, const tbx::Json& params)
+    {
+        const auto address = params.value(Wire::ADDRESS, std::string());
+        constexpr std::string_view prefix = "asset/";
+        if (address.size() <= prefix.size()
+            || std::string_view(address).substr(0, prefix.size()) != prefix)
+            return false;
+
+        auto id = uint64(0);
+        const auto* const begin = address.data() + prefix.size();
+        const auto* const end = address.data() + address.size();
+        if (std::from_chars(begin, end, id).ec != std::errc())
+            return false;
+
+        auto manager = services.world_manager.lock();
+        return manager && manager->has_active_world()
+            && manager->get_active_world_handle().id.value == static_cast<uint32>(id);
+    }
+
     Result save_asset(const EngineServices& services, const tbx::Json& params)
     {
         if (const auto required = require_object(params); !required)
             return required;
+
+        // A world persists through asset.save too, but its content lives in the chunk + globals files that
+        // save_active_world writes — not the generic .world-descriptor body write below.
+        if (is_active_world_save(services, params))
+            return save_world(services);
 
         const auto type = params.value(Wire::TYPE, std::string());
         const auto path = params.value(Wire::PATH, std::string());

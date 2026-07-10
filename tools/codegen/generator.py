@@ -375,7 +375,7 @@ def emit_script_asset_declarations(type_info: SerializableType, prop_fields: lis
         *emit_json_function_declarations(type_info),
         f"::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value);",
         f"void {bind_helper}({type_info.name}& tbx_value, ::tbx::ScriptContext& tbx_context);",
-        # Wraps the comma-bearing register_cpp_script_type<...> template call in a function so callers
+        # Wraps the comma-bearing register_script_type<...> template call in a function so callers
         # (the auto-register macro, and the plugin registration) invoke it without template-arg commas.
         f"bool register_script_type_{type_info.name}();",
         "",
@@ -528,7 +528,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
             "}",
             f"bool register_script_type_{type_info.name}()",
             "{",
-            "    return ::tbx::register_cpp_script_type<",
+            "    return ::tbx::register_script_type<",
             f"        {type_info.name},",
             f"        &{override_helper},",
             f"        &{bind_helper}>({version});",

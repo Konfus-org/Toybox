@@ -4,54 +4,85 @@ namespace tbx
 {
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    void SerializationRegistry::register_loader(
-        Loader<TAsset> loader,
-        AsyncLoader<TAsset> async_loader,
-        PathClaim path_claim)
+    void SerializationRegistry::register_reader(
+        std::vector<std::string> extensions,
+        Reader<TAsset> reader,
+        AsyncReader<TAsset> async_reader)
     {
         TBX_ASSERT(
-            static_cast<bool>(loader) || static_cast<bool>(async_loader),
-            "Serialization registry requires a sync or async loader for type '{}'.",
+            static_cast<bool>(reader) || static_cast<bool>(async_reader),
+            "Serialization registry requires a sync or async reader for type '{}'.",
             typeid(TAsset).name());
+
+        // Normalize each claimed extension to a lower-case, dot-less token so matching is trivial.
+        for (auto& extension : extensions)
+        {
+            if (!extension.empty() && extension.front() == '.')
+                extension.erase(extension.begin());
+            for (auto& character : extension)
+                character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+        }
+
+        auto type_name = std::string();
+        if (const auto asset_registration =
+                get_asset_type_registration(std::type_index(typeid(TAsset)));
+            asset_registration.has_value())
+            type_name = asset_registration->type_name;
 
         std::lock_guard lock(_mutex);
         auto& registration = get_or_create_registration<TAsset>();
-        registration.loader = std::move(loader);
-        registration.async_loader = std::move(async_loader);
-        registration.path_claim = std::move(path_claim);
+        registration.reader = std::move(reader);
+        registration.async_reader = std::move(async_reader);
+        registration.extensions = std::move(extensions);
+        registration.type_name = std::move(type_name);
+        // Type-erased deserialize: read the asset through its typed reader path and up-cast the result to
+        // the Asset base, so a type-erased caller (read_registered_asset_result) can load a reader-backed
+        // asset (a Model with its geometry/slots) without knowing TAsset.
+        registration.read_erased =
+            [](const SerializationRegistry& registry, const std::filesystem::path& asset_path)
+        {
+            auto typed = registry.read_result<TAsset>(asset_path);
+            auto erased = AssetReadResult<Asset> {};
+            erased.asset = std::move(typed.asset);
+            erased.metadata = typed.metadata;
+            erased.result = std::move(typed.result);
+            return erased;
+        };
     }
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    void SerializationRegistry::deregister_loader()
+    void SerializationRegistry::deregister_reader()
     {
         std::lock_guard lock(_mutex);
         auto registration = find_registration<TAsset>();
         if (!registration.has_value())
             return;
 
-        registration->get().loader = {};
-        registration->get().async_loader = {};
-        registration->get().path_claim = {};
+        registration->get().reader = {};
+        registration->get().async_reader = {};
+        registration->get().extensions = {};
+        registration->get().type_name = {};
+        registration->get().read_erased = {};
         erase_registration_if_empty<TAsset>();
     }
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    bool SerializationRegistry::has_loader() const
+    bool SerializationRegistry::has_reader() const
     {
         std::lock_guard lock(_mutex);
         const auto registration = find_registration<TAsset>();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
-        const bool has_default_loader =
+        const bool has_default_reader =
             asset_registration.has_value()
             && (asset_registration->read_body || asset_registration->transform_meta);
         if (!registration.has_value())
-            return has_default_loader;
+            return has_default_reader;
 
-        return static_cast<bool>(registration->get().loader)
-               || static_cast<bool>(registration->get().async_loader) || has_default_loader;
+        return static_cast<bool>(registration->get().reader)
+               || static_cast<bool>(registration->get().async_reader) || has_default_reader;
     }
 
     template <typename TAsset>
@@ -100,21 +131,21 @@ namespace tbx
         const auto file_ops = lock_file_ops();
         std::lock_guard lock(_mutex);
         const auto registration = find_registration<TAsset>();
-        const bool has_registered_loader =
+        const bool has_registered_reader =
             registration.has_value()
-            && (static_cast<bool>(registration->get().loader)
-                || static_cast<bool>(registration->get().async_loader));
-        if (has_registered_loader)
+            && (static_cast<bool>(registration->get().reader)
+                || static_cast<bool>(registration->get().async_reader));
+        if (has_registered_reader)
             return true;
 
         const bool has_registered_transformer =
             registration.has_value() && !registration->get().transformers.empty();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
-        const bool has_default_loader =
+        const bool has_default_reader =
             asset_registration.has_value()
             && (asset_registration->read_body || asset_registration->transform_meta);
-        return file_ops != nullptr && (has_registered_transformer || has_default_loader);
+        return file_ops != nullptr && (has_registered_transformer || has_default_reader);
     }
 
     template <typename TAsset>
@@ -123,7 +154,7 @@ namespace tbx
         const std::filesystem::path& asset_path,
         const AssetLoadParameters<TAsset>& parameters) const
     {
-        Loader<TAsset> loader = {};
+        Reader<TAsset> reader = {};
         std::vector<Transformer<TAsset>> transformers = {};
         auto file_ops = lock_file_ops();
         const auto asset_registration =
@@ -134,7 +165,7 @@ namespace tbx
             const auto registration = find_registration<TAsset>();
             if (registration.has_value())
             {
-                loader = registration->get().loader;
+                reader = registration->get().reader;
                 transformers = registration->get().transformers;
             }
         }
@@ -168,9 +199,9 @@ namespace tbx
         }
         read.metadata = metadata;
 
-        if (loader)
+        if (reader)
         {
-            read.result = loader(asset_path, parameters, metadata, *read.asset);
+            read.result = reader(asset_path, parameters, metadata, *read.asset);
         }
         else if (asset_registration.has_value() && asset_registration->read_body)
         {
@@ -187,7 +218,7 @@ namespace tbx
         else
         {
             read.result = make_failed_result(
-                std::string("Serialization loader not registered for type '")
+                std::string("No serialization reader or JSON body registered for type '")
                 + typeid(TAsset).name() + "'.");
         }
 
@@ -230,7 +261,7 @@ namespace tbx
         const std::filesystem::path& asset_path,
         const AssetLoadParameters<TAsset>& parameters) const
     {
-        AsyncLoader<TAsset> async_loader = {};
+        AsyncReader<TAsset> async_reader = {};
         std::vector<Transformer<TAsset>> transformers = {};
         auto file_ops = lock_file_ops();
         const auto asset_registration =
@@ -241,12 +272,12 @@ namespace tbx
             const auto registration = find_registration<TAsset>();
             if (registration.has_value())
             {
-                async_loader = registration->get().async_loader;
+                async_reader = registration->get().async_reader;
                 transformers = registration->get().transformers;
             }
         }
 
-        if (!async_loader)
+        if (!async_reader)
         {
             auto sync_read = read_result<TAsset>(asset_path, parameters);
             auto result = AssetPromise<TAsset> {};
@@ -287,12 +318,12 @@ namespace tbx
         result.asset = std::make_shared<TAsset>();
         result.metadata = metadata;
 
-        auto loader_future = async_loader(asset_path, parameters, metadata, result.asset);
+        auto loader_future = async_reader(asset_path, parameters, metadata, result.asset);
         if (!loader_future.valid())
         {
             result.asset.reset();
             result.promise = make_ready_future(
-                make_failed_result("Async serialization loader returned no future."));
+                make_failed_result("Async serialization reader returned no future."));
             return result;
         }
 
@@ -354,80 +385,27 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    void SerializationRegistry::register_writer(Writer<TAsset> writer)
-    {
-        TBX_ASSERT(
-            static_cast<bool>(writer),
-            "Serialization registry requires a writer for type '{}'.",
-            typeid(TAsset).name());
-
-        std::lock_guard lock(_mutex);
-        auto& registration = get_or_create_registration<TAsset>();
-        registration.writer = std::move(writer);
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    void SerializationRegistry::deregister_writer()
-    {
-        std::lock_guard lock(_mutex);
-        auto registration = find_registration<TAsset>();
-        if (!registration.has_value())
-            return;
-
-        registration->get().writer = {};
-        erase_registration_if_empty<TAsset>();
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    bool SerializationRegistry::has_writer() const
-    {
-        std::lock_guard lock(_mutex);
-        const auto registration = find_registration<TAsset>();
-        const auto asset_registration =
-            get_asset_type_registration(std::type_index(typeid(TAsset)));
-        return (registration.has_value() && static_cast<bool>(registration->get().writer))
-               || (asset_registration.has_value() && asset_registration->write_body);
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
     Result SerializationRegistry::write(
         const std::filesystem::path& asset_path,
         const TAsset& asset) const
     {
-        Writer<TAsset> writer = {};
+        // Serialization is always JSON: reader-backed types (model/texture) have no writer and are never
+        // written back over their source file; every serializable body writes through the codegen
+        // write_body.
         auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
 
+        if (!asset_registration.has_value() || !asset_registration->write_body)
         {
-            std::lock_guard lock(_mutex);
-            const auto registration = find_registration<TAsset>();
-            if (registration.has_value())
-                writer = registration->get().writer;
+            return make_failed_result(
+                std::string("No serializable body registered for type '")
+                + typeid(TAsset).name() + "'.");
         }
+        if (!file_ops)
+            return make_failed_result("Serialization registry has no file operations.");
 
-        if (!writer)
-        {
-            if (!asset_registration.has_value() || !asset_registration->write_body)
-            {
-                return make_failed_result(
-                    std::string("Serialization writer not registered for type '")
-                    + typeid(TAsset).name() + "'.");
-            }
-            if (!file_ops)
-                return make_failed_result("Serialization registry has no file operations.");
-
-            return try_write_registered_asset_body(
-                asset_path,
-                *file_ops,
-                *asset_registration,
-                &asset);
-        }
-
-        return writer(asset_path, asset);
+        return try_write_registered_asset_body(asset_path, *file_ops, *asset_registration, &asset);
     }
 
     template <typename TAsset>
@@ -477,8 +455,8 @@ namespace tbx
             return;
 
         const auto& registration = static_cast<const Registration<TAsset>&>(*iterator->second);
-        if (registration.loader || registration.async_loader || !registration.transformers.empty()
-            || registration.writer || registration.path_claim)
+        if (registration.reader || registration.async_reader || !registration.transformers.empty()
+            || !registration.extensions.empty())
             return;
 
         _registrations.erase(iterator);

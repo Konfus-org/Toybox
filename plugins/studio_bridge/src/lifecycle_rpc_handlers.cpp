@@ -20,6 +20,7 @@ namespace tbx::studio_bridge
         GameModeState& game_mode,
         SyncEventState& events,
         std::function<void(bool paused)> set_paused,
+        std::function<void()> request_step,
         std::function<void()> request_shutdown)
     {
         registrar.add(
@@ -52,6 +53,13 @@ namespace tbx::studio_bridge
             {
                 set_playing(
                     game_mode, events, services, set_paused, params.value("isPlaying", false));
+                r.result(tbx::Json::object());
+            });
+        registrar.add(
+            Wire::ENGINE_STEP,
+            [request_step = std::move(request_step)](const tbx::Json&, tbx::RpcResponder& r)
+            {
+                request_step();
                 r.result(tbx::Json::object());
             });
         registrar.add(

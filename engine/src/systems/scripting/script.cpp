@@ -1,4 +1,4 @@
-#include "tbx/cpp_scripting/script.h"
+#include "tbx/systems/scripting/script.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/scripting/script_context.h"

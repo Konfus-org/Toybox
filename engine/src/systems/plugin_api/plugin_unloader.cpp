@@ -3,6 +3,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/registry.h"
+#include "tbx/systems/scripting/script_registry.h"
 #include "tbx/types/components/component.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
@@ -56,6 +57,9 @@ namespace tbx
 
         for (const auto& asset_type : owned_resources.asset_types)
             unregister_asset_type_entry(asset_type);
+
+        for (const auto& script_type_name : owned_resources.script_type_names)
+            unregister_script_entry(script_type_name);
 
         if (auto asset_manager = service_provider.try_get_service<AssetManager>().lock())
         {

@@ -27,6 +27,8 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view ENGINE_SHUTDOWN = "engine.shutdown";
         inline constexpr std::string_view ENGINE_SET_PAUSED = "engine.setPaused";
         inline constexpr std::string_view ENGINE_SET_PLAYING = "engine.setPlaying";
+        // Advances the paused simulation by exactly one fixed tick (the game view's next-frame button).
+        inline constexpr std::string_view ENGINE_STEP = "engine.step";
         inline constexpr std::string_view ENGINE_SET_LOG_COLORS = "engine.setLogColors";
         inline constexpr std::string_view ENGINE_LOG = "engine.log";
 

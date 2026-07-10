@@ -19,6 +19,7 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
+#include "tbx/systems/scripting/script_registry.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/time/delta_time.h"
 #include <algorithm>
@@ -249,6 +250,13 @@ namespace tbx
                 {
                     set_paused(pause_request->get().is_paused);
                     pause_request->get().state = MessageState::HANDLED;
+                    return;
+                }
+
+                if (auto step_request = handle_message<StepApplicationRequest>(msg))
+                {
+                    request_step();
+                    step_request->get().state = MessageState::HANDLED;
                     return;
                 }
 
@@ -486,6 +494,11 @@ namespace tbx
         // destructors from later destroying those functions after the app module has been unloaded.
         clear_serialization_registrations();
 
+        // Same rationale for the script registry: its plain function pointers into the app module (which
+        // registers its script types at static-init with no owning plugin) must be dropped before that
+        // module unloads. Plugin-owned script entries were already purged on detach by the tracker.
+        clear_script_registrations();
+
         //// SHUTDOWN: STOP REMAINING BACKGROUND WORK ////
 
         // Unload plugin libraries after detach so plugin code is no longer executing.
@@ -552,11 +565,28 @@ namespace tbx
 
         // Simulation (fixed step, world, scripts) runs unless paused. A host (e.g. Studio) can
         // pause to freeze gameplay while the world keeps rendering, so an attached editor shows the
-        // world without it advancing.
-        const auto should_simulate = !_is_paused;
+        // world without it advancing. A queued single step (StepApplicationRequest) advances exactly
+        // one fixed tick while paused, for the editor's next-frame button.
+        const bool stepping = _is_paused && _pending_steps > 0;
+        const bool should_simulate = !_is_paused || stepping;
 
         if (should_simulate)
-            fixed_update(delta_time);
+        {
+            if (stepping)
+            {
+                // Advance one deterministic tick regardless of the real (paused) frame delta: seed the
+                // accumulator to exactly one fixed step and drive fixed_update with a zero delta, so its
+                // loop runs a single sub-step. Consume the queued step.
+                --_pending_steps;
+                _fixed_update_accumulator_seconds = std::max(
+                    0.0001, static_cast<double>(get_settings().physics.fixed_time_step_seconds));
+                fixed_update(DeltaTime {});
+            }
+            else
+            {
+                fixed_update(delta_time);
+            }
+        }
 
         //// UPDATE: PUMP INPUT AND RUN FRAME SIMULATION ////
 
@@ -736,6 +766,13 @@ namespace tbx
     void Application::set_paused(bool is_paused)
     {
         _is_paused = is_paused;
+    }
+
+    void Application::request_step()
+    {
+        // Queue a single step; update() advances one fixed tick on the next frame even while paused.
+        // An unpaused engine already simulates every frame, so this only has an effect while paused.
+        _pending_steps = 1;
     }
 
     void Application::request_exit()

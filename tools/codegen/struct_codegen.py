@@ -226,7 +226,12 @@ def emit_json_function_definitions(
                 f"    const {type_info.name} tbx_default_value {{}};",
                 "    if (tbx_json.is_object() || tbx_json.is_null())",
                 "    {",
-                "        ::tbx::read_serialization_field(",
+                # The keyed form is only produced by hand-authored/legacy files (the fast path above
+                # writes the bare field value). Its field carries the self-describing { "type",
+                # "value" } wrapper, so it must be unwrapped exactly like a multi-field struct — a
+                # plain read_serialization_field would hand the wrapper object straight to the field's
+                # deserialize, which for an enum/typed field silently falls back to its default.
+                "        ::tbx::read_typed_serialization_field(",
                 "            tbx_json,",
                 f"            {cpp_string(json_key(field))},",
                 f"            tbx_value.{field.name},",
