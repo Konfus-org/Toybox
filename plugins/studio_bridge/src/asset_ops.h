@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/systems/files/json.h"
+#include "tbx/types/typedefs.h"
 #include "tbx/utils/result.h"
+#include <string_view>
 
 namespace tbx::studio_bridge
 {
@@ -36,6 +38,15 @@ namespace tbx::studio_bridge
     /// @brief Saves an edited asset ({ assetId } + values) to disk.
     Result save_asset(const EngineServices& services, const tbx::Json& params);
 
+    /// @brief Applies one live per-field edit to a loaded asset (a material tweaked in the Asset Viewer,
+    /// the project's AppSettings) — mutating the resident instance in memory so a previewed material
+    /// re-renders and per-frame settings self-apply. It never writes the file; persistence stays with
+    /// save_asset. A no-op-safe round-trip through the type's own serialize/deserialize, so untouched
+    /// fields are preserved. Reached through the uniform sync.set path (asset/{id}/{property}); the
+    /// property and value come pre-parsed from the address by the sync path resolver.
+    Result apply_asset_property(
+        const EngineServices& services, uint64 asset_id, std::string_view property, const tbx::Json& value);
+
     /// @brief Creates a new, default-valued asset of the registered { type } at the project-relative
     /// { path }, writing its body plus a fresh-id `<path>.meta` sidecar so it is discoverable and its
     /// references stay stable. A { type } of "World" scaffolds the linked `.world` + `.globals` + `.chunk`
@@ -50,4 +61,10 @@ namespace tbx::studio_bridge
     /// @brief Mints a fresh, engine-unique asset id (so the editor can author a sidecar — e.g. a new
     /// script's `.h.meta` — without risking an id collision). Replies { id }.
     Result new_asset_id(tbx::Json& out_reply);
+
+    /// @brief Force-registers an existing asset file by { path } into the registry (loading it establishes
+    /// its id→path mapping), so a later id-based reference to it resolves. The type is dispatched by
+    /// extension. Used by the editor to register the assets it wants — e.g. a preview world's bundled
+    /// dependencies whose directory the registry's source scan skips. Replies { id }.
+    Result load_asset(const EngineServices& services, const tbx::Json& params, tbx::Json& out_reply);
 }

@@ -110,7 +110,7 @@ namespace tbx::studio_bridge
         submit_gizmo_overlay(_gizmos, _selection, _services, _views);
         submit_gizmo_layers(_gizmo_layers, _services);
         submit_collider_wireframes(_collider_pass, _selection, _render_layers, _services);
-        push_external_cameras(_views, _services);
+        push_external_cameras(_views, _services, _game_mode.is_playing);
 
         // The editor's billboard overlay positions are pulled, not pushed: the editor polls
         // view.projectEntities on its own cadence, so there is nothing to send here per frame.

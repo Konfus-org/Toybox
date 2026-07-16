@@ -24,12 +24,26 @@ namespace tbx::studio_bridge
             {
                 r.respond(save_world(services));
             });
-        registrar.add(
+        registrar.add_query(
             Wire::WORLD_OPEN,
-            [&services](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views](const tbx::Json& params, tbx::Json& reply)
             {
-                // Opens a world/chunk asset as the active editing world (replacing the current one).
-                r.respond(open_world(services, params));
+                // Opens a world/chunk asset into the main world: "replace" (default) swaps the active world;
+                // "additive" loads on top of it and replies with a worldAssetId the editor later closes.
+                return open_world(services, views, params, reply);
+            });
+        registrar.add_query(
+            Wire::WORLD_LOAD,
+            [&services, &views](const tbx::Json& params, tbx::Json& reply)
+            {
+                // Loads a world alongside the active one; replies with its stable worldId.
+                return load_world(services, views, params, reply);
+            });
+        registrar.add(
+            Wire::WORLD_CLOSE,
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(close_world(services, views, params));
             });
     }
 }

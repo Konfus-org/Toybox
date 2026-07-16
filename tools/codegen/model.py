@@ -48,6 +48,10 @@ class SerializableType:
     enum_scoped: bool = False
     enum_underlying_type: str = ""
     alias_value: str = ""
+    # The template parameter list of a template struct/class (e.g. "typename TAsset"), empty for a
+    # non-template type. Set when a `template <...>` header directly precedes the declaration; the
+    # serialization processor uses it to emit template serialize/deserialize instead of concrete ones.
+    template_params: str = ""
     has_serializer: bool = False
     has_equality_operator: bool = False
     source_path: str = "<memory>"
@@ -220,6 +224,18 @@ def external_name(metadata: Field | SerializableType | EnumValue) -> str:
             return value
         return metadata.name
     return metadata.json_name
+
+
+def template_parameter_names(template_params: str) -> list[str]:
+    """Extract the bound names from a template parameter list so the type can be re-referenced with its
+    own parameters, e.g. "typename TAsset, int N" -> ["TAsset", "N"]. Each parameter's name is its last
+    identifier token (after the kind keyword and any `...` pack marker)."""
+    names: list[str] = []
+    for parameter in split_attribute_values(template_params):
+        identifiers = re.findall(r"[A-Za-z_]\w*", parameter)
+        if identifiers:
+            names.append(identifiers[-1])
+    return names
 
 
 def qualified_name(type_info: SerializableType) -> str:

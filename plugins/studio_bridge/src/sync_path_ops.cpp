@@ -22,6 +22,7 @@ namespace tbx::studio_bridge
         EntityDescribe,    // world/{w}/entities/{id}
         WorldDescribe,     // world/{w}
         AssetDescribe,     // asset/{assetId} | stream/{destination}/{assetId}
+        AssetProperty,     // asset/{assetId}/{property}
         SettingsDescribe,  // settings
         Unsupported,
     };
@@ -109,14 +110,24 @@ namespace tbx::studio_bridge
 
         if (seg[0] == "asset")
         {
-            // asset/{assetId}: the editor's asset-mirror address (a loaded material, the project's
-            // AppSettings, …). Only describe is serviceable — asset edits push through the asset.*
-            // verbs, not sync.set.
+            // asset/{assetId}[/{property}]: the editor's asset-mirror address (a loaded material, the
+            // project's AppSettings, …). A bare id describes it; a trailing property is a live per-field
+            // edit of the resident asset — assets ride the same uniform sync.set path as entities and
+            // components, folding the field into the address (no separate asset.* verb).
             auto asset_id = uint64(0);
             if (seg.size() < 2 || !parse_uint(seg[1], asset_id))
                 return PathKind::Unsupported;
             legacy[Wire::ASSET_ID] = asset_id;
-            return seg.size() == 2 ? PathKind::AssetDescribe : PathKind::Unsupported;
+            if (seg.size() == 2)
+                return PathKind::AssetDescribe;
+
+            // The tail is the property name; deeper segments (nested members) join with '/', as for a
+            // component property.
+            auto property = seg[2];
+            for (auto i = size_t(3); i < seg.size(); ++i)
+                property += "/" + seg[i];
+            legacy[Wire::PROPERTY] = property;
+            return PathKind::AssetProperty;
         }
 
         if (seg[0] == "stream")
@@ -295,6 +306,12 @@ namespace tbx::studio_bridge
                 return sync_set(services, views, legacy);
             case PathKind::EntityScalar:
                 return set_entity_scalar(services, views, legacy, scalar, *value_iterator);
+            case PathKind::AssetProperty:
+                return apply_asset_property(
+                    services,
+                    legacy.value(Wire::ASSET_ID, static_cast<uint64>(0)),
+                    legacy.value(Wire::PROPERTY, std::string()),
+                    *value_iterator);
             default:
                 return Result(false, "sync.set: unsupported path '" + path + "'.");
         }

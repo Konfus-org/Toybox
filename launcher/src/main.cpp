@@ -12,11 +12,12 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #include <windows.h>
     #include <cstdio>
+    #include <windows.h>
 #endif
 
 #ifdef TBX_DEBUG
+
 static std::string get_terminate_reason()
 {
     const auto exception = std::current_exception();
@@ -47,15 +48,19 @@ static void init_crash_policy()
 {
     std::set_terminate(debug_terminate_handler);
 }
+
 #else
+
 static void init_crash_policy() {}
+
 #endif
 
 #ifdef TBX_PLATFORM_WINDOWS
+
 // The launcher is a GUI-subsystem app so windowed and editor-hosted runs never flash a console.
-// A headless run has no window at all, so give it a console - the parent terminal if it was launched
-// from one, otherwise a fresh one - and point stdio at it; without this the engine looks like it is
-// doing nothing. Logs still always also reach the rotated TbxDebug.log file sink.
+// A headless run has no window at all, so give it a console - the parent terminal if it was
+// launched from one, otherwise a fresh one - and point stdio at it; without this the engine looks
+// like it is doing nothing. Logs still always also reach the rotated TbxDebug.log file sink.
 static void setup_headless_console(const tbx::CommandList& command_list)
 {
     if (!command_list.has("headless"))
@@ -69,14 +74,17 @@ static void setup_headless_console(const tbx::CommandList& command_list)
     freopen_s(&stream, "CONOUT$", "w", stderr);
     freopen_s(&stream, "CONIN$", "r", stdin);
 }
+
 #endif
 
 int main(int argc, char* argv[])
 {
     init_crash_policy();
+
 #ifdef TBX_PLATFORM_WINDOWS
     setup_headless_console(tbx::CommandList(argc, argv));
 #endif
+
     auto launcher = Launcher();
     return launcher.run(argc, argv);
 }

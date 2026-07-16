@@ -8,6 +8,7 @@
 #include <mutex>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -29,6 +30,31 @@ namespace tbx
         std::mutex mutex = {};
         std::vector<std::pair<IVec3, std::shared_ptr<WorldChunk>>> ready = {};
         std::unordered_set<IVec3> in_flight = {};
+    };
+
+    // A standalone world loaded via open_world(..., STANDALONE): a live World kept apart from the active world
+    // (e.g. an editor asset-preview world), plus the globals bookkeeping needed to release it cleanly.
+    // Its source asset handle is NOT pinned — the instance owns its own World copy, so the cached template
+    // is free to unload; only the globals it loaded are pinned (and unpinned on close).
+    struct WorldInstance
+    {
+        std::shared_ptr<World> world = {};
+        Handle handle = {};
+        std::vector<Uuid> global_entities = {};
+        std::vector<Handle> loaded_globals = {};
+    };
+
+    // An additive layer loaded via open_world(..., ADDITIVE): a world loaded on top of the active world. Its
+    // entities are injected into the active world (so they render/simulate with it) but tracked here by their
+    // ids so the layer can be removed again, and excluded when the active world is saved. `world` is the
+    // isolated copy the entities were loaded through (its id keys the layer and is the close_world handle);
+    // it owns its own chunk records and pins its globals until the layer closes.
+    struct AdditiveLayer
+    {
+        std::shared_ptr<World> world = {};
+        Handle handle = {};
+        std::vector<Uuid> entity_ids = {}; // injected into the active world; removed on close
+        std::vector<Handle> loaded_globals = {};
     };
 
     struct WorldManager::State
@@ -57,6 +83,8 @@ namespace tbx
         std::vector<Uuid> global_entities = {};
         Uuid reload_handler = {};
         bool active_world_from_asset = false;
+        std::unordered_map<Uuid, WorldInstance> instances = {};      // standalone worlds, keyed by their id
+        std::unordered_map<Uuid, AdditiveLayer> additive_layers = {}; // layers on the active world, by their id
     };
 
     //// WORLD MANAGER IMPL ////
@@ -83,6 +111,9 @@ namespace tbx
             {
                 if (auto coordinator = _state->message_coordinator.lock())
                     coordinator->deregister_handler(_state->reload_handler);
+                for (auto& [id, instance] : _state->instances)
+                    release_instance(instance.world.get(), instance.loaded_globals);
+                _state->instances.clear();
                 clear_active_world();
             },
             "Toybox world manager shutdown failed.");
@@ -111,53 +142,105 @@ namespace tbx
         return _state->active_world != nullptr;
     }
 
-    bool WorldManager::set_active_world(const Handle& handle)
+    std::shared_ptr<World> WorldManager::load_isolated_world(
+        const World& tmpl, std::vector<Uuid>& out_globals, std::vector<Handle>& out_loaded)
+    {
+        // load<World> hands back one shared cached instance per handle, and every chunk/globals record keys on
+        // world.id — so an isolated world (a standalone instance or the copy an additive layer loads through)
+        // must be its OWN World with a fresh unique id, or two of the same asset (or one and the active world)
+        // would collide. Copy the template's description into a fresh instance; the cached template is then
+        // free to unload (we never pin the source handle). Populate every chunk up front — these worlds don't
+        // stream, so a describe/render right after open sees the whole world.
+        auto instance = std::make_shared<World>();
+        instance->id = Uuid::generate();
+        instance->globals = tmpl.globals;
+        instance->chunks = tmpl.chunks;
+        instance->add_entities(tmpl.get_all());
+
+        if (!_state->chunk_loader->set_chunks(*instance)
+            || !load_world_globals(*instance, out_globals, out_loaded))
+        {
+            release_instance(instance.get(), out_loaded);
+            return {};
+        }
+
+        load_all_chunks(*instance);
+        return instance;
+    }
+
+    std::shared_ptr<World> WorldManager::open_world(const Handle& handle, WorldOpenMode mode)
     {
         if (!handle.is_valid())
-            return false;
-
-        if (_state->active_world && _state->active_world_from_asset
-            && _state->active_world_handle == handle)
-            return true;
+            return {};
 
         const auto asset_manager = _state->asset_manager.lock();
         if (!asset_manager)
-            return false;
+            return {};
 
-        auto loaded_world = asset_manager->load<World>(handle);
-        if (!loaded_world)
-            return false;
+        if (mode == WorldOpenMode::ADDITIVE && !_state->active_world)
+        {
+            TBX_TRACE_WARNING("Cannot additively load '{}': there is no active world to load on top of.", handle);
+            return {};
+        }
 
-        if (!_state->chunk_loader->set_chunks(*loaded_world))
-            return false;
-        if (!load_world_globals(*loaded_world))
-            return false;
+        if (mode == WorldOpenMode::REPLACE && _state->active_world && _state->active_world_from_asset
+            && _state->active_world_handle == handle)
+            return _state->active_world;
+
+        const auto loaded = asset_manager->load<World>(handle);
+        if (!loaded)
+            return {};
+
+        if (mode == WorldOpenMode::STANDALONE)
+        {
+            auto record = WorldInstance {};
+            record.handle = handle;
+            auto instance = load_isolated_world(*loaded, record.global_entities, record.loaded_globals);
+            if (!instance)
+                return {};
+
+            record.world = instance;
+            _state->instances.emplace(instance->id, std::move(record));
+            return instance;
+        }
+
+        if (mode == WorldOpenMode::ADDITIVE)
+        {
+            // Load the world through an isolated copy (fresh id, fully loaded), then inject its entities into
+            // the active world so they render/simulate with it. The copy is kept as the layer's handle: its id
+            // keys the layer for close_world, and it owns the chunk records + globals pin the layer releases.
+            auto layer = AdditiveLayer {};
+            layer.handle = handle;
+            auto injected_globals = std::vector<Uuid> {};
+            auto instance = load_isolated_world(*loaded, injected_globals, layer.loaded_globals);
+            if (!instance)
+                return {};
+
+            const auto entities = instance->get_all();
+            _state->active_world->add_entities(entities);
+            layer.world = instance;
+            layer.entity_ids.reserve(entities.size());
+            for (const auto& entity : entities)
+                layer.entity_ids.push_back(entity.get_id());
+
+            _state->additive_layers.emplace(instance->id, std::move(layer));
+            return instance;
+        }
+
+        // REPLACE: reuse the cached instance directly and pin its handle (single active world, may stream).
+        if (!_state->chunk_loader->set_chunks(*loaded))
+            return {};
+        if (!load_world_globals(*loaded))
+            return {};
 
         release_active_world();
         asset_manager->set_pinned(handle, true);
-        _state->active_world = std::move(loaded_world);
+        _state->active_world = loaded;
         _state->active_world_handle = handle;
         _state->active_world_from_asset = true;
         if (!_state->streaming_enabled)
             load_all_chunks(*_state->active_world);
-        return true;
-    }
-
-    bool WorldManager::set_active_world(std::shared_ptr<World> world)
-    {
-        if (!world)
-            return false;
-
-        if (!_state->chunk_loader->set_chunks(*world))
-            return false;
-
-        release_active_world();
-        _state->active_world_handle = Handle(world->id);
-        _state->active_world = std::move(world);
-        _state->active_world_from_asset = false;
-        if (!_state->streaming_enabled)
-            load_all_chunks(*_state->active_world);
-        return true;
+        return _state->active_world;
     }
 
     bool WorldManager::save_active_world()
@@ -175,13 +258,19 @@ namespace tbx
 
         auto& world = *_state->active_world;
 
+        // Additive layers are loaded on top of the base world but are not part of it, so their injected
+        // entities must never be written back into the base world's globals or chunks.
+        auto additive_entities = std::unordered_set<Uuid> {};
+        for (const auto& [id, layer] : _state->additive_layers)
+            additive_entities.insert(layer.entity_ids.begin(), layer.entity_ids.end());
+
         // Globals: every entity currently flagged global goes to the world's globals asset.
         if (world.globals.is_valid())
         {
             auto globals_asset = WorldGlobals {};
             for (const auto& entity : world.get_all())
             {
-                if (world.is_global(entity.get_id()))
+                if (world.is_global(entity.get_id()) && !additive_entities.contains(entity.get_id()))
                     globals_asset.entities.absorb(entity);
             }
 
@@ -215,7 +304,7 @@ namespace tbx
 
             for (const auto& id : chunk.entities)
             {
-                if (world.has(id) && !world.is_global(id))
+                if (world.has(id) && !world.is_global(id) && !additive_entities.contains(id))
                     chunk_asset.entities.absorb(world.get(id));
             }
 
@@ -225,7 +314,7 @@ namespace tbx
                 for (const auto& entity : world.get_all())
                 {
                     const auto id = entity.get_id();
-                    if (!world.is_global(id) && !assigned.contains(id))
+                    if (!world.is_global(id) && !assigned.contains(id) && !additive_entities.contains(id))
                         chunk_asset.entities.absorb(entity);
                 }
             }
@@ -375,6 +464,12 @@ namespace tbx
 
     bool WorldManager::load_world_globals(World& world)
     {
+        return load_world_globals(world, _state->global_entities, _state->loaded_globals);
+    }
+
+    bool WorldManager::load_world_globals(
+        World& world, std::vector<Uuid>& out_globals, std::vector<Handle>& out_loaded)
+    {
         if (!world.globals.is_valid())
             return true;
 
@@ -387,14 +482,31 @@ namespace tbx
             return false;
 
         world.load_globals(*globals);
-        _state->global_entities = collect_entity_ids(globals->entities);
+        out_globals = collect_entity_ids(globals->entities);
         asset_manager->set_pinned(world.globals, true);
-        if (std::ranges::find(_state->loaded_globals, world.globals)
-            == _state->loaded_globals.end())
-        {
-            _state->loaded_globals.push_back(world.globals);
-        }
+        if (std::ranges::find(out_loaded, world.globals) == out_loaded.end())
+            out_loaded.push_back(world.globals);
         return true;
+    }
+
+    void WorldManager::close_world(const Uuid& world_id)
+    {
+        if (const auto layer = _state->additive_layers.find(world_id);
+            layer != _state->additive_layers.end())
+        {
+            if (_state->active_world)
+                _state->active_world->remove_entities(layer->second.entity_ids);
+            release_instance(layer->second.world.get(), layer->second.loaded_globals);
+            _state->additive_layers.erase(layer);
+            return;
+        }
+
+        const auto it = _state->instances.find(world_id);
+        if (it == _state->instances.end())
+            return;
+
+        release_instance(it->second.world.get(), it->second.loaded_globals);
+        _state->instances.erase(it);
     }
 
     std::vector<Entity> WorldManager::collect_runtime_entities(
@@ -499,6 +611,13 @@ namespace tbx
 
     void WorldManager::release_active_world()
     {
+        // Additive layers live on the active world; drop them with it. Their injected entities vanish when the
+        // active world is cleared below, so we only release each layer's isolated copy (its chunk records + its
+        // globals pin) — no per-entity removal needed here.
+        for (auto& [id, layer] : _state->additive_layers)
+            release_instance(layer.world.get(), layer.loaded_globals);
+        _state->additive_layers.clear();
+
         if (_state->active_world)
             _state->chunk_loader->clear(*_state->active_world);
 
@@ -522,5 +641,21 @@ namespace tbx
         asset_manager->set_pinned(_state->active_world_handle, false);
         asset_manager->unload<World>(_state->active_world_handle, true);
         _state->global_entities.clear();
+    }
+
+    void WorldManager::release_instance(World* world, const std::vector<Handle>& loaded_globals)
+    {
+        // Clear the instance's chunk records (keyed by its unique id) and unpin the globals it loaded. The
+        // source .world handle was never pinned (the instance owns its own World copy), so — unlike the
+        // active world — there is nothing to unpin/unload for it here.
+        if (world)
+            _state->chunk_loader->clear(*world);
+
+        const auto asset_manager = _state->asset_manager.lock();
+        if (!asset_manager)
+            return;
+
+        for (const auto& globals : loaded_globals)
+            asset_manager->set_pinned(globals, false);
     }
 }

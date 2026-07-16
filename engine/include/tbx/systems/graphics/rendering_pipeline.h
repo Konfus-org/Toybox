@@ -116,6 +116,21 @@ namespace tbx
             World* world_override,
             Result& out_failure);
 
+        // Per-phase CPU timing accumulated across the render lane's executes and logged periodically,
+        // so the frame's cost split (pure-CPU scene capture vs pass submission) is visible without an
+        // external profiler. Nanoseconds kept as integers so the public header stays chrono-free.
+        // Render-lane only; reset after each log window.
+        struct PhaseTimings
+        {
+            uint64 prepare_ns = 0U;      // prepare_frame: world capture + transient buffer uploads (CPU)
+            uint64 pass_prepare_ns = 0U; // the passes' prepare() phase
+            uint64 pass_execute_ns = 0U; // the passes' execute() phase (incl. GPU submission/driver)
+            uint64 present_ns = 0U;      // finish_frame: present + end_frame
+            uint64 view_count = 0U;      // executes (views) sampled in this window
+        };
+        void record_phase_timings(
+            uint64 prepare_ns, uint64 pass_prepare_ns, uint64 pass_execute_ns, uint64 present_ns);
+
       private:
         std::weak_ptr<IGraphicsBackend> _backend = {};
         std::weak_ptr<AssetManager> _asset_manager = {};
@@ -134,5 +149,6 @@ namespace tbx
         RenderDebugView _debug_view = {};
         float _elapsed_time = 0.0F;
         uint64 _frame_index = 0U;
+        PhaseTimings _phase_timings = {};
     };
 }

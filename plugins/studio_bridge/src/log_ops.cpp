@@ -69,7 +69,11 @@ namespace tbx::studio_bridge
     static thread_local bool t_suppress_log_forward = false;
 
     static void forward_log(
-        const EngineServices& services, tbx::LogLevel level, const std::string& message)
+        const EngineServices& services,
+        tbx::LogLevel level,
+        const std::string& message,
+        const std::string& file,
+        int line)
     {
         if (t_suppress_log_forward)
             return;
@@ -80,15 +84,20 @@ namespace tbx::studio_bridge
         auto params = tbx::Json::object();
         params[Wire::LEVEL] = to_log_level_name(level);
         params[Wire::MESSAGE] = message;
+        // Always send the source location (empty/0 when there is none) so the editor's by-name handler
+        // binding is always satisfied; the editor links the line only when the path is non-empty.
+        params[Wire::SOURCE_FILE] = file;
+        params[Wire::SOURCE_LINE] = line;
         host->send_notification(Wire::ENGINE_LOG, params);
     }
 
     void attach_log(LogState& log, const EngineServices& services)
     {
         log.listener_id = tbx::Log::get_instance().add_listener(
-            [&services](tbx::LogLevel level, const std::string& message)
+            [&services](
+                tbx::LogLevel level, const std::string& message, const std::string& file, int line)
             {
-                forward_log(services, level, message);
+                forward_log(services, level, message, file, line);
             });
     }
 

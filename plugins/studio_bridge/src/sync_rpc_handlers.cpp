@@ -29,15 +29,19 @@ namespace tbx::studio_bridge
             {
                 return sync_describe_path(services, views, params, reply);
             });
-        // Transitional: no editor calls sync.set today — Studio 2.0's family write verbs
-        // (component.set / entity.set / asset.set) land on this same path-addressed set machinery
-        // and retire the method.
-        registrar.add(
-            Wire::SYNC_SET,
+        // The uniform sync.set plus Studio 2.0's family write verbs, which address a component-property
+        // or entity-scalar edit by family: all carry the same world-qualified { address, value } payload,
+        // so they share one path-addressed set implementation. A component edit — a gizmo drag's landed
+        // Transform and, crucially, its undo restore — rides component.set; an entity scalar rides
+        // entity.set. (asset.* body writes are their own verbs, not this path.)
+        const auto set_handler =
             [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
-            {
-                r.respond(sync_set_path(services, views, params));
-            });
+        {
+            r.respond(sync_set_path(services, views, params));
+        };
+        registrar.add(Wire::SYNC_SET, set_handler);
+        registrar.add(Wire::COMPONENT_SET, set_handler);
+        registrar.add(Wire::ENTITY_SET, set_handler);
         registrar.add(
             Wire::SYNC_RESET,
             [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)

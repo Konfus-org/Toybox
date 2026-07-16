@@ -384,10 +384,14 @@ namespace tbx::studio_bridge
             }
         }
 
-        // The active world's asset id, so the editor's World mirror takes on the world's identity (its
-        // asset/{id} address routes sync.describe and asset.save to this world).
-        if (auto manager = services.world_manager.lock(); manager && manager->has_active_world())
+        // The described world's identity, so the editor's World mirror takes it on (its asset/{id} address
+        // routes sync.describe / asset.save). The active world reports its asset handle id; a non-active
+        // (preview / loaded) world reports its own runtime id.
+        if (auto manager = services.world_manager.lock();
+            manager && manager->has_active_world() && manager->get_active_world().lock() == world)
             result[Wire::ID] = manager->get_active_world_handle().id.value;
+        else if (world)
+            result[Wire::ID] = world->id.value;
 
         result[Wire::ENTITIES] = std::move(entities);
         return result;
@@ -399,10 +403,16 @@ namespace tbx::studio_bridge
         const tbx::Json& params,
         tbx::Json& out_reply)
     {
-        // Reuses the sync entity resolver (reads/validates entityId against the active world).
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_sync_entity(services, views, params, entity); !resolved)
+        // Resolve the entity's OWNING world (active or a preview/loaded world), so globalness reads from
+        // the right world rather than always the active one.
+        auto world = std::shared_ptr<tbx::World>();
+        auto id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(services, views, params, world, id); !resolved)
             return resolved;
+
+        const auto entity = world->get(id);
+        if (!entity.get_id().is_valid())
+            return Result(false, "Entity not found.");
 
         // Same per-entity shape describe_world emits: every field plus reflection metadata. Lets
         // the editor re-query just the selected entity to stay in sync with the running game.
@@ -413,8 +423,7 @@ namespace tbx::studio_bridge
         if (entity_json.is_discarded() || !entity_json.is_object())
             return Result(false, "Failed to serialize entity.");
 
-        if (auto world = services.active_world())
-            entity_json[Wire::IS_GLOBAL] = world->is_global(entity.get_id());
+        entity_json[Wire::IS_GLOBAL] = world->is_global(id);
 
         auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
         enrich_script_overrides(services, entity_json, schema_cache);
@@ -665,7 +674,8 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result open_world(const EngineServices& services, const tbx::Json& params)
+    Result open_world(
+        const EngineServices& services, ViewState& views, const tbx::Json& params, tbx::Json& out_reply)
     {
         if (const auto required = require_object(params); !required)
             return required;
@@ -675,13 +685,21 @@ namespace tbx::studio_bridge
             return required;
         const auto asset_id = static_cast<uint32>(raw_asset_id);
 
+        // Optional mode: "replace" (default) swaps the active world; "additive" loads on top of it.
+        auto mode = tbx::WorldOpenMode::REPLACE;
+        if (const auto mode_str = params.value(Wire::WORLD_MODE, std::string(Wire::WORLD_MODE_REPLACE));
+            mode_str == Wire::WORLD_MODE_ADDITIVE)
+            mode = tbx::WorldOpenMode::ADDITIVE;
+        else if (mode_str != Wire::WORLD_MODE_REPLACE)
+            return Result(false, "world.open 'mode' must be 'replace' or 'additive'.");
+
         auto world_manager = services.world_manager.lock();
         auto asset_manager = services.asset_manager.lock();
         if (!world_manager || !asset_manager)
             return Result(false, "World or asset manager unavailable.");
 
-        // Find the registered world/chunk asset by id (the value editor.listAssets advertises) and
-        // activate it; set_active_world preserves the current world on failure.
+        // Find the registered world/chunk asset by id (the value editor.listAssets advertises) and open it;
+        // open_world preserves the current world on failure.
         for (const auto& entry : asset_manager->get_registered_assets())
         {
             if (entry.asset_id.value != asset_id)
@@ -691,12 +709,86 @@ namespace tbx::studio_bridge
             if (type != "world" && type != "chunk")
                 return Result(false, "Asset is not a world.");
 
-            if (!world_manager->set_active_world(tbx::Handle(entry.normalized_path, entry.asset_id)))
+            const auto opened =
+                world_manager->open_world(tbx::Handle(entry.normalized_path, entry.asset_id), mode);
+            if (!opened)
                 return Result(false, "Failed to open the world.");
+
+            // An additive layer is a tracked, unloadable world: register it so the editor gets a stable
+            // worldAssetId to close it with (world.close), exactly as a standalone load_world does.
+            if (mode == tbx::WorldOpenMode::ADDITIVE)
+                out_reply[Wire::WORLD_ASSET_ID] = register_loaded_world(views, opened);
             return Result::OK;
         }
 
         return Result(false, "Asset not found.");
+    }
+
+    Result load_world(
+        const EngineServices& services, ViewState& views, const tbx::Json& params, tbx::Json& out_reply)
+    {
+        if (const auto required = require_object(params); !required)
+            return required;
+
+        auto world_manager = services.world_manager.lock();
+        auto asset_manager = services.asset_manager.lock();
+        if (!world_manager || !asset_manager)
+            return Result(false, "World or asset manager unavailable.");
+
+        // Resolve the world/chunk asset handle: by { assetId } (a project asset) or by { path } (a bundled
+        // editor resource such as AssetPreview.world, which the registry's source scan skips — a load by
+        // path force-registers it, exactly as the preview seeding does for Sky.mat).
+        auto handle = tbx::Handle();
+        if (const auto asset_id = params.value(Wire::ASSET_ID, uint64(0)); asset_id != 0U)
+        {
+            for (const auto& entry : asset_manager->get_registered_assets())
+            {
+                if (entry.asset_id.value != asset_id)
+                    continue;
+                const auto type = asset_type_from_path(entry.resolved_path);
+                if (type != "world" && type != "chunk")
+                    return Result(false, "Asset is not a world.");
+                handle = tbx::Handle(entry.normalized_path, entry.asset_id);
+                break;
+            }
+            if (!handle.is_valid())
+                return Result(false, "Asset not found.");
+        }
+        else if (const auto path = params.value(Wire::PATH, std::string()); !path.empty())
+        {
+            handle = tbx::Handle(path);
+        }
+        else
+        {
+            return Result(false, "world.load needs an 'assetId' or a 'path'.");
+        }
+
+        const auto instance = world_manager->open_world(handle, tbx::WorldOpenMode::STANDALONE);
+        if (!instance)
+            return Result(false, "Failed to load the world.");
+
+        out_reply[Wire::WORLD_ASSET_ID] = register_loaded_world(views, instance);
+        return Result::OK;
+    }
+
+    Result close_world(const EngineServices& services, ViewState& views, const tbx::Json& params)
+    {
+        auto raw_world_id = uint64(0);
+        if (const auto required = require_uint(params, Wire::WORLD_ASSET_ID, raw_world_id); !required)
+            return required;
+        const auto world_id = static_cast<uint32>(raw_world_id);
+        if (world_id == 0U)
+            return Result(false, "Cannot close the active world.");
+
+        // Drop the bridge's reference FIRST (so the next push_external_cameras stops handing the world to
+        // any bound view), then release it in the manager.
+        const auto instance_id = unregister_world(views, world_id);
+        if (!instance_id.is_valid())
+            return Result(false, "Unknown world id.");
+
+        if (auto world_manager = services.world_manager.lock())
+            world_manager->close_world(instance_id);
+        return Result::OK;
     }
 
     Result resolve_sync_entity(

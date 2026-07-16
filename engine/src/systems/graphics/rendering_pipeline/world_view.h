@@ -33,6 +33,18 @@ namespace tbx
         SHADOW_CASTER_CATEGORY_COUNT = 4U,
     };
 
+    /// @brief A slot's resolved effective material for one capture: the base Material with its
+    /// MaterialInstance parameter/texture overrides applied, plus its diagnostic label and any resolve
+    /// failure. Cached per-capture and keyed by the same material_key add_material uses, so a material
+    /// shared across many surfaces is loaded/copied/override-applied once per frame rather than once per
+    /// surface; add_renderable then reads it by reference (no per-surface Material copy).
+    struct ResolvedMaterial
+    {
+        Material material = {};
+        const std::string* name = nullptr;
+        RenderFailure failure = RenderFailure::NONE;
+    };
+
     /// @brief A camera's view of the world for one frame: the CPU-side arrays the pipeline uploads.
     struct WorldViewResult
     {
@@ -144,6 +156,16 @@ namespace tbx
         // so add_renderable drops it from the shadow list — a pop-free cost bound, not a visible cutoff.
         bool _has_shadow_caster = false;
         float _shadow_far_reach = 0.0F;
+        // Per-capture memo of packed material records keyed by the same material_key add_material
+        // caches its GPU slot by. Many surfaces share one material (identical base, no overrides), so
+        // this packs each distinct material once per capture instead of once per surface — the first
+        // sighting registers its textures + slot; later sightings reuse the bytes. Cleared each
+        // capture(). Safe under the key-uniqueness the GpuResourceCache material slot already assumes.
+        std::unordered_map<uint64, std::pair<GpuMaterialData, RenderFailure>> _packed_materials = {};
+        // Per-capture cache of resolved slot materials (see ResolvedMaterial), keyed by material_key.
+        // Pointers into it stay valid across inserts (unordered_map), so add_renderable safely reads the
+        // resolved material by reference. Cleared each capture().
+        std::unordered_map<uint64, ResolvedMaterial> _resolved_materials = {};
         std::unordered_map<GpuId, uint32> _bucket_of_pipeline = {};
         std::vector<std::vector<GpuIndexedDrawCommand>> _bucket_commands = {};
         // Whether each bucket (by creation index) blends. Blended buckets are flushed after all

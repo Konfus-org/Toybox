@@ -60,6 +60,12 @@ namespace tbx::performance_monitor
         double _performance_sample_max_frame_time_ms = 0.0;
         bool _performance_sample_has_data = false;
 
+        // Whether the last reported sample was already below the low-FPS threshold. The sub-30 warning
+        // fires only on the transition into the low-FPS state and re-arms once FPS recovers, so a
+        // sustained low-FPS session (e.g. the editor driving several offscreen viewports) warns once
+        // instead of on every sample interval.
+        bool _below_fps_threshold_warned = false;
+
 #if !defined(TBX_FULL_RELEASE)
         std::string _debug_main_window_title = {};
         DebugWindowTitleMonitor _debug_window_title_monitor = {};

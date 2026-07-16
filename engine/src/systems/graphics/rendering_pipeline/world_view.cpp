@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -418,13 +419,28 @@ namespace tbx
         uint32 real_material_id = 0U;
         if (failure == RenderFailure::NONE)
         {
+            // Pack once per distinct material per capture: the first surface with this key packs and
+            // registers the material's textures; later surfaces reuse the record. add_material below
+            // still runs each time (a cheap keyed lookup that memcmp-skips an unchanged GPU write).
             RenderFailure pack_failure = RenderFailure::NONE;
-            const GpuMaterialData packed =
-                pack_material(cache, material, material_name, pack_failure);
+            const GpuMaterialData* packed = nullptr;
+            if (const auto it = _packed_materials.find(material_key); it != _packed_materials.end())
+            {
+                packed = &it->second.first;
+                pack_failure = it->second.second;
+            }
+            else
+            {
+                GpuMaterialData just_packed =
+                    pack_material(cache, material, material_name, pack_failure);
+                packed = &_packed_materials
+                              .emplace(material_key, std::pair(just_packed, pack_failure))
+                              .first->second.first;
+            }
             if (pack_failure != RenderFailure::NONE)
                 failure =
                     pack_failure; // a texture/data validation failure (warned in pack_material)
-            else if (const auto id = cache.add_material(material_key, packed, false))
+            else if (const auto id = cache.add_material(material_key, *packed, false))
                 real_material_id = static_cast<uint32>(*id);
             else
             {
@@ -532,6 +548,8 @@ namespace tbx
         result.mask_draw_commands.clear();
         result.has_camera = false;
 
+        _packed_materials.clear();
+        _resolved_materials.clear();
         _bucket_of_pipeline.clear();
         _bucket_commands.clear();
         _bucket_transparent.clear();
@@ -720,16 +738,14 @@ namespace tbx
         // resolves to a MaterialInstance (whose param/texture overrides layer onto its base Material)
         // or directly to a Material; render config always comes from the base. When the slot's name
         // lines up with no material asset, the not-found validation material is used.
-        const auto resolve_slot_material = [&](const Renderer& renderer,
-                                               const Model& model,
-                                               uint32 slot_index,
-                                               Material& out_material,
-                                               const std::string*& out_name,
-                                               RenderFailure& out_failure,
-                                               uint64& out_key) -> void
+        // Resolves (once per capture, memoized by material_key) a slot's effective material. Returns a
+        // reference into _resolved_materials — valid across later inserts (unordered_map) — and fills
+        // out_key. Many surfaces share one material, so the base load + Material copy + override apply run
+        // once per distinct material per capture instead of once per surface.
+        const auto resolve_slot_material =
+            [&](const Renderer& renderer, const Model& model, uint32 slot_index, uint64& out_key)
+            -> const ResolvedMaterial&
         {
-            out_failure = RenderFailure::NONE;
-
             Handle instance_handle = {};
             if (renderer.materials.size() == 1U && renderer.materials.front().id.is_valid())
                 instance_handle = renderer.materials.front();
@@ -774,32 +790,42 @@ namespace tbx
                 if (instance)
                     base_handle = instance->material;
             }
+
+            // Key derivable before the base load/copy: an overridden instance keys by its handle + slot
+            // (its overrides are dynamic); a plain slot keys by its base handle so identical bases share a
+            // GPU material record. A slot that resolved to nothing keys 0 (the not-found fallback).
+            const bool overridden = instance && material_instance_has_overrides(*instance);
+            out_key = !base_handle.id.is_valid() ? 0U
+                      : overridden ? hash_combine(hash_handle(instance_handle.id), slot_index)
+                                   : hash_handle(base_handle.id);
+
+            // Already resolved this material this capture -> reuse it (skips the base load, the Material
+            // copy, and the override apply for every surface after the first that shares this key).
+            if (const auto it = _resolved_materials.find(out_key); it != _resolved_materials.end())
+                return it->second;
+
+            ResolvedMaterial resolved_material = {};
             const auto base =
                 base_handle.id.is_valid() ? assets.load<Material>(base_handle) : nullptr;
             if (!base)
             {
                 // Nothing lined up with this slot's name -> not-found validation material.
-                out_name = &MISSING_MATERIAL_LABEL;
-                out_failure = RenderFailure::MISSING_MATERIAL;
-                out_key = 0U;
-                return;
+                resolved_material.name = &MISSING_MATERIAL_LABEL;
+                resolved_material.failure = RenderFailure::MISSING_MATERIAL;
+                return _resolved_materials.emplace(out_key, std::move(resolved_material)).first->second;
             }
-            out_material = *base;
+            resolved_material.material = *base;
 
             if (instance)
             {
                 for (const auto& parameter : instance->overrides.parameters)
-                    out_material.parameters.set(parameter.name, parameter.data);
+                    resolved_material.material.parameters.set(parameter.name, parameter.data);
                 for (const auto& texture : instance->overrides.textures)
-                    out_material.textures.set(texture.name, texture.texture);
+                    resolved_material.material.textures.set(texture.name, texture.texture);
             }
 
-            out_name = &material_label(static_cast<uint32>(base_handle.id));
-            // An overridden instance keys by its handle + slot (its overrides are dynamic); a plain
-            // slot keys by its base handle so identical bases share a GPU material record.
-            out_key = instance && material_instance_has_overrides(*instance)
-                          ? hash_combine(hash_handle(instance_handle.id), slot_index)
-                          : hash_handle(base_handle.id);
+            resolved_material.name = &material_label(static_cast<uint32>(base_handle.id));
+            return _resolved_materials.emplace(out_key, std::move(resolved_material)).first->second;
         };
 
         // Loads `model_handle` (async, non-blocking) and emits its parts/meshes through add_renderable
@@ -883,18 +909,9 @@ namespace tbx
                 const uint32 slot_index =
                     has_parts ? model->parts[index].material_index : static_cast<uint32>(index);
 
-                auto effective = Material();
-                const std::string* name = &MISSING_MATERIAL_LABEL;
-                RenderFailure failed = RenderFailure::NONE;
                 uint64 material_key = 0U;
-                resolve_slot_material(
-                    renderer,
-                    *model,
-                    slot_index,
-                    effective,
-                    name,
-                    failed,
-                    material_key);
+                const ResolvedMaterial& resolved =
+                    resolve_slot_material(renderer, *model, slot_index, material_key);
                 add_renderable(
                     cache,
                     result,
@@ -902,9 +919,9 @@ namespace tbx
                     hash_combine(hash_handle(model_handle.id), static_cast<uint64>(mesh_index)),
                     material_key,
                     mesh,
-                    effective,
-                    *name,
-                    failed,
+                    resolved.material,
+                    *resolved.name,
+                    resolved.failure,
                     masked,
                     fade);
             }

@@ -24,6 +24,12 @@ namespace tbx
         CameraView view = {};
         RenderTarget target = {};
         std::shared_ptr<World> world_override = {};
+        // When true, the engine renders this camera every frame. When false, it renders at a reduced
+        // idle rate (see render_external_cameras) — the owner (the editor) sets it false for a viewport
+        // that is idle (not focused, not being edited, not playing) so an untouched pane stops paying a
+        // full render every frame. Never freezes: an idle camera still refreshes periodically. Defaults
+        // true so a non-editor owner (or one that never sets it) renders every frame as before.
+        bool render_active = true;
     };
 
     /// @brief The id register_external_camera returns; identifies a registered external camera for

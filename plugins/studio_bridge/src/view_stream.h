@@ -48,9 +48,25 @@ namespace tbx::studio_bridge
         tbx::CameraView view = {};
         tbx::ExternalCameraId external_camera_id = {};
 
+        // The engine runtime id of the world this view renders and picks against: 0 = the active editing
+        // world, or a non-zero id in the ViewState world registry (a preview world, or a world.load'd
+        // world an editor/game view is bound to). The camera's world override is resolved from it each
+        // frame (see push_external_cameras); per-entity ops resolve the owning world the same way.
+        uint32 world_id = 0U;
+        // Whether this view OWNS the world at world_id (a preview world it created) — so stopping the view
+        // drops that world from the registry. A view that merely references a bound world leaves it alone.
+        bool owns_world = false;
+
         // The view's shared GPU surface and where it is in its lifecycle (see ViewSurfaceState).
         tbx::SharedTargetInfo shared = {};
         ViewSurfaceState surface_state = ViewSurfaceState::Pending;
+
+        // Idle throttle: frames still to render at full rate after the last activity in this view (focus,
+        // input, a drag, playing, still loading). Set to a settle window on any activity and counted
+        // down each frame; while > 0 the view's external camera is pushed render_active so the final
+        // edit/async-load settles before the engine drops it to its idle refresh rate. Keeps a just-idle
+        // pane responsive without paying a full render every frame once it truly stops changing.
+        uint32 idle_settle_frames = 0U;
     };
 
     /// @brief
@@ -73,19 +89,12 @@ namespace tbx::studio_bridge
     /// Purpose: An asset-preview view — orbits an isolated world that holds a single previewed asset.
     struct AssetPreviewViewStream : ViewStream
     {
-        // The isolated world holding the previewed asset's entity, owned here so it lives exactly as
-        // long as the view and is rendered (as the external camera's world override) in place of the
-        // active world.
+        // The preview world holding the previewed asset's entity — loaded and owned by the editor
+        // (world.load / world.close), referenced here so the view renders it (as the external camera's
+        // world override) in place of the active world and can compute its framing bounds. It is registered
+        // in the ViewState world registry (by world.load) under the base ViewStream's world_id, so
+        // world-level ops (world.describe / entity.create) target it.
         std::shared_ptr<tbx::World> preview_world = {};
-
-        // A stable, non-zero numeric id the editor uses to target this preview world for world-level
-        // ops (world.describe / entity.create). World id 0 is reserved for the active editing world;
-        // per-entity ops resolve the owning world from the entity id instead.
-        uint32 world_id = 0U;
-
-        // The registered asset this preview shows (the editor builds + configures the previewed entity in
-        // this world through the world/entity API; the bridge only seeds the shared light + sky assets).
-        uint32 preview_asset_id = 0U;
 
         // Orbit-camera state: the camera sits at orbit_target + spherical(orbit_yaw, orbit_pitch) *
         // orbit_distance, always facing the target. Seeded from the asset's bounds when the view starts.

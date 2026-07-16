@@ -89,7 +89,27 @@ namespace tbx::studio_bridge
     /// @brief Saves the active world to disk.
     Result save_world(const EngineServices& services);
 
-    /// @brief Opens a world/chunk asset (by id) as the active editing world, replacing the current
-    /// one.
-    Result open_world(const EngineServices& services, const tbx::Json& params);
+    /// @brief Opens a world/chunk asset (by id) into the main editing world. The optional { mode } chooses
+    /// how: "replace" (default) swaps the active world; "additive" loads on top of it as an unloadable
+    /// layer, replying with the stable { worldAssetId } the editor later closes (like load_world).
+    Result open_world(
+        const EngineServices& services,
+        ViewState& views,
+        const tbx::Json& params,
+        tbx::Json& out_reply);
+
+    /// @brief Loads a world/chunk asset (by { assetId } or a bundled { path }) into a standalone live
+    /// world alongside the active one, replying with the stable { worldId } the editor targets and later
+    /// closes. Does not change the active world.
+    Result load_world(
+        const EngineServices& services,
+        ViewState& views,
+        const tbx::Json& params,
+        tbx::Json& out_reply);
+
+    /// @brief Closes a non-active world previously opened with load_world (standalone) or open_world in
+    /// additive mode, by its { worldId } — drops it from the view registry and releases it in the
+    /// WorldManager (an additive layer's entities are removed from the active world). A no-op-error for the
+    /// active world (0) or an unknown id.
+    Result close_world(const EngineServices& services, ViewState& views, const tbx::Json& params);
 }

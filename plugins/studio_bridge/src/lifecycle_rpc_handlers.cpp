@@ -25,8 +25,19 @@ namespace tbx::studio_bridge
     {
         registrar.add(
             Wire::EDITOR_HELLO,
-            [&services](const tbx::Json&, tbx::RpcResponder& r)
+            [&services](const tbx::Json& params, tbx::RpcResponder& r)
             {
+                // The editor bundles the asset-preview world's dependencies (sky texture + material, the
+                // preview globals + world) beside its executable and hands us that directory here. Add it
+                // as an asset search root so those resolve on demand; without it they resolve against the
+                // loaded project's root, 404, and the first asset preview blocks the editor UI thread on
+                // the failing load.
+                if (const auto resources = params.value("resourcesPath", std::string()); !resources.empty())
+                {
+                    if (auto assets = services.asset_manager.lock())
+                        assets->add_directory(resources);
+                }
+
                 auto result = tbx::Json::object();
                 result["protocolVersion"] = PROTOCOL_VERSION;
                 result["engine"] = "Toybox";

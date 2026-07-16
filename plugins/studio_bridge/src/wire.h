@@ -32,10 +32,13 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view ENGINE_SET_LOG_COLORS = "engine.setLogColors";
         inline constexpr std::string_view ENGINE_LOG = "engine.log";
 
-        // Dormant: no Studio 2.0 call site yet; kept for world opening/saving from the editor.
         inline constexpr std::string_view WORLD_DESCRIBE = "world.describe";
         inline constexpr std::string_view WORLD_SAVE = "world.save";
         inline constexpr std::string_view WORLD_OPEN = "world.open";
+        // Loads/closes a standalone world alongside the active one (multi-world: preview + owned worlds).
+        // The asset viewer uses these to own the lifetime of its preview world.
+        inline constexpr std::string_view WORLD_LOAD = "world.load";
+        inline constexpr std::string_view WORLD_CLOSE = "world.close";
 
         // entity.create/describe/move/removeComponent/addScript are dormant: no Studio 2.0 call
         // site yet; kept for the world tree's structural editing.
@@ -50,6 +53,9 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view ASSET_DESCRIBE = "asset.describe";
         inline constexpr std::string_view ASSET_SAVE = "asset.save";
         inline constexpr std::string_view ASSET_CREATE = "asset.create";
+        // Force-registers an existing asset file by path so a later id reference to it resolves (the
+        // editor registers the specific bundled assets it wants — e.g. a preview world's dependencies).
+        inline constexpr std::string_view ASSET_LOAD = "asset.load";
         // asset.describe (above) and forget/newId/previewStats/pairing/generateMissingMetas are
         // dormant: no Studio 2.0 call site yet; kept for the asset browser's pipeline tooling.
         inline constexpr std::string_view ASSET_FORGET = "asset.forget";
@@ -63,6 +69,12 @@ namespace tbx::studio_bridge
         // Transitional: retired once Studio 2.0's family write verbs (component.set / entity.set /
         // asset.set) land on the same path-addressed set machinery.
         inline constexpr std::string_view SYNC_SET = "sync.set";
+        // Studio 2.0's family write verbs: the editor's generated sync slots address a component-property
+        // or entity-scalar edit by family (its {address, value} carries the same world-qualified path a
+        // sync.set does), so both land on the sync.set path machinery. A component edit (a gizmo drag's
+        // Transform, or its undo) rides COMPONENT_SET; an entity scalar edit rides ENTITY_SET.
+        inline constexpr std::string_view COMPONENT_SET = "component.set";
+        inline constexpr std::string_view ENTITY_SET = "entity.set";
         inline constexpr std::string_view SYNC_RESET = "sync.reset";
         inline constexpr std::string_view SYNC_IS_DEFAULT = "sync.isDefault";
         // The sync.event channel: the editor subscribes (address, key) pairs; the engine streams the
@@ -74,6 +86,12 @@ namespace tbx::studio_bridge
         // in the editor's wire shapes); the editor's sync hub applies it to the bound mirror. Sent by
         // the gizmo controller when a drag lands on an entity's Transform.
         inline constexpr std::string_view SYNC_CHANGED = "sync.changed";
+
+        // Engine-to-editor notification bracketing one interactive edit (a gizmo drag): {phase:"begin"}
+        // as the drag starts, {phase:"commit"} when it lands, with the SYNC_CHANGED values streamed in
+        // between. The editor coalesces that run into a single undo step and flags the world dirty on
+        // commit.
+        inline constexpr std::string_view EDIT_TRANSACTION = "edit.transaction";
 
         // The editor's selection push (Ecs/WorldSelection): engine-global {key: "ids", value: [...]}.
         inline constexpr std::string_view SELECTION_SET = "selection.set";
@@ -120,6 +138,17 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view ADDRESS = "address";
         inline constexpr std::string_view KEY = "key";
 
+        // EDIT_TRANSACTION's single field and its two values (see EDIT_TRANSACTION above).
+        inline constexpr std::string_view PHASE = "phase";
+        inline constexpr std::string_view PHASE_BEGIN = "begin";
+        inline constexpr std::string_view PHASE_COMMIT = "commit";
+
+        // WORLD_OPEN's optional mode and its two values: REPLACE swaps the active world (default),
+        // ADDITIVE loads on top of it and replies with a worldAssetId the editor later closes.
+        inline constexpr std::string_view WORLD_MODE = "mode";
+        inline constexpr std::string_view WORLD_MODE_REPLACE = "replace";
+        inline constexpr std::string_view WORLD_MODE_ADDITIVE = "additive";
+
         // Common param/reply fields.
         inline constexpr std::string_view ID = "id";
         inline constexpr std::string_view IDS = "ids";
@@ -141,6 +170,10 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view SETTINGS = "settings";
         inline constexpr std::string_view LEVEL = "level";
         inline constexpr std::string_view MESSAGE = "message";
+        // A log line's originating source location (engine.log): the full file path and line, empty/0 when
+        // the line has none. Named SOURCE_* to avoid clashing with the <cstdio> FILE type.
+        inline constexpr std::string_view SOURCE_FILE = "file";
+        inline constexpr std::string_view SOURCE_LINE = "line";
         inline constexpr std::string_view OCCLUDED = "occluded";
         // A gizmo layer's synced values (camelCase, the editor's generated wire keys).
         inline constexpr std::string_view OPS = "ops";
@@ -154,6 +187,9 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view TRANSLATE = "translate";
         inline constexpr std::string_view ROTATE_DEG = "rotateDeg";
         inline constexpr std::string_view KEYS = "keys";
+        // The gizmo orientation: "local" (the primary entity's axes) or "global" (world axes).
+        inline constexpr std::string_view ORIENTATION = "orientation";
+        inline constexpr std::string_view ORIENTATION_LOCAL = "local";
         // The view.pick reply's handle-tap flag: the cursor was on a gizmo handle, so neither select
         // nor clear.
         inline constexpr std::string_view GIZMO = "gizmo";

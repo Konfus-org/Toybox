@@ -46,6 +46,7 @@ namespace tbx::studio_bridge
                 return glm::vec3(0.0F, 0.0F, 1.0F);
             case GizmoAxis::ALL:
             case GizmoAxis::NONE:
+            case GizmoAxis::VIEW: // camera-derived; resolved where the camera is available, not here
                 break;
         }
         return glm::vec3(0.0F);
@@ -129,10 +130,11 @@ namespace tbx::studio_bridge
     }
 
     // Screen distance from the cursor to a world-space circle around the pivot (a rotate ring),
-    // measured against its projected polyline.
+    // measured against its projected polyline. `basis` rotates the ring plane for local orientation.
     static float screen_distance_to_ring(
         const glm::mat4& view_projection,
         const glm::vec3& pivot,
+        const glm::quat& basis,
         GizmoAxis axis,
         float radius,
         float cu,
@@ -142,6 +144,8 @@ namespace tbx::studio_bridge
         glm::vec3 u;
         glm::vec3 v;
         axis_plane_basis(axis, u, v);
+        u = basis * u;
+        v = basis * v;
 
         auto best = HIT_MISS;
         auto prev_u = 0.0F;
@@ -175,15 +179,48 @@ namespace tbx::studio_bridge
                 return 0.02F;
             case GizmoHandleKind::CENTER:
                 return 0.022F;
+            case GizmoHandleKind::PLANE:
+            case GizmoHandleKind::PLANE_SCALE:
+                // Slightly larger than the drawn quad so the corner square stays comfortably grabbable.
+                return 0.03F;
         }
         return 0.0F;
     }
 
+    // Whether the cursor is on the outer view ring: |cursor-radius - ring-radius| in screen space,
+    // where the ring radius is the projected extent along the camera's right axis (so the grab band
+    // tracks the billboard the overlay draws).
+    static bool hit_test_view_ring(
+        const tbx::CameraView& camera_view,
+        const glm::mat4& view_projection,
+        const glm::vec3& pivot,
+        float reach,
+        float cu,
+        float cv,
+        float threshold)
+    {
+        auto pu = 0.0F;
+        auto pv = 0.0F;
+        if (!tbx::project_to_screen(view_projection, pivot, pu, pv))
+            return false;
+        const auto camera_right = glm::vec3(camera_view.rotation * glm::vec3(1.0F, 0.0F, 0.0F));
+        auto ru = 0.0F;
+        auto rv = 0.0F;
+        if (!tbx::project_to_screen(view_projection, pivot + (camera_right * reach), ru, rv))
+            return false;
+        const auto ring_radius = std::sqrt(((ru - pu) * (ru - pu)) + ((rv - pv) * (rv - pv)));
+        const auto cursor_radius = std::sqrt(((cu - pu) * (cu - pu)) + ((cv - pv) * (cv - pv)));
+        return std::abs(cursor_radius - ring_radius) < threshold;
+    }
+
     // Whether the cursor is on a handle: each kind hit-tests its analytic shape (the editor-authored
-    // visuals are trusted to match the kind + extent they declare).
+    // visuals are trusted to match the kind + extent they declare). `basis` rotates the world axes for
+    // local orientation; the VIEW ring is camera-derived and ignores it.
     static bool hit_test_handle(
         const GizmoHandle& handle,
+        const tbx::CameraView& camera_view,
         const glm::mat4& view_projection,
+        const glm::quat& basis,
         const glm::vec3& pivot,
         float size,
         float cu,
@@ -195,17 +232,28 @@ namespace tbx::studio_bridge
         {
             case GizmoHandleKind::ARROW:
                 return screen_distance_to_segment(
-                           view_projection, pivot, pivot + (gizmo_axis_dir(handle.axis) * reach), cu, cv)
+                           view_projection, pivot, pivot + ((basis * gizmo_axis_dir(handle.axis)) * reach), cu, cv)
                     < threshold;
             case GizmoHandleKind::RING:
-                return screen_distance_to_ring(view_projection, pivot, handle.axis, reach, cu, cv)
+                if (handle.axis == GizmoAxis::VIEW)
+                    return hit_test_view_ring(camera_view, view_projection, pivot, reach, cu, cv, threshold);
+                return screen_distance_to_ring(view_projection, pivot, basis, handle.axis, reach, cu, cv)
                     < threshold;
             case GizmoHandleKind::KNOB:
                 return screen_distance_to_point(
-                           view_projection, pivot + (gizmo_axis_dir(handle.axis) * reach), cu, cv)
+                           view_projection, pivot + ((basis * gizmo_axis_dir(handle.axis)) * reach), cu, cv)
                     < threshold;
             case GizmoHandleKind::CENTER:
                 return screen_distance_to_point(view_projection, pivot, cu, cv) < threshold;
+            case GizmoHandleKind::PLANE:
+            case GizmoHandleKind::PLANE_SCALE:
+            {
+                glm::vec3 u;
+                glm::vec3 v;
+                axis_plane_basis(handle.axis, u, v);
+                const auto center = pivot + ((basis * (u + v)) * reach);
+                return screen_distance_to_point(view_projection, center, cu, cv) < threshold;
+            }
         }
         return false;
     }
@@ -222,6 +270,8 @@ namespace tbx::studio_bridge
             return GizmoAxis::Z;
         if (axis == "all")
             return GizmoAxis::ALL;
+        if (axis == "view")
+            return GizmoAxis::VIEW;
         return GizmoAxis::NONE;
     }
 
@@ -235,6 +285,10 @@ namespace tbx::studio_bridge
             out_kind = GizmoHandleKind::KNOB;
         else if (kind == "center")
             out_kind = GizmoHandleKind::CENTER;
+        else if (kind == "plane")
+            out_kind = GizmoHandleKind::PLANE;
+        else if (kind == "plane_scale")
+            out_kind = GizmoHandleKind::PLANE_SCALE;
         else
             return false;
         return true;
@@ -277,6 +331,21 @@ namespace tbx::studio_bridge
         return true;
     }
 
+    // The gizmo's basis rotation: identity for global orientation, else the primary selected entity's
+    // (the last in the selection) world-space rotation, so the handles align to its local axes.
+    static glm::quat gizmo_basis(
+        const GizmoControllerState& state, const SelectionState& selection, tbx::World& world)
+    {
+        const auto identity = glm::quat(1.0F, 0.0F, 0.0F, 0.0F);
+        if (!state.local_orientation || selection.ids.empty())
+            return identity;
+        auto entity = world.get(selection.ids.back());
+        if (!entity.get_id().is_valid() || !entity.has_component<tbx::Transform>())
+            return identity;
+        return glm::normalize(
+            entity.get_component<tbx::Transform>().to_world_space(entity).rotation);
+    }
+
     // Drops the gizmo interaction state of editor views that no longer exist.
     static void prune_gizmo_states(GizmoControllerState& state, ViewState& views)
     {
@@ -296,6 +365,18 @@ namespace tbx::studio_bridge
             {
                 return !live.contains(entry.first);
             });
+    }
+
+    // The entity-local axis index (0/1/2) a world direction most lines up with, given the entity's
+    // start rotation. Scaling this local axis matches the visual world handle even when the entity is
+    // rotated (a raw world-axis index would scale the wrong local axis).
+    static int dominant_local_axis(const glm::quat& start_rotation, const glm::vec3& world_dir)
+    {
+        const auto local_dir = glm::inverse(start_rotation) * world_dir;
+        const auto abs_dir = glm::abs(local_dir);
+        return (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) ? 0
+               : (abs_dir.y >= abs_dir.z)                         ? 1
+                                                                  : 2;
     }
 
     // Applies the in-progress drag of one handle to every selected entity, deriving the new
@@ -412,15 +493,79 @@ namespace tbx::studio_bridge
                     // Map the world handle direction into the entity's local space and scale the
                     // local axis it lines up with, so the affected axis matches the visual handle even
                     // when the entity is rotated (a world-axis index would scale the wrong local axis).
-                    const auto local_dir =
-                        glm::inverse(target.start_world.rotation) * glm::vec3(gizmo.axis_dir);
-                    const auto abs_dir = glm::abs(local_dir);
-                    const auto index = (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) ? 0
-                                       : (abs_dir.y >= abs_dir.z)                         ? 1
-                                                                                          : 2;
-
+                    const auto index = dominant_local_axis(target.start_world.rotation, gizmo.axis_dir);
                     auto scale = target.start_local.scale;
                     scale[index] = target.start_local.scale[index] * factor;
+                    entity.get_component<tbx::Transform>().scale = scale;
+                }
+                break;
+            }
+            case GizmoHandleKind::PLANE:
+            {
+                // Translate in the plane (normal = axis_dir). Re-derive from the plane anchor each
+                // frame; snap quantizes the two in-plane components independently (like the arrow).
+                auto hit = glm::vec3(0.0F);
+                if (!tbx::ray_intersects_plane(cursor, gizmo.pivot, gizmo.axis_dir, hit))
+                    break;
+                auto delta = (hit - gizmo.pivot) - gizmo.start_vector;
+                if (snap)
+                {
+                    glm::vec3 u;
+                    glm::vec3 v;
+                    axis_plane_basis(handle.axis, u, v);
+                    u = gizmo.basis * u;
+                    v = gizmo.basis * v;
+                    const auto du = snap_to_step(glm::dot(delta, u), snap_settings.translate);
+                    const auto dv = snap_to_step(glm::dot(delta, v), snap_settings.translate);
+                    delta = (u * du) + (v * dv);
+                }
+                for (const auto& target : gizmo.targets)
+                {
+                    auto entity = world.get(target.id);
+                    if (!entity.get_id().is_valid() || !entity.has_component<tbx::Transform>())
+                        continue;
+
+                    auto new_world = target.start_world;
+                    new_world.position = target.start_world.position + delta;
+                    entity.get_component<tbx::Transform>().position =
+                        world_to_local_for(entity, new_world).position;
+                }
+                break;
+            }
+            case GizmoHandleKind::PLANE_SCALE:
+            {
+                // Scale the two in-plane axes by how far the cursor pulled out along each, relative to
+                // the gizmo world size. Applied in each entity's local space, like the knob.
+                auto hit = glm::vec3(0.0F);
+                if (!tbx::ray_intersects_plane(cursor, gizmo.pivot, gizmo.axis_dir, hit))
+                    break;
+                const auto delta = (hit - gizmo.pivot) - gizmo.start_vector;
+                glm::vec3 u;
+                glm::vec3 v;
+                axis_plane_basis(handle.axis, u, v);
+                u = gizmo.basis * u;
+                v = gizmo.basis * v;
+                const auto reference = std::max(gizmo.drag_size, 1e-4F);
+                auto fu = 1.0F + (glm::dot(delta, u) / reference);
+                auto fv = 1.0F + (glm::dot(delta, v) / reference);
+                if (snap)
+                {
+                    fu = snap_to_step(fu, snap_settings.scale);
+                    fv = snap_to_step(fv, snap_settings.scale);
+                }
+                fu = std::max(fu, 0.01F);
+                fv = std::max(fv, 0.01F);
+                for (const auto& target : gizmo.targets)
+                {
+                    auto entity = world.get(target.id);
+                    if (!entity.get_id().is_valid() || !entity.has_component<tbx::Transform>())
+                        continue;
+
+                    const auto iu = dominant_local_axis(target.start_world.rotation, u);
+                    const auto iv = dominant_local_axis(target.start_world.rotation, v);
+                    auto scale = target.start_local.scale;
+                    scale[iu] = target.start_local.scale[iu] * fu;
+                    scale[iv] = target.start_local.scale[iv] * fv;
                     entity.get_component<tbx::Transform>().scale = scale;
                 }
                 break;
@@ -514,6 +659,11 @@ namespace tbx::studio_bridge
                         state.snap.keys.push_back(key.get<int>());
             }
         }
+
+        // Gizmo orientation folds in when present; absent leaves it unchanged.
+        if (const auto orientation = params.find(Wire::ORIENTATION);
+            orientation != params.end() && orientation->is_string())
+            state.local_orientation = orientation->get<std::string>() == Wire::ORIENTATION_LOCAL;
     }
 
     bool is_cursor_on_gizmo(const GizmoControllerState& state, const std::string& view)
@@ -581,18 +731,37 @@ namespace tbx::studio_bridge
         if (!found)
             return;
 
-        // Replay each handle's editor-authored ops under the pivot/size frame (the ops are in gizmo
-        // units); the hovered/active handle draws in the highlight tint instead of its own colors.
+        // Replay each handle's editor-authored ops under the pivot/orientation/size frame (the ops are
+        // in gizmo units); the hovered/active handle draws in the highlight tint instead of its own
+        // colors. The basis rotates every handle to the local axes when local orientation is on.
         const auto size = gizmo_world_size(camera_view, pivot);
+        const auto basis = gizmo_basis(state, selection, *world);
         const auto active = gizmo.dragging ? gizmo.active : gizmo.hovered;
         const auto base = tbx::Mat4(
-            glm::translate(glm::mat4(1.0F), pivot) * glm::scale(glm::mat4(1.0F), glm::vec3(size)));
+            glm::translate(glm::mat4(1.0F), pivot) * glm::mat4_cast(basis)
+            * glm::scale(glm::mat4(1.0F), glm::vec3(size)));
         const auto HIGHLIGHT = tbx::Color(1.0F, 0.92F, 0.2F, 1.0F);
         const auto count = static_cast<int>(state.handles.size());
         for (auto i = 0; i < count; ++i)
         {
             const auto highlighted = i == active;
             replay_gizmo_ops(*gizmos, state.handles[i].ops, &base, highlighted ? &HIGHLIGHT : nullptr);
+        }
+
+        // The outer view ring is billboarded to the camera, so it can't ride the static op stream —
+        // draw it engine-side (its C# handle carries no ops). Grey normally, highlight when active.
+        const auto VIEW_RING = tbx::Color(0.8F, 0.8F, 0.85F, 0.9F);
+        const auto camera_normal = glm::normalize(glm::vec3(camera_view.position) - pivot);
+        for (auto i = 0; i < count; ++i)
+        {
+            const auto& handle = state.handles[i];
+            if (handle.kind == GizmoHandleKind::RING && handle.axis == GizmoAxis::VIEW)
+                gizmos->solid_torus(
+                    pivot,
+                    camera_normal,
+                    handle.extent * size,
+                    0.02F * size,
+                    (i == active) ? HIGHLIGHT : VIEW_RING);
         }
 
         // Ring drag-amount indicator: a translucent filled arc swept from the drag-start direction.
@@ -630,6 +799,8 @@ namespace tbx::studio_bridge
         auto pivot = glm::vec3(0.0F);
         if (!compute_pivot(selection, *world, pivot))
             return;
+
+        const auto basis = gizmo_basis(state, selection, *world);
 
         with_views_locked(
             views,
@@ -669,10 +840,17 @@ namespace tbx::studio_bridge
                             gizmo.active = -1;
                             if (const auto host = services.rpc_host.lock(); host && host->has_client())
                             {
-                                // Push each landed transform back through the sync channel,
-                                // addressed exactly like its Transform mirror (values in the
-                                // editor's WireValue shapes), so the inspector refreshes without
-                                // a re-describe.
+                                // Push each landed transform back through the sync channel, addressed
+                                // exactly like its Transform mirror — world/{w}/entities/{id}/components/
+                                // {name}, with the active editing world at w=0 (how the editor's World
+                                // addresses it) and the engine's registered "transform" name — so the hub
+                                // routes it to the bound mirror. A begin/commit bracket around the burst
+                                // lets the editor coalesce the whole drag into one undo step and flag the
+                                // world dirty on release.
+                                auto begin = tbx::Json::object();
+                                begin[Wire::PHASE] = std::string(Wire::PHASE_BEGIN);
+                                host->send_notification(Wire::EDIT_TRANSACTION, begin);
+
                                 for (const auto& target : gizmo.targets)
                                 {
                                     auto entity = world->get(target.id);
@@ -680,8 +858,8 @@ namespace tbx::studio_bridge
                                         || !entity.has_component<tbx::Transform>())
                                         continue;
                                     const auto& transform = entity.get_component<tbx::Transform>();
-                                    const auto address =
-                                        std::format("entity/{}/Transform", target.id.value);
+                                    const auto address = std::format(
+                                        "world/0/entities/{}/components/transform", target.id.value);
                                     const auto notify =
                                         [&host, &address](std::string_view key, tbx::Json value)
                                     {
@@ -699,6 +877,10 @@ namespace tbx::studio_bridge
                                         to_wire_quat(transform.rotation));
                                     notify(Wire::SCALE, to_wire_vec3(transform.scale));
                                 }
+
+                                auto commit = tbx::Json::object();
+                                commit[Wire::PHASE] = std::string(Wire::PHASE_COMMIT);
+                                host->send_notification(Wire::EDIT_TRANSACTION, commit);
                             }
 
                             gizmo.left_was_down = left_down;
@@ -721,7 +903,7 @@ namespace tbx::studio_bridge
                     }
 
                     // Not dragging: hover hit-test, first handle hit wins — the editor orders its
-                    // handle set most-precise first (center → knobs → arrows → rings).
+                    // handle set most-precise first (center → knobs → planes → arrows → rings).
                     const auto view_projection = camera_view.camera.get_view_projection_matrix(
                         camera_view.position,
                         camera_view.rotation);
@@ -730,7 +912,14 @@ namespace tbx::studio_bridge
                     for (auto i = 0; i < static_cast<int>(state.handles.size()); ++i)
                     {
                         if (hit_test_handle(
-                                state.handles[i], view_projection, pivot, size, input.cursor_u, input.cursor_v))
+                                state.handles[i],
+                                camera_view,
+                                view_projection,
+                                basis,
+                                pivot,
+                                size,
+                                input.cursor_u,
+                                input.cursor_v))
                         {
                             gizmo.hovered = i;
                             break;
@@ -745,7 +934,12 @@ namespace tbx::studio_bridge
                         gizmo.dragging = true;
                         gizmo.active = gizmo.hovered;
                         gizmo.pivot = pivot;
-                        gizmo.axis_dir = gizmo_axis_dir(handle.axis);
+                        gizmo.basis = basis;
+                        // World axis rotated by the gizmo orientation; the view ring instead rotates
+                        // about the camera-facing axis (screen-space).
+                        gizmo.axis_dir = handle.axis == GizmoAxis::VIEW
+                            ? glm::normalize(glm::vec3(camera_view.position) - pivot)
+                            : glm::vec3(basis * gizmo_axis_dir(handle.axis));
                         gizmo.drag_size = size;
                         gizmo.start_param =
                             tbx::closest_point_on_axis(cursor, pivot, gizmo.axis_dir);

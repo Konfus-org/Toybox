@@ -72,6 +72,12 @@ namespace tbx
         /// @brief A solid square-section beam (no head) of `radius` between two points, in the given
         /// color. Used for the scale gizmo's axes.
         void solid_beam(const Vec3& from, const Vec3& to, const Color& color, float radius);
+        /// @brief A solid round cylinder of `radius` between two points, in the given color. The
+        /// round-shaft counterpart of solid_beam — the translate/scale gizmos' axis shafts.
+        void solid_cylinder(const Vec3& from, const Vec3& to, float radius, const Color& color);
+        /// @brief A solid round cone with a circular `base` of `radius` and apex at `tip`, in the
+        /// given color. The translate gizmo's arrowheads.
+        void solid_cone(const Vec3& base, const Vec3& tip, float radius, const Color& color);
         /// @brief A solid torus (thick ring) of major radius `ring_radius` and tube radius
         /// `tube_radius`, centred at `center` in the plane perpendicular to `axis`. The rotate
         /// gizmo's handles.

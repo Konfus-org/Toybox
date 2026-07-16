@@ -14,7 +14,11 @@
 
 namespace tbx
 {
-    using LogListener = std::function<void(LogLevel level, const std::string& message)>;
+    // The composed, category-tagged body is what a listener displays; the full source file path and line
+    // ride alongside (empty/0 when the line has no source location) so a listener can link back to the file
+    // without re-deriving it from the tagged message.
+    using LogListener = std::function<
+        void(LogLevel level, const std::string& message, const std::string& file, int line)>;
 
     struct Color;
 

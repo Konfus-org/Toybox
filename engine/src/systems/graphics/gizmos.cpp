@@ -285,6 +285,67 @@ namespace tbx
         quad(a3, a0, b0, b3);
     }
 
+    void Gizmos::solid_cylinder(const Vec3& from, const Vec3& to, float radius, const Color& color)
+    {
+        const auto delta = to - from;
+        const auto length = glm::length(delta);
+        if (length < 1e-5F)
+            return;
+
+        const auto dir = delta / length;
+        glm::vec3 u;
+        glm::vec3 v;
+        perpendicular_basis(dir, u, v);
+
+        constexpr auto RADIAL_SEGMENTS = 12;
+        // Point on the tube surface for the i-th step around the ring, at the given end centre.
+        const auto rim = [&](const glm::vec3& center, int i) {
+            const auto a = (static_cast<float>(i) / static_cast<float>(RADIAL_SEGMENTS)) * TWO_PI;
+            return center + (radius * ((std::cos(a) * u) + (std::sin(a) * v)));
+        };
+
+        for (auto i = 0; i < RADIAL_SEGMENTS; ++i)
+        {
+            const auto a0 = rim(from, i);
+            const auto a1 = rim(from, i + 1);
+            const auto b0 = rim(to, i);
+            const auto b1 = rim(to, i + 1);
+            // Side quad.
+            push_triangle(a0, a1, b1, color);
+            push_triangle(a0, b1, b0, color);
+            // End caps (fans about each centre).
+            push_triangle(from, a1, a0, color);
+            push_triangle(to, b0, b1, color);
+        }
+    }
+
+    void Gizmos::solid_cone(const Vec3& base, const Vec3& tip, float radius, const Color& color)
+    {
+        const auto delta = tip - base;
+        const auto length = glm::length(delta);
+        if (length < 1e-5F)
+            return;
+
+        const auto dir = delta / length;
+        glm::vec3 u;
+        glm::vec3 v;
+        perpendicular_basis(dir, u, v);
+
+        constexpr auto RADIAL_SEGMENTS = 12;
+        const auto rim = [&](int i) {
+            const auto a = (static_cast<float>(i) / static_cast<float>(RADIAL_SEGMENTS)) * TWO_PI;
+            return base + (radius * ((std::cos(a) * u) + (std::sin(a) * v)));
+        };
+
+        for (auto i = 0; i < RADIAL_SEGMENTS; ++i)
+        {
+            const auto c0 = rim(i);
+            const auto c1 = rim(i + 1);
+            push_triangle(c0, c1, tip, color); // side
+            push_triangle(base, c0, c1, color); // base cap
+        }
+    }
+
     void Gizmos::solid_torus(
         const Vec3& center,
         const Vec3& axis,

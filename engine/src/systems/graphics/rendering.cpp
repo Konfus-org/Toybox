@@ -400,25 +400,48 @@ namespace tbx
             {
                 return entry.first == id;
             });
+        // Drop the idle-throttle bookkeeping too so a later camera reusing this id starts fresh
+        // (both this and render_external_cameras run on the main thread, so no extra lock is needed).
+        _external_camera_last_render.erase(id);
     }
 
     void Rendering::render_external_cameras(
         const DeltaTime& delta_time,
         const GraphicsSettings& settings)
     {
+        // How many frames an idle external camera (render_active == false) may skip before it is
+        // refreshed anyway. Bounds staleness so an idle editor viewport keeps updating (at ~app_fps /
+        // this) instead of freezing, even if its owner never flips render_active back on — while still
+        // sparing it a full render every frame when nothing is happening.
+        constexpr uint64 IDLE_RENDER_INTERVAL_FRAMES = 6U;
+
         // Snapshot the registry under the lock, then render OUTSIDE it: render() posts to the render
         // lane and takes other locks, so holding this mutex across it would serialize the owner's
         // update_external_camera() against frame dispatch (and risk lock-ordering issues).
-        auto snapshot = std::vector<ExternalCamera>();
+        auto snapshot = std::vector<std::pair<ExternalCameraId, ExternalCamera>>();
         {
             auto guard = std::lock_guard(_external_cameras_mutex);
             snapshot.reserve(_external_cameras.size());
-            for (const auto& [id, camera] : _external_cameras)
-                snapshot.push_back(camera);
+            for (const auto& entry : _external_cameras)
+                snapshot.push_back(entry);
         }
 
-        for (const auto& camera : snapshot)
+        ++_external_camera_frame;
+        for (const auto& [id, camera] : snapshot)
+        {
+            // Render an active camera every frame; an idle one only once per idle interval (or on its
+            // first sighting). Only an actual render advances its last-render frame, so the interval is
+            // measured from the last frame drawn, not the last frame considered.
+            const auto last = _external_camera_last_render.find(id);
+            const bool first_seen = last == _external_camera_last_render.end();
+            const bool idle_due =
+                !first_seen && (_external_camera_frame - last->second) >= IDLE_RENDER_INTERVAL_FRAMES;
+            if (!camera.render_active && !first_seen && !idle_due)
+                continue;
+
             render(delta_time, settings, camera.view, camera.target, camera.world_override);
+            _external_camera_last_render[id] = _external_camera_frame;
+        }
     }
 
     void Rendering::wait_for_render_frame() noexcept

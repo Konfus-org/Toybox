@@ -136,7 +136,7 @@ namespace tbx
         {
             const auto world_manager = _world_manager.lock();
             if (!world_manager
-                || !world_manager->set_active_world(get_settings().world.startup_world))
+                || !world_manager->open_world(get_settings().world.startup_world))
             {
                 TBX_TRACE_ERROR(
                     "Failed to load startup world '{}'.",
@@ -494,9 +494,10 @@ namespace tbx
         // destructors from later destroying those functions after the app module has been unloaded.
         clear_serialization_registrations();
 
-        // Same rationale for the script registry: its plain function pointers into the app module (which
-        // registers its script types at static-init with no owning plugin) must be dropped before that
-        // module unloads. Plugin-owned script entries were already purged on detach by the tracker.
+        // Same rationale for the script registry: its plain function pointers into the app module
+        // (which registers its script types at static-init with no owning plugin) must be dropped
+        // before that module unloads. Plugin-owned script entries were already purged on detach by
+        // the tracker.
         clear_script_registrations();
 
         //// SHUTDOWN: STOP REMAINING BACKGROUND WORK ////
@@ -565,8 +566,8 @@ namespace tbx
 
         // Simulation (fixed step, world, scripts) runs unless paused. A host (e.g. Studio) can
         // pause to freeze gameplay while the world keeps rendering, so an attached editor shows the
-        // world without it advancing. A queued single step (StepApplicationRequest) advances exactly
-        // one fixed tick while paused, for the editor's next-frame button.
+        // world without it advancing. A queued single step (StepApplicationRequest) advances
+        // exactly one fixed tick while paused, for the editor's next-frame button.
         const bool stepping = _is_paused && _pending_steps > 0;
         const bool should_simulate = !_is_paused || stepping;
 
@@ -574,12 +575,13 @@ namespace tbx
         {
             if (stepping)
             {
-                // Advance one deterministic tick regardless of the real (paused) frame delta: seed the
-                // accumulator to exactly one fixed step and drive fixed_update with a zero delta, so its
-                // loop runs a single sub-step. Consume the queued step.
+                // Advance one deterministic tick regardless of the real (paused) frame delta: seed
+                // the accumulator to exactly one fixed step and drive fixed_update with a zero
+                // delta, so its loop runs a single sub-step. Consume the queued step.
                 --_pending_steps;
                 _fixed_update_accumulator_seconds = std::max(
-                    0.0001, static_cast<double>(get_settings().physics.fixed_time_step_seconds));
+                    0.0001,
+                    static_cast<double>(get_settings().physics.fixed_time_step_seconds));
                 fixed_update(DeltaTime {});
             }
             else
@@ -658,9 +660,9 @@ namespace tbx
             }
 
             // External cameras (editor viewports / asset previews) the engine renders that are NOT
-            // entities in the active world. A host plugin (Studio) registered them and updated their
-            // poses/worlds earlier this frame in its update; render them after the world cameras so they
-            // observe the same simulated world this frame.
+            // entities in the active world. A host plugin (Studio) registered them and updated
+            // their poses/worlds earlier this frame in its update; render them after the world
+            // cameras so they observe the same simulated world this frame.
             if (rendering)
                 rendering->render_external_cameras(delta_time, get_settings().graphics);
         }
@@ -770,8 +772,9 @@ namespace tbx
 
     void Application::request_step()
     {
-        // Queue a single step; update() advances one fixed tick on the next frame even while paused.
-        // An unpaused engine already simulates every frame, so this only has an effect while paused.
+        // Queue a single step; update() advances one fixed tick on the next frame even while
+        // paused. An unpaused engine already simulates every frame, so this only has an effect
+        // while paused.
         _pending_steps = 1;
     }
 

@@ -124,6 +124,10 @@ namespace tbx::studio_bridge
             gizmos.solid_arrow(read_arg_vec3(op, 1), read_arg_vec3(op, 2), color, read_arg_float(op, 3));
         else if (name == "solid_beam")
             gizmos.solid_beam(read_arg_vec3(op, 1), read_arg_vec3(op, 2), color, read_arg_float(op, 3));
+        else if (name == "solid_cylinder")
+            gizmos.solid_cylinder(read_arg_vec3(op, 1), read_arg_vec3(op, 2), read_arg_float(op, 3), color);
+        else if (name == "solid_cone")
+            gizmos.solid_cone(read_arg_vec3(op, 1), read_arg_vec3(op, 2), read_arg_float(op, 3), color);
         else if (name == "solid_torus")
             gizmos.solid_torus(
                 read_arg_vec3(op, 1), read_arg_vec3(op, 2), read_arg_float(op, 3), read_arg_float(op, 4), color);

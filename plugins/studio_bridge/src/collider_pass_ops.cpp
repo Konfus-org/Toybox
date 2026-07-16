@@ -100,7 +100,7 @@ namespace tbx::studio_bridge
         const tbx::Color& color)
     {
         const auto model = entity.has_component<tbx::Renderer>()
-                               ? entity.get_component<tbx::Renderer>().model.id
+                               ? entity.get_component<tbx::Renderer>().model.get_id()
                                : tbx::Uuid();
 
         auto& entry = pass.convex_hulls[entity.get_id()];

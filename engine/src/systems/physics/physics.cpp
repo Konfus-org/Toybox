@@ -290,7 +290,7 @@ namespace tbx
             return false;
 
         const auto& renderer = entity.get_component<Renderer>();
-        if (!renderer.model.id.is_valid())
+        if (!renderer.model.handle.id.is_valid())
             return false;
 
         auto model = asset_manager.load<Model>(renderer.model);
@@ -937,7 +937,7 @@ namespace tbx
                     || record_it->second->is_trigger_only != is_trigger_only
                     || (entity.has_component<Renderer>()
                         && _pending_model_reloads.contains(
-                            entity.get_component<Renderer>().model.id))
+                            entity.get_component<Renderer>().model.handle.id))
                     || (uses_mesh_shape(entity)
                         && record_it->second->has_last_transform
                         && has_scale_changed(

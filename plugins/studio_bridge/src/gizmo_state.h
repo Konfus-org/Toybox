@@ -26,6 +26,10 @@ namespace tbx::studio_bridge
         // The editor-pushed snap settings; the per-frame effective snap XORs `enabled` with the hold keys.
         GizmoSnap snap = {};
 
+        // Editor-pushed gizmo orientation: false = world axes (global), true = the primary selected
+        // entity's local axes. The engine derives the basis rotation per frame from this.
+        bool local_orientation = false;
+
         // Per-view interaction state (hover + in-progress drag), keyed by view name — owned here rather
         // than on the view stream so the gizmo is fully its own thing.
         std::unordered_map<std::string, GizmoState> view_states = {};

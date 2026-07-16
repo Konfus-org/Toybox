@@ -11,6 +11,7 @@
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
 #include "tbx/types/assets/texture.h"
+#include "tbx/types/assets/world.h"
 #include "tbx/types/handle.h"
 #include "tbx/types/matrices.h"
 #include "tbx/types/uuid.h"
@@ -21,6 +22,8 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <typeindex>
+#include <typeinfo>
 #include <unordered_set>
 #include <utility>
 
@@ -73,10 +76,11 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    // Force-registers a built-in preview asset (its directory is skipped by the registry's startup
-    // scan, so loading by path is what registers it — reading its .meta id) and returns its canonical
-    // id, or an invalid id when it cannot be loaded. The load is type-dispatched by extension.
-    static tbx::Uuid register_builtin_asset(tbx::AssetManager& assets, const tbx::Handle& handle)
+    // Registers an asset by path (loading it force-registers it — reading its .meta id — which is how a
+    // bundled asset whose directory the registry's startup scan skips becomes resolvable), returning its
+    // canonical id or an invalid id when the extension is unknown or it cannot be loaded. The load is
+    // type-dispatched by extension so an id-based reference to the asset resolves afterward.
+    static tbx::Uuid register_asset(tbx::AssetManager& assets, const tbx::Handle& handle)
     {
         auto extension = std::filesystem::path(handle.name).extension().string();
         for (auto& character : extension)
@@ -85,8 +89,16 @@ namespace tbx::studio_bridge
         if (extension == ".png" || extension == ".jpg" || extension == ".jpeg"
             || extension == ".tga" || extension == ".bmp")
             assets.load<tbx::Texture>(handle);
-        else
+        else if (extension == ".mat")
             assets.load<tbx::Material>(handle);
+        else if (extension == ".globals")
+            assets.load<tbx::WorldGlobals>(handle);
+        else if (extension == ".world")
+            assets.load<tbx::World>(handle);
+        else if (extension == ".chunk")
+            assets.load<tbx::WorldChunk>(handle);
+        else
+            return tbx::Uuid();
 
         return assets.resolve_id(handle);
     }
@@ -246,7 +258,7 @@ namespace tbx::studio_bridge
             // get_registered_assets like any other) and remember their ids so each entry can be flagged.
             auto builtin_ids = std::unordered_set<uint64>();
             for (const auto& handle : builtin::assets())
-                if (const auto id = register_builtin_asset(*asset_manager, handle); id.is_valid())
+                if (const auto id = register_asset(*asset_manager, handle); id.is_valid())
                     builtin_ids.insert(id.value);
 
             // The preview-mesh primitives are in-memory model assets (sphere/cube/…), so the editor can set
@@ -397,6 +409,42 @@ namespace tbx::studio_bridge
         return serialization->write(path, *registration, asset.get());
     }
 
+    Result apply_asset_property(
+        const EngineServices& services, uint64 asset_id, std::string_view property, const tbx::Json& value)
+    {
+        if (property.empty())
+            return Result(false, "asset field write: missing property.");
+
+        auto assets = services.asset_manager.lock();
+        if (!assets)
+            return Result(false, "asset field write: no asset manager.");
+
+        // The live instance; a fresh disk read would just be discarded, so mutating it would do nothing.
+        auto asset = assets->load(tbx::Handle(tbx::Uuid(asset_id)));
+        if (!asset)
+            return Result(false, "asset field write: no loaded asset with the given id.");
+
+        auto& asset_ref = *asset;
+        const auto registration =
+            tbx::get_asset_type_registration(std::type_index(typeid(asset_ref)));
+        if (!registration || !registration->read_body || !registration->write_body)
+            return Result(false, "asset field write: asset type is not body-serializable.");
+
+        auto body_json = std::string();
+        if (const auto wrote = registration->write_body(asset.get(), body_json); !wrote)
+            return wrote;
+
+        auto body = tbx::Json::parse(body_json, nullptr, false);
+        if (!body.is_object())
+            body = tbx::Json::object();
+
+        // Set (or introduce) the one field's value in the self-describing { "value": … } form the reader
+        // expects; an unknown property is simply ignored by read_body (it walks the type's own fields).
+        body[std::string(property)][std::string(tbx::PROPERTY_VALUE_KEY)] = value;
+
+        return registration->read_body(body.dump(), asset.get());
+    }
+
     // Writes a default-constructed asset of the registered `type` to `resolved` (its body) plus a
     // fresh-id `<resolved>.meta` sidecar, returning the minted id in `out_id`. The shared core of
     // create_asset and the world-scaffold helper. Fails when the type is unknown/non-serializable,
@@ -545,6 +593,27 @@ namespace tbx::studio_bridge
     Result new_asset_id(tbx::Json& out_reply)
     {
         out_reply[Wire::ID] = tbx::Uuid::generate().value;
+        return Result::OK;
+    }
+
+    Result load_asset(const EngineServices& services, const tbx::Json& params, tbx::Json& out_reply)
+    {
+        if (const auto required = require_object(params); !required)
+            return required;
+
+        const auto path = params.value(Wire::PATH, std::string());
+        if (path.empty())
+            return Result(false, "asset.load needs a 'path'.");
+
+        auto assets = services.asset_manager.lock();
+        if (!assets)
+            return Result(false, "No asset manager.");
+
+        const auto id = register_asset(*assets, tbx::Handle(path));
+        if (!id.is_valid())
+            return Result(false, "Failed to register asset by path: " + path);
+
+        out_reply[Wire::ID] = id.value;
         return Result::OK;
     }
 }

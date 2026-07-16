@@ -49,6 +49,12 @@ namespace tbx::studio_bridge
             {
                 return create_asset(services, params, reply);
             });
+        registrar.add_query(
+            Wire::ASSET_LOAD,
+            [&services](const tbx::Json& params, tbx::Json& reply)
+            {
+                return load_asset(services, params, reply);
+            });
         registrar.add(
             Wire::ASSET_FORGET,
             [&services](const tbx::Json& params, tbx::RpcResponder& r)

@@ -207,5 +207,13 @@ namespace tbx
         // outside the lock.
         std::vector<std::pair<ExternalCameraId, ExternalCamera>> _external_cameras = {};
         std::mutex _external_cameras_mutex = {};
+
+        // Idle-throttle bookkeeping for external cameras (main-thread only, alongside
+        // render_external_cameras / unregister_external_camera). _external_camera_frame counts calls to
+        // render_external_cameras; the map records the frame each camera last actually rendered so an
+        // idle camera (render_active == false) can still be refreshed at a bounded interval. Not a
+        // snapshot — never touched on the render lane, so it needs no lock.
+        std::unordered_map<ExternalCameraId, uint64> _external_camera_last_render = {};
+        uint64 _external_camera_frame = 0U;
     };
 }

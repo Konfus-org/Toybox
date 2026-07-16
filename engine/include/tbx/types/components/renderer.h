@@ -1,4 +1,6 @@
 #pragma once
+#include "tbx/types/assets/asset_handle.h"
+#include "tbx/types/assets/model.h"
 #include "tbx/types/color.h"
 #include "tbx/types/components/component.h"
 #include "tbx/types/components/renderer.generated.h"
@@ -22,8 +24,8 @@ namespace tbx
         Renderer() = default;
         explicit Renderer(Handle model_handle);
 
-        /// @brief Model asset handle that provides mesh geometry and default material slots.
-        Handle model = {};
+        /// @brief Typed handle to the Model asset that provides mesh geometry and default material slots.
+        AssetHandle<Model> model = {};
 
         /// @brief Per-slot material assignments, aligned 1:1 with the model's hard material slots.
         /// Each entry is a MaterialInstance (.mti) or Material (.mat); the editor sizes this to the

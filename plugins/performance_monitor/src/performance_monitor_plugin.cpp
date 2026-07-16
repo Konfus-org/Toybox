@@ -112,11 +112,23 @@ namespace tbx::performance_monitor
             fps_info.average_frame_time_ms,
             _performance_sample_min_frame_time_ms,
             _performance_sample_max_frame_time_ms);
-        if (fps_info.average_fps < 30.0)
+        // Warn only when FPS first drops below the threshold, then stay quiet until it recovers. Without
+        // this edge-gating a sustained low-FPS session (common in the editor, which drives several
+        // offscreen viewports) would repeat the same warning every sample interval and bury the console.
+        constexpr double low_fps_threshold = 30.0;
+        if (fps_info.average_fps < low_fps_threshold)
         {
-            TBX_TRACE_WARNING(
-                "Average FPS is below 30! Consider optimizing your application or "
-                "investigating potential performance issues.");
+            if (!_below_fps_threshold_warned)
+            {
+                TBX_TRACE_WARNING(
+                    "Average FPS is below 30! Consider optimizing your application or "
+                    "investigating potential performance issues.");
+                _below_fps_threshold_warned = true;
+            }
+        }
+        else
+        {
+            _below_fps_threshold_warned = false;
         }
     }
 

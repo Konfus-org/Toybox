@@ -69,6 +69,40 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("::tbx::read_typed_serialization_field(", output)
         self.assertIn("::tbx::read_serialization_value(", output)
 
+    def test_template_value_type_gets_header_only_passthrough_serialization(self) -> None:
+        source = """
+            namespace tbx
+            {
+            [[serializable]];
+            template <typename TAsset>
+                requires std::derived_from<TAsset, Asset>
+            struct AssetHandle
+            {
+                Handle handle = {};
+            };
+            }
+            """
+
+        header = self.generate(source)
+        source_output = self.generate_source(source)
+
+        # The serialize/deserialize are function templates (parameterized on the wrapper's own
+        # parameter) that pass straight through to the single field — byte-identical to serializing the
+        # field on its own, so the object { "id": ... } form the field's deserializer accepts still works.
+        self.assertIn("template <typename TAsset>", header)
+        self.assertIn("void serialize(::tbx::Json& tbx_json, const AssetHandle<TAsset>& tbx_value)", header)
+        self.assertIn("void deserialize(const ::tbx::Json& tbx_json, AssetHandle<TAsset>& tbx_value)", header)
+        self.assertIn("::tbx::write_serialization_value<::tbx::Json>(", header)
+        self.assertIn("tbx_value.handle);", header)
+        self.assertIn("::tbx::read_serialization_value(", header)
+        # A template is not one concrete type, so it carries none of the concrete-type glue: no runtime
+        # registration, no keyed-object fallback, no serialization type name, and no forward declaration.
+        self.assertNotIn("register_serializable_type", header)
+        self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", source_output)
+        self.assertNotIn("is_object()", header)
+        self.assertNotIn("serialization_type_name", header)
+        self.assertNotIn("struct AssetHandle;", header)
+
     def test_multi_field_struct_serialization_remains_object_shaped(self) -> None:
         source = """
             namespace tbx::tests

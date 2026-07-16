@@ -19,24 +19,30 @@ namespace tbx::studio_bridge
             Wire::VIEW_START,
             [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
             {
-                // The kind selects which view stream is created; only an asset-preview view uses the
-                // asset id (it selects the asset loaded into the view's isolated preview world).
+                // The kind selects which view stream is created.
                 const auto kind_token = params.value("kind", std::string());
-                const auto asset_id = params.value(Wire::ASSET_ID, 0U);
                 // Asset-preview only: auto-orbit turntable + a render-resolution scale (0..1] for a cheaper
                 // small preview such as the browser's hover card.
                 const auto turntable = params.value("turntable", false);
                 const auto render_scale = params.value("renderScale", 1.0F);
+                // Editor views: the viewport's on-screen device-pixel size, so the engine renders the pane
+                // at its own resolution instead of the full graphics resolution (0 = full, e.g. before the
+                // pane is laid out). Re-sent as a restart when the pane resizes.
+                const auto pane_width = params.value("renderWidth", 0U);
+                const auto pane_height = params.value("renderHeight", 0U);
                 auto view_name = std::string();
-                // World id 0 = the active editing world; an asset-preview view fills in its isolated
-                // world's id so the editor can target it for world.describe / entity.create.
-                auto world_id = 0U;
+                // World id 0 = the active editing world. An editor/game view can be bound to a specific
+                // loaded world by passing its id; an asset-preview view REQUIRES one — the preview world the
+                // editor loaded (world.load) and populated. The reply echoes it so the editor can target it
+                // for world.describe / entity.create / framing.
+                const auto world_id = params.value(Wire::WORLD_ASSET_ID, 0U);
                 auto view_result =
-                    kind_token == "game"  ? start_game_view(views, services, view_name)
+                    kind_token == "game" ? start_game_view(views, services, world_id, view_name)
                     : kind_token == "asset"
                         ? start_asset_preview_view(
-                              views, services, asset_id, turntable, render_scale, view_name, world_id)
-                        : start_editor_view(views, services, view_name);
+                              views, services, world_id, turntable, render_scale, view_name)
+                        : start_editor_view(
+                              views, services, world_id, pane_width, pane_height, view_name);
                 if (view_result)
                 {
                     auto view_info = tbx::Json::object();

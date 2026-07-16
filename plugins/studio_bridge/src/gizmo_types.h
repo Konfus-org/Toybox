@@ -1,13 +1,15 @@
 #pragma once
 #include "tbx/systems/files/json.h"
 #include "tbx/types/components/transform.h"
+#include "tbx/types/quaternions.h"
 #include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
 #include <vector>
 
 namespace tbx::studio_bridge
 {
-    /// @brief Which world axis a handle acts on. ALL is the uniform-scale centre handle.
+    /// @brief Which world axis a handle acts on. ALL is the uniform-scale centre handle; VIEW is the
+    /// camera-facing axis (screen-space) for the outer rotate ring, derived per frame from the camera.
     enum class GizmoAxis
     {
         NONE,
@@ -15,16 +17,19 @@ namespace tbx::studio_bridge
         Y,
         Z,
         ALL,
+        VIEW,
     };
 
     /// @brief A transform handle's interaction semantics — the only gizmo vocabulary the engine keeps.
     /// What a handle LOOKS like is editor-authored (its op stream); what dragging it DOES is the kind.
     enum class GizmoHandleKind
     {
-        ARROW,  // dragging translates along the axis
-        RING,   // dragging rotates about the axis
-        KNOB,   // dragging scales the axis
-        CENTER, // dragging scales uniformly on every axis
+        ARROW,       // dragging translates along the axis
+        RING,        // dragging rotates about the axis
+        KNOB,        // dragging scales the axis
+        CENTER,      // dragging scales uniformly on every axis
+        PLANE,       // dragging translates in the plane whose normal is the axis (two axes at once)
+        PLANE_SCALE, // dragging scales the two axes in the plane whose normal is the axis
     };
 
     /// @brief One editor-pushed transform handle (view.setGizmo). kind + axis define the drag
@@ -75,6 +80,7 @@ namespace tbx::studio_bridge
         // Drag anchor (world space), captured on the press that began the drag.
         tbx::Vec3 pivot = tbx::Vec3(0.0F);
         tbx::Vec3 axis_dir = tbx::Vec3(0.0F);
+        tbx::Quat basis = tbx::Quat(1.0F, 0.0F, 0.0F, 0.0F); // gizmo orientation at drag start (identity = global)
         float start_param = 0.0F;                 // arrow/knob: closest-point param along the axis
         tbx::Vec3 start_vector = tbx::Vec3(0.0F); // ring: pivot -> first ring-plane hit
         float drag_size = 1.0F;                   // gizmo world size captured at drag start (scale reference)

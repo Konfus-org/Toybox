@@ -65,6 +65,7 @@ from struct_codegen import (
     emit_serializable_registration,
     emit_struct_serialization_declarations,
     emit_struct_value_serialization,
+    emit_template_value_serialization,
     emit_typed_write_field,
 )
 from variant_codegen import emit_variant, emit_variant_declarations
@@ -593,6 +594,22 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
 
     if has_attr(type_info.attrs, "serializable"):
         mode = serializable_mode(type_info)
+        if type_info.template_params:
+            # A template value type (e.g. AssetHandle<TAsset>) gets header-only template serialize/
+            # deserialize and no runtime registration, type name, or formatter/hash glue — a template
+            # is not one concrete type the registry could key on; it just serializes inline as a field.
+            if mode != "json":
+                raise CodegenError(f"{type_info.name} template serialization only supports json mode.")
+            if type_info.declaration_kind not in {"struct", "class"}:
+                raise CodegenError(f"{type_info.name} template serialization requires a struct or class.")
+            if len(prop_fields) != 1:
+                raise CodegenError(
+                    f"{type_info.name} template serialization requires exactly one serialized field."
+                )
+            if target == "header":
+                lines.extend(emit_template_value_serialization(type_info, prop_fields[0]))
+            return lines
+
         if target == "header":
             lines.extend(emit_type_name(type_info))
             lines.extend(emit_version(type_info))
@@ -798,6 +815,12 @@ def default_codegen_registry() -> CodegenRegistry:
 
 def emit_forward_declaration(type_info: SerializableType) -> list[str]:
     if type_info.declaration_kind == "enum" and not type_info.enum_scoped:
+        return []
+
+    # A template type is included after its own full definition (its serialize/deserialize are function
+    # templates that must see the complete type), so it needs no forward declaration — and a bare
+    # `struct AssetHandle;` would clash with the constrained template declaration anyway.
+    if type_info.template_params:
         return []
 
     if type_info.declaration_kind == "using":

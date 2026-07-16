@@ -7,6 +7,7 @@
 #include "tbx/systems/graphics/frame_pass_context.h"
 #include "tbx/types/color.h"
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -155,11 +156,22 @@ namespace tbx
             run_passes.end(),
             [](const RenderPass* a, const RenderPass* b) { return a->type < b->type; });
 
+        // Per-phase CPU timing (steady_clock deltas in ns). Cheap enough to leave always on; the
+        // pipeline logs an aggregate periodically so a slowdown can be attributed to scene capture vs
+        // pass submission without an external profiler.
+        using ProfileClock = std::chrono::steady_clock;
+        const auto elapsed_ns = [](ProfileClock::time_point from, ProfileClock::time_point to) -> uint64
+        { return static_cast<uint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(to - from).count()); };
+
         // Shared per-frame setup (world resolve, capture, transient buffers, world bind group) that the
         // passes consume. Soft outcomes (no world / nothing visible) clear-and-present; a GPU setup
         // failure fails the frame.
         auto setup_failure = Result();
-        switch (prepare_frame(context, delta_time, light_cull_distance, world_override, setup_failure))
+        const auto prepare_start = ProfileClock::now();
+        const auto readiness =
+            prepare_frame(context, delta_time, light_cull_distance, world_override, setup_failure);
+        const auto prepare_ns = elapsed_ns(prepare_start, ProfileClock::now());
+        switch (readiness)
         {
             case FrameReadiness::ClearBlack:
                 clear_swapchain(backend, Color::BLACK, output_size);
@@ -176,19 +188,56 @@ namespace tbx
         // Prepare phase: now that the scene is captured, each matching pass sets up its own GPU state
         // (the view is available here, so a pass can size resources to what it will draw). Runs before
         // any execute so a pass that produces a resource another consumes is ready in time.
+        const auto pass_prepare_start = ProfileClock::now();
         for (RenderPass* pass : run_passes)
             if (auto result = pass->prepare(context); !result)
                 return fail_frame(result);
+        const auto pass_prepare_ns = elapsed_ns(pass_prepare_start, ProfileClock::now());
 
         // Execute phase: run each matching pass's GPU work in order (overlay passes last). The built-in
         // shadow pass fills the sample group the forward pass reads; the tag-mask/post passes no-op off
         // the offscreen path; an editor gizmo overlay draws on top last. A failing pass fails the whole
         // frame (magenta) rather than tearing down mid-pass.
+        const auto pass_execute_start = ProfileClock::now();
         for (RenderPass* pass : run_passes)
             if (auto result = pass->execute(context); !result)
                 return fail_frame(result);
+        const auto pass_execute_ns = elapsed_ns(pass_execute_start, ProfileClock::now());
 
-        return finish_frame();
+        const auto present_start = ProfileClock::now();
+        const auto present_result = finish_frame();
+        record_phase_timings(
+            prepare_ns, pass_prepare_ns, pass_execute_ns, elapsed_ns(present_start, ProfileClock::now()));
+        return present_result;
+    }
+
+    void RenderingPipeline::record_phase_timings(
+        uint64 prepare_ns, uint64 pass_prepare_ns, uint64 pass_execute_ns, uint64 present_ns)
+    {
+        auto& t = _phase_timings;
+        t.prepare_ns += prepare_ns;
+        t.pass_prepare_ns += pass_prepare_ns;
+        t.pass_execute_ns += pass_execute_ns;
+        t.present_ns += present_ns;
+        ++t.view_count;
+
+        // Log an aggregate every so-many views, then reset the window. Views (not app-frames) so the
+        // cadence is steady whether one camera or several editor viewports are rendering.
+        constexpr uint64 LOG_EVERY_VIEWS = 300U;
+        if (t.view_count < LOG_EVERY_VIEWS)
+            return;
+
+        const auto avg_ms = [&t](uint64 total_ns) -> double
+        { return static_cast<double>(total_ns) / static_cast<double>(t.view_count) / 1.0e6; };
+        TBX_TRACE_INFO(
+            "Render phases (avg/view over {} views): capture {:.3f}ms | pass-prepare {:.3f}ms | "
+            "pass-execute {:.3f}ms | present {:.3f}ms",
+            t.view_count,
+            avg_ms(t.prepare_ns),
+            avg_ms(t.pass_prepare_ns),
+            avg_ms(t.pass_execute_ns),
+            avg_ms(t.present_ns));
+        t = PhaseTimings {};
     }
 
     RenderingPipeline::FrameReadiness RenderingPipeline::prepare_frame(

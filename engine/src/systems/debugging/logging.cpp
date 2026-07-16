@@ -216,7 +216,7 @@ namespace tbx
 
         auto composed = compose_log_body(category, file, line, message);
         for (const auto& listener : listeners)
-            listener(level, composed);
+            listener(level, composed, file, line);
     }
 
     //// LOGGER ////

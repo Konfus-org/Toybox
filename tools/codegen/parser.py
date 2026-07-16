@@ -31,6 +31,7 @@ TYPE_PATTERN = re.compile(
     r"^\s*(struct|class)\s+((?:[A-Za-z_]\w*_API|TBX_API)\s+)?([A-Za-z_]\w*)"
     r"(?:\s+final)?\s*(?::\s*([^{]+))?\s*(?:\{)?\s*$"
 )
+TEMPLATE_PATTERN = re.compile(r"^\s*template\s*<(.+)>\s*$")
 ENUM_PATTERN = re.compile(
     r"^\s*enum\s+(class\s+)?([A-Za-z_]\w*)\s*(?::\s*([A-Za-z_]\w*(?:::[A-Za-z_]\w*)?))?\s*(?:\{)?\s*$"
 )
@@ -445,6 +446,9 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
     lines = normalized_source.splitlines()
     serializer_types = {match.group(1) for match in SERIALIZER_PATTERN.finditer(source)}
     pending_attrs: list[Attribute] = []
+    # A `template <...>` header (and any `requires` clause) sits on its own line(s) before the struct
+    # it templates. It is remembered here so the following declaration can carry its parameter list.
+    pending_template = ""
     metadata_types: list[SerializableType] = []
 
     index = 0
@@ -461,8 +465,24 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
             index += 1
             continue
 
+        template_match = TEMPLATE_PATTERN.match(without_attrs)
+        if template_match is not None:
+            pending_template = template_match.group(1).strip()
+            pending_attrs.extend(attrs)
+            index += 1
+            continue
+        # A constraint clause continues the pending template header; skip it but keep the header so the
+        # struct that follows still picks up its parameter list.
+        if pending_template and without_attrs.startswith("requires"):
+            index += 1
+            continue
+
         active_attrs = pending_attrs + attrs
         pending_attrs = []
+        # The template header only applies to the immediately following declaration; consume it here so
+        # a stray header before a function or unrelated line never leaks onto a later struct.
+        active_template = pending_template
+        pending_template = ""
 
         type_match = TYPE_PATTERN.match(without_attrs)
         if type_match:
@@ -480,6 +500,7 @@ def parse_type_declarations(source: str, source_path: str) -> list[SerializableT
                         api_macro=(type_match.group(2) or "").strip(),
                         bases=type_match.group(4) or "",
                         fields=fields,
+                        template_params=active_template,
                         has_serializer=type_name in serializer_types,
                         has_equality_operator=has_equality_operator(lines, index, end),
                         source_path=source_path,

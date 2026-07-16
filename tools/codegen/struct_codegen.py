@@ -11,6 +11,7 @@ from model import (
     find_attr,
     json_key,
     split_attribute_values,
+    template_parameter_names,
 )
 
 _OBSERVABLE_PATTERN = re.compile(r"^(?:::)?(?:tbx::)?Observable\s*<\s*(.+)\s*>$")
@@ -289,6 +290,35 @@ def emit_json_function_definitions(
         )
     lines.extend(["}", ""])
     return lines
+
+
+def emit_template_value_serialization(type_info: SerializableType, field: Field) -> list[str]:
+    """Emit header-only template serialize/deserialize for a single-field template value type (e.g.
+    AssetHandle<TAsset>). The body is a transparent passthrough to the sole field — the value serializes
+    and reads back exactly as that field would on its own, so a typed wrapper is byte-identical on the
+    wire to its underlying member and tolerates every form the member's own deserializer accepts (a
+    keyed { "id": ... } object included). Templates are never runtime-registered: they serialize inline
+    wherever they appear as a field, so only the function templates are emitted, and they must live in
+    the header where the type is visible."""
+    parameter_names = template_parameter_names(type_info.template_params)
+    type_reference = f"{type_info.name}<{', '.join(parameter_names)}>"
+    template_header = f"template <{type_info.template_params}>"
+    return [
+        template_header,
+        f"void serialize(::tbx::Json& tbx_json, const {type_reference}& tbx_value)",
+        "{",
+        "    tbx_json = ::tbx::write_serialization_value<::tbx::Json>(",
+        f"        tbx_value.{field.name});",
+        "}",
+        template_header,
+        f"void deserialize(const ::tbx::Json& tbx_json, {type_reference}& tbx_value)",
+        "{",
+        "    ::tbx::read_serialization_value(",
+        "        tbx_json,",
+        f"        tbx_value.{field.name});",
+        "}",
+        "",
+    ]
 
 
 def emit_access_broker_serialization(type_info: SerializableType, fields: list[Field]) -> list[str]:

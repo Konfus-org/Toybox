@@ -845,6 +845,14 @@ namespace tbx
         return {};
     }
 
+    // ADL hook letting a type advertise its own editor token, overriding the structural default. A typed
+    // asset handle (AssetHandle) overloads it to return "asset" so the inspector shows an asset picker; the
+    // variadic catch-all returns "" (empty), meaning "use the built-in token logic below".
+    inline std::string_view property_token(...)
+    {
+        return {};
+    }
+
     /// @brief Resolves the selectable choices for a property via the generated property_choices
     /// overloads, unwrapping Observable like get_property_type_token. Empty for non-enum
     /// properties.
@@ -866,11 +874,14 @@ namespace tbx
     static std::string get_property_type_token()
     {
         using Clean = std::remove_cvref_t<TValue>;
+        // A type may advertise its own editor token (AssetHandle → "asset"), overriding the structural
+        // default; an empty token falls through to the built-in logic.
+        if (const auto token = property_token(static_cast<const Clean*>(nullptr)); !token.empty())
+            return std::string(token);
         if constexpr (requires(const Clean& reference) { reference_id(reference); })
         {
-            // A reference field (e.g. tbx::Entity) is editor-pickable: it carries the "entity"
-            // token and its value is just the referenced id, so the inspector shows an entity
-            // picker.
+            // A reference field (e.g. tbx::Entity) is editor-pickable: it carries the "entity" token and its
+            // value is just the referenced id, so the inspector shows an entity picker.
             return "entity";
         }
         else if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)

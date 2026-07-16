@@ -13,6 +13,14 @@ namespace tbx
     class IMessageCoordinator;
     class ThreadManager;
 
+    /// @brief How open_world places the loaded world.
+    enum class WorldOpenMode
+    {
+        REPLACE,    // Replace the single active world (pins the handle; streams when enabled).
+        ADDITIVE,   // Load on top of the active world: inject its entities as a tracked, unloadable layer.
+        STANDALONE, // Independent live instance (fresh id, never pinned, fully loaded; close with close_world).
+    };
+
     /// @brief
     /// Purpose: Owns the active world reference and coordinates world streaming.
     /// @details
@@ -50,12 +58,23 @@ namespace tbx
         bool has_active_world() const;
 
         /// @brief
-        /// Purpose: Loads and activates a world asset, preserving the current world on failure.
-        bool set_active_world(const Handle& handle);
+        /// Purpose: Opens a world asset in one of three modes. REPLACE replaces the single active world
+        /// (loads+activates, pins the handle, honors streaming), preserving the current world on failure.
+        /// ADDITIVE loads on top of the current active world: its entities are injected into the active world
+        /// and tracked as an unloadable layer (kept distinct from the base world on save); requires an active
+        /// world. STANDALONE loads a distinct live instance with a freshly generated unique id so its
+        /// chunk/globals records never collide with the active world or another instance — never pinned, fully
+        /// populated (globals + all chunks) up front, no streaming. For ADDITIVE and STANDALONE the returned
+        /// World's id is the key to close_world; the caller closes it when done. Returns the opened World (the
+        /// active world for REPLACE, the layer/instance for ADDITIVE/STANDALONE), or null on failure.
+        std::shared_ptr<World> open_world(const Handle& handle, WorldOpenMode mode = WorldOpenMode::REPLACE);
 
         /// @brief
-        /// Purpose: Activates an externally supplied world instance.
-        bool set_active_world(std::shared_ptr<World> world);
+        /// Purpose: Closes an additive layer or standalone instance (from open_world with ADDITIVE/STANDALONE)
+        /// by its id. For an additive layer it removes the injected entities from the active world; for either
+        /// it clears the loaded chunk records and unpins the globals, then drops the manager's ownership. A
+        /// no-op for the active world or an unknown id. Safe while a view still holds the World alive.
+        void close_world(const Uuid& world_id);
 
         /// @brief
         /// Purpose: Writes the active world's current entities back to its chunk + globals asset files so
@@ -95,8 +114,13 @@ namespace tbx
             const World& world,
             const std::vector<Uuid>& asset_entity_ids);
         bool load_world_globals(World& world);
+        bool load_world_globals(
+            World& world, std::vector<Uuid>& out_globals, std::vector<Handle>& out_loaded);
+        std::shared_ptr<World> load_isolated_world(
+            const World& tmpl, std::vector<Uuid>& out_globals, std::vector<Handle>& out_loaded);
         void on_asset_reloaded(const AssetReloadedEvent& event);
         void release_active_world();
+        void release_instance(World* world, const std::vector<Handle>& loaded_globals);
 
       private:
         struct State;

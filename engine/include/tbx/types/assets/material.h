@@ -70,17 +70,17 @@ namespace tbx
 
     /// @brief
     /// Purpose: Classifies a material by the render role it plays, so systems (and the editor) can
-    /// reason about a material without inspecting its shader/config. A sky material, for instance, is
-    /// previewed as the environment background rather than on a mesh.
+    /// reason about a material without inspecting its shader/config. A sky material, for instance,
+    /// is previewed as the environment background rather than on a mesh.
     /// @details
     /// Ownership: Value type. Thread Safety: Safe to copy between threads.
     [[serializable]];
     enum class MaterialType : uint8_t
     {
-        RASTER [[name("raster")]] = 0,   // A standard rasterized surface drawn on mesh geometry.
-        SKY [[name("sky")]] = 1,         // An environment/background material (skybox or sky-sphere).
-        POST [[name("post")]] = 2,       // A full-screen post-process effect.
-        GEO [[name("geo")]] = 3,         // A geometry/depth pass (e.g. shadow or depth pre-pass).
+        RASTER [[name("raster")]] = 0, // A standard rasterized surface drawn on mesh geometry.
+        SKY [[name("sky")]] = 1, // An environment/background material (skybox or sky-sphere).
+        POST [[name("post")]] = 2, // A full-screen post-process effect.
+        GEO [[name("geo")]] = 3, // A geometry/depth pass (e.g. shadow or depth pre-pass).
         COMPUTE [[name("compute")]] = 4, // A compute-shader material (no rasterized surface).
     };
 
@@ -240,10 +240,11 @@ namespace tbx
     /// @brief The render state (depth/blend/cull) a raster pipeline is built with. Derived from a
     /// MaterialConfig at draw time; together with the shader program it identifies a pipeline (see
     /// the hash overload below), which is what the GpuResourceCache keys compiled pipelines by.
-    /// @brief Selects how a blending pipeline combines its output with the existing target. ALPHA is a
-    /// colored composite (final = src*src.a + dst*src.rgb): the surface adds its alpha-weighted color
-    /// AND tints whatever is behind it by its color. MULTIPLY is a pure colored filter (dst *= src),
-    /// also used to accumulate transmittance into the colored (translucent) shadow map.
+    /// @brief Selects how a blending pipeline combines its output with the existing target. ALPHA
+    /// is a colored composite (final = src*src.a + dst*src.rgb): the surface adds its
+    /// alpha-weighted color AND tints whatever is behind it by its color. MULTIPLY is a pure
+    /// colored filter (dst *= src), also used to accumulate transmittance into the colored
+    /// (translucent) shadow map.
     enum class BlendEquation : uint8_t
     {
         ALPHA = 0,

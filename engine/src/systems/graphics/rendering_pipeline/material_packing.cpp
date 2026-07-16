@@ -1,9 +1,11 @@
 #include "material_packing.h"
+#include "gpu_resources.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/types/handle.h"
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <variant>
-#include <vector>
 
 namespace tbx
 {
@@ -16,58 +18,74 @@ namespace tbx
         return std::string("<id ") + std::to_string(static_cast<uint32>(handle.id)) + ">";
     }
 
+    // Positional float stream the shader addresses by lane. Writing past the record's capacity is
+    // tracked (count keeps advancing) but not stored, so the caller can detect overflow while the
+    // steady-state pack stays allocation-free (a fixed stack buffer, no per-surface heap churn).
+    struct ParamFloatStream
+    {
+        std::array<float, GPU_MATERIAL_PARAM_FLOAT_COUNT> floats = {};
+        uint32 count = 0U;
+
+        void push(float value)
+        {
+            if (count < floats.size())
+                floats[count] = value;
+            ++count;
+        }
+    };
+
     // Flattens one material parameter value into its float components, in declared order, so the GPU
     // record's params[] is a positional float stream the shader addresses by lane.
-    static void append_param_floats(const MaterialParameterData& data, std::vector<float>& out)
+    static void append_param_floats(const MaterialParameterData& data, ParamFloatStream& out)
     {
         std::visit(
             [&out](const auto& value)
             {
                 using T = std::decay_t<decltype(value)>;
                 if constexpr (std::is_same_v<T, bool>)
-                    out.push_back(value ? 1.0F : 0.0F);
+                    out.push(value ? 1.0F : 0.0F);
                 else if constexpr (std::is_same_v<T, int>)
-                    out.push_back(static_cast<float>(value));
+                    out.push(static_cast<float>(value));
                 else if constexpr (std::is_same_v<T, float>)
-                    out.push_back(value);
+                    out.push(value);
                 else if constexpr (std::is_same_v<T, double>)
-                    out.push_back(static_cast<float>(value));
+                    out.push(static_cast<float>(value));
                 else if constexpr (std::is_same_v<T, Vec2>)
                 {
-                    out.push_back(value.x);
-                    out.push_back(value.y);
+                    out.push(value.x);
+                    out.push(value.y);
                 }
                 else if constexpr (std::is_same_v<T, Vec3>)
                 {
-                    out.push_back(value.x);
-                    out.push_back(value.y);
-                    out.push_back(value.z);
+                    out.push(value.x);
+                    out.push(value.y);
+                    out.push(value.z);
                 }
                 else if constexpr (std::is_same_v<T, Vec4>)
                 {
-                    out.push_back(value.x);
-                    out.push_back(value.y);
-                    out.push_back(value.z);
-                    out.push_back(value.w);
+                    out.push(value.x);
+                    out.push(value.y);
+                    out.push(value.z);
+                    out.push(value.w);
                 }
                 else if constexpr (std::is_same_v<T, Color>)
                 {
-                    out.push_back(value.r);
-                    out.push_back(value.g);
-                    out.push_back(value.b);
-                    out.push_back(value.a);
+                    out.push(value.r);
+                    out.push(value.g);
+                    out.push(value.b);
+                    out.push(value.a);
                 }
                 else if constexpr (std::is_same_v<T, Mat3>)
                 {
                     for (int c = 0; c < 3; ++c)
                         for (int r = 0; r < 3; ++r)
-                            out.push_back(value[c][r]);
+                            out.push(value[c][r]);
                 }
                 else if constexpr (std::is_same_v<T, Mat4>)
                 {
                     for (int c = 0; c < 4; ++c)
                         for (int r = 0; r < 4; ++r)
-                            out.push_back(value[c][r]);
+                            out.push(value[c][r]);
                 }
             },
             data);
@@ -84,21 +102,20 @@ namespace tbx
         out_failure = RenderFailure::NONE;
         auto packed = GpuMaterialData();
 
-        std::vector<float> floats;
-        floats.reserve(GPU_MATERIAL_PARAM_FLOAT_COUNT);
+        ParamFloatStream stream;
         for (const auto& parameter : material.parameters.values)
-            append_param_floats(parameter.data, floats);
-        if (floats.size() > GPU_MATERIAL_PARAM_FLOAT_COUNT)
+            append_param_floats(parameter.data, stream);
+        if (stream.count > GPU_MATERIAL_PARAM_FLOAT_COUNT)
         {
             TBX_TRACE_WARNING_ONCE(
                 "Material '{}' has more parameter data than the GPU record holds; using yellow "
                 "validation.",
                 material_name);
-            floats.resize(GPU_MATERIAL_PARAM_FLOAT_COUNT);
             out_failure = RenderFailure::INVALID_MATERIAL_DATA;
         }
-        if (!floats.empty())
-            std::memcpy(packed.params.data(), floats.data(), floats.size() * sizeof(float));
+        const uint32 written = std::min(stream.count, GPU_MATERIAL_PARAM_FLOAT_COUNT);
+        if (written > 0U)
+            std::memcpy(packed.params.data(), stream.floats.data(), written * sizeof(float));
 
         uint32 slot = 0U;
         for (const auto& binding : material.textures.values)
