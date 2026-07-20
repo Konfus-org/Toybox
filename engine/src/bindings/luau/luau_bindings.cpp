@@ -15,7 +15,7 @@ namespace tbx
     struct ToyUserdata
     {
         Sandbox* sandbox = nullptr;
-        entt::entity entity = entt::null;
+        ToyId entity = NULL_TOY;
     };
 
     /// @brief
@@ -24,7 +24,7 @@ namespace tbx
     struct BlockUserdata
     {
         Sandbox* sandbox = nullptr;
-        entt::entity entity = entt::null;
+        ToyId entity = NULL_TOY;
         uint64 type_hash = 0;
     };
 
@@ -64,52 +64,52 @@ namespace tbx
     static const char* const XYZW_KEYS[] = {"x", "y", "z", "w"};
     static const char* const RGBA_KEYS[] = {"r", "g", "b", "a"};
 
-    static int push_field_value(lua_State* lua, const FieldInfo& field, const void* block)
+    static int push_field_value(lua_State* lua, const FieldInfo& field, const std::byte* block)
     {
-        const void* at = static_cast<const char*>(block) + field.offset;
+        const std::byte* at = block + field.offset;
         switch (field.kind)
         {
             case FieldKind::BOOL:
-                lua_pushboolean(lua, *static_cast<const bool*>(at));
+                lua_pushboolean(lua, *reinterpret_cast<const bool*>(at));
                 return 1;
             case FieldKind::INT32:
-                lua_pushnumber(lua, *static_cast<const int32*>(at));
+                lua_pushnumber(lua, *reinterpret_cast<const int32*>(at));
                 return 1;
             case FieldKind::UINT32:
-                lua_pushnumber(lua, *static_cast<const uint32*>(at));
+                lua_pushnumber(lua, *reinterpret_cast<const uint32*>(at));
                 return 1;
             case FieldKind::INT64:
-                lua_pushnumber(lua, static_cast<double>(*static_cast<const int64*>(at)));
+                lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const int64*>(at)));
                 return 1;
             case FieldKind::UINT64:
-                lua_pushnumber(lua, static_cast<double>(*static_cast<const uint64*>(at)));
+                lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const uint64*>(at)));
                 return 1;
             case FieldKind::FLOAT:
-                lua_pushnumber(lua, *static_cast<const float*>(at));
+                lua_pushnumber(lua, *reinterpret_cast<const float*>(at));
                 return 1;
             case FieldKind::DOUBLE:
-                lua_pushnumber(lua, *static_cast<const double*>(at));
+                lua_pushnumber(lua, *reinterpret_cast<const double*>(at));
                 return 1;
             case FieldKind::STRING:
-                lua_pushstring(lua, static_cast<const std::string*>(at)->c_str());
+                lua_pushstring(lua, reinterpret_cast<const std::string*>(at)->c_str());
                 return 1;
             case FieldKind::VEC2:
-                push_vector_table(lua, &static_cast<const Vec2*>(at)->x, XYZW_KEYS, 2);
+                push_vector_table(lua, &reinterpret_cast<const Vec2*>(at)->x, XYZW_KEYS, 2);
                 return 1;
             case FieldKind::VEC3:
-                push_vector_table(lua, &static_cast<const Vec3*>(at)->x, XYZW_KEYS, 3);
+                push_vector_table(lua, &reinterpret_cast<const Vec3*>(at)->x, XYZW_KEYS, 3);
                 return 1;
             case FieldKind::VEC4:
-                push_vector_table(lua, &static_cast<const Vec4*>(at)->x, XYZW_KEYS, 4);
+                push_vector_table(lua, &reinterpret_cast<const Vec4*>(at)->x, XYZW_KEYS, 4);
                 return 1;
             case FieldKind::QUAT:
-                push_vector_table(lua, &static_cast<const Quat*>(at)->x, XYZW_KEYS, 4);
+                push_vector_table(lua, &reinterpret_cast<const Quat*>(at)->x, XYZW_KEYS, 4);
                 return 1;
             case FieldKind::COLOR:
-                push_vector_table(lua, &static_cast<const Color*>(at)->r, RGBA_KEYS, 4);
+                push_vector_table(lua, &reinterpret_cast<const Color*>(at)->r, RGBA_KEYS, 4);
                 return 1;
             case FieldKind::UUID:
-                lua_pushstring(lua, static_cast<const Uuid*>(at)->to_string().c_str());
+                lua_pushstring(lua, reinterpret_cast<const Uuid*>(at)->to_string().c_str());
                 return 1;
             case FieldKind::ENUM:
             {
@@ -127,52 +127,52 @@ namespace tbx
         return 1;
     }
 
-    static void write_field_value(lua_State* lua, int value_index, const FieldInfo& field, void* block)
+    static void write_field_value(lua_State* lua, const int value_index, const FieldInfo& field, std::byte* block)
     {
-        void* at = static_cast<char*>(block) + field.offset;
+        std::byte* at = block + field.offset;
         switch (field.kind)
         {
             case FieldKind::BOOL:
-                *static_cast<bool*>(at) = lua_toboolean(lua, value_index) != 0;
+                *reinterpret_cast<bool*>(at) = lua_toboolean(lua, value_index) != 0;
                 return;
             case FieldKind::INT32:
-                *static_cast<int32*>(at) = static_cast<int32>(luaL_checknumber(lua, value_index));
+                *reinterpret_cast<int32*>(at) = static_cast<int32>(luaL_checknumber(lua, value_index));
                 return;
             case FieldKind::UINT32:
-                *static_cast<uint32*>(at) = static_cast<uint32>(luaL_checknumber(lua, value_index));
+                *reinterpret_cast<uint32*>(at) = static_cast<uint32>(luaL_checknumber(lua, value_index));
                 return;
             case FieldKind::INT64:
-                *static_cast<int64*>(at) = static_cast<int64>(luaL_checknumber(lua, value_index));
+                *reinterpret_cast<int64*>(at) = static_cast<int64>(luaL_checknumber(lua, value_index));
                 return;
             case FieldKind::UINT64:
-                *static_cast<uint64*>(at) = static_cast<uint64>(luaL_checknumber(lua, value_index));
+                *reinterpret_cast<uint64*>(at) = static_cast<uint64>(luaL_checknumber(lua, value_index));
                 return;
             case FieldKind::FLOAT:
-                *static_cast<float*>(at) = static_cast<float>(luaL_checknumber(lua, value_index));
+                *reinterpret_cast<float*>(at) = static_cast<float>(luaL_checknumber(lua, value_index));
                 return;
             case FieldKind::DOUBLE:
-                *static_cast<double*>(at) = luaL_checknumber(lua, value_index);
+                *reinterpret_cast<double*>(at) = luaL_checknumber(lua, value_index);
                 return;
             case FieldKind::STRING:
-                *static_cast<std::string*>(at) = luaL_checkstring(lua, value_index);
+                *reinterpret_cast<std::string*>(at) = luaL_checkstring(lua, value_index);
                 return;
             case FieldKind::VEC2:
-                read_vector_table(lua, value_index, &static_cast<Vec2*>(at)->x, XYZW_KEYS, 2);
+                read_vector_table(lua, value_index, &reinterpret_cast<Vec2*>(at)->x, XYZW_KEYS, 2);
                 return;
             case FieldKind::VEC3:
-                read_vector_table(lua, value_index, &static_cast<Vec3*>(at)->x, XYZW_KEYS, 3);
+                read_vector_table(lua, value_index, &reinterpret_cast<Vec3*>(at)->x, XYZW_KEYS, 3);
                 return;
             case FieldKind::VEC4:
-                read_vector_table(lua, value_index, &static_cast<Vec4*>(at)->x, XYZW_KEYS, 4);
+                read_vector_table(lua, value_index, &reinterpret_cast<Vec4*>(at)->x, XYZW_KEYS, 4);
                 return;
             case FieldKind::QUAT:
-                read_vector_table(lua, value_index, &static_cast<Quat*>(at)->x, XYZW_KEYS, 4);
+                read_vector_table(lua, value_index, &reinterpret_cast<Quat*>(at)->x, XYZW_KEYS, 4);
                 return;
             case FieldKind::COLOR:
-                read_vector_table(lua, value_index, &static_cast<Color*>(at)->r, RGBA_KEYS, 4);
+                read_vector_table(lua, value_index, &reinterpret_cast<Color*>(at)->r, RGBA_KEYS, 4);
                 return;
             case FieldKind::UUID:
-                *static_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
+                *reinterpret_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
                 return;
             case FieldKind::ENUM:
             {
@@ -188,7 +188,7 @@ namespace tbx
 
     //// BLOCK METATABLE ////
 
-    static void* fetch_block(const BlockUserdata& data)
+    static std::byte* fetch_block(const BlockUserdata& data)
     {
         const auto operations = get_block_registry().find(data.type_hash);
         if (!operations)
@@ -201,7 +201,7 @@ namespace tbx
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
         const auto type = get_type_registry().find(data.type_hash);
-        void* block = fetch_block(data);
+        std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
         for (const FieldInfo& field : type->get().fields)
@@ -216,7 +216,7 @@ namespace tbx
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
         const auto type = get_type_registry().find(data.type_hash);
-        void* block = fetch_block(data);
+        std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
         for (const FieldInfo& field : type->get().fields)
@@ -381,7 +381,7 @@ namespace tbx
 
     //// OPEN ////
 
-    void push_toy(lua_State* lua, Sandbox& sandbox, entt::entity entity)
+    void push_toy(lua_State* lua, Sandbox& sandbox, const ToyId entity)
     {
         auto* data = static_cast<ToyUserdata*>(lua_newuserdata(lua, sizeof(ToyUserdata)));
         *data = ToyUserdata {.sandbox = &sandbox, .entity = entity};

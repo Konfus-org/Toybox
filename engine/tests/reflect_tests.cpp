@@ -65,9 +65,9 @@ namespace tbx::tests
         original.id = Uuid::generate();
 
         // Act
-        const Json data = json_write(type, &original);
+        const Json data = json_write(type, original);
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, &loaded, data);
+        const auto result = json_read(type, loaded, data);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -87,7 +87,7 @@ namespace tbx::tests
         auto target = TestPlayer {};
 
         // Act
-        const auto result = json_read(type, &target, Json::array());
+        const auto result = json_read(type, target, Json::array());
 
         // Assert
         EXPECT_FALSE(result.has_value());
@@ -104,7 +104,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, &loaded, old_data);
+        const auto result = json_read(type, loaded, old_data);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -122,7 +122,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, &loaded, current);
+        const auto result = json_read(type, loaded, current);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -139,7 +139,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, &loaded, sparse);
+        const auto result = json_read(type, loaded, sparse);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -157,7 +157,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, &loaded, bad);
+        const auto result = json_read(type, loaded, bad);
 
         // Assert
         ASSERT_FALSE(result.has_value());

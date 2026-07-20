@@ -11,7 +11,7 @@ namespace tbx
         : _root(std::move(root))
         , _on_changed(std::move(on_changed))
         , _poll_interval(poll_interval)
-        , _thread([this](std::stop_token stop) { poll_loop(stop); })
+        , _thread([this](std::stop_token stop) { poll(stop); })
     {
     }
 
@@ -37,7 +37,7 @@ namespace tbx
         }
     }
 
-    void FileWatcher::poll_loop(std::stop_token stop)
+    void FileWatcher::poll(std::stop_token stop)
     {
         scan(false); // baseline: existing files are not "changes"
         while (!stop.stop_requested())

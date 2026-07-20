@@ -7,7 +7,6 @@
 #include "tbx/ecs/transform.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/reflect/json_walker.h"
-#include <entt/entt.hpp>
 #include <functional>
 #include <optional>
 #include <span>
@@ -59,7 +58,7 @@ namespace tbx
     /// Purpose: Engine-internal parent link forming the transform hierarchy.
     struct ParentLink
     {
-        entt::entity parent = entt::null;
+        ToyId parent = NULL_TOY;
     };
 
     /// @brief
@@ -73,7 +72,7 @@ namespace tbx
       public:
         Toy() = default;
 
-        Toy(Sandbox& sandbox, entt::entity id);
+        Toy(Sandbox& sandbox, ToyId id);
 
       public:
         /// @brief
@@ -83,7 +82,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: The toy's per-session registry id.
-        entt::entity get_id() const
+        ToyId get_id() const
         {
             return _id;
         }
@@ -133,7 +132,7 @@ namespace tbx
 
       private:
         std::optional<std::reference_wrapper<Sandbox>> _sandbox = {};
-        entt::entity _id = entt::null;
+        ToyId _id = NULL_TOY;
     };
 
     /// @brief
@@ -177,7 +176,7 @@ namespace tbx
         /// @brief
         /// Purpose: Direct registry access — the sandbox exposes its internals deliberately;
         /// systems iterate views without ceremony.
-        entt::registry& get_registry()
+        Registry& get_registry()
         {
             return _registry;
         }
@@ -236,7 +235,7 @@ namespace tbx
             const Vec3& root_position,
             const KitResolver& resolver,
             std::vector<uint64>& reference_stack,
-            std::vector<entt::entity>& spawned);
+            std::vector<ToyId>& spawned);
 
       private:
         static constexpr float STREAM_LOAD_MARGIN = 5.0f;
@@ -255,9 +254,9 @@ namespace tbx
 
       private:
         std::reference_wrapper<Jobs> _jobs;
-        entt::registry _registry;
+        Registry _registry;
         uint64 _next_kit_instance_id = 1;
-        std::unordered_map<uint64, std::vector<entt::entity>> _kit_instances;
+        std::unordered_map<uint64, std::vector<ToyId>> _kit_instances;
         std::vector<StreamedEntry> _streamed_entries;
         KitResolver _layout_resolver = {};
         Vec3 _stream_focus = Vec3(0.0f, 0.0f, 0.0f);
@@ -268,7 +267,7 @@ namespace tbx
 
     //// TOY INLINE DEFINITIONS (need the Sandbox definition above) ////
 
-    inline Toy::Toy(Sandbox& sandbox, entt::entity id)
+    inline Toy::Toy(Sandbox& sandbox, ToyId id)
         : _sandbox(sandbox)
         , _id(id)
     {

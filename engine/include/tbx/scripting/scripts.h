@@ -3,26 +3,25 @@
 #include "tbx/core/typedefs.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
+#include <memory>
 #include <string>
-#include <unordered_map>
-
-struct lua_State;
 
 namespace tbx
 {
     /// @brief
-    /// Purpose: The block that makes a toy scripted: names a loaded .luau source. A script
-    /// module returns a table: { start(toy), update(toy, delta_time) }.
+    /// Purpose: The block that makes a toy scripted: names a loaded script source. A script
+    /// module exposes start(toy) and update(toy, delta_time).
     struct Script
     {
         std::string source = {};
     };
 
     /// @brief
-    /// Purpose: THE scripting system — Luau is the game scripting language; C++ is for systems
-    /// in the game executable. Owns the VM and per-toy script instances.
+    /// Purpose: THE scripting boundary (see cmake/tbx_backend.cmake): the selected scripting
+    /// backend (scripting/luau/, later maybe csharp/) implements it, and its VM types never
+    /// escape it. Owns the VM and per-toy script instances.
     /// @details
-    /// Ownership: Owns the lua_State (RAII). Thread Safety: Main thread only.
+    /// Ownership: Owns the backend State (RAII). Thread Safety: Main thread only.
     class Scripts final
     {
       public:
@@ -50,25 +49,13 @@ namespace tbx
         /// frame. Called by Engine::update().
         void update(float delta_time);
 
-      private:
-        struct Instance
-        {
-            int table_ref = -1;
-            uint64 script_hash = 0;
-            uint32 generation = 0;
-            bool is_started = false;
-        };
-
-      private:
-        Result<std::string> compile(const std::string& name, std::string_view source);
-        void drop_instance(Instance& instance);
+      public:
+        struct State; // defined by the selected scripting backend's .cpp (public so backend
+                      // helpers can take State& — VM types still never leak into this header)
 
       private:
         std::reference_wrapper<Sandbox> _sandbox;
         std::reference_wrapper<Events> _events;
-        lua_State* _lua = nullptr; // owned; closed in the destructor
-        std::unordered_map<uint64, std::string> _bytecode_by_hash;
-        std::unordered_map<uint64, uint32> _generation_by_hash;
-        std::unordered_map<uint32, Instance> _instances; // keyed by entt::entity value
+        std::unique_ptr<State> _state;
     };
 }

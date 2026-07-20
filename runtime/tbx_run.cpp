@@ -1,10 +1,12 @@
 #include "tbx/core/log.h"
-#include "tbx/engine.h"
+#include "tbx/core/typedefs.h"
+#include "tbx/app.h"
 #include "tbx/gfx/gpu.h"
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <string>
 
 static constexpr const char* TRIANGLE_VERTEX_SHADER = R"(#version 460 core
@@ -49,47 +51,49 @@ int main(int argc, char** argv)
         }
     }
 
-    auto engine = tbx::Engine(tbx::EngineConfig {.title = "Toybox 2"});
-
-    auto shader = tbx::gpu::create_shader(TRIANGLE_VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER);
-    if (!shader)
-    {
-        tbx::log_error("{}", shader.error());
-        return 1;
-    }
-    const auto mesh = tbx::gpu::create_mesh(TRIANGLE_VERTICES, std::array {3, 4});
-
+    auto app = tbx::App {.title = "Toybox 2"};
     bool selftest_passed = false;
-    auto previous = std::chrono::steady_clock::now();
-    for (int frame = 0; frame_limit < 0 || frame < frame_limit; ++frame)
+    std::unique_ptr<tbx::gpu::Shader> shader = {};
+    std::unique_ptr<tbx::gpu::Mesh> mesh = {};
+
+    while (tbx::run(app))
     {
-        if (!engine.pump())
-            break;
+        if (!shader)
+        {
+            auto compiled =
+                tbx::gpu::compile_shader(TRIANGLE_VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER);
+            if (!compiled)
+            {
+                tbx::log_error("{}", compiled.error());
+                return 1;
+            }
+            shader = std::move(*compiled);
+            mesh = tbx::gpu::upload_mesh(TRIANGLE_VERTICES, std::array {3, 4});
+        }
 
-        const auto now = std::chrono::steady_clock::now();
-        const float dt = std::chrono::duration<float>(now - previous).count();
-        previous = now;
-        engine.update(dt);
-
-        engine.begin_frame();
-        tbx::gpu::draw(*shader, mesh);
+        tbx::gpu::begin_frame();
+        tbx::gpu::draw(*shader, *mesh);
 
         if (selftest)
         {
             // The triangle covers the framebuffer center; the clear color does not.
+            const auto& window = tbx::get_window();
             const tbx::Color center =
-                tbx::gpu::read_pixel(engine.window.get_width() / 2, engine.window.get_height() / 2);
+                tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
             const tbx::Color corner = tbx::gpu::read_pixel(2, 2);
             const bool center_is_triangle = center.r + center.g + center.b > 0.5f;
             const bool corner_is_clear = std::abs(corner.r - 0.08f) < 0.02f;
             selftest_passed = center_is_triangle && corner_is_clear;
         }
 
-        engine.render();
+        if (frame_limit >= 0 && app.frame >= static_cast<uint64>(frame_limit))
+            tbx::quit();
     }
 
-    tbx::gpu::destroy_mesh(mesh);
-    tbx::gpu::destroy_shader(*shader);
+    // GPU resources must die before run() tears the context down... they already did not:
+    // release them explicitly before exit since the loop ended with the context gone.
+    shader.reset();
+    mesh.reset();
 
     if (selftest)
     {

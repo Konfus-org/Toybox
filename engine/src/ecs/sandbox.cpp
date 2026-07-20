@@ -1,6 +1,5 @@
 #include "tbx/ecs/sandbox.h"
 #include "tbx/core/log.h"
-#include <glm/gtc/matrix_transform.hpp>
 
 namespace tbx
 {
@@ -81,7 +80,7 @@ namespace tbx
 
     Toy Sandbox::spawn(std::string name)
     {
-        const entt::entity id = _registry.create();
+        const ToyId id = _registry.create();
         _registry.emplace<ToyIdentity>(
             id,
             ToyIdentity {.uuid = Uuid::generate(), .name = std::move(name)});
@@ -91,14 +90,14 @@ namespace tbx
 
     void Sandbox::despawn(Toy toy)
     {
-        const entt::entity id = toy.get_id();
+        const ToyId id = toy.get_id();
         // Children are orphaned, not destroyed — despawning a parent never cascades. Collect
         // first: removing the iterated component mid-view is not safe.
-        auto orphans = std::vector<entt::entity>();
+        auto orphans = std::vector<ToyId>();
         for (const auto [child, link] : _registry.view<ParentLink>().each())
             if (link.parent == id)
                 orphans.push_back(child);
-        for (const entt::entity child : orphans)
+        for (const ToyId child : orphans)
             _registry.remove<ParentLink>(child);
         _registry.destroy(id);
     }
@@ -181,7 +180,7 @@ namespace tbx
 
         for (const Toy& toy : toys)
         {
-            const entt::entity id = toy.get_id();
+            const ToyId id = toy.get_id();
             auto toy_json = Json::object();
             const auto& identity = _registry.get<ToyIdentity>(id);
             toy_json["uuid"] = identity.uuid.to_string();
@@ -233,11 +232,11 @@ namespace tbx
         const KitResolver& resolver)
     {
         auto reference_stack = std::vector<uint64>();
-        auto spawned = std::vector<entt::entity>();
+        auto spawned = std::vector<ToyId>();
         auto result = load_kit_body(kit, root_position, resolver, reference_stack, spawned);
         if (!result)
         {
-            for (const entt::entity id : spawned)
+            for (const ToyId id : spawned)
                 if (_registry.valid(id))
                     _registry.destroy(id);
             return result;
@@ -250,13 +249,13 @@ namespace tbx
         const Vec3& root_position,
         const KitResolver& resolver,
         std::vector<uint64>& reference_stack,
-        std::vector<entt::entity>& spawned)
+        std::vector<ToyId>& spawned)
     {
         if (!kit.is_object())
             return fail("kit body is not a JSON object");
 
         const size first_spawned = spawned.size();
-        auto by_kit_uuid = std::unordered_map<std::string, entt::entity>();
+        auto by_kit_uuid = std::unordered_map<std::string, ToyId>();
 
         try
         {
@@ -281,7 +280,7 @@ namespace tbx
                         log_warn("kit references unknown block type '{}'; skipped", type_name);
                         continue;
                     }
-                    void* block = operations->add_default(_registry, toy.get_id());
+                    std::byte* block = operations->add_default(_registry, toy.get_id());
                     auto read = json_read(type->get(), block, block_json);
                     if (!read)
                         return std::unexpected(read.error());
@@ -304,7 +303,7 @@ namespace tbx
             // Root offset applies to this body's parentless toys only.
             for (size i = first_spawned; i < spawned.size(); ++i)
             {
-                const entt::entity id = spawned[i];
+                const ToyId id = spawned[i];
                 if (!_registry.all_of<ParentLink>(id))
                     _registry.get<Transform>(id).position += root_position;
             }
@@ -359,7 +358,7 @@ namespace tbx
         const auto it = _kit_instances.find(instance.id);
         if (it == _kit_instances.end())
             return;
-        for (const entt::entity id : it->second)
+        for (const ToyId id : it->second)
             if (_registry.valid(id))
                 despawn(Toy(*this, id));
         _kit_instances.erase(it);

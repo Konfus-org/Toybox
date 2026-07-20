@@ -2,24 +2,83 @@
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
+#include <memory>
 #include <span>
 
 namespace tbx::gpu
 {
     /// @brief
-    /// Purpose: GPU shader program handle (opaque backend id).
-    struct Shader
+    /// Purpose: GPU shader program — RAII: the destructor (defined by the selected gfx
+    /// backend) releases the program. Obtain via compile_shader().
+    class Shader final
     {
-        uint32 id = 0;
+      public:
+        explicit Shader(uint32 id)
+            : _id(id)
+        {
+        }
+        ~Shader();
+
+      public:
+        Shader(const Shader&) = delete;
+        Shader& operator=(const Shader&) = delete;
+
+      public:
+        /// @brief
+        /// Purpose: Backend-native program id (used by the backend's draw path).
+        uint32 get_id() const
+        {
+            return _id;
+        }
+
+      private:
+        uint32 _id = 0;
     };
 
     /// @brief
-    /// Purpose: GPU mesh handle: interleaved vertex data uploaded and laid out for drawing.
-    struct Mesh
+    /// Purpose: GPU mesh — RAII: the destructor (defined by the selected gfx backend) releases
+    /// the buffers. Obtain via upload_mesh().
+    class Mesh final
     {
-        uint32 vertex_array = 0;
-        uint32 vertex_buffer = 0;
-        int vertex_count = 0;
+      public:
+        Mesh(uint32 vertex_array, uint32 vertex_buffer, int vertex_count)
+            : _vertex_array(vertex_array)
+            , _vertex_buffer(vertex_buffer)
+            , _vertex_count(vertex_count)
+        {
+        }
+        ~Mesh();
+
+      public:
+        Mesh(const Mesh&) = delete;
+        Mesh& operator=(const Mesh&) = delete;
+
+      public:
+        /// @brief
+        /// Purpose: Backend-native vertex array id.
+        uint32 get_vertex_array() const
+        {
+            return _vertex_array;
+        }
+
+        /// @brief
+        /// Purpose: Backend-native vertex buffer id.
+        uint32 get_vertex_buffer() const
+        {
+            return _vertex_buffer;
+        }
+
+        /// @brief
+        /// Purpose: Number of vertices to draw.
+        int get_vertex_count() const
+        {
+            return _vertex_count;
+        }
+
+      private:
+        uint32 _vertex_array = 0;
+        uint32 _vertex_buffer = 0;
+        int _vertex_count = 0;
     };
 
     // The concrete GPU boundary (see cmake/tbx_backend.cmake). The selected gfx backend folder
@@ -28,29 +87,32 @@ namespace tbx::gpu
     // the renderer port (M6) grows this into buffers/textures/pipelines/passes.
 
     /// @brief
+    /// Purpose: What a frame starts as; grows a render-target member with the renderer port.
+    struct FrameDescription
+    {
+        Color clear = Color {.r = 0.08f, .g = 0.08f, .b = 0.10f, .a = 1.0f};
+        int width = 0; // 0 = keep the current viewport
+        int height = 0;
+    };
+
+    /// @brief
+    /// Purpose: Starts a frame: applies the viewport and clears color+depth. ALL rendering
+    /// lives in tbx::gpu — hosts call begin_frame, then draw, then tbx::run presents.
+    void begin_frame(const FrameDescription& description = {});
+
+    /// @brief
     /// Purpose: Clears the current framebuffer's color and depth.
     void clear(const Color& color);
 
     /// @brief
-    /// Purpose: Uploads interleaved vertex data; attribute_sizes lists float counts per
-    /// attribute (e.g. {3, 4} = position vec3 + color vec4).
-    Mesh create_mesh(std::span<const float> vertices, std::span<const int> attribute_sizes);
-
-    /// @brief
     /// Purpose: Compiles and links a shader program from backend-native source (GLSL for gl/).
-    Result<Shader> create_shader(const char* vertex_source, const char* fragment_source);
-
-    /// @brief
-    /// Purpose: Releases a mesh's GPU buffers.
-    void destroy_mesh(Mesh mesh);
-
-    /// @brief
-    /// Purpose: Releases a shader program.
-    void destroy_shader(Shader shader);
+    Result<std::unique_ptr<Shader>> compile_shader(
+        const char* vertex_source,
+        const char* fragment_source);
 
     /// @brief
     /// Purpose: Draws a mesh as triangles with the given shader.
-    void draw(Shader shader, const Mesh& mesh);
+    void draw(const Shader& shader, const Mesh& mesh);
 
     /// @brief
     /// Purpose: Initializes the selected backend's GPU access; must run once after window
@@ -64,4 +126,11 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Sets the drawable region in pixels.
     void set_viewport(int width, int height);
+
+    /// @brief
+    /// Purpose: Uploads interleaved vertex data; attribute_sizes lists float counts per
+    /// attribute (e.g. {3, 4} = position vec3 + color vec4).
+    std::unique_ptr<Mesh> upload_mesh(
+        std::span<const float> vertices,
+        std::span<const int> attribute_sizes);
 }

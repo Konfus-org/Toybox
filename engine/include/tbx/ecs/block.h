@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/core/typedefs.h"
 #include "tbx/reflect/type_info.h"
-#include <entt/entt.hpp>
+#include "tbx/ecs/registry.h"
+#include <cstddef>
 #include <optional>
 #include <unordered_map>
 
@@ -12,10 +13,10 @@ namespace tbx
     /// the future editor can touch any toy's blocks through the reflection schema alone.
     struct BlockOperations
     {
-        void* (*add_default)(entt::registry&, entt::entity) = nullptr;
-        void* (*get)(entt::registry&, entt::entity) = nullptr;
-        bool (*has)(entt::registry&, entt::entity) = nullptr;
-        void (*remove)(entt::registry&, entt::entity) = nullptr;
+        std::byte* (*add_default)(Registry&, ToyId) = nullptr;
+        std::byte* (*get)(Registry&, ToyId) = nullptr;
+        bool (*has)(Registry&, ToyId) = nullptr;
+        void (*remove)(Registry&, ToyId) = nullptr;
     };
 
     /// @brief
@@ -55,19 +56,19 @@ namespace tbx
     {
         auto registration = register_type<TBlock>(std::move(name));
         auto operations = BlockOperations {};
-        operations.add_default = [](entt::registry& registry, entt::entity entity) -> void*
+        operations.add_default = [](Registry& registry, const ToyId entity) -> std::byte*
         {
-            return &registry.get_or_emplace<TBlock>(entity);
+            return reinterpret_cast<std::byte*>(&registry.get_or_emplace<TBlock>(entity));
         };
-        operations.get = [](entt::registry& registry, entt::entity entity) -> void*
+        operations.get = [](Registry& registry, const ToyId entity) -> std::byte*
         {
-            return registry.try_get<TBlock>(entity);
+            return reinterpret_cast<std::byte*>(registry.try_get<TBlock>(entity));
         };
-        operations.has = [](entt::registry& registry, entt::entity entity)
+        operations.has = [](Registry& registry, const ToyId entity)
         {
             return registry.all_of<TBlock>(entity);
         };
-        operations.remove = [](entt::registry& registry, entt::entity entity)
+        operations.remove = [](Registry& registry, const ToyId entity)
         {
             registry.remove<TBlock>(entity);
         };

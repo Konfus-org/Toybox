@@ -8,54 +8,54 @@ namespace tbx
 
     //// FIELD IO ////
 
-    static Json write_field(const FieldInfo& field, const void* object)
+    static Json write_field(const FieldInfo& field, const std::byte* object)
     {
-        const void* at = static_cast<const char*>(object) + field.offset;
+        const std::byte* at = object + field.offset;
         switch (field.kind)
         {
             case FieldKind::BOOL:
-                return *static_cast<const bool*>(at);
+                return *reinterpret_cast<const bool*>(at);
             case FieldKind::INT32:
-                return *static_cast<const int32*>(at);
+                return *reinterpret_cast<const int32*>(at);
             case FieldKind::UINT32:
-                return *static_cast<const uint32*>(at);
+                return *reinterpret_cast<const uint32*>(at);
             case FieldKind::INT64:
-                return *static_cast<const int64*>(at);
+                return *reinterpret_cast<const int64*>(at);
             case FieldKind::UINT64:
-                return *static_cast<const uint64*>(at);
+                return *reinterpret_cast<const uint64*>(at);
             case FieldKind::FLOAT:
-                return *static_cast<const float*>(at);
+                return *reinterpret_cast<const float*>(at);
             case FieldKind::DOUBLE:
-                return *static_cast<const double*>(at);
+                return *reinterpret_cast<const double*>(at);
             case FieldKind::STRING:
-                return *static_cast<const std::string*>(at);
+                return *reinterpret_cast<const std::string*>(at);
             case FieldKind::VEC2:
             {
-                const auto& v = *static_cast<const Vec2*>(at);
+                const auto& v = *reinterpret_cast<const Vec2*>(at);
                 return Json::array({v.x, v.y});
             }
             case FieldKind::VEC3:
             {
-                const auto& v = *static_cast<const Vec3*>(at);
+                const auto& v = *reinterpret_cast<const Vec3*>(at);
                 return Json::array({v.x, v.y, v.z});
             }
             case FieldKind::VEC4:
             {
-                const auto& v = *static_cast<const Vec4*>(at);
+                const auto& v = *reinterpret_cast<const Vec4*>(at);
                 return Json::array({v.x, v.y, v.z, v.w});
             }
             case FieldKind::QUAT:
             {
-                const auto& q = *static_cast<const Quat*>(at);
+                const auto& q = *reinterpret_cast<const Quat*>(at);
                 return Json::array({q.x, q.y, q.z, q.w});
             }
             case FieldKind::COLOR:
             {
-                const auto& c = *static_cast<const Color*>(at);
+                const auto& c = *reinterpret_cast<const Color*>(at);
                 return Json::array({c.r, c.g, c.b, c.a});
             }
             case FieldKind::UUID:
-                return static_cast<const Uuid*>(at)->to_string();
+                return reinterpret_cast<const Uuid*>(at)->to_string();
             case FieldKind::ENUM:
             {
                 // Enums serialize as their integer value; renumbering is a migrate-fn concern.
@@ -87,44 +87,44 @@ namespace tbx
         return {};
     }
 
-    static Result<void> read_field(const FieldInfo& field, void* object, const Json& value)
+    static Result<void> read_field(const FieldInfo& field, std::byte* object, const Json& value)
     {
-        void* at = static_cast<char*>(object) + field.offset;
+        std::byte* at = object + field.offset;
         switch (field.kind)
         {
             case FieldKind::BOOL:
-                *static_cast<bool*>(at) = value.get<bool>();
+                *reinterpret_cast<bool*>(at) = value.get<bool>();
                 return {};
             case FieldKind::INT32:
-                *static_cast<int32*>(at) = value.get<int32>();
+                *reinterpret_cast<int32*>(at) = value.get<int32>();
                 return {};
             case FieldKind::UINT32:
-                *static_cast<uint32*>(at) = value.get<uint32>();
+                *reinterpret_cast<uint32*>(at) = value.get<uint32>();
                 return {};
             case FieldKind::INT64:
-                *static_cast<int64*>(at) = value.get<int64>();
+                *reinterpret_cast<int64*>(at) = value.get<int64>();
                 return {};
             case FieldKind::UINT64:
-                *static_cast<uint64*>(at) = value.get<uint64>();
+                *reinterpret_cast<uint64*>(at) = value.get<uint64>();
                 return {};
             case FieldKind::FLOAT:
-                *static_cast<float*>(at) = value.get<float>();
+                *reinterpret_cast<float*>(at) = value.get<float>();
                 return {};
             case FieldKind::DOUBLE:
-                *static_cast<double*>(at) = value.get<double>();
+                *reinterpret_cast<double*>(at) = value.get<double>();
                 return {};
             case FieldKind::STRING:
-                *static_cast<std::string*>(at) = value.get<std::string>();
+                *reinterpret_cast<std::string*>(at) = value.get<std::string>();
                 return {};
             case FieldKind::VEC2:
             {
-                auto& v = *static_cast<Vec2*>(at);
+                auto& v = *reinterpret_cast<Vec2*>(at);
                 v = Vec2(value.at(0).get<float>(), value.at(1).get<float>());
                 return {};
             }
             case FieldKind::VEC3:
             {
-                auto& v = *static_cast<Vec3*>(at);
+                auto& v = *reinterpret_cast<Vec3*>(at);
                 v = Vec3(
                     value.at(0).get<float>(),
                     value.at(1).get<float>(),
@@ -133,7 +133,7 @@ namespace tbx
             }
             case FieldKind::VEC4:
             {
-                auto& v = *static_cast<Vec4*>(at);
+                auto& v = *reinterpret_cast<Vec4*>(at);
                 v = Vec4(
                     value.at(0).get<float>(),
                     value.at(1).get<float>(),
@@ -143,7 +143,7 @@ namespace tbx
             }
             case FieldKind::QUAT:
             {
-                auto& q = *static_cast<Quat*>(at);
+                auto& q = *reinterpret_cast<Quat*>(at);
                 q.x = value.at(0).get<float>();
                 q.y = value.at(1).get<float>();
                 q.z = value.at(2).get<float>();
@@ -152,7 +152,7 @@ namespace tbx
             }
             case FieldKind::COLOR:
             {
-                auto& c = *static_cast<Color*>(at);
+                auto& c = *reinterpret_cast<Color*>(at);
                 c = Color {
                     .r = value.at(0).get<float>(),
                     .g = value.at(1).get<float>(),
@@ -161,7 +161,7 @@ namespace tbx
                 return {};
             }
             case FieldKind::UUID:
-                *static_cast<Uuid*>(at) = Uuid::parse(value.get<std::string>());
+                *reinterpret_cast<Uuid*>(at) = Uuid::parse(value.get<std::string>());
                 return {};
             case FieldKind::ENUM:
             {
@@ -184,7 +184,7 @@ namespace tbx
 
     //// WALKER ////
 
-    Json json_write(const TypeInfo& type, const void* object)
+    Json json_write(const TypeInfo& type, const std::byte* object)
     {
         auto data = Json::object();
         data[TYPE_KEY] = type.name;
@@ -194,7 +194,7 @@ namespace tbx
         return data;
     }
 
-    Result<void> json_read(const TypeInfo& type, void* object, const Json& data)
+    Result<void> json_read(const TypeInfo& type, std::byte* object, const Json& data)
     {
         if (!data.is_object())
             return fail("'{}' data is not a JSON object", type.name);

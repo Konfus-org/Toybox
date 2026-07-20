@@ -28,7 +28,7 @@ namespace tbx
         FileWatcher& operator=(const FileWatcher&) = delete;
 
       private:
-        void poll_loop(std::stop_token stop);
+        void poll(std::stop_token stop);
         void scan(bool report);
 
       private:

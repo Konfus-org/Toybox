@@ -12,6 +12,21 @@ namespace tbx
     using Result = std::expected<T, std::string>;
 
     /// @brief
+    /// Purpose: The success half of fail(): return ok(); for Result<void>, ok(value) otherwise.
+    inline Result<void> ok()
+    {
+        return {};
+    }
+
+    /// @brief
+    /// Purpose: Success carrying a value — reads as the mirror of fail() at return sites.
+    template <typename T>
+    Result<std::decay_t<T>> ok(T&& value)
+    {
+        return std::forward<T>(value);
+    }
+
+    /// @brief
     /// Purpose: Builds a Result error with fmt-style formatting: return fail("bad '{}'", name);
     template <typename... Args>
     std::unexpected<std::string> fail(std::format_string<Args...> fmt, Args&&... args)

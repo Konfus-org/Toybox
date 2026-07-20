@@ -23,6 +23,10 @@
 - **Bool Naming**: Bool-returning methods and bool members use `is_` or another question-style prefix that reads naturally (`is_headless()`, `is_down`); never omit the prefix.
 - **Verbosity**: No shorthand names — verbose and descriptive wins (`register_type` not `reg`, `initialize` not `init`, `delta_time` not `dt`).
 - **Data-Oriented Modules**: Where a subsystem is plain state + queries, prefer a short namespace of free functions with state as statics in the module's `.cpp` (`tbx::input::is_down(key)`, `tbx::gpu::draw(...)`, `tbx::files::read_text(...)`) — no manager class ceremony. Keep classes where RAII genuinely earns it: resource owners with real teardown/ordering (`Engine`, `Jobs`, `Window`, `Sandbox`) and small data/handle types (`Task`, `Signal`, `Toy`, `Uuid`).
+- **RAII Over Create/Destroy**: Never expose create/destroy function pairs — creation returns an owning smart pointer (or value RAII type) whose destructor releases the resource (`Result<std::unique_ptr<gpu::Shader>>`, never `destroy_shader`).
+- **No Raw/Void Pointers**: Beyond the existing lifetimes rule, replace `void*` with modern alternatives — `std::span<std::byte>`/`std::byte*` for type-erased memory, `std::reference_wrapper`/`std::optional` for references; raw pointers only at true C boundaries (Lua userdata payloads), commented as such.
+- **Const By Default**: Locals, parameters, and methods are `const` unless mutation is the point.
+- **Third-Party Seams**: Every third-party library sits behind exactly one engine-owned boundary: compiled backends behind `tbx_backend()` folders (sdl/gl/jolt/luau), header-only libs behind one wrapper header (`core/math.h` = glm, `core/json.h` = nlohmann, `core/log.h` = spdlog, `ecs/registry.h` = entt). Nothing else includes a third-party header directly — swapping a lib touches its one seam.
 
 ## Writing Unit Tests
 

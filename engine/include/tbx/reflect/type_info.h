@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/core/hash.h"
+#include "tbx/core/json.h"
 #include "tbx/core/log.h"
 #include "tbx/core/math.h"
 #include "tbx/core/typedefs.h"
@@ -7,7 +8,6 @@
 #include <functional>
 #include <memory>
 #include <new>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -15,8 +15,6 @@
 
 namespace tbx
 {
-    using Json = nlohmann::json;
-
     /// @brief
     /// Purpose: How the JSON walker interprets one reflected field's bytes.
     enum class FieldKind : uint8
@@ -65,8 +63,8 @@ namespace tbx
         // Called by the JSON walker when stored version < current; edits the raw JSON in place.
         std::function<void(Json&, uint32)> migrate = {};
         std::vector<FieldInfo> fields = {};
-        void (*construct)(void*) = nullptr;
-        void (*destroy)(void*) = nullptr;
+        void (*construct)(std::byte*) = nullptr;
+        void (*destroy)(std::byte*) = nullptr;
     };
 
     /// @brief
@@ -211,14 +209,11 @@ namespace tbx
             info.name_hash = hash_name(name);
             info.name = std::move(name);
             info.size_bytes = sizeof(T);
-            info.construct = [](void* at)
+            info.construct = [](std::byte* at)
             {
                 new (at) T();
             };
-            info.destroy = [](void* at)
-            {
-                static_cast<T*>(at)->~T();
-            };
+            info.destroy = [](std::byte* at) { reinterpret_cast<T*>(at)->~T(); };
             return info;
         }
 

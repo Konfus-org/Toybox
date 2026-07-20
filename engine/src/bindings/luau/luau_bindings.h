@@ -13,5 +13,5 @@ namespace tbx
 
     /// @brief
     /// Purpose: Pushes a Toy userdata for the given entity onto the Lua stack.
-    void push_toy(lua_State* lua, Sandbox& sandbox, entt::entity entity);
+    void push_toy(lua_State* lua, Sandbox& sandbox, ToyId entity);
 }
