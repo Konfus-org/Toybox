@@ -181,6 +181,15 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Fired when two physics toys start touching (ToyId values; fed by the physics
+    /// backend during the fixed step, delivered at the pump).
+    struct CollisionEvent
+    {
+        uint32 toy_a = 0;
+        uint32 toy_b = 0;
+    };
+
+    /// @brief
     /// Purpose: Fired after a script source recompiled; instances restart on their next update.
     struct ScriptReloaded
     {
@@ -196,6 +205,7 @@ namespace tbx
         Signal<WindowResized> window_resized {queue};
         Signal<KeyEvent> key {queue};
         Signal<AssetReloaded> asset_reloaded {queue};
+        Signal<CollisionEvent> collision {queue};
         Signal<ScriptReloaded> script_reloaded {queue};
 
         /// @brief

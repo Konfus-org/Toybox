@@ -153,19 +153,6 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
-        /// destroyed.
-        void despawn(Toy toy);
-
-        /// @brief
-        /// Purpose: Finds a toy by runtime uuid.
-        std::optional<Toy> find_toy(const Uuid& uuid);
-
-        /// @brief
-        /// Purpose: Finds the first toy with the given name.
-        std::optional<Toy> find_toy(std::string_view name);
-
-        /// @brief
         /// Purpose: Invokes the callback for every toy wearing the sticker.
         void for_each_sticker(std::string_view name, const std::function<void(Toy)>& callback);
 
@@ -190,6 +177,20 @@ namespace tbx
         Mat4 get_world_matrix(Toy toy);
 
         /// @brief
+        /// Purpose: Finds a toy by runtime uuid.
+        std::optional<Toy> find_toy(const Uuid& uuid);
+
+        /// @brief
+        /// Purpose: Finds the first toy with the given name.
+        std::optional<Toy> find_toy(std::string_view name);
+
+        /// @brief
+        /// Purpose: Loads a sandbox layout: {"kits": [{reference, mode, position}]}. ALWAYS
+        /// entries load immediately; STREAMED entries load/unload by distance to the streaming
+        /// focus (see stream_from), using bounds stored in each kit at save time.
+        Result<void> load_layout(const Json& layout, const KitResolver& resolver);
+
+        /// @brief
         /// Purpose: Instantiates a kit body into the sandbox (main thread). Nested kit
         /// references resolve recursively through the resolver; reference cycles are load
         /// errors. Root position offsets every parentless toy.
@@ -199,14 +200,8 @@ namespace tbx
             const KitResolver& resolver = {});
 
         /// @brief
-        /// Purpose: Loads a sandbox layout: {"kits": [{reference, mode, position}]}. ALWAYS
-        /// entries load immediately; STREAMED entries load/unload by distance to the streaming
-        /// focus (see stream_from), using bounds stored in each kit at save time.
-        Result<void> load_layout(const Json& layout, const KitResolver& resolver);
-
-        /// @brief
-        /// Purpose: Drives streaming; called once per frame by Engine::update().
-        void process_streaming();
+        /// Purpose: Despawns every toy a kit instance spawned.
+        void unload_kit(KitInstance instance);
 
         /// @brief
         /// Purpose: Serializes toys (blocks, stickers, parent links) plus computed bounds into
@@ -218,16 +213,21 @@ namespace tbx
         Toy spawn(std::string name);
 
         /// @brief
-        /// Purpose: Sets the streaming focus (typically player/camera position, every frame).
-        void stream_from(const Vec3& focus);
+        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
+        /// destroyed.
+        void despawn(Toy toy);
 
         /// @brief
         /// Purpose: Reparents a toy (pass a default Toy to clear the parent).
         void set_parent(Toy child, Toy parent);
 
         /// @brief
-        /// Purpose: Despawns every toy a kit instance spawned.
-        void unload_kit(KitInstance instance);
+        /// Purpose: Drives streaming; called once per frame by Engine::update().
+        void process_streaming();
+
+        /// @brief
+        /// Purpose: Sets the streaming focus (typically player/camera position, every frame).
+        void stream_from(const Vec3& focus);
 
       private:
         Result<KitInstance> load_kit_body(

@@ -48,6 +48,7 @@ FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau)
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
 tbx_backend(PLATFORM sdl)
 tbx_backend(GFX gl)
+tbx_backend(PHYSICS jolt)
 tbx_backend_list(SCRIPTING luau)
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
@@ -64,6 +65,30 @@ if(TBX_GFX_BACKEND STREQUAL "gl")
     add_subdirectory(thirdparty/glad)
 endif()
 
+if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
+    # Jolt is static (its LTO archive is incompatible with shared linking) with GPU compute
+    # backends off so the runtime needs no extra SDK DLLs. Its CMakeLists lives in Build/.
+    set(JPH_USE_DX12 OFF CACHE BOOL "" FORCE)
+    set(JPH_USE_DXC OFF CACHE BOOL "" FORCE)
+    set(JPH_USE_VK OFF CACHE BOOL "" FORCE)
+    set(JPH_USE_MTL OFF CACHE BOOL "" FORCE)
+    set(JPH_USE_CPU_COMPUTE ON CACHE BOOL "" FORCE)
+    set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+    # Jolt bakes /Wall /WX into CMAKE_CXX_FLAGS when ON, out of reach of the warnings sweep.
+    set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(JoltPhysics
+        GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+        GIT_TAG v5.2.0
+        GIT_SHALLOW TRUE
+        SOURCE_SUBDIR Build
+        SYSTEM)
+    FetchContent_MakeAvailable(JoltPhysics)
+    if(NOT TARGET Jolt::Jolt AND TARGET Jolt)
+        add_library(Jolt::Jolt ALIAS Jolt)
+    endif()
+endif()
+
 # --- The engine: one static library ---
 # Public headers live in engine/include/tbx/<module>/, implementation in
 # engine/src/<module>/ (backend private headers may sit next to their .cpp).
@@ -72,7 +97,7 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
 list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting)/[^/]+/")
-list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES})
+list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES})
 
 add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
@@ -82,6 +107,9 @@ target_link_libraries(tbx
 )
 if("luau" IN_LIST TBX_SCRIPTING_BACKENDS)
     target_link_libraries(tbx PRIVATE Luau.Compiler Luau.VM)
+endif()
+if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
+    target_link_libraries(tbx PRIVATE Jolt::Jolt)
 endif()
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")

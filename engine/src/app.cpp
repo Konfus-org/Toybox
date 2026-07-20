@@ -2,6 +2,7 @@
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/gfx/render_blocks.h"
+#include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include <chrono>
 #include <memory>
@@ -44,6 +45,7 @@ namespace tbx
     static void boot(App& app)
     {
         gpu::register_render_blocks();
+        physics::register_physics_blocks();
         g_state = std::make_unique<AppState>(app);
         AppState& state = *g_state;
         if (!state.window.is_headless())
@@ -100,6 +102,7 @@ namespace tbx
         if (!window_alive || state.quit_requested)
         {
             app.is_running = false;
+            physics::reset();
             g_state.reset(); // reverse-declaration-order shutdown
             return false;
         }
@@ -118,7 +121,7 @@ namespace tbx
         while (g_fixed_accumulator >= FIXED_STEP)
         {
             g_fixed_accumulator -= FIXED_STEP;
-            // Fixed-cadence work lands here with later milestones (physics).
+            physics::step(state.sandbox, state.events, FIXED_STEP);
         }
         return true;
     }
