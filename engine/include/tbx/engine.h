@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include "tbx/files/files.h"
 #include "tbx/jobs/jobs.h"
@@ -63,8 +64,9 @@ namespace tbx
         Events events;
         Window window;
         Input input;
+        Sandbox sandbox;
         // Later milestones add: Assets assets; Renderer renderer; Physics physics;
-        // Sandbox sandbox; Scripts scripts;
+        // Scripts scripts;
 
       private:
         static constexpr float FIXED_STEP = 1.0f / 60.0f;

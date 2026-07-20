@@ -13,6 +13,7 @@ namespace tbx
                   .width = config.width,
                   .height = config.height,
                   .is_headless = config.is_headless})
+        , sandbox(jobs)
     {
         if (!window.is_headless())
             gpu::initialize();
@@ -35,7 +36,7 @@ namespace tbx
 
     bool Engine::pump()
     {
-        input.new_frame();
+        input.pump();
         const bool alive = window.pump(input, events);
         jobs.drain_main();
         events.drain();
@@ -51,6 +52,7 @@ namespace tbx
 
     void Engine::update(float delta_time)
     {
+        sandbox.process_streaming();
         _fixed_accumulator += delta_time;
         while (_fixed_accumulator >= FIXED_STEP)
         {

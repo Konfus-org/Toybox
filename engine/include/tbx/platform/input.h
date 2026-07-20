@@ -88,7 +88,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Rolls per-frame state; called by Engine::pump() before OS events feed in.
-        void new_frame()
+        void pump()
         {
             _previous_keys = _keys;
             _previous_mouse = _mouse;
