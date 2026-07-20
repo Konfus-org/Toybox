@@ -15,6 +15,7 @@ namespace tbx
                   .height = config.height,
                   .is_headless = config.is_headless})
         , sandbox(jobs)
+        , scripts(sandbox, events)
     {
         if (!window.is_headless())
             gpu::initialize();
@@ -54,6 +55,7 @@ namespace tbx
     void Engine::update(float delta_time)
     {
         sandbox.process_streaming();
+        scripts.update(delta_time);
         _fixed_accumulator += delta_time;
         while (_fixed_accumulator >= FIXED_STEP)
         {

@@ -35,7 +35,15 @@ FetchContent_Declare(nlohmann_json
 FetchContent_Declare(entt
     GIT_REPOSITORY https://github.com/skypjack/entt.git
     GIT_TAG v3.14.0)
-FetchContent_MakeAvailable(glm spdlog nlohmann_json entt)
+# Luau's CMakeLists declares an old cmake_minimum_required; let CMake accept it.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+set(LUAU_BUILD_CLI OFF CACHE BOOL "" FORCE)
+set(LUAU_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LUAU_BUILD_WEB OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(luau
+    GIT_REPOSITORY https://github.com/luau-lang/luau.git
+    GIT_TAG 0.653)
+FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau)
 
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
 tbx_backend(PLATFORM sdl)
@@ -69,6 +77,7 @@ add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
 target_link_libraries(tbx
     PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
+    PRIVATE Luau.Compiler Luau.VM
 )
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")

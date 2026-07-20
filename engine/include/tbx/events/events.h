@@ -173,6 +173,13 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Fired after a script source recompiled; instances restart on their next update.
+    struct ScriptReloaded
+    {
+        uint64 script_hash = 0;
+    };
+
+    /// @brief
     /// Purpose: The only events that exist, as named signals over one pump-drained queue.
     /// Later milestones add: asset_reloaded, collision, kit, script_reloaded.
     struct Events
@@ -180,6 +187,7 @@ namespace tbx
         EventQueue queue;
         Signal<WindowResized> window_resized {queue};
         Signal<KeyEvent> key {queue};
+        Signal<ScriptReloaded> script_reloaded {queue};
 
         /// @brief
         /// Purpose: Dispatches all queued events; called once per frame by Engine::pump().
