@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/core/typedefs.h"
+#include "tbx/core/uuid.h"
 #include "tbx/platform/keys.h"
 #include <cstring>
 #include <functional>
@@ -173,6 +174,13 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Fired on the main thread after a watched asset file changed and re-decoded.
+    struct AssetReloaded
+    {
+        Uuid id = {};
+    };
+
+    /// @brief
     /// Purpose: Fired after a script source recompiled; instances restart on their next update.
     struct ScriptReloaded
     {
@@ -187,6 +195,7 @@ namespace tbx
         EventQueue queue;
         Signal<WindowResized> window_resized {queue};
         Signal<KeyEvent> key {queue};
+        Signal<AssetReloaded> asset_reloaded {queue};
         Signal<ScriptReloaded> script_reloaded {queue};
 
         /// @brief

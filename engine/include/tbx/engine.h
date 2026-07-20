@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/assets.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/events/events.h"
@@ -61,9 +62,10 @@ namespace tbx
         Jobs jobs;
         Events events;
         Window window;
+        Assets assets;
         Sandbox sandbox;
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
-        // Later milestones add: Assets assets; Renderer renderer; Physics physics;
+        // Later milestones add: Renderer renderer; Physics physics;
 
       private:
         static constexpr float FIXED_STEP = 1.0f / 60.0f;

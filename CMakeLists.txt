@@ -75,6 +75,7 @@ list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCE
 
 add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
+target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 target_link_libraries(tbx
     PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
     PRIVATE Luau.Compiler Luau.VM

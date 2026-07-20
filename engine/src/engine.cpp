@@ -14,9 +14,23 @@ namespace tbx
                   .width = config.width,
                   .height = config.height,
                   .is_headless = config.is_headless})
+        , assets(jobs, events)
         , sandbox(jobs)
         , scripts(sandbox, events)
     {
+        if (!config.asset_root.empty())
+            assets.set_root(config.asset_root);
+        // Changed .luau assets hot-reload their scripts; instances restart next update.
+        events.asset_reloaded.subscribe(
+            this,
+            [this](const AssetReloaded& reloaded)
+            {
+                if (const auto script = assets.get_script(reloaded.id))
+                {
+                    if (auto result = scripts.reload_source(script->name, script->source); !result)
+                        log_error("{}", result.error());
+                }
+            });
         if (!window.is_headless())
             gpu::initialize();
         log_info(

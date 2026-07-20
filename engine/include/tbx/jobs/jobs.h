@@ -69,6 +69,15 @@ namespace tbx
         void parallel_for(size count, const std::function<void(size)>& action);
 
         /// @brief
+        /// Purpose: Posts a callable to the main-thread queue (runs at the next drain_main()) —
+        /// how background threads (watcher, streaming) marshal work back safely.
+        void post_main(std::function<void()> job);
+
+        /// @brief
+        /// Purpose: Posts a callable straight onto the worker pool.
+        void post_worker(std::function<void()> job);
+
+        /// @brief
         /// Purpose: Runs a callable on a worker thread; await the returned task for its result.
         template <typename Fn>
         auto run(Fn fn) -> Task<std::invoke_result_t<Fn>>
@@ -161,8 +170,6 @@ namespace tbx
             done.release();
         }
 
-        void post_main(std::function<void()> job);
-        void post_worker(std::function<void()> job);
         void worker_loop(std::stop_token stop);
 
       private:
