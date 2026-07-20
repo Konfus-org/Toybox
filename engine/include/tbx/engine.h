@@ -1,9 +1,7 @@
 #pragma once
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
-#include "tbx/files/files.h"
 #include "tbx/jobs/jobs.h"
-#include "tbx/platform/input.h"
 #include "tbx/platform/window.h"
 #include <filesystem>
 #include <string>
@@ -60,10 +58,8 @@ namespace tbx
 
       public:
         Jobs jobs;
-        Files files;
         Events events;
         Window window;
-        Input input;
         Sandbox sandbox;
         // Later milestones add: Assets assets; Renderer renderer; Physics physics;
         // Scripts scripts;

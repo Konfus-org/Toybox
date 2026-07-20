@@ -1,5 +1,6 @@
 #include "tbx/platform/window.h"
 #include "tbx/core/log.h"
+#include "tbx/platform/input.h"
 #include <SDL3/SDL.h>
 
 namespace tbx
@@ -183,7 +184,7 @@ namespace tbx
         return _state->height;
     }
 
-    bool Window::pump(Input& input, Events& events)
+    bool Window::pump(Events& events)
     {
         if (_state->is_headless)
             return true;
@@ -203,13 +204,13 @@ namespace tbx
                     if (key == Key::UNKNOWN)
                         break;
                     if (!event.key.repeat)
-                        input.feed_key(key, event.key.down);
+                        input::feed_key(key, event.key.down);
                     events.key.emit(
                         {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }
                 case SDL_EVENT_MOUSE_MOTION:
-                    input.feed_mouse_move(
+                    input::feed_mouse_move(
                         Vec2(event.motion.x, event.motion.y),
                         Vec2(event.motion.xrel, event.motion.yrel));
                     break;
@@ -218,11 +219,11 @@ namespace tbx
                 {
                     const MouseButton button = translate_mouse_button(event.button.button);
                     if (button != MouseButton::COUNT)
-                        input.feed_mouse_button(button, event.button.down);
+                        input::feed_mouse_button(button, event.button.down);
                     break;
                 }
                 case SDL_EVENT_MOUSE_WHEEL:
-                    input.feed_scroll(event.wheel.y);
+                    input::feed_scroll(event.wheel.y);
                     break;
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                     _state->width = event.window.data1;

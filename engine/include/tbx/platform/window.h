@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/events/events.h"
-#include "tbx/platform/input.h"
 #include <memory>
 #include <string>
 
@@ -43,9 +42,9 @@ namespace tbx
         int get_height() const;
 
         /// @brief
-        /// Purpose: Polls OS events into Input/Events; returns false when the user closed the
-        /// window. Called once per frame by Engine::pump().
-        bool pump(Input& input, Events& events);
+        /// Purpose: Polls OS events into tbx::input and the given Events; returns false when
+        /// the user closed the window. Called once per frame by Engine::pump().
+        bool pump(Events& events);
 
         /// @brief
         /// Purpose: Presents the current frame (no-op when headless).

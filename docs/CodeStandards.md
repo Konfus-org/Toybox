@@ -22,6 +22,7 @@
 - **Accessor Naming**: Getters use a `get_` prefix and setters a `set_` prefix — never bare-noun accessors (`get_width()`, not `width()`).
 - **Bool Naming**: Bool-returning methods and bool members use `is_` or another question-style prefix that reads naturally (`is_headless()`, `is_down`); never omit the prefix.
 - **Verbosity**: No shorthand names — verbose and descriptive wins (`register_type` not `reg`, `initialize` not `init`, `delta_time` not `dt`).
+- **Data-Oriented Modules**: Where a subsystem is plain state + queries, prefer a short namespace of free functions with state as statics in the module's `.cpp` (`tbx::input::is_down(key)`, `tbx::gpu::draw(...)`, `tbx::files::read_text(...)`) — no manager class ceremony. Keep classes where RAII genuinely earns it: resource owners with real teardown/ordering (`Engine`, `Jobs`, `Window`, `Sandbox`) and small data/handle types (`Task`, `Signal`, `Toy`, `Uuid`).
 
 ## Writing Unit Tests
 

@@ -1,6 +1,7 @@
 #include "tbx/engine.h"
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/platform/input.h"
 
 namespace tbx
 {
@@ -36,8 +37,8 @@ namespace tbx
 
     bool Engine::pump()
     {
-        input.pump();
-        const bool alive = window.pump(input, events);
+        input::pump();
+        const bool alive = window.pump(events);
         jobs.drain_main();
         events.drain();
         return alive;

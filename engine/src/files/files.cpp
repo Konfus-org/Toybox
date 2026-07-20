@@ -2,11 +2,11 @@
 #include "tbx/core/typedefs.h"
 #include <fstream>
 
-namespace tbx
+namespace tbx::files
 {
     //// FILES ////
 
-    Result<std::vector<std::byte>> Files::read_bytes(const std::filesystem::path& path) const
+    Result<std::vector<std::byte>> read_bytes(const std::filesystem::path& path)
     {
         auto stream = std::ifstream(path, std::ios::binary | std::ios::ate);
         if (!stream)
@@ -20,7 +20,7 @@ namespace tbx
         return bytes;
     }
 
-    Result<std::string> Files::read_text(const std::filesystem::path& path) const
+    Result<std::string> read_text(const std::filesystem::path& path)
     {
         auto stream = std::ifstream(path, std::ios::binary);
         if (!stream)
@@ -30,7 +30,7 @@ namespace tbx
         return text;
     }
 
-    Result<void> Files::write_text(const std::filesystem::path& path, std::string_view text) const
+    Result<void> write_text(const std::filesystem::path& path, std::string_view text)
     {
         if (path.has_parent_path())
         {
