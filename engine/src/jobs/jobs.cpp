@@ -57,7 +57,7 @@ namespace tbx
     /// "nothing left to grab".
     struct ParallelForState
     {
-        std::function<void(size)> fn;
+        std::function<void(size)> action;
         size count = 0;
         size chunk = 1;
         std::atomic<size> next = 0;
@@ -81,7 +81,7 @@ namespace tbx
                 return;
             const size end = std::min(start + state->chunk, state->count);
             for (size i = start; i < end; ++i)
-                state->fn(i);
+                state->action(i);
             if (state->done.fetch_add(end - start) + (end - start) == state->count)
                 state->finished.release();
         }
@@ -119,7 +119,7 @@ namespace tbx
             job();
     }
 
-    void Jobs::parallel_for(size count, const std::function<void(size)>& fn)
+    void Jobs::parallel_for(size count, const std::function<void(size)>& action)
     {
         if (count == 0)
             return;
@@ -127,12 +127,12 @@ namespace tbx
         if (count == 1 || helpers == 0)
         {
             for (size i = 0; i < count; ++i)
-                fn(i);
+                action(i);
             return;
         }
 
         auto state = std::make_shared<ParallelForState>();
-        state->fn = fn;
+        state->action = action;
         state->count = count;
         state->chunk = std::max<size>(1, count / ((helpers + 1) * 4));
 

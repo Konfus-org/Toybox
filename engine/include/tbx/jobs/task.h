@@ -47,7 +47,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns its coroutine frame; move-only. Thread Safety: Completion resumes the
     /// awaiter via symmetric transfer on whatever thread the task finished on — hop explicitly
-    /// with `co_await jobs.main()` / `co_await jobs.worker()` when the destination matters.
+    /// with `co_await jobs.on_main()` / `co_await jobs.on_worker()` when the destination matters.
     template <typename T>
     class [[nodiscard]] Task final
     {
@@ -138,7 +138,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Reports whether this handle still owns a coroutine (false after move).
-        bool valid() const
+        bool is_valid() const
         {
             return _handle != nullptr;
         }
@@ -240,7 +240,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Reports whether this handle still owns a coroutine (false after move).
-        bool valid() const
+        bool is_valid() const
         {
             return _handle != nullptr;
         }

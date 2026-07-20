@@ -168,8 +168,8 @@ namespace tbx
     struct KeyEvent
     {
         Key key = Key::UNKNOWN;
-        bool down = false;
-        bool repeat = false;
+        bool is_down = false;
+        bool is_repeat = false;
     };
 
     /// @brief

@@ -24,7 +24,7 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto throwing = [&jobs]() -> Task<void>
         {
-            co_await jobs.worker();
+            co_await jobs.on_worker();
             throw std::runtime_error("boom");
         };
 
@@ -51,7 +51,7 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto inner = [&jobs]() -> Task<int>
         {
-            co_await jobs.worker();
+            co_await jobs.on_worker();
             co_return 10;
         };
         auto outer = [&]() -> Task<int>
@@ -74,7 +74,7 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto make = [&jobs]() -> Task<std::unique_ptr<int>>
         {
-            co_await jobs.worker();
+            co_await jobs.on_worker();
             co_return std::make_unique<int>(7);
         };
 
@@ -93,8 +93,8 @@ namespace tbx::tests
         auto hopped = std::atomic<bool>(false);
         auto task = [&]() -> Task<void>
         {
-            co_await jobs.worker();
-            co_await jobs.main();
+            co_await jobs.on_worker();
+            co_await jobs.on_main();
             hopped = true;
         };
 
@@ -117,8 +117,8 @@ namespace tbx::tests
         auto ran = std::atomic<bool>(false);
         auto task = [&]() -> Task<void>
         {
-            co_await jobs.worker();
-            co_await jobs.main();
+            co_await jobs.on_worker();
+            co_await jobs.on_main();
             ran = true;
         };
 
@@ -165,7 +165,7 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto nested = [&jobs]() -> Task<size>
         {
-            co_await jobs.worker();
+            co_await jobs.on_worker();
             auto sum = std::atomic<size>(0);
             jobs.parallel_for(100, [&sum](size i) { sum.fetch_add(i); });
             co_return sum.load();
@@ -184,7 +184,7 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto throwing = [&jobs]() -> Task<void>
         {
-            co_await jobs.worker();
+            co_await jobs.on_worker();
             throw std::runtime_error("detached boom");
         };
 

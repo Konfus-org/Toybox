@@ -60,7 +60,7 @@ namespace tbx
             {
                 // Enums serialize as their integer value; renumbering is a migrate-fn concern.
                 auto value = int64(0);
-                if (field.enum_signed)
+                if (field.is_enum_signed)
                 {
                     std::memcpy(&value, at, field.size_bytes);
                     const int shift = static_cast<int>((8 - field.size_bytes) * 8);
@@ -77,7 +77,7 @@ namespace tbx
             case FieldKind::TYPE:
             {
                 const auto nested =
-                    field.nested_hash ? type_registry().find(field.nested_hash->get())
+                    field.nested_hash ? get_type_registry().find(field.nested_hash->get())
                                       : std::nullopt;
                 if (!nested)
                     return Json::object();
@@ -172,7 +172,7 @@ namespace tbx
             case FieldKind::TYPE:
             {
                 const auto nested =
-                    field.nested_hash ? type_registry().find(field.nested_hash->get())
+                    field.nested_hash ? get_type_registry().find(field.nested_hash->get())
                                       : std::nullopt;
                 if (!nested)
                     return fail("field '{}' has an unregistered nested type", field.name);

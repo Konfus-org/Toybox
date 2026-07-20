@@ -19,6 +19,9 @@
 - **Type Aliases**: Use `size` and `uint` from `common/typedefs.h` instead of raw `std::size_t`.
 - **Nesting**: Do not nest structs or classes within other types.
 - **API Leakage**: Never expose internal namespaces in public signatures, return types, or docs.
+- **Accessor Naming**: Getters use a `get_` prefix and setters a `set_` prefix — never bare-noun accessors (`get_width()`, not `width()`).
+- **Bool Naming**: Bool-returning methods and bool members use `is_` or another question-style prefix that reads naturally (`is_headless()`, `is_down`); never omit the prefix.
+- **Verbosity**: No shorthand names — verbose and descriptive wins (`register_type` not `reg`, `initialize` not `init`, `delta_time` not `dt`).
 
 ## Writing Unit Tests
 

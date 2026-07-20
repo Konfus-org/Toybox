@@ -78,7 +78,7 @@ int main(int argc, char** argv)
         {
             // The triangle covers the framebuffer center; the clear color does not.
             const tbx::Color center =
-                tbx::gpu::read_pixel(engine.window.width() / 2, engine.window.height() / 2);
+                tbx::gpu::read_pixel(engine.window.get_width() / 2, engine.window.get_height() / 2);
             const tbx::Color corner = tbx::gpu::read_pixel(2, 2);
             const bool center_is_triangle = center.r + center.g + center.b > 0.5f;
             const bool corner_is_clear = std::abs(corner.r - 0.08f) < 0.02f;

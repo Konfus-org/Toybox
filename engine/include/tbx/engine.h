@@ -17,7 +17,7 @@ namespace tbx
         std::string title = "Toybox";
         int width = 1600;
         int height = 900;
-        bool headless = false;
+        bool is_headless = false;
         std::filesystem::path asset_root = {};
     };
 
@@ -55,7 +55,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Variable-step frame update; runs fixed-cadence work at FIXED_STEP inside.
-        void update(float dt);
+        void update(float delta_time);
 
       public:
         Jobs jobs;

@@ -78,7 +78,7 @@ namespace tbx::tests
 
         // Act
         events.key.unsubscribe_owner(&owner_tag);
-        events.key.emit({.key = Key::SPACE, .down = true, .repeat = false});
+        events.key.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
         events.drain();
 
         // Assert
@@ -98,7 +98,7 @@ namespace tbx::tests
 
         // Act
         events.key.unsubscribe(first);
-        events.key.emit({.key = Key::A, .down = true, .repeat = false});
+        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
         events.drain();
 
         // Assert
@@ -116,7 +116,7 @@ namespace tbx::tests
 
         // Act
         events.window_resized.emit({.width = 1, .height = 1});
-        events.key.emit({.key = Key::A, .down = true, .repeat = false});
+        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
         events.window_resized.emit({.width = 2, .height = 2});
         events.drain();
 

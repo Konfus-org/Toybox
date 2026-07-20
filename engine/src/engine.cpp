@@ -8,28 +8,28 @@ namespace tbx
 
     Engine::Engine(const EngineConfig& config)
         : window(
-              WindowDesc {
+              WindowDescription {
                   .title = config.title,
                   .width = config.width,
                   .height = config.height,
-                  .headless = config.headless})
+                  .is_headless = config.is_headless})
     {
-        if (!window.headless())
-            gpu::init(window.gl_proc_loader());
+        if (!window.is_headless())
+            gpu::initialize();
         log_info(
             "Toybox engine up ({}x{}{})",
-            window.width(),
-            window.height(),
-            window.headless() ? ", headless" : "");
+            window.get_width(),
+            window.get_height(),
+            window.is_headless() ? ", headless" : "");
     }
 
     Engine::~Engine() = default;
 
     void Engine::begin_frame()
     {
-        if (window.headless())
+        if (window.is_headless())
             return;
-        gpu::set_viewport(window.width(), window.height());
+        gpu::set_viewport(window.get_width(), window.get_height());
         gpu::clear({.r = 0.08f, .g = 0.08f, .b = 0.10f, .a = 1.0f});
     }
 
@@ -44,14 +44,14 @@ namespace tbx
 
     void Engine::render()
     {
-        if (window.headless())
+        if (window.is_headless())
             return;
         window.swap();
     }
 
-    void Engine::update(float dt)
+    void Engine::update(float delta_time)
     {
-        _fixed_accumulator += dt;
+        _fixed_accumulator += delta_time;
         while (_fixed_accumulator >= FIXED_STEP)
         {
             _fixed_accumulator -= FIXED_STEP;

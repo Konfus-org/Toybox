@@ -28,10 +28,10 @@ namespace tbx::tests
 
     static const TypeInfo& register_test_types()
     {
-        reg<TestStats>("TestStats")
+        register_type<TestStats>("TestStats")
             .field("wins", &TestStats::wins)
             .field("rating", &TestStats::rating);
-        reg<TestPlayer>("TestPlayer")
+        register_type<TestPlayer>("TestPlayer")
             .version(
                 2,
                 [](Json& data, uint32)
@@ -49,7 +49,7 @@ namespace tbx::tests
             .field("mode", &TestPlayer::mode)
             .field("stats", &TestPlayer::stats)
             .field("id", &TestPlayer::id);
-        return type_registry().find("TestPlayer")->get();
+        return get_type_registry().find("TestPlayer")->get();
     }
 
     TEST(Reflect, RoundTripsAllFieldKinds)
@@ -170,8 +170,8 @@ namespace tbx::tests
         register_test_types();
 
         // Act
-        const auto by_name = type_registry().find("TestPlayer");
-        const auto by_hash = type_registry().find(hash_name("TestPlayer"));
+        const auto by_name = get_type_registry().find("TestPlayer");
+        const auto by_hash = get_type_registry().find(hash_name("TestPlayer"));
 
         // Assert
         ASSERT_TRUE(by_name.has_value());
@@ -183,7 +183,7 @@ namespace tbx::tests
     TEST(Reflect, RegistryFindMissesUnregisteredNames)
     {
         // Arrange / Act
-        const auto missing = type_registry().find("NeverRegistered");
+        const auto missing = get_type_registry().find("NeverRegistered");
 
         // Assert
         EXPECT_FALSE(missing.has_value());

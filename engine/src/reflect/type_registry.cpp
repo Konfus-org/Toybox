@@ -20,7 +20,7 @@ namespace tbx
         return *_types.back();
     }
 
-    std::vector<std::reference_wrapper<const TypeInfo>> TypeRegistry::all() const
+    std::vector<std::reference_wrapper<const TypeInfo>> TypeRegistry::get_all() const
     {
         auto result = std::vector<std::reference_wrapper<const TypeInfo>>();
         result.reserve(_types.size());
@@ -44,7 +44,7 @@ namespace tbx
         return find(hash_name(name));
     }
 
-    TypeRegistry& type_registry()
+    TypeRegistry& get_type_registry()
     {
         static TypeRegistry g_registry = {};
         return g_registry;

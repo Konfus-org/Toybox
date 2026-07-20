@@ -13,7 +13,7 @@ namespace tbx
         SDL_GLContext gl_context = nullptr;
         int width = 0;
         int height = 0;
-        bool headless = false;
+        bool is_headless = false;
     };
 
     //// TRANSLATION ////
@@ -120,13 +120,13 @@ namespace tbx
 
     //// WINDOW ////
 
-    Window::Window(const WindowDesc& desc)
+    Window::Window(const WindowDescription& description)
     {
         _state = std::make_unique<State>();
-        _state->width = desc.width;
-        _state->height = desc.height;
-        _state->headless = desc.headless;
-        if (desc.headless)
+        _state->width = description.width;
+        _state->height = description.height;
+        _state->is_headless = description.is_headless;
+        if (description.is_headless)
             return;
 
         if (!SDL_Init(SDL_INIT_VIDEO))
@@ -142,9 +142,9 @@ namespace tbx
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
         _state->window = SDL_CreateWindow(
-            desc.title.c_str(),
-            desc.width,
-            desc.height,
+            description.title.c_str(),
+            description.width,
+            description.height,
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
         if (!_state->window)
         {
@@ -173,26 +173,19 @@ namespace tbx
         }
     }
 
-    Window::GlProcLoader Window::gl_proc_loader() const
+    bool Window::is_headless() const
     {
-        if (_state->headless)
-            return nullptr;
-        return &SDL_GL_GetProcAddress;
+        return _state->is_headless;
     }
 
-    bool Window::headless() const
-    {
-        return _state->headless;
-    }
-
-    int Window::height() const
+    int Window::get_height() const
     {
         return _state->height;
     }
 
     bool Window::pump(Input& input, Events& events)
     {
-        if (_state->headless)
+        if (_state->is_headless)
             return true;
 
         auto event = SDL_Event {};
@@ -212,7 +205,7 @@ namespace tbx
                     if (!event.key.repeat)
                         input.feed_key(key, event.key.down);
                     events.key.emit(
-                        {.key = key, .down = event.key.down, .repeat = event.key.repeat != 0});
+                        {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }
                 case SDL_EVENT_MOUSE_MOTION:
@@ -250,7 +243,7 @@ namespace tbx
             SDL_GL_SwapWindow(_state->window);
     }
 
-    int Window::width() const
+    int Window::get_width() const
     {
         return _state->width;
     }

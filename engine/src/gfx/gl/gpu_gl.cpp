@@ -117,9 +117,10 @@ namespace tbx::gpu
         glBindVertexArray(0);
     }
 
-    void init(Window::GlProcLoader loader)
+    void initialize()
     {
-        if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(loader)))
+        // glad's own platform loader (wgl + opengl32) — no window/loader coupling here.
+        if (!gladLoadGL())
         {
             log_error("failed to load OpenGL functions");
             std::abort();

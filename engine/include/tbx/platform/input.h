@@ -53,35 +53,35 @@ namespace tbx
 
         /// @brief
         /// Purpose: Pointer movement accumulated this frame.
-        Vec2 mouse_delta() const
+        Vec2 get_mouse_delta() const
         {
             return _mouse_delta;
         }
 
         /// @brief
         /// Purpose: True while the mouse button is held.
-        bool mouse_down(MouseButton button) const
+        bool is_mouse_down(MouseButton button) const
         {
             return _mouse[index(button)];
         }
 
         /// @brief
         /// Purpose: Pointer position in window pixels.
-        Vec2 mouse_position() const
+        Vec2 get_mouse_position() const
         {
             return _mouse_position;
         }
 
         /// @brief
         /// Purpose: True only on the frame the mouse button went down.
-        bool mouse_pressed(MouseButton button) const
+        bool is_mouse_pressed(MouseButton button) const
         {
             return _mouse[index(button)] && !_previous_mouse[index(button)];
         }
 
         /// @brief
         /// Purpose: True only on the frame the mouse button went up.
-        bool mouse_released(MouseButton button) const
+        bool is_mouse_released(MouseButton button) const
         {
             return !_mouse[index(button)] && _previous_mouse[index(button)];
         }
@@ -98,21 +98,21 @@ namespace tbx
 
         /// @brief
         /// Purpose: True only on the frame the key went down.
-        bool pressed(Key key) const
+        bool is_pressed(Key key) const
         {
             return _keys[index(key)] && !_previous_keys[index(key)];
         }
 
         /// @brief
         /// Purpose: True only on the frame the key went up.
-        bool released(Key key) const
+        bool is_released(Key key) const
         {
             return !_keys[index(key)] && _previous_keys[index(key)];
         }
 
         /// @brief
         /// Purpose: Scroll wheel movement accumulated this frame.
-        float scroll_delta() const
+        float get_scroll_delta() const
         {
             return _scroll_delta;
         }

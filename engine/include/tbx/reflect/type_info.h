@@ -47,7 +47,7 @@ namespace tbx
         size offset = 0;
         size size_bytes = 0;
         FieldKind kind = FieldKind::BOOL;
-        bool enum_signed = false;
+        bool is_enum_signed = false;
         // Points at the owning TypeSlot's hash so nested types may register in any order;
         // empty for non-TYPE fields.
         std::optional<std::reference_wrapper<const uint64>> nested_hash = {};
@@ -70,7 +70,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Per-C++-type registration slot; reg<T>() fills it so fields of type T can link
+    /// Purpose: Per-C++-type registration slot; register_type<T>() fills it so fields of type T can link
     /// to T's TypeInfo lazily (registration order never matters).
     template <typename T>
     struct TypeSlot
@@ -79,7 +79,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: The global type table filled by tbx::reg<T>() at startup.
+    /// Purpose: The global type table filled by tbx::register_type<T>() at startup.
     /// @details
     /// Ownership: Owns every TypeInfo; entries live for the process. Thread Safety: Register on
     /// the main thread during startup; lookups are lock-free reads afterwards.
@@ -92,7 +92,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Every registered type, for tooling/editor enumeration.
-        std::vector<std::reference_wrapper<const TypeInfo>> all() const;
+        std::vector<std::reference_wrapper<const TypeInfo>> get_all() const;
 
         /// @brief
         /// Purpose: Looks up a type by name hash; empty when unregistered.
@@ -108,7 +108,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The process-wide registry instance.
-    TypeRegistry& type_registry();
+    TypeRegistry& get_type_registry();
 
     /// @brief
     /// Purpose: Maps a C++ field type onto its FieldKind; unsupported types fail to compile.
@@ -154,14 +154,14 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Fluent registration builder: tbx::reg<Player>("Player").version(2,
+    /// Purpose: Fluent registration builder: tbx::register_type<Player>("Player").version(2,
     /// &migrate).field("hp", &Player::hp)... builds the TypeInfo at startup — no codegen.
     template <typename T>
-    class TypeReg final
+    class TypeRegistration final
     {
       public:
-        explicit TypeReg(std::string name)
-            : _info(type_registry().add(make_info(std::move(name))))
+        explicit TypeRegistration(std::string name)
+            : _info(get_type_registry().add(make_info(std::move(name))))
         {
             TypeSlot<T>::hash = _info.get().name_hash;
         }
@@ -170,7 +170,7 @@ namespace tbx
         /// @brief
         /// Purpose: Registers one member; kind and offset are deduced from the member pointer.
         template <typename TField>
-        TypeReg& field(std::string name, TField T::* member)
+        TypeRegistration& field(std::string name, TField T::* member)
         {
             // Offset via a live instance instead of the null-deref trick — no UB.
             auto probe = T();
@@ -184,7 +184,7 @@ namespace tbx
             field.size_bytes = sizeof(TField);
             field.kind = field_kind_of<TField>();
             if constexpr (std::is_enum_v<TField>)
-                field.enum_signed = std::is_signed_v<std::underlying_type_t<TField>>;
+                field.is_enum_signed = std::is_signed_v<std::underlying_type_t<TField>>;
             if constexpr (field_kind_of<TField>() == FieldKind::TYPE)
                 field.nested_hash = std::cref(TypeSlot<TField>::hash);
             _info.get().fields.push_back(std::move(field));
@@ -194,7 +194,7 @@ namespace tbx
         /// @brief
         /// Purpose: Declares the schema version and the migration hook the JSON walker calls
         /// when loading older data (field renames, enum renumbering, shape changes).
-        TypeReg& version(uint32 version, std::function<void(Json&, uint32)> migrate)
+        TypeRegistration& version(uint32 version, std::function<void(Json&, uint32)> migrate)
         {
             _info.get().version = version;
             _info.get().migrate = std::move(migrate);
@@ -229,8 +229,8 @@ namespace tbx
     /// @brief
     /// Purpose: Registers type T under the given name; chain .version()/.field() off the result.
     template <typename T>
-    TypeReg<T> reg(std::string name)
+    TypeRegistration<T> register_type(std::string name)
     {
-        return TypeReg<T>(std::move(name));
+        return TypeRegistration<T>(std::move(name));
     }
 }

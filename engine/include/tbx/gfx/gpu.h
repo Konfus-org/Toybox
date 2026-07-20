@@ -2,7 +2,6 @@
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
-#include "tbx/platform/window.h"
 #include <span>
 
 namespace tbx::gpu
@@ -54,8 +53,9 @@ namespace tbx::gpu
     void draw(Shader shader, const Mesh& mesh);
 
     /// @brief
-    /// Purpose: Loads the backend's GPU functions; must run once after window creation.
-    void init(Window::GlProcLoader loader);
+    /// Purpose: Initializes the selected backend's GPU access; must run once after window
+    /// creation. Each backend loads its functions its own way — no platform types leak here.
+    void initialize();
 
     /// @brief
     /// Purpose: Reads back one pixel from the current framebuffer — verification/tooling.

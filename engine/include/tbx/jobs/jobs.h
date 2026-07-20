@@ -29,7 +29,7 @@ namespace tbx
         void await_resume() const noexcept {}
 
         std::reference_wrapper<Jobs> jobs;
-        bool to_main = false;
+        bool resume_on_main = false;
     };
 
     /// @brief
@@ -56,24 +56,24 @@ namespace tbx
         void drain_main();
 
         /// @brief
-        /// Purpose: Schedule point: `co_await jobs.main()` resumes on the main thread at the
+        /// Purpose: Schedule point: `co_await jobs.on_main()` resumes on the main thread at the
         /// next drain_main().
-        ScheduleOn main()
+        ScheduleOn on_main()
         {
-            return {.jobs = *this, .to_main = true};
+            return {.jobs = *this, .resume_on_main = true};
         }
 
         /// @brief
         /// Purpose: Runs fn(0..count-1) across the pool and blocks until every index ran. The
         /// calling thread participates, so nesting inside a worker is safe.
-        void parallel_for(size count, const std::function<void(size)>& fn);
+        void parallel_for(size count, const std::function<void(size)>& action);
 
         /// @brief
         /// Purpose: Runs a callable on a worker thread; await the returned task for its result.
         template <typename Fn>
         auto run(Fn fn) -> Task<std::invoke_result_t<Fn>>
         {
-            co_await worker();
+            co_await on_worker();
             if constexpr (std::is_void_v<std::invoke_result_t<Fn>>)
                 fn();
             else
@@ -113,15 +113,15 @@ namespace tbx
         }
 
         /// @brief
-        /// Purpose: Schedule point: `co_await jobs.worker()` resumes on a pool thread.
-        ScheduleOn worker()
+        /// Purpose: Schedule point: `co_await jobs.on_worker()` resumes on a pool thread.
+        ScheduleOn on_worker()
         {
-            return {.jobs = *this, .to_main = false};
+            return {.jobs = *this, .resume_on_main = false};
         }
 
         /// @brief
         /// Purpose: Number of pool threads (excluding the main thread).
-        size worker_count() const
+        size get_worker_count() const
         {
             return _workers.size();
         }
@@ -178,7 +178,7 @@ namespace tbx
 
     inline void ScheduleOn::await_suspend(std::coroutine_handle<> handle) const
     {
-        if (to_main)
+        if (resume_on_main)
             jobs.get().post_main(
                 [handle]
                 {
