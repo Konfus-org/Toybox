@@ -79,6 +79,17 @@ namespace tbx
 
         void update(const float delta_time) override
         {
+            run_scripts("update", delta_time);
+        }
+
+        void fixed_update(const float fixed_delta_time) override
+        {
+            run_scripts("fixed_update", fixed_delta_time);
+        }
+
+      private:
+        void run_scripts(const char* function_name, const float delta_time)
+        {
             auto& registry = _sandbox.get().get_registry();
             for (const auto [entity, script] : registry.view<Script>().each())
             {
@@ -99,11 +110,10 @@ namespace tbx
                     instance.is_started = true;
                     call_script_function(instance.table_ref, "start", entity, {});
                 }
-                call_script_function(instance.table_ref, "update", entity, delta_time);
+                call_script_function(instance.table_ref, function_name, entity, delta_time);
             }
         }
 
-      private:
         Result<std::string> compile_source(const std::string& name, const std::string_view source)
         {
             auto options = lua_CompileOptions {};

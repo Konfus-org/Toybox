@@ -49,6 +49,10 @@ namespace tbx
         /// @brief
         /// Purpose: Runs every scripted toy whose source this backend loaded.
         virtual void update(float delta_time) = 0;
+
+        /// @brief
+        /// Purpose: Runs scripts' fixed-cadence hook (physics-rate logic).
+        virtual void fixed_update(float fixed_delta_time) = 0;
     };
 
     /// @brief
@@ -82,6 +86,11 @@ namespace tbx
         /// @brief
         /// Purpose: Runs every scripted toy across every backend. Called by tbx::run().
         void update(float delta_time);
+
+        /// @brief
+        /// Purpose: Runs every backend's fixed-cadence hook; called from the fixed step
+        /// alongside physics so scripts can do physics-rate work.
+        void fixed_update(float fixed_delta_time);
 
       private:
         std::optional<std::reference_wrapper<ScriptBackend>> route(const std::string& name);

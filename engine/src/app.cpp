@@ -121,6 +121,7 @@ namespace tbx
         while (g_fixed_accumulator >= FIXED_STEP)
         {
             g_fixed_accumulator -= FIXED_STEP;
+            state.scripts.fixed_update(FIXED_STEP);
             physics::step(state.sandbox, state.events, FIXED_STEP);
         }
         return true;

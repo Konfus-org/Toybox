@@ -68,6 +68,12 @@ namespace tbx
         return backend->get().reload_source(name, source);
     }
 
+    void Scripts::fixed_update(const float fixed_delta_time)
+    {
+        for (const auto& backend : _backends)
+            backend->fixed_update(fixed_delta_time);
+    }
+
     void Scripts::update(const float delta_time)
     {
         // Every backend runs; each skips Script blocks whose source it never loaded, so mixed

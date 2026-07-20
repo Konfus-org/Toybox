@@ -1,4 +1,4 @@
-#include "tbx/ecs/sandbox.h"
+#include "tbx/save_load.h"
 #include <gtest/gtest.h>
 #include <map>
 #include <thread>
@@ -129,11 +129,11 @@ namespace tbx::tests
                          .sticker("level");
         Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         source.set_parent(child, parent);
-        const Json kit = source.save_kit(std::array {parent, child});
+        const Json kit = save(source, std::array {parent, child});
 
         // Act
         auto target = Sandbox(jobs);
-        const auto loaded = target.load_kit(kit);
+        const auto loaded = load(target, kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -156,14 +156,14 @@ namespace tbx::tests
         auto jobs = Jobs();
         auto source = Sandbox(jobs);
         Toy toy = source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
-        const Json first = source.save_kit(std::array {toy});
+        const Json first = save(source, std::array {toy});
 
         // Act
         auto target = Sandbox(jobs);
-        ASSERT_TRUE(target.load_kit(first).has_value());
+        ASSERT_TRUE(load(target, first).has_value());
         const auto reloaded = target.find_toy("Thing");
         ASSERT_TRUE(reloaded.has_value());
-        const Json second = target.save_kit(std::array {*reloaded});
+        const Json second = save(target, std::array {*reloaded});
 
         // Assert: identical content modulo per-instantiation uuids.
         EXPECT_EQ(normalize_kit(first), normalize_kit(second));
@@ -175,7 +175,7 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto jobs = Jobs();
         auto author = Sandbox(jobs);
-        const Json prefab = author.save_kit(std::array {author.spawn("Pickup")});
+        const Json prefab = save(author, std::array {author.spawn("Pickup")});
         auto room = Json {
             {"toys", Json::array()},
             {"kits", Json::array({Json {{"reference", "prefab"},
@@ -189,7 +189,7 @@ namespace tbx::tests
 
         // Act
         auto sandbox = Sandbox(jobs);
-        const auto loaded = sandbox.load_kit(level, Vec3(100.0f, 0.0f, 0.0f), resolver);
+        const auto loaded = load(sandbox, level, Vec3(100.0f, 0.0f, 0.0f), resolver);
 
         // Assert: offsets compose 100 + 10 + 1.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -213,7 +213,7 @@ namespace tbx::tests
         auto sandbox = Sandbox(jobs);
 
         // Act
-        const auto loaded = sandbox.load_kit(a, Vec3(0.0f), resolver);
+        const auto loaded = load(sandbox, a, Vec3(0.0f), resolver);
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -231,7 +231,7 @@ namespace tbx::tests
         auto sandbox = Sandbox(jobs);
 
         // Act
-        const auto loaded = sandbox.load_kit(kit);
+        const auto loaded = load(sandbox, kit);
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -251,7 +251,7 @@ namespace tbx::tests
         auto sandbox = Sandbox(jobs);
 
         // Act
-        const auto loaded = sandbox.load_kit(kit);
+        const auto loaded = load(sandbox, kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -264,7 +264,7 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto jobs = Jobs();
         auto author = Sandbox(jobs);
-        const Json body = author.save_kit(std::array {author.spawn("RoomToy")});
+        const Json body = save(author, std::array {author.spawn("RoomToy")});
         auto layout = Json {
             {"kits",
              Json::array({Json {
@@ -272,7 +272,7 @@ namespace tbx::tests
                  {"mode", "streamed"},
                  {"position", {0.0f, 0.0f, 0.0f}}}})}};
         auto sandbox = Sandbox(jobs);
-        ASSERT_TRUE(sandbox.load_layout(layout, make_map_resolver({{"room", body}})).has_value());
+        ASSERT_TRUE(load_layout(sandbox, layout, make_map_resolver({{"room", body}})).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
 
         // Act: focus inside the load band → the kit streams in (async).
@@ -307,13 +307,13 @@ namespace tbx::tests
         // Arrange
         auto jobs = Jobs();
         auto author = Sandbox(jobs);
-        const Json body = author.save_kit(std::array {author.spawn("Skybox")});
+        const Json body = save(author, std::array {author.spawn("Skybox")});
         auto layout = Json {
             {"kits", Json::array({Json {{"reference", "sky"}, {"mode", "always"}}})}};
         auto sandbox = Sandbox(jobs);
 
         // Act
-        const auto result = sandbox.load_layout(layout, make_map_resolver({{"sky", body}}));
+        const auto result = load_layout(sandbox, layout, make_map_resolver({{"sky", body}}));
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();

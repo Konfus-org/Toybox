@@ -4,6 +4,7 @@
 #include "tbx/core/typedefs.h"
 #include "tbx/core/uuid.h"
 #include "tbx/ecs/block.h"
+#include "tbx/ecs/toy.h"
 #include "tbx/ecs/transform.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/reflect/json_walker.h"
@@ -15,8 +16,6 @@
 
 namespace tbx
 {
-    class Sandbox;
-
     /// @brief
     /// Purpose: Turns a kit reference string into its JSON body. The default engine resolver
     /// reads files; tests inject in-memory maps; the asset system replaces it later.
@@ -40,106 +39,10 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Engine-internal identity every toy carries (runtime uuid + display name).
-    struct ToyHandle
-    {
-        Uuid uuid = {};
-        std::string name = {};
-    };
-
-    /// @brief
-    /// Purpose: Engine-internal sticker names slapped on a toy; compared by name hash.
-    struct StickerSet
-    {
-        std::vector<std::string> names = {};
-    };
-
-    /// @brief
-    /// Purpose: Engine-internal parent link forming the transform hierarchy.
-    struct ParentLink
-    {
-        ToyId parent = NULL_TOY;
-    };
-
-    /// @brief
-    /// Purpose: Fluent handle to one toy: sandbox.spawn("Grunt").with(Transform
-    /// {...}).with(Health {...}).sticker("enemy").
+    /// Purpose: THE world container: owns every toy and streams sandbox-level kit entries by
+    /// distance. Serialization lives on tbx::save / tbx::load (save_load.h), not here.
     /// @details
-    /// Ownership: A view — the Sandbox owns the toy. Thread Safety: Main thread only
-    /// (structural mutation rule).
-    class Toy final
-    {
-      public:
-        Toy() = default;
-
-        Toy(Sandbox& sandbox, ToyId id);
-
-      public:
-        /// @brief
-        /// Purpose: The toy's per-session registry id.
-        ToyId get_id() const
-        {
-            return _id;
-        }
-
-        /// @brief
-        /// Purpose: Returns the block of this type, adding a default-constructed one if absent.
-        template <typename TBlock>
-        TBlock& get_block();
-
-        /// @brief
-        /// Purpose: The toy's display name.
-        const std::string& get_name() const;
-
-        /// @brief
-        /// Purpose: The toy's runtime uuid (fresh per instantiation; serialized by kits).
-        Uuid get_uuid() const;
-
-        /// @brief
-        /// Purpose: True while the toy exists in its sandbox.
-        bool is_alive() const;
-
-        /// @brief
-        /// Purpose: True when this block type is attached.
-        template <typename TBlock>
-        bool has_block() const;
-
-        /// @brief
-        /// Purpose: True when the sticker is on this toy.
-        bool has_sticker(std::string_view name) const;
-
-        /// @brief
-        /// Purpose: Detaches the block of this type (no-op when absent).
-        template <typename TBlock>
-        void remove_block();
-
-        /// @brief
-        /// Purpose: Peels a sticker off (no-op when absent).
-        void remove_sticker(std::string_view name);
-
-        /// @brief
-        /// Purpose: Renames the toy.
-        void set_name(std::string name);
-
-        /// @brief
-        /// Purpose: Fluent: slaps a sticker on and returns the toy for chaining.
-        Toy& sticker(std::string name);
-
-        /// @brief
-        /// Purpose: Fluent: attaches (or replaces) a block and returns the toy for chaining.
-        template <typename TBlock>
-        Toy& with(TBlock block);
-
-      private:
-        std::optional<std::reference_wrapper<Sandbox>> _sandbox = {};
-        ToyId _id = NULL_TOY;
-    };
-
-    /// @brief
-    /// Purpose: THE world container: owns every toy, loads kits (recursive sets of toys), and
-    /// streams sandbox-level kit entries by distance.
-    /// @details
-    /// Ownership: Owns the entt registry and all kit bookkeeping. Thread Safety: Structural
+    /// Ownership: Owns the registry and all kit bookkeeping. Thread Safety: Structural
     /// mutation on the main thread only; streaming resolves kit bodies on workers and splices
     /// on the main thread via Jobs.
     class Sandbox final
@@ -152,6 +55,19 @@ namespace tbx
         Sandbox& operator=(const Sandbox&) = delete;
 
       public:
+        /// @brief
+        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
+        /// destroyed.
+        void despawn(Toy toy);
+
+        /// @brief
+        /// Purpose: Finds a toy by runtime uuid.
+        std::optional<Toy> find_toy(const Uuid& uuid);
+
+        /// @brief
+        /// Purpose: Finds the first toy with the given name.
+        std::optional<Toy> find_toy(std::string_view name);
+
         /// @brief
         /// Purpose: Invokes the callback for every toy wearing the sticker.
         void for_each_sticker(std::string_view name, const std::function<void(Toy)>& callback);
@@ -177,65 +93,39 @@ namespace tbx
         Mat4 get_world_matrix(Toy toy);
 
         /// @brief
-        /// Purpose: Finds a toy by runtime uuid.
-        std::optional<Toy> find_toy(const Uuid& uuid);
-
-        /// @brief
-        /// Purpose: Finds the first toy with the given name.
-        std::optional<Toy> find_toy(std::string_view name);
-
-        /// @brief
-        /// Purpose: Loads a sandbox layout: {"kits": [{reference, mode, position}]}. ALWAYS
-        /// entries load immediately; STREAMED entries load/unload by distance to the streaming
-        /// focus (see stream_from), using bounds stored in each kit at save time.
-        Result<void> load_layout(const Json& layout, const KitResolver& resolver);
-
-        /// @brief
-        /// Purpose: Instantiates a kit body into the sandbox (main thread). Nested kit
-        /// references resolve recursively through the resolver; reference cycles are load
-        /// errors. Root position offsets every parentless toy.
-        Result<KitInstance> load_kit(
-            const Json& kit,
-            const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f),
-            const KitResolver& resolver = {});
-
-        /// @brief
-        /// Purpose: Despawns every toy a kit instance spawned.
-        void unload_kit(KitInstance instance);
-
-        /// @brief
-        /// Purpose: Serializes toys (blocks, stickers, parent links) plus computed bounds into
-        /// a kit body.
-        Json save_kit(std::span<const Toy> toys);
+        /// Purpose: Drives streaming; called once per frame by tbx::run().
+        void process_streaming();
 
         /// @brief
         /// Purpose: Creates a toy with identity and a default Transform.
         Toy spawn(std::string name);
 
         /// @brief
-        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
-        /// destroyed.
-        void despawn(Toy toy);
+        /// Purpose: Sets the streaming focus (typically player/camera position, every frame).
+        void stream_from(const Vec3& focus);
 
         /// @brief
         /// Purpose: Reparents a toy (pass a default Toy to clear the parent).
         void set_parent(Toy child, Toy parent);
 
         /// @brief
-        /// Purpose: Drives streaming; called once per frame by Engine::update().
-        void process_streaming();
-
-        /// @brief
-        /// Purpose: Sets the streaming focus (typically player/camera position, every frame).
-        void stream_from(const Vec3& focus);
+        /// Purpose: Despawns every toy a kit instance spawned.
+        void unload_kit(KitInstance instance);
 
       private:
+        // Serialization internals — the public surface is tbx::save / tbx::load (save_load.h).
+        Json save_kit(std::span<const Toy> toys);
+        Result<KitInstance> load_kit(
+            const Json& kit,
+            const Vec3& root_position,
+            const KitResolver& resolver);
         Result<KitInstance> load_kit_body(
             const Json& kit,
             const Vec3& root_position,
             const KitResolver& resolver,
             std::vector<uint64>& reference_stack,
             std::vector<ToyId>& spawned);
+        Result<void> load_layout(const Json& layout, const KitResolver& resolver);
 
       private:
         static constexpr float STREAM_LOAD_MARGIN = 5.0f;
@@ -263,11 +153,21 @@ namespace tbx
         bool _has_stream_focus = false;
 
         friend class Toy;
+        friend Json save(Sandbox& sandbox, std::span<const Toy> toys);
+        friend Result<KitInstance> load(
+            Sandbox& sandbox,
+            const Json& kit,
+            const Vec3& root_position,
+            const KitResolver& resolver);
+        friend Result<void> load_layout(
+            Sandbox& sandbox,
+            const Json& layout,
+            const KitResolver& resolver);
     };
 
     //// TOY INLINE DEFINITIONS (need the Sandbox definition above) ////
 
-    inline Toy::Toy(Sandbox& sandbox, ToyId id)
+    inline Toy::Toy(Sandbox& sandbox, const ToyId id)
         : _sandbox(sandbox)
         , _id(id)
     {

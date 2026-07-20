@@ -53,6 +53,7 @@ static int run_scene_selftest()
     float shadowed_brightness = -1.0f;
     float unshadowed_brightness = -1.0f;
     bool cube_is_red = false;
+    bool reflection_works = false;
     tbx::Toy camera = {};
 
     while (tbx::run(app))
@@ -94,7 +95,38 @@ static int run_scene_selftest()
         const tbx::Color center =
             tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
         if (app.frame == 2)
+        {
             cube_is_red = center.r > 0.25f && center.r > center.g * 2.0f;
+    // Shader reflection: an arbitrary shader's uniform schema is discoverable and drivable.
+        {
+            auto probe = tbx::gpu::compile_shader(
+                R"(#version 460 core
+uniform mat4 u_model;
+uniform vec4 u_tint;
+uniform float u_shine;
+void main() { gl_Position = u_model * vec4(u_shine, u_tint.x, 0.0, 1.0); })",
+                R"(#version 460 core
+out vec4 c; void main() { c = vec4(1.0); })");
+            if (probe)
+            {
+                const auto info = tbx::gpu::reflect(**probe);
+                auto found = 0;
+                for (const auto& uniform : info.uniforms)
+                {
+                    if (uniform.name == "u_model" && uniform.kind == tbx::gpu::UniformKind::MAT4)
+                        ++found;
+                    if (uniform.name == "u_tint" && uniform.kind == tbx::gpu::UniformKind::VEC4)
+                        ++found;
+                    if (uniform.name == "u_shine" && uniform.kind == tbx::gpu::UniformKind::FLOAT)
+                        ++found;
+                }
+                tbx::gpu::apply_uniforms(
+                    **probe,
+                    tbx::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
+                reflection_works = found == 3;
+            }
+        }
+        }
         if (app.frame == 4)
             shadowed_brightness = center.r + center.g + center.b;
         if (app.frame == 6)
@@ -105,13 +137,15 @@ static int run_scene_selftest()
     }
 
     const bool shadow_darkens = unshadowed_brightness > shadowed_brightness + 0.5f;
+    const bool passed = cube_is_red && shadow_darkens && reflection_works;
     tbx::log_info(
-        "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} -> {}",
+        "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} reflection={} -> {}",
         cube_is_red,
         shadowed_brightness,
         unshadowed_brightness,
-        (cube_is_red && shadow_darkens) ? "PASSED" : "FAILED");
-    return (cube_is_red && shadow_darkens) ? 0 : 1;
+        reflection_works,
+        passed ? "PASSED" : "FAILED");
+    return passed ? 0 : 1;
 }
 
 int main(int argc, char** argv)

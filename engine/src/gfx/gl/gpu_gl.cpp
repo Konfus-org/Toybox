@@ -134,6 +134,38 @@ namespace tbx::gpu
         glEnable(GL_CULL_FACE);
     }
 
+    ShaderInfo reflect(const Shader& shader)
+    {
+        auto info = ShaderInfo {};
+        GLint count = 0;
+        glGetProgramiv(shader.get_id(), GL_ACTIVE_UNIFORMS, &count);
+        for (GLint i = 0; i < count; ++i)
+        {
+            char name[256] = {};
+            GLsizei length = 0;
+            GLint array_size = 0;
+            GLenum gl_type = 0;
+            glGetActiveUniform(
+                shader.get_id(), static_cast<GLuint>(i), sizeof(name), &length, &array_size,
+                &gl_type, name);
+            auto kind = UniformKind::UNKNOWN;
+            switch (gl_type)
+            {
+                case GL_FLOAT: kind = UniformKind::FLOAT; break;
+                case GL_INT: kind = UniformKind::INT; break;
+                case GL_BOOL: kind = UniformKind::BOOL; break;
+                case GL_FLOAT_VEC2: kind = UniformKind::VEC2; break;
+                case GL_FLOAT_VEC3: kind = UniformKind::VEC3; break;
+                case GL_FLOAT_VEC4: kind = UniformKind::VEC4; break;
+                case GL_FLOAT_MAT4: kind = UniformKind::MAT4; break;
+                case GL_SAMPLER_2D: kind = UniformKind::TEXTURE; break;
+                default: break;
+            }
+            info.uniforms.push_back({.name = std::string(name, length), .kind = kind});
+        }
+        return info;
+    }
+
     Color read_pixel(const int x, const int y)
     {
         float rgba[4] = {};
@@ -213,6 +245,19 @@ namespace tbx::gpu
         glUseProgram(shader.get_id());
         glUniformMatrix4fv(
             glGetUniformLocation(shader.get_id(), name), 1, GL_FALSE, &value[0][0]);
+    }
+
+    void set_uniform(const Shader& shader, const char* name, const Vec2& value)
+    {
+        glUseProgram(shader.get_id());
+        glUniform2f(glGetUniformLocation(shader.get_id(), name), value.x, value.y);
+    }
+
+    void set_uniform(const Shader& shader, const char* name, const Vec4& value)
+    {
+        glUseProgram(shader.get_id());
+        glUniform4f(
+            glGetUniformLocation(shader.get_id(), name), value.x, value.y, value.z, value.w);
     }
 
     void set_uniform(const Shader& shader, const char* name, const Vec3& value)

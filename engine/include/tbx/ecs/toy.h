@@ -1,0 +1,109 @@
+#pragma once
+#include "tbx/core/typedefs.h"
+#include "tbx/core/uuid.h"
+#include "tbx/ecs/registry.h"
+#include <functional>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace tbx
+{
+    class Sandbox; // defined in sandbox.h, which completes Toy's inline methods
+
+    /// @brief
+    /// Purpose: Engine-internal identity every toy carries (runtime uuid + display name).
+    struct ToyHandle
+    {
+        Uuid uuid = {};
+        std::string name = {};
+    };
+
+    /// @brief
+    /// Purpose: Engine-internal sticker names slapped on a toy; compared by name hash.
+    struct StickerSet
+    {
+        std::vector<std::string> names = {};
+    };
+
+    /// @brief
+    /// Purpose: Engine-internal parent link forming the transform hierarchy.
+    struct ParentLink
+    {
+        ToyId parent = NULL_TOY;
+    };
+
+    /// @brief
+    /// Purpose: Fluent handle to one toy: sandbox.spawn("Grunt").with(Transform
+    /// {...}).with(Health {...}).sticker("enemy").
+    /// @details
+    /// Ownership: A view — the Sandbox owns the toy. Thread Safety: Main thread only
+    /// (structural mutation rule).
+    class Toy final
+    {
+      public:
+        Toy() = default;
+
+        Toy(Sandbox& sandbox, ToyId id);
+
+      public:
+        /// @brief
+        /// Purpose: Returns the block of this type, adding a default-constructed one if absent.
+        template <typename TBlock>
+        TBlock& get_block();
+
+        /// @brief
+        /// Purpose: The toy's per-session registry id.
+        ToyId get_id() const
+        {
+            return _id;
+        }
+
+        /// @brief
+        /// Purpose: The toy's display name.
+        const std::string& get_name() const;
+
+        /// @brief
+        /// Purpose: The toy's runtime uuid (fresh per instantiation; serialized by kits).
+        Uuid get_uuid() const;
+
+        /// @brief
+        /// Purpose: True while the toy exists in its sandbox.
+        bool is_alive() const;
+
+        /// @brief
+        /// Purpose: True when this block type is attached.
+        template <typename TBlock>
+        bool has_block() const;
+
+        /// @brief
+        /// Purpose: True when the sticker is on this toy.
+        bool has_sticker(std::string_view name) const;
+
+        /// @brief
+        /// Purpose: Detaches the block of this type (no-op when absent).
+        template <typename TBlock>
+        void remove_block();
+
+        /// @brief
+        /// Purpose: Peels a sticker off (no-op when absent).
+        void remove_sticker(std::string_view name);
+
+        /// @brief
+        /// Purpose: Renames the toy.
+        void set_name(std::string name);
+
+        /// @brief
+        /// Purpose: Fluent: slaps a sticker on and returns the toy for chaining.
+        Toy& sticker(std::string name);
+
+        /// @brief
+        /// Purpose: Fluent: attaches (or replaces) a block and returns the toy for chaining.
+        template <typename TBlock>
+        Toy& with(TBlock block);
+
+      private:
+        std::optional<std::reference_wrapper<Sandbox>> _sandbox = {};
+        ToyId _id = NULL_TOY;
+    };
+}

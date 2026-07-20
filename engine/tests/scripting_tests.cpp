@@ -131,6 +131,39 @@ return script
         EXPECT_TRUE(Toy(*summoned).has_sticker("summoned"));
     }
 
+    TEST(Scripts, FixedUpdateRunsAtFixedCadenceOnly)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto sandbox = Sandbox(jobs);
+        auto events = Events();
+        auto scripts = Scripts(sandbox, events);
+        ASSERT_TRUE(scripts
+                        .load_source("stepper", R"(
+local script = {}
+function script.fixed_update(toy, delta_time)
+    local transform = toy:get("Transform")
+    local position = transform.position
+    transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
+end
+return script
+)")
+                        .has_value());
+        Toy toy = sandbox.spawn("Stepper").with(Script {.source = "stepper"});
+
+        // Act: variable updates do not run the fixed hook; fixed steps do.
+        scripts.update(0.016f);
+        scripts.update(0.016f);
+        const float after_updates = toy.get_block<Transform>().position.x;
+        scripts.fixed_update(1.0f / 60.0f);
+        scripts.fixed_update(1.0f / 60.0f);
+        scripts.fixed_update(1.0f / 60.0f);
+
+        // Assert
+        EXPECT_EQ(after_updates, 0.0f);
+        EXPECT_EQ(toy.get_block<Transform>().position.x, 3.0f);
+    }
+
     TEST(Scripts, MissingUpdateFunctionIsHarmless)
     {
         // Arrange

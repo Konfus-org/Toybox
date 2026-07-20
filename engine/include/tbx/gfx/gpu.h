@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/json.h"
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
@@ -6,6 +7,8 @@
 #include <cstddef>
 #include <memory>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace tbx::gpu
 {
@@ -157,6 +160,37 @@ namespace tbx::gpu
         int _resolution = 0;
     };
 
+    /// @brief
+    /// Purpose: The type of one reflected shader uniform.
+    enum class UniformKind : uint8
+    {
+        FLOAT,
+        INT,
+        BOOL,
+        VEC2,
+        VEC3,
+        VEC4,
+        MAT4,
+        TEXTURE,
+        UNKNOWN
+    };
+
+    /// @brief
+    /// Purpose: One uniform a shader exposes, discovered by reflect().
+    struct UniformInfo
+    {
+        std::string name = {};
+        UniformKind kind = UniformKind::UNKNOWN;
+    };
+
+    /// @brief
+    /// Purpose: Everything a shader exposes — the schema materials program against, so any
+    /// arbitrary shader "just works" without per-shader engine code.
+    struct ShaderInfo
+    {
+        std::vector<UniformInfo> uniforms = {};
+    };
+
     // The concrete GPU boundary (see cmake/tbx_backend.cmake). The selected gfx backend folder
     // (gfx/gl/) implements these; its library types/calls never escape that folder. Everything
     // above this header is backend-agnostic. M1 surface: enough to clear and draw raw meshes —
@@ -238,9 +272,21 @@ namespace tbx::gpu
     void render(Sandbox& sandbox);
 
     /// @brief
+    /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to
+    /// a shader, typed by its reflection — the material system's engine: values the shader
+    /// does not declare are skipped, declared kinds drive the parse. Backend-agnostic.
+    void apply_uniforms(const Shader& shader, const Json& values);
+
+    /// @brief
+    /// Purpose: Reflects a compiled shader's uniform schema (implemented per backend).
+    ShaderInfo reflect(const Shader& shader);
+
+    /// @brief
     /// Purpose: Sets a shader uniform by name (overloads per type).
     void set_uniform(const Shader& shader, const char* name, const Mat4& value);
+    void set_uniform(const Shader& shader, const char* name, const Vec2& value);
     void set_uniform(const Shader& shader, const char* name, const Vec3& value);
+    void set_uniform(const Shader& shader, const char* name, const Vec4& value);
     void set_uniform(const Shader& shader, const char* name, const Color& value);
     void set_uniform(const Shader& shader, const char* name, float value);
     void set_uniform(const Shader& shader, const char* name, int value);
