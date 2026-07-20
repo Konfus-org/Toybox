@@ -1,7 +1,9 @@
 #include "tbx/core/log.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/app.h"
+#include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/gfx/render_blocks.h"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -35,6 +37,83 @@ static constexpr std::array<float, 21> TRIANGLE_VERTICES = {
     0.0f,  0.7f,  0.0f, 0.2f, 0.2f, 1.0f, 1.0f, //
 };
 
+
+static tbx::Quat look_toward(const tbx::Vec3& direction)
+{
+    const tbx::Vec3 up = std::abs(direction.y) > 0.99f ? tbx::Vec3(0.0f, 0.0f, -1.0f)
+                                                       : tbx::Vec3(0.0f, 1.0f, 0.0f);
+    return glm::quatLookAt(glm::normalize(direction), up);
+}
+
+// Renders a plane + floating cube + angled sun and verifies by pixel readback that the cube is
+// lit red and that its cast shadow darkens the plane — the M6 "lit/shadowed scene" proof.
+static int run_scene_selftest()
+{
+    auto app = tbx::App {.title = "Toybox 2 scene"};
+    float shadowed_brightness = -1.0f;
+    float unshadowed_brightness = -1.0f;
+    bool cube_is_red = false;
+    tbx::Toy camera = {};
+
+    while (tbx::run(app))
+    {
+        auto& sandbox = tbx::get_sandbox();
+        if (app.frame == 1)
+        {
+            sandbox.spawn("Ground")
+                .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
+                .with(tbx::MeshRenderer {.mesh = "plane", .tint = tbx::Color {}});
+            sandbox.spawn("Cube")
+                .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
+                .with(tbx::MeshRenderer {
+                    .mesh = "cube",
+                    .tint = tbx::Color {.r = 1.0f, .g = 0.1f, .b = 0.1f}});
+            sandbox.spawn("Sun")
+                .with(tbx::Transform {
+                    .rotation = look_toward(tbx::Vec3(1.0f, -1.0f, 0.0f))})
+                .with(tbx::DirectionalLight {.intensity = 1.0f});
+            camera = sandbox.spawn("Camera")
+                         .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
+                         .with(tbx::Camera {});
+        }
+
+        // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
+        if (app.frame == 3)
+            camera.get_block<tbx::Transform>() = tbx::Transform {
+                .position = tbx::Vec3(2.0f, 10.0f, 0.0f),
+                .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
+        if (app.frame == 5)
+            camera.get_block<tbx::Transform>() = tbx::Transform {
+                .position = tbx::Vec3(-2.0f, 10.0f, 0.0f),
+                .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
+
+        tbx::gpu::begin_frame();
+        tbx::gpu::render(sandbox);
+
+        const auto& window = tbx::get_window();
+        const tbx::Color center =
+            tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
+        if (app.frame == 2)
+            cube_is_red = center.r > 0.25f && center.r > center.g * 2.0f;
+        if (app.frame == 4)
+            shadowed_brightness = center.r + center.g + center.b;
+        if (app.frame == 6)
+            unshadowed_brightness = center.r + center.g + center.b;
+
+        if (app.frame >= 6)
+            tbx::quit();
+    }
+
+    const bool shadow_darkens = unshadowed_brightness > shadowed_brightness + 0.5f;
+    tbx::log_info(
+        "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} -> {}",
+        cube_is_red,
+        shadowed_brightness,
+        unshadowed_brightness,
+        (cube_is_red && shadow_darkens) ? "PASSED" : "FAILED");
+    return (cube_is_red && shadow_darkens) ? 0 : 1;
+}
+
 int main(int argc, char** argv)
 {
     int frame_limit = -1; // run until the window closes
@@ -49,6 +128,8 @@ int main(int argc, char** argv)
             if (frame_limit < 0)
                 frame_limit = 10;
         }
+        else if (std::strcmp(argv[i], "--scene-selftest") == 0)
+            return run_scene_selftest();
     }
 
     auto app = tbx::App {.title = "Toybox 2"};

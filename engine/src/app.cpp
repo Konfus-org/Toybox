@@ -1,6 +1,7 @@
 #include "tbx/app.h"
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/gfx/render_blocks.h"
 #include "tbx/platform/input.h"
 #include <chrono>
 #include <memory>
@@ -42,6 +43,7 @@ namespace tbx
 
     static void boot(App& app)
     {
+        gpu::register_render_blocks();
         g_state = std::make_unique<AppState>(app);
         AppState& state = *g_state;
         if (!state.window.is_headless())

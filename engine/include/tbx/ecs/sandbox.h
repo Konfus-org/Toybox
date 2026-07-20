@@ -41,7 +41,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Engine-internal identity every toy carries (runtime uuid + display name).
-    struct ToyIdentity
+    struct ToyHandle
     {
         Uuid uuid = {};
         std::string name = {};
@@ -76,16 +76,16 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Returns the block of this type, adding a default-constructed one if absent.
-        template <typename TBlock>
-        TBlock& get_block();
-
-        /// @brief
         /// Purpose: The toy's per-session registry id.
         ToyId get_id() const
         {
             return _id;
         }
+
+        /// @brief
+        /// Purpose: Returns the block of this type, adding a default-constructed one if absent.
+        template <typename TBlock>
+        TBlock& get_block();
 
         /// @brief
         /// Purpose: The toy's display name.

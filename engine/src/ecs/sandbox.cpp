@@ -21,12 +21,12 @@ namespace tbx
 
     const std::string& Toy::get_name() const
     {
-        return _sandbox->get()._registry.get<ToyIdentity>(_id).name;
+        return _sandbox->get()._registry.get<ToyHandle>(_id).name;
     }
 
     Uuid Toy::get_uuid() const
     {
-        return _sandbox->get()._registry.get<ToyIdentity>(_id).uuid;
+        return _sandbox->get()._registry.get<ToyHandle>(_id).uuid;
     }
 
     bool Toy::is_alive() const
@@ -59,7 +59,7 @@ namespace tbx
 
     void Toy::set_name(std::string name)
     {
-        _sandbox->get()._registry.get<ToyIdentity>(_id).name = std::move(name);
+        _sandbox->get()._registry.get<ToyHandle>(_id).name = std::move(name);
     }
 
     Toy& Toy::sticker(std::string name)
@@ -81,9 +81,9 @@ namespace tbx
     Toy Sandbox::spawn(std::string name)
     {
         const ToyId id = _registry.create();
-        _registry.emplace<ToyIdentity>(
+        _registry.emplace<ToyHandle>(
             id,
-            ToyIdentity {.uuid = Uuid::generate(), .name = std::move(name)});
+            ToyHandle {.uuid = Uuid::generate(), .name = std::move(name)});
         _registry.emplace<Transform>(id);
         return Toy(*this, id);
     }
@@ -104,7 +104,7 @@ namespace tbx
 
     std::optional<Toy> Sandbox::find_toy(const Uuid& uuid)
     {
-        for (const auto [id, identity] : _registry.view<ToyIdentity>().each())
+        for (const auto [id, identity] : _registry.view<ToyHandle>().each())
             if (identity.uuid == uuid)
                 return Toy(*this, id);
         return {};
@@ -112,7 +112,7 @@ namespace tbx
 
     std::optional<Toy> Sandbox::find_toy(std::string_view name)
     {
-        for (const auto [id, identity] : _registry.view<ToyIdentity>().each())
+        for (const auto [id, identity] : _registry.view<ToyHandle>().each())
             if (identity.name == name)
                 return Toy(*this, id);
         return {};
@@ -134,7 +134,7 @@ namespace tbx
 
     size Sandbox::get_toy_count() const
     {
-        return _registry.view<const ToyIdentity>().size();
+        return _registry.view<const ToyHandle>().size();
     }
 
     //// SANDBOX: HIERARCHY ////
@@ -182,13 +182,13 @@ namespace tbx
         {
             const ToyId id = toy.get_id();
             auto toy_json = Json::object();
-            const auto& identity = _registry.get<ToyIdentity>(id);
+            const auto& identity = _registry.get<ToyHandle>(id);
             toy_json["uuid"] = identity.uuid.to_string();
             toy_json["name"] = identity.name;
 
             if (const auto* link = _registry.try_get<ParentLink>(id);
                 link && _registry.valid(link->parent))
-                toy_json["parent"] = _registry.get<ToyIdentity>(link->parent).uuid.to_string();
+                toy_json["parent"] = _registry.get<ToyHandle>(link->parent).uuid.to_string();
 
             if (const auto* stickers = _registry.try_get<StickerSet>(id);
                 stickers && !stickers->names.empty())
