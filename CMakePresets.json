@@ -12,38 +12,34 @@
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "TBX_PLUGIN_ABI_VERSION": "1",
                 "TBX_BUILD_TESTS": "OFF",
-                "TBX_ENABLE_COMPILER_CACHE": "ON",
-                "TBX_ENABLE_DEBUG_SANITIZERS": "OFF",
-                "TBX_ENABLE_VERBOSE": "OFF",
                 "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
-                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/tools/cmake/preset_compile_definitions.cmake;${sourceDir}/tools/cmake/preset_msvc_options.cmake;${sourceDir}/tools/cmake/preset_sanitizers.cmake",
+                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/preset_compile_definitions.cmake;${sourceDir}/cmake/preset_msvc_options.cmake",
                 "CMAKE_ARCHIVE_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/lib",
                 "CMAKE_LIBRARY_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
                 "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/bin",
                 "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
-                "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
-                "CMAKE_UNITY_BUILD": "OFF"
+                "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
             },
             "hidden": true
         },
         {
             "name": "msvc",
             "displayName": "Toybox (MSVC)",
-            "description": "Targeting Windows x64 with MSVC compiler",
             "inherits": "base",
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "toolset": {
-                "value": "host=x64",
-                "strategy": "external"
-            },
+            "architecture": { "value": "x64", "strategy": "external" },
+            "toolset": { "value": "host=x64", "strategy": "external" },
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "cl",
                 "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "msvc-tests",
+            "displayName": "Toybox (MSVC, tests)",
+            "inherits": "msvc",
+            "cacheVariables": {
+                "TBX_BUILD_TESTS": "ON"
             }
         },
         {
@@ -54,154 +50,20 @@
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++"
             }
-        },
-        {
-            "name": "msvc-tests",
-            "displayName": "Toybox (MSVC, tests)",
-            "description": "Targeting Windows x64 with MSVC compiler and test targets enabled",
-            "inherits": "msvc",
-            "cacheVariables": {
-                "TBX_BUILD_TESTS": "ON"
-            }
-        },
-        {
-            "name": "clang-tests",
-            "displayName": "Toybox (Clang, tests)",
-            "inherits": "clang",
-            "cacheVariables": {
-                "TBX_BUILD_TESTS": "ON"
-            }
-        },
-        {
-            "name": "clang-sanitize",
-            "displayName": "Toybox (Clang ASan+UBSan)",
-            "description": "Targeting Windows x64 with Clang and Debug ASan+UBSan instrumentation",
-            "inherits": "clang",
-            "cacheVariables": {
-                "TBX_ENABLE_DEBUG_SANITIZERS": "ON",
-                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL"
-            }
-        },
-        {
-            "name": "clang-sanitize-tests",
-            "displayName": "Toybox (Clang ASan+UBSan, tests)",
-            "description": "Targeting Windows x64 with Clang, test targets, and Debug ASan+UBSan instrumentation",
-            "inherits": "clang-sanitize",
-            "cacheVariables": {
-                "TBX_BUILD_TESTS": "ON"
-            }
         }
     ],
     "buildPresets": [
-        {
-            "name": "build-base",
-            "hidden": true
-        },
-        {
-            "name": "msvc-release",
-            "inherits": "build-base",
-            "configurePreset": "msvc",
-            "configuration": "Release"
-        },
-        {
-            "name": "clang-release",
-            "inherits": "build-base",
-            "configurePreset": "clang",
-            "configuration": "Release"
-        },
-        {
-            "name": "msvc-debug",
-            "inherits": "build-base",
-            "configurePreset": "msvc",
-            "configuration": "Debug"
-        },
-        {
-            "name": "clang-debug",
-            "inherits": "build-base",
-            "configurePreset": "clang",
-            "configuration": "Debug"
-        },
-        {
-            "name": "msvc-release-tests",
-            "inherits": "build-base",
-            "configurePreset": "msvc-tests",
-            "configuration": "Release"
-        },
-        {
-            "name": "clang-release-tests",
-            "inherits": "build-base",
-            "configurePreset": "clang-tests",
-            "configuration": "Release"
-        },
-        {
-            "name": "msvc-debug-tests",
-            "inherits": "build-base",
-            "configurePreset": "msvc-tests",
-            "configuration": "Debug"
-        },
-        {
-            "name": "clang-debug-tests",
-            "inherits": "build-base",
-            "configurePreset": "clang-tests",
-            "configuration": "Debug"
-        },
-        {
-            "name": "clang-sanitize-debug",
-            "inherits": "build-base",
-            "configurePreset": "clang-sanitize",
-            "configuration": "Debug"
-        },
-        {
-            "name": "clang-sanitize-debug-tests",
-            "inherits": "build-base",
-            "configurePreset": "clang-sanitize-tests",
-            "configuration": "Debug"
-        }
+        { "name": "msvc-debug", "configurePreset": "msvc", "configuration": "Debug" },
+        { "name": "msvc-release", "configurePreset": "msvc", "configuration": "Release" },
+        { "name": "msvc-tests-debug", "configurePreset": "msvc-tests", "configuration": "Debug" },
+        { "name": "clang-debug", "configurePreset": "clang", "configuration": "Debug" }
     ],
     "testPresets": [
         {
-            "name": "test-base",
-            "hidden": true,
-            "output": {
-                "outputOnFailure": true
-            },
-            "execution": {
-                "timeout": 120
-            }
-        },
-        {
-            "name": "test-msvc-release",
-            "inherits": "test-base",
+            "name": "msvc-tests",
             "configurePreset": "msvc-tests",
-            "configuration": "Release"
-        },
-        {
-            "name": "test-clang-release",
-            "inherits": "test-base",
-            "configurePreset": "clang-tests",
-            "configuration": "Release"
-        },
-        {
-            "name": "test-msvc-debug",
-            "inherits": "test-base",
-            "configurePreset": "msvc-tests",
-            "configuration": "Debug"
-        },
-        {
-            "name": "test-clang-debug",
-            "inherits": "test-base",
-            "configurePreset": "clang-tests",
-            "configuration": "Debug"
-        },
-        {
-            "name": "test-clang-sanitize-debug",
-            "inherits": "test-base",
-            "configurePreset": "clang-sanitize-tests",
             "configuration": "Debug",
-            "environment": {
-                "ASAN_OPTIONS": "abort_on_error=1",
-                "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
-            }
+            "output": { "outputOnFailure": true }
         }
     ]
 }

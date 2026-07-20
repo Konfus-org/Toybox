@@ -1,7 +1,0 @@
-{
-  "CMakeTargetsViewExcludedItems": [
-    "CMakeFolder:thirdparty",
-    "CMakeFolder:Precompile Header File",
-    "CMakeFolder:*.dir"
-  ]
-}

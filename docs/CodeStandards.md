@@ -4,7 +4,7 @@
 
 - **Scope**: Keep changes isolated and highly reusable.
 - **Duplication**: Avoid redundant code patterns without building single-use helper functions.
-- **Simplicity**: Prioritize the simplest, most direct solution first. Avoid over-engineering, unnecessary abstractions, or predicting future edge cases. Add complexity only when a specific problem requires it.
+- **Simplicity**: Prioritize the simplest, most direct solution first. Avoid over-engineering, unnecessary abstractions, or predicting future edge cases. Add complexity only when a specific problem requires it. Prefer simple, flat control flow and remove unnecessary nesting. Do not have tons of small methods! Only break things apart when we genuinely need to re-use something or if the method is gargantuan.
 - **Housekeeping**: Permanently delete stale definitions instead of leaving commented placeholders.
 - **Build System**: Execute exclusively via `CMakePresets.json`.
 
@@ -19,9 +19,6 @@
 - **Type Aliases**: Use `size` and `uint` from `common/typedefs.h` instead of raw `std::size_t`.
 - **Nesting**: Do not nest structs or classes within other types.
 - **API Leakage**: Never expose internal namespaces in public signatures, return types, or docs.
-- **Anonymity**: Replace anonymous namespaces with `static` functions.
-- **Internals/Detail**: DO NOT USE, don't have detail or internal namespaces, use static instead and for private structs have a 'State' that we forward declare in the class/structs public header file and define in the cpp file.
-- **Lifecycle Exceptions**: Omit Doxygen summaries entirely for `attach`, `detach`, `update`, `on_attach`, `on_detach`, `on_update`, and `on_fixed_update`.
 
 ## Writing Unit Tests
 
@@ -45,9 +42,12 @@
   - `class` declarations.
   - Public methods.
 - Keep Doxygen summaries directly adjacent to their declaration (no blank line between summary and declaration).
-- Plugin and example lifecycle methods (`attach`, `detach`, `update`, including `on_attach`, `on_detach`, `on_update`, `on_fixed_update`) do not require Doxygen summaries.
 
-## File Layout
+## File Layout & Formatting
+
+- Follow root `.clang-format`.
+- Use LF line endings.
+- Keep `#include` directives contiguous.
 
 Strictly follow the below file layout:
 
@@ -147,16 +147,3 @@ struct Name
   Properties...
 }
 ```
-
-## Type Organization
-
-- Do not nest public classes or structs inside other classes/structs.
-- Private class-owned implementation details may use nested forward declarations when the definitions live in the owning `.cpp` file or are required for header-only template code.
-- Move helper types that are not owned by a class to top-level declarations within the same namespace.
-
-## Formatting
-
-- Follow root `.clang-format`.
-- Use LF line endings.
-- Keep `#include` directives contiguous.
-- Prefer simple, flat control flow and remove unnecessary nesting.

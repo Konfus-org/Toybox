@@ -1,53 +1,92 @@
 cmake_minimum_required(VERSION 3.28.3)
-project(Toybox.Engine LANGUAGES C CXX)
+project(Toybox2 VERSION 2.0.0 LANGUAGES C CXX)
 
-# Global configs
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(TBX_ENABLE_COMPILER_CACHE "Use compiler cache launchers when available" ON)
-option(TBX_BUILD_TESTS "Build Toybox test targets" OFF)
-option(TBX_FULL_RELEASE "Disable development-only runtime behavior for final release builds" OFF)
+option(TBX_BUILD_TESTS "Build engine tests" OFF)
+option(TBX_BUILD_SAMPLE "Build the sample game" ON)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(tbx_backend)
+include(third_party_warnings)
 
-if(TBX_FULL_RELEASE)
-    add_compile_definitions(TBX_FULL_RELEASE)
-endif()
-
-include(cache_options)
-include(codegen)
-
-# Third-party dependencies are vendored with CMake FetchContent. There is no central
-# dependency list: the engine core and each plugin declare, configure, and make available
-# the dependencies they own, guarded by `if(NOT TARGET ...)` so a dependency shared by
-# several consumers is fetched once (first declaration wins). Only the global FetchContent
-# settings live here. Sources are cached under thirdparty/_deps (git-ignored) and shared
-# across build directories instead of re-downloaded per preset. (UPDATES_DISCONNECTED is
-# intentionally left at its default so that bumping a pinned GIT_TAG is always re-applied.)
+# --- Third-party dependencies (FetchContent, cached under thirdparty/_deps) ---
+# The cache is segmented per generator: FetchContent's sub-build trees are tied to the
+# generator that created them, and CMake hard-errors when a consumer with a different
+# generator reuses them.
 if(NOT DEFINED FETCHCONTENT_BASE_DIR)
-    # The cache is segmented per generator: FetchContent's sub-build trees are tied to the
-    # generator that created them, and CMake hard-errors when a consumer with a different
-    # generator (e.g. Studio's Visual Studio preset vs a Ninja engine build) reuses them.
     string(MAKE_C_IDENTIFIER "${CMAKE_GENERATOR}" TBX_FETCHCONTENT_GENERATOR_DIR)
     set(FETCHCONTENT_BASE_DIR
         "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/_deps/${TBX_FETCHCONTENT_GENERATOR_DIR}" CACHE PATH
         "Location for FetchContent-vendored third-party sources")
 endif()
 include(FetchContent)
-include(third_party_warnings)
 
-# Includes and subdirectories
-add_subdirectory(resources)
-add_subdirectory(engine)
-add_subdirectory(plugins)
-add_subdirectory(launcher)
+FetchContent_Declare(glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 1.0.1)
+FetchContent_Declare(spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.15.3)
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0)
+FetchContent_Declare(entt
+    GIT_REPOSITORY https://github.com/skypjack/entt.git
+    GIT_TAG v3.14.0)
+FetchContent_MakeAvailable(glm spdlog nlohmann_json entt)
 
-if(TBX_BUILD_TESTS)
-    enable_testing()
-    set(CMAKE_FOLDER "tests")
-    add_subdirectory(engine/tests)
-    unset(CMAKE_FOLDER)
+# --- Backend selection (see cmake/tbx_backend.cmake) ---
+tbx_backend(PLATFORM sdl)
+tbx_backend(GFX gl)
+
+if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.2.6)
+    FetchContent_MakeAvailable(SDL)
 endif()
 
-include(utilities)
+if(TBX_GFX_BACKEND STREQUAL "gl")
+    add_subdirectory(thirdparty/glad)
+endif()
+
+# --- The engine: one static library ---
+# Public headers live in engine/include/tbx/<module>/, implementation in
+# engine/src/<module>/ (backend private headers may sit next to their .cpp).
+file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
+    "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
+# Backend folders are chosen by tbx_backend(); strip every backend subfolder from
+# the glob, then add back only the selected ones.
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics)/[^/]+/")
+list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES})
+
+add_library(tbx STATIC ${TBX_SOURCES})
+target_include_directories(tbx PUBLIC engine/include)
+target_link_libraries(tbx
+    PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
+)
+
+if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
+    target_link_libraries(tbx PRIVATE SDL3::SDL3-static)
+endif()
+if(TBX_GFX_BACKEND STREQUAL "gl")
+    target_link_libraries(tbx PRIVATE glad)
+endif()
+
+# --- Executables ---
+add_subdirectory(runtime)
+if(TBX_BUILD_SAMPLE AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/sample")
+    add_subdirectory(sample)
+endif()
+if(TBX_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(engine/tests)
+endif()
+
+# Third-party code is not ours to fix: silence its warnings after the whole tree is configured.
+tbx_silence_third_party_warnings("${CMAKE_SOURCE_DIR}")

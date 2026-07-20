@@ -1,33 +1,15 @@
-# The engine tests own googletest. It must be static on Windows/clang to avoid DLL export
-# issues, and built against the dynamic CRT to match the engine.
-include(FetchContent)
-if(NOT TARGET gtest)
-    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+if(NOT TARGET GTest::gtest_main)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-    set(_gtest_had_shared FALSE)
-    if(DEFINED BUILD_SHARED_LIBS)
-        set(_gtest_had_shared TRUE)
-        set(_gtest_prev_shared "${BUILD_SHARED_LIBS}")
-    endif()
-    set(BUILD_SHARED_LIBS OFF)
-
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.15.2
-        GIT_SHALLOW TRUE
-        SYSTEM)
+        GIT_TAG v1.15.2)
     FetchContent_MakeAvailable(googletest)
-
-    if(_gtest_had_shared)
-        set(BUILD_SHARED_LIBS "${_gtest_prev_shared}")
-    else()
-        unset(BUILD_SHARED_LIBS)
-    endif()
 endif()
 
-include(engine_test_targets)
+file(GLOB TBX_TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
+add_executable(tbx_tests ${TBX_TEST_SOURCES})
+target_link_libraries(tbx_tests PRIVATE tbx GTest::gtest_main)
 
-# Runtime reflection API coverage. Reflects engine-registered components (e.g. Transform) directly, so
-# no per-test attribute codegen is needed — the reflection records are registered inside the Engine DLL.
-tbx_add_engine_test(NAME ReflectionTests)
+include(GoogleTest)
+gtest_discover_tests(tbx_tests DISCOVERY_MODE PRE_TEST)
