@@ -3,8 +3,8 @@
 #include <lua.h>
 
 // Private glue between the Luau VM and the engine. Bindings are generic over TypeInfo — never
-// per-type code — plus a thin hand-written tbx.* service API. Future language surfaces
-// (bindings/csharp/...) follow the same rule.
+// per-type code — plus a thin hand-written tbx.* service API. Other language backends
+// (scripting/csharp/...) follow the same rule inside their own folders.
 namespace tbx
 {
     /// @brief

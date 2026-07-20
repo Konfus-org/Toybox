@@ -48,7 +48,7 @@ FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau)
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
 tbx_backend(PLATFORM sdl)
 tbx_backend(GFX gl)
-tbx_backend(SCRIPTING luau)
+tbx_backend_list(SCRIPTING luau)
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -71,12 +71,8 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|bindings)/[^/]+/")
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting)/[^/]+/")
 list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES})
-# Language bindings ship with their scripting backend (bindings/luau with scripting/luau).
-file(GLOB_RECURSE TBX_BINDING_SOURCES CONFIGURE_DEPENDS
-    "engine/src/bindings/${TBX_SCRIPTING_BACKEND}/*.cpp" "engine/src/bindings/${TBX_SCRIPTING_BACKEND}/*.h")
-list(APPEND TBX_SOURCES ${TBX_BINDING_SOURCES})
 
 add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
@@ -84,7 +80,7 @@ target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 target_link_libraries(tbx
     PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
 )
-if(TBX_SCRIPTING_BACKEND STREQUAL "luau")
+if("luau" IN_LIST TBX_SCRIPTING_BACKENDS)
     target_link_libraries(tbx PRIVATE Luau.Compiler Luau.VM)
 endif()
 

@@ -39,3 +39,33 @@ function(tbx_backend subsystem default)
     set(TBX_${upper}_BACKEND_SOURCES "${sources}" PARENT_SCOPE)
     message(STATUS "Toybox ${lower} backend: ${${var}}")
 endfunction()
+
+# tbx_backend_list(<SUBSYSTEM> <default...>)
+#
+# The additive variant of tbx_backend() for subsystems where several backends coexist
+# (scripting: C++, Lua, and C# at the same time). Declares the cache LIST variable
+# TBX_<SUBSYSTEM>_BACKENDS, validates each entry's folder, collects every folder's sources
+# into TBX_<SUBSYSTEM>_BACKEND_SOURCES, and defines TBX_<SUBSYSTEM>_HAS_<ENTRY> per entry so
+# the coordinator can construct the compiled-in backends.
+function(tbx_backend_list subsystem)
+    string(TOUPPER "${subsystem}" upper)
+    string(TOLOWER "${subsystem}" lower)
+    set(var "TBX_${upper}_BACKENDS")
+
+    set(${var} "${ARGN}" CACHE STRING "Backends for the ${lower} subsystem (list)")
+
+    set(sources "")
+    foreach(backend IN LISTS ${var})
+        set(backend_dir "${CMAKE_SOURCE_DIR}/engine/src/${lower}/${backend}")
+        if(NOT IS_DIRECTORY "${backend_dir}")
+            message(FATAL_ERROR "${var} entry '${backend}': '${backend_dir}' does not exist")
+        endif()
+        file(GLOB_RECURSE backend_sources CONFIGURE_DEPENDS
+            "${backend_dir}/*.cpp" "${backend_dir}/*.c" "${backend_dir}/*.h")
+        list(APPEND sources ${backend_sources})
+        string(TOUPPER "${backend}" backend_upper)
+        add_compile_definitions("TBX_${upper}_HAS_${backend_upper}")
+    endforeach()
+    set(TBX_${upper}_BACKEND_SOURCES "${sources}" PARENT_SCOPE)
+    message(STATUS "Toybox ${lower} backends: ${${var}}")
+endfunction()
