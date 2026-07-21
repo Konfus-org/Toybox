@@ -1,6 +1,6 @@
 #include "tbx/gfx/shader_source.h"
-#include "tbx/reflect/json_walker.h"
-#include "tbx/reflect/type_info.h"
+#include "tbx/serialization/json_walker.h"
+#include "tbx/reflection/type_info.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests
@@ -27,12 +27,12 @@ namespace tbx::tests
         Uuid id = {};
     };
 
-    static const TypeInfo& register_test_types()
+    static const reflection::TypeInfo& register_test_types()
     {
-        register_type<TestStats>("TestStats")
+        reflection::describe<TestStats>("TestStats")
             .field("wins", &TestStats::wins)
             .field("rating", &TestStats::rating);
-        register_type<TestPlayer>("TestPlayer")
+        reflection::describe<TestPlayer>("TestPlayer")
             .version(
                 2,
                 [](Json& data, uint32)
@@ -50,7 +50,7 @@ namespace tbx::tests
             .field("mode", &TestPlayer::mode)
             .field("stats", &TestPlayer::stats)
             .field("id", &TestPlayer::id);
-        return get_type_registry().find("TestPlayer")->get();
+        return reflection::get_type_registry().find("TestPlayer")->get();
     }
 
     struct TestChain
@@ -61,16 +61,16 @@ namespace tbx::tests
     TEST(Reflect, RoundTripsAssetHandleLists)
     {
         // Arrange
-        register_type<TestChain>("TestChain").field("shaders", &TestChain::shaders);
-        const TypeInfo& type = get_type_registry().find("TestChain")->get();
+        reflection::describe<TestChain>("TestChain").field("shaders", &TestChain::shaders);
+        const reflection::TypeInfo& type = reflection::get_type_registry().find("TestChain")->get();
         auto original = TestChain {};
         original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));
         original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));
 
         // Act
-        const Json data = json_write(type, original);
+        const Json data = serialization::json_write(type, original);
         auto loaded = TestChain {};
-        const auto result = json_read(type, loaded, data);
+        const auto result = serialization::json_read(type, loaded, data);
 
         // Assert: an array of uuid strings, back to the same handles in the same order.
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -83,7 +83,7 @@ namespace tbx::tests
     TEST(Reflect, RoundTripsAllFieldKinds)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto original = TestPlayer {};
         original.hp = 42.5f;
         original.title = "boss";
@@ -93,9 +93,9 @@ namespace tbx::tests
         original.id = Uuid::generate();
 
         // Act
-        const Json data = json_write(type, original);
+        const Json data = serialization::json_write(type, original);
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, loaded, data);
+        const auto result = serialization::json_read(type, loaded, data);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -111,11 +111,11 @@ namespace tbx::tests
     TEST(Reflect, ReadRejectsNonObjectData)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto target = TestPlayer {};
 
         // Act
-        const auto result = json_read(type, target, Json::array());
+        const auto result = serialization::json_read(type, target, Json::array());
 
         // Assert
         EXPECT_FALSE(result.has_value());
@@ -124,7 +124,7 @@ namespace tbx::tests
     TEST(Reflect, MigrateRunsForOlderVersions)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto old_data = Json::object();
         old_data["type"] = "TestPlayer";
         old_data["version"] = 1;
@@ -132,7 +132,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, loaded, old_data);
+        const auto result = serialization::json_read(type, loaded, old_data);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -142,7 +142,7 @@ namespace tbx::tests
     TEST(Reflect, MigrateDoesNotRunForCurrentVersion)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto current = Json::object();
         current["version"] = 2;
         current["health"] = 5.0f; // stale name would only be fixed by migrate
@@ -150,7 +150,7 @@ namespace tbx::tests
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, loaded, current);
+        const auto result = serialization::json_read(type, loaded, current);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -160,14 +160,14 @@ namespace tbx::tests
     TEST(Reflect, MissingFieldsKeepDefaults)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto sparse = Json::object();
         sparse["version"] = 2;
         sparse["hp"] = 12.0f;
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, loaded, sparse);
+        const auto result = serialization::json_read(type, loaded, sparse);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -178,14 +178,14 @@ namespace tbx::tests
     TEST(Reflect, WrongShapedFieldReportsError)
     {
         // Arrange
-        const TypeInfo& type = register_test_types();
+        const reflection::TypeInfo& type = register_test_types();
         auto bad = Json::object();
         bad["version"] = 2;
         bad["hp"] = "not a number";
 
         // Act
         auto loaded = TestPlayer {};
-        const auto result = json_read(type, loaded, bad);
+        const auto result = serialization::json_read(type, loaded, bad);
 
         // Assert
         ASSERT_FALSE(result.has_value());
@@ -198,8 +198,8 @@ namespace tbx::tests
         register_test_types();
 
         // Act
-        const auto by_name = get_type_registry().find("TestPlayer");
-        const auto by_hash = get_type_registry().find(hash("TestPlayer"));
+        const auto by_name = reflection::get_type_registry().find("TestPlayer");
+        const auto by_hash = reflection::get_type_registry().find(hash("TestPlayer"));
 
         // Assert
         ASSERT_TRUE(by_name.has_value());
@@ -211,7 +211,7 @@ namespace tbx::tests
     TEST(Reflect, RegistryFindMissesUnregisteredNames)
     {
         // Arrange / Act
-        const auto missing = get_type_registry().find("NeverRegistered");
+        const auto missing = reflection::get_type_registry().find("NeverRegistered");
 
         // Assert
         EXPECT_FALSE(missing.has_value());

@@ -4,9 +4,9 @@
 namespace tbx
 {
     template <typename TBlock>
-    TypeRegistration<TBlock> register_block(std::string name)
+    reflection::TypeRegistration<TBlock> register_block(std::string name)
     {
-        auto registration = register_type<TBlock>(std::move(name));
+        auto registration = reflection::describe<TBlock>(std::move(name));
         auto operations = BlockOperations {};
         operations.add_default = [](Registry& registry, const ToyId entity) -> std::byte*
         {
@@ -24,7 +24,7 @@ namespace tbx
         {
             registry.remove<TBlock>(entity);
         };
-        get_block_registry().add(TypeSlot<TBlock>::hash, operations);
+        get_block_registry().add(reflection::TypeSlot<TBlock>::hash, operations);
         return registration;
     }
 }

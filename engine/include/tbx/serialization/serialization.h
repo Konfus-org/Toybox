@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/ecs/sandbox.h"
-#include "tbx/reflect/json_walker.h"
+#include "tbx/serialization/json_walker.h"
 #include "tbx/serialization/json.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
@@ -28,7 +28,7 @@ namespace tbx
     Result<Kit> save(const T& toy);
 
     /// @brief
-    /// Purpose: Serializes any registered type (register_type/register_block) to JSON.
+    /// Purpose: Serializes any registered type (reflection::describe / register_block) to JSON.
     template <typename T>
         requires(!std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
     Result<Json> save(const T& object);

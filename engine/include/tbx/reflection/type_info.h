@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace tbx
+namespace tbx::reflection
 {
     /// @brief
     /// Purpose: How the JSON walker interprets one reflected field's bytes.
@@ -316,7 +316,7 @@ namespace tbx
     /// @brief
     /// Purpose: Registers type T under the given name; chain .version()/.field() off the result.
     template <typename T>
-    TypeRegistration<T> register_type(std::string name)
+    TypeRegistration<T> describe(std::string name)
     {
         return TypeRegistration<T>(std::move(name));
     }

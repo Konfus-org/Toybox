@@ -4,6 +4,7 @@
 #include "tbx/ecs/sandbox.h"
 #include "tbx/math/transform.h"
 #include "tbx/serialization/json.h"
+#include "tbx/serialization/json_walker.h"
 
 namespace tbx
 {
@@ -53,12 +54,12 @@ namespace tbx
             for (const uint64 hash : get_block_registry().get_all_hashes())
             {
                 const auto operations = get_block_registry().find(hash);
-                const auto type = get_type_registry().find(hash);
+                const auto type = reflection::get_type_registry().find(hash);
                 if (!operations || !type)
                     continue;
                 if (!operations->has(registry, id))
                     continue;
-                blocks.push_back(json_write(type->get(), operations->get(registry, id)));
+                blocks.push_back(serialization::json_write(type->get(), operations->get(registry, id)));
             }
             toy_json["blocks"] = std::move(blocks);
             toys_json.push_back(std::move(toy_json));
@@ -118,14 +119,14 @@ namespace tbx
                     const auto type_name = block_json.value("type", std::string());
                     const uint64 hashed = hash(type_name);
                     const auto operations = get_block_registry().find(hashed);
-                    const auto type = get_type_registry().find(hashed);
+                    const auto type = reflection::get_type_registry().find(hashed);
                     if (!operations || !type)
                     {
                         TBX_WARN("kit references unknown block type '{}'; skipped", type_name);
                         continue;
                     }
                     std::byte* block = operations->add_default(registry, toy.get_id());
-                    auto read = json_read(type->get(), block, block_json);
+                    auto read = serialization::json_read(type->get(), block, block_json);
                     if (!read)
                         return std::unexpected(read.error());
                 }

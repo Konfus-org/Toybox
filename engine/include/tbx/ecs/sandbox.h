@@ -9,7 +9,7 @@
 #include "tbx/ecs/toy.h"
 #include "tbx/math/transform.h"
 #include "tbx/jobs/jobs.h"
-#include "tbx/reflect/json_walker.h"
+#include "tbx/serialization/json.h"
 #include <functional>
 #include <optional>
 #include <span>

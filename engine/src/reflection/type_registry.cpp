@@ -1,7 +1,7 @@
-#include "tbx/reflect/type_info.h"
+#include "tbx/reflection/type_info.h"
 #include "tbx/debug/log.h"
 
-namespace tbx
+namespace tbx::reflection
 {
     //// TYPE REGISTRY ////
 

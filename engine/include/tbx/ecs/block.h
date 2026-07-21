@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
-#include "tbx/reflect/type_info.h"
+#include "tbx/reflection/type_info.h"
 #include "tbx/ecs/registry.h"
 #include <cstddef>
 #include <optional>
@@ -49,11 +49,12 @@ namespace tbx
     TBX_API BlockRegistry& get_block_registry();
 
     /// @brief
-    /// Purpose: Registers a type as a Block (attachable to toys): reflection via register_type
+    /// Purpose: Registers a type as a Block (attachable to toys): reflection via
+    /// reflection::describe
     /// PLUS the ECS accessors kits and the editor need. Chain .version()/.field() off the
-    /// result exactly like register_type.
+    /// result exactly like describe.
     template <typename TBlock>
-    TypeRegistration<TBlock> register_block(std::string name);
+    reflection::TypeRegistration<TBlock> register_block(std::string name);
 }
 
 #include "tbx/ecs/block.inl"

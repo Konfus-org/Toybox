@@ -2,7 +2,7 @@
 #include "tbx/assets/load.h"
 #include "tbx/ecs/toy.h"
 #include "tbx/math/math.h"
-#include "tbx/reflect/json_walker.h"
+#include "tbx/serialization/json.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 #include <span>

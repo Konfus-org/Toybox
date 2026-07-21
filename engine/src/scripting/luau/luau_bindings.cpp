@@ -67,54 +67,54 @@ namespace tbx
     static const char* const XYZW_KEYS[] = {"x", "y", "z", "w"};
     static const char* const RGBA_KEYS[] = {"r", "g", "b", "a"};
 
-    static int push_field_value(lua_State* lua, const FieldInfo& field, const std::byte* block)
+    static int push_field_value(lua_State* lua, const reflection::FieldInfo& field, const std::byte* block)
     {
         const std::byte* at = block + field.offset;
         switch (field.kind)
         {
-            case FieldKind::BOOL:
+            case reflection::FieldKind::BOOL:
                 lua_pushboolean(lua, *reinterpret_cast<const bool*>(at));
                 return 1;
-            case FieldKind::INT32:
+            case reflection::FieldKind::INT32:
                 lua_pushnumber(lua, *reinterpret_cast<const int32*>(at));
                 return 1;
-            case FieldKind::UINT32:
+            case reflection::FieldKind::UINT32:
                 lua_pushnumber(lua, *reinterpret_cast<const uint32*>(at));
                 return 1;
-            case FieldKind::INT64:
+            case reflection::FieldKind::INT64:
                 lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const int64*>(at)));
                 return 1;
-            case FieldKind::UINT64:
+            case reflection::FieldKind::UINT64:
                 lua_pushnumber(lua, static_cast<double>(*reinterpret_cast<const uint64*>(at)));
                 return 1;
-            case FieldKind::FLOAT:
+            case reflection::FieldKind::FLOAT:
                 lua_pushnumber(lua, *reinterpret_cast<const float*>(at));
                 return 1;
-            case FieldKind::DOUBLE:
+            case reflection::FieldKind::DOUBLE:
                 lua_pushnumber(lua, *reinterpret_cast<const double*>(at));
                 return 1;
-            case FieldKind::STRING:
+            case reflection::FieldKind::STRING:
                 lua_pushstring(lua, reinterpret_cast<const std::string*>(at)->c_str());
                 return 1;
-            case FieldKind::VEC2:
+            case reflection::FieldKind::VEC2:
                 push_vector_table(lua, &reinterpret_cast<const Vec2*>(at)->x, XYZW_KEYS, 2);
                 return 1;
-            case FieldKind::VEC3:
+            case reflection::FieldKind::VEC3:
                 push_vector_table(lua, &reinterpret_cast<const Vec3*>(at)->x, XYZW_KEYS, 3);
                 return 1;
-            case FieldKind::VEC4:
+            case reflection::FieldKind::VEC4:
                 push_vector_table(lua, &reinterpret_cast<const Vec4*>(at)->x, XYZW_KEYS, 4);
                 return 1;
-            case FieldKind::QUAT:
+            case reflection::FieldKind::QUAT:
                 push_vector_table(lua, &reinterpret_cast<const Quat*>(at)->x, XYZW_KEYS, 4);
                 return 1;
-            case FieldKind::COLOR:
+            case reflection::FieldKind::COLOR:
                 push_vector_table(lua, &reinterpret_cast<const Color*>(at)->r, RGBA_KEYS, 4);
                 return 1;
-            case FieldKind::UUID:
+            case reflection::FieldKind::UUID:
                 lua_pushstring(lua, reinterpret_cast<const Uuid*>(at)->to_string().c_str());
                 return 1;
-            case FieldKind::ASSET:
+            case reflection::FieldKind::ASSET:
             {
                 const auto [id, asset_path] = field.read_asset(block);
                 if (id.is_nil() && !asset_path.empty())
@@ -123,14 +123,14 @@ namespace tbx
                     lua_pushstring(lua, id.to_string().c_str());
                 return 1;
             }
-            case FieldKind::ENUM:
+            case reflection::FieldKind::ENUM:
             {
                 auto raw = uint64(0);
                 std::memcpy(&raw, at, field.size_bytes);
                 lua_pushnumber(lua, static_cast<double>(raw));
                 return 1;
             }
-            case FieldKind::ASSET_LIST:
+            case reflection::FieldKind::ASSET_LIST:
             {
                 const auto ids = field.read_asset_list(block);
                 lua_createtable(lua, static_cast<int>(ids.size()), 0);
@@ -141,7 +141,7 @@ namespace tbx
                 }
                 return 1;
             }
-            case FieldKind::TYPE:
+            case reflection::FieldKind::TYPE:
                 TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 lua_pushnil(lua);
                 return 1;
@@ -150,54 +150,54 @@ namespace tbx
         return 1;
     }
 
-    static void write_field_value(lua_State* lua, const int value_index, const FieldInfo& field, std::byte* block)
+    static void write_field_value(lua_State* lua, const int value_index, const reflection::FieldInfo& field, std::byte* block)
     {
         std::byte* at = block + field.offset;
         switch (field.kind)
         {
-            case FieldKind::BOOL:
+            case reflection::FieldKind::BOOL:
                 *reinterpret_cast<bool*>(at) = lua_toboolean(lua, value_index) != 0;
                 return;
-            case FieldKind::INT32:
+            case reflection::FieldKind::INT32:
                 *reinterpret_cast<int32*>(at) = static_cast<int32>(luaL_checknumber(lua, value_index));
                 return;
-            case FieldKind::UINT32:
+            case reflection::FieldKind::UINT32:
                 *reinterpret_cast<uint32*>(at) = static_cast<uint32>(luaL_checknumber(lua, value_index));
                 return;
-            case FieldKind::INT64:
+            case reflection::FieldKind::INT64:
                 *reinterpret_cast<int64*>(at) = static_cast<int64>(luaL_checknumber(lua, value_index));
                 return;
-            case FieldKind::UINT64:
+            case reflection::FieldKind::UINT64:
                 *reinterpret_cast<uint64*>(at) = static_cast<uint64>(luaL_checknumber(lua, value_index));
                 return;
-            case FieldKind::FLOAT:
+            case reflection::FieldKind::FLOAT:
                 *reinterpret_cast<float*>(at) = static_cast<float>(luaL_checknumber(lua, value_index));
                 return;
-            case FieldKind::DOUBLE:
+            case reflection::FieldKind::DOUBLE:
                 *reinterpret_cast<double*>(at) = luaL_checknumber(lua, value_index);
                 return;
-            case FieldKind::STRING:
+            case reflection::FieldKind::STRING:
                 *reinterpret_cast<std::string*>(at) = luaL_checkstring(lua, value_index);
                 return;
-            case FieldKind::VEC2:
+            case reflection::FieldKind::VEC2:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec2*>(at)->x, XYZW_KEYS, 2);
                 return;
-            case FieldKind::VEC3:
+            case reflection::FieldKind::VEC3:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec3*>(at)->x, XYZW_KEYS, 3);
                 return;
-            case FieldKind::VEC4:
+            case reflection::FieldKind::VEC4:
                 read_vector_table(lua, value_index, &reinterpret_cast<Vec4*>(at)->x, XYZW_KEYS, 4);
                 return;
-            case FieldKind::QUAT:
+            case reflection::FieldKind::QUAT:
                 read_vector_table(lua, value_index, &reinterpret_cast<Quat*>(at)->x, XYZW_KEYS, 4);
                 return;
-            case FieldKind::COLOR:
+            case reflection::FieldKind::COLOR:
                 read_vector_table(lua, value_index, &reinterpret_cast<Color*>(at)->r, RGBA_KEYS, 4);
                 return;
-            case FieldKind::UUID:
+            case reflection::FieldKind::UUID:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
                 return;
-            case FieldKind::ASSET:
+            case reflection::FieldKind::ASSET:
             {
                 auto text = std::string(luaL_checkstring(lua, value_index));
                 auto stripped = text;
@@ -209,13 +209,13 @@ namespace tbx
                     field.write_asset(block, id, std::string());
                 return;
             }
-            case FieldKind::ENUM:
+            case reflection::FieldKind::ENUM:
             {
                 const auto raw = static_cast<uint64>(luaL_checknumber(lua, value_index));
                 std::memcpy(at, &raw, field.size_bytes);
                 return;
             }
-            case FieldKind::ASSET_LIST:
+            case reflection::FieldKind::ASSET_LIST:
             {
                 luaL_checktype(lua, value_index, LUA_TTABLE);
                 auto ids = std::vector<Uuid>();
@@ -229,7 +229,7 @@ namespace tbx
                 field.write_asset_list(block, ids);
                 return;
             }
-            case FieldKind::TYPE:
+            case reflection::FieldKind::TYPE:
                 TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 return;
         }
@@ -249,11 +249,11 @@ namespace tbx
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = get_type_registry().find(data.type_hash);
+        const auto type = reflection::get_type_registry().find(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
-        for (const FieldInfo& field : type->get().fields)
+        for (const reflection::FieldInfo& field : type->get().fields)
             if (field.name == field_name)
                 return push_field_value(lua, field, block);
         luaL_error(lua, "block '%s' has no field '%s'", type->get().name.c_str(), field_name);
@@ -264,11 +264,11 @@ namespace tbx
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = get_type_registry().find(data.type_hash);
+        const auto type = reflection::get_type_registry().find(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
-        for (const FieldInfo& field : type->get().fields)
+        for (const reflection::FieldInfo& field : type->get().fields)
         {
             if (field.name == field_name)
             {
@@ -325,7 +325,7 @@ namespace tbx
         const char* key = luaL_checkstring(lua, 2);
         const uint64 hashed = hash(key);
         const auto operations = get_block_registry().find(hashed);
-        const auto type = get_type_registry().find(hashed);
+        const auto type = reflection::get_type_registry().find(hashed);
         if (!operations || !type)
         {
             luaL_error(lua, "'%s' is not a registered block type", key);
@@ -337,7 +337,7 @@ namespace tbx
             return 0;
         }
         std::byte* block = operations->add_default(data.sandbox->get_registry(), data.entity);
-        for (const FieldInfo& field : type->get().fields)
+        for (const reflection::FieldInfo& field : type->get().fields)
         {
             lua_getfield(lua, 3, field.name.c_str());
             if (!lua_isnil(lua, -1))
@@ -805,7 +805,7 @@ namespace tbx
         lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
-        // Block metatable: field access straight through TypeInfo.
+        // Block metatable: field access straight through reflection::TypeInfo.
         luaL_newmetatable(lua, BLOCK_METATABLE);
         lua_pushcfunction(lua, block_index, "block_index");
         lua_setfield(lua, -2, "__index");

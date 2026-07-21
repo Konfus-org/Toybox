@@ -11,7 +11,7 @@
 #include "tbx/events/events.h"
 #include "tbx/files/watcher.h"
 #include "tbx/jobs/jobs.h"
-#include "tbx/reflect/type_info.h"
+#include "tbx/reflection/type_info.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
 #include "tbx/utils/typedefs.h"
