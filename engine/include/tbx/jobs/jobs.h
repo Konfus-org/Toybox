@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/jobs/task.h"
 #include <condition_variable>
@@ -17,7 +18,7 @@ namespace tbx
     /// @brief
     /// Purpose: Awaitable returned by Jobs::worker() / Jobs::main(); resumes the coroutine on
     /// the chosen thread.
-    struct ScheduleOn
+    struct TBX_API ScheduleOn
     {
         bool await_ready() const noexcept
         {
@@ -39,7 +40,7 @@ namespace tbx
     /// methods are callable from any thread except drain_main(), which the main loop owns. The
     /// frame is phase-structured: structural sandbox mutation happens on the main thread only,
     /// jobs read/write disjoint data within a phase — the schedule points are the synchronization.
-    class Jobs final
+    class TBX_API Jobs final
     {
       public:
         Jobs();

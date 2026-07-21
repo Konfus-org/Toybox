@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/events/events.h"
 #include <memory>
 #include <string>
@@ -8,7 +9,7 @@ namespace tbx
     /// @brief
     /// Purpose: Window creation parameters; headless skips the OS window and GL context
     /// entirely (tests/tooling).
-    struct WindowDescription
+    struct TBX_API WindowDescription
     {
         std::string title = "Toybox";
         int width = 1600;
@@ -22,7 +23,7 @@ namespace tbx
     /// escape it.
     /// @details
     /// Ownership: Owns the OS window and GL context via RAII. Thread Safety: Main thread only.
-    class Window final
+    class TBX_API Window final
     {
       public:
         explicit Window(const WindowDescription& description);

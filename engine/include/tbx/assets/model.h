@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include <vector>
 
 namespace tbx
@@ -6,7 +7,7 @@ namespace tbx
     /// @brief
     /// Purpose: Decoded triangle mesh asset (assimp-imported, meshes merged, triangulated):
     /// interleaved position(3) + normal(3) + uv(2) floats.
-    struct Model
+    struct TBX_API Model
     {
         std::vector<float> vertices = {};
     };

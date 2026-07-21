@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include <format>
 #include <string_view>
 
@@ -19,7 +20,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Emits one formatted line; implemented by the selected logging backend.
-    void write_log(LogLevel level, std::string_view message);
+    TBX_API void write_log(LogLevel level, std::string_view message);
 
     /// @brief
     /// Purpose: Logs at trace level with std::format-style formatting.

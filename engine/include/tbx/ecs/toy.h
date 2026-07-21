@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/core/uuid.h"
 #include "tbx/ecs/registry.h"
@@ -13,7 +14,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Engine-internal identity every toy carries (runtime uuid + display name).
-    struct ToyHandle
+    struct TBX_API ToyHandle
     {
         Uuid uuid = {};
         std::string name = {};
@@ -22,14 +23,14 @@ namespace tbx
 
     /// @brief
     /// Purpose: Engine-internal sticker names slapped on a toy; compared by name hash.
-    struct StickerSet
+    struct TBX_API StickerSet
     {
         std::vector<std::string> names = {};
     };
 
     /// @brief
     /// Purpose: Engine-internal parent link forming the transform hierarchy.
-    struct ParentLink
+    struct TBX_API ParentLink
     {
         ToyId parent = NULL_TOY;
     };
@@ -40,7 +41,7 @@ namespace tbx
     /// @details
     /// Ownership: A view — the Sandbox owns the toy. Thread Safety: Main thread only
     /// (structural mutation rule).
-    class Toy final
+    class TBX_API Toy final
     {
       public:
         Toy() = default;

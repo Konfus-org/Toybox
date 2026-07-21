@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include <string>
 #include <vector>
@@ -8,7 +9,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: GPU shader module — RAII: the destructor (defined by the selected gfx
     /// backend) releases the program. Obtain via compile_shader().
-    class Shader final
+    class TBX_API Shader final
     {
       public:
         explicit Shader(uint32 id)
@@ -50,7 +51,7 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: One uniform a shader exposes, discovered by reflect().
-    struct UniformInfo
+    struct TBX_API UniformInfo
     {
         std::string name = {};
         UniformKind kind = UniformKind::UNKNOWN;
@@ -59,7 +60,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Everything a shader exposes — the schema materials program against, so any
     /// arbitrary shader "just works" without per-shader engine code.
-    struct ShaderInfo
+    struct TBX_API ShaderInfo
     {
         std::vector<UniformInfo> uniforms = {};
     };

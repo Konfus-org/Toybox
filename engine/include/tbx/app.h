@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/assets/assets.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/ecs/sandbox.h"
@@ -15,7 +16,7 @@ namespace tbx
     /// Purpose: The application, as pure data: configuration in, per-frame data out. The whole
     /// runtime is one loop — `while (tbx::run(app)) { gpu::begin_frame(); ... }` — and run()
     /// fills the frame fields each iteration.
-    struct App
+    struct TBX_API App
     {
         // Configuration (read once, at the first run() call).
         std::string title = "Toybox";
@@ -36,52 +37,52 @@ namespace tbx
     /// Purpose: Runs one frame: presents the previous one, pumps OS events/jobs/events,
     /// updates streaming/scripts/fixed-step, and stamps the App's frame data. The first call
     /// boots the subsystems; returning false has already shut them down.
-    bool run(App& app);
+    TBX_API bool run(App& app);
 
     /// @brief
     /// Purpose: Requests a clean exit — the next run() returns false.
-    void quit();
+    TBX_API void quit();
 
     /// @brief
     /// Purpose: True between the first run() and shutdown — guards the get_* accessors for
     /// callers (script bindings, tools) that may exist without a running app.
-    bool is_app_running();
+    TBX_API bool is_app_running();
 
     /// @brief
     /// Purpose: Registers every builtin block (Transform, Camera, MeshRenderer,
     /// DirectionalLight, RigidBody, Collider, Script, AudioListener, AudioSource) — THE one registration call.
     /// Idempotent; run() and every subsystem entry point call it, tests may too.
-    void register_builtin_blocks();
+    TBX_API void register_builtin_blocks();
 
     // The subsystems run() booted, for hosts and systems (RAII objects owned by the runtime;
     // valid between the first run() and the run() that returns false).
 
     /// @brief
     /// Purpose: The asset system.
-    Assets& get_assets();
+    TBX_API Assets& get_assets();
 
     /// @brief
     /// Purpose: The event signals.
-    Events& get_events();
+    TBX_API Events& get_events();
 
     /// @brief
     /// Purpose: The worker pool.
-    Jobs& get_jobs();
+    TBX_API Jobs& get_jobs();
 
     /// @brief
     /// Purpose: THE world container.
-    Sandbox& get_sandbox();
+    TBX_API Sandbox& get_sandbox();
 
     /// @brief
     /// Purpose: The scripting system.
-    Scripts& get_scripts();
+    TBX_API Scripts& get_scripts();
 
     /// @brief
     /// Purpose: The document App::ui loaded at boot (0 when none) — pass it to
     /// ui::set_inline_style and friends.
-    uint64 get_ui_document();
+    TBX_API uint64 get_ui_document();
 
     /// @brief
     /// Purpose: The OS window.
-    Window& get_window();
+    TBX_API Window& get_window();
 }

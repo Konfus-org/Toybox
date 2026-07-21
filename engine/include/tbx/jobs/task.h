@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include <coroutine>
 #include <exception>
 #include <utility>
@@ -9,7 +10,7 @@ namespace tbx
     /// @brief
     /// Purpose: Shared promise plumbing for Task<T>: lazy start plus symmetric transfer to the
     /// awaiting coroutine on completion. Not for direct use — Task's promise types derive it.
-    struct TaskFinalAwaiter
+    struct TBX_API TaskFinalAwaiter
     {
         bool await_ready() noexcept
         {
@@ -27,7 +28,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Base state every Task promise carries: who to resume when the task finishes.
-    struct TaskPromiseBase
+    struct TBX_API TaskPromiseBase
     {
         std::coroutine_handle<> continuation = std::noop_coroutine();
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
@@ -21,6 +22,12 @@ namespace tbx
     /// reads files; tests inject in-memory maps; the asset system replaces it later.
     using KitResolver = std::function<Result<Json>(const std::string& reference)>;
 
+    class Sandbox;
+
+    // Declared ahead of the class so the friend declaration below shares its TBX_API linkage
+    // (the full doc comment lives in serialization/serialization.h).
+    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
+
     /// @brief
     /// Purpose: How a sandbox-level kit entry loads — set ONLY at the sandbox level; nested kit
     /// references always load with whatever pulls them in.
@@ -33,7 +40,7 @@ namespace tbx
     /// @brief
     /// Purpose: Handle to one instantiated kit; despawn(instance) removes exactly the toys it
     /// spawned (including toys from nested kit references).
-    struct KitInstance
+    struct TBX_API KitInstance
     {
         uint64 id = 0;
     };
@@ -45,7 +52,7 @@ namespace tbx
     /// Ownership: Owns the registry and all kit bookkeeping. Thread Safety: Structural
     /// mutation on the main thread only; streaming resolves kit bodies on workers and splices
     /// on the main thread via Jobs.
-    class Sandbox final
+    class TBX_API Sandbox final
     {
       public:
         /// @brief
@@ -189,7 +196,7 @@ namespace tbx
         bool _has_stream_focus = false;
 
         friend class Toy;
-        friend Json save(Sandbox& sandbox, std::span<const Toy> toys);
+        friend TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
     };
 }
 

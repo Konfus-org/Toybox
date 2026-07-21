@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/audio_clip.h"
 #include "tbx/assets/material.h"
@@ -32,7 +33,7 @@ namespace tbx
     /// Ownership: Owns decoded assets and the file watcher. Thread Safety: the identity and
     /// storage maps are mutex-guarded; load() decodes on a worker and stores on the main
     /// thread, load_now()/acquire() decode inline on the calling thread.
-    class Assets final
+    class TBX_API Assets final
     {
       public:
         Assets(Jobs& jobs, Events& events);

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include <cstring>
 #include <mutex>
@@ -11,7 +12,7 @@ namespace tbx
     /// @brief
     /// Purpose: One queued-event record: which signal to dispatch through and where its payload
     /// lives in the frame arena.
-    struct QueuedEvent
+    struct TBX_API QueuedEvent
     {
         void (*dispatch)(void* signal, const void* payload) = nullptr;
         void* signal = nullptr;
@@ -24,7 +25,7 @@ namespace tbx
     /// Ownership: Owned by Events. Thread Safety: push() is safe from any thread; drain() runs
     /// on the main thread once per frame (Engine::pump()). Events emitted during a drain land
     /// in the next frame — deterministic, no re-entrancy.
-    class EventQueue final
+    class TBX_API EventQueue final
     {
       public:
         /// @brief

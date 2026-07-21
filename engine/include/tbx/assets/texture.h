@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include <cstddef>
 #include <vector>
 
@@ -6,7 +7,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
-    struct Texture
+    struct TBX_API Texture
     {
         int width = 0;
         int height = 0;

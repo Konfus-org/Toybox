@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/color.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/gfx/depth_target.h"
@@ -21,7 +22,7 @@ namespace tbx::gpu
     /// their load operation, explicit begin/end. With no target set the pass renders to the
     /// window swapchain; a color_target renders offscreen; a depth_target is a depth-only
     /// pass (shadow maps).
-    struct RenderPassDescription
+    struct TBX_API RenderPassDescription
     {
         std::optional<std::reference_wrapper<const RenderTarget>> color_target = {};
         std::optional<std::reference_wrapper<const DepthTarget>> depth_target = {};

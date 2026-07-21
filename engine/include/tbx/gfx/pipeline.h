@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/gfx/shader.h"
 #include <functional>
@@ -27,7 +28,7 @@ namespace tbx::gpu
     /// Purpose: Everything a draw needs baked into one immutable object, modern-API style
     /// (Vulkan/Metal/WebGPU pipeline state): the shader plus depth/cull/blend state. No
     /// loose state toggles exist — changing state means binding a different pipeline.
-    struct PipelineDescription
+    struct TBX_API PipelineDescription
     {
         std::reference_wrapper<const Shader> shader;
         bool is_depth_test_enabled = true;
@@ -39,7 +40,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: A baked pipeline-state object; bind with set_pipeline(), then draw(). RAII
     /// via the backend. Obtain via make_pipeline().
-    class Pipeline final
+    class TBX_API Pipeline final
     {
       public:
         explicit Pipeline(PipelineDescription description)

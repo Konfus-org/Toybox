@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/core/hash.h"
 #include "tbx/serialization/json.h"
@@ -43,7 +44,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: One reflected field: where it lives in the object and how to read/write it.
-    struct FieldInfo
+    struct TBX_API FieldInfo
     {
         std::string name = {};
         size offset = 0;
@@ -62,7 +63,7 @@ namespace tbx
     /// @brief
     /// Purpose: Runtime reflection record for one registered type — the single schema behind
     /// serialization, kits, script bindings, and the future editor inspector.
-    struct TypeInfo
+    struct TBX_API TypeInfo
     {
         std::string name = {};
         uint64 name_hash = 0;
@@ -89,8 +90,17 @@ namespace tbx
     /// @details
     /// Ownership: Owns every TypeInfo; entries live for the process. Thread Safety: Register on
     /// the main thread during startup; lookups are lock-free reads afterwards.
-    class TypeRegistry final
+    class TBX_API TypeRegistry final
     {
+      public:
+        TypeRegistry() = default;
+
+      public:
+        // The registry owns its records; copying is meaningless (and dll export would try to
+        // instantiate the deleted vector<unique_ptr> copy otherwise).
+        TypeRegistry(const TypeRegistry&) = delete;
+        TypeRegistry& operator=(const TypeRegistry&) = delete;
+
       public:
         /// @brief
         /// Purpose: Adds (or replaces, with a warning) a type record and returns it.
@@ -114,7 +124,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The process-wide registry instance.
-    TypeRegistry& get_type_registry();
+    TBX_API TypeRegistry& get_type_registry();
 
     /// @brief
     /// Purpose: Detects AssetHandle<T> fields so they reflect as FieldKind::ASSET.

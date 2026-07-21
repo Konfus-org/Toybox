@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/reflect/type_info.h"
 #include "tbx/ecs/registry.h"
@@ -11,7 +12,7 @@ namespace tbx
     /// @brief
     /// Purpose: Type-erased ECS accessors for one registered block type, so kit save/load and
     /// the future editor can touch any toy's blocks through the reflection schema alone.
-    struct BlockOperations
+    struct TBX_API BlockOperations
     {
         std::byte* (*add_default)(Registry&, ToyId) = nullptr;
         std::byte* (*get)(Registry&, ToyId) = nullptr;
@@ -24,7 +25,7 @@ namespace tbx
     /// @details
     /// Ownership: Process-lifetime, like the type registry. Thread Safety: Register on the main
     /// thread during startup; lookups are reads afterwards.
-    class BlockRegistry final
+    class TBX_API BlockRegistry final
     {
       public:
         /// @brief
@@ -45,7 +46,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The process-wide block-operations registry.
-    BlockRegistry& get_block_registry();
+    TBX_API BlockRegistry& get_block_registry();
 
     /// @brief
     /// Purpose: Registers a type as a Block (attachable to toys): reflection via register_type

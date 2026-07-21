@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -14,7 +15,7 @@ namespace tbx
     /// Ownership: Owns the polling thread; stops on destruction (RAII). Thread Safety: The
     /// callback runs ON THE WATCHER THREAD — callers marshal to the main thread themselves
     /// (e.g. via jobs::post_main).
-    class FileWatcher final
+    class TBX_API FileWatcher final
     {
       public:
         FileWatcher(

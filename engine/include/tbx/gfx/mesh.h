@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 
 namespace tbx::gpu
@@ -6,7 +7,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: GPU mesh — RAII: the destructor (defined by the selected gfx backend) releases
     /// the buffers. Obtain via upload_mesh().
-    class Mesh final
+    class TBX_API Mesh final
     {
       public:
         Mesh(uint32 vertex_array, uint32 vertex_buffer, int vertex_count)

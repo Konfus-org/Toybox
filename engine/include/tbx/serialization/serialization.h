@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/result.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/reflect/json_walker.h"
@@ -15,7 +16,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Serializes chosen toys (blocks, stickers, parent links, bounds) as a kit body.
-    Json save(Sandbox& sandbox, std::span<const Toy> toys);
+    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
 
     /// @brief
     /// Purpose: Serializes the whole sandbox — every live toy — as a kit body.
@@ -40,7 +41,7 @@ namespace tbx
     /// Purpose: Instantiates a kit body into a sandbox (delegates to Sandbox::spawn). Nested
     /// kit references resolve recursively through the resolver; cycles are load errors; root
     /// position offsets every parentless toy.
-    Result<KitInstance> load(
+    TBX_API Result<KitInstance> load(
         Sandbox& sandbox,
         const Json& kit,
         const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f),

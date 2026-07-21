@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/assets/asset_handle.h"
@@ -17,7 +18,7 @@ namespace tbx
     /// (scripting/luau/, later csharp/...) implements it and claims sources by extension.
     /// @details
     /// Ownership: Owned by Scripts. Thread Safety: Main thread only.
-    class ScriptBackend
+    class TBX_API ScriptBackend
     {
       public:
         virtual ~ScriptBackend() = default;
@@ -62,7 +63,7 @@ namespace tbx
     /// @details
     /// Ownership: Owns every backend (compiled-in ones from TBX_SCRIPTING_BACKENDS plus any the
     /// game adds). Thread Safety: Main thread only.
-    class Scripts final
+    class TBX_API Scripts final
     {
       public:
         Scripts(Sandbox& sandbox, Events& events);

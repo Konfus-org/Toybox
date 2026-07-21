@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 
 namespace tbx::gpu
@@ -6,7 +7,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Depth-only render target for shadow passes — RAII via the backend.
     /// Obtain via make_depth_target(); render into it via a depth-only render pass.
-    class DepthTarget final
+    class TBX_API DepthTarget final
     {
       public:
         DepthTarget(uint32 framebuffer, uint32 depth_texture, int resolution)

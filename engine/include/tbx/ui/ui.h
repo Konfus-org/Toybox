@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
 #include <string>
@@ -10,29 +11,29 @@ namespace tbx::ui
 {
     /// @brief
     /// Purpose: Loads a UI document from RML text and shows it; returns its id for unloading.
-    Result<uint64> load_document(const std::string& document);
+    TBX_API Result<uint64> load_document(const std::string& document);
 
     /// @brief
     /// Purpose: Renders every visible document on top of the frame; call after 3D drawing,
     /// before tbx::run() presents.
-    void render();
+    TBX_API void render();
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
-    void reset();
+    TBX_API void reset();
 
     /// @brief
     /// Purpose: Replaces an element's inline style by its id — the minimal dynamic-HUD hook.
-    void set_inline_style(
+    TBX_API void set_inline_style(
         uint64 document_id,
         const std::string& element_id,
         const std::string& style);
 
     /// @brief
     /// Purpose: Closes one document by the id load_document returned.
-    void unload_document(uint64 document_id);
+    TBX_API void unload_document(uint64 document_id);
 
     /// @brief
     /// Purpose: Advances animations/layout; called by tbx::run() every frame.
-    void update(float delta_time);
+    TBX_API void update(float delta_time);
 }

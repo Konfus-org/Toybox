@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/typedefs.h"
 #include <functional>
 #include <string>
@@ -8,7 +9,7 @@ namespace tbx
     /// @brief
     /// Purpose: 128-bit random identity, stable across runs (serialized into kits), unlike Toy
     /// ids which are per-session registry handles.
-    struct Uuid
+    struct TBX_API Uuid
     {
         uint64 hi = 0;
         uint64 lo = 0;

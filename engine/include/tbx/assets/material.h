@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/shader_source.h"
 #include "tbx/assets/texture.h"
@@ -13,7 +14,7 @@ namespace tbx
     /// free-form uniforms bag applied through shader reflection so arbitrary shaders just
     /// work. The .mat file references shader/texture by asset-relative path; decoding resolves
     /// them to handles.
-    struct Material
+    struct TBX_API Material
     {
         AssetHandle<ShaderSource> fragment = {};
         AssetHandle<Texture> texture = {};

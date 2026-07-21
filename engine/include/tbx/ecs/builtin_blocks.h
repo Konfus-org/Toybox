@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/material.h"
 #include "tbx/assets/model.h"
@@ -27,7 +28,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
-    struct Collider
+    struct TBX_API Collider
     {
         Shape shape = Shape::BOX;
         Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);
@@ -38,7 +39,7 @@ namespace tbx
     /// @brief
     /// Purpose: A viewpoint: perspective settings; position/orientation come from Transform
     /// (looks along its -Z). The first camera renders.
-    struct Camera
+    struct TBX_API Camera
     {
         float fov_degrees = 60.0f;
         float near_plane = 0.1f;
@@ -48,7 +49,7 @@ namespace tbx
     /// @brief
     /// Purpose: The sun: colored directional light casting shadows; direction is the owning
     /// toy's Transform forward (-Z).
-    struct DirectionalLight
+    struct TBX_API DirectionalLight
     {
         Color color = {};
         float intensity = 1.0f;
@@ -58,7 +59,7 @@ namespace tbx
     /// Purpose: Makes a toy visible: an imported model when the handle is set, otherwise a
     /// builtin primitive by name (tbx::builtin), textured when the texture handle is set,
     /// always tinted.
-    struct MeshRenderer
+    struct TBX_API MeshRenderer
     {
         AssetHandle<Material> material = {};
         AssetHandle<Model> model = {};
@@ -70,7 +71,7 @@ namespace tbx
     /// @brief
     /// Purpose: Makes a collider toy dynamic: it falls, collides, and writes its simulated
     /// pose back into Transform. Colliders without one are static scenery.
-    struct RigidBody
+    struct TBX_API RigidBody
     {
         float mass = 1.0f;
         bool is_kinematic = false;
@@ -79,7 +80,7 @@ namespace tbx
     /// @brief
     /// Purpose: The block that makes a toy scripted: names a loaded script source. A script
     /// module exposes start(toy), update(toy, delta_time), and fixed_update(toy, delta_time).
-    struct Script
+    struct TBX_API Script
     {
         AssetHandle<ScriptSource> source = {};
     };
@@ -87,7 +88,7 @@ namespace tbx
     /// @brief
     /// Purpose: The sky: an equirectangular texture rendered behind everything. One per
     /// sandbox (the first wins), usually on a dedicated environment toy.
-    struct Sky
+    struct TBX_API Sky
     {
         AssetHandle<Texture> texture = {};
         Color tint = {};
@@ -97,7 +98,7 @@ namespace tbx
     /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the
     /// rendered scene in order. Each shader samples u_scene (plus u_resolution and u_time).
     /// One per sandbox (the first wins).
-    struct PostProcessing
+    struct TBX_API PostProcessing
     {
         std::vector<AssetHandle<ShaderSource>> shaders = {};
     };
@@ -105,7 +106,7 @@ namespace tbx
     /// @brief
     /// Purpose: The one engine-core spatial block: local position/rotation/scale. Hierarchy
     /// lives on the Sandbox (set_parent/get_parent), not inside the block.
-    struct Transform
+    struct TBX_API Transform
     {
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
         Quat rotation = Quat(1.0f, 0.0f, 0.0f, 0.0f);

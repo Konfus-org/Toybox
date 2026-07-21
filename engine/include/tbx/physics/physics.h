@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/api.h"
 #include "tbx/core/math.h"
 #include "tbx/ecs/builtin_blocks.h"
 #include "tbx/ecs/sandbox.h"
@@ -9,7 +10,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: What a raycast hit: the toy, where, and how far along the ray.
-    struct RaycastHit
+    struct TBX_API RaycastHit
     {
         ToyId toy = NULL_TOY;
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
@@ -24,7 +25,7 @@ namespace tbx::physics
 {
     /// @brief
     /// Purpose: Casts a ray against the simulated world; empty when nothing is hit.
-    std::optional<RaycastHit> raycast(
+    TBX_API std::optional<RaycastHit> raycast(
         const Vec3& origin,
         const Vec3& direction,
         float max_distance);
@@ -32,11 +33,11 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Tears the simulation down; the next step() starts fresh. run() calls this at
     /// shutdown, tests between scenarios.
-    void reset();
+    TBX_API void reset();
 
     /// @brief
     /// Purpose: Advances the simulation one fixed step: mirrors collider toys into the physics
     /// world, steps, writes dynamic poses back to Transforms, and emits collision events
     /// (delivered at the next pump drain).
-    void update(Sandbox& sandbox, Events& events, float fixed_delta_time);
+    TBX_API void update(Sandbox& sandbox, Events& events, float fixed_delta_time);
 }

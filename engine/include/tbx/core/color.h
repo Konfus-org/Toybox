@@ -1,10 +1,11 @@
 #pragma once
+#include "tbx/core/api.h"
 
 namespace tbx
 {
     /// @brief
     /// Purpose: Linear-space RGBA color, components in [0, 1] (engine-owned, backend-free).
-    struct Color
+    struct TBX_API Color
     {
         float r = 1.0f;
         float g = 1.0f;
