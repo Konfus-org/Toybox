@@ -3,6 +3,7 @@
 #include "tbx/app.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/ui/ui.h"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -52,6 +53,7 @@ static int run_scene_selftest()
     float shadowed_brightness = -1.0f;
     float unshadowed_brightness = -1.0f;
     bool cube_is_red = false;
+    bool ui_panel_visible = false;
     bool reflection_works = false;
     tbx::Toy camera = {};
 
@@ -87,8 +89,23 @@ static int run_scene_selftest()
                 .position = tbx::Vec3(-2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 
+        if (app.frame == 1)
+        {
+            const auto document = tbx::ui::load_document(R"(<rml>
+<head><style>
+body { width: 100%; height: 100%; }
+div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
+      background-color: #00ff00; }
+</style></head>
+<body><div/></body>
+</rml>)");
+            if (!document)
+                tbx::log_error("ui selftest document: {}", document.error());
+        }
+
         tbx::gpu::begin_frame();
         tbx::gpu::render(sandbox);
+        tbx::ui::render();
 
         const auto& window = tbx::get_window();
         const tbx::Color center =
@@ -130,19 +147,26 @@ out vec4 c; void main() { c = vec4(1.0); })");
             shadowed_brightness = center.r + center.g + center.b;
         if (app.frame == 6)
             unshadowed_brightness = center.r + center.g + center.b;
+        if (app.frame == 6)
+        {
+            // The UI panel owns the top-left corner (GL readback is y-up).
+            const tbx::Color corner = tbx::gpu::read_pixel(60, window.get_height() - 60);
+            ui_panel_visible = corner.g > 0.8f && corner.r < 0.2f;
+        }
 
         if (app.frame >= 6)
             tbx::quit();
     }
 
     const bool shadow_darkens = unshadowed_brightness > shadowed_brightness + 0.5f;
-    const bool passed = cube_is_red && shadow_darkens && reflection_works;
+    const bool passed = cube_is_red && shadow_darkens && reflection_works && ui_panel_visible;
     tbx::log_info(
-        "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} reflection={} -> {}",
+        "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} reflection={} ui={} -> {}",
         cube_is_red,
         shadowed_brightness,
         unshadowed_brightness,
         reflection_works,
+        ui_panel_visible,
         passed ? "PASSED" : "FAILED");
     return passed ? 0 : 1;
 }

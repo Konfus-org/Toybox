@@ -1,6 +1,8 @@
 #include "tbx/gfx/gpu.h"
 #include "tbx/core/log.h"
 #include <glad/glad.h>
+#include <cstddef>
+#include <memory>
 #include <numeric>
 
 namespace tbx::gpu
@@ -109,6 +111,145 @@ namespace tbx::gpu
         glBindVertexArray(mesh.get_vertex_array());
         glDrawArrays(GL_TRIANGLES, 0, mesh.get_vertex_count());
         glBindVertexArray(0);
+    }
+
+    /// @brief
+    /// Purpose: Lazily-built GL objects for the 2D UI path.
+    struct UiPipeline
+    {
+        GLuint program = 0;
+        GLuint vertex_array = 0;
+        GLuint vertex_buffer = 0;
+        GLuint index_buffer = 0;
+        GLuint white_texture = 0;
+    };
+
+    static UiPipeline g_ui = {};
+
+    static constexpr const char* UI_VERTEX_SHADER = R"(#version 460 core
+layout(location = 0) in vec2 in_position;
+layout(location = 1) in vec4 in_color;
+layout(location = 2) in vec2 in_uv;
+uniform vec2 in_screen;
+uniform vec2 in_translation;
+out vec4 v_color;
+out vec2 v_uv;
+void main()
+{
+    vec2 at = in_position + in_translation;
+    v_color = in_color;
+    v_uv = in_uv;
+    gl_Position = vec4(at.x / in_screen.x * 2.0 - 1.0, 1.0 - at.y / in_screen.y * 2.0, 0.0, 1.0);
+})";
+
+    static constexpr const char* UI_FRAGMENT_SHADER = R"(#version 460 core
+in vec4 v_color;
+in vec2 v_uv;
+uniform sampler2D in_texture;
+out vec4 out_color;
+void main()
+{
+    out_color = texture(in_texture, v_uv) * v_color;
+})";
+
+    static bool ensure_ui_pipeline()
+    {
+        if (g_ui.program)
+            return true;
+        auto shader = compile_shader(UI_VERTEX_SHADER, UI_FRAGMENT_SHADER);
+        if (!shader)
+        {
+            log_error("ui shader failed: {}", shader.error());
+            return false;
+        }
+        // The Shader RAII object owns the program; parked in a static for process lifetime.
+        static std::unique_ptr<Shader> g_ui_shader = {};
+        g_ui_shader = std::move(*shader);
+        g_ui.program = g_ui_shader->get_id();
+        glGenVertexArrays(1, &g_ui.vertex_array);
+        glGenBuffers(1, &g_ui.vertex_buffer);
+        glGenBuffers(1, &g_ui.index_buffer);
+        glBindVertexArray(g_ui.vertex_array);
+        glBindBuffer(GL_ARRAY_BUFFER, g_ui.vertex_buffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ui.index_buffer);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(
+            0, 2, GL_FLOAT, GL_FALSE, sizeof(UiVertex),
+            reinterpret_cast<const void*>(offsetof(UiVertex, position)));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(
+            1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(UiVertex),
+            reinterpret_cast<const void*>(offsetof(UiVertex, color)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(
+            2, 2, GL_FLOAT, GL_FALSE, sizeof(UiVertex),
+            reinterpret_cast<const void*>(offsetof(UiVertex, uv)));
+        glBindVertexArray(0);
+        glGenTextures(1, &g_ui.white_texture);
+        glBindTexture(GL_TEXTURE_2D, g_ui.white_texture);
+        constexpr unsigned char WHITE[4] = {255, 255, 255, 255};
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, WHITE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        return true;
+    }
+
+    void draw_ui(
+        std::span<const UiVertex> vertices,
+        std::span<const int> indices,
+        std::optional<std::reference_wrapper<const Texture2d>> texture,
+        const Vec2& translation)
+    {
+        if (!ensure_ui_pipeline())
+            return;
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // RmlUi colors are premultiplied
+        glDisable(GL_CULL_FACE);
+
+        glUseProgram(g_ui.program);
+        glUniform2f(
+            glGetUniformLocation(g_ui.program, "in_screen"),
+            static_cast<float>(g_viewport_width),
+            static_cast<float>(g_viewport_height));
+        glUniform2f(
+            glGetUniformLocation(g_ui.program, "in_translation"), translation.x, translation.y);
+        glUniform1i(glGetUniformLocation(g_ui.program, "in_texture"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture ? texture->get().get_id() : g_ui.white_texture);
+
+        glBindVertexArray(g_ui.vertex_array);
+        glBindBuffer(GL_ARRAY_BUFFER, g_ui.vertex_buffer);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(vertices.size_bytes()),
+            vertices.data(),
+            GL_STREAM_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ui.index_buffer);
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(indices.size_bytes()),
+            indices.data(),
+            GL_STREAM_DRAW);
+        glDrawElements(
+            GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, nullptr);
+        glBindVertexArray(0);
+
+        glEnable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    void set_scissor(const bool is_enabled, const int x, const int y, const int width, const int height)
+    {
+        if (!is_enabled)
+        {
+            glDisable(GL_SCISSOR_TEST);
+            return;
+        }
+        glEnable(GL_SCISSOR_TEST);
+        // UI speaks y-down; GL scissor is y-up from the bottom.
+        glScissor(x, g_viewport_height - (y + height), width, height);
     }
 
     int get_viewport_height()

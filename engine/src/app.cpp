@@ -2,6 +2,7 @@
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/audio/audio.h"
+#include "tbx/ui/ui.h"
 #include "tbx/ecs/block.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
@@ -147,6 +148,7 @@ namespace tbx
         if (!window_alive || state.quit_requested)
         {
             app.is_running = false;
+            ui::reset();
             audio::reset();
             physics::reset();
             g_state.reset(); // reverse-declaration-order shutdown
@@ -160,6 +162,7 @@ namespace tbx
 
         state.scripts.update(app.delta_time);
         audio::update(state.sandbox, state.assets, app.delta_time);
+        ui::update(app.delta_time);
 
         static constexpr float FIXED_STEP = 1.0f / 60.0f;
         static float g_fixed_accumulator = 0.0f;

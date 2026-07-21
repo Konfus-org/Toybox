@@ -8,6 +8,7 @@
 #include "tbx/ecs/sandbox.h"
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -193,6 +194,15 @@ namespace tbx::gpu
         std::vector<UniformInfo> uniforms = {};
     };
 
+    /// @brief
+    /// Purpose: One 2D UI vertex: screen-space position, packed RGBA (premultiplied), uv.
+    struct UiVertex
+    {
+        Vec2 position = Vec2(0.0f, 0.0f);
+        uint32 color = 0xFFFFFFFF;
+        Vec2 uv = Vec2(0.0f, 0.0f);
+    };
+
     // The concrete GPU boundary (see cmake/tbx_backend.cmake). The selected gfx backend folder
     // (gfx/gl/) implements these; its library types/calls never escape that folder. Everything
     // above this header is backend-agnostic. M1 surface: enough to clear and draw raw meshes —
@@ -242,6 +252,20 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Reads back one pixel from the current framebuffer — verification/tooling.
     Color read_pixel(int x, int y);
+
+    /// @brief
+    /// Purpose: Draws indexed 2D UI geometry in screen space (y-down, origin top-left) with
+    /// premultiplied-alpha blending, optionally textured, offset by translation. Depth testing
+    /// is suspended for the draw.
+    void draw_ui(
+        std::span<const UiVertex> vertices,
+        std::span<const int> indices,
+        std::optional<std::reference_wrapper<const Texture2d>> texture,
+        const Vec2& translation);
+
+    /// @brief
+    /// Purpose: Enables/positions the scissor rectangle for UI clipping (y-down coordinates).
+    void set_scissor(bool is_enabled, int x, int y, int width, int height);
 
     /// @brief
     /// Purpose: Sets the drawable region in pixels.
