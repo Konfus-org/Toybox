@@ -161,6 +161,7 @@ namespace tbx
                 return {};
             }
             case FieldKind::UUID:
+            case FieldKind::ASSET:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(value.get<std::string>());
                 return {};
             case FieldKind::ENUM:

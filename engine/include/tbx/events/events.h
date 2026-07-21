@@ -41,8 +41,7 @@ namespace tbx
             const size offset = align_up(_bytes.size(), alignof(TEvent));
             _bytes.resize(offset + sizeof(TEvent));
             std::memcpy(_bytes.data() + offset, &event, sizeof(TEvent));
-            _entries.push_back(
-                {.dispatch = dispatch, .signal = signal, .offset = offset});
+            _entries.push_back({.dispatch = dispatch, .signal = signal, .offset = offset});
         }
 
         /// @brief
@@ -147,7 +146,10 @@ namespace tbx
                     self._subscribers[i].fn(event);
             std::erase_if(
                 self._subscribers,
-                [](const SignalSubscriber<TEvent>& s) { return s.fn == nullptr; });
+                [](const SignalSubscriber<TEvent>& s)
+                {
+                    return s.fn == nullptr;
+                });
         }
 
       private:
@@ -193,7 +195,7 @@ namespace tbx
     /// Purpose: Fired after a script source recompiled; instances restart on their next update.
     struct ScriptReloaded
     {
-        uint64 script_hash = 0;
+        Uuid id = {};
     };
 
     /// @brief
@@ -202,11 +204,11 @@ namespace tbx
     struct Events
     {
         EventQueue queue;
-        Signal<WindowResized> window_resized {queue};
         Signal<KeyEvent> key {queue};
+        Signal<WindowResized> window_resized {queue};
         Signal<AssetReloaded> asset_reloaded {queue};
-        Signal<CollisionEvent> collision {queue};
         Signal<ScriptReloaded> script_reloaded {queue};
+        Signal<CollisionEvent> collision {queue};
 
         /// @brief
         /// Purpose: Dispatches all queued events; called once per frame by Engine::pump().

@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
+#include "tbx/assets/asset_handle.h"
 #include "tbx/ecs/builtin_blocks.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
@@ -31,13 +32,20 @@ namespace tbx
         virtual bool owns_extension(std::string_view extension) const = 0;
 
         /// @brief
-        /// Purpose: Compiles and caches a source under a name toys reference via Script blocks.
-        virtual Result<void> load_source(const std::string& name, std::string_view source) = 0;
+        /// Purpose: Compiles and caches a source under its asset id (Script blocks reference
+        /// it by AssetHandle); the name is diagnostics/routing only.
+        virtual Result<void> load_source(
+            const Uuid& id,
+            const std::string& name,
+            std::string_view source) = 0;
 
         /// @brief
         /// Purpose: Recompiles a source in place; live instances restart on their next update
         /// and script_reloaded fires. This IS hot reload.
-        virtual Result<void> reload_source(const std::string& name, std::string_view source) = 0;
+        virtual Result<void> reload_source(
+            const Uuid& id,
+            const std::string& name,
+            std::string_view source) = 0;
 
         /// @brief
         /// Purpose: Runs every scripted toy whose source this backend loaded.
@@ -69,11 +77,22 @@ namespace tbx
         void add_backend(std::unique_ptr<ScriptBackend> backend);
 
         /// @brief
-        /// Purpose: Routes a source to its backend by the extension in its name.
-        Result<void> load_source(const std::string& name, std::string_view source);
+        /// Purpose: Registers a source under an explicit asset id (the asset pipeline path).
+        Result<void> load_source(const Uuid& id, const std::string& name, std::string_view source);
 
         /// @brief
-        /// Purpose: Routes a hot reload to its backend; instances restart on their next update.
+        /// Purpose: Compiles a source under a deterministic id derived from its name and
+        /// returns the handle Script blocks use — the manual/test path.
+        Result<AssetHandle<ScriptSource>> load_source(
+            const std::string& name,
+            std::string_view source);
+
+        /// @brief
+        /// Purpose: Hot reload under an explicit asset id.
+        Result<void> reload_source(const Uuid& id, const std::string& name, std::string_view source);
+
+        /// @brief
+        /// Purpose: Hot reload under the name-derived id (the manual/test path).
         Result<void> reload_source(const std::string& name, std::string_view source);
 
         /// @brief

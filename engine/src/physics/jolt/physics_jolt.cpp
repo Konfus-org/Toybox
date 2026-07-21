@@ -9,6 +9,8 @@
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
@@ -173,6 +175,22 @@ namespace tbx::physics
         return {q.GetW(), q.GetX(), q.GetY(), q.GetZ()};
     }
 
+    /// @brief
+    /// Purpose: Maps the shared Shape vocabulary onto Jolt shapes.
+    static JPH::ShapeRefC make_shape(const Collider& collider)
+    {
+        switch (collider.shape)
+        {
+            case Shape::SPHERE:
+                return new JPH::SphereShape(collider.radius);
+            case Shape::CAPSULE:
+                return new JPH::CapsuleShape(collider.height * 0.5f, collider.radius);
+            case Shape::BOX:
+                break;
+        }
+        return new JPH::BoxShape(to_jolt(collider.half_extents));
+    }
+
     //// BOUNDARY ////
 
     void register_physics_blocks()
@@ -184,8 +202,11 @@ namespace tbx::physics
         register_block<RigidBody>("RigidBody")
             .field("mass", &RigidBody::mass)
             .field("is_kinematic", &RigidBody::is_kinematic);
-        register_block<BoxCollider>("BoxCollider")
-            .field("half_extents", &BoxCollider::half_extents);
+        register_block<Collider>("Collider")
+            .field("shape", &Collider::shape)
+            .field("half_extents", &Collider::half_extents)
+            .field("radius", &Collider::radius)
+            .field("height", &Collider::height);
     }
 
     void reset()
@@ -201,7 +222,7 @@ namespace tbx::physics
         auto& registry = sandbox.get_registry();
 
         // Mirror collider toys into the simulation (created on first sight).
-        for (const auto [entity, collider] : registry.view<BoxCollider>().each())
+        for (const auto [entity, collider] : registry.view<Collider>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
@@ -212,7 +233,7 @@ namespace tbx::physics
             if (existing == physics.bodies_by_toy.end())
             {
                 auto settings = JPH::BodyCreationSettings(
-                    new JPH::BoxShape(to_jolt(collider.half_extents)),
+                    make_shape(collider),
                     to_jolt(transform.position),
                     to_jolt(transform.rotation),
                     rigid_body ? (rigid_body->is_kinematic ? JPH::EMotionType::Kinematic

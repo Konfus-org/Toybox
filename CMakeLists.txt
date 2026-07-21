@@ -43,7 +43,16 @@ set(LUAU_BUILD_WEB OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(luau
     GIT_REPOSITORY https://github.com/luau-lang/luau.git
     GIT_TAG 0.653)
-FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_NO_EXPORT ON CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(assimp
+    GIT_REPOSITORY https://github.com/assimp/assimp.git
+    GIT_TAG v5.4.3)
+FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau assimp)
 
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
 tbx_backend(MATH glm core)
@@ -110,6 +119,7 @@ target_include_directories(tbx PUBLIC
 target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 target_link_libraries(tbx
     PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
+    PRIVATE assimp::assimp
 )
 if("luau" IN_LIST TBX_SCRIPTING_BACKENDS)
     target_link_libraries(tbx PRIVATE Luau.Compiler Luau.VM)

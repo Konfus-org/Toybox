@@ -23,8 +23,9 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts.load_source("mover", MOVER_SOURCE).has_value());
-        Toy toy = sandbox.spawn("Grunt").with(Script {.source = "mover"});
+        const auto mover = scripts.load_source("mover", MOVER_SOURCE);
+        ASSERT_TRUE(mover.has_value());
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
 
         // Act
         scripts.update(0.016f);
@@ -61,8 +62,9 @@ return script
         events.script_reloaded.subscribe(
             &reload_count,
             [&reload_count](const ScriptReloaded&) { ++reload_count; });
-        ASSERT_TRUE(scripts.load_source("mover", MOVER_SOURCE).has_value());
-        Toy toy = sandbox.spawn("Grunt").with(Script {.source = "mover"});
+        const auto mover = scripts.load_source("mover", MOVER_SOURCE);
+        ASSERT_TRUE(mover.has_value());
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
         scripts.update(0.016f);
         toy.set_name("renamed-by-test");
 
@@ -90,8 +92,9 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts.load_source("mover", MOVER_SOURCE).has_value());
-        Toy toy = sandbox.spawn("Grunt").with(Script {.source = "mover"});
+        const auto mover = scripts.load_source("mover", MOVER_SOURCE);
+        ASSERT_TRUE(mover.has_value());
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
         scripts.update(0.016f);
 
         // Act
@@ -110,17 +113,16 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts
-                        .load_source("spawner", R"(
+        const auto spawner = scripts.load_source("spawner", R"(
 local script = {}
 function script.start(toy)
     local friend = tbx.sandbox.spawn("Friend")
     friend:sticker("summoned")
 end
 return script
-)")
-                        .has_value());
-        sandbox.spawn("Summoner").with(Script {.source = "spawner"});
+)");
+        ASSERT_TRUE(spawner.has_value());
+        sandbox.spawn("Summoner").with(Script {.source = *spawner});
 
         // Act
         scripts.update(0.016f);
@@ -138,8 +140,7 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts
-                        .load_source("stepper", R"(
+        const auto stepper = scripts.load_source("stepper", R"(
 local script = {}
 function script.fixed_update(toy, delta_time)
     local transform = toy:get("Transform")
@@ -147,9 +148,9 @@ function script.fixed_update(toy, delta_time)
     transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
 end
 return script
-)")
-                        .has_value());
-        Toy toy = sandbox.spawn("Stepper").with(Script {.source = "stepper"});
+)");
+        ASSERT_TRUE(stepper.has_value());
+        Toy toy = sandbox.spawn("Stepper").with(Script {.source = *stepper});
 
         // Act: variable updates do not run the fixed hook; fixed steps do.
         scripts.update(0.016f);
@@ -171,8 +172,9 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts.load_source("mover", MOVER_SOURCE).has_value());
-        Toy toy = sandbox.spawn("Grunt").with(Script {.source = "mover"});
+        const auto mover = scripts.load_source("mover", MOVER_SOURCE);
+        ASSERT_TRUE(mover.has_value());
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = *mover});
         toy.set_enabled(false);
 
         // Act
@@ -192,8 +194,9 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        ASSERT_TRUE(scripts.load_source("silent", "return {}").has_value());
-        sandbox.spawn("Quiet").with(Script {.source = "silent"});
+        const auto silent = scripts.load_source("silent", "return {}");
+        ASSERT_TRUE(silent.has_value());
+        sandbox.spawn("Quiet").with(Script {.source = *silent});
 
         // Act / Assert: surviving both frames IS the behavior.
         scripts.update(0.016f);

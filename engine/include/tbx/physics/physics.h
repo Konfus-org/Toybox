@@ -30,7 +30,7 @@ namespace tbx::physics
         float max_distance);
 
     /// @brief
-    /// Purpose: Registers RigidBody/BoxCollider blocks; run() calls this at boot (tests call
+    /// Purpose: Registers RigidBody/Collider blocks; run() calls this at boot (tests call
     /// it directly) so kits can carry them.
     void register_physics_blocks();
 

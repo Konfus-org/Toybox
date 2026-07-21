@@ -1,6 +1,8 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/assets/model.h"
 #include "tbx/assets/script_source.h"
+#include "tbx/assets/shader_source.h"
 #include "tbx/assets/texture.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
@@ -109,4 +111,8 @@ namespace tbx
     Result<ScriptSource> Assets::decode<ScriptSource>(const std::filesystem::path& path);
     template <>
     Result<Json> Assets::decode<Json>(const std::filesystem::path& path);
+    template <>
+    Result<Model> Assets::decode<Model>(const std::filesystem::path& path);
+    template <>
+    Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
 }

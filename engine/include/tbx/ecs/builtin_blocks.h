@@ -1,6 +1,11 @@
 #pragma once
+#include "tbx/assets/asset_handle.h"
+#include "tbx/assets/model.h"
+#include "tbx/assets/script_source.h"
+#include "tbx/assets/texture.h"
 #include "tbx/core/color.h"
 #include "tbx/core/math.h"
+#include "tbx/core/typedefs.h"
 #include <string>
 
 // Every block the engine ships, in one place. Registration stays with each owning system
@@ -8,10 +13,23 @@
 namespace tbx
 {
     /// @brief
-    /// Purpose: Box collision shape centered on the toy's Transform.
-    struct BoxCollider
+    /// Purpose: The shared spatial-shape vocabulary — colliders and spatial audio sources both
+    /// speak it (BOX uses half_extents, SPHERE radius, CAPSULE radius + height).
+    enum class Shape : uint8
     {
+        BOX,
+        SPHERE,
+        CAPSULE
+    };
+
+    /// @brief
+    /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
+    struct Collider
+    {
+        Shape shape = Shape::BOX;
         Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);
+        float radius = 0.5f;
+        float height = 1.0f;
     };
 
     /// @brief
@@ -34,10 +52,13 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Makes a toy visible: a named mesh (see tbx::builtin for primitives; asset
-    /// meshes come with model loading) with a tint.
+    /// Purpose: Makes a toy visible: an imported model when the handle is set, otherwise a
+    /// builtin primitive by name (tbx::builtin), textured when the texture handle is set,
+    /// always tinted.
     struct MeshRenderer
     {
+        AssetHandle<Model> model = {};
+        AssetHandle<Texture> texture = {};
         std::string mesh = "cube";
         Color tint = {};
     };
@@ -56,7 +77,7 @@ namespace tbx
     /// module exposes start(toy), update(toy, delta_time), and fixed_update(toy, delta_time).
     struct Script
     {
-        std::string source = {};
+        AssetHandle<ScriptSource> source = {};
     };
 
     /// @brief

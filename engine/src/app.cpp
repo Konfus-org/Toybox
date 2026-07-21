@@ -66,6 +66,7 @@ namespace tbx
                 if (script)
                 {
                     if (const auto result = state.scripts.reload_source(
+                            reloaded.id,
                             script->get().name,
                             script->get().source);
                         !result)

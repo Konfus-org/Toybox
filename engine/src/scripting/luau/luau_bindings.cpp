@@ -109,6 +109,7 @@ namespace tbx
                 push_vector_table(lua, &reinterpret_cast<const Color*>(at)->r, RGBA_KEYS, 4);
                 return 1;
             case FieldKind::UUID:
+            case FieldKind::ASSET:
                 lua_pushstring(lua, reinterpret_cast<const Uuid*>(at)->to_string().c_str());
                 return 1;
             case FieldKind::ENUM:
@@ -172,6 +173,7 @@ namespace tbx
                 read_vector_table(lua, value_index, &reinterpret_cast<Color*>(at)->r, RGBA_KEYS, 4);
                 return;
             case FieldKind::UUID:
+            case FieldKind::ASSET:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
                 return;
             case FieldKind::ENUM:

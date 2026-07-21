@@ -52,20 +52,50 @@ namespace tbx
         return *_backends.front();
     }
 
-    Result<void> Scripts::load_source(const std::string& name, std::string_view source)
+    /// @brief
+    /// Purpose: The deterministic id for manually-loaded (non-asset) sources.
+    static Uuid derived_script_id(const std::string& name)
     {
-        const auto backend = route(name);
-        if (!backend)
-            return fail("no scripting backend can run '{}'", name);
-        return backend->get().load_source(name, source);
+        const uint64 hash = hash_name(name);
+        return Uuid {.hi = hash, .lo = ~hash};
     }
 
-    Result<void> Scripts::reload_source(const std::string& name, std::string_view source)
+    Result<void> Scripts::load_source(
+        const Uuid& id,
+        const std::string& name,
+        const std::string_view source)
     {
         const auto backend = route(name);
         if (!backend)
             return fail("no scripting backend can run '{}'", name);
-        return backend->get().reload_source(name, source);
+        return backend->get().load_source(id, name, source);
+    }
+
+    Result<AssetHandle<ScriptSource>> Scripts::load_source(
+        const std::string& name,
+        const std::string_view source)
+    {
+        const Uuid id = derived_script_id(name);
+        auto loaded = load_source(id, name, source);
+        if (!loaded)
+            return std::unexpected(loaded.error());
+        return ok(AssetHandle<ScriptSource> {.id = id});
+    }
+
+    Result<void> Scripts::reload_source(
+        const Uuid& id,
+        const std::string& name,
+        const std::string_view source)
+    {
+        const auto backend = route(name);
+        if (!backend)
+            return fail("no scripting backend can run '{}'", name);
+        return backend->get().reload_source(id, name, source);
+    }
+
+    Result<void> Scripts::reload_source(const std::string& name, const std::string_view source)
+    {
+        return reload_source(derived_script_id(name), name, source);
     }
 
     void Scripts::fixed_update(const float fixed_delta_time)

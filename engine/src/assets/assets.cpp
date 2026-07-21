@@ -6,6 +6,10 @@
 #define STBI_NO_STDIO
 #include <stb_image.h>
 
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
+#include <assimp/Importer.hpp>
+
 namespace tbx
 {
     //// DECODERS (the static extension table — a new format is a new specialization) ////
@@ -54,6 +58,53 @@ namespace tbx
         if (!is_valid_json(*text))
             return fail("'{}' is not valid JSON", path.string());
         return parse_json(*text);
+    }
+
+    template <>
+    Result<Model> Assets::decode<Model>(const std::filesystem::path& path)
+    {
+        auto importer = Assimp::Importer();
+        const aiScene* scene = importer.ReadFile(
+            path.string(),
+            aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices
+                | aiProcess_PreTransformVertices);
+        if (!scene || !scene->HasMeshes())
+            return fail("could not import model '{}': {}", path.string(), importer.GetErrorString());
+
+        // Every mesh merges into one interleaved position+normal+uv triangle list.
+        auto model = Model {};
+        for (unsigned mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
+        {
+            const aiMesh* mesh = scene->mMeshes[mesh_index];
+            for (unsigned face_index = 0; face_index < mesh->mNumFaces; ++face_index)
+            {
+                const aiFace& face = mesh->mFaces[face_index];
+                for (unsigned corner = 0; corner < face.mNumIndices; ++corner)
+                {
+                    const unsigned vertex = face.mIndices[corner];
+                    const aiVector3D position = mesh->mVertices[vertex];
+                    const aiVector3D normal =
+                        mesh->HasNormals() ? mesh->mNormals[vertex] : aiVector3D(0, 1, 0);
+                    const aiVector3D uv = mesh->HasTextureCoords(0)
+                        ? mesh->mTextureCoords[0][vertex]
+                        : aiVector3D(0, 0, 0);
+                    for (const float value :
+                         {position.x, position.y, position.z, normal.x, normal.y, normal.z,
+                          uv.x, uv.y})
+                        model.vertices.push_back(value);
+                }
+            }
+        }
+        return model;
+    }
+
+    template <>
+    Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path)
+    {
+        auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        return ShaderSource {.text = std::move(*text)};
     }
 
     //// ASSETS ////
@@ -113,6 +164,8 @@ namespace tbx
     {
         _assets[id] = std::move(asset);
         _entries_by_path[relative_path].id = id;
+        // First loads announce too — glue (e.g. script registration) reacts uniformly.
+        _events.get().asset_reloaded.emit({.id = id});
     }
 
     void Assets::handle_file_changed(const std::filesystem::path& path)
@@ -145,6 +198,18 @@ namespace tbx
         else if (std::any_cast<Json>(&loaded->second))
         {
             auto decoded = decode<Json>(path);
+            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
+                                : std::unexpected(decoded.error());
+        }
+        else if (std::any_cast<Model>(&loaded->second))
+        {
+            auto decoded = decode<Model>(path);
+            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
+                                : std::unexpected(decoded.error());
+        }
+        else if (std::any_cast<ShaderSource>(&loaded->second))
+        {
+            auto decoded = decode<ShaderSource>(path);
             refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
                                 : std::unexpected(decoded.error());
         }

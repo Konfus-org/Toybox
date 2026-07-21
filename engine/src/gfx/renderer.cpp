@@ -1,18 +1,21 @@
+#include "tbx/assets/builtin.h"
 #include "tbx/core/log.h"
-#include <cmath>
-#include <vector>
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/assets/builtin.h"
 #include "tbx/gfx/render_blocks.h"
+#include <cmath>
+#include <unordered_map>
+#include <vector>
 
 namespace tbx::gpu
 {
     // Shader source is GLSL for now — when a second gfx backend lands, sources move behind the
-    // backend seam alongside gpu.h's implementations.
+    // backend seam alongside gpu.h's implementations. Vertex layout everywhere: position(3) +
+    // normal(3) + uv(2).
     static constexpr const char* DEPTH_VERTEX_SHADER = R"(#version 460 core
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
+layout(location = 2) in vec2 in_uv;
 uniform mat4 u_model;
 uniform mat4 u_light_view_projection;
 void main()
@@ -27,27 +30,32 @@ void main() {}
     static constexpr const char* LIT_VERTEX_SHADER = R"(#version 460 core
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
+layout(location = 2) in vec2 in_uv;
 uniform mat4 u_model;
 uniform mat4 u_view_projection;
 uniform mat4 u_light_view_projection;
 out vec3 v_world_normal;
 out vec4 v_shadow_coords;
+out vec2 v_uv;
 void main()
 {
     vec4 world = u_model * vec4(in_position, 1.0);
     v_world_normal = mat3(u_model) * in_normal;
     v_shadow_coords = u_light_view_projection * world;
+    v_uv = in_uv;
     gl_Position = u_view_projection * world;
 })";
 
     static constexpr const char* LIT_FRAGMENT_SHADER = R"(#version 460 core
 in vec3 v_world_normal;
 in vec4 v_shadow_coords;
+in vec2 v_uv;
 uniform vec4 u_tint;
 uniform vec4 u_light_color;
 uniform float u_light_intensity;
 uniform vec3 u_light_direction;
 uniform sampler2D u_shadow_map;
+uniform sampler2D u_albedo;
 out vec4 out_color;
 void main()
 {
@@ -65,37 +73,13 @@ void main()
 
     float ambient = 0.25;
     float light = ambient + lambert * shadowing * u_light_intensity;
-    out_color = vec4(u_tint.rgb * u_light_color.rgb * light, u_tint.a);
+    vec4 albedo = texture(u_albedo, v_uv) * u_tint;
+    out_color = vec4(albedo.rgb * u_light_color.rgb * light, albedo.a);
 })";
 
-    // Interleaved position + normal, 36 vertices.
-    static constexpr float CUBE_VERTICES[] = {
-        // +Z
-        -0.5f, -0.5f, 0.5f, 0, 0, 1, 0.5f, -0.5f, 0.5f, 0, 0, 1, 0.5f, 0.5f, 0.5f, 0, 0, 1,
-        -0.5f, -0.5f, 0.5f, 0, 0, 1, 0.5f, 0.5f, 0.5f, 0, 0, 1, -0.5f, 0.5f, 0.5f, 0, 0, 1,
-        // -Z
-        0.5f, -0.5f, -0.5f, 0, 0, -1, -0.5f, -0.5f, -0.5f, 0, 0, -1, -0.5f, 0.5f, -0.5f, 0, 0, -1,
-        0.5f, -0.5f, -0.5f, 0, 0, -1, -0.5f, 0.5f, -0.5f, 0, 0, -1, 0.5f, 0.5f, -0.5f, 0, 0, -1,
-        // +X
-        0.5f, -0.5f, 0.5f, 1, 0, 0, 0.5f, -0.5f, -0.5f, 1, 0, 0, 0.5f, 0.5f, -0.5f, 1, 0, 0,
-        0.5f, -0.5f, 0.5f, 1, 0, 0, 0.5f, 0.5f, -0.5f, 1, 0, 0, 0.5f, 0.5f, 0.5f, 1, 0, 0,
-        // -X
-        -0.5f, -0.5f, -0.5f, -1, 0, 0, -0.5f, -0.5f, 0.5f, -1, 0, 0, -0.5f, 0.5f, 0.5f, -1, 0, 0,
-        -0.5f, -0.5f, -0.5f, -1, 0, 0, -0.5f, 0.5f, 0.5f, -1, 0, 0, -0.5f, 0.5f, -0.5f, -1, 0, 0,
-        // +Y
-        -0.5f, 0.5f, 0.5f, 0, 1, 0, 0.5f, 0.5f, 0.5f, 0, 1, 0, 0.5f, 0.5f, -0.5f, 0, 1, 0,
-        -0.5f, 0.5f, 0.5f, 0, 1, 0, 0.5f, 0.5f, -0.5f, 0, 1, 0, -0.5f, 0.5f, -0.5f, 0, 1, 0,
-        // -Y
-        -0.5f, -0.5f, -0.5f, 0, -1, 0, 0.5f, -0.5f, -0.5f, 0, -1, 0, 0.5f, -0.5f, 0.5f, 0, -1, 0,
-        -0.5f, -0.5f, -0.5f, 0, -1, 0, 0.5f, -0.5f, 0.5f, 0, -1, 0, -0.5f, -0.5f, 0.5f, 0, -1, 0};
-
-    // A unit plane facing +Y (two triangles, wound for +Y visibility).
-    static constexpr float PLANE_VERTICES[] = {
-        -0.5f, 0.0f, 0.5f, 0, 1, 0, 0.5f, 0.0f, 0.5f, 0, 1, 0, 0.5f, 0.0f, -0.5f, 0, 1, 0,
-        -0.5f, 0.0f, 0.5f, 0, 1, 0, 0.5f, 0.0f, -0.5f, 0, 1, 0, -0.5f, 0.0f, -0.5f, 0, 1, 0};
-
     /// @brief
-    /// Purpose: Lazily-built renderer resources (RAII; released at process exit).
+    /// Purpose: Lazily-built renderer resources plus per-asset GPU caches (RAII; released at
+    /// process exit).
     struct RendererState
     {
         std::unique_ptr<Shader> depth_shader;
@@ -103,11 +87,65 @@ void main()
         std::unique_ptr<Mesh> cube;
         std::unique_ptr<Mesh> plane;
         std::unique_ptr<Mesh> sphere;
+        std::unique_ptr<Texture2d> white;
         std::unique_ptr<DepthTarget> shadow_target;
+        std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
+        std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
     };
 
-    /// @brief
-    /// Purpose: Generates a unit UV sphere (position + normal, triangle list).
+    static RendererState g_renderer = {};
+
+    //// PRIMITIVES (position + normal + uv) ////
+
+    static void push_vertex(
+        std::vector<float>& vertices,
+        const Vec3& position,
+        const Vec3& normal,
+        const Vec2& uv)
+    {
+        for (const float value :
+             {position.x, position.y, position.z, normal.x, normal.y, normal.z, uv.x, uv.y})
+            vertices.push_back(value);
+    }
+
+    static std::vector<float> build_plane_vertices()
+    {
+        auto vertices = std::vector<float>();
+        const Vec3 up = Vec3(0.0f, 1.0f, 0.0f);
+        const Vec3 corners[4] = {
+            {-0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, -0.5f}, {-0.5f, 0.0f, -0.5f}};
+        const Vec2 uvs[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        for (const int index : {0, 1, 2, 0, 2, 3})
+            push_vertex(vertices, corners[index], up, uvs[index]);
+        return vertices;
+    }
+
+    static std::vector<float> build_cube_vertices()
+    {
+        auto vertices = std::vector<float>();
+        const Vec3 normals[6] = {
+            {0, 0, 1}, {0, 0, -1}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}};
+        for (const Vec3& normal : normals)
+        {
+            // Build a face basis from the normal; corners wind counter-clockwise.
+            const Vec3 up = std::abs(normal.y) > 0.5f ? Vec3(0, 0, -normal.y) : Vec3(0, 1, 0);
+            const Vec3 right = Vec3(
+                up.y * normal.z - up.z * normal.y,
+                up.z * normal.x - up.x * normal.z,
+                up.x * normal.y - up.y * normal.x);
+            const Vec3 center = normal * 0.5f;
+            const Vec3 corners[4] = {
+                center - right * 0.5f - up * 0.5f,
+                center + right * 0.5f - up * 0.5f,
+                center + right * 0.5f + up * 0.5f,
+                center - right * 0.5f + up * 0.5f};
+            const Vec2 uvs[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+            for (const int index : {0, 1, 2, 0, 2, 3})
+                push_vertex(vertices, corners[index], normal, uvs[index]);
+        }
+        return vertices;
+    }
+
     static std::vector<float> build_sphere_vertices(const int rings, const int segments)
     {
         auto vertices = std::vector<float>();
@@ -119,9 +157,9 @@ void main()
                 std::sin(phi) * std::cos(theta),
                 std::cos(phi),
                 std::sin(phi) * std::sin(theta));
-            const Vec3 position = normal * 0.5f;
-            for (const float value : {position.x, position.y, position.z, normal.x, normal.y, normal.z})
-                vertices.push_back(value);
+            const Vec2 uv =
+                Vec2(static_cast<float>(segment) / segments, static_cast<float>(ring) / rings);
+            push_vertex(vertices, normal * 0.5f, normal, uv);
         };
         for (int ring = 0; ring < rings; ++ring)
         {
@@ -138,8 +176,6 @@ void main()
         return vertices;
     }
 
-    static RendererState g_renderer = {};
-
     //// SETUP ////
 
     void register_render_blocks()
@@ -153,6 +189,8 @@ void main()
             .field("near_plane", &Camera::near_plane)
             .field("far_plane", &Camera::far_plane);
         register_block<MeshRenderer>("MeshRenderer")
+            .field("model", &MeshRenderer::model)
+            .field("texture", &MeshRenderer::texture)
             .field("mesh", &MeshRenderer::mesh)
             .field("tint", &MeshRenderer::tint);
         register_block<DirectionalLight>("DirectionalLight")
@@ -174,31 +212,70 @@ void main()
         }
         g_renderer.depth_shader = std::move(*depth);
         g_renderer.lit_shader = std::move(*lit);
-        g_renderer.cube = upload_mesh(CUBE_VERTICES, std::array {3, 3});
-        g_renderer.plane = upload_mesh(PLANE_VERTICES, std::array {3, 3});
-        g_renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3});
+        g_renderer.cube = upload_mesh(build_cube_vertices(), std::array {3, 3, 2});
+        g_renderer.plane = upload_mesh(build_plane_vertices(), std::array {3, 3, 2});
+        g_renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3, 2});
+        constexpr std::byte WHITE[4] = {
+            std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
+        g_renderer.white = upload_texture(1, 1, WHITE);
         g_renderer.shadow_target = make_depth_target(2048);
         return true;
     }
 
-    static const Mesh& mesh_by_name(const std::string& name)
+    //// ASSET RESOLUTION ////
+
+    static const Mesh& resolve_mesh(const MeshRenderer& renderer, Assets* assets)
     {
-        if (name == builtin::PLANE)
+        if (assets && renderer.model.is_valid())
+        {
+            const auto cached = g_renderer.meshes_by_asset.find(renderer.model.id);
+            if (cached != g_renderer.meshes_by_asset.end())
+                return *cached->second;
+            if (const auto model = assets->get(renderer.model))
+            {
+                auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
+                const Mesh& result = *uploaded;
+                g_renderer.meshes_by_asset[renderer.model.id] = std::move(uploaded);
+                return result;
+            }
+        }
+        if (renderer.mesh == builtin::PLANE)
             return *g_renderer.plane;
-        if (name == builtin::SPHERE)
+        if (renderer.mesh == builtin::SPHERE)
             return *g_renderer.sphere;
         return *g_renderer.cube;
     }
 
+    static const Texture2d& resolve_texture(const MeshRenderer& renderer, Assets* assets)
+    {
+        if (assets && renderer.texture.is_valid())
+        {
+            const auto cached = g_renderer.textures_by_asset.find(renderer.texture.id);
+            if (cached != g_renderer.textures_by_asset.end())
+                return *cached->second;
+            if (const auto texture = assets->get(renderer.texture))
+            {
+                auto uploaded = upload_texture(
+                    texture->get().width, texture->get().height, texture->get().pixels);
+                const Texture2d& result = *uploaded;
+                g_renderer.textures_by_asset[renderer.texture.id] = std::move(uploaded);
+                return result;
+            }
+        }
+        return *g_renderer.white;
+    }
+
     //// RENDER ////
 
-    void render(Sandbox& sandbox)
+    // The raw pointer stays internal: null means "builtin primitives only" (no asset system in
+    // play); both public overloads below are the API.
+    static void render_internal(Sandbox& sandbox, Assets* assets)
     {
         if (!ensure_renderer_ready())
             return;
         auto& registry = sandbox.get_registry();
 
-        // The first active camera wins; no camera, no picture.
+        // The first camera wins; no camera, no picture.
         auto view_projection = Mat4(1.0f);
         bool has_camera = false;
         for (const auto [entity, camera] : registry.view<Camera>().each())
@@ -246,11 +323,11 @@ void main()
                 *g_renderer.depth_shader,
                 "u_model",
                 sandbox.get_world_matrix(Toy(sandbox, entity)));
-            draw(*g_renderer.depth_shader, mesh_by_name(renderer.mesh));
+            draw(*g_renderer.depth_shader, resolve_mesh(renderer, assets));
         }
         end_depth_pass();
 
-        // Pass 2: lit + shadowed.
+        // Pass 2: lit + shadowed + textured.
         const Shader& lit = *g_renderer.lit_shader;
         set_uniform(lit, "u_view_projection", view_projection);
         set_uniform(lit, "u_light_view_projection", light_view_projection);
@@ -258,6 +335,7 @@ void main()
         set_uniform(lit, "u_light_color", light_color);
         set_uniform(lit, "u_light_intensity", light_intensity);
         set_uniform(lit, "u_shadow_map", 0);
+        set_uniform(lit, "u_albedo", 1);
         bind_depth_texture(*g_renderer.shadow_target, 0);
         for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
         {
@@ -265,7 +343,18 @@ void main()
                 continue;
             set_uniform(lit, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
             set_uniform(lit, "u_tint", renderer.tint);
-            draw(lit, mesh_by_name(renderer.mesh));
+            bind_texture(resolve_texture(renderer, assets), 1);
+            draw(lit, resolve_mesh(renderer, assets));
         }
+    }
+
+    void render(Sandbox& sandbox)
+    {
+        render_internal(sandbox, nullptr);
+    }
+
+    void render(Sandbox& sandbox, Assets& assets)
+    {
+        render_internal(sandbox, &assets);
     }
 }

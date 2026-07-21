@@ -4,6 +4,7 @@
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
+#include "tbx/assets/assets.h"
 #include "tbx/ecs/sandbox.h"
 #include <cstddef>
 #include <memory>
@@ -269,8 +270,14 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: Renders the sandbox: every MeshRenderer toy, lit by the DirectionalLight,
-    /// shadowed, seen from the active Camera. ALL rendering lives in tbx::gpu.
+    /// shadowed, seen from the first Camera. ALL rendering lives in tbx::gpu. Builtin
+    /// primitives only — use the Assets overload to resolve model/texture handles.
     void render(Sandbox& sandbox);
+
+    /// @brief
+    /// Purpose: Renders the sandbox with asset resolution: MeshRenderer model/texture handles
+    /// upload on first sight and cache by asset id.
+    void render(Sandbox& sandbox, Assets& assets);
 
     /// @brief
     /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to

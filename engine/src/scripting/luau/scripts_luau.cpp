@@ -14,7 +14,7 @@ namespace tbx
     struct LuauInstance
     {
         int table_ref = -1;
-        uint64 script_hash = 0;
+        Uuid script_id = {};
         uint32 generation = 0;
         bool is_started = false;
     };
@@ -54,26 +54,32 @@ namespace tbx
             return extension == ".luau" || extension == ".lua";
         }
 
-        Result<void> load_source(const std::string& name, const std::string_view source) override
+        Result<void> load_source(
+            const Uuid& id,
+            const std::string& name,
+            const std::string_view source) override
         {
             auto compiled = compile_source(name, source);
             if (!compiled)
                 return std::unexpected(compiled.error());
-            const uint64 hash = hash_name(name);
-            _bytecode_by_hash[hash] = std::move(*compiled);
-            _generation_by_hash.try_emplace(hash, 1);
+            _bytecode_by_id[id] = std::move(*compiled);
+            _name_by_id[id] = name;
+            _generation_by_id.try_emplace(id, 1);
             return ok();
         }
 
-        Result<void> reload_source(const std::string& name, const std::string_view source) override
+        Result<void> reload_source(
+            const Uuid& id,
+            const std::string& name,
+            const std::string_view source) override
         {
             auto compiled = compile_source(name, source);
             if (!compiled)
                 return std::unexpected(compiled.error());
-            const uint64 hash = hash_name(name);
-            _bytecode_by_hash[hash] = std::move(*compiled);
-            ++_generation_by_hash[hash]; // live instances restart on their next update
-            _events.get().script_reloaded.emit({.script_hash = hash});
+            _bytecode_by_id[id] = std::move(*compiled);
+            _name_by_id[id] = name;
+            ++_generation_by_id[id]; // live instances restart on their next update
+            _events.get().script_reloaded.emit({.id = id});
             return ok();
         }
 
@@ -95,16 +101,17 @@ namespace tbx
             {
                 if (!registry.get<ToyHandle>(entity).is_enabled)
                     continue;
-                const uint64 hash = hash_name(script.source);
-                const auto bytecode = _bytecode_by_hash.find(hash);
-                if (bytecode == _bytecode_by_hash.end())
+                const Uuid id = script.source.id;
+                const auto bytecode = _bytecode_by_id.find(id);
+                if (bytecode == _bytecode_by_id.end())
                     continue; // not this backend's source (another language, or still loading)
-                const uint32 generation = _generation_by_hash[hash];
+                const uint32 generation = _generation_by_id[id];
 
                 LuauInstance& instance = _instances[static_cast<uint32>(entity)];
-                const bool is_stale = instance.table_ref < 0 || instance.script_hash != hash
+                const bool is_stale = instance.table_ref < 0 || instance.script_id != id
                     || instance.generation != generation;
-                if (is_stale && !instantiate(instance, script.source, bytecode->second, hash, generation))
+                if (is_stale
+                    && !instantiate(instance, _name_by_id[id], bytecode->second, id, generation))
                     continue;
 
                 if (!instance.is_started)
@@ -140,7 +147,7 @@ namespace tbx
             LuauInstance& instance,
             const std::string& source_name,
             const std::string& bytecode,
-            const uint64 hash,
+            const Uuid& id,
             const uint32 generation)
         {
             if (instance.table_ref >= 0)
@@ -162,7 +169,7 @@ namespace tbx
             }
             instance.table_ref = lua_ref(_lua, -1);
             lua_pop(_lua, 1);
-            instance.script_hash = hash;
+            instance.script_id = id;
             instance.generation = generation;
             instance.is_started = false;
             return true;
@@ -200,8 +207,9 @@ namespace tbx
         std::reference_wrapper<Sandbox> _sandbox;
         std::reference_wrapper<Events> _events;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
-        std::unordered_map<uint64, std::string> _bytecode_by_hash;
-        std::unordered_map<uint64, uint32> _generation_by_hash;
+        std::unordered_map<Uuid, std::string> _bytecode_by_id;
+        std::unordered_map<Uuid, std::string> _name_by_id;
+        std::unordered_map<Uuid, uint32> _generation_by_id;
         std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
 

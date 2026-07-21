@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset_handle.h"
 #include "tbx/core/hash.h"
 #include "tbx/serialization/json.h"
 #include "tbx/core/log.h"
@@ -35,6 +36,7 @@ namespace tbx
         COLOR,
         UUID,
         ENUM, // serialized as its integer value — renumbering is a migrate-fn concern
+        ASSET, // an AssetHandle<T> — serialized as its uuid string
         TYPE // another registered type, resolved lazily via nested_hash
     };
 
@@ -110,6 +112,18 @@ namespace tbx
     TypeRegistry& get_type_registry();
 
     /// @brief
+    /// Purpose: Detects AssetHandle<T> fields so they reflect as FieldKind::ASSET.
+    template <typename T>
+    struct IsAssetHandle : std::false_type
+    {
+    };
+
+    template <typename TAsset>
+    struct IsAssetHandle<AssetHandle<TAsset>> : std::true_type
+    {
+    };
+
+    /// @brief
     /// Purpose: Maps a C++ field type onto its FieldKind; unsupported types fail to compile.
     template <typename T>
     consteval FieldKind field_kind_of()
@@ -146,6 +160,8 @@ namespace tbx
             return FieldKind::UUID;
         else if constexpr (std::is_enum_v<T>)
             return FieldKind::ENUM;
+        else if constexpr (IsAssetHandle<T>::value)
+            return FieldKind::ASSET;
         else if constexpr (std::is_class_v<T>)
             return FieldKind::TYPE;
         else
