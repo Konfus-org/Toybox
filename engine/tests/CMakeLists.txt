@@ -10,6 +10,9 @@ endif()
 file(GLOB TBX_TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
 add_executable(tbx_tests ${TBX_TEST_SOURCES})
 target_link_libraries(tbx_tests PRIVATE tbx GTest::gtest_main)
+target_precompile_headers(tbx_tests PRIVATE
+    <string> <vector> <memory> <optional>
+    <tbx_math_backend.h> <tbx_serialization_backend.h> <gtest/gtest.h>)
 
 tbx_copy_runtime_dlls(tbx_tests)
 

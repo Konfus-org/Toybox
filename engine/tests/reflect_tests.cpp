@@ -126,8 +126,8 @@ namespace tbx::tests
         // Arrange
         const TypeInfo& type = register_test_types();
         auto old_data = Json::object();
-        old_data["__type"] = "TestPlayer";
-        old_data["__version"] = 1;
+        old_data["type"] = "TestPlayer";
+        old_data["version"] = 1;
         old_data["health"] = 77.0f; // the v1 field name
 
         // Act
@@ -144,7 +144,7 @@ namespace tbx::tests
         // Arrange
         const TypeInfo& type = register_test_types();
         auto current = Json::object();
-        current["__version"] = 2;
+        current["version"] = 2;
         current["health"] = 5.0f; // stale name would only be fixed by migrate
         current["hp"] = 50.0f;
 
@@ -162,7 +162,7 @@ namespace tbx::tests
         // Arrange
         const TypeInfo& type = register_test_types();
         auto sparse = Json::object();
-        sparse["__version"] = 2;
+        sparse["version"] = 2;
         sparse["hp"] = 12.0f;
 
         // Act
@@ -180,7 +180,7 @@ namespace tbx::tests
         // Arrange
         const TypeInfo& type = register_test_types();
         auto bad = Json::object();
-        bad["__version"] = 2;
+        bad["version"] = 2;
         bad["hp"] = "not a number";
 
         // Act

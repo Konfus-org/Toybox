@@ -183,6 +183,35 @@ end
         EXPECT_TRUE(toy.get_block<RigidBody>().is_kinematic);
     }
 
+    TEST(Scripts, TbxMathMirrorsTheEngineMathLibrary)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto sandbox = Sandbox(jobs);
+        auto events = Events();
+        auto scripts = Scripts(sandbox, events);
+        const auto mathy = scripts.load_source("mathy", R"(
+function start(toy)
+    local moved = tbx.math.add({ x = 1.0, y = 2.0, z = 3.0 }, { x = 1.0, y = 0.0, z = 0.0 })
+    local yawed = tbx.math.rotate(
+        tbx.math.angle_axis(math.pi * 0.5, { x = 0.0, y = 1.0, z = 0.0 }),
+        { x = 0.0, y = 0.0, z = -1.0 })
+    toy.Transform.position = { x = moved.x + yawed.x, y = moved.y, z = moved.z }
+end
+)");
+        ASSERT_TRUE(mathy.has_value());
+        Toy toy = sandbox.spawn("Mathy").with(Script {.source = *mathy});
+
+        // Act
+        scripts.update(0.016f);
+
+        // Assert: (1+1) + rotate(-Z by 90° yaw).x = 2 + (-1) = 1.
+        const Vec3 position = toy.get_block<Transform>().position;
+        EXPECT_NEAR(position.x, 1.0f, 0.0001f);
+        EXPECT_NEAR(position.y, 2.0f, 0.0001f);
+        EXPECT_NEAR(position.z, 3.0f, 0.0001f);
+    }
+
     TEST(Scripts, DisabledToysDoNotRunScripts)
     {
         // Arrange

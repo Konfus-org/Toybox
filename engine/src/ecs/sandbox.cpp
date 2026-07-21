@@ -208,7 +208,7 @@ namespace tbx
 
                 for (const Json& block_json : toy_json.value("blocks", Json::array()))
                 {
-                    const auto type_name = block_json.value("__type", std::string());
+                    const auto type_name = block_json.value("type", std::string());
                     const uint64 hashed = hash(type_name);
                     const auto operations = get_block_registry().find(hashed);
                     const auto type = get_type_registry().find(hashed);

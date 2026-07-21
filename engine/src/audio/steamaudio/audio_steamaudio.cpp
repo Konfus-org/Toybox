@@ -1,9 +1,9 @@
 #include "tbx/audio/audio.h"
 #include "tbx/core/log.h"
 #include <SDL3/SDL.h>
-#include <phonon.h>
 #include <memory>
 #include <mutex>
+#include <phonon.h>
 #include <unordered_map>
 
 namespace tbx::audio
@@ -31,17 +31,6 @@ namespace tbx::audio
     /// Purpose: The whole audio engine, torn down by reset() and rebuilt lazily by update().
     struct AudioState
     {
-        IPLContext context = nullptr;
-        IPLHRTF hrtf = nullptr;
-        SDL_AudioStream* stream = nullptr;
-        IPLAudioBuffer mono = {};
-        IPLAudioBuffer stereo = {};
-        std::mutex voices_mutex;
-        std::unordered_map<uint32, Voice> voices; // keyed by ToyId value
-        std::unordered_map<Uuid, std::shared_ptr<const AudioClip>> clips;
-        float listener_volume = 1.0f;
-        std::vector<float> interleaved;
-
         ~AudioState()
         {
             if (stream)
@@ -58,6 +47,17 @@ namespace tbx::audio
             if (context)
                 iplContextRelease(&context);
         }
+
+        IPLContext context = nullptr;
+        IPLHRTF hrtf = nullptr;
+        SDL_AudioStream* stream = nullptr;
+        IPLAudioBuffer mono = {};
+        IPLAudioBuffer stereo = {};
+        std::mutex voices_mutex;
+        std::unordered_map<uint32, Voice> voices; // keyed by ToyId value
+        std::unordered_map<Uuid, std::shared_ptr<const AudioClip>> clips;
+        float listener_volume = 1.0f;
+        std::vector<float> interleaved;
     };
 
     static std::unique_ptr<AudioState> g_audio = {};
@@ -120,11 +120,8 @@ namespace tbx::audio
         }
     }
 
-    static void SDLCALL feed_device(
-        void* userdata,
-        SDL_AudioStream* stream,
-        const int additional_amount,
-        int)
+    static void SDLCALL
+        feed_device(void* userdata, SDL_AudioStream* stream, const int additional_amount, int)
     {
         auto& state = *static_cast<AudioState*>(userdata);
         int remaining_bytes = additional_amount;
@@ -135,7 +132,9 @@ namespace tbx::audio
             const int frame_count = block_bytes / (2 * static_cast<int>(sizeof(float)));
             mix_block(state, frame_count);
             SDL_PutAudioStreamData(
-                stream, state.interleaved.data(), frame_count * 2 * sizeof(float));
+                stream,
+                state.interleaved.data(),
+                frame_count * 2 * sizeof(float));
             remaining_bytes -= block_bytes;
         }
     }
@@ -179,7 +178,10 @@ namespace tbx::audio
             spec.channels = 2;
             spec.freq = SAMPLE_RATE;
             state->stream = SDL_OpenAudioDeviceStream(
-                SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, feed_device, state.get());
+                SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                &spec,
+                feed_device,
+                state.get());
             if (state->stream)
                 SDL_ResumeAudioStreamDevice(state->stream);
             else
@@ -223,9 +225,8 @@ namespace tbx::audio
         for (const auto [entity, source] : registry.view<AudioSource>().each())
         {
             const auto key = static_cast<uint32>(entity);
-            const bool wants_voice = has_listener
-                && registry.get<ToyHandle>(entity).is_enabled && source.is_playing
-                && source.clip.is_valid();
+            const bool wants_voice = has_listener && registry.get<ToyHandle>(entity).is_enabled
+                                     && source.is_playing && source.clip.is_valid();
             auto existing = state->voices.find(key);
 
             if (!wants_voice)
@@ -258,7 +259,10 @@ namespace tbx::audio
                 auto effect_settings = IPLBinauralEffectSettings {};
                 effect_settings.hrtf = state->hrtf;
                 iplBinauralEffectCreate(
-                    state->context, &audio_settings, &effect_settings, &voice.effect);
+                    state->context,
+                    &audio_settings,
+                    &effect_settings,
+                    &voice.effect);
                 existing = state->voices.emplace(key, std::move(voice)).first;
             }
 
@@ -270,8 +274,7 @@ namespace tbx::audio
             }
 
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
-            const Vec3 local =
-                Vec3(listener_inverse * world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            const Vec3 local = Vec3(listener_inverse * world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
             const float distance = math::length(local);
             const Vec3 direction =
                 distance > 0.0001f ? local * (1.0f / distance) : Vec3(0.0f, 0.0f, -1.0f);

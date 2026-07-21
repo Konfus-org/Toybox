@@ -247,7 +247,7 @@ namespace tbx::tests
                  {"uuid", "00"},
                  {"name", "Survivor"},
                  {"blocks",
-                  Json::array({Json {{"__type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
+                  Json::array({Json {{"type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
         auto sandbox = Sandbox(jobs);
 
         // Act

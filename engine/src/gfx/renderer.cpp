@@ -18,11 +18,22 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Lazily-built renderer resources plus per-asset GPU caches (RAII; released at
     /// process exit).
+    /// @brief
+    /// Purpose: A shader plus the pipeline-state object it draws with.
+    struct CompiledPipeline
+    {
+        std::unique_ptr<Shader> shader;
+        std::unique_ptr<Pipeline> pipeline;
+    };
+
     struct RendererState
     {
         std::unique_ptr<Shader> depth_shader;
         std::unique_ptr<Shader> lit_shader;
         std::unique_ptr<Shader> sky_shader;
+        std::unique_ptr<Pipeline> depth_pipeline;
+        std::unique_ptr<Pipeline> lit_pipeline;
+        std::unique_ptr<Pipeline> sky_pipeline;
         std::unique_ptr<Mesh> cube;
         std::unique_ptr<Mesh> plane;
         std::unique_ptr<Mesh> sphere;
@@ -33,8 +44,8 @@ namespace tbx::gpu
         std::unique_ptr<RenderTarget> post_swap;
         std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
-        std::unordered_map<Uuid, std::unique_ptr<Shader>> shaders_by_fragment;
-        std::unordered_map<Uuid, std::unique_ptr<Shader>> post_shaders_by_asset;
+        std::unordered_map<Uuid, CompiledPipeline> shaders_by_fragment;
+        std::unordered_map<Uuid, CompiledPipeline> post_shaders_by_asset;
         std::string lit_vertex_text;
         std::string post_vertex_text;
         std::chrono::steady_clock::time_point start_time;
@@ -179,6 +190,16 @@ namespace tbx::gpu
         g_renderer.depth_shader = std::move(*depth);
         g_renderer.lit_shader = std::move(*lit);
         g_renderer.sky_shader = std::move(*sky);
+        // Front-face culling in the shadow pass reduces acne on closed meshes; the sky skips
+        // depth entirely (drawn first, the scene covers it).
+        g_renderer.depth_pipeline =
+            make_pipeline({.shader = *g_renderer.depth_shader, .cull = CullMode::FRONT});
+        g_renderer.lit_pipeline = make_pipeline({.shader = *g_renderer.lit_shader});
+        g_renderer.sky_pipeline = make_pipeline(
+            {.shader = *g_renderer.sky_shader,
+             .is_depth_test_enabled = false,
+             .is_depth_write_enabled = false,
+             .cull = CullMode::NONE});
         g_renderer.cube = upload_mesh(build_cube_vertices(), std::array {3, 3, 2});
         g_renderer.plane = upload_mesh(build_plane_vertices(), std::array {3, 3, 2});
         g_renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3, 2});
@@ -241,6 +262,7 @@ namespace tbx::gpu
     struct ResolvedSurface
     {
         std::reference_wrapper<const Shader> shader;
+        std::reference_wrapper<const Pipeline> pipeline;
         std::reference_wrapper<const Texture2d> texture;
         Color tint = {};
         Json uniforms = {};
@@ -250,6 +272,7 @@ namespace tbx::gpu
     {
         auto surface = ResolvedSurface {
             .shader = *g_renderer.lit_shader,
+            .pipeline = *g_renderer.lit_pipeline,
             .texture = resolve_texture_handle(renderer.texture, assets),
             .tint = renderer.tint};
         if (!assets || !renderer.material.is_valid())
@@ -277,15 +300,21 @@ namespace tbx::gpu
         {
             const auto cached = g_renderer.shaders_by_fragment.find(resolved.fragment.id);
             if (cached != g_renderer.shaders_by_fragment.end())
-                surface.shader = *cached->second;
+            {
+                surface.shader = *cached->second.shader;
+                surface.pipeline = *cached->second.pipeline;
+            }
             else if (const auto source = assets->acquire(resolved.fragment))
             {
                 auto compiled = compile_shader(
                     g_renderer.lit_vertex_text.c_str(), source->get().text.c_str());
                 if (compiled)
                 {
-                    surface.shader = **compiled;
-                    g_renderer.shaders_by_fragment[resolved.fragment.id] = std::move(*compiled);
+                    auto& entry = g_renderer.shaders_by_fragment[resolved.fragment.id];
+                    entry.shader = std::move(*compiled);
+                    entry.pipeline = make_pipeline({.shader = *entry.shader});
+                    surface.shader = *entry.shader;
+                    surface.pipeline = *entry.pipeline;
                 }
                 else
                     log_warn("material shader failed: {}", compiled.error());
@@ -297,7 +326,7 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: A PostProcessing entry compiled against the builtin post vertex stage, cached
     /// by asset id (failures cache too, so a broken shader logs once, not every frame).
-    static std::optional<std::reference_wrapper<const Shader>> resolve_post_shader(
+    static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
         const AssetHandle<ShaderSource>& handle,
         Assets* assets)
     {
@@ -306,15 +335,15 @@ namespace tbx::gpu
         const auto cached = g_renderer.post_shaders_by_asset.find(handle.id);
         if (cached != g_renderer.post_shaders_by_asset.end())
         {
-            if (!cached->second)
+            if (!cached->second.shader)
                 return {};
-            return *cached->second;
+            return cached->second;
         }
         const auto source = assets->acquire(handle);
         if (!source)
         {
             log_warn("post shader unavailable: {}", source.error());
-            g_renderer.post_shaders_by_asset[handle.id] = nullptr;
+            g_renderer.post_shaders_by_asset[handle.id] = {};
             return {};
         }
         auto compiled =
@@ -322,12 +351,17 @@ namespace tbx::gpu
         if (!compiled)
         {
             log_warn("post shader failed: {}", compiled.error());
-            g_renderer.post_shaders_by_asset[handle.id] = nullptr;
+            g_renderer.post_shaders_by_asset[handle.id] = {};
             return {};
         }
-        const Shader& result = **compiled;
-        g_renderer.post_shaders_by_asset[handle.id] = std::move(*compiled);
-        return result;
+        auto& entry = g_renderer.post_shaders_by_asset[handle.id];
+        entry.shader = std::move(*compiled);
+        entry.pipeline = make_pipeline(
+            {.shader = *entry.shader,
+             .is_depth_test_enabled = false,
+             .is_depth_write_enabled = false,
+             .cull = CullMode::NONE});
+        return entry;
     }
 
     //// RENDER ////
@@ -380,7 +414,8 @@ namespace tbx::gpu
             math::orthographic(-25.0f, 25.0f, -25.0f, 25.0f, 0.1f, 100.0f) * light_view;
 
         // Pass 1: depth from the light.
-        begin_depth_pass(*g_renderer.shadow_target);
+        begin_render_pass({.depth_target = *g_renderer.shadow_target});
+        set_pipeline(*g_renderer.depth_pipeline);
         set_uniform(*g_renderer.depth_shader, "u_light_view_projection", light_view_projection);
         for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
         {
@@ -390,13 +425,13 @@ namespace tbx::gpu
                 *g_renderer.depth_shader,
                 "u_model",
                 sandbox.get_world_matrix(Toy(sandbox, entity)));
-            draw(*g_renderer.depth_shader, resolve_mesh(renderer, assets));
+            draw(resolve_mesh(renderer, assets));
         }
-        end_depth_pass();
+        end_render_pass();
 
         // When a PostProcessing block lists shaders, the scene renders into an offscreen
         // target and the chain fullscreen-passes it back onto the window at the end.
-        auto post_chain = std::vector<std::reference_wrapper<const Shader>>();
+        auto post_chain = std::vector<std::reference_wrapper<const CompiledPipeline>>();
         for (const auto [entity, post] : registry.view<PostProcessing>().each())
         {
             for (const AssetHandle<ShaderSource>& handle : post.shaders)
@@ -415,8 +450,10 @@ namespace tbx::gpu
                 g_renderer.post_source = make_render_target(width, height);
                 g_renderer.post_swap = make_render_target(width, height);
             }
-            begin_render_target(*g_renderer.post_source);
-            clear(get_clear_color());
+            begin_render_pass(
+                {.color_target = *g_renderer.post_source,
+                 .load = LoadOperation::CLEAR,
+                 .clear_color = get_clear_color()});
         }
 
         // Sky: the first Sky block paints the background along the view ray (depth writes
@@ -424,14 +461,13 @@ namespace tbx::gpu
         for (const auto [entity, sky] : registry.view<Sky>().each())
         {
             const Shader& sky_shader = *g_renderer.sky_shader;
+            set_pipeline(*g_renderer.sky_pipeline);
             set_uniform(sky_shader, "u_inverse_view_projection", math::inverse(view_projection));
             set_uniform(sky_shader, "u_camera_position", camera_position);
             set_uniform(sky_shader, "u_tint", sky.tint);
             set_uniform(sky_shader, "u_sky", 0);
             bind_texture(resolve_texture_handle(sky.texture, assets), 0);
-            set_depth_write(false);
-            draw(sky_shader, *g_renderer.fullscreen);
-            set_depth_write(true);
+            draw(*g_renderer.fullscreen);
             break;
         }
 
@@ -443,6 +479,7 @@ namespace tbx::gpu
                 continue;
             const ResolvedSurface surface = resolve_surface(renderer, assets);
             const Shader& shader = surface.shader;
+            set_pipeline(surface.pipeline);
             set_uniform(shader, "u_view_projection", view_projection);
             set_uniform(shader, "u_light_view_projection", light_view_projection);
             set_uniform(shader, "u_light_direction", light_direction);
@@ -456,7 +493,7 @@ namespace tbx::gpu
             set_uniform(shader, "u_uv_scale", 1.0f);
             apply_uniforms(shader, surface.uniforms); // reflection-typed material extras
             bind_texture(surface.texture, 1);
-            draw(shader, resolve_mesh(renderer, assets));
+            draw(resolve_mesh(renderer, assets));
         }
 
         if (has_post)
@@ -471,24 +508,25 @@ namespace tbx::gpu
                 static_cast<float>(get_viewport_height()));
             auto source = std::ref(*g_renderer.post_source);
             auto swap = std::ref(*g_renderer.post_swap);
-            set_depth_test(false);
+            end_render_pass(); // close the scene's offscreen pass
             for (size index = 0; index < post_chain.size(); ++index)
             {
                 const bool is_last = index + 1 == post_chain.size();
                 if (is_last)
-                    end_render_target();
+                    begin_render_pass({}); // the swapchain; the fullscreen draw covers it
                 else
-                    begin_render_target(swap);
-                const Shader& post_shader = post_chain[index];
-                set_uniform(post_shader, "u_scene", 0);
-                set_uniform(post_shader, "u_resolution", resolution);
-                set_uniform(post_shader, "u_time", time_seconds);
+                    begin_render_pass({.color_target = swap});
+                const CompiledPipeline& stage = post_chain[index];
+                set_pipeline(*stage.pipeline);
+                set_uniform(*stage.shader, "u_scene", 0);
+                set_uniform(*stage.shader, "u_resolution", resolution);
+                set_uniform(*stage.shader, "u_time", time_seconds);
                 bind_render_target_texture(source, 0);
-                draw(post_shader, *g_renderer.fullscreen);
+                draw(*g_renderer.fullscreen);
+                end_render_pass();
                 if (!is_last)
                     std::swap(source, swap);
             }
-            set_depth_test(true);
         }
     }
 

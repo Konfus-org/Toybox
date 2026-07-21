@@ -3,8 +3,8 @@
 
 namespace tbx
 {
-    static constexpr const char* TYPE_KEY = "__type";
-    static constexpr const char* VERSION_KEY = "__version";
+    static constexpr const char* TYPE_KEY = "type";
+    static constexpr const char* VERSION_KEY = "version";
 
     //// FIELD IO ////
 

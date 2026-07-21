@@ -192,6 +192,7 @@ int main(int argc, char** argv)
     auto app = tbx::App {.title = "Toybox 2"};
     bool selftest_passed = false;
     std::unique_ptr<tbx::gpu::Shader> shader = {};
+    std::unique_ptr<tbx::gpu::Pipeline> pipeline = {};
     std::unique_ptr<tbx::gpu::Mesh> mesh = {};
 
     while (tbx::run(app))
@@ -206,11 +207,13 @@ int main(int argc, char** argv)
                 return 1;
             }
             shader = std::move(*compiled);
+            pipeline = tbx::gpu::make_pipeline({.shader = *shader});
             mesh = tbx::gpu::upload_mesh(TRIANGLE_VERTICES, std::array {3, 4});
         }
 
         tbx::gpu::begin_frame();
-        tbx::gpu::draw(*shader, *mesh);
+        tbx::gpu::set_pipeline(*pipeline);
+        tbx::gpu::draw(*mesh);
 
         if (selftest)
         {
@@ -230,6 +233,7 @@ int main(int argc, char** argv)
 
     // GPU resources must die before run() tears the context down... they already did not:
     // release them explicitly before exit since the loop ended with the context gone.
+    pipeline.reset();
     shader.reset();
     mesh.reset();
 

@@ -50,6 +50,8 @@ namespace tbx::gpu
         glDeleteFramebuffers(1, &_framebuffer);
     }
 
+    Pipeline::~Pipeline() = default;
+
     RenderTarget::~RenderTarget()
     {
         glDeleteRenderbuffers(1, &_depth_buffer);
@@ -63,6 +65,14 @@ namespace tbx::gpu
     static int g_viewport_height = 0;
     static Color g_clear_color = {};
 
+    static void clear_attachments(const Color& color)
+    {
+        g_clear_color = color;
+        glClearColor(color.r, color.g, color.b, color.a);
+        glDepthMask(GL_TRUE); // glClear respects the depth mask; a pass clear never should
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+
     void begin_frame(const FrameDescription& description)
     {
         if (description.width > 0 && description.height > 0)
@@ -70,15 +80,42 @@ namespace tbx::gpu
             g_viewport_width = description.width;
             g_viewport_height = description.height;
         }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, g_viewport_width, g_viewport_height);
-        clear(description.clear);
+        clear_attachments(description.clear);
     }
 
-    void clear(const Color& color)
+    void begin_render_pass(const RenderPassDescription& description)
     {
-        g_clear_color = color;
-        glClearColor(color.r, color.g, color.b, color.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        if (description.depth_target)
+        {
+            // Depth-only passes always start empty; a shadow map never keeps stale depth.
+            const DepthTarget& target = *description.depth_target;
+            glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
+            glViewport(0, 0, target.get_resolution(), target.get_resolution());
+            glDepthMask(GL_TRUE);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            return;
+        }
+        if (description.color_target)
+        {
+            const RenderTarget& target = *description.color_target;
+            glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
+            glViewport(0, 0, target.get_width(), target.get_height());
+        }
+        else
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, g_viewport_width, g_viewport_height);
+        }
+        if (description.load == LoadOperation::CLEAR)
+            clear_attachments(description.clear_color);
+    }
+
+    void end_render_pass()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, g_viewport_width, g_viewport_height);
     }
 
     Color get_clear_color()
@@ -119,9 +156,54 @@ namespace tbx::gpu
         return std::make_unique<Shader>(program);
     }
 
-    void draw(const Shader& shader, const Mesh& mesh)
+    std::unique_ptr<Pipeline> make_pipeline(const PipelineDescription& description)
     {
-        glUseProgram(shader.get_id());
+        // GL has no baked pipeline objects; the description IS the object and set_pipeline
+        // applies it as state.
+        return std::make_unique<Pipeline>(description);
+    }
+
+    void set_pipeline(const Pipeline& pipeline)
+    {
+        const PipelineDescription& description = pipeline.get_description();
+        glUseProgram(description.shader.get().get_id());
+        if (description.is_depth_test_enabled)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        glDepthMask(description.is_depth_write_enabled ? GL_TRUE : GL_FALSE);
+        switch (description.cull)
+        {
+            case CullMode::NONE:
+                glDisable(GL_CULL_FACE);
+                break;
+            case CullMode::BACK:
+                glEnable(GL_CULL_FACE);
+                glCullFace(GL_BACK);
+                break;
+            case CullMode::FRONT:
+                glEnable(GL_CULL_FACE);
+                glCullFace(GL_FRONT);
+                break;
+        }
+        switch (description.blend)
+        {
+            case BlendMode::NONE:
+                glDisable(GL_BLEND);
+                break;
+            case BlendMode::ALPHA:
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                break;
+            case BlendMode::PREMULTIPLIED:
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                break;
+        }
+    }
+
+    void draw(const Mesh& mesh)
+    {
         glBindVertexArray(mesh.get_vertex_array());
         glDrawArrays(GL_TRIANGLES, 0, mesh.get_vertex_count());
         glBindVertexArray(0);
@@ -335,14 +417,6 @@ void main()
         glViewport(0, 0, width, height);
     }
 
-    void begin_depth_pass(const DepthTarget& target)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
-        glViewport(0, 0, target.get_resolution(), target.get_resolution());
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT); // reduces shadow acne on closed meshes
-    }
-
     void bind_depth_texture(const DepthTarget& target, const int slot)
     {
         glActiveTexture(GL_TEXTURE0 + slot);
@@ -353,13 +427,6 @@ void main()
     {
         glActiveTexture(GL_TEXTURE0 + slot);
         glBindTexture(GL_TEXTURE_2D, texture.get_id());
-    }
-
-    void end_depth_pass()
-    {
-        glCullFace(GL_BACK);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, g_viewport_width, g_viewport_height);
     }
 
     std::unique_ptr<DepthTarget> make_depth_target(const int resolution)
@@ -395,22 +462,10 @@ void main()
         return std::make_unique<DepthTarget>(framebuffer, depth_texture, resolution);
     }
 
-    void begin_render_target(const RenderTarget& target)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
-        glViewport(0, 0, target.get_width(), target.get_height());
-    }
-
     void bind_render_target_texture(const RenderTarget& target, const int slot)
     {
         glActiveTexture(GL_TEXTURE0 + slot);
         glBindTexture(GL_TEXTURE_2D, target.get_color_texture());
-    }
-
-    void end_render_target()
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, g_viewport_width, g_viewport_height);
     }
 
     std::unique_ptr<RenderTarget> make_render_target(const int width, const int height)
@@ -440,19 +495,6 @@ void main()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return std::make_unique<RenderTarget>(
             framebuffer, color_texture, depth_buffer, width, height);
-    }
-
-    void set_depth_test(const bool is_enabled)
-    {
-        if (is_enabled)
-            glEnable(GL_DEPTH_TEST);
-        else
-            glDisable(GL_DEPTH_TEST);
-    }
-
-    void set_depth_write(const bool is_enabled)
-    {
-        glDepthMask(is_enabled ? GL_TRUE : GL_FALSE);
     }
 
     void set_uniform(const Shader& shader, const char* name, const Mat4& value)

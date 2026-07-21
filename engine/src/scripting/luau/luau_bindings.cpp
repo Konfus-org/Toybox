@@ -478,6 +478,147 @@ namespace tbx
         return 1;
     }
 
+    //// MATH ////
+    // tbx.math mirrors tbx::math so scripts lean on the C++ library instead of hand-rolled
+    // trig: vectors are {x,y,z} tables, rotations are {x,y,z,w} tables.
+
+    static Quat check_quat(lua_State* lua, const int index)
+    {
+        luaL_checktype(lua, index, LUA_TTABLE);
+        auto values = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        read_vector_table(lua, index, &values.x, XYZW_KEYS, 4);
+        return Quat(values.w, values.x, values.y, values.z);
+    }
+
+    static int push_vector3(lua_State* lua, const Vec3& vector)
+    {
+        push_vector_table(lua, &vector.x, XYZW_KEYS, 3);
+        return 1;
+    }
+
+    static int push_quat(lua_State* lua, const Quat& rotation)
+    {
+        const float values[4] = {rotation.x, rotation.y, rotation.z, rotation.w};
+        push_vector_table(lua, values, XYZW_KEYS, 4);
+        return 1;
+    }
+
+    static int math_add(lua_State* lua)
+    {
+        return push_vector3(lua, check_vector3(lua, 1) + check_vector3(lua, 2));
+    }
+
+    static int math_subtract(lua_State* lua)
+    {
+        return push_vector3(lua, check_vector3(lua, 1) - check_vector3(lua, 2));
+    }
+
+    static int math_scale(lua_State* lua)
+    {
+        return push_vector3(
+            lua, check_vector3(lua, 1) * static_cast<float>(luaL_checknumber(lua, 2)));
+    }
+
+    static int math_dot(lua_State* lua)
+    {
+        lua_pushnumber(lua, math::dot(check_vector3(lua, 1), check_vector3(lua, 2)));
+        return 1;
+    }
+
+    static int math_cross(lua_State* lua)
+    {
+        return push_vector3(lua, math::cross(check_vector3(lua, 1), check_vector3(lua, 2)));
+    }
+
+    static int math_length(lua_State* lua)
+    {
+        lua_pushnumber(lua, math::length(check_vector3(lua, 1)));
+        return 1;
+    }
+
+    static int math_distance(lua_State* lua)
+    {
+        lua_pushnumber(lua, math::distance(check_vector3(lua, 1), check_vector3(lua, 2)));
+        return 1;
+    }
+
+    static int math_normalize(lua_State* lua)
+    {
+        return push_vector3(lua, math::normalize(check_vector3(lua, 1)));
+    }
+
+    static int math_lerp(lua_State* lua)
+    {
+        const auto t = static_cast<float>(luaL_checknumber(lua, 3));
+        if (lua_istable(lua, 1))
+            return push_vector3(lua, math::lerp(check_vector3(lua, 1), check_vector3(lua, 2), t));
+        lua_pushnumber(
+            lua,
+            math::lerp(
+                static_cast<float>(luaL_checknumber(lua, 1)),
+                static_cast<float>(luaL_checknumber(lua, 2)),
+                t));
+        return 1;
+    }
+
+    static int math_move_toward(lua_State* lua)
+    {
+        return push_vector3(
+            lua,
+            math::move_toward(
+                check_vector3(lua, 1),
+                check_vector3(lua, 2),
+                static_cast<float>(luaL_checknumber(lua, 3))));
+    }
+
+    static int math_reflect(lua_State* lua)
+    {
+        return push_vector3(lua, math::reflect(check_vector3(lua, 1), check_vector3(lua, 2)));
+    }
+
+    static int math_angle_axis(lua_State* lua)
+    {
+        return push_quat(
+            lua,
+            math::angle_axis(
+                static_cast<float>(luaL_checknumber(lua, 1)), check_vector3(lua, 2)));
+    }
+
+    static int math_multiply(lua_State* lua)
+    {
+        return push_quat(lua, math::multiply(check_quat(lua, 1), check_quat(lua, 2)));
+    }
+
+    static int math_rotate(lua_State* lua)
+    {
+        return push_vector3(lua, math::rotate(check_quat(lua, 1), check_vector3(lua, 2)));
+    }
+
+    static int math_slerp(lua_State* lua)
+    {
+        return push_quat(
+            lua,
+            math::slerp(
+                check_quat(lua, 1),
+                check_quat(lua, 2),
+                static_cast<float>(luaL_checknumber(lua, 3))));
+    }
+
+    static int math_from_euler(lua_State* lua)
+    {
+        return push_quat(lua, math::from_euler(check_vector3(lua, 1)));
+    }
+
+    static int math_to_euler(lua_State* lua)
+    {
+        return push_vector3(lua, math::to_euler(check_quat(lua, 1)));
+    }
+
+    static int math_quat_look_at(lua_State* lua)
+    {
+        return push_quat(lua, math::quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
+    }
+
     static int ui_set_style(lua_State* lua)
     {
         ui::set_inline_style(
@@ -535,9 +676,9 @@ namespace tbx
     static MouseButton mouse_button_from_string(const char* name)
     {
         const uint64 hashed = hash(name);
-        if (hashed == hash("right"))
+        if (hashed == hash("RIGHT") || hashed == hash("right"))
             return MouseButton::RIGHT;
-        if (hashed == hash("middle"))
+        if (hashed == hash("MIDDLE") || hashed == hash("middle"))
             return MouseButton::MIDDLE;
         return MouseButton::LEFT;
     }
@@ -648,6 +789,30 @@ namespace tbx
         lua_pushcfunction(lua, ui_set_style, "ui_set_style");
         lua_setfield(lua, -2, "set_style");
         lua_setfield(lua, -2, "ui");
+
+        lua_createtable(lua, 0, 18);
+        const luaL_Reg math_functions[] = {
+            {"add", math_add},
+            {"subtract", math_subtract},
+            {"scale", math_scale},
+            {"dot", math_dot},
+            {"cross", math_cross},
+            {"length", math_length},
+            {"distance", math_distance},
+            {"normalize", math_normalize},
+            {"lerp", math_lerp},
+            {"move_toward", math_move_toward},
+            {"reflect", math_reflect},
+            {"angle_axis", math_angle_axis},
+            {"multiply", math_multiply},
+            {"rotate", math_rotate},
+            {"slerp", math_slerp},
+            {"from_euler", math_from_euler},
+            {"to_euler", math_to_euler},
+            {"quat_look_at", math_quat_look_at},
+            {nullptr, nullptr}};
+        luaL_register(lua, nullptr, math_functions);
+        lua_setfield(lua, -2, "math");
 
         lua_pushcfunction(lua, tbx_quit, "tbx_quit");
         lua_setfield(lua, -2, "quit");

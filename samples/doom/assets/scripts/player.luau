@@ -1,5 +1,6 @@
 -- The player: mouse look, WASD, hitscan fire, HUD, streaming focus. The whole game loop
--- lives here; the C++ side only renders and (in selftest) checks the outcome.
+-- lives here; the C++ side only renders and (in selftest) checks the outcome. All the vector
+-- and quaternion work goes through tbx.math (the engine's math library).
 
 local yaw = 0.0
 local pitch = 0.0
@@ -7,32 +8,9 @@ local kills = 0
 local frame = 0
 local shot_instance = nil
 
-local function angle_axis(radians, axis)
-    local half = radians * 0.5
-    local s = math.sin(half)
-    return { w = math.cos(half), x = axis.x * s, y = axis.y * s, z = axis.z * s }
-end
-
-local function quat_mul(a, b)
-    return {
-        w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-        x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-        y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-        z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
-    }
-end
-
-local function rotate(q, v)
-    -- v + w * (2 * cross(u, v)) + cross(u, 2 * cross(u, v)), u = quat vector part
-    local tx = 2.0 * (q.y * v.z - q.z * v.y)
-    local ty = 2.0 * (q.z * v.x - q.x * v.z)
-    local tz = 2.0 * (q.x * v.y - q.y * v.x)
-    return {
-        x = v.x + q.w * tx + (q.y * tz - q.z * ty),
-        y = v.y + q.w * ty + (q.z * tx - q.x * tz),
-        z = v.z + q.w * tz + (q.x * ty - q.y * tx),
-    }
-end
+local UP = { x = 0.0, y = 1.0, z = 0.0 }
+local RIGHT = { x = 1.0, y = 0.0, z = 0.0 }
+local AHEAD = { x = 0.0, y = 0.0, z = -1.0 }
 
 local function fire(toy, position, forward)
     local hit = tbx.physics.raycast(position, forward, 200.0)
@@ -63,42 +41,41 @@ function update(toy, delta_time)
         yaw = yaw - delta.x * 0.003
         pitch = math.clamp(pitch - delta.y * 0.003, -1.4, 1.4)
     end
-    local rotation = quat_mul(
-        angle_axis(yaw, { x = 0.0, y = 1.0, z = 0.0 }),
-        angle_axis(pitch, { x = 1.0, y = 0.0, z = 0.0 }))
+    local rotation = tbx.math.multiply(
+        tbx.math.angle_axis(yaw, UP),
+        tbx.math.angle_axis(pitch, RIGHT))
     toy.Transform.rotation = rotation
 
-    local forward = rotate(rotation, { x = 0.0, y = 0.0, z = -1.0 })
-    local flat_length = math.sqrt(forward.x * forward.x + forward.z * forward.z)
-    local flat = { x = forward.x / flat_length, y = 0.0, z = forward.z / flat_length }
-    local right = rotate(rotation, { x = 1.0, y = 0.0, z = 0.0 })
+    local forward = tbx.math.rotate(rotation, AHEAD)
+    local flat = tbx.math.normalize({ x = forward.x, y = 0.0, z = forward.z })
+    local right = tbx.math.rotate(rotation, RIGHT)
 
     local position = toy.Transform.position
     local speed = 6.0 * delta_time
     if tbx.input.is_down("W") then
-        position = { x = position.x + flat.x * speed, y = position.y, z = position.z + flat.z * speed }
+        position = tbx.math.add(position, tbx.math.scale(flat, speed))
     end
     if tbx.input.is_down("S") then
-        position = { x = position.x - flat.x * speed, y = position.y, z = position.z - flat.z * speed }
+        position = tbx.math.subtract(position, tbx.math.scale(flat, speed))
     end
     if tbx.input.is_down("D") then
-        position = { x = position.x + right.x * speed, y = position.y, z = position.z + right.z * speed }
+        position = tbx.math.add(position, tbx.math.scale(right, speed))
     end
     if tbx.input.is_down("A") then
-        position = { x = position.x - right.x * speed, y = position.y, z = position.z - right.z * speed }
+        position = tbx.math.subtract(position, tbx.math.scale(right, speed))
     end
 
     -- Selftest choreography: hold still, shoot the hub enemy walking into the crosshair,
     -- then sprint north so the far room streams in.
     if is_selftest and frame > 128 then
-        position = { x = position.x, y = position.y, z = position.z - 0.5 }
+        position = tbx.math.add(position, { x = 0.0, y = 0.0, z = -0.5 })
     end
     toy.Transform.position = position
 
     if tbx.input.is_pressed("ESCAPE") then
         tbx.quit()
     end
-    if tbx.input.is_mouse_pressed("left") or (is_selftest and frame == 118) then
+    if tbx.input.is_mouse_pressed("LEFT") or (is_selftest and frame == 118) then
         fire(toy, position, forward)
     end
 
