@@ -1,5 +1,5 @@
 #include "tbx/assets/assets.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/files/files.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -138,27 +138,42 @@ namespace tbx
 
         // References are asset-relative paths; identity resolves through the .meta pipeline.
         auto material = Material {};
-        if (data.contains("fragment"))
+        const auto resolve_reference = [&](const char* key, Uuid& into) -> Result<void>
         {
-            auto id = prepare(data["fragment"].get<std::string>());
+            if (!data.contains(key))
+                return {};
+            auto id = prepare(data[key].get<std::string>());
             if (!id)
                 return std::unexpected(id.error());
-            material.fragment.id = *id;
-        }
-        if (data.contains("texture"))
+            into = *id;
+            return {};
+        };
+        if (auto resolved = resolve_reference("vertex", material.vertex.id); !resolved)
+            return std::unexpected(resolved.error());
+        if (auto resolved = resolve_reference("fragment", material.fragment.id); !resolved)
+            return std::unexpected(resolved.error());
+        if (auto resolved = resolve_reference("albedo_map", material.albedo_map.id); !resolved)
+            return std::unexpected(resolved.error());
+        if (auto resolved = resolve_reference("normal_map", material.normal_map.id); !resolved)
+            return std::unexpected(resolved.error());
+        if (auto resolved =
+                resolve_reference("metallic_roughness_map", material.metallic_roughness_map.id);
+            !resolved)
+            return std::unexpected(resolved.error());
+
+        const auto read_color = [&](const char* key, Color& into)
         {
-            auto id = prepare(data["texture"].get<std::string>());
-            if (!id)
-                return std::unexpected(id.error());
-            material.texture.id = *id;
-        }
-        if (data.contains("tint") && data["tint"].is_array() && data["tint"].size() >= 3)
-        {
-            material.tint.r = data["tint"][0].get<float>();
-            material.tint.g = data["tint"][1].get<float>();
-            material.tint.b = data["tint"][2].get<float>();
-            material.tint.a = data["tint"].size() > 3 ? data["tint"][3].get<float>() : 1.0f;
-        }
+            if (!data.contains(key) || !data[key].is_array() || data[key].size() < 3)
+                return;
+            into.r = data[key][0].get<float>();
+            into.g = data[key][1].get<float>();
+            into.b = data[key][2].get<float>();
+            into.a = data[key].size() > 3 ? data[key][3].get<float>() : 1.0f;
+        };
+        read_color("albedo", material.albedo);
+        read_color("emissive", material.emissive);
+        material.metallic = data.value("metallic", material.metallic);
+        material.roughness = data.value("roughness", material.roughness);
         if (data.contains("uniforms") && data["uniforms"].is_object())
             material.uniforms = data["uniforms"];
         return material;

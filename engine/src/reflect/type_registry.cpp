@@ -1,5 +1,5 @@
 #include "tbx/reflect/type_info.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 
 namespace tbx
 {

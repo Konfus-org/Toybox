@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/result.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
+#include "tbx/utils/typedefs.h"
 #include <cstddef>
 #include <span>
 #include <vector>

@@ -1,5 +1,5 @@
 #include "tbx/gfx/gpu.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include <glad/glad.h>
 #include <cstddef>
 #include <memory>

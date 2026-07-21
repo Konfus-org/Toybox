@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/typedefs.h"
-#include "tbx/core/uuid.h"
+#include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
 #include <string_view>
 
 namespace tbx

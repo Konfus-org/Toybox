@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/math.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/api.h"
+#include "tbx/math/math.h"
+#include "tbx/utils/typedefs.h"
 
 namespace tbx::gpu
 {

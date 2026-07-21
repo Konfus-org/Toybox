@@ -1,5 +1,5 @@
-#include "tbx/core/log.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/debug/log.h"
+#include "tbx/utils/typedefs.h"
 #include "tbx/app.h"
 #include "tbx/debug/debug_view.h"
 #include "tbx/ecs/sandbox.h"

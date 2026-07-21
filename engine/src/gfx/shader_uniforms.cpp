@@ -1,4 +1,4 @@
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
 #include <cstring>
 

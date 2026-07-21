@@ -1,5 +1,5 @@
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
 #include <cstring>
 
@@ -19,13 +19,15 @@ int main(int argc, char** argv)
     auto app = App {
         .title = "Toybox Doom",
         .asset_root = SAMPLE_ASSETS_PATH,
-        .sandbox = AssetHandle<Json>("levels/arena.box")};
+        .sandbox = AssetHandle<Json>("levels/arena.box"),
+        .icon = AssetHandle<Texture>("textures/teddy.png")};
     bool scored = false;
     bool streamed_room_seen = false;
 
     while (run(app))
     {
         auto& sandbox = get_sandbox();
+
         if (selftest)
         {
             // The "selftest" sticker tells player.luau to run the choreography: shoot the
@@ -48,7 +50,6 @@ int main(int argc, char** argv)
                 quit();
         }
 
-        gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         get_render_graph().render(sandbox, get_assets());
     }
 

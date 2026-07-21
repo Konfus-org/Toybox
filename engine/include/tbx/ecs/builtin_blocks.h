@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-
 // Every block the engine ships, in one place. Registration stays with each owning system
 // (sandbox registers Transform, gpu the render blocks, physics its blocks, scripting Script).
 namespace tbx
@@ -65,9 +64,6 @@ namespace tbx
     {
         AssetHandle<Material> material = {};
         AssetHandle<Model> model = {};
-        AssetHandle<Texture> texture = {};
-        std::string mesh = "cube";
-        Color tint = {};
     };
 
     /// @brief

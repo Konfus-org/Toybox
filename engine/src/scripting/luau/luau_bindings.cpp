@@ -1,6 +1,6 @@
 #include "luau_bindings.h"
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include "tbx/ui/ui.h"

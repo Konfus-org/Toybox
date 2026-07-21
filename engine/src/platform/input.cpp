@@ -1,5 +1,5 @@
 #include "tbx/platform/input.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/typedefs.h"
 #include <array>
 
 namespace tbx::input

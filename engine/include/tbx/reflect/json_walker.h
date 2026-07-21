@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/result.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
 #include "tbx/reflect/type_info.h"
 #include <type_traits>
 

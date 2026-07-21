@@ -16,8 +16,8 @@ include(tbx_backend)
 include(third_party_warnings)
 
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
-tbx_backend(LOGGING spdlog core)
-tbx_backend(MATH glm core)
+tbx_backend(LOGGING spdlog debug)
+tbx_backend(MATH glm math)
 tbx_backend(SERIALIZATION nlohmann)
 tbx_backend(PLATFORM sdl)
 tbx_backend(GFX gl)
@@ -40,7 +40,7 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|core|serialization|audio|ui)/[^/]+/")
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|math|debug|serialization|audio|ui)/[^/]+/")
 list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES} ${TBX_UI_BACKEND_SOURCES})
 
 if(TBX_BUILD_SHARED)
@@ -52,7 +52,7 @@ endif()
 target_include_directories(tbx PUBLIC engine/include)
 # Header-only backends contribute an include dir instead of sources.
 target_include_directories(tbx PUBLIC
-    "engine/src/core/${TBX_MATH_BACKEND}"
+    "engine/src/math/${TBX_MATH_BACKEND}"
     "engine/src/serialization/${TBX_SERIALIZATION_BACKEND}")
 target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 # Precompile the heavyweights every TU re-parses otherwise (std, math/serialization backend

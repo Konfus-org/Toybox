@@ -1,5 +1,7 @@
 #include "tbx/audio/audio.h"
-#include "tbx/core/log.h"
+#include "tbx/math/transform.h"
+#include "tbx/physics/collider.h"
+#include "tbx/debug/log.h"
 #include <SDL3/SDL.h>
 #include <memory>
 #include <mutex>

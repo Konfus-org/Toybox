@@ -1,6 +1,6 @@
 #include "tbx/scripting/scripts.h"
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include <filesystem>
 
 namespace tbx

@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/typedefs.h"
 #include "tbx/jobs/task.h"
 #include <condition_variable>
 #include <deque>

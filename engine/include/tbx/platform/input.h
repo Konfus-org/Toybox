@@ -1,6 +1,6 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/math.h"
+#include "tbx/utils/api.h"
+#include "tbx/math/math.h"
 #include "tbx/platform/keys.h"
 
 // Polled input state — plain data + queries, so it is a namespace, not a class (state lives in

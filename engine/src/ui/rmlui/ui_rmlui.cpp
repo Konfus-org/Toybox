@@ -1,5 +1,5 @@
 #include "tbx/ui/ui.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/files/files.h"
 #include "tbx/gfx/gpu.h"
 #include <RmlUi/Core.h>

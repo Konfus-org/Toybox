@@ -1,14 +1,20 @@
-#include "tbx/assets/builtin.h"
-#include "tbx/core/log.h"
-#include "tbx/ecs/block.h"
-#include "tbx/gfx/gpu.h"
-#include "tbx/gfx/render_graph.h"
-#include "tbx/ui/ui.h"
 #include "tbx/app.h"
+#include "tbx/assets/builtin.h"
+#include "tbx/debug/log.h"
+#include "tbx/ecs/block.h"
 #include "tbx/files/files.h"
+#include "tbx/gfx/camera.h"
+#include "tbx/gfx/directional_light.h"
+#include "tbx/gfx/gpu.h"
+#include "tbx/gfx/post_processing.h"
+#include "tbx/gfx/render_graph.h"
+#include "tbx/gfx/sky.h"
+#include "tbx/math/transform.h"
+#include "tbx/ui/ui.h"
+#include "tbx/ui/ui_block.h"
 #include <chrono>
-#include <filesystem>
 #include <cmath>
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -47,11 +53,12 @@ namespace tbx::gpu
         std::unique_ptr<RenderTarget> post_swap;
         std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
-        std::unordered_map<Uuid, CompiledPipeline> shaders_by_fragment;
+        std::unordered_map<uint64, CompiledPipeline> pipelines_by_shader_pair;
         std::unordered_map<Uuid, CompiledPipeline> post_shaders_by_asset;
         std::unordered_map<Uuid, uint64> ui_documents_by_asset;
         std::unordered_set<Uuid> warned_assets;
-        std::string lit_vertex_text;
+        std::string pbr_vertex_text;
+        std::string pbr_fragment_text;
         std::string post_vertex_text;
         std::chrono::steady_clock::time_point start_time;
     };
@@ -75,8 +82,8 @@ namespace tbx::gpu
     {
         auto vertices = std::vector<float>();
         const Vec3 up = Vec3(0.0f, 1.0f, 0.0f);
-        const Vec3 corners[4] = {
-            {-0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, -0.5f}, {-0.5f, 0.0f, -0.5f}};
+        const Vec3 corners[4] =
+            {{-0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, 0.5f}, {0.5f, 0.0f, -0.5f}, {-0.5f, 0.0f, -0.5f}};
         const Vec2 uvs[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
         for (const int index : {0, 1, 2, 0, 2, 3})
             push_vertex(vertices, corners[index], up, uvs[index]);
@@ -86,8 +93,8 @@ namespace tbx::gpu
     static std::vector<float> build_cube_vertices()
     {
         auto vertices = std::vector<float>();
-        const Vec3 normals[6] = {
-            {0, 0, 1}, {0, 0, -1}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}};
+        const Vec3 normals[6] =
+            {{0, 0, 1}, {0, 0, -1}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}};
         for (const Vec3& normal : normals)
         {
             // Build a face basis from the normal; corners wind counter-clockwise.
@@ -157,8 +164,7 @@ namespace tbx::gpu
     /// (resources/Shaders/Tbx) — shaders are files, not string literals.
     static Result<std::string> read_builtin_shader(const char* file_name)
     {
-        const auto path =
-            std::filesystem::path(TBX_RESOURCES_PATH) / "Shaders" / "Tbx" / file_name;
+        const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Shaders" / "Tbx" / file_name;
         return files::read_text(path);
     }
 
@@ -167,8 +173,8 @@ namespace tbx::gpu
         if (g_renderer.lit_shader)
             return true;
         register_builtin_blocks();
-        const auto lit_vertex = read_builtin_shader("lit.vert");
-        const auto lit_fragment = read_builtin_shader("lit.frag");
+        const auto lit_vertex = read_builtin_shader("pbr.vert");
+        const auto lit_fragment = read_builtin_shader("pbr.frag");
         const auto depth_vertex = read_builtin_shader("depth.vert");
         const auto depth_fragment = read_builtin_shader("depth.frag");
         const auto sky_vertex = read_builtin_shader("sky.vert");
@@ -190,7 +196,8 @@ namespace tbx::gpu
                 !depth ? depth.error() : (!lit ? lit.error() : sky.error()));
             return false;
         }
-        g_renderer.lit_vertex_text = *lit_vertex;
+        g_renderer.pbr_vertex_text = *lit_vertex;
+        g_renderer.pbr_fragment_text = *lit_fragment;
         g_renderer.post_vertex_text = *post_vertex;
         g_renderer.depth_shader = std::move(*depth);
         g_renderer.lit_shader = std::move(*lit);
@@ -210,8 +217,8 @@ namespace tbx::gpu
         g_renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3, 2});
         g_renderer.fullscreen = upload_mesh(build_fullscreen_vertices(), std::array {3, 3, 2});
         g_renderer.start_time = std::chrono::steady_clock::now();
-        constexpr std::byte WHITE[4] = {
-            std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
+        constexpr std::byte WHITE[4] =
+            {std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
         g_renderer.white = upload_texture(1, 1, WHITE);
         g_renderer.shadow_target = make_depth_target(2048);
         return true;
@@ -221,10 +228,10 @@ namespace tbx::gpu
     // Old-Toybox style: a broken reference never crashes and never hides — the draw flashes a
     // color naming the failure, and the log says why exactly once per asset.
 
-    static constexpr Color FAILURE_MODEL = Color {.r = 1.0f, .g = 0.0f, .b = 1.0f};    // magenta
-    static constexpr Color FAILURE_TEXTURE = Color {.r = 1.0f, .g = 1.0f, .b = 0.0f};  // yellow
+    static constexpr Color FAILURE_MODEL = Color {.r = 1.0f, .g = 0.0f, .b = 1.0f}; // magenta
+    static constexpr Color FAILURE_TEXTURE = Color {.r = 1.0f, .g = 1.0f, .b = 0.0f}; // yellow
     static constexpr Color FAILURE_MATERIAL = Color {.r = 1.0f, .g = 0.0f, .b = 0.0f}; // red
-    static constexpr Color FAILURE_SHADER = Color {.r = 0.0f, .g = 1.0f, .b = 1.0f};   // cyan
+    static constexpr Color FAILURE_SHADER = Color {.r = 0.0f, .g = 1.0f, .b = 1.0f}; // cyan
 
     static void warn_once(const Uuid& id, const std::string& message)
     {
@@ -296,8 +303,8 @@ namespace tbx::gpu
             return {.texture = *cached->second};
         if (const auto texture = assets.load_now(handle))
         {
-            auto uploaded = upload_texture(
-                texture->get().width, texture->get().height, texture->get().pixels);
+            auto uploaded =
+                upload_texture(texture->get().width, texture->get().height, texture->get().pixels);
             const Texture2d& result = *uploaded;
             g_renderer.textures_by_asset[handle.id] = std::move(uploaded);
             return {.texture = result};
@@ -316,11 +323,89 @@ namespace tbx::gpu
     {
         std::reference_wrapper<const Shader> shader;
         std::reference_wrapper<const Pipeline> pipeline;
-        std::reference_wrapper<const Texture2d> texture;
+        std::reference_wrapper<const Texture2d> albedo;
+        std::optional<std::reference_wrapper<const Texture2d>> normal_map = {};
+        std::optional<std::reference_wrapper<const Texture2d>> metallic_roughness_map = {};
         Color tint = {};
+        float metallic = 0.0f;
+        float roughness = 0.8f;
+        Color emissive = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f};
         Json uniforms = {};
         std::optional<Color> failure = {};
     };
+
+    /// @brief
+    /// Purpose: The pipeline for a material's shader stages: either stage may be a custom
+    /// ShaderSource, the other falls back to the builtin pbr stage; pairs cache together.
+    static void resolve_material_shaders(
+        const Material& material,
+        ResolvedSurface& surface,
+        Assets& assets)
+    {
+        if (!material.vertex.is_set() && !material.fragment.is_set())
+            return;
+        const uint64 pair_key = material.vertex.id.lo * 0x9E3779B97F4A7C15ull
+            ^ material.vertex.id.hi ^ ~material.fragment.id.lo ^ material.fragment.id.hi * 3ull;
+        const auto cached = g_renderer.pipelines_by_shader_pair.find(pair_key);
+        if (cached != g_renderer.pipelines_by_shader_pair.end())
+        {
+            if (!cached->second.shader)
+            {
+                surface.failure = FAILURE_SHADER;
+                return;
+            }
+            surface.shader = *cached->second.shader;
+            surface.pipeline = *cached->second.pipeline;
+            return;
+        }
+
+        auto vertex_text = std::string();
+        auto fragment_text = std::string();
+        if (material.vertex.is_set())
+        {
+            const auto source = assets.load_now(material.vertex);
+            if (!source)
+            {
+                warn_once(material.vertex.id, "material vertex shader: " + source.error());
+                surface.failure = FAILURE_SHADER;
+                g_renderer.pipelines_by_shader_pair[pair_key] = {};
+                return;
+            }
+            vertex_text = source->get().text;
+        }
+        else
+            vertex_text = g_renderer.pbr_vertex_text;
+        if (material.fragment.is_set())
+        {
+            const auto source = assets.load_now(material.fragment);
+            if (!source)
+            {
+                warn_once(material.fragment.id, "material fragment shader: " + source.error());
+                surface.failure = FAILURE_SHADER;
+                g_renderer.pipelines_by_shader_pair[pair_key] = {};
+                return;
+            }
+            fragment_text = source->get().text;
+        }
+        else
+            fragment_text = g_renderer.pbr_fragment_text;
+
+        auto compiled = compile_shader(vertex_text.c_str(), fragment_text.c_str());
+        if (!compiled)
+        {
+            warn_once(
+                material.fragment.is_set() ? material.fragment.id : material.vertex.id,
+                "material shader failed: " + compiled.error());
+            surface.failure = FAILURE_SHADER;
+            g_renderer.pipelines_by_shader_pair[pair_key] = {};
+            return;
+        }
+        auto& entry = g_renderer.pipelines_by_shader_pair[pair_key];
+        entry.shader = std::move(*compiled);
+        entry.pipeline = make_pipeline({.shader = *entry.shader});
+        surface.shader = *entry.shader;
+        surface.pipeline = *entry.pipeline;
+    }
 
     static ResolvedSurface resolve_surface(const Renderer& renderer, Assets& assets)
     {
@@ -328,7 +413,7 @@ namespace tbx::gpu
         auto surface = ResolvedSurface {
             .shader = *g_renderer.lit_shader,
             .pipeline = *g_renderer.lit_pipeline,
-            .texture = base_texture.texture,
+            .albedo = base_texture.texture,
             .tint = renderer.tint};
         if (base_texture.is_failed)
             surface.failure = FAILURE_TEXTURE;
@@ -342,56 +427,41 @@ namespace tbx::gpu
             return surface;
         }
 
-        // Material tint multiplies the per-toy tint; its texture wins when set.
+        // Material albedo multiplies the per-toy tint; its albedo map wins when set.
         const Material& resolved = material->get();
         surface.tint = Color {
-            .r = resolved.tint.r * renderer.tint.r,
-            .g = resolved.tint.g * renderer.tint.g,
-            .b = resolved.tint.b * renderer.tint.b,
-            .a = resolved.tint.a * renderer.tint.a};
-        if (resolved.texture.is_set())
+            .r = resolved.albedo.r * renderer.tint.r,
+            .g = resolved.albedo.g * renderer.tint.g,
+            .b = resolved.albedo.b * renderer.tint.b,
+            .a = resolved.albedo.a * renderer.tint.a};
+        surface.metallic = resolved.metallic;
+        surface.roughness = resolved.roughness;
+        surface.emissive = resolved.emissive;
+        surface.uniforms = resolved.uniforms;
+        if (resolved.albedo_map.is_set())
         {
-            const auto material_texture = resolve_texture_handle(resolved.texture, assets);
-            surface.texture = material_texture.texture;
-            if (material_texture.is_failed)
+            const auto albedo_map = resolve_texture_handle(resolved.albedo_map, assets);
+            surface.albedo = albedo_map.texture;
+            if (albedo_map.is_failed)
                 surface.failure = FAILURE_TEXTURE;
         }
-        surface.uniforms = resolved.uniforms;
-
-        // A custom fragment stage pairs with the builtin lit vertex stage, cached by asset.
-        if (resolved.fragment.is_set())
+        if (resolved.normal_map.is_set())
         {
-            const auto cached = g_renderer.shaders_by_fragment.find(resolved.fragment.id);
-            if (cached != g_renderer.shaders_by_fragment.end())
-            {
-                surface.shader = *cached->second.shader;
-                surface.pipeline = *cached->second.pipeline;
-            }
-            else if (const auto source = assets.load_now(resolved.fragment))
-            {
-                auto compiled = compile_shader(
-                    g_renderer.lit_vertex_text.c_str(), source->get().text.c_str());
-                if (compiled)
-                {
-                    auto& entry = g_renderer.shaders_by_fragment[resolved.fragment.id];
-                    entry.shader = std::move(*compiled);
-                    entry.pipeline = make_pipeline({.shader = *entry.shader});
-                    surface.shader = *entry.shader;
-                    surface.pipeline = *entry.pipeline;
-                }
-                else
-                {
-                    warn_once(
-                        resolved.fragment.id, "material shader failed: " + compiled.error());
-                    surface.failure = FAILURE_SHADER;
-                }
-            }
+            const auto normal_map = resolve_texture_handle(resolved.normal_map, assets);
+            if (normal_map.is_failed)
+                surface.failure = FAILURE_TEXTURE;
             else
-            {
-                warn_once(resolved.fragment.id, "material shader unavailable: " + source.error());
-                surface.failure = FAILURE_SHADER;
-            }
+                surface.normal_map = normal_map.texture;
         }
+        if (resolved.metallic_roughness_map.is_set())
+        {
+            const auto mr_map = resolve_texture_handle(resolved.metallic_roughness_map, assets);
+            if (mr_map.is_failed)
+                surface.failure = FAILURE_TEXTURE;
+            else
+                surface.metallic_roughness_map = mr_map.texture;
+        }
+        resolve_material_shaders(resolved, surface, assets);
         return surface;
     }
 
@@ -460,11 +530,15 @@ namespace tbx::gpu
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
             g_frame.camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
-            const float aspect = get_viewport_height() > 0
-                ? static_cast<float>(get_viewport_width()) / get_viewport_height()
-                : 1.0f;
+            const float aspect =
+                get_viewport_height() > 0
+                    ? static_cast<float>(get_viewport_width()) / get_viewport_height()
+                    : 1.0f;
             const Mat4 projection = math::perspective(
-                math::radians(camera.fov_degrees), aspect, camera.near_plane, camera.far_plane);
+                math::radians(camera.fov_degrees),
+                aspect,
+                camera.near_plane,
+                camera.far_plane);
             g_frame.view_projection = projection * math::inverse(world);
             g_frame.has_camera = true;
             break;
@@ -480,8 +554,7 @@ namespace tbx::gpu
         for (const auto [entity, light] : registry.view<DirectionalLight>().each())
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
-            g_frame.light_direction =
-                math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+            g_frame.light_direction = math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
             g_frame.light_color = light.color;
             g_frame.light_intensity = light.intensity;
             break;
@@ -506,7 +579,9 @@ namespace tbx::gpu
         begin_render_pass({.depth_target = *g_renderer.shadow_target});
         set_pipeline(*g_renderer.depth_pipeline);
         set_uniform(
-            *g_renderer.depth_shader, "u_light_view_projection", g_frame.light_view_projection);
+            *g_renderer.depth_shader,
+            "u_light_view_projection",
+            g_frame.light_view_projection);
         for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
@@ -564,7 +639,9 @@ namespace tbx::gpu
             const Shader& sky_shader = *g_renderer.sky_shader;
             set_pipeline(*g_renderer.sky_pipeline);
             set_uniform(
-                sky_shader, "u_inverse_view_projection", math::inverse(g_frame.view_projection));
+                sky_shader,
+                "u_inverse_view_projection",
+                math::inverse(g_frame.view_projection));
             set_uniform(sky_shader, "u_camera_position", g_frame.camera_position);
             set_uniform(sky_shader, "u_tint", sky.tint);
             set_uniform(sky_shader, "u_sky", 0);
@@ -590,7 +667,10 @@ namespace tbx::gpu
                     .r = surface.failure->r * flash,
                     .g = surface.failure->g * flash,
                     .b = surface.failure->b * flash};
-                surface.texture = *g_renderer.white;
+                surface.albedo = *g_renderer.white;
+                surface.normal_map = {};
+                surface.metallic_roughness_map = {};
+                surface.emissive = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f};
                 surface.uniforms = {};
             }
             const Shader& shader = surface.shader;
@@ -603,11 +683,26 @@ namespace tbx::gpu
             set_uniform(shader, "u_camera_position", g_frame.camera_position);
             set_uniform(shader, "u_shadow_map", 0);
             set_uniform(shader, "u_albedo", 1);
+            set_uniform(shader, "u_normal_map", 2);
+            set_uniform(shader, "u_metallic_roughness_map", 3);
             set_uniform(shader, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
             set_uniform(shader, "u_tint", surface.tint);
+            set_uniform(shader, "u_metallic", surface.metallic);
+            set_uniform(shader, "u_roughness", surface.roughness);
+            set_uniform(shader, "u_emissive", surface.emissive);
+            set_uniform(shader, "u_has_normal_map", surface.normal_map ? 1 : 0);
+            set_uniform(
+                shader,
+                "u_has_metallic_roughness_map",
+                surface.metallic_roughness_map ? 1 : 0);
             set_uniform(shader, "u_uv_scale", 1.0f);
             apply_uniforms(shader, surface.uniforms); // reflection-typed material extras
-            bind_texture(surface.texture, 1);
+            bind_texture(surface.albedo, 1);
+            bind_texture(surface.normal_map ? surface.normal_map->get() : *g_renderer.white, 2);
+            bind_texture(
+                surface.metallic_roughness_map ? surface.metallic_roughness_map->get()
+                                               : *g_renderer.white,
+                3);
             draw(mesh.mesh);
         }
     }
@@ -671,8 +766,10 @@ namespace tbx::gpu
             if (!ui_block.document.is_set())
                 continue;
             const Uuid key = ui_block.document.is_valid()
-                ? ui_block.document.id
-                : Uuid {.hi = hash(ui_block.document.path), .lo = ~hash(ui_block.document.path)};
+                                 ? ui_block.document.id
+                                 : Uuid {
+                                       .hi = hash(ui_block.document.path),
+                                       .lo = ~hash(ui_block.document.path)};
             auto found = g_renderer.ui_documents_by_asset.find(key);
             if (found == g_renderer.ui_documents_by_asset.end())
             {
@@ -714,12 +811,14 @@ namespace tbx
 {
     //// RENDER GRAPH ////
 
-    RenderGraph::RenderGraph()
+    RenderGraph RenderGraph::make_default()
     {
-        _passes.push_back(make_shadow_pass());
-        _passes.push_back(make_geometry_pass());
-        _passes.push_back(make_post_pass());
-        _passes.push_back(make_ui_pass());
+        auto graph = RenderGraph();
+        graph.add_pass(make_shadow_pass());
+        graph.add_pass(make_geometry_pass());
+        graph.add_pass(make_post_pass());
+        graph.add_pass(make_ui_pass());
+        return graph;
     }
 
     void RenderGraph::add_pass(RenderPass pass)
@@ -746,6 +845,7 @@ namespace tbx
 
     void RenderGraph::render(Sandbox& sandbox, Assets& assets)
     {
+        gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         for (const RenderPass& pass : _passes)
             if (pass.render)
                 pass.render(sandbox, assets);

@@ -1,7 +1,9 @@
 #pragma once
-#include "tbx/core/api.h"
+#include "tbx/utils/api.h"
 #include "tbx/events/events.h"
 #include <memory>
+#include <cstddef>
+#include <span>
 #include <string>
 
 namespace tbx
@@ -46,6 +48,10 @@ namespace tbx
         /// Purpose: Polls OS events into tbx::input and the given Events; returns false when
         /// the user closed the window. Called once per frame by Engine::pump().
         bool pump(Events& events);
+
+        /// @brief
+        /// Purpose: Sets the window/taskbar icon from RGBA8 pixels.
+        void set_icon(int width, int height, std::span<const std::byte> rgba_pixels);
 
         /// @brief
         /// Purpose: Presents the current frame (no-op when headless).

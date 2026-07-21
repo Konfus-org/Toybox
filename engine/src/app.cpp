@@ -1,5 +1,5 @@
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/debug/debug_view.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/audio/audio.h"
@@ -23,7 +23,7 @@ namespace tbx
         Window window;
         Assets assets;
         Sandbox sandbox;
-        RenderGraph render_graph = {};
+        RenderGraph render_graph = RenderGraph::make_default();
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
         std::unordered_set<Uuid> acquired_script_sources;
@@ -110,6 +110,14 @@ namespace tbx
         }
         if (!app.asset_root.empty())
             state.assets.set_root(app.asset_root);
+        if (app.icon.is_set() && !state.window.is_headless())
+        {
+            if (const auto icon = state.assets.load_now(app.icon))
+                state.window.set_icon(
+                    icon->get().width, icon->get().height, icon->get().pixels);
+            else
+                log_warn("window icon: {}", icon.error());
+        }
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
         state.events.asset_reloaded.subscribe(
@@ -236,7 +244,7 @@ namespace tbx
         {
             g_fixed_accumulator -= FIXED_STEP;
             state.scripts.fixed_update(FIXED_STEP);
-            physics::update(state.sandbox, state.events, FIXED_STEP);
+            physics::update(state.sandbox, state.assets, state.events, FIXED_STEP);
         }
         return true;
     }

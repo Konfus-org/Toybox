@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/assets/assets.h"
-#include "tbx/core/api.h"
+#include "tbx/utils/api.h"
 #include "tbx/ecs/sandbox.h"
 #include <functional>
 #include <string>
@@ -27,12 +27,19 @@ namespace tbx
     {
       public:
         /// @brief
-        /// Purpose: The default pass list: shadow, geometry, post, ui.
-        RenderGraph();
+        /// Purpose: An empty graph — add passes yourself, or start from make_default().
+        RenderGraph() = default;
 
       public:
         RenderGraph(const RenderGraph&) = delete;
         RenderGraph& operator=(const RenderGraph&) = delete;
+        RenderGraph(RenderGraph&&) = default;
+        RenderGraph& operator=(RenderGraph&&) = default;
+
+      public:
+        /// @brief
+        /// Purpose: The standard renderer: shadow, geometry (with sky), post, ui.
+        static RenderGraph make_default();
 
       public:
         /// @brief

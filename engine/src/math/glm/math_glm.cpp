@@ -1,4 +1,4 @@
-#include "tbx/core/math.h"
+#include "tbx/math/math.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 

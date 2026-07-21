@@ -1,5 +1,5 @@
 #include "tbx/files/files.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/typedefs.h"
 #include <fstream>
 
 namespace tbx::files

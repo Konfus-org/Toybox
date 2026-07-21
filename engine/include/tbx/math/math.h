@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/api.h"
+#include "tbx/utils/api.h"
 // The one math seam: the selected backend (cmake tbx_backend(MATH ...)) supplies the types via
 // its <tbx_math_backend.h> and implements the tbx::math functions declared here in its own
 // .cpp — swapped at link time like every other backend. Nothing else names the library.

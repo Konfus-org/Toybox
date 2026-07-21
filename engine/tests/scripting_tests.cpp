@@ -1,4 +1,7 @@
 #include "tbx/scripting/scripts.h"
+#include "tbx/math/transform.h"
+#include "tbx/physics/rigid_body.h"
+#include "tbx/platform/keys.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests

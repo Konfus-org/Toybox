@@ -1,5 +1,5 @@
 #include "tbx/ecs/toy.h"
-#include "tbx/core/hash.h"
+#include "tbx/utils/hash.h"
 #include "tbx/ecs/sandbox.h"
 
 namespace tbx

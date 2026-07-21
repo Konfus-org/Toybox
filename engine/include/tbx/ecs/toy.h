@@ -1,7 +1,7 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/typedefs.h"
-#include "tbx/core/uuid.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
 #include "tbx/ecs/registry.h"
 #include <functional>
 #include <optional>

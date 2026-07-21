@@ -1,5 +1,5 @@
 #include "tbx/platform/window.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/platform/input.h"
 #include <SDL3/SDL.h>
 
@@ -236,6 +236,29 @@ namespace tbx
             }
         }
         return true;
+    }
+
+    void Window::set_icon(
+        const int width,
+        const int height,
+        const std::span<const std::byte> rgba_pixels)
+    {
+        if (!_state->window || width <= 0 || height <= 0
+            || rgba_pixels.size() < static_cast<size>(width) * height * 4)
+            return;
+        SDL_Surface* surface = SDL_CreateSurfaceFrom(
+            width,
+            height,
+            SDL_PIXELFORMAT_RGBA32,
+            const_cast<std::byte*>(rgba_pixels.data()),
+            width * 4);
+        if (!surface)
+        {
+            log_warn("window icon surface failed: {}", SDL_GetError());
+            return;
+        }
+        SDL_SetWindowIcon(_state->window, surface);
+        SDL_DestroySurface(surface);
     }
 
     void Window::swap()

@@ -1,7 +1,10 @@
 #pragma once
-#include "tbx/core/api.h"
-#include "tbx/core/math.h"
-#include "tbx/ecs/builtin_blocks.h"
+#include "tbx/utils/api.h"
+#include "tbx/math/math.h"
+#include "tbx/assets/assets.h"
+#include "tbx/gfx/renderer.h"
+#include "tbx/physics/collider.h"
+#include "tbx/physics/rigid_body.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include <optional>
@@ -37,7 +40,8 @@ namespace tbx::physics
 
     /// @brief
     /// Purpose: Advances the simulation one fixed step: mirrors collider toys into the physics
-    /// world, steps, writes dynamic poses back to Transforms, and emits collision events
-    /// (delivered at the next pump drain).
-    TBX_API void update(Sandbox& sandbox, Events& events, float fixed_delta_time);
+    /// world (Shape::MESH colliders take their triangles from the toy's Renderer block, so
+    /// mesh-collider toys must wear one), steps, writes dynamic poses back to Transforms, and
+    /// emits collision events (delivered at the next pump drain).
+    TBX_API void update(Sandbox& sandbox, Assets& assets, Events& events, float fixed_delta_time);
 }

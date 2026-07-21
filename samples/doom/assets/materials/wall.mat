@@ -1,11 +1,13 @@
 {
-    "texture": "textures/wall.png",
-    "tint": [
+    "albedo_map": "textures/wall.png",
+    "albedo": [
         1.0,
         1.0,
         1.0,
         1.0
     ],
+    "metallic": 0.0,
+    "roughness": 0.85,
     "uniforms": {
         "u_uv_scale": 2.0
     }

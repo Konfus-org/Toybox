@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/typedefs.h"
+#include "tbx/utils/typedefs.h"
 
 namespace tbx
 {

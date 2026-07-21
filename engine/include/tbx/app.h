@@ -1,7 +1,19 @@
 #pragma once
-#include "tbx/core/api.h"
+#include "tbx/utils/api.h"
 #include "tbx/assets/assets.h"
-#include "tbx/core/typedefs.h"
+#include "tbx/audio/audio_listener.h"
+#include "tbx/audio/audio_source.h"
+#include "tbx/gfx/camera.h"
+#include "tbx/gfx/directional_light.h"
+#include "tbx/gfx/post_processing.h"
+#include "tbx/gfx/renderer.h"
+#include "tbx/gfx/sky.h"
+#include "tbx/math/transform.h"
+#include "tbx/physics/collider.h"
+#include "tbx/physics/rigid_body.h"
+#include "tbx/scripting/script.h"
+#include "tbx/ui/ui_block.h"
+#include "tbx/utils/typedefs.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include "tbx/gfx/render_graph.h"
@@ -25,7 +37,8 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::filesystem::path asset_root = {};
-        AssetHandle<Json> sandbox = {}; // a .box layout the boot opens
+        AssetHandle<Json> sandbox = {};  // a .box layout the boot opens
+        AssetHandle<Texture> icon = {};  // the window/taskbar icon
 
         // Per-frame data (written by run()).
         float delta_time = 0.0f;

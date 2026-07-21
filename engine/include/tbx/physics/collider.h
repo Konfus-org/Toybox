@@ -1,0 +1,17 @@
+#pragma once
+#include "tbx/utils/api.h"
+#include "tbx/math/math.h"
+#include "tbx/physics/shape.h"
+
+namespace tbx
+{
+    /// @brief
+    /// Purpose: Collision shape centered on the toy's Transform, described by Shape.
+    struct TBX_API Collider
+    {
+        Shape shape = Shape::BOX;
+        Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);
+        float radius = 0.5f;
+        float height = 1.0f;
+    };
+}

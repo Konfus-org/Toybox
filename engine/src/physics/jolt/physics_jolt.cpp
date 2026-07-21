@@ -1,7 +1,8 @@
 #include "jolt_first.h"
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/physics/physics.h"
+#include "tbx/math/transform.h"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -10,6 +11,7 @@
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSettings.h>
@@ -172,7 +174,69 @@ namespace tbx::physics
 
     /// @brief
     /// Purpose: Maps the shared Shape vocabulary onto Jolt shapes.
-    static JPH::ShapeRefC make_shape(const Collider& collider)
+    /// @brief
+    /// Purpose: A concave mesh shape from a Renderer's geometry: imported model triangles
+    /// (scaled by the transform) or an analytic stand-in for the builtin primitives.
+    static JPH::ShapeRefC make_mesh_shape(
+        Registry& registry,
+        const ToyId entity,
+        const Vec3& scale,
+        Assets& assets)
+    {
+        const auto* renderer = registry.try_get<Renderer>(entity);
+        if (!renderer)
+        {
+            log_warn("Shape::MESH collider without a Renderer block; falling back to a box");
+            return new JPH::BoxShape(to_jolt(scale * 0.5f));
+        }
+        if (renderer->model.is_set())
+        {
+            if (const auto model = assets.load_now(renderer->model))
+            {
+                // Interleaved position(3)+normal(3)+uv(2) triangle list from the importer.
+                const auto& vertices = model->get().vertices;
+                constexpr size STRIDE = 8;
+                auto triangles = JPH::TriangleList();
+                for (size at = 0; at + STRIDE * 3 <= vertices.size(); at += STRIDE * 3)
+                {
+                    JPH::Float3 corners[3] = {};
+                    for (int corner = 0; corner < 3; ++corner)
+                    {
+                        const size base = at + static_cast<size>(corner) * STRIDE;
+                        corners[corner] = JPH::Float3(
+                            vertices[base + 0] * scale.x,
+                            vertices[base + 1] * scale.y,
+                            vertices[base + 2] * scale.z);
+                    }
+                    triangles.push_back(JPH::Triangle(corners[0], corners[1], corners[2]));
+                }
+                auto settings = JPH::MeshShapeSettings(triangles);
+                auto result = settings.Create();
+                if (result.IsValid())
+                    return result.Get();
+                log_warn("mesh collider failed ({}); falling back to a box",
+                    result.GetError().c_str());
+            }
+            else
+                log_warn("mesh collider model unavailable; falling back to a box");
+            return new JPH::BoxShape(to_jolt(scale * 0.5f));
+        }
+
+        // Builtin primitives get their exact analytic shapes.
+        if (renderer->mesh == "sphere")
+            return new JPH::SphereShape(std::max({scale.x, scale.y, scale.z}) * 0.5f);
+        if (renderer->mesh == "plane")
+            return new JPH::BoxShape(
+                JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
+        return new JPH::BoxShape(to_jolt(scale * 0.5f));
+    }
+
+    static JPH::ShapeRefC make_shape(
+        const Collider& collider,
+        Registry& registry,
+        const ToyId entity,
+        const Vec3& scale,
+        Assets& assets)
     {
         switch (collider.shape)
         {
@@ -180,6 +244,8 @@ namespace tbx::physics
                 return new JPH::SphereShape(collider.radius);
             case Shape::CAPSULE:
                 return new JPH::CapsuleShape(collider.height * 0.5f, collider.radius);
+            case Shape::MESH:
+                return make_mesh_shape(registry, entity, scale, assets);
             case Shape::BOX:
                 break;
         }
@@ -193,7 +259,7 @@ namespace tbx::physics
         g_physics.reset();
     }
 
-    void update(Sandbox& sandbox, Events& events, const float fixed_delta_time)
+    void update(Sandbox& sandbox, Assets& assets, Events& events, const float fixed_delta_time)
     {
         register_builtin_blocks();
         PhysicsState& physics = ensure_simulation();
@@ -212,7 +278,7 @@ namespace tbx::physics
             if (existing == physics.bodies_by_toy.end())
             {
                 auto settings = JPH::BodyCreationSettings(
-                    make_shape(collider),
+                    make_shape(collider, registry, entity, transform.scale, assets),
                     to_jolt(transform.position),
                     to_jolt(transform.rotation),
                     rigid_body ? (rigid_body->is_kinematic ? JPH::EMotionType::Kinematic

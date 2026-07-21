@@ -1,5 +1,5 @@
 #include "luau_bindings.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/scripting/scripts.h"
 #include <lua.h>
 #include <luacode.h>

@@ -1,6 +1,7 @@
 #include "tbx/ecs/sandbox.h"
+#include "tbx/math/transform.h"
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 
 namespace tbx
 {

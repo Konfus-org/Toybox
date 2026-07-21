@@ -1,0 +1,17 @@
+#pragma once
+#include "tbx/utils/api.h"
+#include "tbx/assets/asset_handle.h"
+#include "tbx/assets/shader_source.h"
+#include <vector>
+
+namespace tbx
+{
+    /// @brief
+    /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the
+    /// rendered scene in order. Each shader samples u_scene (plus u_resolution and u_time).
+    /// One per sandbox (the first wins).
+    struct TBX_API PostProcessing
+    {
+        std::vector<AssetHandle<ShaderSource>> shaders = {};
+    };
+}

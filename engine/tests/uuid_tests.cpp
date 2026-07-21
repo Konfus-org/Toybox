@@ -1,4 +1,4 @@
-#include "tbx/core/uuid.h"
+#include "tbx/utils/uuid.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests

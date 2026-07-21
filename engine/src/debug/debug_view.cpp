@@ -1,6 +1,6 @@
 #include "tbx/debug/debug_view.h"
 #include "tbx/app.h"
-#include "tbx/core/log.h"
+#include "tbx/debug/log.h"
 #include "tbx/files/files.h"
 #include "tbx/ui/ui.h"
 #include <filesystem>

@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/api.h"
+#include "tbx/utils/api.h"
 // The one JSON seam: the selected backend (cmake tbx_backend(SERIALIZATION ...)) supplies the
 // tbx::Json type via its <tbx_serialization_backend.h> and implements the helpers declared
 // here in its own .cpp — swapped at link time like every other backend. Nothing else names
