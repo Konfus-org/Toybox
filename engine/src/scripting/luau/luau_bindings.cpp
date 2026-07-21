@@ -235,32 +235,69 @@ namespace tbx
 
     //// TOY METHODS ////
 
-    static int toy_get(lua_State* lua)
+    static void push_block(lua_State* lua, const ToyUserdata& data, const uint64 type_hash)
     {
-        ToyUserdata& data = check_toy(lua, 1);
-        const char* block_name = luaL_checkstring(lua, 2);
-        const uint64 hashed = hash(block_name);
-        const auto operations = get_block_registry().find(hashed);
-        if (!operations)
-            luaL_error(lua, "unknown block type '%s'", block_name);
-        operations->add_default(data.sandbox->get_registry(), data.entity);
-
         auto* block = static_cast<BlockUserdata*>(lua_newuserdata(lua, sizeof(BlockUserdata)));
         *block =
-            BlockUserdata {.sandbox = data.sandbox, .entity = data.entity, .type_hash = hashed};
+            BlockUserdata {.sandbox = data.sandbox, .entity = data.entity, .type_hash = type_hash};
         luaL_getmetatable(lua, BLOCK_METATABLE);
         lua_setmetatable(lua, -2);
+    }
+
+    /// @brief
+    /// Purpose: toy.<Method> resolves methods, toy.<BlockType> resolves attached blocks by
+    /// their registered name (nil when absent, so `if toy.Health then` is the has-check) — no
+    /// string-based get() anywhere.
+    static int toy_index(lua_State* lua)
+    {
+        const ToyUserdata& data = check_toy(lua, 1);
+        const char* key = luaL_checkstring(lua, 2);
+
+        // Methods first (the table sits in this closure's upvalue).
+        lua_getfield(lua, lua_upvalueindex(1), key);
+        if (!lua_isnil(lua, -1))
+            return 1;
+        lua_pop(lua, 1);
+
+        const auto operations = get_block_registry().find(hash(key));
+        if (!operations || !operations->has(data.sandbox->get_registry(), data.entity))
+        {
+            lua_pushnil(lua);
+            return 1;
+        }
+        push_block(lua, data, hash(key));
         return 1;
     }
 
-    static int toy_has(lua_State* lua)
+    /// @brief
+    /// Purpose: toy.<BlockType> = { field = value, ... } attaches the block (default-built)
+    /// and writes the given fields — the add-and-populate path.
+    static int toy_newindex(lua_State* lua)
     {
-        ToyUserdata& data = check_toy(lua, 1);
-        const auto operations = get_block_registry().find(hash(luaL_checkstring(lua, 2)));
-        lua_pushboolean(
-            lua,
-            operations && operations->has(data.sandbox->get_registry(), data.entity));
-        return 1;
+        const ToyUserdata& data = check_toy(lua, 1);
+        const char* key = luaL_checkstring(lua, 2);
+        const uint64 hashed = hash(key);
+        const auto operations = get_block_registry().find(hashed);
+        const auto type = get_type_registry().find(hashed);
+        if (!operations || !type)
+        {
+            luaL_error(lua, "'%s' is not a registered block type", key);
+            return 0;
+        }
+        if (!lua_istable(lua, 3))
+        {
+            luaL_error(lua, "assign a table of fields to toy.%s", key);
+            return 0;
+        }
+        std::byte* block = operations->add_default(data.sandbox->get_registry(), data.entity);
+        for (const FieldInfo& field : type->get().fields)
+        {
+            lua_getfield(lua, 3, field.name.c_str());
+            if (!lua_isnil(lua, -1))
+                write_field_value(lua, lua_gettop(lua), field, block);
+            lua_pop(lua, 1);
+        }
+        return 0;
     }
 
     static int toy_get_name(lua_State* lua)
@@ -394,12 +431,11 @@ namespace tbx
 
     void open_tbx_bindings(lua_State* lua, Sandbox& sandbox)
     {
-        // Toy metatable: __index = method table.
+        // Toy metatable: __index is a closure over the method table so unknown keys fall
+        // through to typed block lookup; __newindex is add-and-populate.
         luaL_newmetatable(lua, TOY_METATABLE);
         lua_createtable(lua, 0, 8);
         const luaL_Reg toy_methods[] = {
-            {"get", toy_get},
-            {"has", toy_has},
             {"get_name", toy_get_name},
             {"set_name", toy_set_name},
             {"sticker", toy_sticker},
@@ -408,7 +444,10 @@ namespace tbx
             {"is_alive", toy_is_alive},
             {nullptr, nullptr}};
         luaL_register(lua, nullptr, toy_methods);
+        lua_pushcclosure(lua, toy_index, "toy_index", 1);
         lua_setfield(lua, -2, "__index");
+        lua_pushcfunction(lua, toy_newindex, "toy_newindex");
+        lua_setfield(lua, -2, "__newindex");
         lua_pop(lua, 1);
 
         // Block metatable: field access straight through TypeInfo.

@@ -154,21 +154,25 @@ namespace tbx
                 lua_unref(_lua, instance.table_ref);
             instance = LuauInstance {};
 
-            if (luau_load(_lua, source_name.c_str(), bytecode.data(), bytecode.size(), 0) != 0
-                || lua_pcall(_lua, 0, 1, 0) != 0)
+            // Each instance runs its chunk in a fresh environment (falling through to the
+            // globals), so scripts just define start/update/fixed_update — no module table.
+            lua_newtable(_lua); // the environment
+            lua_newtable(_lua); // its metatable
+            lua_pushvalue(_lua, LUA_GLOBALSINDEX);
+            lua_setfield(_lua, -2, "__index");
+            lua_setmetatable(_lua, -2);
+            const int environment = lua_gettop(_lua);
+
+            if (luau_load(_lua, source_name.c_str(), bytecode.data(), bytecode.size(), environment)
+                    != 0
+                || lua_pcall(_lua, 0, 0, 0) != 0)
             {
                 log_error("script '{}': {}", source_name, lua_tostring(_lua, -1));
-                lua_pop(_lua, 1);
+                lua_pop(_lua, 2); // error + environment
                 return false;
             }
-            if (!lua_istable(_lua, -1))
-            {
-                log_error("script '{}' must return a table", source_name);
-                lua_pop(_lua, 1);
-                return false;
-            }
-            instance.table_ref = lua_ref(_lua, -1);
-            lua_pop(_lua, 1);
+            instance.table_ref = lua_ref(_lua, environment);
+            lua_pop(_lua, 1); // the environment
             instance.script_id = id;
             instance.generation = generation;
             instance.is_started = false;

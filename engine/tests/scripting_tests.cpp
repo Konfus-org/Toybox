@@ -4,16 +4,13 @@
 namespace tbx::tests
 {
     static constexpr const char* MOVER_SOURCE = R"(
-local script = {}
-function script.start(toy)
+function start(toy)
     toy:set_name("started")
 end
-function script.update(toy, delta_time)
-    local transform = toy:get("Transform")
-    local position = transform.position
-    transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
+function update(toy, delta_time)
+    local position = toy.Transform.position
+    toy.Transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
 end
-return script
 )";
 
     TEST(Scripts, StartRunsOnceAndUpdateMovesToy)
@@ -70,11 +67,9 @@ return script
 
         // Act: v2 renames differently on start; instance must restart.
         const auto reloaded = scripts.reload_source("mover", R"(
-local script = {}
-function script.start(toy)
+function start(toy)
     toy:set_name("restarted")
 end
-return script
 )");
         scripts.update(0.016f);
         events.drain();
@@ -114,12 +109,10 @@ return script
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
         const auto spawner = scripts.load_source("spawner", R"(
-local script = {}
-function script.start(toy)
+function start(toy)
     local friend = tbx.sandbox.spawn("Friend")
     friend:sticker("summoned")
 end
-return script
 )");
         ASSERT_TRUE(spawner.has_value());
         sandbox.spawn("Summoner").with(Script {.source = *spawner});
@@ -141,13 +134,10 @@ return script
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
         const auto stepper = scripts.load_source("stepper", R"(
-local script = {}
-function script.fixed_update(toy, delta_time)
-    local transform = toy:get("Transform")
-    local position = transform.position
-    transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
+function fixed_update(toy, delta_time)
+    local position = toy.Transform.position
+    toy.Transform.position = { x = position.x + 1.0, y = position.y, z = position.z }
 end
-return script
 )");
         ASSERT_TRUE(stepper.has_value());
         Toy toy = sandbox.spawn("Stepper").with(Script {.source = *stepper});
@@ -163,6 +153,34 @@ return script
         // Assert
         EXPECT_EQ(after_updates, 0.0f);
         EXPECT_EQ(toy.get_block<Transform>().position.x, 3.0f);
+    }
+
+    TEST(Scripts, MissingBlockReadsAsNilAndAssignmentAttaches)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto sandbox = Sandbox(jobs);
+        auto events = Events();
+        auto scripts = Scripts(sandbox, events);
+        const auto builder = scripts.load_source("builder", R"(
+function start(toy)
+    if toy.RigidBody == nil then
+        toy:set_name("bare")
+    end
+    toy.RigidBody = { mass = 5.0, is_kinematic = true }
+end
+)");
+        ASSERT_TRUE(builder.has_value());
+        Toy toy = sandbox.spawn("Buildable").with(Script {.source = *builder});
+
+        // Act
+        scripts.update(0.016f);
+
+        // Assert: the nil read proved absence, the assignment attached and populated.
+        EXPECT_EQ(toy.get_name(), "bare");
+        ASSERT_TRUE(toy.has_block<RigidBody>());
+        EXPECT_EQ(toy.get_block<RigidBody>().mass, 5.0f);
+        EXPECT_TRUE(toy.get_block<RigidBody>().is_kinematic);
     }
 
     TEST(Scripts, DisabledToysDoNotRunScripts)
@@ -194,7 +212,7 @@ return script
         auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto scripts = Scripts(sandbox, events);
-        const auto silent = scripts.load_source("silent", "return {}");
+        const auto silent = scripts.load_source("silent", "local nothing_defined = true");
         ASSERT_TRUE(silent.has_value());
         sandbox.spawn("Quiet").with(Script {.source = *silent});
 
