@@ -1,0 +1,9 @@
+﻿{
+    "id": 231853635,
+    "version": 1,
+    "wrap": "clamp_to_edge",
+    "filter": "linear",
+    "format": "rgba",
+    "mipmaps": "enabled",
+    "compression": "disabled"
+}

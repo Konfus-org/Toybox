@@ -164,6 +164,27 @@ return script
         EXPECT_EQ(toy.get_block<Transform>().position.x, 3.0f);
     }
 
+    TEST(Scripts, DisabledToysDoNotRunScripts)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto sandbox = Sandbox(jobs);
+        auto events = Events();
+        auto scripts = Scripts(sandbox, events);
+        ASSERT_TRUE(scripts.load_source("mover", MOVER_SOURCE).has_value());
+        Toy toy = sandbox.spawn("Grunt").with(Script {.source = "mover"});
+        toy.set_enabled(false);
+
+        // Act
+        scripts.update(0.016f);
+
+        // Assert: neither start nor update ran; re-enabling wakes it up.
+        EXPECT_EQ(toy.get_name(), "Grunt");
+        toy.set_enabled(true);
+        scripts.update(0.016f);
+        EXPECT_EQ(toy.get_name(), "started");
+    }
+
     TEST(Scripts, MissingUpdateFunctionIsHarmless)
     {
         // Arrange

@@ -1,6 +1,9 @@
 #include "tbx/core/log.h"
+#include <cmath>
+#include <vector>
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/assets/builtin.h"
 #include "tbx/gfx/render_blocks.h"
 
 namespace tbx::gpu
@@ -99,8 +102,41 @@ void main()
         std::unique_ptr<Shader> lit_shader;
         std::unique_ptr<Mesh> cube;
         std::unique_ptr<Mesh> plane;
+        std::unique_ptr<Mesh> sphere;
         std::unique_ptr<DepthTarget> shadow_target;
     };
+
+    /// @brief
+    /// Purpose: Generates a unit UV sphere (position + normal, triangle list).
+    static std::vector<float> build_sphere_vertices(const int rings, const int segments)
+    {
+        auto vertices = std::vector<float>();
+        auto point = [&](const int ring, const int segment)
+        {
+            const float phi = 3.14159265f * static_cast<float>(ring) / rings;
+            const float theta = 2.0f * 3.14159265f * static_cast<float>(segment) / segments;
+            const Vec3 normal = Vec3(
+                std::sin(phi) * std::cos(theta),
+                std::cos(phi),
+                std::sin(phi) * std::sin(theta));
+            const Vec3 position = normal * 0.5f;
+            for (const float value : {position.x, position.y, position.z, normal.x, normal.y, normal.z})
+                vertices.push_back(value);
+        };
+        for (int ring = 0; ring < rings; ++ring)
+        {
+            for (int segment = 0; segment < segments; ++segment)
+            {
+                point(ring, segment);
+                point(ring + 1, segment + 1);
+                point(ring + 1, segment);
+                point(ring, segment);
+                point(ring, segment + 1);
+                point(ring + 1, segment + 1);
+            }
+        }
+        return vertices;
+    }
 
     static RendererState g_renderer = {};
 
@@ -140,14 +176,17 @@ void main()
         g_renderer.lit_shader = std::move(*lit);
         g_renderer.cube = upload_mesh(CUBE_VERTICES, std::array {3, 3});
         g_renderer.plane = upload_mesh(PLANE_VERTICES, std::array {3, 3});
+        g_renderer.sphere = upload_mesh(build_sphere_vertices(16, 24), std::array {3, 3});
         g_renderer.shadow_target = make_depth_target(2048);
         return true;
     }
 
     static const Mesh& mesh_by_name(const std::string& name)
     {
-        if (name == "plane")
+        if (name == builtin::PLANE)
             return *g_renderer.plane;
+        if (name == builtin::SPHERE)
+            return *g_renderer.sphere;
         return *g_renderer.cube;
     }
 
@@ -201,6 +240,8 @@ void main()
         set_uniform(*g_renderer.depth_shader, "u_light_view_projection", light_view_projection);
         for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
         {
+            if (!registry.get<ToyHandle>(entity).is_enabled)
+                continue;
             set_uniform(
                 *g_renderer.depth_shader,
                 "u_model",
@@ -220,6 +261,8 @@ void main()
         bind_depth_texture(*g_renderer.shadow_target, 0);
         for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
         {
+            if (!registry.get<ToyHandle>(entity).is_enabled)
+                continue;
             set_uniform(lit, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
             set_uniform(lit, "u_tint", renderer.tint);
             draw(lit, mesh_by_name(renderer.mesh));

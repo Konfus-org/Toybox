@@ -93,6 +93,8 @@ namespace tbx
             auto& registry = _sandbox.get().get_registry();
             for (const auto [entity, script] : registry.view<Script>().each())
             {
+                if (!registry.get<ToyHandle>(entity).is_enabled)
+                    continue;
                 const uint64 hash = hash_name(script.source);
                 const auto bytecode = _bytecode_by_hash.find(hash);
                 if (bytecode == _bytecode_by_hash.end())

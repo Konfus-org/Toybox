@@ -203,6 +203,8 @@ namespace tbx::physics
         // Mirror collider toys into the simulation (created on first sight).
         for (const auto [entity, collider] : registry.view<BoxCollider>().each())
         {
+            if (!registry.get<ToyHandle>(entity).is_enabled)
+                continue;
             const auto key = static_cast<uint32>(entity);
             const auto* rigid_body = registry.try_get<RigidBody>(entity);
             const auto& transform = registry.get_or_emplace<Transform>(entity);

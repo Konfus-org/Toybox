@@ -317,6 +317,26 @@ namespace tbx::tests
         EXPECT_TRUE(sandbox.find("Skybox").has_value());
     }
 
+    TEST(Sandbox, DisabledStatePersistsThroughKits)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto source = Sandbox(jobs);
+        Toy toy = source.spawn("Lamp");
+        toy.set_enabled(false);
+        const Json kit = save(source, std::array {toy});
+
+        // Act
+        auto target = Sandbox(jobs);
+        ASSERT_TRUE(load(target, kit).has_value());
+
+        // Assert
+        const auto reloaded = target.find("Lamp");
+        ASSERT_TRUE(reloaded.has_value());
+        EXPECT_FALSE(Toy(*reloaded).is_enabled());
+        EXPECT_TRUE(source.spawn("Fresh").is_enabled()); // default stays on
+    }
+
     TEST(Sandbox, CloseEmptiesTheSandboxForReopening)
     {
         // Arrange

@@ -1,27 +1,12 @@
 #pragma once
 #include "tbx/core/math.h"
+#include "tbx/ecs/builtin_blocks.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include <optional>
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Makes a collider toy dynamic: it falls, collides, and writes its simulated
-    /// pose back into Transform. Colliders without one are static scenery.
-    struct RigidBody
-    {
-        float mass = 1.0f;
-        bool is_kinematic = false;
-    };
-
-    /// @brief
-    /// Purpose: Box collision shape centered on the toy's Transform.
-    struct BoxCollider
-    {
-        Vec3 half_extents = Vec3(0.5f, 0.5f, 0.5f);
-    };
-
     /// @brief
     /// Purpose: What a raycast hit: the toy, where, and how far along the ray.
     struct RaycastHit

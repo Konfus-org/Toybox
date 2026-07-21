@@ -17,6 +17,7 @@ namespace tbx
     {
         Uuid uuid = {};
         std::string name = {};
+        bool is_enabled = true;
     };
 
     /// @brief
@@ -79,6 +80,10 @@ namespace tbx
         bool is_alive() const;
 
         /// @brief
+        /// Purpose: True when the toy participates in rendering, scripting, and physics.
+        bool is_enabled() const;
+
+        /// @brief
         /// Purpose: True when this block type is attached.
         template <typename TBlock>
         bool has_block() const;
@@ -95,6 +100,11 @@ namespace tbx
         /// @brief
         /// Purpose: Peels a sticker off (no-op when absent).
         void remove_sticker(std::string_view name);
+
+        /// @brief
+        /// Purpose: Turns the toy on or off for rendering, scripting, and physics (persisted
+        /// by kits).
+        void set_enabled(bool is_enabled);
 
         /// @brief
         /// Purpose: Renames the toy.

@@ -16,6 +16,16 @@ namespace tbx
         return _sandbox->get().get_registry().get<ToyHandle>(_id).uuid;
     }
 
+    bool Toy::is_enabled() const
+    {
+        return _sandbox->get().get_registry().get<ToyHandle>(_id).is_enabled;
+    }
+
+    void Toy::set_enabled(const bool is_enabled)
+    {
+        _sandbox->get().get_registry().get<ToyHandle>(_id).is_enabled = is_enabled;
+    }
+
     bool Toy::is_alive() const
     {
         return _sandbox.has_value() && _sandbox->get().get_registry().valid(_id);

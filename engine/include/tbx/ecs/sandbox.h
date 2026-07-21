@@ -5,7 +5,7 @@
 #include "tbx/core/uuid.h"
 #include "tbx/ecs/block.h"
 #include "tbx/ecs/toy.h"
-#include "tbx/ecs/transform.h"
+#include "tbx/ecs/builtin_blocks.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/reflect/json_walker.h"
 #include <functional>

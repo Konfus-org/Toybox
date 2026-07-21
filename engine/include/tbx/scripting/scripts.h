@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
+#include "tbx/ecs/builtin_blocks.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
 #include <memory>
@@ -9,14 +10,6 @@
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: The block that makes a toy scripted: names a loaded script source. A script
-    /// module exposes start(toy) and update(toy, delta_time) in its own language.
-    struct Script
-    {
-        std::string source = {};
-    };
-
     /// @brief
     /// Purpose: One scripting language. Backends coexist — C++, Lua, and C# can all run at
     /// once — so this is a real interface, not a link-time swap: each compiled-in backend

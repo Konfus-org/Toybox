@@ -132,6 +132,8 @@ namespace tbx
             const auto& identity = _registry.get<ToyHandle>(id);
             toy_json["uuid"] = identity.uuid.to_string();
             toy_json["name"] = identity.name;
+            if (!identity.is_enabled)
+                toy_json["is_enabled"] = false;
 
             if (const auto* link = _registry.try_get<ParentLink>(id);
                 link && _registry.valid(link->parent))
@@ -210,6 +212,7 @@ namespace tbx
             for (const Json& toy_json : kit.value("toys", Json::array()))
             {
                 Toy toy = spawn(toy_json.value("name", std::string("Toy")));
+                toy.set_enabled(toy_json.value("is_enabled", true));
                 spawned.push_back(toy.get_id());
                 by_kit_uuid[toy_json.value("uuid", std::string())] = toy.get_id();
 
