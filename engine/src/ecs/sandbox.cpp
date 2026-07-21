@@ -314,7 +314,7 @@ namespace tbx
         _kit_instances.erase(it);
     }
 
-    //// SANDBOX: LAYOUT & STREAMING ////
+    //// SANDBOX: BOXES & STREAMING ////
 
     void Sandbox::close()
     {

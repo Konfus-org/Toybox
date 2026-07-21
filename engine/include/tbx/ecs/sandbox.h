@@ -97,7 +97,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
-        /// state. The sandbox is empty and ready to open another layout.
+        /// state. The sandbox is empty and ready to open another box.
         void close();
 
         /// @brief

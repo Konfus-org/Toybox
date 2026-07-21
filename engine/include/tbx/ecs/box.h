@@ -28,8 +28,8 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: A box of kits — the sandbox layout (.box files): the kit entries a sandbox
-    /// opens with. ALWAYS entries load at open; STREAMED entries load/unload by distance.
+    /// Purpose: A box of kits (.box files): the kit entries a sandbox opens with. ALWAYS
+    /// entries load at open; STREAMED entries load/unload by distance.
     struct TBX_API Box
     {
         std::vector<BoxEntry> kits = {};
