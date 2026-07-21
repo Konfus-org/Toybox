@@ -5,6 +5,11 @@ namespace tbx::math
 {
     //// MATH (glm backend) ////
 
+    Quat angle_axis(const float radians, const Vec3& axis)
+    {
+        return glm::angleAxis(radians, axis);
+    }
+
     Mat4 inverse(const Mat4& matrix)
     {
         return glm::inverse(matrix);

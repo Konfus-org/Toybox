@@ -22,6 +22,10 @@ namespace tbx::ui
     void reset();
 
     /// @brief
+    /// Purpose: Replaces an element's inline style by its id — the minimal dynamic-HUD hook.
+    void set_inline_style(uint64 document_id, const std::string& element_id, const std::string& style);
+
+    /// @brief
     /// Purpose: Closes one document by the id load_document returned.
     void unload_document(uint64 document_id);
 

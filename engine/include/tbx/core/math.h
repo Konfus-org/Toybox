@@ -8,6 +8,10 @@
 namespace tbx::math
 {
     /// @brief
+    /// Purpose: A rotation of the given angle (radians) around an axis.
+    Quat angle_axis(float radians, const Vec3& axis);
+
+    /// @brief
     /// Purpose: Matrix inverse.
     Mat4 inverse(const Mat4& matrix);
 

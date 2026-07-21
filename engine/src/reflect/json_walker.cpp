@@ -55,6 +55,8 @@ namespace tbx
                 return Json::array({c.r, c.g, c.b, c.a});
             }
             case FieldKind::UUID:
+            case FieldKind::ASSET:
+                // AssetHandle<T> is layout-identical to its Uuid id.
                 return reinterpret_cast<const Uuid*>(at)->to_string();
             case FieldKind::ENUM:
             {

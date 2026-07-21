@@ -30,6 +30,26 @@ namespace tbx::files
         return text;
     }
 
+    Result<void> write_bytes(
+        const std::filesystem::path& path,
+        const std::span<const std::byte> bytes)
+    {
+        if (path.has_parent_path())
+        {
+            auto ec = std::error_code {};
+            std::filesystem::create_directories(path.parent_path(), ec);
+        }
+        auto stream = std::ofstream(path, std::ios::binary | std::ios::trunc);
+        if (!stream)
+            return fail("could not open '{}' for writing", path.string());
+        stream.write(
+            reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
+        if (!stream)
+            return fail("write failed for '{}'", path.string());
+        return ok();
+    }
+
     Result<void> write_text(const std::filesystem::path& path, std::string_view text)
     {
         if (path.has_parent_path())

@@ -210,6 +210,20 @@ namespace tbx::ui
         g_ui.reset();
     }
 
+    void set_inline_style(
+        const uint64 document_id,
+        const std::string& element_id,
+        const std::string& style)
+    {
+        if (!g_ui)
+            return;
+        const auto found = g_ui->documents.find(document_id);
+        if (found == g_ui->documents.end())
+            return;
+        if (Rml::Element* element = found->second->GetElementById(element_id))
+            element->SetAttribute("style", style);
+    }
+
     void unload_document(const uint64 document_id)
     {
         if (!g_ui)
