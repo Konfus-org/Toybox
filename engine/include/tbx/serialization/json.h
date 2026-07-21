@@ -5,6 +5,9 @@
 // tbx::Json type via its <tbx_serialization_backend.h> and implements the helpers declared
 // here in its own .cpp — swapped at link time like every other backend. Nothing else names
 // the library.
+//
+// The verbs follow the engine-wide shape: parse things with tbx::parse, check things with
+// tbx::is_valid, serialize things with tbx::dump — the same names every API uses.
 #include <string>
 #include <string_view>
 #include <tbx_serialization_backend.h>
@@ -13,20 +16,19 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Serializes a document to text (indent < 0 = compact).
-    TBX_API std::string dump_json(const Json& data, int indent = -1);
+    TBX_API std::string dump(const Json& data, int indent = -1);
 
     /// @brief
     /// Purpose: Parses text into a document; empty on malformed input (callers wrap with their
     /// own error context).
-    TBX_API Json parse_json(std::string_view text);
+    TBX_API Json parse(std::string_view text);
 
     /// @brief
     /// Purpose: True when text is well-formed JSON.
-    TBX_API bool is_valid_json(std::string_view text);
+    TBX_API bool is_valid(std::string_view text);
 
     /// @brief
     /// Purpose: Loads (and validates) a JSON document from disk.
     template <>
     TBX_API Result<Json> load<Json>(const std::filesystem::path& path);
-
 }

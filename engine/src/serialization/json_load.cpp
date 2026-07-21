@@ -9,8 +9,8 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        if (!is_valid_json(*text))
+        if (!is_valid(*text))
             return fail("'{}' is not valid JSON", path.string());
-        return parse_json(*text);
+        return parse(*text);
     }
 }

@@ -25,7 +25,7 @@ namespace tbx
 
     void Scripts::add_backend(std::unique_ptr<ScriptBackend> backend)
     {
-        log_info("scripting backend '{}' ready", backend->get_name());
+        TBX_INFO("scripting backend '{}' ready", backend->get_name());
         _backends.push_back(std::move(backend));
     }
 

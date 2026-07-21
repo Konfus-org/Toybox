@@ -142,7 +142,7 @@ namespace tbx
                 return 1;
             }
             case FieldKind::TYPE:
-                log_warn("nested block field '{}' is not scriptable yet", field.name);
+                TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 lua_pushnil(lua);
                 return 1;
         }
@@ -230,7 +230,7 @@ namespace tbx
                 return;
             }
             case FieldKind::TYPE:
-                log_warn("nested block field '{}' is not scriptable yet", field.name);
+                TBX_WARN("nested block field '{}' is not scriptable yet", field.name);
                 return;
         }
     }

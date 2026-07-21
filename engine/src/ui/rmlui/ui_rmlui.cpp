@@ -25,11 +25,11 @@ namespace tbx::ui
         bool LogMessage(Rml::Log::Type type, const Rml::String& message) override
         {
             if (type <= Rml::Log::LT_ERROR)
-                log_error("rmlui: {}", message);
+                TBX_ERROR("rmlui: {}", message);
             else if (type == Rml::Log::LT_WARNING)
-                log_warn("rmlui: {}", message);
+                TBX_WARN("rmlui: {}", message);
             else
-                log_info("rmlui: {}", message);
+                TBX_INFO("rmlui: {}", message);
             return true;
         }
 
@@ -98,7 +98,7 @@ namespace tbx::ui
 
         Rml::TextureHandle LoadTexture(Rml::Vector2i&, const Rml::String& source) override
         {
-            log_warn("ui file texture '{}' not supported yet; use generated textures", source);
+            TBX_WARN("ui file texture '{}' not supported yet; use generated textures", source);
             return {};
         }
 
@@ -143,20 +143,13 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: One cached document instance: content-hashed, shown while drawn, closed after
-    /// going undrawn for a while (a changed asset hashes to a fresh instance).
+    /// Purpose: One drawn document: its own Rml context (so draw() can render it right now,
+    /// alone), keyed by content hash — a changed asset hashes to a fresh instance.
     struct DocumentEntry
     {
-        Rml::ElementDocument* document = nullptr; // owned by its Rml context
-        uint64 last_drawn_frame = 0;
-    };
-
-    /// @brief
-    /// Purpose: A context rendering into an offscreen target, with its own document cache.
-    struct OffscreenContext
-    {
         Rml::Context* context = nullptr; // owned by Rml until Rml::Shutdown
-        std::unordered_map<uint64, DocumentEntry> documents;
+        Rml::ElementDocument* document = nullptr;
+        uint64 last_drawn_frame = 0;
         int width = 0;
         int height = 0;
     };
@@ -167,9 +160,7 @@ namespace tbx::ui
     {
         SystemInterface system = {};
         RenderInterface renderer = {};
-        Rml::Context* context = nullptr; // owned by Rml until Rml::Shutdown
-        std::unordered_map<uint64, DocumentEntry> documents;
-        std::unordered_map<uint32, OffscreenContext> offscreen_by_target;
+        std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
         std::unordered_map<std::string, std::string> bindings;
         uint64 frame = 1;
         bool is_initialized = false;
@@ -193,7 +184,7 @@ namespace tbx::ui
         Rml::SetRenderInterface(&state->renderer);
         if (!Rml::Initialise())
         {
-            log_error("RmlUi initialization failed; ui disabled");
+            TBX_ERROR("RmlUi initialization failed; ui disabled");
             return nullptr;
         }
         state->is_initialized = true;
@@ -207,16 +198,7 @@ namespace tbx::ui
             if (extension != ".ttf" && extension != ".otf")
                 continue;
             if (!Rml::LoadFontFace(entry.path().string(), true))
-                log_warn("font '{}' failed to load", entry.path().string());
-        }
-
-        const int width = std::max(1, gpu::get_viewport_width());
-        const int height = std::max(1, gpu::get_viewport_height());
-        state->context = Rml::CreateContext("tbx", Rml::Vector2i(width, height));
-        if (!state->context)
-        {
-            log_error("RmlUi context creation failed; ui disabled");
-            return nullptr;
+                TBX_WARN("font '{}' failed to load", entry.path().string());
         }
         g_ui = std::move(state);
         return g_ui.get();
@@ -260,54 +242,59 @@ namespace tbx::ui
             apply_bindings(state, element->GetChild(child));
     }
 
-    //// DOCUMENT CACHE ////
+    //// DRAW ////
 
+    /// @brief
+    /// Purpose: The cached (context, document) pair for one document at one drawable size,
+    /// created on first draw.
     static DocumentEntry* ensure_document(
-        Rml::Context& context,
-        std::unordered_map<uint64, DocumentEntry>& documents,
-        const UiDocument& document)
+        UiState& state,
+        const UiDocument& document,
+        const uint64 key,
+        const int width,
+        const int height)
     {
-        const uint64 key = hash(std::string_view(document.text));
-        const auto found = documents.find(key);
-        if (found != documents.end())
-            return &found->second;
-        Rml::ElementDocument* loaded = context.LoadDocumentFromMemory(document.text);
-        if (!loaded)
+        auto& entry = state.documents[key];
+        if (!entry.context)
         {
-            log_error("ui document failed to parse");
-            return nullptr;
+            entry.context = Rml::CreateContext(
+                std::format("tbx_{}", key), Rml::Vector2i(width, height));
+            if (!entry.context)
+            {
+                TBX_ERROR("RmlUi context creation failed");
+                state.documents.erase(key);
+                return nullptr;
+            }
+            entry.width = width;
+            entry.height = height;
         }
-        auto& entry = documents[key];
-        entry.document = loaded;
+        if (entry.width != width || entry.height != height)
+        {
+            entry.width = width;
+            entry.height = height;
+            entry.context->SetDimensions(Rml::Vector2i(width, height));
+        }
+        if (!entry.document)
+        {
+            entry.document = entry.context->LoadDocumentFromMemory(document.text);
+            if (!entry.document)
+            {
+                TBX_ERROR("ui document failed to parse");
+                state.documents.erase(key);
+                return nullptr;
+            }
+            entry.document->Show();
+        }
         return &entry;
     }
 
-    /// @brief
-    /// Purpose: Shows what was drawn, hides what was not, closes the long-undrawn.
-    static void settle_documents(
-        UiState& state,
-        std::unordered_map<uint64, DocumentEntry>& documents)
+    static void draw_document(UiState& state, DocumentEntry& entry)
     {
-        for (auto it = documents.begin(); it != documents.end();)
-        {
-            DocumentEntry& entry = it->second;
-            if (entry.last_drawn_frame == state.frame)
-            {
-                apply_bindings(state, entry.document);
-                entry.document->Show();
-                ++it;
-            }
-            else if (state.frame - entry.last_drawn_frame > UNDRAWN_FRAMES_BEFORE_CLOSE)
-            {
-                entry.document->Close();
-                it = documents.erase(it);
-            }
-            else
-            {
-                entry.document->Hide();
-                ++it;
-            }
-        }
+        entry.last_drawn_frame = state.frame;
+        apply_bindings(state, entry.document);
+        entry.context->Update();
+        entry.context->Render();
+        gpu::set_scissor(false, 0, 0, 0, 0);
     }
 
     //// BOUNDARY ////
@@ -317,8 +304,11 @@ namespace tbx::ui
         UiState* state = ensure_ui_ready();
         if (!state)
             return;
-        if (DocumentEntry* entry = ensure_document(*state->context, state->documents, document))
-            entry->last_drawn_frame = state->frame;
+        const uint64 key = hash(std::string_view(document.text));
+        const int width = std::max(1, gpu::get_viewport_width());
+        const int height = std::max(1, gpu::get_viewport_height());
+        if (DocumentEntry* entry = ensure_document(*state, document, key, width, height))
+            draw_document(*state, *entry);
     }
 
     void draw(const UiDocument& document, const gpu::RenderTarget& target)
@@ -326,55 +316,18 @@ namespace tbx::ui
         UiState* state = ensure_ui_ready();
         if (!state)
             return;
-        auto& offscreen = state->offscreen_by_target[target.get_framebuffer()];
-        if (!offscreen.context)
-        {
-            offscreen.context = Rml::CreateContext(
-                std::format("tbx_target_{}", target.get_framebuffer()),
-                Rml::Vector2i(target.get_width(), target.get_height()));
-            if (!offscreen.context)
-            {
-                log_error("RmlUi offscreen context failed");
-                state->offscreen_by_target.erase(target.get_framebuffer());
-                return;
-            }
-        }
-        if (offscreen.width != target.get_width() || offscreen.height != target.get_height())
-        {
-            offscreen.width = target.get_width();
-            offscreen.height = target.get_height();
-            offscreen.context->SetDimensions(Rml::Vector2i(offscreen.width, offscreen.height));
-        }
-        DocumentEntry* entry =
-            ensure_document(*offscreen.context, offscreen.documents, document);
+        const uint64 key = hash(std::string_view(document.text))
+            ^ (0x9E3779B97F4A7C15ull * (target.get_framebuffer() + 1));
+        DocumentEntry* entry = ensure_document(
+            *state, document, key, target.get_width(), target.get_height());
         if (!entry)
             return;
-        entry->last_drawn_frame = state->frame;
-        apply_bindings(*state, entry->document);
-        entry->document->Show();
-        offscreen.context->Update();
-
         gpu::begin_render_pass(
             {.color_target = target,
              .load = gpu::LoadOperation::CLEAR,
              .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
-        offscreen.context->Render();
-        gpu::set_scissor(false, 0, 0, 0, 0);
+        draw_document(*state, *entry);
         gpu::end_render_pass();
-    }
-
-    void render()
-    {
-        if (!g_ui)
-            return;
-        UiState& state = *g_ui;
-        settle_documents(state, state.documents);
-        for (auto& [target, offscreen] : state.offscreen_by_target)
-            settle_documents(state, offscreen.documents);
-        state.context->Update();
-        state.context->Render();
-        gpu::set_scissor(false, 0, 0, 0, 0);
-        ++state.frame;
     }
 
     void reset()
@@ -398,8 +351,21 @@ namespace tbx::ui
     {
         if (!g_ui)
             return;
-        g_ui->system.elapsed += delta_time;
-        g_ui->context->SetDimensions(
-            Rml::Vector2i(gpu::get_viewport_width(), gpu::get_viewport_height()));
+        UiState& state = *g_ui;
+        state.system.elapsed += delta_time;
+
+        // What stopped being drawn retires; a changed asset simply hashes to a new entry.
+        for (auto it = state.documents.begin(); it != state.documents.end();)
+        {
+            if (state.frame - it->second.last_drawn_frame > UNDRAWN_FRAMES_BEFORE_CLOSE)
+            {
+                it->second.document->Close();
+                Rml::RemoveContext(it->second.context->GetName());
+                it = state.documents.erase(it);
+            }
+            else
+                ++it;
+        }
+        ++state.frame;
     }
 }

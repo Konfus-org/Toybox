@@ -11,6 +11,11 @@ namespace tbx
 namespace tbx::debug
 {
     /// @brief
+    /// Purpose: Draws the overlay when open — called by the render graph's ui pass so it
+    /// lands inside the frame.
+    TBX_API void draw();
+
+    /// @brief
     /// Purpose: Whether the overlay is currently shown.
     TBX_API bool is_open();
 

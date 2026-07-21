@@ -81,7 +81,7 @@ namespace tbx
         {
             if (const auto text = files::read_text(meta_path))
             {
-                const Json meta = parse_json(*text);
+                const Json meta = parse(*text);
                 if (meta.is_object())
                     id = parse_meta_id(meta);
             }
@@ -95,8 +95,8 @@ namespace tbx
                 {"id", id.to_string()},
                 {"version", 1},
                 {"type", asset_path.extension().string()}};
-            if (auto written = files::write_text(meta_path, dump_json(meta, 4)); !written)
-                log_warn("could not write '{}': {}", meta_path, written.error());
+            if (auto written = files::write_text(meta_path, dump(meta, 4)); !written)
+                TBX_WARN("could not write '{}': {}", meta_path, written.error());
         }
         const std::scoped_lock lock(_mutex);
         _entries_by_path[relative_path] = Entry {.id = id, .relative_path = relative_path};
@@ -135,9 +135,9 @@ namespace tbx
                 if (!it->is_regular_file() || it->path().extension() != ".meta")
                     continue;
                 const auto text = files::read_text(it->path());
-                if (!text || !is_valid_json(*text))
+                if (!text || !is_valid(*text))
                     continue;
-                const Json meta = parse_json(*text);
+                const Json meta = parse(*text);
                 if (!meta.is_object())
                     continue;
                 const Uuid id = parse_meta_id(meta);
@@ -324,7 +324,7 @@ namespace tbx
         }
         if (!refreshed)
         {
-            log_error("hot reload of '{}' failed: {}", relative, refreshed.error());
+            TBX_ERROR("hot reload of '{}' failed: {}", relative, refreshed.error());
             return;
         }
         {

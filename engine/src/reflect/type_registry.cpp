@@ -11,7 +11,7 @@ namespace tbx
         {
             if (existing->name_hash == info.name_hash)
             {
-                log_warn("type '{}' re-registered; replacing its previous record", info.name);
+                TBX_WARN("type '{}' re-registered; replacing its previous record", info.name);
                 *existing = std::move(info);
                 return *existing;
             }

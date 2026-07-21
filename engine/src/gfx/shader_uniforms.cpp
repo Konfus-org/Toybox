@@ -85,7 +85,7 @@ namespace tbx::gpu
                     break;
             }
             if (!applied)
-                log_warn("uniform '{}': value shape does not match the shader", uniform.name);
+                TBX_WARN("uniform '{}': value shape does not match the shader", uniform.name);
         }
     }
 }

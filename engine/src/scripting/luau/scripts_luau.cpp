@@ -167,7 +167,7 @@ namespace tbx
                     != 0
                 || lua_pcall(_lua, 0, 0, 0) != 0)
             {
-                log_error("script '{}': {}", source_name, lua_tostring(_lua, -1));
+                TBX_ERROR("script '{}': {}", source_name, lua_tostring(_lua, -1));
                 lua_pop(_lua, 2); // error + environment
                 return false;
             }
@@ -201,7 +201,7 @@ namespace tbx
             }
             if (lua_pcall(_lua, argument_count, 0, 0) != 0)
             {
-                log_error("script error in {}: {}", function_name, lua_tostring(_lua, -1));
+                TBX_ERROR("script error in {}: {}", function_name, lua_tostring(_lua, -1));
                 lua_pop(_lua, 1);
             }
             lua_pop(_lua, 1); // the instance table

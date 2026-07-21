@@ -132,7 +132,7 @@ namespace tbx
 
         if (!SDL_Init(SDL_INIT_VIDEO))
         {
-            log_error("SDL_Init failed: {}", SDL_GetError());
+            TBX_ERROR("SDL_Init failed: {}", SDL_GetError());
             std::abort();
         }
 
@@ -149,14 +149,14 @@ namespace tbx
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
         if (!_state->window)
         {
-            log_error("SDL_CreateWindow failed: {}", SDL_GetError());
+            TBX_ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
             std::abort();
         }
 
         _state->gl_context = SDL_GL_CreateContext(_state->window);
         if (!_state->gl_context)
         {
-            log_error("SDL_GL_CreateContext failed: {}", SDL_GetError());
+            TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
             std::abort();
         }
         SDL_GL_SetSwapInterval(1);
@@ -266,7 +266,7 @@ namespace tbx
             width * 4);
         if (!surface)
         {
-            log_warn("window icon surface failed: {}", SDL_GetError());
+            TBX_WARN("window icon surface failed: {}", SDL_GetError());
             return;
         }
         SDL_SetWindowIcon(_state->window, surface);

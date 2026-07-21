@@ -1,4 +1,5 @@
 #include "tbx/app.h"
+#include "tbx/debug/debug_view.h"
 #include "tbx/assets/builtin.h"
 #include "tbx/debug/log.h"
 #include "tbx/ecs/block.h"
@@ -183,7 +184,7 @@ namespace tbx::gpu
         if (!lit_vertex || !lit_fragment || !depth_vertex || !depth_fragment || !sky_vertex
             || !sky_fragment || !post_vertex)
         {
-            log_error("builtin shaders missing under resources/Shaders/Tbx");
+            TBX_ERROR("builtin shaders missing under resources/Shaders/Tbx");
             return false;
         }
         auto depth = compile_shader(depth_vertex->c_str(), depth_fragment->c_str());
@@ -191,7 +192,7 @@ namespace tbx::gpu
         auto sky = compile_shader(sky_vertex->c_str(), sky_fragment->c_str());
         if (!depth || !lit || !sky)
         {
-            log_error(
+            TBX_ERROR(
                 "renderer shaders failed: {}",
                 !depth ? depth.error() : (!lit ? lit.error() : sky.error()));
             return false;
@@ -236,7 +237,7 @@ namespace tbx::gpu
     static void warn_once(const Uuid& id, const std::string& message)
     {
         if (g_renderer.warned_assets.insert(id).second)
-            log_warn("{}", message);
+            TBX_WARN("{}", message);
     }
 
     static float get_failure_flash()
@@ -767,13 +768,14 @@ namespace tbx::gpu
                 warn_once(key, "ui document unavailable: " + document.error());
             }
         }
-        ui::render();
+        debug::draw(); // the engine overlay rides the same pass
     }
 
     void render(Sandbox& sandbox)
     {
         if (!is_app_running())
             return;
+        begin_frame();
         get_render_graph().render(sandbox, get_assets());
     }
 }

@@ -188,7 +188,7 @@ namespace tbx::physics
         const auto* renderer = registry.try_get<Renderer>(entity);
         if (!renderer)
         {
-            log_warn("Shape::MESH collider without a Renderer block; falling back to a box");
+            TBX_WARN("Shape::MESH collider without a Renderer block; falling back to a box");
             return new JPH::BoxShape(to_jolt(scale * 0.5f));
         }
 
@@ -225,11 +225,11 @@ namespace tbx::physics
                 auto result = settings.Create();
                 if (result.IsValid())
                     return result.Get();
-                log_warn("mesh collider failed ({}); falling back to a box",
+                TBX_WARN("mesh collider failed ({}); falling back to a box",
                     result.GetError().c_str());
             }
             else
-                log_warn("mesh collider model unavailable; falling back to a box");
+                TBX_WARN("mesh collider model unavailable; falling back to a box");
             return new JPH::BoxShape(to_jolt(scale * 0.5f));
         }
     }

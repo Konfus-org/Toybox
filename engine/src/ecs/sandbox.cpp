@@ -215,7 +215,7 @@ namespace tbx
                     const auto type = get_type_registry().find(hashed);
                     if (!operations || !type)
                     {
-                        log_warn("kit references unknown block type '{}'; skipped", type_name);
+                        TBX_WARN("kit references unknown block type '{}'; skipped", type_name);
                         continue;
                     }
                     std::byte* block = operations->add_default(_registry, toy.get_id());
@@ -414,13 +414,13 @@ namespace tbx
                         target.is_loading = false;
                         if (!body)
                         {
-                            log_error("streamed kit '{}': {}", target.reference, body.error());
+                            TBX_ERROR("streamed kit '{}': {}", target.reference, body.error());
                             co_return;
                         }
                         auto loaded = sandbox.load_kit(*body, target.position, resolver);
                         if (!loaded)
                         {
-                            log_error("streamed kit '{}': {}", target.reference, loaded.error());
+                            TBX_ERROR("streamed kit '{}': {}", target.reference, loaded.error());
                             co_return;
                         }
                         target.instance = *loaded;

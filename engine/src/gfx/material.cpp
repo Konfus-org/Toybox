@@ -9,9 +9,9 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        if (!is_valid_json(*text))
+        if (!is_valid(*text))
             return fail("'{}' is not a valid material", path.string());
-        const Json data = parse_json(*text);
+        const Json data = parse(*text);
 
         // References stay authoring-time paths (or uuids) on the handles; the asset system
         // resolves them on first load.

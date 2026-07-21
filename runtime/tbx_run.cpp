@@ -103,10 +103,8 @@ div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
 </style></head>
 <body><div/></body>
 </rml>)"};
-        tbx::ui::draw(ui_panel); // immediate mode: drawn every frame it should be visible
-
-        tbx::gpu::begin_frame();
-        tbx::gpu::render(sandbox);
+        tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
+        tbx::ui::draw(ui_panel); // immediate: renders right now, on top of the frame
 
         const auto& window = tbx::get_window();
         const tbx::Color center =
@@ -161,7 +159,7 @@ out vec4 c; void main() { c = vec4(1.0); })");
 
     const bool shadow_darkens = unshadowed_brightness > shadowed_brightness + 0.5f;
     const bool passed = cube_is_red && shadow_darkens && reflection_works && ui_panel_visible;
-    tbx::log_info(
+    TBX_INFO(
         "scene selftest: cube_red={} shadowed={:.2f} lit={:.2f} reflection={} ui={} -> {}",
         cube_is_red,
         shadowed_brightness,
@@ -204,7 +202,7 @@ int main(int argc, char** argv)
                 tbx::gpu::compile_shader(TRIANGLE_VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER);
             if (!compiled)
             {
-                tbx::log_error("{}", compiled.error());
+                TBX_ERROR("{}", compiled.error());
                 return 1;
             }
             shader = std::move(*compiled);
@@ -240,7 +238,7 @@ int main(int argc, char** argv)
 
     if (selftest)
     {
-        tbx::log_info("selftest {}", selftest_passed ? "PASSED" : "FAILED");
+        TBX_INFO("selftest {}", selftest_passed ? "PASSED" : "FAILED");
         return selftest_passed ? 0 : 1;
     }
     return 0;

@@ -11,7 +11,6 @@
 
 int main(int argc, char** argv)
 {
-    using namespace tbx;
     bool selftest = false;
     for (int i = 1; i < argc; ++i)
         if (std::strcmp(argv[i], "--selftest") == 0)
@@ -19,20 +18,20 @@ int main(int argc, char** argv)
 
     // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in
     // the .tapp; this file is only the loop and the selftest checks.
-    auto loaded = load_app(std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp");
+    auto loaded = tbx::load_app(std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp");
     if (!loaded)
     {
-        log_error("Toom.tapp: {}", loaded.error());
+        TBX_ERROR("Toom.tapp: {}", loaded.error());
         return 1;
     }
-    App app = std::move(*loaded);
+    tbx::App app = std::move(*loaded);
 
     bool scored = false;
     bool streamed_room_seen = false;
 
-    while (run(app))
+    while (tbx::run(app))
     {
-        auto& sandbox = get_sandbox();
+        auto& sandbox = tbx::get_sandbox();
 
         if (selftest)
         {
@@ -43,7 +42,7 @@ int main(int argc, char** argv)
                 auto player = sandbox.find("Player");
                 if (!player)
                 {
-                    log_error("levels/arena.box did not spawn a Player");
+                    TBX_ERROR("levels/arena.box did not spawn a Player");
                     return 1;
                 }
                 player->sticker("selftest");
@@ -53,7 +52,7 @@ int main(int argc, char** argv)
             if (sandbox.find("FarFloor"))
                 streamed_room_seen = true;
             if (app.frame >= 300)
-                quit();
+                tbx::quit();
         }
 
         tbx::gpu::render(sandbox);
@@ -62,7 +61,7 @@ int main(int argc, char** argv)
     if (selftest)
     {
         const bool passed = scored && streamed_room_seen;
-        log_info(
+        TBX_INFO(
             "toom selftest: scored={} streamed_room={} -> {}",
             scored,
             streamed_room_seen,

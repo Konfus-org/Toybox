@@ -133,10 +133,10 @@ namespace tbx
         const auto text = files::read_text(tapp_file);
         if (!text)
             return std::unexpected(text.error());
-        if (!is_valid_json(*text))
+        if (!is_valid(*text))
             return fail("'{}' is not a valid .tapp (JSON)", tapp_file.string());
         auto app = App {};
-        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse_json(*text));
+        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse(*text));
             !read)
             return std::unexpected(read.error());
         app.asset_root = tapp_file.parent_path();
@@ -159,7 +159,7 @@ namespace tbx
                     state.window.set_icon(
                         icon->get().width, icon->get().height, icon->get().pixels);
                 else
-                    log_warn("window icon: {}", icon.error());
+                    TBX_WARN("window icon: {}", icon.error());
             }
         }
         set_shadow_resolution(app.graphics.shadow_resolution);
@@ -192,7 +192,7 @@ namespace tbx
             if (const auto config = state.assets.load_now(app.config))
                 (void)config;
             else
-                log_warn("app config: {}", config.error());
+                TBX_WARN("app config: {}", config.error());
             state.events.asset_reloaded.subscribe(
                 &state,
                 [&state](const AssetReloaded& reloaded)
@@ -227,7 +227,7 @@ namespace tbx
                             script->get().name,
                             script->get().source);
                         !result)
-                        log_error("{}", result.error());
+                        TBX_ERROR("{}", result.error());
                 }
             });
         state.events.window_resized.subscribe(
@@ -252,20 +252,20 @@ namespace tbx
             const auto layout = state.assets.load_now(app.sandbox);
             if (!layout)
             {
-                log_error("sandbox '{}': {}", app.sandbox.path, layout.error());
+                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, layout.error());
                 state.quit_requested = true;
             }
             else if (const auto opened = state.sandbox.open(
                          {.kits = layout->get(), .resolver = resolver});
                      !opened)
             {
-                log_error("sandbox '{}': {}", app.sandbox.path, opened.error());
+                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, opened.error());
                 state.quit_requested = true;
             }
         }
 
         app.is_running = true;
-        log_info(
+        TBX_INFO(
             "Toybox app up ({}x{}{})",
             state.window.get_width(),
             state.window.get_height(),
@@ -311,11 +311,11 @@ namespace tbx
             if (const auto read = json_read(
                     get_type_registry().find("App")->get(), app, *state.pending_config);
                 !read)
-                log_error("app config reload: {}", read.error());
+                TBX_ERROR("app config reload: {}", read.error());
             else
             {
                 apply_settings(app, state);
-                log_info("app settings re-applied from the .tapp");
+                TBX_INFO("app settings re-applied from the .tapp");
             }
             state.pending_config.reset();
         }
@@ -334,7 +334,7 @@ namespace tbx
                 continue;
             state.acquired_script_sources.insert(script.source.id);
             if (const auto acquired = state.assets.load_now(script.source); !acquired)
-                log_error(
+                TBX_ERROR(
                     "script source '{}': {}",
                     script.source.id.to_string(),
                     acquired.error());

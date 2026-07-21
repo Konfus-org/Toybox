@@ -41,11 +41,11 @@ namespace tbx
                 }
                 catch (const std::exception& e)
                 {
-                    log_error("unhandled exception in detached task: {}", e.what());
+                    TBX_ERROR("unhandled exception in detached task: {}", e.what());
                 }
                 catch (...)
                 {
-                    log_error("unhandled non-std exception in detached task");
+                    TBX_ERROR("unhandled non-std exception in detached task");
                 }
             }
         };

@@ -156,7 +156,7 @@ namespace tbx::audio
         context_settings.version = STEAMAUDIO_VERSION;
         if (iplContextCreate(&context_settings, &state->context) != IPL_STATUS_SUCCESS)
         {
-            log_error("Steam Audio context creation failed; audio disabled");
+            TBX_ERROR("Steam Audio context creation failed; audio disabled");
             return nullptr;
         }
         auto audio_settings = IPLAudioSettings {};
@@ -168,14 +168,14 @@ namespace tbx::audio
         if (iplHRTFCreate(state->context, &audio_settings, &hrtf_settings, &state->hrtf)
             != IPL_STATUS_SUCCESS)
         {
-            log_error("Steam Audio HRTF creation failed; audio disabled");
+            TBX_ERROR("Steam Audio HRTF creation failed; audio disabled");
             return nullptr;
         }
         iplAudioBufferAllocate(state->context, 1, FRAME_SIZE, &state->mono);
         iplAudioBufferAllocate(state->context, 2, FRAME_SIZE, &state->stereo);
 
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
-            log_warn("SDL audio unavailable ({}); spatializer runs silent", SDL_GetError());
+            TBX_WARN("SDL audio unavailable ({}); spatializer runs silent", SDL_GetError());
         else
         {
             auto spec = SDL_AudioSpec {};
@@ -190,7 +190,7 @@ namespace tbx::audio
             if (state->stream)
                 SDL_ResumeAudioStreamDevice(state->stream);
             else
-                log_warn("no audio playback device ({}); spatializer runs silent", SDL_GetError());
+                TBX_WARN("no audio playback device ({}); spatializer runs silent", SDL_GetError());
         }
 
         g_audio = std::move(state);

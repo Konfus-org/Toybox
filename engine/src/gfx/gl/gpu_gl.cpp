@@ -267,7 +267,7 @@ void main()
         auto shader = compile_shader(UI_VERTEX_SHADER, UI_FRAGMENT_SHADER);
         if (!shader)
         {
-            log_error("ui shader failed: {}", shader.error());
+            TBX_ERROR("ui shader failed: {}", shader.error());
             return false;
         }
         // The Shader RAII object owns the program; parked in a static for process lifetime.
@@ -375,10 +375,10 @@ void main()
         // glad's own platform loader (wgl + opengl32) — no window/loader coupling here.
         if (!gladLoadGL())
         {
-            log_error("failed to load OpenGL functions");
+            TBX_ERROR("failed to load OpenGL functions");
             std::abort();
         }
-        log_info("OpenGL {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+        TBX_INFO("OpenGL {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
     }

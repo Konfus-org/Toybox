@@ -20,6 +20,12 @@ namespace tbx::debug
 
     static DebugState g_debug = {};
 
+    void draw()
+    {
+        if (g_debug.is_open && !g_debug.document.text.empty())
+            ui::draw(g_debug.document);
+    }
+
     bool is_open()
     {
         return g_debug.is_open;
@@ -39,7 +45,7 @@ namespace tbx::debug
             if (auto document = load<UiDocument>(path))
                 g_debug.document = std::move(*document);
             else
-                log_error("debug view: {}", document.error());
+                TBX_ERROR("debug view: {}", document.error());
         }
     }
 
@@ -52,8 +58,6 @@ namespace tbx::debug
     {
         if (!g_debug.is_open || g_debug.document.text.empty())
             return;
-        ui::draw(g_debug.document); // drawing IS visibility
-
         g_debug.smoothed_delta = g_debug.smoothed_delta <= 0.0f
             ? app.delta_time
             : g_debug.smoothed_delta * 0.9f + app.delta_time * 0.1f;
