@@ -36,6 +36,15 @@ namespace tbx
     };
 
     /// @brief
+    /// Purpose: Fired on the main thread when the asset system unloads an idle asset —
+    /// caches keyed on the asset (GPU uploads, documents) drop their copies on this.
+    struct TBX_API AssetUnloaded
+    {
+        Uuid id = {};
+        char extension[16] = {};
+    };
+
+    /// @brief
     /// Purpose: Fired when two physics toys start touching (ToyId values; fed by the physics
     /// backend during the fixed step, delivered at the pump).
     struct TBX_API CollisionEvent
@@ -60,6 +69,7 @@ namespace tbx
         Signal<KeyEvent> key {queue};
         Signal<WindowResized> window_resized {queue};
         Signal<AssetReloaded> asset_reloaded {queue};
+        Signal<AssetUnloaded> asset_unloaded {queue};
         Signal<ScriptReloaded> script_reloaded {queue};
         Signal<CollisionEvent> collision {queue};
 

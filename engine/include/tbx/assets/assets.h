@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/audio_clip.h"
 #include "tbx/assets/material.h"
@@ -8,19 +7,22 @@
 #include "tbx/assets/shader_source.h"
 #include "tbx/assets/texture.h"
 #include "tbx/assets/ui_document.h"
-#include "tbx/utils/result.h"
-#include "tbx/utils/typedefs.h"
-#include "tbx/utils/uuid.h"
 #include "tbx/events/events.h"
 #include "tbx/files/watcher.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/reflect/type_info.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
+#include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
 #include <any>
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
+
 
 namespace tbx
 {
@@ -44,8 +46,19 @@ namespace tbx
 
       public:
         /// @brief
+        /// Purpose: Unloads assets that have not been referenced (loaded) for longer than the
+        /// idle lifetime, announcing each via the asset_unloaded signal. tbx::run() calls
+        /// this every frame; it self-throttles.
+        void collect_garbage();
+
+        /// @brief
         /// Purpose: Number of resident (decoded) assets — debug/tooling.
         size get_loaded_count() const;
+
+        /// @brief
+        /// Purpose: How long an unreferenced asset stays resident before collect_garbage()
+        /// unloads it (default 60 seconds).
+        void set_idle_lifetime(float seconds);
 
         /// @brief
         /// Purpose: The asset a handle references, loading it asynchronously when it is not
@@ -102,27 +115,13 @@ namespace tbx
         std::filesystem::path _root = {};
         mutable std::mutex _mutex; // guards _assets + _entries_by_path
         std::unordered_map<Uuid, std::any> _assets;
+        std::unordered_map<Uuid, std::chrono::steady_clock::time_point> _last_access;
+        std::chrono::steady_clock::time_point _last_collect = std::chrono::steady_clock::now();
+        float _idle_lifetime_seconds = 60.0f;
         std::unordered_map<std::string, Entry> _entries_by_path;
         bool _is_indexed = false;
         std::optional<FileWatcher> _watcher = {};
     };
-
-    template <>
-    Result<Texture> Assets::decode<Texture>(const std::filesystem::path& path);
-    template <>
-    Result<ScriptSource> Assets::decode<ScriptSource>(const std::filesystem::path& path);
-    template <>
-    Result<Json> Assets::decode<Json>(const std::filesystem::path& path);
-    template <>
-    Result<Model> Assets::decode<Model>(const std::filesystem::path& path);
-    template <>
-    Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
-    template <>
-    Result<AudioClip> Assets::decode<AudioClip>(const std::filesystem::path& path);
-    template <>
-    Result<Material> Assets::decode<Material>(const std::filesystem::path& path);
-    template <>
-    Result<UiDocument> Assets::decode<UiDocument>(const std::filesystem::path& path);
 }
 
 #include "tbx/assets/assets.inl"

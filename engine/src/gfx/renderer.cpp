@@ -259,29 +259,28 @@ namespace tbx::gpu
 
     static ResolvedMesh resolve_mesh(const Renderer& renderer, Assets& assets)
     {
-        if (renderer.model.is_set())
-        {
-            const auto cached = g_renderer.meshes_by_asset.find(renderer.model.id);
-            if (cached != g_renderer.meshes_by_asset.end())
-                return {.mesh = *cached->second};
-            if (const auto model = assets.load_now(renderer.model))
-            {
-                auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
-                const Mesh& result = *uploaded;
-                g_renderer.meshes_by_asset[renderer.model.id] = std::move(uploaded);
-                return {.mesh = result};
-            }
-            else
-            {
-                warn_once(renderer.model.id, "model unavailable: " + model.error());
-                return {.mesh = *g_renderer.cube, .is_failed = true};
-            }
-        }
-        if (renderer.mesh == builtin::PLANE)
+        if (!renderer.model.is_set() || renderer.model.id == builtin::CUBE.id)
+            return {.mesh = *g_renderer.cube};
+        if (renderer.model.id == builtin::PLANE.id)
             return {.mesh = *g_renderer.plane};
-        if (renderer.mesh == builtin::SPHERE)
+        if (renderer.model.id == builtin::SPHERE.id)
             return {.mesh = *g_renderer.sphere};
-        return {.mesh = *g_renderer.cube};
+
+        // Ask the asset system every frame — the reference keeps the asset resident; the GPU
+        // upload is only a cache over it (dropped via forget_asset when the asset goes).
+        const auto model = assets.load_now(renderer.model);
+        if (!model)
+        {
+            warn_once(renderer.model.id, "model unavailable: " + model.error());
+            return {.mesh = *g_renderer.cube, .is_failed = true};
+        }
+        const auto cached = g_renderer.meshes_by_asset.find(renderer.model.id);
+        if (cached != g_renderer.meshes_by_asset.end())
+            return {.mesh = *cached->second};
+        auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
+        const Mesh& result = *uploaded;
+        g_renderer.meshes_by_asset[renderer.model.id] = std::move(uploaded);
+        return {.mesh = result};
     }
 
     /// @brief
@@ -409,16 +408,13 @@ namespace tbx::gpu
 
     static ResolvedSurface resolve_surface(const Renderer& renderer, Assets& assets)
     {
-        const auto base_texture = resolve_texture_handle(renderer.texture, assets);
         auto surface = ResolvedSurface {
             .shader = *g_renderer.lit_shader,
             .pipeline = *g_renderer.lit_pipeline,
-            .albedo = base_texture.texture,
-            .tint = renderer.tint};
-        if (base_texture.is_failed)
-            surface.failure = FAILURE_TEXTURE;
+            .albedo = *g_renderer.white};
         if (!renderer.material.is_set())
-            return surface;
+            return surface; // the builtin white PBR surface
+
         const auto material = assets.load_now(renderer.material);
         if (!material)
         {
@@ -427,13 +423,8 @@ namespace tbx::gpu
             return surface;
         }
 
-        // Material albedo multiplies the per-toy tint; its albedo map wins when set.
         const Material& resolved = material->get();
-        surface.tint = Color {
-            .r = resolved.albedo.r * renderer.tint.r,
-            .g = resolved.albedo.g * renderer.tint.g,
-            .b = resolved.albedo.b * renderer.tint.b,
-            .a = resolved.albedo.a * renderer.tint.a};
+        surface.tint = resolved.albedo;
         surface.metallic = resolved.metallic;
         surface.roughness = resolved.roughness;
         surface.emissive = resolved.emissive;
@@ -874,5 +865,22 @@ namespace tbx
     RenderPass make_ui_pass()
     {
         return {.name = "ui", .render = &gpu::render_ui_pass};
+    }
+
+    void forget_asset(const Uuid& asset_id)
+    {
+        gpu::g_renderer.meshes_by_asset.erase(asset_id);
+        gpu::g_renderer.textures_by_asset.erase(asset_id);
+        gpu::g_renderer.post_shaders_by_asset.erase(asset_id);
+        // Material pipelines key on shader pairs; the whole cache rebuilds lazily.
+        gpu::g_renderer.pipelines_by_shader_pair.clear();
+        const auto document = gpu::g_renderer.ui_documents_by_asset.find(asset_id);
+        if (document != gpu::g_renderer.ui_documents_by_asset.end())
+        {
+            if (document->second != 0)
+                ui::unload_document(document->second);
+            gpu::g_renderer.ui_documents_by_asset.erase(document);
+        }
+        gpu::g_renderer.warned_assets.erase(asset_id); // a fresh copy earns a fresh warning
     }
 }

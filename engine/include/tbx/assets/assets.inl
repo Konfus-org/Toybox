@@ -3,6 +3,23 @@
 
 namespace tbx
 {
+    template <>
+    Result<Texture> Assets::decode<Texture>(const std::filesystem::path& path);
+    template <>
+    Result<ScriptSource> Assets::decode<ScriptSource>(const std::filesystem::path& path);
+    template <>
+    Result<Json> Assets::decode<Json>(const std::filesystem::path& path);
+    template <>
+    Result<Model> Assets::decode<Model>(const std::filesystem::path& path);
+    template <>
+    Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
+    template <>
+    Result<AudioClip> Assets::decode<AudioClip>(const std::filesystem::path& path);
+    template <>
+    Result<Material> Assets::decode<Material>(const std::filesystem::path& path);
+    template <>
+    Result<UiDocument> Assets::decode<UiDocument>(const std::filesystem::path& path);
+
     template <typename TAsset>
     Task<Result<std::reference_wrapper<TAsset>>> Assets::load(AssetHandle<TAsset> handle)
     {
@@ -54,6 +71,7 @@ namespace tbx
         auto* asset = std::any_cast<TAsset>(&it->second);
         if (!asset)
             return {};
+        _last_access[id] = std::chrono::steady_clock::now(); // referenced: stays resident
         return *asset;
     }
 }

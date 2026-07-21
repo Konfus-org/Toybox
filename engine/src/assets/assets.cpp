@@ -1,6 +1,7 @@
 #include "tbx/assets/assets.h"
 #include "tbx/debug/log.h"
 #include "tbx/files/files.h"
+#include <algorithm>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_STDIO
@@ -359,6 +360,7 @@ namespace tbx
         {
             const std::scoped_lock lock(_mutex);
             _assets[id] = std::move(asset);
+            _last_access[id] = std::chrono::steady_clock::now();
             _entries_by_path[relative_path].id = id;
         }
         // First loads announce too — glue (e.g. script registration) reacts uniformly.
@@ -381,6 +383,53 @@ namespace tbx
         if (!prepared)
             return std::unexpected(prepared.error());
         return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
+    }
+
+    void Assets::collect_garbage()
+    {
+        const auto now = std::chrono::steady_clock::now();
+        auto unloaded = std::vector<AssetReloaded>(); // reuse the id+extension shape
+        {
+            const std::scoped_lock lock(_mutex);
+            const float throttle = std::min(1.0f, _idle_lifetime_seconds);
+            if (std::chrono::duration<float>(now - _last_collect).count() < throttle)
+                return;
+            _last_collect = now;
+            for (auto it = _assets.begin(); it != _assets.end();)
+            {
+                const auto accessed = _last_access.find(it->first);
+                const float idle_seconds = accessed == _last_access.end()
+                    ? _idle_lifetime_seconds
+                    : std::chrono::duration<float>(now - accessed->second).count();
+                if (idle_seconds < _idle_lifetime_seconds)
+                {
+                    ++it;
+                    continue;
+                }
+                auto relative = std::string();
+                for (const auto& [path, entry] : _entries_by_path)
+                    if (entry.id == it->first)
+                    {
+                        relative = path;
+                        break;
+                    }
+                unloaded.push_back(make_reloaded_event(it->first, relative));
+                _last_access.erase(it->first);
+                it = _assets.erase(it);
+            }
+        }
+        for (const AssetReloaded& gone : unloaded)
+        {
+            auto event = AssetUnloaded {.id = gone.id};
+            std::copy(std::begin(gone.extension), std::end(gone.extension), event.extension);
+            _events.get().asset_unloaded.emit(event);
+        }
+    }
+
+    void Assets::set_idle_lifetime(const float seconds)
+    {
+        const std::scoped_lock lock(_mutex);
+        _idle_lifetime_seconds = seconds;
     }
 
     size Assets::get_loaded_count() const

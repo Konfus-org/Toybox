@@ -3,6 +3,7 @@
 #include "tbx/debug/log.h"
 #include "tbx/physics/physics.h"
 #include "tbx/math/transform.h"
+#include "tbx/assets/builtin.h"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -189,7 +190,16 @@ namespace tbx::physics
             log_warn("Shape::MESH collider without a Renderer block; falling back to a box");
             return new JPH::BoxShape(to_jolt(scale * 0.5f));
         }
-        if (renderer->model.is_set())
+
+        // Builtin primitives get their exact analytic shapes.
+        if (!renderer->model.is_set() || renderer->model.id == builtin::CUBE.id)
+            return new JPH::BoxShape(to_jolt(scale * 0.5f));
+        if (renderer->model.id == builtin::SPHERE.id)
+            return new JPH::SphereShape(std::max({scale.x, scale.y, scale.z}) * 0.5f);
+        if (renderer->model.id == builtin::PLANE.id)
+            return new JPH::BoxShape(
+                JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
+
         {
             if (const auto model = assets.load_now(renderer->model))
             {
@@ -221,14 +231,6 @@ namespace tbx::physics
                 log_warn("mesh collider model unavailable; falling back to a box");
             return new JPH::BoxShape(to_jolt(scale * 0.5f));
         }
-
-        // Builtin primitives get their exact analytic shapes.
-        if (renderer->mesh == "sphere")
-            return new JPH::SphereShape(std::max({scale.x, scale.y, scale.z}) * 0.5f);
-        if (renderer->mesh == "plane")
-            return new JPH::BoxShape(
-                JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
-        return new JPH::BoxShape(to_jolt(scale * 0.5f));
     }
 
     static JPH::ShapeRefC make_shape(

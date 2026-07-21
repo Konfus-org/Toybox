@@ -50,7 +50,7 @@ int main(int argc, char** argv)
                 quit();
         }
 
-        get_render_graph().render(sandbox, get_assets());
+        tbx::gpu::render(sandbox);
     }
 
     if (selftest)

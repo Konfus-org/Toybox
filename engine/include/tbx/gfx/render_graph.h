@@ -84,4 +84,10 @@ namespace tbx
     /// @brief
     /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
     TBX_API RenderPass make_ui_pass();
+
+    /// @brief
+    /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
+    /// compiled material pipelines, shown UI documents) — wired to the asset system's
+    /// unload/reload events so caches follow asset lifetime instead of managing their own.
+    TBX_API void forget_asset(const Uuid& asset_id);
 }

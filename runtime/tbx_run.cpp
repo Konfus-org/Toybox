@@ -2,6 +2,7 @@
 #include "tbx/utils/typedefs.h"
 #include "tbx/app.h"
 #include "tbx/debug/debug_view.h"
+#include "tbx/assets/builtin.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/ui/ui.h"
@@ -50,7 +51,9 @@ static tbx::Quat look_toward(const tbx::Vec3& direction)
 // lit red and that its cast shadow darkens the plane — the M6 "lit/shadowed scene" proof.
 static int run_scene_selftest()
 {
-    auto app = tbx::App {.title = "Toybox 2 scene"};
+    // The engine resources folder doubles as the asset root: the red cube's material is an
+    // engine-shipped asset (color comes from materials now, not renderer tints).
+    auto app = tbx::App {.title = "Toybox 2 scene", .asset_root = TBX_RESOURCES_PATH};
     float shadowed_brightness = -1.0f;
     float unshadowed_brightness = -1.0f;
     bool cube_is_red = false;
@@ -65,12 +68,12 @@ static int run_scene_selftest()
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
-                .with(tbx::Renderer {.mesh = "plane", .tint = tbx::Color {}});
+                .with(tbx::Renderer {.model = tbx::builtin::PLANE});
             sandbox.spawn("Cube")
                 .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
                 .with(tbx::Renderer {
-                    .mesh = "cube",
-                    .tint = tbx::Color {.r = 1.0f, .g = 0.1f, .b = 0.1f}});
+                    .material = tbx::AssetHandle<tbx::Material>("Materials/Tbx/red.mat"),
+                    .model = tbx::builtin::CUBE});
             sandbox.spawn("Sun")
                 .with(tbx::Transform {
                     .rotation = look_toward(tbx::Vec3(1.0f, -1.0f, 0.0f))})

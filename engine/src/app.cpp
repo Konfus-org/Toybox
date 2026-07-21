@@ -64,10 +64,7 @@ namespace tbx
             .field("far_plane", &Camera::far_plane);
         register_block<Renderer>("Renderer")
             .field("material", &Renderer::material)
-            .field("model", &Renderer::model)
-            .field("texture", &Renderer::texture)
-            .field("mesh", &Renderer::mesh)
-            .field("tint", &Renderer::tint);
+            .field("model", &Renderer::model);
         register_block<DirectionalLight>("DirectionalLight")
             .field("color", &DirectionalLight::color)
             .field("intensity", &DirectionalLight::intensity);
@@ -119,11 +116,17 @@ namespace tbx
                 log_warn("window icon: {}", icon.error());
         }
 
+        // Idle-collected or hot-reloaded assets drop their render-side caches.
+        state.events.asset_unloaded.subscribe(
+            &state,
+            [](const AssetUnloaded& unloaded) { forget_asset(unloaded.id); });
+
         // Changed .luau assets hot-reload their scripts; instances restart next update.
         state.events.asset_reloaded.subscribe(
             &state,
             [&state](const AssetReloaded& reloaded)
             {
+                forget_asset(reloaded.id); // re-upload GPU copies of the fresh data
                 if (!state.scripts.owns(reloaded.extension))
                     return; // not a script source — nothing to (re)register
                 const auto script =
@@ -233,6 +236,7 @@ namespace tbx
                     acquired.error());
         }
 
+        state.assets.collect_garbage();
         state.scripts.update(app.delta_time);
         audio::update(state.sandbox, state.assets, app.delta_time);
         ui::update(app.delta_time);
