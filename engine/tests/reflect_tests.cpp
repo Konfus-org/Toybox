@@ -29,10 +29,10 @@ namespace tbx::tests
 
     static const reflection::TypeInfo& register_test_types()
     {
-        reflection::describe<TestStats>("TestStats")
+        reflection::register_type<TestStats>("TestStats")
             .field("wins", &TestStats::wins)
             .field("rating", &TestStats::rating);
-        reflection::describe<TestPlayer>("TestPlayer")
+        reflection::register_type<TestPlayer>("TestPlayer")
             .version(
                 2,
                 [](serialization::Json& data, uint32)
@@ -61,7 +61,7 @@ namespace tbx::tests
     TEST(Reflect, RoundTripsAssetHandleLists)
     {
         // Arrange
-        reflection::describe<TestChain>("TestChain").field("shaders", &TestChain::shaders);
+        reflection::register_type<TestChain>("TestChain").field("shaders", &TestChain::shaders);
         const reflection::TypeInfo& type = reflection::get_type_registry().find("TestChain")->get();
         auto original = TestChain {};
         original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));

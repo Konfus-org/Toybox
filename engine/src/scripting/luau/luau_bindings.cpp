@@ -249,7 +249,7 @@ namespace tbx
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = reflection::get_type_registry().find(data.type_hash);
+        const auto type = reflection::describe(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
@@ -264,7 +264,7 @@ namespace tbx
     {
         const BlockUserdata& data = check_block(lua, 1);
         const char* field_name = luaL_checkstring(lua, 2);
-        const auto type = reflection::get_type_registry().find(data.type_hash);
+        const auto type = reflection::describe(data.type_hash);
         std::byte* block = fetch_block(data);
         if (!type || !block)
             luaL_error(lua, "block is gone");
@@ -325,7 +325,7 @@ namespace tbx
         const char* key = luaL_checkstring(lua, 2);
         const uint64 hashed = hash(key);
         const auto operations = get_block_registry().find(hashed);
-        const auto type = reflection::get_type_registry().find(hashed);
+        const auto type = reflection::describe(hashed);
         if (!operations || !type)
         {
             luaL_error(lua, "'%s' is not a registered block type", key);

@@ -50,9 +50,9 @@ namespace tbx
 
     /// @brief
     /// Purpose: Registers a type as a Block (attachable to toys): reflection via
-    /// reflection::describe
+    /// reflection::register_type
     /// PLUS the ECS accessors kits and the editor need. Chain .version()/.field() off the
-    /// result exactly like describe.
+    /// result exactly like register_type.
     template <typename TBlock>
     reflection::TypeRegistration<TBlock> register_block(std::string name);
 }

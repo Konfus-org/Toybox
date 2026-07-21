@@ -131,6 +131,25 @@ namespace tbx::reflection
     /// Purpose: The process-wide registry instance.
     TBX_API TypeRegistry& get_type_registry();
 
+    // The read half of reflection: register_type() writes a description, describe() reads
+    // one back.
+
+    /// @brief
+    /// Purpose: The description of a registered type by name hash; empty when unregistered.
+    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe(uint64 name_hash);
+
+    /// @brief
+    /// Purpose: The description of a registered type by name; empty when unregistered.
+    TBX_API std::optional<std::reference_wrapper<const TypeInfo>> describe(std::string_view name);
+
+    /// @brief
+    /// Purpose: The description of a registered type; empty when unregistered.
+    template <typename T>
+    std::optional<std::reference_wrapper<const TypeInfo>> describe()
+    {
+        return describe(TypeSlot<T>::hash);
+    }
+
     /// @brief
     /// Purpose: Detects AssetHandle<T> fields so they reflect as FieldKind::ASSET.
     template <typename T>
@@ -316,7 +335,7 @@ namespace tbx::reflection
     /// @brief
     /// Purpose: Registers type T under the given name; chain .version()/.field() off the result.
     template <typename T>
-    TypeRegistration<T> describe(std::string name)
+    TypeRegistration<T> register_type(std::string name)
     {
         return TypeRegistration<T>(std::move(name));
     }

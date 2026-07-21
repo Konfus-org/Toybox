@@ -92,7 +92,7 @@ namespace tbx::serialization
             case reflection::FieldKind::TYPE:
             {
                 const auto nested =
-                    field.nested_hash ? reflection::get_type_registry().find(field.nested_hash->get())
+                    field.nested_hash ? reflection::describe(field.nested_hash->get())
                                       : std::nullopt;
                 if (!nested)
                     return Json::object();
@@ -212,7 +212,7 @@ namespace tbx::serialization
             case reflection::FieldKind::TYPE:
             {
                 const auto nested =
-                    field.nested_hash ? reflection::get_type_registry().find(field.nested_hash->get())
+                    field.nested_hash ? reflection::describe(field.nested_hash->get())
                                       : std::nullopt;
                 if (!nested)
                     return fail("field '{}' has an unregistered nested type", field.name);

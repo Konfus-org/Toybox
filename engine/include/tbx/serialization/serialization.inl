@@ -29,10 +29,10 @@ namespace tbx
             !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
     Result<serialization::Json> save(const T& object)
     {
-        const auto type = reflection::get_type_registry().find(reflection::TypeSlot<T>::hash);
+        const auto type = reflection::describe<T>();
         if (!type)
             return fail(
-                "cannot save: type is not registered (tbx::reflection::describe it first)");
+                "cannot save: type is not registered (tbx::reflection::register_type it first)");
         return ok(serialization::json_write(type->get(), object));
     }
 
@@ -41,10 +41,10 @@ namespace tbx
             !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
     Result<void> load(T& object, const serialization::Json& data)
     {
-        const auto type = reflection::get_type_registry().find(reflection::TypeSlot<T>::hash);
+        const auto type = reflection::describe<T>();
         if (!type)
             return fail(
-                "cannot load: type is not registered (tbx::reflection::describe it first)");
+                "cannot load: type is not registered (tbx::reflection::register_type it first)");
         return serialization::json_read(type->get(), object, data);
     }
 }

@@ -6,7 +6,7 @@ namespace tbx
     template <typename TBlock>
     reflection::TypeRegistration<TBlock> register_block(std::string name)
     {
-        auto registration = reflection::describe<TBlock>(std::move(name));
+        auto registration = reflection::register_type<TBlock>(std::move(name));
         auto operations = BlockOperations {};
         operations.add_default = [](Registry& registry, const ToyId entity) -> std::byte*
         {

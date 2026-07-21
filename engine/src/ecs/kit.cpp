@@ -54,7 +54,7 @@ namespace tbx
             for (const uint64 hash : get_block_registry().get_all_hashes())
             {
                 const auto operations = get_block_registry().find(hash);
-                const auto type = reflection::get_type_registry().find(hash);
+                const auto type = reflection::describe(hash);
                 if (!operations || !type)
                     continue;
                 if (!operations->has(registry, id))
@@ -118,7 +118,7 @@ namespace tbx
                     const auto type_name = block_json.value("type", std::string());
                     const uint64 hashed = hash(type_name);
                     const auto operations = get_block_registry().find(hashed);
-                    const auto type = reflection::get_type_registry().find(hashed);
+                    const auto type = reflection::describe(hashed);
                     if (!operations || !type)
                     {
                         TBX_WARN("kit references unknown block type '{}'; skipped", type_name);

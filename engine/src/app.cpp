@@ -96,29 +96,29 @@ namespace tbx
         if (g_registered)
             return;
         g_registered = true;
-        reflection::describe<GraphicsSettings>("GraphicsSettings")
+        reflection::register_type<GraphicsSettings>("GraphicsSettings")
             .field("is_vsync_enabled", &GraphicsSettings::is_vsync_enabled)
             .field("shadow_resolution", &GraphicsSettings::shadow_resolution);
-        reflection::describe<PhysicsSettings>("PhysicsSettings")
+        reflection::register_type<PhysicsSettings>("PhysicsSettings")
             .field("fixed_timestep", &PhysicsSettings::fixed_timestep)
             .field("gravity", &PhysicsSettings::gravity);
-        reflection::describe<AudioSettings>("AudioSettings")
+        reflection::register_type<AudioSettings>("AudioSettings")
             .field("master_volume", &AudioSettings::master_volume);
-        reflection::describe<AssetSettings>("AssetSettings")
+        reflection::register_type<AssetSettings>("AssetSettings")
             .field("idle_lifetime_seconds", &AssetSettings::idle_lifetime_seconds);
-        reflection::describe<AppConfig>("AppConfig")
+        reflection::register_type<AppConfig>("AppConfig")
             .field("title", &AppConfig::title)
             .field("width", &AppConfig::width)
             .field("height", &AppConfig::height)
             .field("is_headless", &AppConfig::is_headless)
             .field("sandbox", &AppConfig::sandbox)
             .field("icon", &AppConfig::icon);
-        reflection::describe<AppSettings>("AppSettings")
+        reflection::register_type<AppSettings>("AppSettings")
             .field("graphics", &AppSettings::graphics)
             .field("physics", &AppSettings::physics)
             .field("audio", &AppSettings::audio)
             .field("assets", &AppSettings::assets);
-        reflection::describe<App>("App")
+        reflection::register_type<App>("App")
             .field("config", &App::config)
             .field("settings", &App::settings);
     }
@@ -133,7 +133,7 @@ namespace tbx
         if (!serialization::is_valid(*text))
             return fail("'{}' is not a valid .tapp (JSON)", path.string());
         auto app = App {};
-        if (auto read = serialization::json_read(reflection::get_type_registry().find("App")->get(), app, serialization::parse(*text));
+        if (auto read = serialization::json_read(reflection::describe("App")->get(), app, serialization::parse(*text));
             !read)
             return std::unexpected(read.error());
         return ok(std::move(app));

@@ -49,4 +49,14 @@ namespace tbx::reflection
         static TypeRegistry g_registry = {};
         return g_registry;
     }
+
+    std::optional<std::reference_wrapper<const TypeInfo>> describe(const uint64 name_hash)
+    {
+        return get_type_registry().find(name_hash);
+    }
+
+    std::optional<std::reference_wrapper<const TypeInfo>> describe(const std::string_view name)
+    {
+        return get_type_registry().find(name);
+    }
 }
