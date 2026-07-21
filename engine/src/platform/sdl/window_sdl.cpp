@@ -238,6 +238,12 @@ namespace tbx
         return true;
     }
 
+    void Window::set_title(const std::string& title)
+    {
+        if (_state->window)
+            SDL_SetWindowTitle(_state->window, title.c_str());
+    }
+
     void Window::set_vsync(const bool is_enabled)
     {
         if (_state->window)

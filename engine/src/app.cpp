@@ -28,6 +28,7 @@ namespace tbx
         RenderGraph render_graph = {};
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
+        std::optional<Json> pending_config; // a changed .tapp body awaiting re-apply
         std::unordered_set<Uuid> acquired_script_sources;
         bool quit_requested = false;
 
@@ -139,7 +140,32 @@ namespace tbx
             !read)
             return std::unexpected(read.error());
         app.asset_root = tapp_file.parent_path();
+        app.config = AssetHandle<Json>(tapp_file.filename().string());
         return ok(std::move(app));
+    }
+
+    /// @brief
+    /// Purpose: Pushes the App's settings into every subsystem — run at boot and again
+    /// whenever the watched .tapp changes.
+    static void apply_settings(App& app, AppState& state)
+    {
+        if (!state.window.is_headless())
+        {
+            state.window.set_title(app.title);
+            state.window.set_vsync(app.graphics.is_vsync_enabled);
+            if (app.icon.is_set())
+            {
+                if (const auto icon = state.assets.load_now(app.icon))
+                    state.window.set_icon(
+                        icon->get().width, icon->get().height, icon->get().pixels);
+                else
+                    log_warn("window icon: {}", icon.error());
+            }
+        }
+        set_shadow_resolution(app.graphics.shadow_resolution);
+        physics::set_gravity(app.physics.gravity);
+        audio::set_master_volume(app.audio.master_volume);
+        state.assets.set_idle_lifetime(app.assets.idle_lifetime_seconds);
     }
 
     //// BOOT / SHUTDOWN ////
@@ -154,21 +180,29 @@ namespace tbx
         {
             gpu::initialize();
             gpu::set_viewport(state.window.get_width(), state.window.get_height());
-            state.window.set_vsync(app.graphics.is_vsync_enabled);
         }
-        set_shadow_resolution(app.graphics.shadow_resolution);
-        physics::set_gravity(app.physics.gravity);
-        audio::set_master_volume(app.audio.master_volume);
-        state.assets.set_idle_lifetime(app.assets.idle_lifetime_seconds);
         if (!app.asset_root.empty())
             state.assets.set_root(app.asset_root);
-        if (app.icon.is_set() && !state.window.is_headless())
+        apply_settings(app, state);
+
+        // The .tapp is an ordinary watched asset: loading it here registers it, and any
+        // change queues its fresh body for re-apply on the next frame.
+        if (app.config.is_set())
         {
-            if (const auto icon = state.assets.load_now(app.icon))
-                state.window.set_icon(
-                    icon->get().width, icon->get().height, icon->get().pixels);
+            if (const auto config = state.assets.load_now(app.config))
+                (void)config;
             else
-                log_warn("window icon: {}", icon.error());
+                log_warn("app config: {}", config.error());
+            state.events.asset_reloaded.subscribe(
+                &state,
+                [&state](const AssetReloaded& reloaded)
+                {
+                    if (std::string_view(reloaded.extension) != ".tapp")
+                        return;
+                    if (const auto body =
+                            state.assets.load_now(AssetHandle<Json>(reloaded.id)))
+                        state.pending_config = body->get();
+                });
         }
 
         // Idle-collected or hot-reloaded assets drop their render-side caches.
@@ -270,6 +304,21 @@ namespace tbx
         app.delta_time = std::chrono::duration<float>(now - state.previous_frame).count();
         state.previous_frame = now;
         ++app.frame;
+
+        if (state.pending_config)
+        {
+            // The .tapp changed on disk: deserialize into the LIVE App and push settings out.
+            if (const auto read = json_read(
+                    get_type_registry().find("App")->get(), app, *state.pending_config);
+                !read)
+                log_error("app config reload: {}", read.error());
+            else
+            {
+                apply_settings(app, state);
+                log_info("app settings re-applied from the .tapp");
+            }
+            state.pending_config.reset();
+        }
 
         // The engine debug overlay rides F3.
         if (input::is_pressed(Key::F3))

@@ -50,6 +50,10 @@ namespace tbx
         bool pump(Events& events);
 
         /// @brief
+        /// Purpose: Sets the OS window title.
+        void set_title(const std::string& title);
+
+        /// @brief
         /// Purpose: Enables/disables vertical sync on the presented frame.
         void set_vsync(bool is_enabled);
 

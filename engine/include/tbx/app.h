@@ -71,6 +71,7 @@ namespace tbx
         std::filesystem::path asset_root = {};
         AssetHandle<Json> sandbox = {};  // a .box layout the boot opens
         AssetHandle<Texture> icon = {};  // the window/taskbar icon
+        AssetHandle<Json> config = {};   // the .tapp itself (set by load_app; watched live)
         GraphicsSettings graphics = {};
         PhysicsSettings physics = {};
         AudioSettings audio = {};

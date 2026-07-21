@@ -443,14 +443,20 @@ namespace tbx
         auto ec = std::error_code {};
         const auto relative = std::filesystem::relative(path, _root, ec).generic_string();
         auto id = Uuid {};
+        auto is_resident = false;
         {
             const std::scoped_lock lock(_mutex);
             const auto entry = _entries_by_path.find(relative);
             if (ec || entry == _entries_by_path.end())
-                return; // not a loaded asset — nothing to refresh
+                return; // not a tracked asset — nothing to announce
             id = entry->second.id;
-            if (!_assets.contains(id))
-                return;
+            is_resident = _assets.contains(id);
+        }
+        if (!is_resident)
+        {
+            // Idle-collected (or never decoded here): subscribers pull fresh data themselves.
+            _events.get().asset_reloaded.emit(make_reloaded_event(id, relative));
+            return;
         }
 
         // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
