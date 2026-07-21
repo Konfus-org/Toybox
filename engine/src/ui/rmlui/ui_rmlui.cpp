@@ -171,6 +171,9 @@ namespace tbx::ui
         std::unique_ptr<gpu::Shader> shader;     // the builtin ui raster shaders (files)
         std::unique_ptr<gpu::Pipeline> pipeline; // premultiplied, no depth
         std::unique_ptr<gpu::Texture2d> white;
+        // Registered face bytes: RmlUi references memory faces until Rml::Shutdown, so the
+        // boundary owns copies — the asset cache may drop its Font whenever it likes.
+        std::vector<std::vector<std::byte>> font_faces;
         uint64 frame = 1;
         bool is_initialized = false;
 
@@ -198,17 +201,8 @@ namespace tbx::ui
         }
         state->is_initialized = true;
 
-        // Every face in the engine's font folder registers as a fallback-capable family.
-        const auto fonts = std::filesystem::path(TBX_RESOURCES_PATH) / "Fonts";
-        auto ec = std::error_code {};
-        for (const auto& entry : std::filesystem::directory_iterator(fonts, ec))
-        {
-            const auto extension = entry.path().extension().string();
-            if (extension != ".ttf" && extension != ".otf")
-                continue;
-            if (!Rml::LoadFontFace(entry.path().string(), true))
-                TBX_WARN("font '{}' failed to load", entry.path().string());
-        }
+        // Fonts are not this boundary's policy: faces arrive as Font assets via set_font()
+        // (the runtime registers the engine's builtin face at boot).
         g_ui = std::move(state);
         return g_ui.get();
     }
@@ -390,6 +384,30 @@ namespace tbx::ui
         state->renderer.shader = nullptr;
         gpu::set_scissor(false, 0, 0, 0, 0);
         gpu::end_render_pass();
+    }
+
+    void set_font(const Font& font, const std::string& family)
+    {
+        UiState* state = ensure_ui_ready();
+        if (!state)
+            return;
+        // The copy lands in the state first: RmlUi references the memory face until
+        // Rml::Shutdown (which the state destructor runs before releasing these bytes).
+        state->font_faces.push_back(font.data);
+        const std::vector<std::byte>& data = state->font_faces.back();
+        const auto span = Rml::Span<const Rml::byte>(
+            reinterpret_cast<const Rml::byte*>(data.data()),
+            data.size());
+        if (!Rml::LoadFontFace(
+                span,
+                family,
+                Rml::Style::FontStyle::Normal,
+                Rml::Style::FontWeight::Auto,
+                true))
+        {
+            TBX_WARN("font face '{}' failed to load", family);
+            state->font_faces.pop_back();
+        }
     }
 
     void reset()

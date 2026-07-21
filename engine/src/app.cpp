@@ -202,6 +202,17 @@ namespace tbx
 
         apply_settings(app, state);
 
+        // The engine ui font is an ordinary asset (resolved through the engine resources
+        // root); games call ui::set_font for their own faces.
+        if (!app.config.asset_root.empty())
+        {
+            if (const auto font = state.assets.load_now(
+                    AssetHandle<Font>("Fonts/MontserratMedium.otf")))
+                ui::set_font(font->get(), "Montserrat");
+            else
+                TBX_WARN("builtin ui font: {}", font.error());
+        }
+
         // The .tapp is an ordinary watched asset and the App IS its asset type: loading it
         // here registers it, and any change queues a freshly decoded App for re-apply.
         if (!app.config.file.empty())
@@ -305,7 +316,7 @@ namespace tbx
         if (!window_alive || state.quit_requested)
         {
             app.state.is_running = false;
-            debug::reset();
+            debug::view::reset();
             ui::reset();
             audio::reset();
             physics::reset();
@@ -333,8 +344,8 @@ namespace tbx
 
         // The engine debug overlay rides F3.
         if (input::is_pressed(Key::F3))
-            debug::toggle();
-        debug::update(app);
+            debug::view::toggle();
+        debug::view::update(app);
 
         // Script sources referenced by spawned toys are ordinary assets: acquire each once —
         // the store emits asset_reloaded and the boot glue hands it to the right backend.

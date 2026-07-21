@@ -1,6 +1,6 @@
 #include "tbx/serialization/json.h"
 
-namespace tbx
+namespace tbx::serialization
 {
     //// SERIALIZATION (nlohmann backend) ////
 

@@ -1,7 +1,7 @@
 #include "tbx/debug/log.h"
 #include <spdlog/spdlog.h>
 
-namespace tbx
+namespace tbx::debug
 {
     //// LOGGING (spdlog backend) ////
 

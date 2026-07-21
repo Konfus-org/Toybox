@@ -1,6 +1,5 @@
 #pragma once
 #include "tbx/utils/api.h"
-
 #include <functional>
 #include <optional>
 
@@ -12,7 +11,7 @@ namespace tbx
 
 // The engine's debug overlay: frame timing, world and asset counts, rendered through the UI
 // stack. tbx::run() toggles it with F3; tools may drive it directly.
-namespace tbx::debug
+namespace tbx::debug::view
 {
     /// @brief
     /// Purpose: The overlay's document while open (empty when closed) — the ui pass draws

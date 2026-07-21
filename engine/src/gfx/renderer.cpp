@@ -909,7 +909,7 @@ namespace tbx::gpu
         }
 
         // The engine overlay is just one more layer with the builtin composite.
-        if (const auto overlay = debug::get_document())
+        if (const auto overlay = debug::view::get_document())
             composite_layer(0xFFFFFFFFu, overlay->get(), {}, {});
     }
 

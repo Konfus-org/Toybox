@@ -107,7 +107,7 @@ static int run_scene_selftest()
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 
         if (app.state.frame == 1)
-            tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
+            tbx::debug::view::set_open(true); // exercised alongside the scene: text + overlay path
 
         tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
 

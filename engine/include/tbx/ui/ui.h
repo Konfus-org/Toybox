@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/gfx/render_target.h"
 #include "tbx/math/math.h"
+#include "tbx/ui/font.h"
 #include "tbx/ui/ui_block.h"
 #include "tbx/ui/ui_document.h"
 #include "tbx/utils/api.h"
@@ -39,6 +40,13 @@ namespace tbx::ui
     /// every frame is the API; what is not drawn disappears. Shading is not the document's
     /// business: passes set gpu pipelines around the textures this produces.
     TBX_API void draw(const UiDocument& document, const gpu::RenderTarget& target);
+
+    /// @brief
+    /// Purpose: Registers a font face under a family name — documents reference it via
+    /// font-family in their styles. Faces are fallback-capable; call once per face (the
+    /// runtime sets the engine's builtin font at boot, games may add more). The boundary
+    /// keeps its own copy of the bytes, so the asset may unload freely.
+    TBX_API void set_font(const Font& font, const std::string& family);
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.

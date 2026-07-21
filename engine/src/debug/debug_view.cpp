@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <format>
 
-namespace tbx::debug
+namespace tbx::debug::view
 {
     /// @brief
     /// Purpose: Overlay bookkeeping: its document text, visibility, and smoothed timings.

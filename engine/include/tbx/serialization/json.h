@@ -19,9 +19,20 @@ namespace tbx::serialization
     /// Purpose: Parses text into a document; empty on malformed input (callers wrap with their
     /// own error context).
     TBX_API Json parse(std::string_view text);
+}
+
+namespace tbx
+{
+    // The seam is organized under tbx::serialization; the type and the engine-wide verbs
+    // stay reachable at tbx scope — the same shape every api uses (tbx::parse/dump/is_valid).
+    using Json = serialization::Json;
+    using serialization::dump;
+    using serialization::is_valid;
+    using serialization::parse;
 
     /// @brief
-    /// Purpose: Loads (and validates) a JSON document from disk.
+    /// Purpose: Loads (and validates) a JSON document from disk. Lives at tbx scope: it
+    /// specializes the tbx::load primary template (assets/load.h).
     template <>
     TBX_API Result<Json> load<Json>(const std::filesystem::path& path);
 }

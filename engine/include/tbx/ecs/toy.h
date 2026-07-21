@@ -1,8 +1,8 @@
 #pragma once
+#include "tbx/ecs/registry.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
-#include "tbx/ecs/registry.h"
 #include <functional>
 #include <optional>
 #include <string>
@@ -45,7 +45,6 @@ namespace tbx
     {
       public:
         Toy() = default;
-
         Toy(Sandbox& sandbox, ToyId id);
 
       public:
