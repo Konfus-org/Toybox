@@ -50,7 +50,7 @@ namespace tbx::scripts
         g_scripts->_backends.push_back(std::move(backend));
     }
 
-    void reset()
+    void purge()
     {
         g_scripts.reset();
     }

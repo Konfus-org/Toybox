@@ -27,7 +27,7 @@ namespace tbx
 }
 
 // Thread pool plus coroutine scheduling — the engine's one parallelism mechanism. The pool
-// (module state) spins up on first use and reset() joins it. Everything is callable from any
+// (module state) spins up on first use and purge() joins it. Everything is callable from any
 // thread except drain_main(), which the main loop owns. The frame is phase-structured:
 // structural sandbox mutation happens on the main thread only, jobs read/write disjoint data
 // within a phase — the schedule points are the synchronization.
@@ -74,7 +74,7 @@ namespace tbx::jobs
     /// @brief
     /// Purpose: Joins the pool and drops queued work; the next call starts fresh. run()
     /// calls this at shutdown.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
     /// Purpose: Runs a callable on a worker thread; await the returned task for its result.

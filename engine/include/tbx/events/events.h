@@ -63,7 +63,7 @@ namespace tbx
 }
 
 // The only events that exist, as named signals over one pump-drained queue. Module state is
-// created on first use; reset() drops every subscription and queued event.
+// created on first use; purge() drops every subscription and queued event.
 namespace tbx::events
 {
     TBX_API Signal<AssetReloaded>& asset_reloaded();
@@ -80,5 +80,5 @@ namespace tbx::events
     /// @brief
     /// Purpose: Drops every subscription and queued event; the next call starts fresh. run()
     /// calls this at shutdown.
-    TBX_API void reset();
+    TBX_API void purge();
 }

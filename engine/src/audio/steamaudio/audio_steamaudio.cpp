@@ -199,7 +199,7 @@ namespace tbx::audio
 
     //// BOUNDARY ////
 
-    void reset()
+    void purge()
     {
         g_audio.reset();
     }

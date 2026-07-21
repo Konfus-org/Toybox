@@ -312,15 +312,15 @@ namespace tbx
         if (!window_alive || state.quit_requested)
         {
             app.state.is_running = false;
-            debug::view::reset();
-            ui::reset();
-            audio::reset();
-            physics::reset();
-            scripts::reset(); // the VMs die before their world
+            debug::view::purge();
+            ui::purge();
+            audio::purge();
+            physics::purge();
+            scripts::purge(); // the VMs die before their world
             g_state.reset();  // window + sandbox, reverse-declaration order
-            assets::reset();  // stops the watcher (it posts through jobs)
-            events::reset();
-            jobs::reset(); // last: everything above may still drain into it
+            assets::purge();  // stops the watcher (it posts through jobs)
+            events::purge();
+            jobs::purge(); // last: everything above may still drain into it
             return false;
         }
 
@@ -359,7 +359,7 @@ namespace tbx
                 TBX_ERROR("script source '{}': {}", script.source.id.to_string(), acquired.error());
         }
 
-        assets::collect_garbage();
+        assets::purge_unreferenced();
         scripts::update(app.state.delta_time);
         audio::update(state.sandbox, app.state.delta_time);
         ui::update(app.state.delta_time);

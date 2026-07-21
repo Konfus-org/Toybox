@@ -255,7 +255,7 @@ namespace tbx::physics
 
     //// BOUNDARY ////
 
-    void reset()
+    void purge()
     {
         g_physics.reset();
     }

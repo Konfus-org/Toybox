@@ -9,7 +9,7 @@ namespace tbx::tests
     TEST(Jobs, RunReturnsCallableResultOnSuccess)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
 
         // Act
         const int result = jobs::wait(jobs::run([] { return 41 + 1; }));
@@ -21,7 +21,7 @@ namespace tbx::tests
     TEST(Jobs, WaitRethrowsWhenTaskThrows)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto throwing = []() -> Task<void>
         {
             co_await jobs::on_worker();
@@ -35,7 +35,7 @@ namespace tbx::tests
     TEST(Jobs, RunExecutesOffTheCallingThread)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         const auto main_thread = std::this_thread::get_id();
 
         // Act
@@ -48,7 +48,7 @@ namespace tbx::tests
     TEST(Jobs, TaskResultsChainAcrossAwaits)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto inner = []() -> Task<int>
         {
             co_await jobs::on_worker();
@@ -71,7 +71,7 @@ namespace tbx::tests
     TEST(Jobs, TaskCarriesMoveOnlyResults)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto make = []() -> Task<std::unique_ptr<int>>
         {
             co_await jobs::on_worker();
@@ -89,7 +89,7 @@ namespace tbx::tests
     TEST(Jobs, MainHopResumesOnDrain)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto hopped = std::atomic<bool>(false);
         auto task = [&]() -> Task<void>
         {
@@ -113,7 +113,7 @@ namespace tbx::tests
     TEST(Jobs, MainHopDoesNotRunWithoutDrain)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto ran = std::atomic<bool>(false);
         auto task = [&]() -> Task<void>
         {
@@ -134,7 +134,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForCoversEveryIndexExactlyOnce)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         constexpr size COUNT = 10'000;
         auto hits = std::vector<std::atomic<int>>(COUNT);
 
@@ -149,7 +149,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForWithZeroCountRunsNothing)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto calls = std::atomic<int>(0);
 
         // Act
@@ -162,7 +162,7 @@ namespace tbx::tests
     TEST(Jobs, ParallelForNestsInsideWorker)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto nested = []() -> Task<size>
         {
             co_await jobs::on_worker();
@@ -181,7 +181,7 @@ namespace tbx::tests
     TEST(Jobs, DetachedTaskExceptionIsSwallowed)
     {
         // Arrange
-        jobs::reset();
+        jobs::purge();
         auto throwing = []() -> Task<void>
         {
             co_await jobs::on_worker();

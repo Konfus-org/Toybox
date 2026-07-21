@@ -10,9 +10,9 @@ namespace tbx::tests
     TEST(Physics, FallingCubeRestsOnFloor)
     {
         // Arrange
-        physics::reset();
+        physics::purge();
         register_builtin_blocks();
-        events::reset();
+        events::purge();
         auto sandbox = Sandbox();
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
@@ -29,14 +29,14 @@ namespace tbx::tests
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
         const float resting_y = cube.get_block<Transform>().position.y;
         EXPECT_NEAR(resting_y, 0.5f, 0.1f);
-        physics::reset();
+        physics::purge();
     }
 
     TEST(Physics, StaticColliderNeverMoves)
     {
         // Arrange
-        physics::reset();
-        events::reset();
+        physics::purge();
+        events::purge();
         auto sandbox = Sandbox();
         Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
@@ -48,14 +48,14 @@ namespace tbx::tests
 
         // Assert: no RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
-        physics::reset();
+        physics::purge();
     }
 
     TEST(Physics, CollisionEventReachesSubscribersThroughThePump)
     {
         // Arrange
-        physics::reset();
-        events::reset();
+        physics::purge();
+        events::purge();
         auto sandbox = Sandbox();
         auto collisions = std::vector<std::pair<uint32, uint32>>();
         events::collision().subscribe(
@@ -82,14 +82,14 @@ namespace tbx::tests
         const auto cube_id = static_cast<uint32>(cube.get_id());
         EXPECT_TRUE(
             collisions[0].first == cube_id || collisions[0].second == cube_id);
-        physics::reset();
+        physics::purge();
     }
 
     TEST(Physics, RaycastHitsAndMisses)
     {
         // Arrange
-        physics::reset();
-        events::reset();
+        physics::purge();
+        events::purge();
         auto sandbox = Sandbox();
         Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
@@ -107,6 +107,6 @@ namespace tbx::tests
         EXPECT_EQ(hit->toy, target.get_id());
         EXPECT_NEAR(hit->distance, 4.5f, 0.05f);
         EXPECT_FALSE(miss.has_value());
-        physics::reset();
+        physics::purge();
     }
 }

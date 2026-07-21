@@ -68,14 +68,14 @@ namespace tbx::tests
     TEST(Audio, UpdateWithoutListenerIsHarmless)
     {
         // Arrange
-        audio::reset();
+        audio::purge();
         auto sandbox = Sandbox();
         sandbox.spawn("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
         audio::update(sandbox, 0.016f);
         audio::update(sandbox, 0.016f);
-        audio::reset();
+        audio::purge();
         SUCCEED();
     }
 }

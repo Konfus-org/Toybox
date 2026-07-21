@@ -50,7 +50,7 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
     /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn

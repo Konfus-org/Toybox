@@ -40,7 +40,7 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Tears the simulation down; the next step() starts fresh. run() calls this at
     /// shutdown, tests between scenarios.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
     /// Purpose: Advances the simulation one fixed step: mirrors collider toys into the physics

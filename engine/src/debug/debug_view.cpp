@@ -33,7 +33,7 @@ namespace tbx::debug::view
         return g_debug.is_open;
     }
 
-    void reset()
+    void purge()
     {
         g_debug = {};
     }

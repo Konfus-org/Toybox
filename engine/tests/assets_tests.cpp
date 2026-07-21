@@ -16,8 +16,8 @@ namespace tbx::tests
             auto file = std::ofstream(asset_root / "thing.json");
             file << "{\"answer\": 42}";
         }
-        assets::reset();
-        events::reset();
+        assets::purge();
+        events::purge();
         assets::set_root(asset_root);
         auto unload_count = 0;
         events::asset_unloaded().subscribe(
@@ -29,7 +29,7 @@ namespace tbx::tests
 
         // Act: with a zero lifetime an unreferenced asset collects immediately.
         assets::set_idle_lifetime(0.0f);
-        assets::collect_garbage();
+        assets::purge_unreferenced();
         events::drain();
 
         // Assert

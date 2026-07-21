@@ -24,5 +24,5 @@ namespace tbx::audio
     /// @brief
     /// Purpose: Tears the audio engine down; the next update() starts fresh. run() calls this
     /// at shutdown, tests between scenarios.
-    TBX_API void reset();
+    TBX_API void purge();
 }

@@ -61,7 +61,7 @@ namespace tbx
 
 // The scripting coordinator: routes sources to the backend that owns their extension
 // (extensionless names go to the first backend) and fans update() out to all. Module state
-// (the backends, created for one bound sandbox) lives behind the boundary; reset() tears the
+// (the backends, created for one bound sandbox) lives behind the boundary; purge() tears the
 // VMs down — run() resets BEFORE the world dies so no script outlives its toys. Main thread
 // only.
 namespace tbx::scripts
@@ -115,7 +115,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Tears every backend (and its VM) down; the next bind() starts fresh. run()
     /// calls this at shutdown, before the sandbox dies.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
     /// Purpose: Runs every scripted toy across every backend. Called by tbx::run().

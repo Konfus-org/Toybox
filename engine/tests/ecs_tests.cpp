@@ -37,7 +37,7 @@ namespace tbx::tests
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
             std::filesystem::create_directories(root);
-            assets::reset();
+            assets::purge();
             assets::set_root(root);
         }
     };

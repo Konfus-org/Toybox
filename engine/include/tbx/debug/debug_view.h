@@ -23,7 +23,7 @@ namespace tbx::debug::view
 
     /// @brief
     /// Purpose: Clears the overlay state; run() calls this at shutdown.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
     /// Purpose: Shows or hides the overlay (loads it on first show).

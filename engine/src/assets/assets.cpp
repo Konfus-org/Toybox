@@ -32,7 +32,7 @@ namespace tbx::assets
     };
 
     /// @brief
-    /// Purpose: The module's whole state, created on first use and torn down by reset().
+    /// Purpose: The module's whole state, created on first use and torn down by purge().
     struct AssetsState
     {
         std::filesystem::path _root = {};
@@ -253,7 +253,7 @@ namespace tbx::assets
         return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
     }
 
-    void collect_garbage()
+    void purge_unreferenced()
     {
         AssetsState& a = ensure_assets_ready();
         const auto now = std::chrono::steady_clock::now();
@@ -407,7 +407,7 @@ namespace tbx::assets
         return &it->second;
     }
 
-    void reset()
+    void purge()
     {
         g_assets.reset(); // stops the watcher and drops every resident asset
     }

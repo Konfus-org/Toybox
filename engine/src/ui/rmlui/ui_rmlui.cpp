@@ -160,7 +160,7 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: The whole UI stack, torn down by reset() and rebuilt lazily.
+    /// Purpose: The whole UI stack, torn down by purge() and rebuilt lazily.
     struct UiState
     {
         SystemInterface system = {};
@@ -410,7 +410,7 @@ namespace tbx::ui
         }
     }
 
-    void reset()
+    void purge()
     {
         g_ui.reset();
     }

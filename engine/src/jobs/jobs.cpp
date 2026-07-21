@@ -96,7 +96,7 @@ namespace tbx::jobs
 
     /// @brief
     /// Purpose: The whole module state: the pool and both queues, created on first use and
-    /// destroyed by reset().
+    /// destroyed by purge().
     struct JobsState
     {
         std::mutex worker_mutex;
@@ -182,7 +182,7 @@ namespace tbx::jobs
         run_detached(std::move(task));
     }
 
-    void reset()
+    void purge()
     {
         g_jobs.reset(); // joins the pool; queued work is dropped
     }

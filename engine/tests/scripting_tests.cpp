@@ -21,7 +21,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto mover = scripts::load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -40,7 +40,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
 
         // Act
@@ -54,7 +54,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         auto reload_count = 0;
         events::script_reloaded().subscribe(
@@ -85,7 +85,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto mover = scripts::load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -105,7 +105,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto spawner = scripts::load_source("spawner", R"(
 function start(toy)
@@ -129,7 +129,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto stepper = scripts::load_source("stepper", R"(
 function fixed_update(toy, delta_time)
@@ -157,7 +157,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto builder = scripts::load_source("builder", R"(
 function start(toy)
@@ -184,7 +184,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto mathy = scripts::load_source("mathy", R"(
 function start(toy)
@@ -212,7 +212,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto typed = scripts::load_source("typed", R"(
 function start(toy)
@@ -241,7 +241,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto mover = scripts::load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -262,7 +262,7 @@ end
     {
         // Arrange
         auto sandbox = Sandbox();
-        scripts::reset();
+        scripts::purge();
         scripts::bind(sandbox);
         const auto silent = scripts::load_source("silent", "local nothing_defined = true");
         ASSERT_TRUE(silent.has_value());

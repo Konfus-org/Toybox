@@ -61,7 +61,7 @@ namespace tbx::events
             g_events->queue.drain();
     }
 
-    void reset()
+    void purge()
     {
         g_events.reset();
     }

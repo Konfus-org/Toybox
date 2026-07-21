@@ -16,7 +16,7 @@
 // .meta identity sidecars and watcher-driven hot reload. Paths resolve against the app's
 // asset root first, then the engine's resources folder (TBX_RESOURCES_PATH) — engine-shipped
 // models/textures/shaders are ordinary assets too. Module state is created on first use and
-// torn down by reset(). Thread safety: the identity and storage maps are mutex-guarded;
+// torn down by purge(). Thread safety: the identity and storage maps are mutex-guarded;
 // load() decodes on a worker and stores on the main thread, load_now() decodes inline on the
 // calling thread.
 namespace tbx::assets
@@ -33,7 +33,7 @@ namespace tbx::assets
     /// Purpose: Unloads assets that have not been referenced (loaded) for longer than the
     /// idle lifetime, announcing each via the asset_unloaded signal. tbx::run() calls this
     /// every frame; it self-throttles.
-    TBX_API void collect_garbage();
+    TBX_API void purge_unreferenced();
 
     /// @brief
     /// Purpose: Number of resident (decoded) assets — debug/tooling.
@@ -54,10 +54,10 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Unloads everything and stops the watcher; the next set_root() starts fresh.
     /// run() calls this at shutdown.
-    TBX_API void reset();
+    TBX_API void purge();
 
     /// @brief
-    /// Purpose: How long an unreferenced asset stays resident before collect_garbage()
+    /// Purpose: How long an unreferenced asset stays resident before purge_unreferenced()
     /// unloads it (default 60 seconds).
     TBX_API void set_idle_lifetime(float seconds);
 
