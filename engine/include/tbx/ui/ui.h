@@ -10,7 +10,6 @@
 #include <string_view>
 #include <utility>
 
-
 // The concrete UI boundary (see cmake/tbx_backend.cmake): ui/rmlui/ implements it and its
 // library types never escape that folder. Pass-composable shape: draw(document) queues a
 // document, draw_to(target) renders everything queued into that texture — and the render
@@ -34,14 +33,11 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: Queues a document for the next draw_to(), optionally shaded by custom
-    /// vertex/fragment stages (empty = the builtin ui shaders under resources/Shaders/Tbx).
-    /// Documents are cached by content behind the boundary — drawing every frame is the API;
-    /// what is not drawn disappears.
-    TBX_API void draw(
-        const UiDocument& document,
-        std::string_view vertex_shader = {},
-        std::string_view fragment_shader = {});
+    /// Purpose: Queues a document for the next draw_to(). Documents are cached by content
+    /// behind the boundary — drawing every frame is the API; what is not drawn disappears.
+    /// Shading is not the document's business: passes set gpu pipelines around the textures
+    /// draw_to produces (the builtin ui pass composites custom-shaded Ui blocks that way).
+    TBX_API void draw(const UiDocument& document);
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
@@ -62,40 +58,6 @@ namespace tbx::ui
     /// Purpose: Registers a binding (replacing any with the same name); its source runs
     /// every update().
     TBX_API void bind(UiBinding binding);
-
-    /// @brief
-    /// Purpose: Releases the binding with the given name.
-    TBX_API void unbind(const std::string& name);
-
-    // The typed one-off setters: push a value into a named slot right now.
-
-    /// @brief
-    /// Purpose: Sets a slot to a string value.
-    TBX_API void set_string(const std::string& name, std::string value);
-
-    /// @brief
-    /// Purpose: Sets a slot to "true"/"false".
-    TBX_API void set_bool(const std::string& name, bool value);
-
-    /// @brief
-    /// Purpose: Sets a slot to a color as #rrggbbaa (drops straight into styles).
-    TBX_API void set_color(const std::string& name, const Color& value);
-
-    /// @brief
-    /// Purpose: Sets a slot to a float (trailing zeros trimmed).
-    TBX_API void set_float(const std::string& name, float value);
-
-    /// @brief
-    /// Purpose: Sets a slot to an integer.
-    TBX_API void set_int(const std::string& name, int value);
-
-    /// @brief
-    /// Purpose: Sets a slot to "x, y".
-    TBX_API void set_vec2(const std::string& name, const Vec2& value);
-
-    /// @brief
-    /// Purpose: Sets a slot to "x, y, z".
-    TBX_API void set_vec3(const std::string& name, const Vec3& value);
 
     // The live bind family: this property binds to that UI element — mutate the variable
     // and the element follows (the variable must outlive the binding; unbind() releases).
@@ -183,4 +145,38 @@ namespace tbx::ui
         };
         bind({.name = std::move(name), .source = std::move(source)});
     }
+
+    /// @brief
+    /// Purpose: Releases the binding with the given name.
+    TBX_API void unbind(const std::string& name);
+
+    // The typed one-off setters: push a value into a named slot right now.
+
+    /// @brief
+    /// Purpose: Sets a slot to a string value.
+    TBX_API void set_string(const std::string& name, std::string value);
+
+    /// @brief
+    /// Purpose: Sets a slot to "true"/"false".
+    TBX_API void set_bool(const std::string& name, bool value);
+
+    /// @brief
+    /// Purpose: Sets a slot to a color as #rrggbbaa (drops straight into styles).
+    TBX_API void set_color(const std::string& name, const Color& value);
+
+    /// @brief
+    /// Purpose: Sets a slot to a float (trailing zeros trimmed).
+    TBX_API void set_float(const std::string& name, float value);
+
+    /// @brief
+    /// Purpose: Sets a slot to an integer.
+    TBX_API void set_int(const std::string& name, int value);
+
+    /// @brief
+    /// Purpose: Sets a slot to "x, y".
+    TBX_API void set_vec2(const std::string& name, const Vec2& value);
+
+    /// @brief
+    /// Purpose: Sets a slot to "x, y, z".
+    TBX_API void set_vec3(const std::string& name, const Vec3& value);
 }

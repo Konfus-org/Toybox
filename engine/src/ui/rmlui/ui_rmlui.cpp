@@ -168,28 +168,9 @@ namespace tbx::ui
         std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
         std::unordered_map<std::string, std::string> bindings; // slot -> latest value
         std::unordered_map<std::string, UiBinding> live_bindings; // evaluated every update
-        /// @brief
-        /// Purpose: One queued document plus its (possibly custom) shader stage sources.
-        struct QueuedDocument
-        {
-            UiDocument document = {};
-            std::string vertex_source = {};
-            std::string fragment_source = {};
-        };
-
-        /// @brief
-        /// Purpose: A compiled ui shader pair and its premultiplied pipeline, cached by the
-        /// stage sources' hash (key 0 = the builtin ui shaders).
-        struct UiPipeline
-        {
-            std::unique_ptr<gpu::Shader> shader;
-            std::unique_ptr<gpu::Pipeline> pipeline;
-        };
-
-        std::vector<QueuedDocument> queued; // what draw() collected for the next draw_to()
-        std::unordered_map<uint64, UiPipeline> pipelines;
-        std::string builtin_vertex_text;
-        std::string builtin_fragment_text;
+        std::vector<UiDocument> queued; // what draw() collected for the next draw_to()
+        std::unique_ptr<gpu::Shader> shader;     // the builtin ui raster shaders (files)
+        std::unique_ptr<gpu::Pipeline> pipeline; // premultiplied, no depth
         std::unique_ptr<gpu::Texture2d> white;
         uint64 frame = 1;
         bool is_initialized = false;
@@ -343,9 +324,9 @@ namespace tbx::ui
         return &entry;
     }
 
-    static bool ensure_builtin_ui_shaders(UiState& state)
+    static bool ensure_ui_pipeline(UiState& state)
     {
-        if (!state.builtin_vertex_text.empty())
+        if (state.pipeline)
             return true;
         const auto shaders = std::filesystem::path(TBX_RESOURCES_PATH) / "Shaders" / "Tbx";
         const auto vertex = files::read_text(shaders / "ui.vert");
@@ -355,65 +336,33 @@ namespace tbx::ui
             TBX_ERROR("ui shaders missing under resources/Shaders/Tbx");
             return false;
         }
-        state.builtin_vertex_text = *vertex;
-        state.builtin_fragment_text = *fragment;
+        auto compiled = gpu::compile_shader(vertex->c_str(), fragment->c_str());
+        if (!compiled)
+        {
+            TBX_ERROR("ui shaders failed: {}", compiled.error());
+            return false;
+        }
+        state.shader = std::move(*compiled);
+        state.pipeline = gpu::make_pipeline(
+            {.shader = *state.shader,
+             .is_depth_test_enabled = false,
+             .is_depth_write_enabled = false,
+             .cull = gpu::CullMode::NONE,
+             .blend = gpu::BlendMode::PREMULTIPLIED});
         constexpr std::byte WHITE[4] = {
             std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
         state.white = gpu::upload_texture(1, 1, WHITE);
         return true;
     }
 
-    /// @brief
-    /// Purpose: The pipeline for one document's shader stages: either stage may be custom
-    /// source, the other falls back to the builtin ui stage; pairs cache together.
-    static UiState::UiPipeline* resolve_ui_pipeline(
-        UiState& state,
-        const std::string& vertex_source,
-        const std::string& fragment_source)
-    {
-        const uint64 key = (vertex_source.empty() && fragment_source.empty())
-            ? 0
-            : hash(std::string_view(vertex_source)) ^ ~hash(std::string_view(fragment_source));
-        const auto found = state.pipelines.find(key);
-        if (found != state.pipelines.end())
-            return found->second.shader ? &found->second : nullptr;
-
-        const std::string& vertex =
-            vertex_source.empty() ? state.builtin_vertex_text : vertex_source;
-        const std::string& fragment =
-            fragment_source.empty() ? state.builtin_fragment_text : fragment_source;
-        auto compiled = gpu::compile_shader(vertex.c_str(), fragment.c_str());
-        if (!compiled)
-        {
-            TBX_ERROR("ui shader failed: {}", compiled.error());
-            state.pipelines[key] = {}; // remember the failure; warn once
-            return nullptr;
-        }
-        auto& entry = state.pipelines[key];
-        entry.shader = std::move(*compiled);
-        entry.pipeline = gpu::make_pipeline(
-            {.shader = *entry.shader,
-             .is_depth_test_enabled = false,
-             .is_depth_write_enabled = false,
-             .cull = gpu::CullMode::NONE,
-             .blend = gpu::BlendMode::PREMULTIPLIED});
-        return &entry;
-    }
-
     //// BOUNDARY ////
 
-    void draw(
-        const UiDocument& document,
-        const std::string_view vertex_shader,
-        const std::string_view fragment_shader)
+    void draw(const UiDocument& document)
     {
         UiState* state = ensure_ui_ready();
         if (!state)
             return;
-        state->queued.push_back(
-            {.document = document,
-             .vertex_source = std::string(vertex_shader),
-             .fragment_source = std::string(fragment_shader)});
+        state->queued.push_back(document);
     }
 
     void draw_to(const gpu::RenderTarget& target)
@@ -423,32 +372,27 @@ namespace tbx::ui
             return;
         auto queued = std::move(state->queued);
         state->queued.clear();
-        if (!ensure_builtin_ui_shaders(*state))
+        if (!ensure_ui_pipeline(*state))
             return;
 
         gpu::begin_render_pass(
             {.color_target = target,
              .load = gpu::LoadOperation::CLEAR,
              .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
-        const auto screen = Vec2(
-            static_cast<float>(target.get_width()), static_cast<float>(target.get_height()));
+        gpu::set_pipeline(*state->pipeline);
+        gpu::set_uniform(*state->shader, "u_texture", 0);
+        gpu::set_uniform(
+            *state->shader,
+            "u_screen",
+            Vec2(static_cast<float>(target.get_width()),
+                 static_cast<float>(target.get_height())));
+        state->renderer.shader = state->shader.get();
         state->renderer.white_texture = state->white.get();
-        for (const UiState::QueuedDocument& entry : queued)
+        for (const UiDocument& document : queued)
         {
-            UiState::UiPipeline* pipeline =
-                resolve_ui_pipeline(*state, entry.vertex_source, entry.fragment_source);
-            if (!pipeline)
-                continue;
-            gpu::set_pipeline(*pipeline->pipeline);
-            gpu::set_uniform(*pipeline->shader, "u_texture", 0);
-            gpu::set_uniform(*pipeline->shader, "u_screen", screen);
-            gpu::set_uniform(
-                *pipeline->shader, "u_time", static_cast<float>(state->system.elapsed));
-            state->renderer.shader = pipeline->shader.get();
-
-            const uint64 key = hash(std::string_view(entry.document.text));
+            const uint64 key = hash(std::string_view(document.text));
             DocumentEntry* cached = ensure_document(
-                *state, entry.document, key, target.get_width(), target.get_height());
+                *state, document, key, target.get_width(), target.get_height());
             if (!cached)
                 continue;
             cached->last_drawn_frame = state->frame;

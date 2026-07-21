@@ -56,6 +56,9 @@ namespace tbx::gpu
         std::unique_ptr<RenderTarget> post_swap;
         std::unique_ptr<RenderTarget> ui_target;
         CompiledPipeline ui_composite;
+        std::string ui_composite_fragment_text;
+        std::unordered_map<uint32, std::unique_ptr<RenderTarget>> ui_layer_targets;
+        std::unordered_map<uint64, CompiledPipeline> ui_composites_by_pair;
         std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
         std::unordered_map<uint64, CompiledPipeline> pipelines_by_shader_pair;
@@ -758,87 +761,58 @@ namespace tbx::gpu
         }
     }
 
+    /// @brief
+    /// Purpose: The composite pipeline for one Ui block's custom stages (vertex vs the
+    /// builtin fullscreen stage, fragment vs the builtin ui composite), cached by pair.
+    static CompiledPipeline* resolve_ui_composite(
+        const std::string& vertex_source,
+        const std::string& fragment_source)
+    {
+        const uint64 key =
+            hash(std::string_view(vertex_source)) ^ ~hash(std::string_view(fragment_source));
+        const auto cached = g_renderer.ui_composites_by_pair.find(key);
+        if (cached != g_renderer.ui_composites_by_pair.end())
+            return cached->second.shader ? &cached->second : nullptr;
+        const std::string& vertex =
+            vertex_source.empty() ? g_renderer.post_vertex_text : vertex_source;
+        const std::string& fragment =
+            fragment_source.empty() ? g_renderer.ui_composite_fragment_text : fragment_source;
+        auto compiled = compile_shader(vertex.c_str(), fragment.c_str());
+        if (!compiled)
+        {
+            TBX_ERROR("ui composite shader failed: {}", compiled.error());
+            g_renderer.ui_composites_by_pair[key] = {};
+            return nullptr;
+        }
+        auto& entry = g_renderer.ui_composites_by_pair[key];
+        entry.shader = std::move(*compiled);
+        entry.pipeline = make_pipeline(
+            {.shader = *entry.shader,
+             .is_depth_test_enabled = false,
+             .is_depth_write_enabled = false,
+             .cull = CullMode::NONE,
+             .blend = BlendMode::PREMULTIPLIED});
+        return &entry;
+    }
+
+    static void composite_ui_texture(const RenderTarget& target, CompiledPipeline& composite)
+    {
+        const float time_seconds =
+            std::chrono::duration<float>(std::chrono::steady_clock::now() - g_renderer.start_time)
+                .count();
+        set_pipeline(*composite.pipeline);
+        set_uniform(*composite.shader, "u_ui", 0);
+        set_uniform(*composite.shader, "u_time", time_seconds);
+        const auto bindings =
+            std::array {TextureBinding {.slot = 0, .texture = std::cref(target)}};
+        draw(*g_renderer.fullscreen, bindings);
+    }
+
     static void render_ui_pass(Sandbox& sandbox, Assets& assets)
     {
         if (!ensure_renderer_ready())
             return;
-
-        // Several small steps, pass-composable: queue every enabled Ui block's document (and
-        // the debug overlay), render the queue into the UI texture, then composite that
-        // texture over the frame with the engine ui shaders. A pass could just as well post-
-        // process the texture or map it into the world instead.
-        auto& registry = sandbox.get_registry();
-        for (const auto [entity, ui_block] : registry.view<Ui>().each())
-        {
-            if (!ui_block.document.is_set() || !ui_block.is_visible
-                || !registry.get<ToyHandle>(entity).is_enabled)
-                continue;
-            if (const auto document = assets.load_now(ui_block.document))
-            {
-                auto vertex_source = std::string();
-                auto fragment_source = std::string();
-                if (ui_block.vertex.is_set())
-                {
-                    if (const auto source = assets.load_now(ui_block.vertex))
-                        vertex_source = source->get().text;
-                    else
-                        warn_once(ui_block.vertex.id, "ui vertex shader: " + source.error());
-                }
-                if (ui_block.fragment.is_set())
-                {
-                    if (const auto source = assets.load_now(ui_block.fragment))
-                        fragment_source = source->get().text;
-                    else
-                        warn_once(
-                            ui_block.fragment.id, "ui fragment shader: " + source.error());
-                }
-                if (ui_block.is_world_anchored && g_frame.has_camera)
-                {
-                    // Project the toy (nudged toward the floor) into screen space and feed
-                    // its label's anchor slot; behind the camera the label hides.
-                    auto world_position =
-                        Vec3(sandbox.get_world_matrix(Toy(sandbox, entity))
-                             * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
-                    world_position.y -= 1.2f;
-                    const Vec4 clip =
-                        g_frame.view_projection * Vec4(world_position, 1.0f);
-                    auto style = std::string("display: none;");
-                    if (clip.w > 0.05f)
-                    {
-                        const float screen_x =
-                            (clip.x / clip.w * 0.5f + 0.5f) * get_viewport_width();
-                        const float screen_y =
-                            (1.0f - (clip.y / clip.w * 0.5f + 0.5f)) * get_viewport_height();
-                        style = std::format(
-                            "left: {}px; top: {}px;",
-                            static_cast<int>(screen_x) - 80,
-                            static_cast<int>(screen_y));
-                    }
-                    ui::set_string(
-                        "anchor_" + registry.get<ToyHandle>(entity).name, style);
-                }
-                ui::draw(document->get(), vertex_source, fragment_source);
-            }
-            else
-            {
-                const Uuid key = ui_block.document.is_valid()
-                    ? ui_block.document.id
-                    : Uuid {
-                          .hi = hash(ui_block.document.path),
-                          .lo = ~hash(ui_block.document.path)};
-                warn_once(key, "ui document unavailable: " + document.error());
-            }
-        }
-        debug::draw(); // the engine overlay rides the same pass
-
-        const int width = get_viewport_width();
-        const int height = get_viewport_height();
-        if (!g_renderer.ui_target || g_renderer.ui_target->get_width() != width
-            || g_renderer.ui_target->get_height() != height)
-            g_renderer.ui_target = make_render_target(width, height);
-        ui::draw_to(*g_renderer.ui_target);
-
-        if (!g_renderer.ui_composite.shader)
+        if (g_renderer.ui_composite_fragment_text.empty())
         {
             const auto composite = read_builtin_shader("ui_composite.frag");
             if (!composite)
@@ -846,26 +820,117 @@ namespace tbx::gpu
                 TBX_ERROR("ui composite shader missing under resources/Shaders/Tbx");
                 return;
             }
-            auto compiled = compile_shader(
-                g_renderer.post_vertex_text.c_str(), composite->c_str());
-            if (!compiled)
-            {
-                TBX_ERROR("ui composite shader failed: {}", compiled.error());
-                return;
-            }
-            g_renderer.ui_composite.shader = std::move(*compiled);
-            g_renderer.ui_composite.pipeline = make_pipeline(
-                {.shader = *g_renderer.ui_composite.shader,
-                 .is_depth_test_enabled = false,
-                 .is_depth_write_enabled = false,
-                 .cull = CullMode::NONE,
-                 .blend = BlendMode::PREMULTIPLIED});
+            g_renderer.ui_composite_fragment_text = *composite;
         }
-        set_pipeline(*g_renderer.ui_composite.pipeline);
-        set_uniform(*g_renderer.ui_composite.shader, "u_ui", 0);
-        const auto ui_bindings = std::array {
-            TextureBinding {.slot = 0, .texture = std::cref(*g_renderer.ui_target)}};
-        draw(*g_renderer.fullscreen, ui_bindings);
+        const int width = get_viewport_width();
+        const int height = get_viewport_height();
+
+        // Documents queue shader-free; SHADING is pipeline business: plain Ui blocks share
+        // one texture composited with the builtin pipeline, while a block with custom stages
+        // rasters into its own texture and composites through its own gpu pipeline.
+        struct ShadedLayer
+        {
+            uint32 entity = 0;
+            UiDocument document = {};
+            std::string vertex_source = {};
+            std::string fragment_source = {};
+        };
+        auto shaded_layers = std::vector<ShadedLayer>();
+
+        auto& registry = sandbox.get_registry();
+        for (const auto [entity, ui_block] : registry.view<Ui>().each())
+        {
+            if (!ui_block.document.is_set() || !ui_block.is_visible
+                || !registry.get<ToyHandle>(entity).is_enabled)
+                continue;
+            const auto document = assets.load_now(ui_block.document);
+            if (!document)
+            {
+                const Uuid key = ui_block.document.is_valid()
+                    ? ui_block.document.id
+                    : Uuid {
+                          .hi = hash(ui_block.document.path),
+                          .lo = ~hash(ui_block.document.path)};
+                warn_once(key, "ui document unavailable: " + document.error());
+                continue;
+            }
+            if (ui_block.is_world_anchored && g_frame.has_camera)
+            {
+                // Project the toy (nudged toward the floor) into screen space and feed its
+                // label's anchor slot; behind the camera the label hides.
+                auto world_position =
+                    Vec3(sandbox.get_world_matrix(Toy(sandbox, entity))
+                         * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                world_position.y -= 1.2f;
+                const Vec4 clip = g_frame.view_projection * Vec4(world_position, 1.0f);
+                auto style = std::string("display: none;");
+                if (clip.w > 0.05f)
+                {
+                    const float screen_x = (clip.x / clip.w * 0.5f + 0.5f) * width;
+                    const float screen_y = (1.0f - (clip.y / clip.w * 0.5f + 0.5f)) * height;
+                    style = std::format(
+                        "left: {}px; top: {}px;",
+                        static_cast<int>(screen_x) - 80,
+                        static_cast<int>(screen_y));
+                }
+                ui::set_string("anchor_" + registry.get<ToyHandle>(entity).name, style);
+            }
+
+            if (!ui_block.vertex.is_set() && !ui_block.fragment.is_set())
+            {
+                ui::draw(document->get());
+                continue;
+            }
+            auto layer = ShadedLayer {
+                .entity = static_cast<uint32>(entity), .document = document->get()};
+            if (ui_block.vertex.is_set())
+            {
+                if (const auto source = assets.load_now(ui_block.vertex))
+                    layer.vertex_source = source->get().text;
+                else
+                    warn_once(ui_block.vertex.id, "ui vertex shader: " + source.error());
+            }
+            if (ui_block.fragment.is_set())
+            {
+                if (const auto source = assets.load_now(ui_block.fragment))
+                    layer.fragment_source = source->get().text;
+                else
+                    warn_once(ui_block.fragment.id, "ui fragment shader: " + source.error());
+            }
+            shaded_layers.push_back(std::move(layer));
+        }
+        debug::draw(); // the engine overlay rides the shared texture
+
+        if (!g_renderer.ui_target || g_renderer.ui_target->get_width() != width
+            || g_renderer.ui_target->get_height() != height)
+        {
+            g_renderer.ui_target = make_render_target(width, height);
+            g_renderer.ui_layer_targets.clear();
+        }
+        ui::draw_to(*g_renderer.ui_target);
+        if (!g_renderer.ui_composite.shader)
+        {
+            CompiledPipeline* builtin = resolve_ui_composite({}, {});
+            if (!builtin)
+                return;
+            g_renderer.ui_composite.shader = std::move(builtin->shader);
+            g_renderer.ui_composite.pipeline = std::move(builtin->pipeline);
+        }
+        composite_ui_texture(*g_renderer.ui_target, g_renderer.ui_composite);
+
+        // Custom-shaded layers: raster alone, then composite through the block's pipeline.
+        for (ShadedLayer& layer : shaded_layers)
+        {
+            auto& target = g_renderer.ui_layer_targets[layer.entity];
+            if (!target)
+                target = make_render_target(width, height);
+            ui::draw(layer.document);
+            ui::draw_to(*target);
+            CompiledPipeline* composite =
+                resolve_ui_composite(layer.vertex_source, layer.fragment_source);
+            if (composite)
+                composite_ui_texture(*target, *composite);
+        }
     }
 
     void render(Sandbox& sandbox)
