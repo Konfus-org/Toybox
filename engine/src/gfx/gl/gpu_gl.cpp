@@ -63,6 +63,8 @@ namespace tbx::gpu
 
     static int g_viewport_width = 0;
     static int g_viewport_height = 0;
+    static int g_drawable_width = 0;  // the current pass's attachment size (UI projection)
+    static int g_drawable_height = 0;
     static Color g_clear_color = {};
 
     static void clear_attachments(const Color& color)
@@ -82,6 +84,8 @@ namespace tbx::gpu
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, g_viewport_width, g_viewport_height);
+        g_drawable_width = g_viewport_width;
+        g_drawable_height = g_viewport_height;
         clear_attachments(description.clear);
     }
 
@@ -93,6 +97,8 @@ namespace tbx::gpu
             const DepthTarget& target = *description.depth_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_resolution(), target.get_resolution());
+            g_drawable_width = target.get_resolution();
+            g_drawable_height = target.get_resolution();
             glDepthMask(GL_TRUE);
             glClear(GL_DEPTH_BUFFER_BIT);
             return;
@@ -102,11 +108,15 @@ namespace tbx::gpu
             const RenderTarget& target = *description.color_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_width(), target.get_height());
+            g_drawable_width = target.get_width();
+            g_drawable_height = target.get_height();
         }
         else
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, g_viewport_width, g_viewport_height);
+            g_drawable_width = g_viewport_width;
+            g_drawable_height = g_viewport_height;
         }
         if (description.load == LoadOperation::CLEAR)
             clear_attachments(description.clear_color);
@@ -116,6 +126,8 @@ namespace tbx::gpu
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, g_viewport_width, g_viewport_height);
+        g_drawable_width = g_viewport_width;
+        g_drawable_height = g_viewport_height;
     }
 
     Color get_clear_color()
@@ -306,8 +318,8 @@ void main()
         glUseProgram(g_ui.program);
         glUniform2f(
             glGetUniformLocation(g_ui.program, "in_screen"),
-            static_cast<float>(g_viewport_width),
-            static_cast<float>(g_viewport_height));
+            static_cast<float>(g_drawable_width),
+            static_cast<float>(g_drawable_height));
         glUniform2f(
             glGetUniformLocation(g_ui.program, "in_translation"), translation.x, translation.y);
         glUniform1i(glGetUniformLocation(g_ui.program, "in_texture"), 0);
@@ -344,8 +356,8 @@ void main()
             return;
         }
         glEnable(GL_SCISSOR_TEST);
-        // UI speaks y-down; GL scissor is y-up from the bottom.
-        glScissor(x, g_viewport_height - (y + height), width, height);
+        // UI speaks y-down; GL scissor is y-up from the bottom of the current drawable.
+        glScissor(x, g_drawable_height - (y + height), width, height);
     }
 
     int get_viewport_height()
@@ -414,6 +426,8 @@ void main()
     {
         g_viewport_width = width;
         g_viewport_height = height;
+        g_drawable_width = width;
+        g_drawable_height = height;
         glViewport(0, 0, width, height);
     }
 

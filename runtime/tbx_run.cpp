@@ -94,19 +94,16 @@ static int run_scene_selftest()
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 
         if (app.frame == 1)
-        {
-            const auto document = tbx::ui::load_document(R"(<rml>
+            tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
+        static const auto ui_panel = tbx::UiDocument {.text = R"(<rml>
 <head><style>
 body { width: 100%; height: 100%; }
 div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
       background-color: #00ff00; }
 </style></head>
 <body><div/></body>
-</rml>)");
-            if (!document)
-                tbx::log_error("ui selftest document: {}", document.error());
-            tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
-        }
+</rml>)"};
+        tbx::ui::draw(ui_panel); // immediate mode: drawn every frame it should be visible
 
         tbx::gpu::begin_frame();
         tbx::gpu::render(sandbox);

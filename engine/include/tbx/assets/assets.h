@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/assets/load.h"
 #include "tbx/audio/audio_clip.h"
 #include "tbx/gfx/material.h"
 #include "tbx/gfx/model.h"
@@ -95,9 +96,6 @@ namespace tbx
         };
 
       private:
-        template <typename TAsset>
-        Result<TAsset> decode(const std::filesystem::path& path);
-
         template <typename TAsset>
         std::optional<std::reference_wrapper<TAsset>> find_resident(const Uuid& id);
 

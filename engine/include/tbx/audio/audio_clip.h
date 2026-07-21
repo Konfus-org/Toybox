@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
 #include "tbx/utils/typedefs.h"
@@ -21,4 +22,10 @@ namespace tbx
     /// Purpose: Decodes a RIFF/WAV payload (PCM16 or float32, mono/stereo) into an AudioClip —
     /// pure over bytes so it unit-tests without files.
     TBX_API Result<AudioClip> parse_wav(std::span<const std::byte> bytes);
+
+    /// @brief
+    /// Purpose: Loads a AudioClip from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<AudioClip> load<AudioClip>(const std::filesystem::path& path);
+
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include <string>
 
@@ -10,4 +11,10 @@ namespace tbx
     {
         std::string text = {};
     };
+
+    /// @brief
+    /// Purpose: Loads a ShaderSource from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<ShaderSource> load<ShaderSource>(const std::filesystem::path& path);
+
 }

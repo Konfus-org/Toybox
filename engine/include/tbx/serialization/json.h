@@ -1,12 +1,13 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 // The one JSON seam: the selected backend (cmake tbx_backend(SERIALIZATION ...)) supplies the
 // tbx::Json type via its <tbx_serialization_backend.h> and implements the helpers declared
 // here in its own .cpp — swapped at link time like every other backend. Nothing else names
 // the library.
-#include <tbx_serialization_backend.h>
 #include <string>
 #include <string_view>
+#include <tbx_serialization_backend.h>
 
 namespace tbx
 {
@@ -15,11 +16,17 @@ namespace tbx
     TBX_API std::string dump_json(const Json& data, int indent = -1);
 
     /// @brief
+    /// Purpose: Parses text into a document; empty on malformed input (callers wrap with their
+    /// own error context).
+    TBX_API Json parse_json(std::string_view text);
+
+    /// @brief
     /// Purpose: True when text is well-formed JSON.
     TBX_API bool is_valid_json(std::string_view text);
 
     /// @brief
-    /// Purpose: Parses text into a document; empty on malformed input (callers wrap with their
-    /// own error context).
-    TBX_API Json parse_json(std::string_view text);
+    /// Purpose: Loads (and validates) a JSON document from disk.
+    template <>
+    TBX_API Result<Json> load<Json>(const std::filesystem::path& path);
+
 }

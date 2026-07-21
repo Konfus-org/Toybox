@@ -3,22 +3,6 @@
 
 namespace tbx
 {
-    template <>
-    Result<Texture> Assets::decode<Texture>(const std::filesystem::path& path);
-    template <>
-    Result<ScriptSource> Assets::decode<ScriptSource>(const std::filesystem::path& path);
-    template <>
-    Result<Json> Assets::decode<Json>(const std::filesystem::path& path);
-    template <>
-    Result<Model> Assets::decode<Model>(const std::filesystem::path& path);
-    template <>
-    Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
-    template <>
-    Result<AudioClip> Assets::decode<AudioClip>(const std::filesystem::path& path);
-    template <>
-    Result<Material> Assets::decode<Material>(const std::filesystem::path& path);
-    template <>
-    Result<UiDocument> Assets::decode<UiDocument>(const std::filesystem::path& path);
 
     template <typename TAsset>
     Task<Result<std::reference_wrapper<TAsset>>> Assets::load(AssetHandle<TAsset> handle)
@@ -32,7 +16,7 @@ namespace tbx
             co_return fail("asset {} has no tracked path", resolved->id.to_string());
 
         co_await _jobs.get().on_worker();
-        auto decoded = decode<TAsset>(resolve_path(resolved->relative_path));
+        auto decoded = tbx::load<TAsset>(resolve_path(resolved->relative_path));
         co_await _jobs.get().on_main();
         if (!decoded)
             co_return std::unexpected(decoded.error());
@@ -52,7 +36,7 @@ namespace tbx
             return ok(std::ref(resident->get()));
         if (resolved->relative_path.empty())
             return fail("asset {} has no tracked path", resolved->id.to_string());
-        auto decoded = decode<TAsset>(resolve_path(resolved->relative_path));
+        auto decoded = tbx::load<TAsset>(resolve_path(resolved->relative_path));
         if (!decoded)
             return std::unexpected(decoded.error());
         store(resolved->id, resolved->relative_path, std::any(std::move(*decoded)));

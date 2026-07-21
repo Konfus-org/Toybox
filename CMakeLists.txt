@@ -62,9 +62,11 @@ target_precompile_headers(tbx PRIVATE
     <format> <functional> <memory> <mutex> <optional> <span> <string> <thread>
     <unordered_map> <unordered_set> <variant> <vector>
     <tbx_math_backend.h> <tbx_serialization_backend.h> <entt/entt.hpp>)
+# glm/nlohmann/entt types ARE the swappable public seams (tbx_math_backend.h,
+# tbx_serialization_backend.h, registry.h); every other third-party lib is private.
 target_link_libraries(tbx
-    PUBLIC glm::glm spdlog::spdlog nlohmann_json::nlohmann_json EnTT::EnTT
-    PRIVATE assimp::assimp
+    PUBLIC glm::glm nlohmann_json::nlohmann_json EnTT::EnTT
+    PRIVATE spdlog::spdlog assimp::assimp
 )
 if("luau" IN_LIST TBX_SCRIPTING_BACKENDS)
     target_link_libraries(tbx PRIVATE Luau.Compiler Luau.VM)

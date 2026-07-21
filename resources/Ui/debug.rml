@@ -10,11 +10,11 @@ body { width: 100%; height: 100%; font-family: Montserrat; }
 <body>
     <div id="debug_panel">
         <div id="debug_title">Toybox debug</div>
-        <div id="debug_fps">-</div>
-        <div id="debug_frame">-</div>
-        <div id="debug_toys">-</div>
-        <div id="debug_assets">-</div>
-        <div id="debug_viewport">-</div>
+        <div data-text="debug_fps">-</div>
+        <div data-text="debug_frame">-</div>
+        <div data-text="debug_toys">-</div>
+        <div data-text="debug_assets">-</div>
+        <div data-text="debug_viewport">-</div>
     </div>
 </body>
 </rml>

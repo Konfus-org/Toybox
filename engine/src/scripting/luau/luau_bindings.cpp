@@ -644,15 +644,10 @@ namespace tbx
         return push_quat(lua, math::quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
     }
 
-    static int ui_set_style(lua_State* lua)
+    static int ui_set_binding(lua_State* lua)
     {
-        ui::set_inline_style(luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
-        return 0;
-    }
-
-    static int ui_set_text(lua_State* lua)
-    {
-        ui::set_text(luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
+        // Numbers coerce to strings; documents bind via data-text / data-style attributes.
+        ui::set_binding(luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
         return 0;
     }
 
@@ -830,11 +825,9 @@ namespace tbx
         lua_setfield(lua, -2, "raycast");
         lua_setfield(lua, -2, "physics");
 
-        lua_createtable(lua, 0, 2);
-        lua_pushcfunction(lua, ui_set_style, "ui_set_style");
-        lua_setfield(lua, -2, "set_style");
-        lua_pushcfunction(lua, ui_set_text, "ui_set_text");
-        lua_setfield(lua, -2, "set_text");
+        lua_createtable(lua, 0, 1);
+        lua_pushcfunction(lua, ui_set_binding, "ui_set_binding");
+        lua_setfield(lua, -2, "set_binding");
         lua_setfield(lua, -2, "ui");
 
         // Strongly typed input enums: tbx.Key.W, tbx.MouseButton.LEFT.

@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/gfx/shader_source.h"
@@ -28,4 +29,10 @@ namespace tbx
         Color emissive = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f};
         Json uniforms = {};
     };
+
+    /// @brief
+    /// Purpose: Loads a Material from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<Material> load<Material>(const std::filesystem::path& path);
+
 }

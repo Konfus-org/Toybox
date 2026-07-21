@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include <vector>
 
@@ -11,4 +12,10 @@ namespace tbx
     {
         std::vector<float> vertices = {};
     };
+
+    /// @brief
+    /// Purpose: Loads a Model from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<Model> load<Model>(const std::filesystem::path& path);
+
 }

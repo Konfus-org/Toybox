@@ -55,7 +55,6 @@ namespace tbx::gpu
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
         std::unordered_map<uint64, CompiledPipeline> pipelines_by_shader_pair;
         std::unordered_map<Uuid, CompiledPipeline> post_shaders_by_asset;
-        std::unordered_map<Uuid, uint64> ui_documents_by_asset;
         std::unordered_set<Uuid> warned_assets;
         int shadow_resolution = 2048;
         std::string pbr_vertex_text;
@@ -748,52 +747,25 @@ namespace tbx::gpu
 
     static void render_ui_pass(Sandbox& sandbox, Assets& assets)
     {
-        // Ui blocks own documents: load on first sight, show/hide with the block, unload when
-        // the toy goes away. Documents loaded directly through tbx::ui (debug view, tools)
-        // are untouched.
+        // Immediate mode: draw every enabled Ui block's document; visibility follows what is
+        // drawn (a disabled toy simply is not drawn).
         auto& registry = sandbox.get_registry();
-        auto seen = std::unordered_set<Uuid>();
         for (const auto [entity, ui_block] : registry.view<Ui>().each())
         {
-            if (!ui_block.document.is_set())
+            if (!ui_block.document.is_set() || !ui_block.is_visible
+                || !registry.get<ToyHandle>(entity).is_enabled)
                 continue;
-            const Uuid key = ui_block.document.is_valid()
-                                 ? ui_block.document.id
-                                 : Uuid {
-                                       .hi = hash(ui_block.document.path),
-                                       .lo = ~hash(ui_block.document.path)};
-            auto found = g_renderer.ui_documents_by_asset.find(key);
-            if (found == g_renderer.ui_documents_by_asset.end())
-            {
-                auto loaded_id = uint64(0);
-                if (const auto document = assets.load_now(ui_block.document))
-                {
-                    if (const auto shown = ui::load_document(document->get().text))
-                        loaded_id = *shown;
-                    else
-                        warn_once(key, "ui document failed: " + shown.error());
-                }
-                else
-                    warn_once(key, "ui document unavailable: " + document.error());
-                found = g_renderer.ui_documents_by_asset.emplace(key, loaded_id).first;
-            }
-            seen.insert(key);
-            if (found->second != 0)
-                ui::set_document_visible(
-                    found->second,
-                    ui_block.is_visible && registry.get<ToyHandle>(entity).is_enabled);
-        }
-        for (auto it = g_renderer.ui_documents_by_asset.begin();
-             it != g_renderer.ui_documents_by_asset.end();)
-        {
-            if (!seen.contains(it->first))
-            {
-                if (it->second != 0)
-                    ui::unload_document(it->second);
-                it = g_renderer.ui_documents_by_asset.erase(it);
-            }
+            if (const auto document = assets.load_now(ui_block.document))
+                ui::draw(document->get());
             else
-                ++it;
+            {
+                const Uuid key = ui_block.document.is_valid()
+                    ? ui_block.document.id
+                    : Uuid {
+                          .hi = hash(ui_block.document.path),
+                          .lo = ~hash(ui_block.document.path)};
+                warn_once(key, "ui document unavailable: " + document.error());
+            }
         }
         ui::render();
     }
@@ -887,15 +859,9 @@ namespace tbx
         gpu::g_renderer.meshes_by_asset.erase(asset_id);
         gpu::g_renderer.textures_by_asset.erase(asset_id);
         gpu::g_renderer.post_shaders_by_asset.erase(asset_id);
-        // Material pipelines key on shader pairs; the whole cache rebuilds lazily.
+        // Material pipelines key on shader pairs; the whole cache rebuilds lazily. UI
+        // documents cache by content behind the ui boundary and refresh on their own.
         gpu::g_renderer.pipelines_by_shader_pair.clear();
-        const auto document = gpu::g_renderer.ui_documents_by_asset.find(asset_id);
-        if (document != gpu::g_renderer.ui_documents_by_asset.end())
-        {
-            if (document->second != 0)
-                ui::unload_document(document->second);
-            gpu::g_renderer.ui_documents_by_asset.erase(document);
-        }
         gpu::g_renderer.warned_assets.erase(asset_id); // a fresh copy earns a fresh warning
     }
 }

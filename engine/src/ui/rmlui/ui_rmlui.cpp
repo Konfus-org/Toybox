@@ -1,17 +1,19 @@
 #include "tbx/ui/ui.h"
 #include "tbx/debug/log.h"
-#include "tbx/files/files.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/utils/hash.h"
 #include <RmlUi/Core.h>
 #include <filesystem>
+#include <format>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace tbx::ui
 {
     /// @brief
-    /// Purpose: RmlUi's clock, fed by update()'s delta times.
+    /// Purpose: RmlUi's clock (fed by update()) and log bridge.
     class SystemInterface final : public Rml::SystemInterface
     {
       public:
@@ -141,14 +143,35 @@ namespace tbx::ui
     };
 
     /// @brief
+    /// Purpose: One cached document instance: content-hashed, shown while drawn, closed after
+    /// going undrawn for a while (a changed asset hashes to a fresh instance).
+    struct DocumentEntry
+    {
+        Rml::ElementDocument* document = nullptr; // owned by its Rml context
+        uint64 last_drawn_frame = 0;
+    };
+
+    /// @brief
+    /// Purpose: A context rendering into an offscreen target, with its own document cache.
+    struct OffscreenContext
+    {
+        Rml::Context* context = nullptr; // owned by Rml until Rml::Shutdown
+        std::unordered_map<uint64, DocumentEntry> documents;
+        int width = 0;
+        int height = 0;
+    };
+
+    /// @brief
     /// Purpose: The whole UI stack, torn down by reset() and rebuilt lazily.
     struct UiState
     {
         SystemInterface system = {};
         RenderInterface renderer = {};
         Rml::Context* context = nullptr; // owned by Rml until Rml::Shutdown
-        std::unordered_map<uint64, Rml::ElementDocument*> documents;
-        uint64 next_document_id = 1;
+        std::unordered_map<uint64, DocumentEntry> documents;
+        std::unordered_map<uint32, OffscreenContext> offscreen_by_target;
+        std::unordered_map<std::string, std::string> bindings;
+        uint64 frame = 1;
         bool is_initialized = false;
 
         ~UiState()
@@ -159,6 +182,7 @@ namespace tbx::ui
     };
 
     static std::unique_ptr<UiState> g_ui = {};
+    static constexpr uint64 UNDRAWN_FRAMES_BEFORE_CLOSE = 600;
 
     static UiState* ensure_ui_ready()
     {
@@ -185,6 +209,7 @@ namespace tbx::ui
             if (!Rml::LoadFontFace(entry.path().string(), true))
                 log_warn("font '{}' failed to load", entry.path().string());
         }
+
         const int width = std::max(1, gpu::get_viewport_width());
         const int height = std::max(1, gpu::get_viewport_height());
         state->context = Rml::CreateContext("tbx", Rml::Vector2i(width, height));
@@ -197,28 +222,159 @@ namespace tbx::ui
         return g_ui.get();
     }
 
+    //// BINDINGS ////
+
+    /// @brief
+    /// Purpose: Pushes binding values into one element tree: data-text fills inner text,
+    /// data-style replaces the style attribute. Applied values cache on the element so
+    /// unchanged bindings never force relayout.
+    static void apply_bindings(UiState& state, Rml::Element* element)
+    {
+        if (const Rml::Variant* text_binding = element->GetAttribute("data-text"))
+        {
+            const auto found = state.bindings.find(text_binding->Get<Rml::String>());
+            if (found != state.bindings.end())
+            {
+                const Rml::Variant* applied = element->GetAttribute("data-applied-text");
+                if (!applied || applied->Get<Rml::String>() != found->second)
+                {
+                    element->SetInnerRML(found->second);
+                    element->SetAttribute("data-applied-text", found->second);
+                }
+            }
+        }
+        if (const Rml::Variant* style_binding = element->GetAttribute("data-style"))
+        {
+            const auto found = state.bindings.find(style_binding->Get<Rml::String>());
+            if (found != state.bindings.end())
+            {
+                const Rml::Variant* applied = element->GetAttribute("data-applied-style");
+                if (!applied || applied->Get<Rml::String>() != found->second)
+                {
+                    element->SetAttribute("style", found->second);
+                    element->SetAttribute("data-applied-style", found->second);
+                }
+            }
+        }
+        for (int child = 0; child < element->GetNumChildren(); ++child)
+            apply_bindings(state, element->GetChild(child));
+    }
+
+    //// DOCUMENT CACHE ////
+
+    static DocumentEntry* ensure_document(
+        Rml::Context& context,
+        std::unordered_map<uint64, DocumentEntry>& documents,
+        const UiDocument& document)
+    {
+        const uint64 key = hash(std::string_view(document.text));
+        const auto found = documents.find(key);
+        if (found != documents.end())
+            return &found->second;
+        Rml::ElementDocument* loaded = context.LoadDocumentFromMemory(document.text);
+        if (!loaded)
+        {
+            log_error("ui document failed to parse");
+            return nullptr;
+        }
+        auto& entry = documents[key];
+        entry.document = loaded;
+        return &entry;
+    }
+
+    /// @brief
+    /// Purpose: Shows what was drawn, hides what was not, closes the long-undrawn.
+    static void settle_documents(
+        UiState& state,
+        std::unordered_map<uint64, DocumentEntry>& documents)
+    {
+        for (auto it = documents.begin(); it != documents.end();)
+        {
+            DocumentEntry& entry = it->second;
+            if (entry.last_drawn_frame == state.frame)
+            {
+                apply_bindings(state, entry.document);
+                entry.document->Show();
+                ++it;
+            }
+            else if (state.frame - entry.last_drawn_frame > UNDRAWN_FRAMES_BEFORE_CLOSE)
+            {
+                entry.document->Close();
+                it = documents.erase(it);
+            }
+            else
+            {
+                entry.document->Hide();
+                ++it;
+            }
+        }
+    }
+
     //// BOUNDARY ////
 
-    Result<uint64> load_document(const std::string& rml)
+    void draw(const UiDocument& document)
     {
         UiState* state = ensure_ui_ready();
         if (!state)
-            return fail("ui is unavailable");
-        Rml::ElementDocument* document = state->context->LoadDocumentFromMemory(rml);
-        if (!document)
-            return fail("document failed to parse");
-        document->Show();
-        const uint64 id = state->next_document_id++;
-        state->documents[id] = document;
-        return ok(id);
+            return;
+        if (DocumentEntry* entry = ensure_document(*state->context, state->documents, document))
+            entry->last_drawn_frame = state->frame;
+    }
+
+    void draw(const UiDocument& document, const gpu::RenderTarget& target)
+    {
+        UiState* state = ensure_ui_ready();
+        if (!state)
+            return;
+        auto& offscreen = state->offscreen_by_target[target.get_framebuffer()];
+        if (!offscreen.context)
+        {
+            offscreen.context = Rml::CreateContext(
+                std::format("tbx_target_{}", target.get_framebuffer()),
+                Rml::Vector2i(target.get_width(), target.get_height()));
+            if (!offscreen.context)
+            {
+                log_error("RmlUi offscreen context failed");
+                state->offscreen_by_target.erase(target.get_framebuffer());
+                return;
+            }
+        }
+        if (offscreen.width != target.get_width() || offscreen.height != target.get_height())
+        {
+            offscreen.width = target.get_width();
+            offscreen.height = target.get_height();
+            offscreen.context->SetDimensions(Rml::Vector2i(offscreen.width, offscreen.height));
+        }
+        DocumentEntry* entry =
+            ensure_document(*offscreen.context, offscreen.documents, document);
+        if (!entry)
+            return;
+        entry->last_drawn_frame = state->frame;
+        apply_bindings(*state, entry->document);
+        entry->document->Show();
+        offscreen.context->Update();
+
+        gpu::begin_render_pass(
+            {.color_target = target,
+             .load = gpu::LoadOperation::CLEAR,
+             .clear_color = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f}});
+        offscreen.context->Render();
+        gpu::set_scissor(false, 0, 0, 0, 0);
+        gpu::end_render_pass();
     }
 
     void render()
     {
         if (!g_ui)
             return;
-        g_ui->context->Render();
+        UiState& state = *g_ui;
+        settle_documents(state, state.documents);
+        for (auto& [target, offscreen] : state.offscreen_by_target)
+            settle_documents(state, offscreen.documents);
+        state.context->Update();
+        state.context->Render();
         gpu::set_scissor(false, 0, 0, 0, 0);
+        ++state.frame;
     }
 
     void reset()
@@ -226,52 +382,16 @@ namespace tbx::ui
         g_ui.reset();
     }
 
-    /// @brief
-    /// Purpose: The element with the given id, searched across every loaded document.
-    static Rml::Element* find_element(const std::string& element_id)
+    void set_binding(const std::string& name, const std::string& value)
     {
-        if (!g_ui)
-            return nullptr;
-        for (const auto& [id, document] : g_ui->documents)
-            if (Rml::Element* element = document->GetElementById(element_id))
-                return element;
-        return nullptr;
+        if (UiState* state = ensure_ui_ready())
+            state->bindings[name] = value;
     }
 
-    void set_document_visible(const uint64 document_id, const bool is_visible)
+    void set_binding(const std::string& name, const double value)
     {
-        if (!g_ui)
-            return;
-        const auto found = g_ui->documents.find(document_id);
-        if (found == g_ui->documents.end())
-            return;
-        if (is_visible)
-            found->second->Show();
-        else
-            found->second->Hide();
-    }
-
-    void set_inline_style(const std::string& element_id, const std::string& style)
-    {
-        if (Rml::Element* element = find_element(element_id))
-            element->SetAttribute("style", style);
-    }
-
-    void set_text(const std::string& element_id, const std::string& text)
-    {
-        if (Rml::Element* element = find_element(element_id))
-            element->SetInnerRML(text);
-    }
-
-    void unload_document(const uint64 document_id)
-    {
-        if (!g_ui)
-            return;
-        const auto found = g_ui->documents.find(document_id);
-        if (found == g_ui->documents.end())
-            return;
-        found->second->Close();
-        g_ui->documents.erase(found);
+        // std::format trims trailing zeros so "3" stays "3" while "2.5" stays "2.5".
+        set_binding(name, std::format("{}", value));
     }
 
     void update(const float delta_time)
@@ -281,6 +401,5 @@ namespace tbx::ui
         g_ui->system.elapsed += delta_time;
         g_ui->context->SetDimensions(
             Rml::Vector2i(gpu::get_viewport_width(), gpu::get_viewport_height()));
-        g_ui->context->Update();
     }
 }

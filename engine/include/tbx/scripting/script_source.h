@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include <string>
 
@@ -12,4 +13,10 @@ namespace tbx
         std::string name = {};
         std::string source = {};
     };
+
+    /// @brief
+    /// Purpose: Loads a ScriptSource from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<ScriptSource> load<ScriptSource>(const std::filesystem::path& path);
+
 }

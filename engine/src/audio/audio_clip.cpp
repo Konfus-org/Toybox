@@ -1,4 +1,5 @@
 #include "tbx/audio/audio_clip.h"
+#include "tbx/files/files.h"
 #include <cstring>
 
 namespace tbx
@@ -78,4 +79,14 @@ namespace tbx
         }
         return fail("WAV has no data chunk");
     }
+
+    template <>
+    Result<AudioClip> load<AudioClip>(const std::filesystem::path& path)
+    {
+        auto bytes = files::read_bytes(path);
+        if (!bytes)
+            return std::unexpected(bytes.error());
+        return parse_wav(*bytes);
+    }
+
 }

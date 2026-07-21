@@ -21,7 +21,7 @@ local function fire(toy, position, forward)
         tbx.sandbox.despawn(hit.toy)
         kills = kills + 1
         toy:sticker("scored")
-        tbx.ui.set_style("kills", string.format("width: %dpx;", kills * 40))
+        tbx.ui.set_binding("kills_style", string.format("width: %dpx;", kills * 40))
     end
     -- The gunshot is a kit: a speaker toy with the blip clip, placed at the hit.
     if shot_instance then
