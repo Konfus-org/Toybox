@@ -1,4 +1,4 @@
-#include "tbx/serialization/serialization.h"
+#include "tbx/serialization/json.h"
 
 namespace tbx
 {

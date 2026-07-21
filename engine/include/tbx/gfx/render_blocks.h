@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/core/color.h"
 #include "tbx/core/math.h"
 #include <string>
 
@@ -12,7 +13,6 @@ namespace tbx
         float fov_degrees = 60.0f;
         float near_plane = 0.1f;
         float far_plane = 500.0f;
-        bool is_active = true;
     };
 
     /// @brief

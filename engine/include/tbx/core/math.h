@@ -4,18 +4,6 @@
 // .cpp — swapped at link time like every other backend. Nothing else names the library.
 #include <tbx_math_backend.h>
 
-namespace tbx
-{
-    /// @brief
-    /// Purpose: Linear-space RGBA color, components in [0, 1] (engine-owned, backend-free).
-    struct Color
-    {
-        float r = 1.0f;
-        float g = 1.0f;
-        float b = 1.0f;
-        float a = 1.0f;
-    };
-}
 
 namespace tbx::math
 {

@@ -1,24 +1,58 @@
 #pragma once
-// The one serialization seam: the selected backend (cmake tbx_backend(SERIALIZATION ...))
-// supplies the tbx::Json type via its <tbx_serialization_backend.h> and implements the helpers
-// declared here in its own .cpp — swapped at link time like every other backend. Nothing else
-// names the library.
-#include <tbx_serialization_backend.h>
-#include <string>
-#include <string_view>
+#include "tbx/core/result.h"
+#include "tbx/ecs/sandbox.h"
+#include "tbx/reflect/json_walker.h"
+#include "tbx/serialization/json.h"
+#include <span>
+#include <type_traits>
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Serializes a document to text (indent < 0 = compact).
-    std::string dump_json(const Json& data, int indent = -1);
+    // THE save/load surface — one generic pair for everything: tbx::save<Sandbox>(sandbox)
+    // (the whole world as a kit), tbx::save<Toy>(toy) (a one-toy kit), tbx::save(any
+    // registered type) (the reflection walker). Kits load back through tbx::load or
+    // Sandbox::spawn.
 
     /// @brief
-    /// Purpose: True when text is well-formed JSON.
-    bool is_valid_json(std::string_view text);
+    /// Purpose: Serializes chosen toys (blocks, stickers, parent links, bounds) as a kit body.
+    Json save(Sandbox& sandbox, std::span<const Toy> toys);
 
     /// @brief
-    /// Purpose: Parses text into a document; empty on malformed input (callers wrap with their
-    /// own error context).
-    Json parse_json(std::string_view text);
+    /// Purpose: Serializes the whole sandbox — every live toy — as a kit body.
+    template <typename T>
+        requires(std::is_same_v<T, Sandbox>)
+    Result<Json> save(T& sandbox);
+
+    /// @brief
+    /// Purpose: Serializes one toy (with its blocks and stickers) as a kit body.
+    template <typename T>
+        requires(std::is_same_v<T, Toy>)
+    Result<Json> save(const T& toy);
+
+    /// @brief
+    /// Purpose: Serializes any registered type (register_type/register_block) to JSON.
+    template <typename T>
+        requires(
+            !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
+    Result<Json> save(const T& object);
+
+    /// @brief
+    /// Purpose: Instantiates a kit body into a sandbox (delegates to Sandbox::spawn). Nested
+    /// kit references resolve recursively through the resolver; cycles are load errors; root
+    /// position offsets every parentless toy.
+    Result<KitInstance> load(
+        Sandbox& sandbox,
+        const Json& kit,
+        const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f),
+        const KitResolver& resolver = {});
+
+    /// @brief
+    /// Purpose: Populates any registered type from JSON produced by save(); the type's migrate
+    /// hook runs for older versions.
+    template <typename T>
+        requires(
+            !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
+    Result<void> load(T& object, const Json& data);
 }
+
+#include "tbx/serialization/serialization.inl"

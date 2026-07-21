@@ -115,8 +115,7 @@ void main()
         register_block<Camera>("Camera")
             .field("fov_degrees", &Camera::fov_degrees)
             .field("near_plane", &Camera::near_plane)
-            .field("far_plane", &Camera::far_plane)
-            .field("is_active", &Camera::is_active);
+            .field("far_plane", &Camera::far_plane);
         register_block<MeshRenderer>("MeshRenderer")
             .field("mesh", &MeshRenderer::mesh)
             .field("tint", &MeshRenderer::tint);
@@ -165,8 +164,6 @@ void main()
         bool has_camera = false;
         for (const auto [entity, camera] : registry.view<Camera>().each())
         {
-            if (!camera.is_active)
-                continue;
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
             const float aspect = get_viewport_height() > 0
                 ? static_cast<float>(get_viewport_width()) / get_viewport_height()

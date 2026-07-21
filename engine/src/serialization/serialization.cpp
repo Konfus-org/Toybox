@@ -1,4 +1,4 @@
-#include "tbx/save_load.h"
+#include "tbx/serialization/serialization.h"
 
 namespace tbx
 {
@@ -9,14 +9,6 @@ namespace tbx
         return sandbox.save_kit(toys);
     }
 
-    Json save(Sandbox& sandbox)
-    {
-        auto toys = std::vector<Toy>();
-        toys.reserve(sandbox.get_toy_count());
-        for (const auto [entity, handle] : sandbox.get_registry().view<ToyHandle>().each())
-            toys.emplace_back(sandbox, entity);
-        return save(sandbox, toys);
-    }
 
     Result<KitInstance> load(
         Sandbox& sandbox,

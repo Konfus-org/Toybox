@@ -64,6 +64,13 @@ namespace tbx
         const std::string& get_name() const;
 
         /// @brief
+        /// Purpose: The sandbox that owns this toy.
+        Sandbox& get_sandbox() const
+        {
+            return _sandbox->get();
+        }
+
+        /// @brief
         /// Purpose: The toy's runtime uuid (fresh per instantiation; serialized by kits).
         Uuid get_uuid() const;
 

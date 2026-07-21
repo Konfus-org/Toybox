@@ -1,7 +1,8 @@
 #pragma once
 #include "tbx/core/hash.h"
-#include "tbx/serialization/serialization.h"
+#include "tbx/serialization/json.h"
 #include "tbx/core/log.h"
+#include "tbx/core/color.h"
 #include "tbx/core/math.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/core/uuid.h"
