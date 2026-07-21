@@ -8,6 +8,18 @@ local kills: number = 0
 local frame: number = 0
 local shot_instance = nil
 
+-- The HUD as plain data: bound to the UI once in start(); the script just mutates it and
+-- the bound documents follow (data-style attributes in hud.html / health.rml).
+local hud = {
+    kills_style = "width: 0px;",
+    health_style = "width: 200px;",
+}
+
+function start(toy)
+    tbx.ui.bind("kills_style", hud, "kills_style")
+    tbx.ui.bind("health_style", hud, "health_style")
+end
+
 local UP = { x = 0.0, y = 1.0, z = 0.0 }
 local RIGHT = { x = 1.0, y = 0.0, z = 0.0 }
 local AHEAD = { x = 0.0, y = 0.0, z = -1.0 }
@@ -21,7 +33,7 @@ local function fire(toy, position, forward)
         tbx.sandbox.despawn(hit.toy)
         kills = kills + 1
         toy:sticker("scored")
-        tbx.ui.set_binding("kills_style", string.format("width: %dpx;", kills * 40))
+        hud.kills_style = string.format("width: %dpx;", kills * 40)
     end
     -- The gunshot is a kit: a speaker toy with the blip clip, placed at the hit.
     if shot_instance then

@@ -644,6 +644,32 @@ namespace tbx
         return push_quat(lua, math::quat_look_at(check_vector3(lua, 1), check_vector3(lua, 2)));
     }
 
+    static int ui_bind(lua_State* lua)
+    {
+        // tbx.ui.bind("health_style", hud, "health_style"): the UI reads hud.health_style
+        // every frame — scripts just mutate their table. The table pins in the VM registry;
+        // the VM outlives the UI (ui::reset clears sources before scripts tear down).
+        const auto name = std::string(luaL_checkstring(lua, 1));
+        luaL_checktype(lua, 2, LUA_TTABLE);
+        const auto key = std::string(luaL_checkstring(lua, 3));
+        lua_pushvalue(lua, 2);
+        const int table_ref = lua_ref(lua, -1);
+        lua_pop(lua, 1);
+        ui::set_source(
+            name,
+            [lua, table_ref, key]() -> std::string
+            {
+                lua_getref(lua, table_ref);
+                lua_getfield(lua, -1, key.c_str());
+                auto value = std::string();
+                if (const char* text = lua_tostring(lua, -1))
+                    value = text;
+                lua_pop(lua, 2);
+                return value;
+            });
+        return 0;
+    }
+
     static int ui_set_binding(lua_State* lua)
     {
         // Numbers coerce to strings; documents bind via data-text / data-style attributes.
@@ -825,7 +851,9 @@ namespace tbx
         lua_setfield(lua, -2, "raycast");
         lua_setfield(lua, -2, "physics");
 
-        lua_createtable(lua, 0, 1);
+        lua_createtable(lua, 0, 2);
+        lua_pushcfunction(lua, ui_bind, "ui_bind");
+        lua_setfield(lua, -2, "bind");
         lua_pushcfunction(lua, ui_set_binding, "ui_set_binding");
         lua_setfield(lua, -2, "set_binding");
         lua_setfield(lua, -2, "ui");

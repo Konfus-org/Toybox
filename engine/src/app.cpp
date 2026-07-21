@@ -81,6 +81,8 @@ namespace tbx
             .field("height", &Collider::height);
         register_block<Ui>("Ui")
             .field("document", &Ui::document)
+            .field("vertex", &Ui::vertex)
+            .field("fragment", &Ui::fragment)
             .field("is_visible", &Ui::is_visible);
         register_block<Sky>("Sky")
             .field("texture", &Sky::texture)

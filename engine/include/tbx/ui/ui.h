@@ -5,6 +5,7 @@
 #include <format>
 #include <functional>
 #include <string>
+#include <string_view>
 
 // The concrete UI boundary (see cmake/tbx_backend.cmake): ui/rmlui/ implements it and its
 // library types never escape that folder. Pass-composable shape: draw(document) queues a
@@ -16,9 +17,14 @@
 namespace tbx::ui
 {
     /// @brief
-    /// Purpose: Queues a document for the next draw_to(). Documents are cached by content
-    /// behind the boundary — drawing every frame is the API; what is not drawn disappears.
-    TBX_API void draw(const UiDocument& document);
+    /// Purpose: Queues a document for the next draw_to(), optionally shaded by custom
+    /// vertex/fragment stages (empty = the builtin ui shaders under resources/Shaders/Tbx).
+    /// Documents are cached by content behind the boundary — drawing every frame is the API;
+    /// what is not drawn disappears.
+    TBX_API void draw(
+        const UiDocument& document,
+        std::string_view vertex_shader = {},
+        std::string_view fragment_shader = {});
 
     /// @brief
     /// Purpose: Renders everything queued by draw() into the target (cleared to transparent,

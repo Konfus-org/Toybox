@@ -2,6 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/ui/ui_document.h"
+#include "tbx/gfx/shader_source.h"
 
 namespace tbx
 {
@@ -11,6 +12,8 @@ namespace tbx
     struct TBX_API Ui
     {
         AssetHandle<UiDocument> document = {};
+        AssetHandle<ShaderSource> vertex = {};   // custom stage; unset = the builtin ui.vert
+        AssetHandle<ShaderSource> fragment = {}; // custom stage; unset = the builtin ui.frag
         bool is_visible = true;
     };
 }

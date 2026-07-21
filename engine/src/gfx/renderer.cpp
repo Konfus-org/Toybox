@@ -773,7 +773,26 @@ namespace tbx::gpu
                 || !registry.get<ToyHandle>(entity).is_enabled)
                 continue;
             if (const auto document = assets.load_now(ui_block.document))
-                ui::draw(document->get());
+            {
+                auto vertex_source = std::string();
+                auto fragment_source = std::string();
+                if (ui_block.vertex.is_set())
+                {
+                    if (const auto source = assets.load_now(ui_block.vertex))
+                        vertex_source = source->get().text;
+                    else
+                        warn_once(ui_block.vertex.id, "ui vertex shader: " + source.error());
+                }
+                if (ui_block.fragment.is_set())
+                {
+                    if (const auto source = assets.load_now(ui_block.fragment))
+                        fragment_source = source->get().text;
+                    else
+                        warn_once(
+                            ui_block.fragment.id, "ui fragment shader: " + source.error());
+                }
+                ui::draw(document->get(), vertex_source, fragment_source);
+            }
             else
             {
                 const Uuid key = ui_block.document.is_valid()
