@@ -61,6 +61,7 @@ tbx_backend(SERIALIZATION nlohmann)
 tbx_backend(PLATFORM sdl)
 tbx_backend(GFX gl)
 tbx_backend(PHYSICS jolt)
+tbx_backend(AUDIO steamaudio)
 tbx_backend_list(SCRIPTING luau)
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
@@ -75,6 +76,23 @@ endif()
 
 if(TBX_GFX_BACKEND STREQUAL "gl")
     add_subdirectory(thirdparty/glad)
+endif()
+
+if(TBX_AUDIO_BACKEND STREQUAL "steamaudio")
+    # Steam Audio ships as a prebuilt SDK (phonon.dll); FetchContent just unpacks the release.
+    FetchContent_Declare(steamaudio
+        URL https://github.com/ValveSoftware/steam-audio/releases/download/v4.5.3/steamaudio_4.5.3.zip)
+    FetchContent_MakeAvailable(steamaudio)
+    set(TBX_STEAMAUDIO_ROOT "${steamaudio_SOURCE_DIR}")
+    if(NOT EXISTS "${TBX_STEAMAUDIO_ROOT}/include/phonon.h"
+       AND EXISTS "${TBX_STEAMAUDIO_ROOT}/steamaudio/include/phonon.h")
+        set(TBX_STEAMAUDIO_ROOT "${TBX_STEAMAUDIO_ROOT}/steamaudio")
+    endif()
+    add_library(phonon SHARED IMPORTED)
+    set_target_properties(phonon PROPERTIES
+        IMPORTED_LOCATION "${TBX_STEAMAUDIO_ROOT}/lib/windows-x64/phonon.dll"
+        IMPORTED_IMPLIB "${TBX_STEAMAUDIO_ROOT}/lib/windows-x64/phonon.lib"
+        INTERFACE_INCLUDE_DIRECTORIES "${TBX_STEAMAUDIO_ROOT}/include")
 endif()
 
 if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
@@ -108,8 +126,8 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|core|serialization)/[^/]+/")
-list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES})
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|core|serialization|audio)/[^/]+/")
+list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES} ${TBX_LOGGING_BACKEND_SOURCES} ${TBX_AUDIO_BACKEND_SOURCES})
 
 add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
@@ -128,6 +146,9 @@ endif()
 if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
     target_link_libraries(tbx PRIVATE Jolt::Jolt)
 endif()
+if(TBX_AUDIO_BACKEND STREQUAL "steamaudio")
+    target_link_libraries(tbx PRIVATE phonon)
+endif()
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
     target_link_libraries(tbx PRIVATE SDL3::SDL3-static)
@@ -135,6 +156,15 @@ endif()
 if(TBX_GFX_BACKEND STREQUAL "gl")
     target_link_libraries(tbx PRIVATE glad)
 endif()
+
+# Runtime DLLs (phonon) ride along next to every executable.
+function(tbx_copy_runtime_dlls target)
+    if(TBX_AUDIO_BACKEND STREQUAL "steamaudio")
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:phonon>" "$<TARGET_FILE_DIR:${target}>")
+    endif()
+endfunction()
 
 # --- Executables ---
 add_subdirectory(runtime)

@@ -42,7 +42,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Registers every builtin block (Transform, Camera, MeshRenderer,
-    /// DirectionalLight, RigidBody, Collider, Script) — THE one registration call.
+    /// DirectionalLight, RigidBody, Collider, Script, AudioListener, AudioSource) — THE one registration call.
     /// Idempotent; run() and every subsystem entry point call it, tests may too.
     void register_builtin_blocks();
 

@@ -107,6 +107,15 @@ namespace tbx
         return ShaderSource {.text = std::move(*text)};
     }
 
+    template <>
+    Result<AudioClip> Assets::decode<AudioClip>(const std::filesystem::path& path)
+    {
+        auto bytes = files::read_bytes(path);
+        if (!bytes)
+            return std::unexpected(bytes.error());
+        return parse_wav(*bytes);
+    }
+
     //// ASSETS ////
 
     Assets::Assets(Jobs& jobs, Events& events)
@@ -210,6 +219,12 @@ namespace tbx
         else if (std::any_cast<ShaderSource>(&loaded->second))
         {
             auto decoded = decode<ShaderSource>(path);
+            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
+                                : std::unexpected(decoded.error());
+        }
+        else if (std::any_cast<AudioClip>(&loaded->second))
+        {
+            auto decoded = decode<AudioClip>(path);
             refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
                                 : std::unexpected(decoded.error());
         }

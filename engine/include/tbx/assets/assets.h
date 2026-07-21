@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/assets/audio_clip.h"
 #include "tbx/assets/model.h"
 #include "tbx/assets/script_source.h"
 #include "tbx/assets/shader_source.h"
@@ -90,6 +91,8 @@ namespace tbx
     Result<Model> Assets::decode<Model>(const std::filesystem::path& path);
     template <>
     Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
+    template <>
+    Result<AudioClip> Assets::decode<AudioClip>(const std::filesystem::path& path);
 }
 
 #include "tbx/assets/assets.inl"
