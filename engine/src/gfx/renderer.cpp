@@ -13,6 +13,7 @@
 #include "tbx/math/transform.h"
 #include "tbx/ui/ui.h"
 #include "tbx/ui/ui_block.h"
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -52,6 +53,8 @@ namespace tbx::gpu
         std::unique_ptr<DepthTarget> shadow_target;
         std::unique_ptr<RenderTarget> post_source;
         std::unique_ptr<RenderTarget> post_swap;
+        std::unique_ptr<RenderTarget> ui_target;
+        CompiledPipeline ui_composite;
         std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
         std::unordered_map<uint64, CompiledPipeline> pipelines_by_shader_pair;
@@ -637,14 +640,15 @@ namespace tbx::gpu
             set_uniform(sky_shader, "u_camera_position", g_frame.camera_position);
             set_uniform(sky_shader, "u_tint", sky.tint);
             set_uniform(sky_shader, "u_sky", 0);
-            bind_texture(resolve_texture_handle(sky.texture, assets).texture, 0);
-            draw(*g_renderer.fullscreen);
+            const auto sky_bindings = std::array {TextureBinding {
+                .slot = 0,
+                .texture = std::cref(resolve_texture_handle(sky.texture, assets).texture.get())}};
+            draw(*g_renderer.fullscreen, sky_bindings);
             break;
         }
 
         // Lit + shadowed + textured, material-driven per draw; failures flash their color.
         const float flash = get_failure_flash();
-        bind_depth_texture(*g_renderer.shadow_target, 0);
         for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
@@ -689,13 +693,19 @@ namespace tbx::gpu
                 surface.metallic_roughness_map ? 1 : 0);
             set_uniform(shader, "u_uv_scale", 1.0f);
             apply_uniforms(shader, surface.uniforms); // reflection-typed material extras
-            bind_texture(surface.albedo, 1);
-            bind_texture(surface.normal_map ? surface.normal_map->get() : *g_renderer.white, 2);
-            bind_texture(
-                surface.metallic_roughness_map ? surface.metallic_roughness_map->get()
-                                               : *g_renderer.white,
-                3);
-            draw(mesh.mesh);
+            const auto surface_bindings = std::array {
+                TextureBinding {.slot = 0, .texture = std::cref(*g_renderer.shadow_target)},
+                TextureBinding {.slot = 1, .texture = std::cref(surface.albedo.get())},
+                TextureBinding {
+                    .slot = 2,
+                    .texture = std::cref(
+                        surface.normal_map ? surface.normal_map->get() : *g_renderer.white)},
+                TextureBinding {
+                    .slot = 3,
+                    .texture = std::cref(
+                        surface.metallic_roughness_map ? surface.metallic_roughness_map->get()
+                                                       : *g_renderer.white)}};
+            draw(mesh.mesh, surface_bindings);
         }
     }
 
@@ -738,8 +748,9 @@ namespace tbx::gpu
             set_uniform(*stage.shader, "u_scene", 0);
             set_uniform(*stage.shader, "u_resolution", resolution);
             set_uniform(*stage.shader, "u_time", time_seconds);
-            bind_render_target_texture(source, 0);
-            draw(*g_renderer.fullscreen);
+            const auto post_bindings =
+                std::array {TextureBinding {.slot = 0, .texture = std::cref(source.get())}};
+            draw(*g_renderer.fullscreen, post_bindings);
             end_render_pass();
             if (!is_last)
                 std::swap(source, swap);
@@ -748,8 +759,13 @@ namespace tbx::gpu
 
     static void render_ui_pass(Sandbox& sandbox, Assets& assets)
     {
-        // Immediate mode: draw every enabled Ui block's document; visibility follows what is
-        // drawn (a disabled toy simply is not drawn).
+        if (!ensure_renderer_ready())
+            return;
+
+        // Several small steps, pass-composable: queue every enabled Ui block's document (and
+        // the debug overlay), render the queue into the UI texture, then composite that
+        // texture over the frame with the engine ui shaders. A pass could just as well post-
+        // process the texture or map it into the world instead.
         auto& registry = sandbox.get_registry();
         for (const auto [entity, ui_block] : registry.view<Ui>().each())
         {
@@ -769,6 +785,42 @@ namespace tbx::gpu
             }
         }
         debug::draw(); // the engine overlay rides the same pass
+
+        const int width = get_viewport_width();
+        const int height = get_viewport_height();
+        if (!g_renderer.ui_target || g_renderer.ui_target->get_width() != width
+            || g_renderer.ui_target->get_height() != height)
+            g_renderer.ui_target = make_render_target(width, height);
+        ui::draw_to(*g_renderer.ui_target);
+
+        if (!g_renderer.ui_composite.shader)
+        {
+            const auto composite = read_builtin_shader("ui_composite.frag");
+            if (!composite)
+            {
+                TBX_ERROR("ui composite shader missing under resources/Shaders/Tbx");
+                return;
+            }
+            auto compiled = compile_shader(
+                g_renderer.post_vertex_text.c_str(), composite->c_str());
+            if (!compiled)
+            {
+                TBX_ERROR("ui composite shader failed: {}", compiled.error());
+                return;
+            }
+            g_renderer.ui_composite.shader = std::move(*compiled);
+            g_renderer.ui_composite.pipeline = make_pipeline(
+                {.shader = *g_renderer.ui_composite.shader,
+                 .is_depth_test_enabled = false,
+                 .is_depth_write_enabled = false,
+                 .cull = CullMode::NONE,
+                 .blend = BlendMode::PREMULTIPLIED});
+        }
+        set_pipeline(*g_renderer.ui_composite.pipeline);
+        set_uniform(*g_renderer.ui_composite.shader, "u_ui", 0);
+        const auto ui_bindings = std::array {
+            TextureBinding {.slot = 0, .texture = std::cref(*g_renderer.ui_target)}};
+        draw(*g_renderer.fullscreen, ui_bindings);
     }
 
     void render(Sandbox& sandbox)

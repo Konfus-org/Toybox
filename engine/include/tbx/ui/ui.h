@@ -7,23 +7,24 @@
 #include <string>
 
 // The concrete UI boundary (see cmake/tbx_backend.cmake): ui/rmlui/ implements it and its
-// library types never escape that folder. draw(document) renders a document right now —
-// render passes call it however they want (the builtin ui pass draws every enabled Ui
-// block); update() advances animations and retires documents that stopped being drawn.
-// Dynamic values flow through the generic binding system: set_binding("kills", "3") fills
-// every element carrying data-text="kills" (inner text) or data-style="kills" (style).
+// library types never escape that folder. Pass-composable shape: draw(document) queues a
+// document, draw_to(target) renders everything queued into that texture — and the render
+// pass then does whatever it wants with the texture (the builtin ui pass composites it
+// fullscreen with the engine ui shaders). update() advances animations and retires
+// documents that stopped being drawn. Dynamic values flow through the binding system:
+// bind()/set_binding feed elements carrying data-text / data-style attributes.
 namespace tbx::ui
 {
     /// @brief
-    /// Purpose: Draws a document into the current frame right now. Documents are cached by
-    /// content behind the boundary — drawing every frame is the API; what is not drawn
-    /// disappears.
+    /// Purpose: Queues a document for the next draw_to(). Documents are cached by content
+    /// behind the boundary — drawing every frame is the API; what is not drawn disappears.
     TBX_API void draw(const UiDocument& document);
 
     /// @brief
-    /// Purpose: Draws a document into an offscreen target (world-space panels, portraits);
-    /// the target clears to transparent first.
-    TBX_API void draw(const UiDocument& document, const gpu::RenderTarget& target);
+    /// Purpose: Renders everything queued by draw() into the target (cleared to transparent,
+    /// premultiplied alpha) and empties the queue — the pass owns what happens to the
+    /// texture afterwards.
+    TBX_API void draw_to(const gpu::RenderTarget& target);
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.

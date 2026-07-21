@@ -13,7 +13,7 @@
 #include "tbx/gfx/render_target.h"
 #include "tbx/gfx/shader.h"
 #include "tbx/gfx/texture2d.h"
-#include "tbx/gfx/ui_vertex.h"
+#include "tbx/gfx/texture_binding.h"
 #include "tbx/serialization/json.h"
 #include <cstddef>
 #include <memory>
@@ -68,8 +68,9 @@ namespace tbx::gpu
     TBX_API void set_pipeline(const Pipeline& pipeline);
 
     /// @brief
-    /// Purpose: Draws a mesh as triangles with the bound pipeline.
-    TBX_API void draw(const Mesh& mesh);
+    /// Purpose: Draws a mesh as triangles with the bound pipeline; the given textures bind
+    /// for exactly this draw (modern-API shape — no loose slot state).
+    TBX_API void draw(const Mesh& mesh, std::span<const TextureBinding> textures = {});
 
     /// @brief
     /// Purpose: Current viewport height in pixels.
@@ -94,34 +95,12 @@ namespace tbx::gpu
     TBX_API Color get_clear_color();
 
     /// @brief
-    /// Purpose: Draws indexed 2D UI geometry in screen space (y-down, origin top-left) with
-    /// premultiplied-alpha blending, optionally textured, offset by translation. Runs its own
-    /// internal pipeline; depth testing is suspended for the draw.
-    TBX_API void draw_ui(
-        std::span<const UiVertex> vertices,
-        std::span<const int> indices,
-        std::optional<std::reference_wrapper<const Texture2d>> texture,
-        const Vec2& translation);
-
-    /// @brief
     /// Purpose: Enables/positions the scissor rectangle for UI clipping (y-down coordinates).
     TBX_API void set_scissor(bool is_enabled, int x, int y, int width, int height);
 
     /// @brief
     /// Purpose: Sets the drawable region in pixels.
     TBX_API void set_viewport(int width, int height);
-
-    /// @brief
-    /// Purpose: Binds a depth target's texture to a sampler slot.
-    TBX_API void bind_depth_texture(const DepthTarget& target, int slot);
-
-    /// @brief
-    /// Purpose: Binds a render target's color texture to a sampler slot.
-    TBX_API void bind_render_target_texture(const RenderTarget& target, int slot);
-
-    /// @brief
-    /// Purpose: Binds a texture to a sampler slot.
-    TBX_API void bind_texture(const Texture2d& texture, int slot);
 
     /// @brief
     /// Purpose: Creates a square depth-only render target for shadow maps.
