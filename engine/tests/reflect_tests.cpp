@@ -1,4 +1,4 @@
-#include "tbx/assets/shader_source.h"
+#include "tbx/gfx/shader_source.h"
 #include "tbx/reflect/json_walker.h"
 #include "tbx/reflect/type_info.h"
 #include <gtest/gtest.h>

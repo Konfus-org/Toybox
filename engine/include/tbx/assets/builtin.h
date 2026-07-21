@@ -1,6 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/model.h"
+#include "tbx/gfx/model.h"
 #include "tbx/utils/uuid.h"
 
 // Builtin assets: always available, no files involved. Reserved model handles the renderer

@@ -796,20 +796,25 @@ namespace tbx::gpu
         }
         ui::render();
     }
+
+    void render(Sandbox& sandbox)
+    {
+        if (!is_app_running())
+            return;
+        get_render_graph().render(sandbox, get_assets());
+    }
 }
 
 namespace tbx
 {
     //// RENDER GRAPH ////
 
-    RenderGraph RenderGraph::make_default()
+    RenderGraph::RenderGraph()
     {
-        auto graph = RenderGraph();
-        graph.add_pass(make_shadow_pass());
-        graph.add_pass(make_geometry_pass());
-        graph.add_pass(make_post_pass());
-        graph.add_pass(make_ui_pass());
-        return graph;
+        _passes.push_back(make_shadow_pass());
+        _passes.push_back(make_geometry_pass());
+        _passes.push_back(make_post_pass());
+        _passes.push_back(make_ui_pass());
     }
 
     void RenderGraph::add_pass(RenderPass pass)

@@ -23,7 +23,7 @@ namespace tbx
         Window window;
         Assets assets;
         Sandbox sandbox;
-        RenderGraph render_graph = RenderGraph::make_default();
+        RenderGraph render_graph = {};
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
         std::unordered_set<Uuid> acquired_script_sources;

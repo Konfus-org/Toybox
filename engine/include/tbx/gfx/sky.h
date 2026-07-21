@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/texture.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/utils/color.h"
 
 namespace tbx

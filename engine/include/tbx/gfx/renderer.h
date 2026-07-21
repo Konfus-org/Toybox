@@ -1,8 +1,8 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/material.h"
-#include "tbx/assets/model.h"
+#include "tbx/gfx/material.h"
+#include "tbx/gfx/model.h"
 
 namespace tbx
 {

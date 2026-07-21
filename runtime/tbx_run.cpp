@@ -109,7 +109,7 @@ div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
         }
 
         tbx::gpu::begin_frame();
-        tbx::get_render_graph().render(sandbox, tbx::get_assets());
+        tbx::gpu::render(sandbox);
 
         const auto& window = tbx::get_window();
         const tbx::Color center =

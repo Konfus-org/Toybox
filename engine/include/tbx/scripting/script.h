@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/script_source.h"
+#include "tbx/scripting/script_source.h"
 
 namespace tbx
 {

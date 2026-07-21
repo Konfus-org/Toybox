@@ -1,4 +1,4 @@
-#include "tbx/assets/audio_clip.h"
+#include "tbx/audio/audio_clip.h"
 #include <cstring>
 
 namespace tbx

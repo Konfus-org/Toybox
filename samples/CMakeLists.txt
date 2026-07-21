@@ -1,1 +1,1 @@
-add_subdirectory(doom)
+add_subdirectory(toom)

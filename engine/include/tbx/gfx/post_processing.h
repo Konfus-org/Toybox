@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/shader_source.h"
+#include "tbx/gfx/shader_source.h"
 #include <vector>
 
 namespace tbx

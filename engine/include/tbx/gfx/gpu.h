@@ -132,6 +132,12 @@ namespace tbx::gpu
     TBX_API std::unique_ptr<RenderTarget> make_render_target(int width, int height);
 
     /// @brief
+    /// Purpose: The easy default: renders the sandbox by running the app's render graph with
+    /// the app's assets. Not a backend function — author rendering by reshaping the graph
+    /// (get_render_graph()) or by driving passes/pipelines yourself.
+    TBX_API void render(Sandbox& sandbox);
+
+    /// @brief
     /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to
     /// a shader, typed by its reflection — the material system's engine: values the shader
     /// does not declare are skipped, declared kinds drive the parse. Backend-agnostic.

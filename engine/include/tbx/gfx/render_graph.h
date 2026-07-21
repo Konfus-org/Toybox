@@ -27,19 +27,15 @@ namespace tbx
     {
       public:
         /// @brief
-        /// Purpose: An empty graph — add passes yourself, or start from make_default().
-        RenderGraph() = default;
+        /// Purpose: Starts as the standard pass list (shadow, geometry with sky, post, ui);
+        /// reshape or set_passes({}) to author rendering from scratch.
+        RenderGraph();
 
       public:
         RenderGraph(const RenderGraph&) = delete;
         RenderGraph& operator=(const RenderGraph&) = delete;
         RenderGraph(RenderGraph&&) = default;
         RenderGraph& operator=(RenderGraph&&) = default;
-
-      public:
-        /// @brief
-        /// Purpose: The standard renderer: shadow, geometry (with sky), post, ui.
-        static RenderGraph make_default();
 
       public:
         /// @brief

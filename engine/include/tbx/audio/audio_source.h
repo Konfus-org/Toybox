@@ -1,7 +1,7 @@
 #pragma once
 #include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
-#include "tbx/assets/audio_clip.h"
+#include "tbx/audio/audio_clip.h"
 
 namespace tbx
 {

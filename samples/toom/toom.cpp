@@ -3,7 +3,7 @@
 #include "tbx/gfx/gpu.h"
 #include <cstring>
 
-// The doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
+// Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
 // the level chain pulls in everything else (rooms, walls, materials, the sky and post chain,
 // the player with scripts/player.luau, the enemy with scripts/enemy.luau). This file only
 // renders and, in selftest, checks the outcome the scripts produced.
@@ -17,10 +17,10 @@ int main(int argc, char** argv)
             selftest = true;
 
     auto app = App {
-        .title = "Toybox Doom",
+        .title = "Toom",
         .asset_root = SAMPLE_ASSETS_PATH,
         .sandbox = AssetHandle<Json>("levels/arena.box"),
-        .icon = AssetHandle<Texture>("textures/teddy.png")};
+        .icon = AssetHandle<Texture>("textures/ToomLogo.jpg")};
     bool scored = false;
     bool streamed_room_seen = false;
 
@@ -57,7 +57,7 @@ int main(int argc, char** argv)
     {
         const bool passed = scored && streamed_room_seen;
         log_info(
-            "doom selftest: scored={} streamed_room={} -> {}",
+            "toom selftest: scored={} streamed_room={} -> {}",
             scored,
             streamed_room_seen,
             passed ? "PASSED" : "FAILED");
