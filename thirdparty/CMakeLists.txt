@@ -7,10 +7,12 @@
 # still warns normally, and compile-time silencing lives in cmake/third_party_warnings.cmake.
 set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 
-# Ditto their deprecation chatter (glm and luau still declare pre-3.10 minimums). The switch
-# is a cache variable, so it is restored at the bottom of this file — our own cmake keeps
-# warning about real deprecations.
+# Ditto their deprecation chatter (glm and luau still declare pre-3.10 minimums) and their
+# author warnings (assimp trips CMP0175, and -Wno-dev only helps builds that go through our
+# presets). Both switches are cache variables, so they are restored at the bottom of this
+# file — our own cmake keeps warning normally.
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE INTERNAL "" FORCE)
 
 # The cache is segmented per generator: FetchContent's sub-build trees are tied to the
 # generator that created them, and CMake hard-errors when a consumer with a different
@@ -139,5 +141,7 @@ if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
     FetchContent_MakeAvailable(JoltPhysics)
 endif()
 
-# Third-party is configured; deprecation warnings are ours again (cache variable, see top).
+# Third-party is configured; deprecation and author warnings are ours again (cache
+# variables, see top).
 set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS OFF CACHE INTERNAL "" FORCE)

@@ -21,8 +21,9 @@ function(tbx_silence_third_party_warnings directory)
         endif()
 
         # A warning-level flag followed by the silence flag makes cl emit D9025 ("overriding
-        # /W4 with /w"), so warning-level flags are dropped rather than merely overridden.
-        set(warning_level_regex "^[/-]W(all|[0-4])$")
+        # /W4 with /w"), so warning-level flags are dropped rather than merely overridden —
+        # both plain ("/W3") and generator-expression-wrapped ("$<...:/W3>", SDL's style).
+        set(warning_level_regex "^[/-]W(all|[0-4])$|:[/-]W(all|[0-4])>$")
 
         get_property(directory_options DIRECTORY "${directory}" PROPERTY COMPILE_OPTIONS)
         if(directory_options)
