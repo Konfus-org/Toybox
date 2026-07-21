@@ -1,4 +1,7 @@
 CompileFlags:
+  # CMake always exports compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS in the root
+  # CMakeLists); the msvc preset's build tree is where tooling reads it from.
+  CompilationDatabase: build/msvc
   Add:
     - -Wno-unknown-attributes
 

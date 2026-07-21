@@ -3,6 +3,9 @@ project(Toybox2 VERSION 2.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Tooling (clangd, analyzers, the future script editor) reads compile_commands.json from the
+# build tree — always export it, no matter what configured the build (.clangd points at it).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Embedded debug info (/Z7) lets MSVC compile in parallel without serializing on the PDB
 # server; the linker still produces one pdb per binary.
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
