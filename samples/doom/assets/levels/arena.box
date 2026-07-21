@@ -1,6 +1,10 @@
 {
     "kits": [
         {
+            "reference": "kits/environment.kit",
+            "mode": "always"
+        },
+        {
             "reference": "kits/player.kit",
             "mode": "always"
         },

@@ -6,6 +6,7 @@
 #define STBI_NO_STDIO
 #include <stb_image.h>
 
+#include <assimp/config.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
@@ -64,10 +65,15 @@ namespace tbx
     Result<Model> Assets::decode<Model>(const std::filesystem::path& path)
     {
         auto importer = Assimp::Importer();
+        // Lines/points must go: a 2-index face in the triangle list shifts every vertex after
+        // it and shreds the mesh. GlobalScale honors the file's unit (FBX cm etc).
+        importer.SetPropertyInteger(
+            AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_LINE | aiPrimitiveType_POINT);
         const aiScene* scene = importer.ReadFile(
             path.string(),
-            aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices
-                | aiProcess_PreTransformVertices);
+            aiProcess_Triangulate | aiProcess_SortByPType | aiProcess_GenSmoothNormals
+                | aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices
+                | aiProcess_GlobalScale);
         if (!scene || !scene->HasMeshes())
             return fail("could not import model '{}': {}", path.string(), importer.GetErrorString());
 
@@ -76,9 +82,13 @@ namespace tbx
         for (unsigned mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
         {
             const aiMesh* mesh = scene->mMeshes[mesh_index];
+            if ((mesh->mPrimitiveTypes & aiPrimitiveType_TRIANGLE) == 0)
+                continue;
             for (unsigned face_index = 0; face_index < mesh->mNumFaces; ++face_index)
             {
                 const aiFace& face = mesh->mFaces[face_index];
+                if (face.mNumIndices != 3)
+                    continue;
                 for (unsigned corner = 0; corner < face.mNumIndices; ++corner)
                 {
                     const unsigned vertex = face.mIndices[corner];

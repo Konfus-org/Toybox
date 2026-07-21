@@ -1,6 +1,9 @@
 #include "luau_bindings.h"
+#include "tbx/app.h"
 #include "tbx/core/log.h"
+#include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
+#include "tbx/ui/ui.h"
 #include <lualib.h>
 #include <cstring>
 
@@ -119,6 +122,17 @@ namespace tbx
                 lua_pushnumber(lua, static_cast<double>(raw));
                 return 1;
             }
+            case FieldKind::ASSET_LIST:
+            {
+                const auto ids = field.read_asset_list(block);
+                lua_createtable(lua, static_cast<int>(ids.size()), 0);
+                for (size i = 0; i < ids.size(); ++i)
+                {
+                    lua_pushstring(lua, ids[i].to_string().c_str());
+                    lua_rawseti(lua, -2, static_cast<int>(i) + 1);
+                }
+                return 1;
+            }
             case FieldKind::TYPE:
                 log_warn("nested block field '{}' is not scriptable yet", field.name);
                 lua_pushnil(lua);
@@ -180,6 +194,20 @@ namespace tbx
             {
                 const auto raw = static_cast<uint64>(luaL_checknumber(lua, value_index));
                 std::memcpy(at, &raw, field.size_bytes);
+                return;
+            }
+            case FieldKind::ASSET_LIST:
+            {
+                luaL_checktype(lua, value_index, LUA_TTABLE);
+                auto ids = std::vector<Uuid>();
+                const int count = lua_objlen(lua, value_index);
+                for (int i = 1; i <= count; ++i)
+                {
+                    lua_rawgeti(lua, value_index, i);
+                    ids.push_back(Uuid::parse(luaL_checkstring(lua, -1)));
+                    lua_pop(lua, 1);
+                }
+                field.write_asset_list(block, ids);
                 return;
             }
             case FieldKind::TYPE:
@@ -378,6 +406,91 @@ namespace tbx
         return 0;
     }
 
+    static Vec3 check_vector3(lua_State* lua, const int index)
+    {
+        luaL_checktype(lua, index, LUA_TTABLE);
+        auto vector = Vec3(0.0f, 0.0f, 0.0f);
+        read_vector_table(lua, index, &vector.x, XYZW_KEYS, 3);
+        return vector;
+    }
+
+    static int sandbox_spawn_kit(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_sandbox(lua);
+        const char* reference = luaL_checkstring(lua, 1);
+        const Vec3 position = lua_istable(lua, 2) ? check_vector3(lua, 2) : Vec3(0.0f, 0.0f, 0.0f);
+        if (!is_app_running())
+        {
+            luaL_error(lua, "spawn_kit needs a running app (no asset system)");
+            return 0;
+        }
+        auto& assets = get_assets();
+        const auto handle = assets.load_now<Json>(reference);
+        const auto body = handle ? assets.get(*handle) : std::nullopt;
+        if (!body)
+        {
+            luaL_error(lua, "kit '%s' did not load", reference);
+            return 0;
+        }
+        const auto spawned = sandbox.spawn(body->get(), position, assets.make_kit_resolver());
+        if (!spawned)
+        {
+            luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());
+            return 0;
+        }
+        lua_pushnumber(lua, static_cast<double>(spawned->id));
+        return 1;
+    }
+
+    static int sandbox_despawn_kit(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_sandbox(lua);
+        sandbox.despawn(KitInstance {.id = static_cast<uint64>(luaL_checknumber(lua, 1))});
+        return 0;
+    }
+
+    static int sandbox_stream(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_sandbox(lua);
+        sandbox.stream(check_vector3(lua, 1));
+        return 0;
+    }
+
+    static int physics_raycast(lua_State* lua)
+    {
+        Sandbox& sandbox = bound_sandbox(lua);
+        const Vec3 origin = check_vector3(lua, 1);
+        const Vec3 direction = check_vector3(lua, 2);
+        const auto max_distance = static_cast<float>(luaL_optnumber(lua, 3, 1000.0));
+        const auto hit = physics::raycast(origin, direction, max_distance);
+        if (!hit)
+        {
+            lua_pushnil(lua);
+            return 1;
+        }
+        lua_createtable(lua, 0, 3);
+        push_toy(lua, sandbox, hit->toy);
+        lua_setfield(lua, -2, "toy");
+        push_vector_table(lua, &hit->position.x, XYZW_KEYS, 3);
+        lua_setfield(lua, -2, "position");
+        lua_pushnumber(lua, hit->distance);
+        lua_setfield(lua, -2, "distance");
+        return 1;
+    }
+
+    static int ui_set_style(lua_State* lua)
+    {
+        ui::set_inline_style(
+            get_ui_document(), luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
+        return 0;
+    }
+
+    static int tbx_quit(lua_State*)
+    {
+        quit();
+        return 0;
+    }
+
     static Key key_from_string(const char* name)
     {
         // Hand-written map: enum name arrays are deliberately not generated.
@@ -416,6 +529,37 @@ namespace tbx
     static int input_is_pressed(lua_State* lua)
     {
         lua_pushboolean(lua, input::is_pressed(key_from_string(luaL_checkstring(lua, 1))));
+        return 1;
+    }
+
+    static MouseButton mouse_button_from_string(const char* name)
+    {
+        const uint64 hashed = hash(name);
+        if (hashed == hash("right"))
+            return MouseButton::RIGHT;
+        if (hashed == hash("middle"))
+            return MouseButton::MIDDLE;
+        return MouseButton::LEFT;
+    }
+
+    static int input_is_mouse_down(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua, input::is_mouse_down(mouse_button_from_string(luaL_checkstring(lua, 1))));
+        return 1;
+    }
+
+    static int input_is_mouse_pressed(lua_State* lua)
+    {
+        lua_pushboolean(
+            lua, input::is_mouse_pressed(mouse_button_from_string(luaL_checkstring(lua, 1))));
+        return 1;
+    }
+
+    static int input_get_mouse_delta(lua_State* lua)
+    {
+        const Vec2 delta = input::get_mouse_delta();
+        push_vector_table(lua, &delta.x, XYZW_KEYS, 2);
         return 1;
     }
 
@@ -459,9 +603,9 @@ namespace tbx
         lua_pop(lua, 1);
 
         // Global tbx table.
-        lua_createtable(lua, 0, 2);
+        lua_createtable(lua, 0, 5);
 
-        lua_createtable(lua, 0, 3);
+        lua_createtable(lua, 0, 6);
         lua_pushlightuserdata(lua, &sandbox);
         lua_pushcclosure(lua, sandbox_spawn, "sandbox_spawn", 1);
         lua_setfield(lua, -2, "spawn");
@@ -470,14 +614,43 @@ namespace tbx
         lua_setfield(lua, -2, "find");
         lua_pushcfunction(lua, sandbox_despawn, "sandbox_despawn");
         lua_setfield(lua, -2, "despawn");
+        lua_pushlightuserdata(lua, &sandbox);
+        lua_pushcclosure(lua, sandbox_spawn_kit, "sandbox_spawn_kit", 1);
+        lua_setfield(lua, -2, "spawn_kit");
+        lua_pushlightuserdata(lua, &sandbox);
+        lua_pushcclosure(lua, sandbox_despawn_kit, "sandbox_despawn_kit", 1);
+        lua_setfield(lua, -2, "despawn_kit");
+        lua_pushlightuserdata(lua, &sandbox);
+        lua_pushcclosure(lua, sandbox_stream, "sandbox_stream", 1);
+        lua_setfield(lua, -2, "stream");
         lua_setfield(lua, -2, "sandbox");
 
-        lua_createtable(lua, 0, 2);
+        lua_createtable(lua, 0, 5);
         lua_pushcfunction(lua, input_is_down, "input_is_down");
         lua_setfield(lua, -2, "is_down");
         lua_pushcfunction(lua, input_is_pressed, "input_is_pressed");
         lua_setfield(lua, -2, "is_pressed");
+        lua_pushcfunction(lua, input_is_mouse_down, "input_is_mouse_down");
+        lua_setfield(lua, -2, "is_mouse_down");
+        lua_pushcfunction(lua, input_is_mouse_pressed, "input_is_mouse_pressed");
+        lua_setfield(lua, -2, "is_mouse_pressed");
+        lua_pushcfunction(lua, input_get_mouse_delta, "input_get_mouse_delta");
+        lua_setfield(lua, -2, "get_mouse_delta");
         lua_setfield(lua, -2, "input");
+
+        lua_createtable(lua, 0, 1);
+        lua_pushlightuserdata(lua, &sandbox);
+        lua_pushcclosure(lua, physics_raycast, "physics_raycast", 1);
+        lua_setfield(lua, -2, "raycast");
+        lua_setfield(lua, -2, "physics");
+
+        lua_createtable(lua, 0, 1);
+        lua_pushcfunction(lua, ui_set_style, "ui_set_style");
+        lua_setfield(lua, -2, "set_style");
+        lua_setfield(lua, -2, "ui");
+
+        lua_pushcfunction(lua, tbx_quit, "tbx_quit");
+        lua_setfield(lua, -2, "quit");
 
         lua_setglobal(lua, "tbx");
     }

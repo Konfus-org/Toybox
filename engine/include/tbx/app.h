@@ -43,6 +43,11 @@ namespace tbx
     void quit();
 
     /// @brief
+    /// Purpose: True between the first run() and shutdown — guards the get_* accessors for
+    /// callers (script bindings, tools) that may exist without a running app.
+    bool is_app_running();
+
+    /// @brief
     /// Purpose: Registers every builtin block (Transform, Camera, MeshRenderer,
     /// DirectionalLight, RigidBody, Collider, Script, AudioListener, AudioSource) — THE one registration call.
     /// Idempotent; run() and every subsystem entry point call it, tests may too.

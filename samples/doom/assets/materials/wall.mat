@@ -1,5 +1,5 @@
 {
-    "texture": "textures/ground.png",
+    "texture": "textures/wall.png",
     "tint": [
         1.0,
         1.0,
@@ -7,6 +7,6 @@
         1.0
     ],
     "uniforms": {
-        "u_uv_scale": 6.0
+        "u_uv_scale": 2.0
     }
 }

@@ -58,6 +58,13 @@ namespace tbx
             case FieldKind::ASSET:
                 // AssetHandle<T> is layout-identical to its Uuid id.
                 return reinterpret_cast<const Uuid*>(at)->to_string();
+            case FieldKind::ASSET_LIST:
+            {
+                auto list = Json::array();
+                for (const Uuid& id : field.read_asset_list(object))
+                    list.push_back(id.to_string());
+                return list;
+            }
             case FieldKind::ENUM:
             {
                 // Enums serialize as their integer value; renumbering is a migrate-fn concern.
@@ -166,6 +173,17 @@ namespace tbx
             case FieldKind::ASSET:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(value.get<std::string>());
                 return {};
+            case FieldKind::ASSET_LIST:
+            {
+                if (!value.is_array())
+                    return fail("field '{}': expected an array of uuid strings", field.name);
+                auto ids = std::vector<Uuid>();
+                ids.reserve(value.size());
+                for (const auto& entry : value)
+                    ids.push_back(Uuid::parse(entry.get<std::string>()));
+                field.write_asset_list(object, ids);
+                return {};
+            }
             case FieldKind::ENUM:
             {
                 const auto value64 = value.get<int64>();

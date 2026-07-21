@@ -3,11 +3,13 @@
 #include "tbx/assets/material.h"
 #include "tbx/assets/model.h"
 #include "tbx/assets/script_source.h"
+#include "tbx/assets/shader_source.h"
 #include "tbx/assets/texture.h"
 #include "tbx/core/color.h"
 #include "tbx/core/math.h"
 #include "tbx/core/typedefs.h"
 #include <string>
+#include <vector>
 
 // Every block the engine ships, in one place. Registration stays with each owning system
 // (sandbox registers Transform, gpu the render blocks, physics its blocks, scripting Script).
@@ -80,6 +82,24 @@ namespace tbx
     struct Script
     {
         AssetHandle<ScriptSource> source = {};
+    };
+
+    /// @brief
+    /// Purpose: The sky: an equirectangular texture rendered behind everything. One per
+    /// sandbox (the first wins), usually on a dedicated environment toy.
+    struct Sky
+    {
+        AssetHandle<Texture> texture = {};
+        Color tint = {};
+    };
+
+    /// @brief
+    /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the
+    /// rendered scene in order. Each shader samples u_scene (plus u_resolution and u_time).
+    /// One per sandbox (the first wins).
+    struct PostProcessing
+    {
+        std::vector<AssetHandle<ShaderSource>> shaders = {};
     };
 
     /// @brief

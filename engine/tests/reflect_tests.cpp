@@ -1,3 +1,4 @@
+#include "tbx/assets/shader_source.h"
 #include "tbx/reflect/json_walker.h"
 #include "tbx/reflect/type_info.h"
 #include <gtest/gtest.h>
@@ -50,6 +51,33 @@ namespace tbx::tests
             .field("stats", &TestPlayer::stats)
             .field("id", &TestPlayer::id);
         return get_type_registry().find("TestPlayer")->get();
+    }
+
+    struct TestChain
+    {
+        std::vector<AssetHandle<ShaderSource>> shaders = {};
+    };
+
+    TEST(Reflect, RoundTripsAssetHandleLists)
+    {
+        // Arrange
+        register_type<TestChain>("TestChain").field("shaders", &TestChain::shaders);
+        const TypeInfo& type = get_type_registry().find("TestChain")->get();
+        auto original = TestChain {};
+        original.shaders.push_back({.id = Uuid::generate()});
+        original.shaders.push_back({.id = Uuid::generate()});
+
+        // Act
+        const Json data = json_write(type, original);
+        auto loaded = TestChain {};
+        const auto result = json_read(type, loaded, data);
+
+        // Assert: an array of uuid strings, back to the same handles in the same order.
+        ASSERT_TRUE(result.has_value()) << result.error();
+        ASSERT_TRUE(data["shaders"].is_array());
+        ASSERT_EQ(loaded.shaders.size(), original.shaders.size());
+        EXPECT_EQ(loaded.shaders[0].id, original.shaders[0].id);
+        EXPECT_EQ(loaded.shaders[1].id, original.shaders[1].id);
     }
 
     TEST(Reflect, RoundTripsAllFieldKinds)

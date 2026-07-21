@@ -164,6 +164,75 @@ namespace tbx::gpu
     };
 
     /// @brief
+    /// Purpose: Offscreen color+depth render target (post-processing, editor viewports) —
+    /// RAII via the backend. Obtain via make_render_target().
+    class RenderTarget final
+    {
+      public:
+        RenderTarget(
+            uint32 framebuffer,
+            uint32 color_texture,
+            uint32 depth_buffer,
+            int width,
+            int height)
+            : _framebuffer(framebuffer)
+            , _color_texture(color_texture)
+            , _depth_buffer(depth_buffer)
+            , _width(width)
+            , _height(height)
+        {
+        }
+        ~RenderTarget();
+
+      public:
+        RenderTarget(const RenderTarget&) = delete;
+        RenderTarget& operator=(const RenderTarget&) = delete;
+
+      public:
+        /// @brief
+        /// Purpose: Backend-native color texture id.
+        uint32 get_color_texture() const
+        {
+            return _color_texture;
+        }
+
+        /// @brief
+        /// Purpose: Backend-native depth buffer id.
+        uint32 get_depth_buffer() const
+        {
+            return _depth_buffer;
+        }
+
+        /// @brief
+        /// Purpose: Backend-native framebuffer id.
+        uint32 get_framebuffer() const
+        {
+            return _framebuffer;
+        }
+
+        /// @brief
+        /// Purpose: Height in pixels.
+        int get_height() const
+        {
+            return _height;
+        }
+
+        /// @brief
+        /// Purpose: Width in pixels.
+        int get_width() const
+        {
+            return _width;
+        }
+
+      private:
+        uint32 _framebuffer = 0;
+        uint32 _color_texture = 0;
+        uint32 _depth_buffer = 0;
+        int _width = 0;
+        int _height = 0;
+    };
+
+    /// @brief
     /// Purpose: The type of one reflected shader uniform.
     enum class UniformKind : uint8
     {
@@ -291,6 +360,36 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Creates a square depth-only render target for shadow maps.
     std::unique_ptr<DepthTarget> make_depth_target(int resolution);
+
+    /// @brief
+    /// Purpose: Starts rendering into an offscreen color+depth target; end_render_target()
+    /// returns to the window framebuffer and viewport.
+    void begin_render_target(const RenderTarget& target);
+
+    /// @brief
+    /// Purpose: Binds a render target's color texture to a sampler slot.
+    void bind_render_target_texture(const RenderTarget& target, int slot);
+
+    /// @brief
+    /// Purpose: Ends the pass started by begin_render_target().
+    void end_render_target();
+
+    /// @brief
+    /// Purpose: The clear color of the most recent clear()/begin_frame() — offscreen passes
+    /// that re-render the scene reuse it.
+    Color get_clear_color();
+
+    /// @brief
+    /// Purpose: Creates an offscreen color+depth render target.
+    std::unique_ptr<RenderTarget> make_render_target(int width, int height);
+
+    /// @brief
+    /// Purpose: Enables/disables depth testing (fullscreen passes disable it).
+    void set_depth_test(bool is_enabled);
+
+    /// @brief
+    /// Purpose: Enables/disables depth writes (sky and fullscreen passes disable them).
+    void set_depth_write(bool is_enabled);
 
     /// @brief
     /// Purpose: Renders the sandbox: every MeshRenderer toy, lit by the DirectionalLight,

@@ -35,6 +35,7 @@ FetchContent_Declare(nlohmann_json
 FetchContent_Declare(entt
     GIT_REPOSITORY https://github.com/skypjack/entt.git
     GIT_TAG v3.14.0)
+    
 # Luau's CMakeLists declares an old cmake_minimum_required; let CMake accept it.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
 set(LUAU_BUILD_CLI OFF CACHE BOOL "" FORCE)

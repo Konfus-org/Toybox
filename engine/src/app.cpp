@@ -78,6 +78,11 @@ namespace tbx
             .field("half_extents", &Collider::half_extents)
             .field("radius", &Collider::radius)
             .field("height", &Collider::height);
+        register_block<Sky>("Sky")
+            .field("texture", &Sky::texture)
+            .field("tint", &Sky::tint);
+        register_block<PostProcessing>("PostProcessing")
+            .field("shaders", &PostProcessing::shaders);
         register_block<Script>("Script").field("source", &Script::source);
         register_block<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
         register_block<AudioSource>("AudioSource")
@@ -236,6 +241,11 @@ namespace tbx
     {
         if (g_state)
             g_state->quit_requested = true;
+    }
+
+    bool is_app_running()
+    {
+        return g_state != nullptr;
     }
 
     //// SUBSYSTEM ACCESS ////

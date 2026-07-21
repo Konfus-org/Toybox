@@ -37,6 +37,7 @@ namespace tbx
         UUID,
         ENUM, // serialized as its integer value — renumbering is a migrate-fn concern
         ASSET, // an AssetHandle<T> — serialized as its uuid string
+        ASSET_LIST, // a std::vector<AssetHandle<T>> — serialized as an array of uuid strings
         TYPE // another registered type, resolved lazily via nested_hash
     };
 
@@ -52,6 +53,10 @@ namespace tbx
         // Points at the owning TypeSlot's hash so nested types may register in any order;
         // empty for non-TYPE fields.
         std::optional<std::reference_wrapper<const uint64>> nested_hash = {};
+        // ASSET_LIST accessors: the concrete std::vector<AssetHandle<T>> is erased through
+        // these (set by the matching field() overload); empty for every other kind.
+        std::function<std::vector<Uuid>(const std::byte*)> read_asset_list = {};
+        std::function<void(std::byte*, const std::vector<Uuid>&)> write_asset_list = {};
     };
 
     /// @brief
@@ -202,6 +207,45 @@ namespace tbx
                 field.is_enum_signed = std::is_signed_v<std::underlying_type_t<TField>>;
             if constexpr (field_kind_of<TField>() == FieldKind::TYPE)
                 field.nested_hash = std::cref(TypeSlot<TField>::hash);
+            _info.get().fields.push_back(std::move(field));
+            return *this;
+        }
+
+        /// @brief
+        /// Purpose: Registers a list-of-asset-handles member (e.g. PostProcessing::shaders);
+        /// serialized as an array of uuid strings.
+        template <typename TAsset>
+        TypeRegistration& field(std::string name, std::vector<AssetHandle<TAsset>> T::* member)
+        {
+            auto probe = T();
+            const auto offset = static_cast<size>(
+                reinterpret_cast<const char*>(&(probe.*member))
+                - reinterpret_cast<const char*>(&probe));
+
+            auto field = FieldInfo {};
+            field.name = std::move(name);
+            field.offset = offset;
+            field.size_bytes = sizeof(std::vector<AssetHandle<TAsset>>);
+            field.kind = FieldKind::ASSET_LIST;
+            field.read_asset_list = [offset](const std::byte* object)
+            {
+                const auto& list = *std::launder(
+                    reinterpret_cast<const std::vector<AssetHandle<TAsset>>*>(object + offset));
+                auto ids = std::vector<Uuid>();
+                ids.reserve(list.size());
+                for (const AssetHandle<TAsset>& handle : list)
+                    ids.push_back(handle.id);
+                return ids;
+            };
+            field.write_asset_list = [offset](std::byte* object, const std::vector<Uuid>& ids)
+            {
+                auto& list = *std::launder(
+                    reinterpret_cast<std::vector<AssetHandle<TAsset>>*>(object + offset));
+                list.clear();
+                list.reserve(ids.size());
+                for (const Uuid& id : ids)
+                    list.push_back(AssetHandle<TAsset> {.id = id});
+            };
             _info.get().fields.push_back(std::move(field));
             return *this;
         }

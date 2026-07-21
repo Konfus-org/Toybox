@@ -15,6 +15,7 @@ uniform vec3 u_light_direction;
 uniform vec3 u_camera_position;
 uniform sampler2D u_shadow_map;
 uniform sampler2D u_albedo;
+uniform float u_uv_scale;
 
 out vec4 out_color;
 
@@ -50,6 +51,6 @@ void main()
 
     const float ambient = 0.25;
     const float direct = (lambert + specular) * shadowing * u_light_intensity;
-    const vec4 albedo = texture(u_albedo, vertex.uv) * u_tint;
+    const vec4 albedo = texture(u_albedo, vertex.uv * u_uv_scale) * u_tint;
     out_color = vec4(albedo.rgb * u_light_color.rgb * (ambient + direct), albedo.a);
 }

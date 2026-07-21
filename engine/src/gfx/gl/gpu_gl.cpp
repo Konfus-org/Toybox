@@ -50,10 +50,18 @@ namespace tbx::gpu
         glDeleteFramebuffers(1, &_framebuffer);
     }
 
+    RenderTarget::~RenderTarget()
+    {
+        glDeleteRenderbuffers(1, &_depth_buffer);
+        glDeleteTextures(1, &_color_texture);
+        glDeleteFramebuffers(1, &_framebuffer);
+    }
+
     //// GPU ////
 
     static int g_viewport_width = 0;
     static int g_viewport_height = 0;
+    static Color g_clear_color = {};
 
     void begin_frame(const FrameDescription& description)
     {
@@ -68,8 +76,14 @@ namespace tbx::gpu
 
     void clear(const Color& color)
     {
+        g_clear_color = color;
         glClearColor(color.r, color.g, color.b, color.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+
+    Color get_clear_color()
+    {
+        return g_clear_color;
     }
 
     Result<std::unique_ptr<Shader>> compile_shader(
@@ -379,6 +393,66 @@ void main()
         glReadBuffer(GL_NONE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return std::make_unique<DepthTarget>(framebuffer, depth_texture, resolution);
+    }
+
+    void begin_render_target(const RenderTarget& target)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
+        glViewport(0, 0, target.get_width(), target.get_height());
+    }
+
+    void bind_render_target_texture(const RenderTarget& target, const int slot)
+    {
+        glActiveTexture(GL_TEXTURE0 + slot);
+        glBindTexture(GL_TEXTURE_2D, target.get_color_texture());
+    }
+
+    void end_render_target()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, g_viewport_width, g_viewport_height);
+    }
+
+    std::unique_ptr<RenderTarget> make_render_target(const int width, const int height)
+    {
+        GLuint color_texture = 0;
+        glGenTextures(1, &color_texture);
+        glBindTexture(GL_TEXTURE_2D, color_texture);
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        GLuint depth_buffer = 0;
+        glGenRenderbuffers(1, &depth_buffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+
+        GLuint framebuffer = 0;
+        glGenFramebuffers(1, &framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_buffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        return std::make_unique<RenderTarget>(
+            framebuffer, color_texture, depth_buffer, width, height);
+    }
+
+    void set_depth_test(const bool is_enabled)
+    {
+        if (is_enabled)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+    }
+
+    void set_depth_write(const bool is_enabled)
+    {
+        glDepthMask(is_enabled ? GL_TRUE : GL_FALSE);
     }
 
     void set_uniform(const Shader& shader, const char* name, const Mat4& value)
