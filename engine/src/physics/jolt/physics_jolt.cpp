@@ -1,7 +1,7 @@
-#include "tbx/physics/physics.h"
+#include "jolt_first.h"
 #include "tbx/app.h"
 #include "tbx/core/log.h"
-#include <Jolt/Jolt.h>
+#include "tbx/physics/physics.h"
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -19,6 +19,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+
 
 namespace tbx::physics
 {
@@ -125,14 +126,7 @@ namespace tbx::physics
 
         PhysicsState()
         {
-            system.Init(
-                4096,
-                0,
-                4096,
-                1024,
-                broadphase_layers,
-                object_vs_broadphase,
-                object_pairs);
+            system.Init(4096, 0, 4096, 1024, broadphase_layers, object_vs_broadphase, object_pairs);
             system.SetContactListener(&contacts);
         }
     };
@@ -199,7 +193,7 @@ namespace tbx::physics
         g_physics.reset();
     }
 
-    void step(Sandbox& sandbox, Events& events, const float fixed_delta_time)
+    void update(Sandbox& sandbox, Events& events, const float fixed_delta_time)
     {
         register_builtin_blocks();
         PhysicsState& physics = ensure_simulation();
@@ -286,15 +280,13 @@ namespace tbx::physics
         if (!g_physics)
             return {};
         const Vec3 normalized = math::normalize(direction);
-        const auto ray = JPH::RRayCast(
-            to_jolt(origin),
-            to_jolt(normalized * max_distance));
+        const auto ray = JPH::RRayCast(to_jolt(origin), to_jolt(normalized * max_distance));
         auto hit = JPH::RayCastResult {};
         if (!g_physics->system.GetNarrowPhaseQuery().CastRay(ray, hit))
             return {};
         const float distance = hit.mFraction * max_distance;
-        const auto toy = static_cast<ToyId>(
-            g_physics->system.GetBodyInterface().GetUserData(hit.mBodyID));
+        const auto toy =
+            static_cast<ToyId>(g_physics->system.GetBodyInterface().GetUserData(hit.mBodyID));
         return RaycastHit {
             .toy = toy,
             .position = origin + normalized * distance,

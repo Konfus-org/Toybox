@@ -10,7 +10,7 @@ namespace tbx::ui
 {
     /// @brief
     /// Purpose: Loads a UI document from RML text and shows it; returns its id for unloading.
-    Result<uint64> load_document(const std::string& rml);
+    Result<uint64> load_document(const std::string& document);
 
     /// @brief
     /// Purpose: Renders every visible document on top of the frame; call after 3D drawing,
@@ -23,7 +23,10 @@ namespace tbx::ui
 
     /// @brief
     /// Purpose: Replaces an element's inline style by its id — the minimal dynamic-HUD hook.
-    void set_inline_style(uint64 document_id, const std::string& element_id, const std::string& style);
+    void set_inline_style(
+        uint64 document_id,
+        const std::string& element_id,
+        const std::string& style);
 
     /// @brief
     /// Purpose: Closes one document by the id load_document returned.

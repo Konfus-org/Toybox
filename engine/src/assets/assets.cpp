@@ -12,7 +12,7 @@
 
 namespace tbx
 {
-    //// DECODERS (the static extension table — a new format is a new specialization) ////
+    //// DECODERS (the static per-type table — a new format is a new specialization) ////
 
     template <>
     Result<Texture> Assets::decode<Texture>(const std::filesystem::path& path)
@@ -116,6 +116,53 @@ namespace tbx
         return parse_wav(*bytes);
     }
 
+    template <>
+    Result<Material> Assets::decode<Material>(const std::filesystem::path& path)
+    {
+        auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!is_valid_json(*text))
+            return fail("'{}' is not a valid material", path.string());
+        const Json data = parse_json(*text);
+
+        // References are asset-relative paths; identity resolves through the .meta pipeline.
+        auto material = Material {};
+        if (data.contains("fragment"))
+        {
+            auto id = prepare(data["fragment"].get<std::string>());
+            if (!id)
+                return std::unexpected(id.error());
+            material.fragment.id = *id;
+        }
+        if (data.contains("texture"))
+        {
+            auto id = prepare(data["texture"].get<std::string>());
+            if (!id)
+                return std::unexpected(id.error());
+            material.texture.id = *id;
+        }
+        if (data.contains("tint") && data["tint"].is_array() && data["tint"].size() >= 3)
+        {
+            material.tint.r = data["tint"][0].get<float>();
+            material.tint.g = data["tint"][1].get<float>();
+            material.tint.b = data["tint"][2].get<float>();
+            material.tint.a = data["tint"].size() > 3 ? data["tint"][3].get<float>() : 1.0f;
+        }
+        if (data.contains("uniforms") && data["uniforms"].is_object())
+            material.uniforms = data["uniforms"];
+        return material;
+    }
+
+    template <>
+    Result<UiDocument> Assets::decode<UiDocument>(const std::filesystem::path& path)
+    {
+        auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        return UiDocument {.text = std::move(*text)};
+    }
+
     //// ASSETS ////
 
     Assets::Assets(Jobs& jobs, Events& events)
@@ -136,26 +183,70 @@ namespace tbx
             });
     }
 
+    std::filesystem::path Assets::resolve_path(const std::string& relative_path) const
+    {
+        // The app's asset root wins; the engine's resources folder is the second root, making
+        // engine-shipped models/textures/shaders ordinary assets.
+        const auto in_root = _root / relative_path;
+        if (std::filesystem::exists(in_root))
+            return in_root;
+        const auto resources = std::filesystem::path(TBX_RESOURCES_PATH);
+        if (!resources.empty())
+        {
+            const auto in_resources = resources / relative_path;
+            if (std::filesystem::exists(in_resources))
+                return in_resources;
+        }
+        return in_root; // the read will surface the miss with a proper error
+    }
+
+    /// @brief
+    /// Purpose: Reads a sidecar id: ours are 32-hex uuids, v1 sidecars use bare numbers (kept
+    /// as Uuid{0, number}); dashed guids tolerate too.
+    static Uuid parse_meta_id(const Json& meta)
+    {
+        const auto it = meta.find("id");
+        if (it == meta.end())
+            return {};
+        if (it->is_number_unsigned() || it->is_number_integer())
+            return Uuid {.hi = 0, .lo = it->get<uint64>()};
+        if (!it->is_string())
+            return {};
+        auto text = it->get<std::string>();
+        std::erase(text, '-');
+        return Uuid::parse(text);
+    }
+
     Result<Uuid> Assets::prepare(const std::string& relative_path)
     {
         if (_root.empty())
             return fail("asset root is not set (Assets::set_root)");
-        const auto entry = _entries_by_path.find(relative_path);
-        if (entry != _entries_by_path.end())
-            return entry->second.id;
+        {
+            const std::scoped_lock lock(_mutex);
+            const auto entry = _entries_by_path.find(relative_path);
+            if (entry != _entries_by_path.end())
+                return entry->second.id;
+        }
 
-        // Identity-only .meta sidecar: {id, version, type}. Created on first touch so renames
-        // move the id with the file instead of breaking references.
-        const auto asset_path = _root / relative_path;
+        // Identity-only .meta sidecar: {id, version, type}. Created only when missing (v1
+        // sidecars in resources/ are honored, never rewritten) so renames move the id with the
+        // file instead of breaking references.
+        const auto asset_path = resolve_path(relative_path);
         const auto meta_path = asset_path.string() + ".meta";
         auto id = Uuid {};
-        if (auto text = files::read_text(meta_path))
+        const bool meta_exists = std::filesystem::exists(meta_path);
+        if (meta_exists)
         {
-            const Json meta = parse_json(*text);
-            if (meta.is_object())
-                id = Uuid::parse(meta.value("id", std::string()));
+            if (const auto text = files::read_text(meta_path))
+            {
+                const Json meta = parse_json(*text);
+                if (meta.is_object())
+                    id = parse_meta_id(meta);
+            }
+            if (id.is_nil())
+                return fail("'{}' exists but has no readable id", meta_path);
         }
-        if (id.is_nil())
+        else
         {
             id = Uuid::generate();
             auto meta = Json {
@@ -165,75 +256,118 @@ namespace tbx
             if (auto written = files::write_text(meta_path, dump_json(meta, 4)); !written)
                 log_warn("could not write '{}': {}", meta_path, written.error());
         }
+        const std::scoped_lock lock(_mutex);
         _entries_by_path[relative_path] = Entry {.id = id, .relative_path = relative_path};
         return id;
     }
 
+    std::optional<std::string> Assets::find_relative_path(const Uuid& id)
+    {
+        const std::scoped_lock lock(_mutex);
+        for (const auto& [path, entry] : _entries_by_path)
+            if (entry.id == id)
+                return path;
+        return {};
+    }
+
     void Assets::store(const Uuid& id, const std::string& relative_path, std::any asset)
     {
-        _assets[id] = std::move(asset);
-        _entries_by_path[relative_path].id = id;
+        {
+            const std::scoped_lock lock(_mutex);
+            _assets[id] = std::move(asset);
+            _entries_by_path[relative_path].id = id;
+        }
         // First loads announce too — glue (e.g. script registration) reacts uniformly.
         _events.get().asset_reloaded.emit({.id = id});
+    }
+
+    std::function<Result<Json>(const std::string&)> Assets::make_kit_resolver()
+    {
+        // Kits/levels are Json assets; streaming may call this from a worker, which the
+        // mutex-guarded maps and inline decode support.
+        return [this](const std::string& reference) -> Result<Json>
+        {
+            auto handle = load_now<Json>(reference);
+            if (!handle)
+                return std::unexpected(handle.error());
+            const auto body = get(*handle);
+            if (!body)
+                return fail("kit '{}' did not load", reference);
+            return ok(Json(body->get()));
+        };
     }
 
     void Assets::handle_file_changed(const std::filesystem::path& path)
     {
         auto ec = std::error_code {};
-        const auto relative =
-            std::filesystem::relative(path, _root, ec).generic_string();
-        const auto entry = _entries_by_path.find(relative);
-        if (ec || entry == _entries_by_path.end())
-            return; // not a loaded asset — nothing to refresh
+        const auto relative = std::filesystem::relative(path, _root, ec).generic_string();
+        auto id = Uuid {};
+        {
+            const std::scoped_lock lock(_mutex);
+            const auto entry = _entries_by_path.find(relative);
+            if (ec || entry == _entries_by_path.end())
+                return; // not a loaded asset — nothing to refresh
+            id = entry->second.id;
+            if (!_assets.contains(id))
+                return;
+        }
 
-        // Re-decode with the same shape the asset already has, then announce.
-        const Uuid id = entry->second.id;
-        const auto loaded = _assets.find(id);
-        if (loaded == _assets.end())
-            return;
+        // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
+        // re-enters prepare), then swap the result back in.
+        enum class Kind
+        {
+            NONE, TEX, SCRIPT, JSON, MODEL, SHADER, CLIP, MAT, DOC
+        };
+        auto kind = Kind::NONE;
+        {
+            const std::scoped_lock lock(_mutex);
+            auto& stored = _assets[id];
+            if (std::any_cast<Texture>(&stored))
+                kind = Kind::TEX;
+            else if (std::any_cast<ScriptSource>(&stored))
+                kind = Kind::SCRIPT;
+            else if (std::any_cast<Json>(&stored))
+                kind = Kind::JSON;
+            else if (std::any_cast<Model>(&stored))
+                kind = Kind::MODEL;
+            else if (std::any_cast<ShaderSource>(&stored))
+                kind = Kind::SHADER;
+            else if (std::any_cast<AudioClip>(&stored))
+                kind = Kind::CLIP;
+            else if (std::any_cast<Material>(&stored))
+                kind = Kind::MAT;
+            else if (std::any_cast<UiDocument>(&stored))
+                kind = Kind::DOC;
+        }
+
         auto refreshed = Result<std::any>(std::unexpected(std::string("unknown asset shape")));
-        if (std::any_cast<Texture>(&loaded->second))
+        auto redecode = [this, &path, &refreshed]<typename TAsset>()
         {
-            auto decoded = decode<Texture>(path);
+            auto decoded = decode<TAsset>(path);
             refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
                                 : std::unexpected(decoded.error());
-        }
-        else if (std::any_cast<ScriptSource>(&loaded->second))
+        };
+        switch (kind)
         {
-            auto decoded = decode<ScriptSource>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
-        }
-        else if (std::any_cast<Json>(&loaded->second))
-        {
-            auto decoded = decode<Json>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
-        }
-        else if (std::any_cast<Model>(&loaded->second))
-        {
-            auto decoded = decode<Model>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
-        }
-        else if (std::any_cast<ShaderSource>(&loaded->second))
-        {
-            auto decoded = decode<ShaderSource>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
-        }
-        else if (std::any_cast<AudioClip>(&loaded->second))
-        {
-            auto decoded = decode<AudioClip>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
+            case Kind::TEX: redecode.template operator()<Texture>(); break;
+            case Kind::SCRIPT: redecode.template operator()<ScriptSource>(); break;
+            case Kind::JSON: redecode.template operator()<Json>(); break;
+            case Kind::MODEL: redecode.template operator()<Model>(); break;
+            case Kind::SHADER: redecode.template operator()<ShaderSource>(); break;
+            case Kind::CLIP: redecode.template operator()<AudioClip>(); break;
+            case Kind::MAT: redecode.template operator()<Material>(); break;
+            case Kind::DOC: redecode.template operator()<UiDocument>(); break;
+            case Kind::NONE: break;
         }
         if (!refreshed)
         {
             log_error("hot reload of '{}' failed: {}", relative, refreshed.error());
             return;
         }
-        loaded->second = std::move(*refreshed);
+        {
+            const std::scoped_lock lock(_mutex);
+            _assets[id] = std::move(*refreshed);
+        }
         _events.get().asset_reloaded.emit({.id = id});
     }
 }

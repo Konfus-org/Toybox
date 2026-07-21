@@ -38,5 +38,5 @@ namespace tbx::physics
     /// Purpose: Advances the simulation one fixed step: mirrors collider toys into the physics
     /// world, steps, writes dynamic poses back to Transforms, and emits collision events
     /// (delivered at the next pump drain).
-    void step(Sandbox& sandbox, Events& events, float fixed_delta_time);
+    void update(Sandbox& sandbox, Events& events, float fixed_delta_time);
 }

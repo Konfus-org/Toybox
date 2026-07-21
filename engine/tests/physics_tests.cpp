@@ -24,7 +24,7 @@ namespace tbx::tests
 
         // Act: ~3 simulated seconds — plenty to fall from 5 units and settle.
         for (int i = 0; i < 180; ++i)
-            physics::step(sandbox, events, STEP);
+            physics::update(sandbox, events, STEP);
 
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
         const float resting_y = cube.get_block<Transform>().position.y;
@@ -45,7 +45,7 @@ namespace tbx::tests
 
         // Act
         for (int i = 0; i < 60; ++i)
-            physics::step(sandbox, events, STEP);
+            physics::update(sandbox, events, STEP);
 
         // Assert: no RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
@@ -74,7 +74,7 @@ namespace tbx::tests
 
         // Act: fall to impact, then drain — collision delivery happens at the pump.
         for (int i = 0; i < 120; ++i)
-            physics::step(sandbox, events, STEP);
+            physics::update(sandbox, events, STEP);
         const auto before_drain = collisions.size();
         events.drain();
 
@@ -97,7 +97,7 @@ namespace tbx::tests
         Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(Collider {});
-        physics::step(sandbox, events, STEP); // mirror the body in
+        physics::update(sandbox, events, STEP); // mirror the body in
 
         // Act
         const auto hit =

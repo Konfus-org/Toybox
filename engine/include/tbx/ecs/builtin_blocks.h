@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/assets/material.h"
 #include "tbx/assets/model.h"
 #include "tbx/assets/script_source.h"
 #include "tbx/assets/texture.h"
@@ -57,6 +58,7 @@ namespace tbx
     /// always tinted.
     struct MeshRenderer
     {
+        AssetHandle<Material> material = {};
         AssetHandle<Model> model = {};
         AssetHandle<Texture> texture = {};
         std::string mesh = "cube";

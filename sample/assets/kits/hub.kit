@@ -1,0 +1,81 @@
+{
+    "toys": [
+        {
+            "uuid": "01",
+            "name": "HubFloor",
+            "blocks": [
+                {
+                    "__type": "Transform",
+                    "scale": [
+                        16.0,
+                        1.0,
+                        16.0
+                    ]
+                },
+                {
+                    "__type": "MeshRenderer",
+                    "mesh": "plane",
+                    "material": "aaaaaaaaaaaaaaaa0000000000000001"
+                },
+                {
+                    "__type": "Collider",
+                    "half_extents": [
+                        8.0,
+                        0.1,
+                        8.0
+                    ]
+                }
+            ]
+        },
+        {
+            "uuid": "02",
+            "name": "Monkey",
+            "blocks": [
+                {
+                    "__type": "Transform",
+                    "position": [
+                        3.0,
+                        1.0,
+                        -3.0
+                    ]
+                },
+                {
+                    "__type": "MeshRenderer",
+                    "model": "00000000000000000000000000000204",
+                    "tint": [
+                        0.3,
+                        0.5,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "__type": "Collider",
+                    "half_extents": [
+                        0.9,
+                        0.9,
+                        0.9
+                    ]
+                }
+            ]
+        }
+    ],
+    "kits": [
+        {
+            "reference": "kits/enemy.kit",
+            "position": [
+                0.0,
+                0.0,
+                -6.0
+            ]
+        }
+    ],
+    "bounds": {
+        "center": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "radius": 12.0
+    }
+}

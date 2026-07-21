@@ -31,13 +31,13 @@ namespace tbx
 namespace tbx::audio
 {
     /// @brief
-    /// Purpose: Tears the audio engine down; the next update() starts fresh. run() calls this
-    /// at shutdown, tests between scenarios.
-    void reset();
-
-    /// @brief
     /// Purpose: Advances audio one frame: mirrors listener/source toys into the spatializer
     /// (clips resolve through their handles) and keeps the output device fed. Called by
     /// tbx::run() every frame.
     void update(Sandbox& sandbox, Assets& assets, float delta_time);
+
+    /// @brief
+    /// Purpose: Tears the audio engine down; the next update() starts fresh. run() calls this
+    /// at shutdown, tests between scenarios.
+    void reset();
 }

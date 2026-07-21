@@ -3,6 +3,8 @@
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/app.h"
+#include "tbx/files/files.h"
+#include <filesystem>
 #include <cmath>
 #include <unordered_map>
 #include <vector>
@@ -12,71 +14,6 @@ namespace tbx::gpu
     // Shader source is GLSL for now — when a second gfx backend lands, sources move behind the
     // backend seam alongside gpu.h's implementations. Vertex layout everywhere: position(3) +
     // normal(3) + uv(2).
-    static constexpr const char* DEPTH_VERTEX_SHADER = R"(#version 460 core
-layout(location = 0) in vec3 in_position;
-layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec2 in_uv;
-uniform mat4 u_model;
-uniform mat4 u_light_view_projection;
-void main()
-{
-    gl_Position = u_light_view_projection * u_model * vec4(in_position, 1.0);
-})";
-
-    static constexpr const char* DEPTH_FRAGMENT_SHADER = R"(#version 460 core
-void main() {}
-)";
-
-    static constexpr const char* LIT_VERTEX_SHADER = R"(#version 460 core
-layout(location = 0) in vec3 in_position;
-layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec2 in_uv;
-uniform mat4 u_model;
-uniform mat4 u_view_projection;
-uniform mat4 u_light_view_projection;
-out vec3 v_world_normal;
-out vec4 v_shadow_coords;
-out vec2 v_uv;
-void main()
-{
-    vec4 world = u_model * vec4(in_position, 1.0);
-    v_world_normal = mat3(u_model) * in_normal;
-    v_shadow_coords = u_light_view_projection * world;
-    v_uv = in_uv;
-    gl_Position = u_view_projection * world;
-})";
-
-    static constexpr const char* LIT_FRAGMENT_SHADER = R"(#version 460 core
-in vec3 v_world_normal;
-in vec4 v_shadow_coords;
-in vec2 v_uv;
-uniform vec4 u_tint;
-uniform vec4 u_light_color;
-uniform float u_light_intensity;
-uniform vec3 u_light_direction;
-uniform sampler2D u_shadow_map;
-uniform sampler2D u_albedo;
-out vec4 out_color;
-void main()
-{
-    vec3 normal = normalize(v_world_normal);
-    float lambert = max(dot(normal, -u_light_direction), 0.0);
-
-    vec3 shadow = v_shadow_coords.xyz / v_shadow_coords.w * 0.5 + 0.5;
-    float shadowing = 1.0;
-    if (shadow.z <= 1.0)
-    {
-        float closest = texture(u_shadow_map, shadow.xy).r;
-        if (shadow.z - 0.002 > closest)
-            shadowing = 0.0;
-    }
-
-    float ambient = 0.25;
-    float light = ambient + lambert * shadowing * u_light_intensity;
-    vec4 albedo = texture(u_albedo, v_uv) * u_tint;
-    out_color = vec4(albedo.rgb * u_light_color.rgb * light, albedo.a);
-})";
-
     /// @brief
     /// Purpose: Lazily-built renderer resources plus per-asset GPU caches (RAII; released at
     /// process exit).
@@ -91,6 +28,8 @@ void main()
         std::unique_ptr<DepthTarget> shadow_target;
         std::unordered_map<Uuid, std::unique_ptr<Mesh>> meshes_by_asset;
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
+        std::unordered_map<Uuid, std::unique_ptr<Shader>> shaders_by_fragment;
+        std::string lit_vertex_text;
     };
 
     static RendererState g_renderer = {};
@@ -178,18 +117,38 @@ void main()
 
     //// SETUP ////
 
+    /// @brief
+    /// Purpose: Reads one builtin shader stage from the engine resources
+    /// (resources/Shaders/Tbx) — shaders are files, not string literals.
+    static Result<std::string> read_builtin_shader(const char* file_name)
+    {
+        const auto path =
+            std::filesystem::path(TBX_RESOURCES_PATH) / "Shaders" / "Tbx" / file_name;
+        return files::read_text(path);
+    }
+
     static bool ensure_renderer_ready()
     {
         if (g_renderer.lit_shader)
             return true;
         register_builtin_blocks();
-        auto depth = compile_shader(DEPTH_VERTEX_SHADER, DEPTH_FRAGMENT_SHADER);
-        auto lit = compile_shader(LIT_VERTEX_SHADER, LIT_FRAGMENT_SHADER);
+        const auto lit_vertex = read_builtin_shader("lit.vert");
+        const auto lit_fragment = read_builtin_shader("lit.frag");
+        const auto depth_vertex = read_builtin_shader("depth.vert");
+        const auto depth_fragment = read_builtin_shader("depth.frag");
+        if (!lit_vertex || !lit_fragment || !depth_vertex || !depth_fragment)
+        {
+            log_error("builtin shaders missing under resources/Shaders/Tbx");
+            return false;
+        }
+        auto depth = compile_shader(depth_vertex->c_str(), depth_fragment->c_str());
+        auto lit = compile_shader(lit_vertex->c_str(), lit_fragment->c_str());
         if (!depth || !lit)
         {
             log_error("renderer shaders failed: {}", depth ? lit.error() : depth.error());
             return false;
         }
+        g_renderer.lit_vertex_text = *lit_vertex;
         g_renderer.depth_shader = std::move(*depth);
         g_renderer.lit_shader = std::move(*lit);
         g_renderer.cube = upload_mesh(build_cube_vertices(), std::array {3, 3, 2});
@@ -211,7 +170,7 @@ void main()
             const auto cached = g_renderer.meshes_by_asset.find(renderer.model.id);
             if (cached != g_renderer.meshes_by_asset.end())
                 return *cached->second;
-            if (const auto model = assets->get(renderer.model))
+            if (const auto model = assets->acquire(renderer.model))
             {
                 auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
                 const Mesh& result = *uploaded;
@@ -226,23 +185,83 @@ void main()
         return *g_renderer.cube;
     }
 
-    static const Texture2d& resolve_texture(const MeshRenderer& renderer, Assets* assets)
+    static const Texture2d& resolve_texture_handle(
+        const AssetHandle<Texture>& handle,
+        Assets* assets)
     {
-        if (assets && renderer.texture.is_valid())
+        if (assets && handle.is_valid())
         {
-            const auto cached = g_renderer.textures_by_asset.find(renderer.texture.id);
+            const auto cached = g_renderer.textures_by_asset.find(handle.id);
             if (cached != g_renderer.textures_by_asset.end())
                 return *cached->second;
-            if (const auto texture = assets->get(renderer.texture))
+            if (const auto texture = assets->acquire(handle))
             {
                 auto uploaded = upload_texture(
                     texture->get().width, texture->get().height, texture->get().pixels);
                 const Texture2d& result = *uploaded;
-                g_renderer.textures_by_asset[renderer.texture.id] = std::move(uploaded);
+                g_renderer.textures_by_asset[handle.id] = std::move(uploaded);
                 return result;
             }
         }
         return *g_renderer.white;
+    }
+
+    /// @brief
+    /// Purpose: Everything one draw needs after material resolution.
+    struct ResolvedSurface
+    {
+        std::reference_wrapper<const Shader> shader;
+        std::reference_wrapper<const Texture2d> texture;
+        Color tint = {};
+        Json uniforms = {};
+    };
+
+    static ResolvedSurface resolve_surface(const MeshRenderer& renderer, Assets* assets)
+    {
+        auto surface = ResolvedSurface {
+            .shader = *g_renderer.lit_shader,
+            .texture = resolve_texture_handle(renderer.texture, assets),
+            .tint = renderer.tint};
+        if (!assets || !renderer.material.is_valid())
+            return surface;
+        const auto material = assets->acquire(renderer.material);
+        if (!material)
+        {
+            log_warn("material unavailable: {}", material.error());
+            return surface;
+        }
+
+        // Material tint multiplies the per-toy tint; its texture wins when set.
+        const Material& resolved = material->get();
+        surface.tint = Color {
+            .r = resolved.tint.r * renderer.tint.r,
+            .g = resolved.tint.g * renderer.tint.g,
+            .b = resolved.tint.b * renderer.tint.b,
+            .a = resolved.tint.a * renderer.tint.a};
+        if (resolved.texture.is_valid())
+            surface.texture = resolve_texture_handle(resolved.texture, assets);
+        surface.uniforms = resolved.uniforms;
+
+        // A custom fragment stage pairs with the builtin lit vertex stage, cached by asset.
+        if (resolved.fragment.is_valid())
+        {
+            const auto cached = g_renderer.shaders_by_fragment.find(resolved.fragment.id);
+            if (cached != g_renderer.shaders_by_fragment.end())
+                surface.shader = *cached->second;
+            else if (const auto source = assets->acquire(resolved.fragment))
+            {
+                auto compiled = compile_shader(
+                    g_renderer.lit_vertex_text.c_str(), source->get().text.c_str());
+                if (compiled)
+                {
+                    surface.shader = **compiled;
+                    g_renderer.shaders_by_fragment[resolved.fragment.id] = std::move(*compiled);
+                }
+                else
+                    log_warn("material shader failed: {}", compiled.error());
+            }
+        }
+        return surface;
     }
 
     //// RENDER ////
@@ -257,10 +276,12 @@ void main()
 
         // The first camera wins; no camera, no picture.
         auto view_projection = Mat4(1.0f);
+        auto camera_position = Vec3(0.0f, 0.0f, 0.0f);
         bool has_camera = false;
         for (const auto [entity, camera] : registry.view<Camera>().each())
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
+            camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
             const float aspect = get_viewport_height() > 0
                 ? static_cast<float>(get_viewport_width()) / get_viewport_height()
                 : 1.0f;
@@ -307,24 +328,27 @@ void main()
         }
         end_depth_pass();
 
-        // Pass 2: lit + shadowed + textured.
-        const Shader& lit = *g_renderer.lit_shader;
-        set_uniform(lit, "u_view_projection", view_projection);
-        set_uniform(lit, "u_light_view_projection", light_view_projection);
-        set_uniform(lit, "u_light_direction", light_direction);
-        set_uniform(lit, "u_light_color", light_color);
-        set_uniform(lit, "u_light_intensity", light_intensity);
-        set_uniform(lit, "u_shadow_map", 0);
-        set_uniform(lit, "u_albedo", 1);
+        // Pass 2: lit + shadowed + textured, material-driven per draw.
         bind_depth_texture(*g_renderer.shadow_target, 0);
         for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
-            set_uniform(lit, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
-            set_uniform(lit, "u_tint", renderer.tint);
-            bind_texture(resolve_texture(renderer, assets), 1);
-            draw(lit, resolve_mesh(renderer, assets));
+            const ResolvedSurface surface = resolve_surface(renderer, assets);
+            const Shader& shader = surface.shader;
+            set_uniform(shader, "u_view_projection", view_projection);
+            set_uniform(shader, "u_light_view_projection", light_view_projection);
+            set_uniform(shader, "u_light_direction", light_direction);
+            set_uniform(shader, "u_light_color", light_color);
+            set_uniform(shader, "u_light_intensity", light_intensity);
+            set_uniform(shader, "u_camera_position", camera_position);
+            set_uniform(shader, "u_shadow_map", 0);
+            set_uniform(shader, "u_albedo", 1);
+            set_uniform(shader, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
+            set_uniform(shader, "u_tint", surface.tint);
+            apply_uniforms(shader, surface.uniforms); // reflection-typed material extras
+            bind_texture(surface.texture, 1);
+            draw(shader, resolve_mesh(renderer, assets));
         }
     }
 

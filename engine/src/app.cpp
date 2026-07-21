@@ -59,6 +59,7 @@ namespace tbx
             .field("near_plane", &Camera::near_plane)
             .field("far_plane", &Camera::far_plane);
         register_block<MeshRenderer>("MeshRenderer")
+            .field("material", &MeshRenderer::material)
             .field("model", &MeshRenderer::model)
             .field("texture", &MeshRenderer::texture)
             .field("mesh", &MeshRenderer::mesh)
@@ -171,7 +172,7 @@ namespace tbx
         {
             g_fixed_accumulator -= FIXED_STEP;
             state.scripts.fixed_update(FIXED_STEP);
-            physics::step(state.sandbox, state.events, FIXED_STEP);
+            physics::update(state.sandbox, state.events, FIXED_STEP);
         }
         return true;
     }

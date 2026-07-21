@@ -1,0 +1,17 @@
+{
+    "kits": [
+        {
+            "reference": "kits/hub.kit",
+            "mode": "always"
+        },
+        {
+            "reference": "kits/far_room.kit",
+            "mode": "streamed",
+            "position": [
+                0.0,
+                0.0,
+                -60.0
+            ]
+        }
+    ]
+}

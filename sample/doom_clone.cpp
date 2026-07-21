@@ -1,161 +1,71 @@
 #include "tbx/app.h"
-#include "tbx/assets/builtin.h"
 #include "tbx/audio/audio.h"
 #include "tbx/core/log.h"
-#include "tbx/files/files.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
-#include "tbx/serialization/serialization.h"
 #include "tbx/ui/ui.h"
 #include <cmath>
 #include <cstring>
-#include <map>
 
-// The doom clone: rooms as streamed kits, enemies as Luau-scripted prefab kits, hitscan via
-// physics raycasts, spatial blips through the audio stack, and an RmlUi HUD — the whole engine
-// in one small game. Run with --selftest for the scripted proof.
-
-static constexpr const char* CHASE_SCRIPT = R"(
-local script = {}
-function script.update(toy, delta_time)
-    local player = tbx.sandbox.find("Player")
-    if player == nil then return end
-    local target = player:get("Transform").position
-    local transform = toy:get("Transform")
-    local at = transform.position
-    local dx = target.x - at.x
-    local dz = target.z - at.z
-    local distance = math.sqrt(dx * dx + dz * dz)
-    if distance > 1.5 then
-        local step = 2.0 * delta_time / distance
-        transform.position = { x = at.x + dx * step, y = at.y, z = at.z + dz * step }
-    end
-end
-return script
-)";
-
-static constexpr const char* HUD_RML = R"(<rml>
-<head><style>
-body { width: 100%; height: 100%; }
-#crosshair_h { position: absolute; left: 50%; top: 50%; margin-left: -12px; margin-top: -1px;
-               width: 24px; height: 2px; background-color: #ffffffcc; }
-#crosshair_v { position: absolute; left: 50%; top: 50%; margin-left: -1px; margin-top: -12px;
-               width: 2px; height: 24px; background-color: #ffffffcc; }
-#kills { position: absolute; left: 16px; top: 16px; width: 0px; height: 14px;
-         background-color: #ff3333; }
-#health { position: absolute; left: 16px; top: 36px; width: 200px; height: 14px;
-          background-color: #33cc33; }
-</style></head>
-<body>
-    <div id="crosshair_h"/>
-    <div id="crosshair_v"/>
-    <div id="kills"/>
-    <div id="health"/>
-</body>
-</rml>)";
+// The doom clone, fully data-driven: the level is levels/arena.box, rooms and the enemy are
+// .kit prefabs, the enemy brain is scripts/chase.luau, the floor material references an
+// engine-resources texture, the monkey statue is resources/Models/Monkey.fbx, the HUD is
+// ui/hud.rml, and the gunshot is sounds/blip.wav. Nothing here is embedded content — this file
+// is only the player controller and the selftest choreography.
 
 /// @brief
-/// Purpose: Writes a short 440Hz PCM16 blip next to the executable so the asset + audio stacks
-/// get exercised end to end.
-static void write_blip_wav(const std::filesystem::path& path)
+/// Purpose: The startup manifest: touching each asset once registers its identity so kit files
+/// can reference everything by handle.
+struct LoadedContent
 {
-    auto samples = std::vector<int16>();
-    for (int i = 0; i < 4800; ++i)
-    {
-        const float t = static_cast<float>(i) / 48000.0f;
-        const float envelope = 1.0f - static_cast<float>(i) / 4800.0f;
-        samples.push_back(
-            static_cast<int16>(std::sin(t * 440.0f * 6.28318f) * envelope * 20000.0f));
-    }
-    auto bytes = std::vector<std::byte>();
-    auto push = [&bytes](const void* data, const size count)
-    {
-        const auto* raw = static_cast<const std::byte*>(data);
-        bytes.insert(bytes.end(), raw, raw + count);
-    };
-    const uint32 data_size = static_cast<uint32>(samples.size() * 2);
-    const uint32 riff = 36 + data_size;
-    const uint16 format = 1, channels = 1, block = 2, bits = 16;
-    const uint32 rate = 48000, byte_rate = rate * block;
-    const uint32 fmt_size = 16;
-    push("RIFF", 4);
-    push(&riff, 4);
-    push("WAVE", 4);
-    push("fmt ", 4);
-    push(&fmt_size, 4);
-    push(&format, 2);
-    push(&channels, 2);
-    push(&rate, 4);
-    push(&byte_rate, 4);
-    push(&block, 2);
-    push(&bits, 2);
-    push("data", 4);
-    push(&data_size, 4);
-    push(samples.data(), data_size);
-    if (const auto written = tbx::files::write_bytes(path, bytes); !written)
-        tbx::log_warn("{}", written.error());
-}
+    tbx::AssetHandle<tbx::AudioClip> blip = {};
+    uint64 hud_document = 0;
+    bool is_ready = false;
+};
 
-/// @brief
-/// Purpose: Authors the world's kits (enemy prefab nested inside room kits) and opens the
-/// layout: the hub is always loaded, the far room streams by distance.
-static tbx::Result<void> open_world(tbx::Sandbox& sandbox, const tbx::AssetHandle<tbx::ScriptSource>& chase)
+static LoadedContent load_content()
 {
     using namespace tbx;
-    auto author = Sandbox(get_jobs());
+    auto content = LoadedContent {};
+    auto& assets = get_assets();
 
-    Toy enemy = author.spawn("Enemy")
-                    .with(Transform {.position = Vec3(0.0f, 0.75f, 0.0f),
-                                     .scale = Vec3(0.8f, 1.5f, 0.8f)})
-                    .with(MeshRenderer {.mesh = builtin::CUBE, .tint = colors::RED})
-                    .with(Collider {.half_extents = Vec3(0.4f, 0.75f, 0.4f)})
-                    .with(RigidBody {.is_kinematic = true})
-                    .with(Script {.source = chase})
-                    .sticker("enemy");
-    const Json enemy_kit = save(author, std::array {enemy});
-    author.despawn(enemy);
+    const auto chase = assets.load_now<ScriptSource>("scripts/chase.luau");
+    const auto monkey = assets.load_now<Model>("Models/Monkey.fbx"); // engine resources root
+    const auto floor = assets.load_now<Material>("materials/floor.mat");
+    const auto blip = assets.load_now<AudioClip>("sounds/blip.wav");
+    const auto hud = assets.load_now<UiDocument>("ui/hud.rml");
+    for (const auto* error : {
+             chase ? nullptr : &chase.error(),
+             monkey ? nullptr : &monkey.error(),
+             floor ? nullptr : &floor.error(),
+             blip ? nullptr : &blip.error(),
+             hud ? nullptr : &hud.error()})
+        if (error)
+        {
+            log_error("content: {}", *error);
+            return content;
+        }
 
-    auto make_room = [&author, &enemy_kit](const char* name, const bool with_enemy) -> Json
+    content.blip = *blip;
+    if (const auto document = ui::load_document(assets.get(*hud)->get().text))
+        content.hud_document = *document;
+
+    const auto level = assets.load_now<Json>("levels/arena.box");
+    if (!level)
     {
-        Toy floor = author.spawn(name)
-                        .with(Transform {.scale = Vec3(16.0f, 1.0f, 16.0f)})
-                        .with(MeshRenderer {.mesh = builtin::PLANE, .tint = colors::GRAY})
-                        .with(Collider {.half_extents = Vec3(8.0f, 0.1f, 8.0f)});
-        Toy pillar = author.spawn("Pillar")
-                         .with(Transform {.position = Vec3(3.0f, 1.0f, -3.0f),
-                                          .scale = Vec3(1.0f, 2.0f, 1.0f)})
-                         .with(MeshRenderer {.mesh = builtin::CUBE, .tint = colors::BLUE})
-                         .with(Collider {.half_extents = Vec3(0.5f, 1.0f, 0.5f)});
-        Json room = save(author, std::array {floor, pillar});
-        if (with_enemy)
-            room["kits"] = Json::array(
-                {Json {{"reference", "enemy"}, {"position", {0.0f, 0.0f, -6.0f}}}});
-        author.despawn(floor);
-        author.despawn(pillar);
-        return room;
-    };
-
-    const Json hub = make_room("HubFloor", true);
-    const Json far_room = make_room("FarFloor", true);
-    const auto resolver =
-        [kits = std::map<std::string, Json> {
-             {"enemy", enemy_kit}, {"hub", hub}, {"far", far_room}}](
-            const std::string& reference) -> Result<Json>
+        log_error("level: {}", level.error());
+        return content;
+    }
+    const auto opened = get_sandbox().open(
+        {.kits = assets.get(*level)->get(), .resolver = assets.make_kit_resolver()});
+    if (!opened)
     {
-        const auto it = kits.find(reference);
-        if (it == kits.end())
-            return fail("unknown kit '{}'", reference);
-        return it->second;
-    };
-
-    auto layout = Json {
-        {"kits",
-         Json::array(
-             {Json {{"reference", "hub"}, {"mode", "always"}},
-              Json {{"reference", "far"}, {"mode", "streamed"},
-                    {"position", {0.0f, 0.0f, -60.0f}}}})}};
-    return sandbox.open({.kits = layout, .resolver = resolver});
+        log_error("level open: {}", opened.error());
+        return content;
+    }
+    content.is_ready = true;
+    return content;
 }
 
 int main(int argc, char** argv)
@@ -166,15 +76,11 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--selftest") == 0)
             selftest = true;
 
-    const auto asset_root = std::filesystem::path("doom_assets");
-    write_blip_wav(asset_root / "blip.wav");
-
-    auto app = App {.title = "Toybox Doom", .asset_root = asset_root};
+    auto app = App {.title = "Toybox Doom", .asset_root = SAMPLE_ASSETS_PATH};
+    auto content = LoadedContent {};
     float yaw = 0.0f;
     float pitch = 0.0f;
     int kills = 0;
-    uint64 hud = 0;
-    auto blip = AssetHandle<AudioClip> {};
     Toy player = {};
     Toy shot_speaker = {};
     bool streamed_room_seen = false;
@@ -186,30 +92,13 @@ int main(int argc, char** argv)
 
         if (app.frame == 1)
         {
-            const auto chase = get_scripts().load_source("chase.luau", CHASE_SCRIPT);
-            if (!chase)
-            {
-                log_error("chase script: {}", chase.error());
+            content = load_content();
+            if (!content.is_ready)
                 return 1;
-            }
-            if (const auto world = open_world(sandbox, *chase); !world)
-            {
-                log_error("world setup failed: {}", world.error());
-                return 1;
-            }
             player = sandbox.spawn("Player")
                          .with(Transform {.position = Vec3(0.0f, 1.2f, 6.0f)})
                          .with(Camera {})
                          .with(AudioListener {});
-            if (const auto document = ui::load_document(HUD_RML))
-                hud = *document;
-            get_jobs().start(
-                []() -> Task<void>
-                {
-                    const auto loaded = co_await get_assets().load<AudioClip>("blip.wav");
-                    if (!loaded)
-                        log_warn("{}", loaded.error());
-                }());
             hub_toy_count = sandbox.get_toy_count();
         }
         if (!player.is_alive())
@@ -236,15 +125,15 @@ int main(int argc, char** argv)
         if (input::is_pressed(Key::ESCAPE))
             quit();
 
-        // Selftest choreography: hold still, then fire at the hub enemy walking toward us,
-        // then sprint toward the far room so streaming proves itself.
+        // Selftest choreography: hold still, fire at the hub enemy walking into the
+        // crosshair, then sprint toward the far room so streaming proves itself.
         bool fire = input::is_mouse_pressed(MouseButton::LEFT);
         if (selftest)
         {
             if (app.frame == 120)
-                fire = true; // enemy has chased into the crosshair line by now
+                fire = true;
             if (app.frame > 130)
-                transform.position += Vec3(0.0f, 0.0f, -0.5f); // warp toward the far room
+                transform.position += Vec3(0.0f, 0.0f, -0.5f);
             if (sandbox.get_toy_count() > hub_toy_count)
                 streamed_room_seen = true;
             if (app.frame >= 260)
@@ -262,7 +151,7 @@ int main(int argc, char** argv)
                     sandbox.despawn(target);
                     ++kills;
                     ui::set_inline_style(
-                        hud, "kills",
+                        content.hud_document, "kills",
                         std::format(
                             "position: absolute; left: 16px; top: 16px; width: {}px; "
                             "height: 14px; background-color: #ff3333;",
@@ -272,11 +161,9 @@ int main(int argc, char** argv)
                     sandbox.despawn(shot_speaker);
                 shot_speaker = sandbox.spawn("Shot")
                                    .with(Transform {.position = hit->position})
-                                   .with(AudioSource {.clip = blip, .is_playing = true});
+                                   .with(AudioSource {.clip = content.blip, .is_playing = true});
             }
         }
-        if (!blip.is_valid())
-            blip = AssetHandle<AudioClip> {}; // resolved lazily once the async load lands
 
         sandbox.stream(transform.position);
 
