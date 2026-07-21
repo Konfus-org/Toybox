@@ -28,29 +28,6 @@
             ]
         },
         {
-            "uuid": "02",
-            "name": "Monkey",
-            "blocks": [
-                {
-                    "type": "Transform",
-                    "position": [
-                        -3.0,
-                        1.0,
-                        -3.0
-                    ]
-                },
-                {
-                    "type": "Renderer",
-                    "model": "00000000000000000000000000000204",
-                    "material": "aaaaaaaaaaaaaaaa0000000000000013"
-                },
-                {
-                    "type": "Collider",
-                    "shape": 3
-                }
-            ]
-        },
-        {
             "uuid": "03",
             "name": "WallNorth",
             "blocks": [
@@ -207,6 +184,222 @@
                         2.0,
                         8.0
                     ]
+                }
+            ]
+        },
+        {
+            "uuid": "f0",
+            "name": "fallback_model",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        -6.0,
+                        1.0,
+                        -6.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "model": "deadbeefdeadbeefdeadbeefdeadbee1"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/fallback_model.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "f1",
+            "name": "fallback_texture",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        -6.0,
+                        1.0,
+                        -3.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "material": "materials/broken_texture.mat"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/fallback_texture.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "f2",
+            "name": "fallback_material",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        -6.0,
+                        1.0,
+                        0.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "material": "deadbeefdeadbeefdeadbeefdeadbee3"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/fallback_material.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "f3",
+            "name": "fallback_fragment",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        -6.0,
+                        1.0,
+                        3.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "material": "materials/broken_fragment.mat"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/fallback_fragment.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "f4",
+            "name": "fallback_vertex",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        -6.0,
+                        1.0,
+                        6.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "material": "materials/broken_vertex.mat"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/fallback_vertex.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "p0",
+            "name": "primitive_cube",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        6.0,
+                        1.0,
+                        -4.5
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "model": "b0010000000000000000000000000001",
+                    "material": "aaaaaaaaaaaaaaaa000000000000000d"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/primitive_cube.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "p1",
+            "name": "primitive_plane",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        6.0,
+                        1.0,
+                        -1.5
+                    ],
+                    "scale": [
+                        2.0,
+                        1.0,
+                        2.0
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "model": "b0010000000000000000000000000002",
+                    "material": "aaaaaaaaaaaaaaaa0000000000000001"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/primitive_plane.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "p2",
+            "name": "primitive_sphere",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        6.0,
+                        1.0,
+                        1.5
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "model": "b0010000000000000000000000000003",
+                    "material": "aaaaaaaaaaaaaaaa000000000000000d"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/primitive_sphere.rml",
+                    "is_world_anchored": true
+                }
+            ]
+        },
+        {
+            "uuid": "p3",
+            "name": "primitive_monkey",
+            "blocks": [
+                {
+                    "type": "Transform",
+                    "position": [
+                        6.0,
+                        1.0,
+                        4.5
+                    ]
+                },
+                {
+                    "type": "Renderer",
+                    "model": "00000000000000000000000000000204",
+                    "material": "aaaaaaaaaaaaaaaa0000000000000013"
+                },
+                {
+                    "type": "Ui",
+                    "document": "ui/labels/primitive_monkey.rml",
+                    "is_world_anchored": true
                 }
             ]
         }

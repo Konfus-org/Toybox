@@ -68,15 +68,15 @@ namespace tbx::debug
 
         const float fps =
             g_debug.smoothed_delta > 0.0f ? 1.0f / g_debug.smoothed_delta : 0.0f;
-        ui::set_binding(
+        ui::set_string(
             "debug_fps",
             std::format("{:.0f} fps  ({:.2f} ms)", fps, g_debug.smoothed_delta * 1000.0f));
-        ui::set_binding("debug_frame", std::format("frame {}", app.frame));
-        ui::set_binding("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
-        ui::set_binding(
+        ui::set_string("debug_frame", std::format("frame {}", app.frame));
+        ui::set_string("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
+        ui::set_string(
             "debug_assets",
             std::format("assets resident: {}", get_assets().get_loaded_count()));
-        ui::set_binding(
+        ui::set_string(
             "debug_viewport",
             std::format(
                 "viewport: {}x{}",

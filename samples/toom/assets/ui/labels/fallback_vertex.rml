@@ -1,0 +1,10 @@
+<rml>
+<head><style>
+body { width: 100%; height: 100%; }
+#label { position: absolute; width: 160px; text-align: center; font-family: Montserrat;
+         font-size: 13px; color: #eef4ee; }
+</style></head>
+<body>
+    <div id="label" data-style="anchor_fallback_vertex">fallback: broken vertex shader (cyan)</div>
+</body>
+</rml>

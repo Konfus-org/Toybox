@@ -15,6 +15,7 @@
 #include "tbx/ui/ui_block.h"
 #include <array>
 #include <chrono>
+#include <format>
 #include <cmath>
 #include <filesystem>
 #include <unordered_map>
@@ -790,6 +791,31 @@ namespace tbx::gpu
                     else
                         warn_once(
                             ui_block.fragment.id, "ui fragment shader: " + source.error());
+                }
+                if (ui_block.is_world_anchored && g_frame.has_camera)
+                {
+                    // Project the toy (nudged toward the floor) into screen space and feed
+                    // its label's anchor slot; behind the camera the label hides.
+                    auto world_position =
+                        Vec3(sandbox.get_world_matrix(Toy(sandbox, entity))
+                             * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                    world_position.y -= 1.2f;
+                    const Vec4 clip =
+                        g_frame.view_projection * Vec4(world_position, 1.0f);
+                    auto style = std::string("display: none;");
+                    if (clip.w > 0.05f)
+                    {
+                        const float screen_x =
+                            (clip.x / clip.w * 0.5f + 0.5f) * get_viewport_width();
+                        const float screen_y =
+                            (1.0f - (clip.y / clip.w * 0.5f + 0.5f)) * get_viewport_height();
+                        style = std::format(
+                            "left: {}px; top: {}px;",
+                            static_cast<int>(screen_x) - 80,
+                            static_cast<int>(screen_y));
+                    }
+                    ui::set_string(
+                        "anchor_" + registry.get<ToyHandle>(entity).name, style);
                 }
                 ui::draw(document->get(), vertex_source, fragment_source);
             }

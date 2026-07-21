@@ -16,16 +16,24 @@ namespace tbx
         // References stay authoring-time paths (or uuids) on the handles; the asset system
         // resolves them on first load.
         auto material = Material {};
-        const auto read_reference = [&](const char* key, std::string& into)
+        const auto read_reference = [&]<typename TAsset>(const char* key, AssetHandle<TAsset>& into)
         {
-            if (data.contains(key))
-                into = data[key].get<std::string>();
+            if (!data.contains(key))
+                return;
+            auto text = data[key].get<std::string>();
+            auto stripped = text;
+            std::erase(stripped, '-');
+            const Uuid id = Uuid::parse(stripped);
+            if (id.is_nil())
+                into.path = std::move(text);
+            else
+                into.id = id;
         };
-        read_reference("vertex", material.vertex.path);
-        read_reference("fragment", material.fragment.path);
-        read_reference("albedo_map", material.albedo_map.path);
-        read_reference("normal_map", material.normal_map.path);
-        read_reference("metallic_roughness_map", material.metallic_roughness_map.path);
+        read_reference("vertex", material.vertex);
+        read_reference("fragment", material.fragment);
+        read_reference("albedo_map", material.albedo_map);
+        read_reference("normal_map", material.normal_map);
+        read_reference("metallic_roughness_map", material.metallic_roughness_map);
 
         const auto read_color = [&](const char* key, Color& into)
         {

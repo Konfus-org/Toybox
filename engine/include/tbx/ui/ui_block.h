@@ -15,5 +15,9 @@ namespace tbx
         AssetHandle<ShaderSource> vertex = {};   // custom stage; unset = the builtin ui.vert
         AssetHandle<ShaderSource> fragment = {}; // custom stage; unset = the builtin ui.frag
         bool is_visible = true;
+        // Anchors the document to the toy in the world: the ui pass projects the toy's
+        // position and feeds the "anchor_<toy name>" slot a left/top style (or display:none
+        // behind the camera) — label documents consume it via data-style.
+        bool is_world_anchored = false;
     };
 }

@@ -44,7 +44,7 @@ static constexpr std::array<float, 21> TRIANGLE_VERTICES = {
 /// Purpose: A live-bound stat for the selftest's ui::bind smoke coverage.
 struct SelftestStats
 {
-    uint64 frames = 0;
+    int frames = 0;
 };
 
 static tbx::Quat look_toward(const tbx::Vec3& direction)
@@ -68,11 +68,11 @@ static int run_scene_selftest()
     bool reflection_works = false;
     tbx::Toy camera = {};
     auto stats = SelftestStats {};
-    tbx::ui::bind("scene_frames", stats, &SelftestStats::frames);
+    tbx::ui::bind_to("scene_frames", stats.frames);
 
     while (tbx::run(app))
     {
-        stats.frames = app.frame;
+        stats.frames = static_cast<int>(app.frame);
         auto& sandbox = tbx::get_sandbox();
         if (app.frame == 1)
         {

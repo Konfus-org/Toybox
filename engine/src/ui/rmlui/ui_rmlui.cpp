@@ -165,8 +165,8 @@ namespace tbx::ui
         SystemInterface system = {};
         RenderInterface renderer = {};
         std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
-        std::unordered_map<std::string, std::string> bindings;
-        std::unordered_map<std::string, std::function<std::string()>> sources;
+        std::unordered_map<std::string, std::string> bindings; // slot -> latest value
+        std::unordered_map<std::string, UiBinding> live_bindings; // evaluated every update
         /// @brief
         /// Purpose: One queued document plus its (possibly custom) shader stage sources.
         struct QueuedDocument
@@ -439,28 +439,59 @@ namespace tbx::ui
         g_ui.reset();
     }
 
-    void set_source(const std::string& name, std::function<std::string()> source)
+    void bind(UiBinding binding)
     {
         if (UiState* state = ensure_ui_ready())
-            state->sources[name] = std::move(source);
+            state->live_bindings[binding.name] = std::move(binding);
     }
 
     void unbind(const std::string& name)
     {
         if (g_ui)
-            g_ui->sources.erase(name);
+            g_ui->live_bindings.erase(name);
     }
 
-    void set_binding(const std::string& name, const std::string& value)
+    void set_string(const std::string& name, std::string value)
     {
         if (UiState* state = ensure_ui_ready())
-            state->bindings[name] = value;
+            state->bindings[name] = std::move(value);
     }
 
-    void set_binding(const std::string& name, const double value)
+    void set_bool(const std::string& name, const bool value)
     {
-        // std::format trims trailing zeros so "3" stays "3" while "2.5" stays "2.5".
-        set_binding(name, std::format("{}", value));
+        set_string(name, value ? "true" : "false");
+    }
+
+    void set_color(const std::string& name, const Color& value)
+    {
+        set_string(
+            name,
+            std::format(
+                "#{:02x}{:02x}{:02x}{:02x}",
+                static_cast<int>(value.r * 255.0f),
+                static_cast<int>(value.g * 255.0f),
+                static_cast<int>(value.b * 255.0f),
+                static_cast<int>(value.a * 255.0f)));
+    }
+
+    void set_float(const std::string& name, const float value)
+    {
+        set_string(name, std::format("{}", value));
+    }
+
+    void set_int(const std::string& name, const int value)
+    {
+        set_string(name, std::format("{}", value));
+    }
+
+    void set_vec2(const std::string& name, const Vec2& value)
+    {
+        set_string(name, std::format("{}, {}", value.x, value.y));
+    }
+
+    void set_vec3(const std::string& name, const Vec3& value)
+    {
+        set_string(name, std::format("{}, {}, {}", value.x, value.y, value.z));
     }
 
     void update(const float delta_time)
@@ -470,9 +501,10 @@ namespace tbx::ui
         UiState& state = *g_ui;
         state.system.elapsed += delta_time;
 
-        // Live sources feed their bindings once per frame; apply_bindings diffs per element.
-        for (const auto& [name, source] : state.sources)
-            state.bindings[name] = source();
+        // Live bindings feed their slots once per frame; apply_bindings diffs per element.
+        for (const auto& [name, binding] : state.live_bindings)
+            if (binding.source)
+                state.bindings[binding.name] = binding.source();
 
         // What stopped being drawn retires; a changed asset simply hashes to a new entry.
         for (auto it = state.documents.begin(); it != state.documents.end();)
