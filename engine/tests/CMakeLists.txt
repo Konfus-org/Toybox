@@ -18,3 +18,8 @@ tbx_copy_runtime_dlls(tbx_tests)
 
 include(GoogleTest)
 gtest_discover_tests(tbx_tests DISCOVERY_MODE PRE_TEST)
+
+# The windowed selftest runner (triangle + lit-scene pixel proofs) lives with the tests.
+add_executable(tbx_run runner/tbx_run.cpp)
+target_link_libraries(tbx_run PRIVATE tbx)
+tbx_copy_runtime_dlls(tbx_run)

@@ -40,6 +40,13 @@ static constexpr std::array<float, 21> TRIANGLE_VERTICES = {
 };
 
 
+/// @brief
+/// Purpose: A live-bound stat for the selftest's ui::bind smoke coverage.
+struct SelftestStats
+{
+    uint64 frames = 0;
+};
+
 static tbx::Quat look_toward(const tbx::Vec3& direction)
 {
     const tbx::Vec3 up = std::abs(direction.y) > 0.99f ? tbx::Vec3(0.0f, 0.0f, -1.0f)
@@ -60,9 +67,12 @@ static int run_scene_selftest()
     bool ui_panel_visible = false;
     bool reflection_works = false;
     tbx::Toy camera = {};
+    auto stats = SelftestStats {};
+    tbx::ui::bind("scene_frames", stats, &SelftestStats::frames);
 
     while (tbx::run(app))
     {
+        stats.frames = app.frame;
         auto& sandbox = tbx::get_sandbox();
         if (app.frame == 1)
         {
@@ -98,10 +108,12 @@ static int run_scene_selftest()
         static const auto ui_panel = tbx::UiDocument {.text = R"(<rml>
 <head><style>
 body { width: 100%; height: 100%; }
-div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
-      background-color: #00ff00; }
+#panel { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
+         background-color: #00ff00; }
+#frames { position: absolute; left: 400px; top: 8px; font-family: Montserrat;
+          font-size: 14px; color: #ffffff; }
 </style></head>
-<body><div/></body>
+<body><div id="panel"/><div id="frames" data-text="scene_frames"/></body>
 </rml>)"};
         tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
         tbx::ui::draw(ui_panel); // immediate: renders right now, on top of the frame

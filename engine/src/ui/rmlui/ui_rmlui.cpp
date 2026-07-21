@@ -5,6 +5,7 @@
 #include <RmlUi/Core.h>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -162,6 +163,7 @@ namespace tbx::ui
         RenderInterface renderer = {};
         std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
         std::unordered_map<std::string, std::string> bindings;
+        std::unordered_map<std::string, std::function<std::string()>> sources;
         uint64 frame = 1;
         bool is_initialized = false;
 
@@ -335,6 +337,18 @@ namespace tbx::ui
         g_ui.reset();
     }
 
+    void set_source(const std::string& name, std::function<std::string()> source)
+    {
+        if (UiState* state = ensure_ui_ready())
+            state->sources[name] = std::move(source);
+    }
+
+    void unbind(const std::string& name)
+    {
+        if (g_ui)
+            g_ui->sources.erase(name);
+    }
+
     void set_binding(const std::string& name, const std::string& value)
     {
         if (UiState* state = ensure_ui_ready())
@@ -353,6 +367,10 @@ namespace tbx::ui
             return;
         UiState& state = *g_ui;
         state.system.elapsed += delta_time;
+
+        // Live sources feed their bindings once per frame; apply_bindings diffs per element.
+        for (const auto& [name, source] : state.sources)
+            state.bindings[name] = source();
 
         // What stopped being drawn retires; a changed asset simply hashes to a new entry.
         for (auto it = state.documents.begin(); it != state.documents.end();)

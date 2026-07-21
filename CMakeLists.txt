@@ -98,7 +98,6 @@ function(tbx_copy_runtime_dlls target)
 endfunction()
 
 # --- Executables ---
-add_subdirectory(runtime)
 if(TBX_BUILD_SAMPLES AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/samples")
     add_subdirectory(samples)
 endif()
