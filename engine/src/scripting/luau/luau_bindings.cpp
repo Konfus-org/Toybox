@@ -773,6 +773,26 @@ namespace tbx
         return 1;
     }
 
+    static CursorMode check_cursor_mode(lua_State* lua, const int index)
+    {
+        const auto value = luaL_checkinteger(lua, index);
+        if (value < 0 || value >= static_cast<int>(CursorMode::COUNT))
+            luaL_error(lua, "expected a tbx.CursorMode value");
+        return static_cast<CursorMode>(value);
+    }
+
+    static int input_get_cursor_mode(lua_State* lua)
+    {
+        lua_pushinteger(lua, static_cast<int>(input::get_cursor_mode()));
+        return 1;
+    }
+
+    static int input_set_cursor_mode(lua_State* lua)
+    {
+        input::set_cursor_mode(check_cursor_mode(lua, 1));
+        return 0;
+    }
+
     //// OPEN ////
 
     void push_toy(lua_State* lua, Sandbox& sandbox, const ToyId entity)
@@ -846,6 +866,10 @@ namespace tbx
         lua_setfield(lua, -2, "is_mouse_pressed");
         lua_pushcfunction(lua, input_get_mouse_delta, "input_get_mouse_delta");
         lua_setfield(lua, -2, "get_mouse_delta");
+        lua_pushcfunction(lua, input_get_cursor_mode, "input_get_cursor_mode");
+        lua_setfield(lua, -2, "get_cursor_mode");
+        lua_pushcfunction(lua, input_set_cursor_mode, "input_set_cursor_mode");
+        lua_setfield(lua, -2, "set_cursor_mode");
         lua_setfield(lua, -2, "input");
 
         lua_createtable(lua, 0, 1);
@@ -878,6 +902,15 @@ namespace tbx
         lua_pushinteger(lua, static_cast<int>(MouseButton::MIDDLE));
         lua_setfield(lua, -2, "MIDDLE");
         lua_setfield(lua, -2, "MouseButton");
+
+        lua_createtable(lua, 0, 3);
+        lua_pushinteger(lua, static_cast<int>(CursorMode::NORMAL));
+        lua_setfield(lua, -2, "NORMAL");
+        lua_pushinteger(lua, static_cast<int>(CursorMode::HIDDEN));
+        lua_setfield(lua, -2, "HIDDEN");
+        lua_pushinteger(lua, static_cast<int>(CursorMode::LOCKED));
+        lua_setfield(lua, -2, "LOCKED");
+        lua_setfield(lua, -2, "CursorMode");
 
         lua_createtable(lua, 0, 18);
         const luaL_Reg math_functions[] = {

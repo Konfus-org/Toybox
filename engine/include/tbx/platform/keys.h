@@ -108,4 +108,17 @@ namespace tbx
 
         COUNT
     };
+
+    /// @brief
+    /// Purpose: What the OS cursor does over the window: NORMAL is a visible free pointer,
+    /// HIDDEN is a free pointer without the arrow, LOCKED grabs the cursor for mouse-look —
+    /// invisible, pinned to the window, with movement still flowing as deltas.
+    enum class CursorMode : uint8
+    {
+        NORMAL = 0,
+        HIDDEN,
+        LOCKED,
+
+        COUNT
+    };
 }

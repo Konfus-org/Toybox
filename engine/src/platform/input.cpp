@@ -15,6 +15,7 @@ namespace tbx::input
         Vec2 mouse_position = Vec2(0.0f, 0.0f);
         Vec2 mouse_delta = Vec2(0.0f, 0.0f);
         float scroll_delta = 0.0f;
+        CursorMode cursor_mode = CursorMode::NORMAL;
     };
 
     static InputState g_state = {};
@@ -53,6 +54,11 @@ namespace tbx::input
     }
 
     //// QUERIES ////
+
+    CursorMode get_cursor_mode()
+    {
+        return g_state.cursor_mode;
+    }
 
     Vec2 get_mouse_delta()
     {
@@ -107,5 +113,10 @@ namespace tbx::input
         g_state.previous_mouse = g_state.mouse;
         g_state.mouse_delta = Vec2(0.0f, 0.0f);
         g_state.scroll_delta = 0.0f;
+    }
+
+    void set_cursor_mode(CursorMode mode)
+    {
+        g_state.cursor_mode = mode;
     }
 }

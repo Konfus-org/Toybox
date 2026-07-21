@@ -18,6 +18,15 @@ local hud = {
 function start(toy)
     tbx.ui.bind(hud, "kills", "kills")
     tbx.ui.bind(hud, "health", "health")
+
+    -- Mouse-look wants the cursor grabbed: invisible, pinned to the window, pure deltas.
+    -- The selftest ignores the mouse entirely, so it leaves the real cursor alone — but
+    -- still calls the API (NORMAL is what it already is) so a broken binding fails loudly.
+    if toy:has_sticker("selftest") then
+        tbx.input.set_cursor_mode(tbx.CursorMode.NORMAL)
+    else
+        tbx.input.set_cursor_mode(tbx.CursorMode.LOCKED)
+    end
 end
 
 local UP = { x = 0.0, y = 1.0, z = 0.0 }

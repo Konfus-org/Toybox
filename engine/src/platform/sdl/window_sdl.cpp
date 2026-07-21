@@ -15,6 +15,7 @@ namespace tbx
         int width = 0;
         int height = 0;
         bool is_headless = false;
+        CursorMode applied_cursor_mode = CursorMode::NORMAL;
     };
 
     //// TRANSLATION ////
@@ -188,6 +189,20 @@ namespace tbx
     {
         if (_state->is_headless)
             return true;
+
+        // Gameplay asks for a cursor mode through input; the window owns the OS cursor, so
+        // the request is applied here. LOCKED = SDL relative mode: invisible, pinned to the
+        // window, movement arriving purely as deltas.
+        const CursorMode cursor_mode = input::get_cursor_mode();
+        if (cursor_mode != _state->applied_cursor_mode)
+        {
+            SDL_SetWindowRelativeMouseMode(_state->window, cursor_mode == CursorMode::LOCKED);
+            if (cursor_mode == CursorMode::NORMAL)
+                SDL_ShowCursor();
+            else
+                SDL_HideCursor();
+            _state->applied_cursor_mode = cursor_mode;
+        }
 
         auto event = SDL_Event {};
         while (SDL_PollEvent(&event))

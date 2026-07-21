@@ -25,6 +25,11 @@ namespace tbx::input
     TBX_API void feed_scroll(float delta);
 
     /// @brief
+    /// Purpose: The cursor mode gameplay asked for (the platform backend applies it during
+    /// the pump; headless windows ignore it).
+    TBX_API CursorMode get_cursor_mode();
+
+    /// @brief
     /// Purpose: Pointer movement accumulated this frame.
     TBX_API Vec2 get_mouse_delta();
 
@@ -63,4 +68,9 @@ namespace tbx::input
     /// @brief
     /// Purpose: Rolls per-frame state; called by Engine::pump() before OS events feed in.
     TBX_API void pump();
+
+    /// @brief
+    /// Purpose: Asks for a cursor mode — NORMAL frees the pointer, LOCKED grabs it for
+    /// mouse-look (deltas keep flowing). Takes effect at the next pump.
+    TBX_API void set_cursor_mode(CursorMode mode);
 }

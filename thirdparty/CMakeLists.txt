@@ -7,6 +7,11 @@
 # still warns normally, and compile-time silencing lives in cmake/third_party_warnings.cmake.
 set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 
+# Ditto their deprecation chatter (glm and luau still declare pre-3.10 minimums). The switch
+# is a cache variable, so it is restored at the bottom of this file — our own cmake keeps
+# warning about real deprecations.
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
 # The cache is segmented per generator: FetchContent's sub-build trees are tied to the
 # generator that created them, and CMake hard-errors when a consumer with a different
 # generator reuses them.
@@ -45,9 +50,13 @@ set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# Assimp hard-appends its own /Zi to CMAKE_CXX_FLAGS, which lands next to the project-wide
+# /Z7 embedded debug format and MSVC warns (D9025) on every TU. No option gates it, so the
+# patch step strips the flag at checkout — the /Z7 abstraction already covers its symbols.
 FetchContent_Declare(assimp
     GIT_REPOSITORY https://github.com/assimp/assimp.git
-    GIT_TAG v5.4.3)
+    GIT_TAG v5.4.3
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/assimp_no_zi.cmake")
 FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau assimp)
 
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
@@ -129,3 +138,6 @@ if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
         SYSTEM)
     FetchContent_MakeAvailable(JoltPhysics)
 endif()
+
+# Third-party is configured; deprecation warnings are ours again (cache variable, see top).
+set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
