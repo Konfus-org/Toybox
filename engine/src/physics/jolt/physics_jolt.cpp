@@ -1,4 +1,5 @@
 #include "tbx/physics/physics.h"
+#include "tbx/app.h"
 #include "tbx/core/log.h"
 #include <Jolt/Jolt.h>
 #include <Jolt/Core/Factory.h>
@@ -193,22 +194,6 @@ namespace tbx::physics
 
     //// BOUNDARY ////
 
-    void register_physics_blocks()
-    {
-        static bool g_registered = false;
-        if (g_registered)
-            return;
-        g_registered = true;
-        register_block<RigidBody>("RigidBody")
-            .field("mass", &RigidBody::mass)
-            .field("is_kinematic", &RigidBody::is_kinematic);
-        register_block<Collider>("Collider")
-            .field("shape", &Collider::shape)
-            .field("half_extents", &Collider::half_extents)
-            .field("radius", &Collider::radius)
-            .field("height", &Collider::height);
-    }
-
     void reset()
     {
         g_physics.reset();
@@ -216,7 +201,7 @@ namespace tbx::physics
 
     void step(Sandbox& sandbox, Events& events, const float fixed_delta_time)
     {
-        register_physics_blocks();
+        register_builtin_blocks();
         PhysicsState& physics = ensure_simulation();
         JPH::BodyInterface& bodies = physics.system.GetBodyInterface();
         auto& registry = sandbox.get_registry();

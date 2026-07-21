@@ -1,28 +1,15 @@
 #include "tbx/ecs/sandbox.h"
+#include "tbx/app.h"
 #include "tbx/core/log.h"
 
 namespace tbx
 {
-    //// CORE BLOCKS ////
-
-    static void register_core_blocks()
-    {
-        static bool g_registered = false;
-        if (g_registered)
-            return;
-        g_registered = true;
-        register_block<Transform>("Transform")
-            .field("position", &Transform::position)
-            .field("rotation", &Transform::rotation)
-            .field("scale", &Transform::scale);
-    }
-
     //// SANDBOX: TOYS ////
 
     Sandbox::Sandbox(Jobs& jobs)
         : _jobs(jobs)
     {
-        register_core_blocks();
+        register_builtin_blocks();
     }
 
     Toy Sandbox::spawn(std::string name)
@@ -69,10 +56,10 @@ namespace tbx
         std::string_view name,
         const std::function<void(Toy)>& callback)
     {
-        const uint64 wanted = hash_name(name);
+        const uint64 wanted = hash(name);
         for (const auto [id, stickers] : _registry.view<StickerSet>().each())
             for (const std::string& sticker : stickers.names)
-                if (hash_name(sticker) == wanted)
+                if (hash(sticker) == wanted)
                 {
                     callback(Toy(*this, id));
                     break;
@@ -222,9 +209,9 @@ namespace tbx
                 for (const Json& block_json : toy_json.value("blocks", Json::array()))
                 {
                     const auto type_name = block_json.value("__type", std::string());
-                    const uint64 hash = hash_name(type_name);
-                    const auto operations = get_block_registry().find(hash);
-                    const auto type = get_type_registry().find(hash);
+                    const uint64 hashed = hash(type_name);
+                    const auto operations = get_block_registry().find(hashed);
+                    const auto type = get_type_registry().find(hashed);
                     if (!operations || !type)
                     {
                         log_warn("kit references unknown block type '{}'; skipped", type_name);
@@ -262,7 +249,7 @@ namespace tbx
             for (const Json& entry : kit.value("kits", Json::array()))
             {
                 const auto reference = entry.value("reference", std::string());
-                const uint64 reference_hash = hash_name(reference);
+                const uint64 reference_hash = hash(reference);
                 for (const uint64 seen : reference_stack)
                     if (seen == reference_hash)
                         return fail("kit reference cycle detected at '{}'", reference);

@@ -40,6 +40,12 @@ namespace tbx
     /// Purpose: Requests a clean exit — the next run() returns false.
     void quit();
 
+    /// @brief
+    /// Purpose: Registers every builtin block (Transform, Camera, MeshRenderer,
+    /// DirectionalLight, RigidBody, Collider, Script) — THE one registration call.
+    /// Idempotent; run() and every subsystem entry point call it, tests may too.
+    void register_builtin_blocks();
+
     // The subsystems run() booted, for hosts and systems (RAII objects owned by the runtime;
     // valid between the first run() and the run() that returns false).
 

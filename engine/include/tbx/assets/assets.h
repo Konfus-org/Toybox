@@ -37,16 +37,7 @@ namespace tbx
         /// @brief
         /// Purpose: The loaded asset for a handle; empty if not (yet) loaded.
         template <typename TAsset>
-        std::optional<std::reference_wrapper<TAsset>> get(AssetHandle<TAsset> handle)
-        {
-            const auto it = _assets.find(handle.id);
-            if (it == _assets.end())
-                return {};
-            auto* asset = std::any_cast<TAsset>(&it->second);
-            if (!asset)
-                return {};
-            return *asset;
-        }
+        std::optional<std::reference_wrapper<TAsset>> get(AssetHandle<TAsset> handle);
 
         /// @brief
         /// Purpose: The script payload for an id when that asset is a .luau — engine glue uses
@@ -57,23 +48,7 @@ namespace tbx
         /// Purpose: Loads (or returns the already-loaded) asset at an asset-root-relative path:
         /// bytes read + decoded on a worker, stored on the main thread.
         template <typename TAsset>
-        Task<Result<AssetHandle<TAsset>>> load(std::string relative_path)
-        {
-            auto prepared = prepare(relative_path);
-            if (!prepared)
-                co_return std::unexpected(prepared.error());
-            const Uuid id = *prepared;
-            if (_assets.contains(id))
-                co_return AssetHandle<TAsset> {.id = id};
-
-            co_await _jobs.get().on_worker();
-            auto decoded = decode<TAsset>(_root / relative_path);
-            co_await _jobs.get().on_main();
-            if (!decoded)
-                co_return std::unexpected(decoded.error());
-            store(id, relative_path, std::any(std::move(*decoded)));
-            co_return AssetHandle<TAsset> {.id = id};
-        }
+        Task<Result<AssetHandle<TAsset>>> load(std::string relative_path);
 
         /// @brief
         /// Purpose: Sets the asset root and starts watching it for hot reload.
@@ -116,3 +91,5 @@ namespace tbx
     template <>
     Result<ShaderSource> Assets::decode<ShaderSource>(const std::filesystem::path& path);
 }
+
+#include "tbx/assets/assets.inl"

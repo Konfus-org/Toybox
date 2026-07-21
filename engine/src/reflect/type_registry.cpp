@@ -41,7 +41,7 @@ namespace tbx
     std::optional<std::reference_wrapper<const TypeInfo>> TypeRegistry::find(
         std::string_view name) const
     {
-        return find(hash_name(name));
+        return find(hash(name));
     }
 
     TypeRegistry& get_type_registry()

@@ -3,7 +3,6 @@
 #include "tbx/app.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/gfx/render_blocks.h"
 #include <array>
 #include <chrono>
 #include <cmath>

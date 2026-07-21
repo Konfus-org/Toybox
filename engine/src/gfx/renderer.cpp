@@ -2,7 +2,7 @@
 #include "tbx/core/log.h"
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/gfx/render_blocks.h"
+#include "tbx/app.h"
 #include <cmath>
 #include <unordered_map>
 #include <vector>
@@ -178,31 +178,11 @@ void main()
 
     //// SETUP ////
 
-    void register_render_blocks()
-    {
-        static bool g_registered = false;
-        if (g_registered)
-            return;
-        g_registered = true;
-        register_block<Camera>("Camera")
-            .field("fov_degrees", &Camera::fov_degrees)
-            .field("near_plane", &Camera::near_plane)
-            .field("far_plane", &Camera::far_plane);
-        register_block<MeshRenderer>("MeshRenderer")
-            .field("model", &MeshRenderer::model)
-            .field("texture", &MeshRenderer::texture)
-            .field("mesh", &MeshRenderer::mesh)
-            .field("tint", &MeshRenderer::tint);
-        register_block<DirectionalLight>("DirectionalLight")
-            .field("color", &DirectionalLight::color)
-            .field("intensity", &DirectionalLight::intensity);
-    }
-
     static bool ensure_renderer_ready()
     {
         if (g_renderer.lit_shader)
             return true;
-        register_render_blocks();
+        register_builtin_blocks();
         auto depth = compile_shader(DEPTH_VERTEX_SHADER, DEPTH_FRAGMENT_SHADER);
         auto lit = compile_shader(LIT_VERTEX_SHADER, LIT_FRAGMENT_SHADER);
         if (!depth || !lit)

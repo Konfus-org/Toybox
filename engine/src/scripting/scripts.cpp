@@ -1,4 +1,5 @@
 #include "tbx/scripting/scripts.h"
+#include "tbx/app.h"
 #include "tbx/core/log.h"
 #include <filesystem>
 
@@ -12,22 +13,11 @@ namespace tbx
     std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox, Events& events);
 #endif
 
-    //// SCRIPT REGISTRATION ////
-
-    static void register_script_block()
-    {
-        static bool g_registered = false;
-        if (g_registered)
-            return;
-        g_registered = true;
-        register_block<Script>("Script").field("source", &Script::source);
-    }
-
     //// SCRIPTS ////
 
     Scripts::Scripts(Sandbox& sandbox, Events& events)
     {
-        register_script_block();
+        register_builtin_blocks();
 #ifdef TBX_SCRIPTING_HAS_LUAU
         add_backend(make_luau_backend(sandbox, events));
 #endif
@@ -56,8 +46,8 @@ namespace tbx
     /// Purpose: The deterministic id for manually-loaded (non-asset) sources.
     static Uuid derived_script_id(const std::string& name)
     {
-        const uint64 hash = hash_name(name);
-        return Uuid {.hi = hash, .lo = ~hash};
+        const uint64 hashed = hash(name);
+        return Uuid {.hi = hashed, .lo = ~hashed};
     }
 
     Result<void> Scripts::load_source(

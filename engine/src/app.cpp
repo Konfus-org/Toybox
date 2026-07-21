@@ -1,7 +1,7 @@
 #include "tbx/app.h"
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/gfx/render_blocks.h"
+#include "tbx/ecs/block.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
 #include <chrono>
@@ -40,12 +40,46 @@ namespace tbx
 
     static std::unique_ptr<AppState> g_state = {};
 
+    //// REGISTRATION ////
+
+    void register_builtin_blocks()
+    {
+        static bool g_registered = false;
+        if (g_registered)
+            return;
+        g_registered = true;
+        register_block<Transform>("Transform")
+            .field("position", &Transform::position)
+            .field("rotation", &Transform::rotation)
+            .field("scale", &Transform::scale);
+        register_block<Camera>("Camera")
+            .field("fov_degrees", &Camera::fov_degrees)
+            .field("near_plane", &Camera::near_plane)
+            .field("far_plane", &Camera::far_plane);
+        register_block<MeshRenderer>("MeshRenderer")
+            .field("model", &MeshRenderer::model)
+            .field("texture", &MeshRenderer::texture)
+            .field("mesh", &MeshRenderer::mesh)
+            .field("tint", &MeshRenderer::tint);
+        register_block<DirectionalLight>("DirectionalLight")
+            .field("color", &DirectionalLight::color)
+            .field("intensity", &DirectionalLight::intensity);
+        register_block<RigidBody>("RigidBody")
+            .field("mass", &RigidBody::mass)
+            .field("is_kinematic", &RigidBody::is_kinematic);
+        register_block<Collider>("Collider")
+            .field("shape", &Collider::shape)
+            .field("half_extents", &Collider::half_extents)
+            .field("radius", &Collider::radius)
+            .field("height", &Collider::height);
+        register_block<Script>("Script").field("source", &Script::source);
+    }
+
     //// BOOT / SHUTDOWN ////
 
     static void boot(App& app)
     {
-        gpu::register_render_blocks();
-        physics::register_physics_blocks();
+        register_builtin_blocks();
         g_state = std::make_unique<AppState>(app);
         AppState& state = *g_state;
         if (!state.window.is_headless())

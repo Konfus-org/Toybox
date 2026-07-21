@@ -239,14 +239,15 @@ namespace tbx
     {
         ToyUserdata& data = check_toy(lua, 1);
         const char* block_name = luaL_checkstring(lua, 2);
-        const uint64 hash = hash_name(block_name);
-        const auto operations = get_block_registry().find(hash);
+        const uint64 hashed = hash(block_name);
+        const auto operations = get_block_registry().find(hashed);
         if (!operations)
             luaL_error(lua, "unknown block type '%s'", block_name);
         operations->add_default(data.sandbox->get_registry(), data.entity);
 
         auto* block = static_cast<BlockUserdata*>(lua_newuserdata(lua, sizeof(BlockUserdata)));
-        *block = BlockUserdata {.sandbox = data.sandbox, .entity = data.entity, .type_hash = hash};
+        *block =
+            BlockUserdata {.sandbox = data.sandbox, .entity = data.entity, .type_hash = hashed};
         luaL_getmetatable(lua, BLOCK_METATABLE);
         lua_setmetatable(lua, -2);
         return 1;
@@ -255,7 +256,7 @@ namespace tbx
     static int toy_has(lua_State* lua)
     {
         ToyUserdata& data = check_toy(lua, 1);
-        const auto operations = get_block_registry().find(hash_name(luaL_checkstring(lua, 2)));
+        const auto operations = get_block_registry().find(hash(luaL_checkstring(lua, 2)));
         lua_pushboolean(
             lua,
             operations && operations->has(data.sandbox->get_registry(), data.entity));
@@ -343,28 +344,28 @@ namespace tbx
     static Key key_from_string(const char* name)
     {
         // Hand-written map: enum name arrays are deliberately not generated.
-        const uint64 hash = hash_name(name);
+        const uint64 hashed = hash(name);
         if (std::strlen(name) == 1 && name[0] >= 'A' && name[0] <= 'Z')
             return static_cast<Key>(static_cast<int>(Key::A) + (name[0] - 'A'));
-        if (hash == hash_name("SPACE"))
+        if (hashed == hash("SPACE"))
             return Key::SPACE;
-        if (hash == hash_name("ESCAPE"))
+        if (hashed == hash("ESCAPE"))
             return Key::ESCAPE;
-        if (hash == hash_name("ENTER"))
+        if (hashed == hash("ENTER"))
             return Key::ENTER;
-        if (hash == hash_name("LEFT"))
+        if (hashed == hash("LEFT"))
             return Key::LEFT;
-        if (hash == hash_name("RIGHT"))
+        if (hashed == hash("RIGHT"))
             return Key::RIGHT;
-        if (hash == hash_name("UP"))
+        if (hashed == hash("UP"))
             return Key::UP;
-        if (hash == hash_name("DOWN"))
+        if (hashed == hash("DOWN"))
             return Key::DOWN;
-        if (hash == hash_name("LEFT_SHIFT"))
+        if (hashed == hash("LEFT_SHIFT"))
             return Key::LEFT_SHIFT;
-        if (hash == hash_name("LEFT_CTRL"))
+        if (hashed == hash("LEFT_CTRL"))
             return Key::LEFT_CTRL;
-        if (hash == hash_name("TAB"))
+        if (hashed == hash("TAB"))
             return Key::TAB;
         return Key::UNKNOWN;
     }

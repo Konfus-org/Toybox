@@ -30,11 +30,6 @@ namespace tbx::physics
         float max_distance);
 
     /// @brief
-    /// Purpose: Registers RigidBody/Collider blocks; run() calls this at boot (tests call
-    /// it directly) so kits can carry them.
-    void register_physics_blocks();
-
-    /// @brief
     /// Purpose: Tears the simulation down; the next step() starts fresh. run() calls this at
     /// shutdown, tests between scenarios.
     void reset();

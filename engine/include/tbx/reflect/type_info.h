@@ -223,7 +223,7 @@ namespace tbx
                 std::is_default_constructible_v<T>,
                 "registered types must be default constructible");
             auto info = TypeInfo {};
-            info.name_hash = hash_name(name);
+            info.name_hash = hash(name);
             info.name = std::move(name);
             info.size_bytes = sizeof(T);
             info.construct = [](std::byte* at)

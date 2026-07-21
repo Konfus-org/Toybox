@@ -171,7 +171,7 @@ namespace tbx::tests
 
         // Act
         const auto by_name = get_type_registry().find("TestPlayer");
-        const auto by_hash = get_type_registry().find(hash_name("TestPlayer"));
+        const auto by_hash = get_type_registry().find(hash("TestPlayer"));
 
         // Assert
         ASSERT_TRUE(by_name.has_value());

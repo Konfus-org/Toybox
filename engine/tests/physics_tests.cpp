@@ -1,3 +1,4 @@
+#include "tbx/app.h"
 #include "tbx/physics/physics.h"
 #include <gtest/gtest.h>
 
@@ -9,7 +10,7 @@ namespace tbx::tests
     {
         // Arrange
         physics::reset();
-        physics::register_physics_blocks();
+        register_builtin_blocks();
         auto jobs = Jobs();
         auto sandbox = Sandbox(jobs);
         auto events = Events();
