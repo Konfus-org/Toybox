@@ -209,7 +209,7 @@ namespace tbx::audio
         g_master_volume.store(volume, std::memory_order_relaxed);
     }
 
-    void update(Sandbox& sandbox, Assets& assets, const float)
+    void update(Sandbox& sandbox, const float)
     {
         AudioState* state = ensure_audio_ready();
         if (!state)
@@ -256,7 +256,7 @@ namespace tbx::audio
                 auto& cached = state->clips[source.clip.id];
                 if (!cached)
                 {
-                    const auto clip = assets.load_now(source.clip); // resolves by tracked path
+                    const auto clip = assets::load_now(source.clip); // resolves by tracked path
                     if (!clip)
                         continue;
                     cached = std::make_shared<AudioClip>(clip->get());

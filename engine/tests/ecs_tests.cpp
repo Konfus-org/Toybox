@@ -30,9 +30,6 @@ namespace tbx::tests
     struct TestWorld
     {
         std::filesystem::path root = {};
-        Jobs jobs = {};
-        Events events = {};
-        Assets assets = {jobs, events};
 
         TestWorld()
         {
@@ -40,7 +37,8 @@ namespace tbx::tests
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
             std::filesystem::create_directories(root);
-            assets.set_root(root);
+            assets::reset();
+            assets::set_root(root);
         }
     };
 
@@ -73,10 +71,7 @@ namespace tbx::tests
     {
         // Arrange
         register_ecs_test_blocks();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
 
         // Act
         Toy grunt = sandbox.spawn("Grunt")
@@ -97,10 +92,7 @@ namespace tbx::tests
     TEST(Sandbox, DespawnKillsToyAndOrphansChildren)
     {
         // Arrange
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
         Toy parent = sandbox.spawn("Parent");
         Toy child = sandbox.spawn("Child");
         sandbox.set_parent(child, parent);
@@ -117,10 +109,7 @@ namespace tbx::tests
     TEST(Sandbox, FindsToysBySearchAndSticker)
     {
         // Arrange
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
         Toy grunt = sandbox.spawn("Grunt").sticker("enemy");
         sandbox.spawn("Crate");
         auto stickered = std::vector<std::string>();
@@ -147,10 +136,7 @@ namespace tbx::tests
     {
         // Arrange
         register_ecs_test_blocks();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto source = Sandbox(jobs, assets);
+        auto source = Sandbox();
         Toy parent = source.spawn("Room")
                          .with(Transform {.position = Vec3(5.0f, 0.0f, 0.0f)})
                          .sticker("level");
@@ -159,7 +145,7 @@ namespace tbx::tests
         const Kit kit = save(source, std::array {parent, child});
 
         // Act
-        auto target = Sandbox(jobs, assets);
+        auto target = Sandbox();
         const auto loaded = load(target, kit);
 
         // Assert
@@ -180,15 +166,12 @@ namespace tbx::tests
     {
         // Arrange
         register_ecs_test_blocks();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto source = Sandbox(jobs, assets);
+        auto source = Sandbox();
         Toy toy = source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
         const Kit first = save(source, std::array {toy});
 
         // Act
-        auto target = Sandbox(jobs, assets);
+        auto target = Sandbox();
         ASSERT_TRUE(load(target, first).has_value());
         const auto reloaded = target.find("Thing");
         ASSERT_TRUE(reloaded.has_value());
@@ -204,7 +187,7 @@ namespace tbx::tests
         // references are ordinary kit assets on disk.
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto author = Sandbox(world.jobs, world.assets);
+        auto author = Sandbox();
         write_kit(world, "prefab.kit", save(author, std::array {author.spawn("Pickup")}).body);
         write_kit(
             world,
@@ -224,7 +207,7 @@ namespace tbx::tests
                      {Json {{"reference", "room.kit"}, {"position", {10.0f, 0.0f, 0.0f}}}})}});
 
         // Act
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
         const auto loaded =
             sandbox.spawn(AssetHandle<Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
 
@@ -253,7 +236,7 @@ namespace tbx::tests
             Json {
                 {"toys", Json::array()},
                 {"kits", Json::array({Json {{"reference", "a.kit"}}})}});
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
 
         // Act
         const auto loaded = sandbox.spawn(AssetHandle<Kit>("a.kit"));
@@ -274,7 +257,7 @@ namespace tbx::tests
             Json {
                 {"toys", Json::array()},
                 {"kits", Json::array({Json {{"reference", "missing.kit"}}})}});
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
 
         // Act
         const auto loaded = sandbox.spawn(AssetHandle<Kit>("broken.kit"));
@@ -287,9 +270,6 @@ namespace tbx::tests
     TEST(Sandbox, UnknownBlockTypeIsSkippedNotFatal)
     {
         // Arrange
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
         auto kit = Json {
             {"toys",
              Json::array({Json {
@@ -297,7 +277,7 @@ namespace tbx::tests
                  {"name", "Survivor"},
                  {"blocks",
                   Json::array({Json {{"type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
 
         // Act
         const auto loaded = load(sandbox, Kit {.body = kit});
@@ -312,12 +292,12 @@ namespace tbx::tests
         // Arrange: a kit whose bounds sit at the origin with radius 0.
         register_ecs_test_blocks();
         auto world = TestWorld();
-        auto author = Sandbox(world.jobs, world.assets);
+        auto author = Sandbox();
         write_kit(world, "room.kit", save(author, std::array {author.spawn("RoomToy")}).body);
         const auto box = Box {
             .kits = {
                 BoxEntry {.kit = AssetHandle<Kit>("room.kit"), .mode = KitMode::STREAMED}}};
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
         ASSERT_TRUE(sandbox.open(box).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
 
@@ -326,18 +306,18 @@ namespace tbx::tests
         for (int i = 0; i < 500 && sandbox.get_toy_count() == 0; ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            world.jobs.drain_main();
+            jobs::drain_main();
         }
         const size loaded_count = sandbox.get_toy_count();
 
         // Focus just outside the load band but inside the unload band — stays loaded.
         sandbox.stream(Vec3(10.0f, 0.0f, 0.0f));
-        world.jobs.drain_main();
+        jobs::drain_main();
         const size hysteresis_count = sandbox.get_toy_count();
 
         // Focus beyond the unload band — unloads.
         sandbox.stream(Vec3(100.0f, 0.0f, 0.0f));
-        world.jobs.drain_main();
+        jobs::drain_main();
 
         // Assert
         EXPECT_EQ(loaded_count, 1u);
@@ -349,10 +329,10 @@ namespace tbx::tests
     {
         // Arrange
         auto world = TestWorld();
-        auto author = Sandbox(world.jobs, world.assets);
+        auto author = Sandbox();
         write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
 
         // Act
         const auto result = sandbox.open(box);
@@ -365,16 +345,13 @@ namespace tbx::tests
     TEST(Sandbox, DisabledStatePersistsThroughKits)
     {
         // Arrange
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto source = Sandbox(jobs, assets);
+        auto source = Sandbox();
         Toy toy = source.spawn("Lamp");
         toy.set_enabled(false);
         const Kit kit = save(source, std::array {toy});
 
         // Act
-        auto target = Sandbox(jobs, assets);
+        auto target = Sandbox();
         ASSERT_TRUE(load(target, kit).has_value());
 
         // Assert
@@ -388,10 +365,10 @@ namespace tbx::tests
     {
         // Arrange
         auto world = TestWorld();
-        auto author = Sandbox(world.jobs, world.assets);
+        auto author = Sandbox();
         write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
-        auto sandbox = Sandbox(world.jobs, world.assets);
+        auto sandbox = Sandbox();
         ASSERT_TRUE(sandbox.open(box).has_value());
         ASSERT_EQ(sandbox.get_toy_count(), 1u);
 
@@ -407,10 +384,7 @@ namespace tbx::tests
     TEST(Sandbox, WorldMatrixComposesParentChain)
     {
         // Arrange
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
         Toy parent = sandbox.spawn("Parent").with(Transform {.position = Vec3(10.0f, 0.0f, 0.0f)});
         Toy child = sandbox.spawn("Child").with(Transform {.position = Vec3(0.0f, 5.0f, 0.0f)});
         sandbox.set_parent(child, parent);

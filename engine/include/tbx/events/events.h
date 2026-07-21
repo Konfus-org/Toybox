@@ -60,24 +60,25 @@ namespace tbx
         Uuid id = {};
     };
 
-    /// @brief
-    /// Purpose: The only events that exist, as named signals over one pump-drained queue.
-    /// Later milestones add: asset_reloaded, collision, kit, script_reloaded.
-    struct TBX_API Events
-    {
-        EventQueue queue;
-        Signal<KeyEvent> key {queue};
-        Signal<WindowResized> window_resized {queue};
-        Signal<AssetReloaded> asset_reloaded {queue};
-        Signal<AssetUnloaded> asset_unloaded {queue};
-        Signal<ScriptReloaded> script_reloaded {queue};
-        Signal<CollisionEvent> collision {queue};
+}
 
-        /// @brief
-        /// Purpose: Dispatches all queued events; called once per frame by Engine::pump().
-        void drain()
-        {
-            queue.drain();
-        }
-    };
+// The only events that exist, as named signals over one pump-drained queue. Module state is
+// created on first use; reset() drops every subscription and queued event.
+namespace tbx::events
+{
+    TBX_API Signal<AssetReloaded>& asset_reloaded();
+    TBX_API Signal<AssetUnloaded>& asset_unloaded();
+    TBX_API Signal<CollisionEvent>& collision();
+    TBX_API Signal<KeyEvent>& key();
+    TBX_API Signal<ScriptReloaded>& script_reloaded();
+    TBX_API Signal<WindowResized>& window_resized();
+
+    /// @brief
+    /// Purpose: Dispatches all queued events; called once per frame by the runtime's pump.
+    TBX_API void drain();
+
+    /// @brief
+    /// Purpose: Drops every subscription and queued event; the next call starts fresh. run()
+    /// calls this at shutdown.
+    TBX_API void reset();
 }

@@ -1,9 +1,14 @@
 #include "tbx/jobs/jobs.h"
 #include "tbx/debug/log.h"
 #include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
+#include <vector>
 #include <memory>
 
-namespace tbx
+namespace tbx::jobs
 {
     /// @brief
     /// Purpose: Fire-and-forget coroutine shell: starts immediately and self-destroys at the
@@ -87,43 +92,73 @@ namespace tbx
         }
     }
 
-    //// JOBS ////
+    //// STATE ////
 
-    Jobs::Jobs()
+    /// @brief
+    /// Purpose: The whole module state: the pool and both queues, created on first use and
+    /// destroyed by reset().
+    struct JobsState
     {
-        const uint cores = std::max(2u, std::thread::hardware_concurrency());
-        const uint count = cores - 1;
-        _workers.reserve(count);
-        for (uint i = 0; i < count; ++i)
-            _workers.emplace_back([this](std::stop_token stop) { worker_loop(stop); });
+        std::mutex worker_mutex;
+        std::condition_variable_any worker_signal;
+        std::deque<std::function<void()>> worker_queue;
+        std::mutex main_mutex;
+        std::vector<std::function<void()>> main_queue;
+        std::vector<std::jthread> workers;
+
+        ~JobsState()
+        {
+            for (auto& worker : workers)
+                worker.request_stop();
+            worker_signal.notify_all();
+            workers.clear(); // joins
+        }
+    };
+
+    static std::unique_ptr<JobsState> g_jobs = {};
+
+    static void worker_loop(std::stop_token stop);
+
+    static JobsState& ensure_jobs_ready()
+    {
+        if (!g_jobs)
+        {
+            g_jobs = std::make_unique<JobsState>();
+            const uint cores = std::max(2u, std::thread::hardware_concurrency());
+            const uint count = cores - 1;
+            g_jobs->workers.reserve(count);
+            for (uint i = 0; i < count; ++i)
+                g_jobs->workers.emplace_back([](std::stop_token stop) { worker_loop(stop); });
+        }
+        return *g_jobs;
     }
 
-    Jobs::~Jobs()
-    {
-        for (auto& worker : _workers)
-            worker.request_stop();
-        _worker_signal.notify_all();
-        _workers.clear(); // joins
-        drain_main();
-    }
+    //// BOUNDARY ////
 
-    void Jobs::drain_main()
+    void drain_main()
     {
+        if (!g_jobs)
+            return;
         std::vector<std::function<void()>> jobs;
         {
-            std::scoped_lock lock(_main_mutex);
-            jobs.swap(_main_queue);
+            std::scoped_lock lock(g_jobs->main_mutex);
+            jobs.swap(g_jobs->main_queue);
         }
         // Jobs posted while draining run on the next drain — same one-frame rule as events.
         for (auto& job : jobs)
             job();
     }
 
-    void Jobs::parallel_for(size count, const std::function<void(size)>& action)
+    size get_worker_count()
+    {
+        return ensure_jobs_ready().workers.size();
+    }
+
+    void parallel_for(size count, const std::function<void(size)>& action)
     {
         if (count == 0)
             return;
-        const size helpers = _workers.size();
+        const size helpers = ensure_jobs_ready().workers.size();
         if (count == 1 || helpers == 0)
         {
             for (size i = 0; i < count; ++i)
@@ -142,38 +177,49 @@ namespace tbx
         state->finished.acquire();
     }
 
-    void Jobs::start(Task<void> task)
+    void start(Task<void> task)
     {
         run_detached(std::move(task));
     }
 
-    void Jobs::post_main(std::function<void()> job)
+    void reset()
     {
-        std::scoped_lock lock(_main_mutex);
-        _main_queue.push_back(std::move(job));
+        g_jobs.reset(); // joins the pool; queued work is dropped
     }
 
-    void Jobs::post_worker(std::function<void()> job)
+    void post_main(std::function<void()> job)
     {
+        JobsState& state = ensure_jobs_ready();
+        std::scoped_lock lock(state.main_mutex);
+        state.main_queue.push_back(std::move(job));
+    }
+
+    void post_worker(std::function<void()> job)
+    {
+        JobsState& state = ensure_jobs_ready();
         {
-            std::scoped_lock lock(_worker_mutex);
-            _worker_queue.push_back(std::move(job));
+            std::scoped_lock lock(state.worker_mutex);
+            state.worker_queue.push_back(std::move(job));
         }
-        _worker_signal.notify_one();
+        state.worker_signal.notify_one();
     }
 
-    void Jobs::worker_loop(std::stop_token stop)
+    static void worker_loop(std::stop_token stop)
     {
+        JobsState& state = *g_jobs;
         while (true)
         {
             std::function<void()> job;
             {
-                std::unique_lock lock(_worker_mutex);
-                _worker_signal.wait(lock, stop, [this] { return !_worker_queue.empty(); });
-                if (_worker_queue.empty())
+                std::unique_lock lock(state.worker_mutex);
+                state.worker_signal.wait(
+                    lock,
+                    stop,
+                    [&state] { return !state.worker_queue.empty(); });
+                if (state.worker_queue.empty())
                     return; // stop requested and nothing left to do
-                job = std::move(_worker_queue.front());
-                _worker_queue.pop_front();
+                job = std::move(state.worker_queue.front());
+                state.worker_queue.pop_front();
             }
             job();
         }

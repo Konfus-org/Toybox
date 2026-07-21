@@ -185,7 +185,7 @@ namespace tbx
         return _state->height;
     }
 
-    bool Window::pump(Events& events)
+    bool Window::pump()
     {
         if (_state->is_headless)
             return true;
@@ -220,7 +220,7 @@ namespace tbx
                         break;
                     if (!event.key.repeat)
                         input::feed_key(key, event.key.down);
-                    events.key.emit(
+                    events::key().emit(
                         {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }
@@ -243,7 +243,7 @@ namespace tbx
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                     _state->width = event.window.data1;
                     _state->height = event.window.data2;
-                    events.window_resized.emit(
+                    events::window_resized().emit(
                         {.width = _state->width, .height = _state->height});
                     break;
                 default:

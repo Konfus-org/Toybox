@@ -88,7 +88,6 @@ namespace tbx
     /// outermost load() mints the instance and rolls back on failure.
     static Result<void> load_kit_body(
         Sandbox& sandbox,
-        Assets& assets,
         const Json& kit,
         const Vec3& root_position,
         std::vector<uint64>& reference_stack,
@@ -163,7 +162,7 @@ namespace tbx
                     if (seen == reference_hash)
                         return fail("kit reference cycle detected at '{}'", reference);
 
-                const auto nested_kit = assets.load_now(AssetHandle<Kit>(reference));
+                const auto nested_kit = assets::load_now(AssetHandle<Kit>(reference));
                 if (!nested_kit)
                     return fail("kit '{}': {}", reference, nested_kit.error());
 
@@ -177,7 +176,6 @@ namespace tbx
                 reference_stack.push_back(reference_hash);
                 auto nested = load_kit_body(
                     sandbox,
-                    assets,
                     nested_kit->get().body,
                     position,
                     reference_stack,
@@ -200,7 +198,6 @@ namespace tbx
         auto spawned = std::vector<ToyId>();
         const auto result = load_kit_body(
             sandbox,
-            sandbox._assets.get(),
             kit.body,
             root_position,
             reference_stack,

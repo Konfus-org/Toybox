@@ -15,7 +15,7 @@ namespace tbx
     struct TBX_API RenderPass
     {
         std::string name = {};
-        std::function<void(Sandbox& sandbox, Assets& assets)> render = {};
+        std::function<void(Sandbox& sandbox)> render = {};
     };
 
     /// @brief
@@ -56,7 +56,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Runs every pass in order — one full frame of rendering.
-        void render(Sandbox& sandbox, Assets& assets);
+        void render(Sandbox& sandbox);
 
       private:
         std::vector<RenderPass> _passes;

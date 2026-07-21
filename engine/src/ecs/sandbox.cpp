@@ -8,9 +8,7 @@ namespace tbx
 {
     //// SANDBOX: TOYS ////
 
-    Sandbox::Sandbox(Jobs& jobs, Assets& assets)
-        : _jobs(jobs)
-        , _assets(assets)
+    Sandbox::Sandbox()
     {
         register_builtin_blocks();
     }
@@ -109,7 +107,7 @@ namespace tbx
 
     Result<KitInstance> Sandbox::spawn(const AssetHandle<Kit>& kit, const Vec3& position)
     {
-        const auto loaded = _assets.get().load_now(kit);
+        const auto loaded = assets::load_now(kit);
         if (!loaded)
             return fail("kit '{}': {}", kit.path, loaded.error());
         return load(*this, loaded->get(), position);
@@ -157,7 +155,7 @@ namespace tbx
 
                 // Streamed: remember the entry + the bounds its kit saved; the body itself
                 // reloads on demand (assets cache it in the meantime).
-                const auto kit = _assets.get().load_now(entry.kit);
+                const auto kit = assets::load_now(entry.kit);
                 if (!kit)
                     return fail("kit '{}': {}", entry.kit.path, kit.error());
                 auto streamed = StreamedEntry {};
@@ -208,15 +206,15 @@ namespace tbx
                 // outlives in-flight streams. The handle is copied into the task — the
                 // worker never touches sandbox state, and the body is copied out so the
                 // asset cache may drop its copy at any time.
-                _jobs.get().start(
+                jobs::start(
                     [](Sandbox& sandbox, size index, AssetHandle<Kit> kit) -> Task<void>
                     {
-                        co_await sandbox._jobs.get().on_worker();
-                        auto loaded = sandbox._assets.get().load_now(kit);
+                        co_await jobs::on_worker();
+                        auto loaded = assets::load_now(kit);
                         auto body = loaded
                             ? Result<Kit>(loaded->get())
                             : Result<Kit>(std::unexpected(loaded.error()));
-                        co_await sandbox._jobs.get().on_main();
+                        co_await jobs::on_main();
                         StreamedEntry& target = sandbox._streamed_entries[index];
                         target.is_loading = false;
                         if (!body)

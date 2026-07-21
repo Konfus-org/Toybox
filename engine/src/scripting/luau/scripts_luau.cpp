@@ -25,9 +25,8 @@ namespace tbx
     class LuauBackend final : public ScriptBackend
     {
       public:
-        LuauBackend(Sandbox& sandbox, Events& events)
+        LuauBackend(Sandbox& sandbox)
             : _sandbox(sandbox)
-            , _events(events)
         {
             _lua = luaL_newstate();
             luaL_openlibs(_lua);
@@ -79,7 +78,7 @@ namespace tbx
             _bytecode_by_id[id] = std::move(*compiled);
             _name_by_id[id] = name;
             ++_generation_by_id[id]; // live instances restart on their next update
-            _events.get().script_reloaded.emit({.id = id});
+            events::script_reloaded().emit({.id = id});
             return ok();
         }
 
@@ -209,7 +208,6 @@ namespace tbx
 
       private:
         std::reference_wrapper<Sandbox> _sandbox;
-        std::reference_wrapper<Events> _events;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
         std::unordered_map<Uuid, std::string> _bytecode_by_id;
         std::unordered_map<Uuid, std::string> _name_by_id;
@@ -217,8 +215,13 @@ namespace tbx
         std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
 
-    std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox, Events& events)
+
+}
+
+namespace tbx::scripts
+{
+    std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox)
     {
-        return std::make_unique<LuauBackend>(sandbox, events);
+        return std::make_unique<LuauBackend>(sandbox);
     }
 }

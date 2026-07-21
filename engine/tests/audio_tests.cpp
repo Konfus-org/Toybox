@@ -69,15 +69,12 @@ namespace tbx::tests
     {
         // Arrange
         audio::reset();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        auto sandbox = Sandbox();
         sandbox.spawn("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.
-        audio::update(sandbox, assets, 0.016f);
-        audio::update(sandbox, assets, 0.016f);
+        audio::update(sandbox, 0.016f);
+        audio::update(sandbox, 0.016f);
         audio::reset();
         SUCCEED();
     }

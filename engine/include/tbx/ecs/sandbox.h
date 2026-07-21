@@ -18,7 +18,6 @@
 
 namespace tbx
 {
-    class Assets;
 
     /// @brief
     /// Purpose: THE world container: owns every toy and streams sandbox-level kit entries by
@@ -30,7 +29,7 @@ namespace tbx
     class TBX_API Sandbox final
     {
       public:
-        Sandbox(Jobs& jobs, Assets& assets);
+        Sandbox();
 
       public:
         Sandbox(const Sandbox&) = delete;
@@ -143,8 +142,6 @@ namespace tbx
         };
 
       private:
-        std::reference_wrapper<Jobs> _jobs;
-        std::reference_wrapper<Assets> _assets;
         Registry _registry;
         uint64 _next_kit_instance_id = 1;
         std::unordered_map<uint64, std::vector<ToyId>> _kit_instances;

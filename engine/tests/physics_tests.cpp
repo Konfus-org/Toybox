@@ -12,10 +12,8 @@ namespace tbx::tests
         // Arrange
         physics::reset();
         register_builtin_blocks();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        events::reset();
+        auto sandbox = Sandbox();
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
@@ -26,7 +24,7 @@ namespace tbx::tests
 
         // Act: ~3 simulated seconds — plenty to fall from 5 units and settle.
         for (int i = 0; i < 180; ++i)
-            physics::update(sandbox, assets, events, STEP);
+            physics::update(sandbox, STEP);
 
         // Assert: resting with its half-extent (0.5) above the floor top (y = 0).
         const float resting_y = cube.get_block<Transform>().position.y;
@@ -38,17 +36,15 @@ namespace tbx::tests
     {
         // Arrange
         physics::reset();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        events::reset();
+        auto sandbox = Sandbox();
         Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
                        .with(Collider {});
 
         // Act
         for (int i = 0; i < 60; ++i)
-            physics::update(sandbox, assets, events, STEP);
+            physics::update(sandbox, STEP);
 
         // Assert: no RigidBody means scenery — gravity does not apply.
         EXPECT_EQ(wall.get_block<Transform>().position, Vec3(3.0f, 4.0f, 0.0f));
@@ -59,12 +55,10 @@ namespace tbx::tests
     {
         // Arrange
         physics::reset();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        events::reset();
+        auto sandbox = Sandbox();
         auto collisions = std::vector<std::pair<uint32, uint32>>();
-        events.collision.subscribe(
+        events::collision().subscribe(
             &collisions,
             [&collisions](const CollisionEvent& hit)
             { collisions.push_back({hit.toy_a, hit.toy_b}); });
@@ -78,9 +72,9 @@ namespace tbx::tests
 
         // Act: fall to impact, then drain — collision delivery happens at the pump.
         for (int i = 0; i < 120; ++i)
-            physics::update(sandbox, assets, events, STEP);
+            physics::update(sandbox, STEP);
         const auto before_drain = collisions.size();
-        events.drain();
+        events::drain();
 
         // Assert
         EXPECT_EQ(before_drain, 0u);
@@ -95,14 +89,12 @@ namespace tbx::tests
     {
         // Arrange
         physics::reset();
-        auto jobs = Jobs();
-        auto events = Events();
-        auto assets = Assets(jobs, events);
-        auto sandbox = Sandbox(jobs, assets);
+        events::reset();
+        auto sandbox = Sandbox();
         Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(Collider {});
-        physics::update(sandbox, assets, events, STEP); // mirror the body in
+        physics::update(sandbox, STEP); // mirror the body in
 
         // Act
         const auto hit =

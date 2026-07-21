@@ -1,11 +1,24 @@
 #pragma once
-// Template bodies for Assets — included by assets.h.
+// Template bodies for the assets module — included by assets.h.
 
-namespace tbx
+namespace tbx::assets
 {
+    /// @brief
+    /// Purpose: Typed view over find_resident_any.
+    template <typename TAsset>
+    std::optional<std::reference_wrapper<TAsset>> find_resident(const Uuid& id)
+    {
+        std::any* stored = find_resident_any(id);
+        if (!stored)
+            return {};
+        auto* asset = std::any_cast<TAsset>(stored);
+        if (!asset)
+            return {};
+        return *asset;
+    }
 
     template <typename TAsset>
-    Task<Result<std::reference_wrapper<TAsset>>> Assets::load(AssetHandle<TAsset> handle)
+    Task<Result<std::reference_wrapper<TAsset>>> load(AssetHandle<TAsset> handle)
     {
         auto resolved = resolve_handle(handle.id, handle.path);
         if (!resolved)
@@ -15,9 +28,9 @@ namespace tbx
         if (resolved->relative_path.empty())
             co_return fail("asset {} has no tracked path", resolved->id.to_string());
 
-        co_await _jobs.get().on_worker();
+        co_await jobs::on_worker();
         auto decoded = tbx::load<TAsset>(resolve_path(resolved->relative_path));
-        co_await _jobs.get().on_main();
+        co_await jobs::on_main();
         if (!decoded)
             co_return std::unexpected(decoded.error());
         store(resolved->id, resolved->relative_path, std::any(std::move(*decoded)));
@@ -27,7 +40,7 @@ namespace tbx
     }
 
     template <typename TAsset>
-    Result<std::reference_wrapper<TAsset>> Assets::load_now(AssetHandle<TAsset> handle)
+    Result<std::reference_wrapper<TAsset>> load_now(AssetHandle<TAsset> handle)
     {
         auto resolved = resolve_handle(handle.id, handle.path);
         if (!resolved)
@@ -43,19 +56,5 @@ namespace tbx
         if (auto resident = find_resident<TAsset>(resolved->id))
             return ok(std::ref(resident->get()));
         return fail("asset '{}' did not become resident", resolved->relative_path);
-    }
-
-    template <typename TAsset>
-    std::optional<std::reference_wrapper<TAsset>> Assets::find_resident(const Uuid& id)
-    {
-        const std::scoped_lock lock(_mutex);
-        const auto it = _assets.find(id);
-        if (it == _assets.end())
-            return {};
-        auto* asset = std::any_cast<TAsset>(&it->second);
-        if (!asset)
-            return {};
-        _last_access[id] = std::chrono::steady_clock::now(); // referenced: stays resident
-        return *asset;
     }
 }

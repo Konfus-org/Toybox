@@ -182,8 +182,7 @@ namespace tbx::physics
     static JPH::ShapeRefC make_mesh_shape(
         Registry& registry,
         const ToyId entity,
-        const Vec3& scale,
-        Assets& assets)
+        const Vec3& scale)
     {
         const auto* renderer = registry.try_get<Renderer>(entity);
         if (!renderer)
@@ -202,7 +201,7 @@ namespace tbx::physics
                 JPH::Vec3(scale.x * 0.5f, std::max(scale.y * 0.01f, 0.02f), scale.z * 0.5f));
 
         {
-            if (const auto model = assets.load_now(renderer->model))
+            if (const auto model = assets::load_now(renderer->model))
             {
                 // Interleaved position(3)+normal(3)+uv(2) triangle list from the importer.
                 const auto& vertices = model->get().vertices;
@@ -238,8 +237,7 @@ namespace tbx::physics
         const Collider& collider,
         Registry& registry,
         const ToyId entity,
-        const Vec3& scale,
-        Assets& assets)
+        const Vec3& scale)
     {
         switch (collider.shape)
         {
@@ -248,7 +246,7 @@ namespace tbx::physics
             case Shape::CAPSULE:
                 return new JPH::CapsuleShape(collider.height * 0.5f, collider.radius);
             case Shape::MESH:
-                return make_mesh_shape(registry, entity, scale, assets);
+                return make_mesh_shape(registry, entity, scale);
             case Shape::BOX:
                 break;
         }
@@ -269,7 +267,7 @@ namespace tbx::physics
             g_physics->system.SetGravity(to_jolt(gravity));
     }
 
-    void update(Sandbox& sandbox, Assets& assets, Events& events, const float fixed_delta_time)
+    void update(Sandbox& sandbox, const float fixed_delta_time)
     {
         register_builtin_blocks();
         PhysicsState& physics = ensure_simulation();
@@ -289,7 +287,7 @@ namespace tbx::physics
             if (existing == physics.bodies_by_toy.end())
             {
                 auto settings = JPH::BodyCreationSettings(
-                    make_shape(collider, registry, entity, transform.scale, assets),
+                    make_shape(collider, registry, entity, transform.scale),
                     to_jolt(transform.position),
                     to_jolt(transform.rotation),
                     rigid_body ? (rigid_body->is_kinematic ? JPH::EMotionType::Kinematic
@@ -346,7 +344,7 @@ namespace tbx::physics
         }
 
         for (const auto& [toy_a, toy_b] : physics.contacts.drain())
-            events.collision.emit({.toy_a = toy_a, .toy_b = toy_b});
+            events::collision().emit({.toy_a = toy_a, .toy_b = toy_b});
     }
 
     std::optional<RaycastHit> raycast(

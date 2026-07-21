@@ -76,7 +76,7 @@ namespace tbx::debug::view
         ui::set_string("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
         ui::set_string(
             "debug_assets",
-            std::format("assets resident: {}", get_assets().get_loaded_count()));
+            std::format("assets resident: {}", assets::get_loaded_count()));
         ui::set_string(
             "debug_viewport",
             std::format(

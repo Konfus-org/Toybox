@@ -137,20 +137,10 @@ namespace tbx
     /// registration call. Idempotent; run() and every subsystem entry point call it, tests may too.
     TBX_API void register_builtin_blocks();
 
-    // The subsystems run() booted, for hosts and systems (RAII objects owned by the runtime;
-    // valid between the first run() and the run() that returns false).
-
-    /// @brief
-    /// Purpose: The asset system.
-    TBX_API Assets& get_assets();
-
-    /// @brief
-    /// Purpose: The event signals.
-    TBX_API Events& get_events();
-
-    /// @brief
-    /// Purpose: The worker pool.
-    TBX_API Jobs& get_jobs();
+    // The runtime-owned objects run() booted, for hosts and systems (valid between the first
+    // run() and the run() that returns false). Everything else — assets, events, jobs,
+    // scripts, ui, audio, physics — is a module: call it directly (tbx::assets::load_now,
+    // tbx::events::key(), ...).
 
     /// @brief
     /// Purpose: THE world container.
@@ -159,10 +149,6 @@ namespace tbx
     /// @brief
     /// Purpose: The standard renderer (default pass list; hosts may reshape it).
     TBX_API RenderGraph& get_render_graph();
-
-    /// @brief
-    /// Purpose: The scripting system.
-    TBX_API Scripts& get_scripts();
 
     /// @brief
     /// Purpose: The OS window.

@@ -47,7 +47,7 @@ namespace tbx
         /// @brief
         /// Purpose: Polls OS events into tbx::input and the given Events; returns false when
         /// the user closed the window. Called once per frame by Engine::pump().
-        bool pump(Events& events);
+        bool pump();
 
         /// @brief
         /// Purpose: Sets the OS window title.

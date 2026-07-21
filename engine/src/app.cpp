@@ -20,13 +20,9 @@ namespace tbx
     /// the dependency graph, and reverse-order destruction IS shutdown.
     struct Runtime
     {
-        Jobs jobs = {};
-        Events events = {};
         Window window;
-        Assets assets;
-        Sandbox sandbox;
+        Sandbox sandbox = {};
         RenderGraph render_graph = {};
-        Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
         std::optional<App> pending_app; // a changed .tapp, freshly decoded, awaiting re-apply
         std::unordered_set<Uuid> acquired_script_sources;
@@ -39,9 +35,6 @@ namespace tbx
                       .width = app.config.width,
                       .height = app.config.height,
                       .is_headless = app.config.is_headless})
-            , assets(jobs, events)
-            , sandbox(jobs, assets)
-            , scripts(sandbox, events)
             , previous_frame(std::chrono::steady_clock::now())
         {
         }
@@ -167,7 +160,7 @@ namespace tbx
             state.window.set_vsync(app.settings.graphics.is_vsync_enabled);
             if (app.config.icon.is_set())
             {
-                if (const auto icon = state.assets.load_now(app.config.icon))
+                if (const auto icon = assets::load_now(app.config.icon))
                     state.window.set_icon(
                         icon->get().width,
                         icon->get().height,
@@ -179,7 +172,7 @@ namespace tbx
         set_shadow_resolution(app.settings.graphics.shadow_resolution);
         physics::set_gravity(app.settings.physics.gravity);
         audio::set_master_volume(app.settings.audio.master_volume);
-        state.assets.set_idle_lifetime(app.settings.assets.idle_lifetime_seconds);
+        assets::set_idle_lifetime(app.settings.assets.idle_lifetime_seconds);
     }
 
     //// BOOT / SHUTDOWN ////
@@ -198,7 +191,7 @@ namespace tbx
             gpu::set_viewport(state.window.get_width(), state.window.get_height());
         }
         if (!app.config.asset_root.empty())
-            state.assets.set_root(app.config.asset_root);
+            assets::set_root(app.config.asset_root);
 
         apply_settings(app, state);
 
@@ -206,7 +199,7 @@ namespace tbx
         // root); games call ui::set_font for their own faces.
         if (!app.config.asset_root.empty())
         {
-            if (const auto font = state.assets.load_now(
+            if (const auto font = assets::load_now(
                     AssetHandle<Font>("Fonts/MontserratMedium.otf")))
                 ui::set_font(font->get(), "Montserrat");
             else
@@ -217,17 +210,17 @@ namespace tbx
         // here registers it, and any change queues a freshly decoded App for re-apply.
         if (!app.config.file.empty())
         {
-            if (const auto self = state.assets.load_now(
+            if (const auto self = assets::load_now(
                     AssetHandle<App>(app.config.file.generic_string()));
                 !self)
                 TBX_WARN("app config: {}", self.error());
-            state.events.asset_reloaded.subscribe(
+            events::asset_reloaded().subscribe(
                 &state,
                 [&state](const AssetReloaded& reloaded)
                 {
                     if (std::string_view(reloaded.extension) != ".tapp")
                         return;
-                    if (const auto fresh = state.assets.load_now(AssetHandle<App>(reloaded.id)))
+                    if (const auto fresh = assets::load_now(AssetHandle<App>(reloaded.id)))
                         state.pending_app = fresh->get();
                     else
                         TBX_ERROR("app config reload: {}", fresh.error());
@@ -235,7 +228,7 @@ namespace tbx
         }
 
         // Idle-collected or hot-reloaded assets drop their render-side caches.
-        state.events.asset_unloaded.subscribe(
+        events::asset_unloaded().subscribe(
             &state,
             [](const AssetUnloaded& unloaded)
             {
@@ -243,17 +236,17 @@ namespace tbx
             });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
-        state.events.asset_reloaded.subscribe(
+        events::asset_reloaded().subscribe(
             &state,
             [&state](const AssetReloaded& reloaded)
             {
                 forget_asset(reloaded.id); // re-upload GPU copies of the fresh data
-                if (!state.scripts.owns(reloaded.extension))
+                if (!scripts::owns(reloaded.extension))
                     return; // not a script source — nothing to (re)register
-                const auto script = state.assets.load_now(AssetHandle<ScriptSource>(reloaded.id));
+                const auto script = assets::load_now(AssetHandle<ScriptSource>(reloaded.id));
                 if (script)
                 {
-                    if (const auto result = state.scripts.reload_source(
+                    if (const auto result = scripts::reload_source(
                             reloaded.id,
                             script->get().name,
                             script->get().source);
@@ -261,7 +254,7 @@ namespace tbx
                         TBX_ERROR("{}", result.error());
                 }
             });
-        state.events.window_resized.subscribe(
+        events::window_resized().subscribe(
             &state,
             [](const WindowResized& resized)
             {
@@ -273,7 +266,7 @@ namespace tbx
         // exit.
         if (app.config.sandbox.is_set())
         {
-            const auto box = state.assets.load_now(app.config.sandbox);
+            const auto box = assets::load_now(app.config.sandbox);
             if (!box)
             {
                 TBX_ERROR("sandbox '{}': {}", app.config.sandbox.path, box.error());
@@ -285,6 +278,8 @@ namespace tbx
                 state.quit_requested = true;
             }
         }
+
+        scripts::bind(state.sandbox);
 
         app.state.is_running = true;
         TBX_INFO(
@@ -308,10 +303,10 @@ namespace tbx
 
         input::pump();
 
-        const bool window_alive = state.window.pump(state.events);
+        const bool window_alive = state.window.pump();
 
-        state.jobs.drain_main();
-        state.events.drain();
+        jobs::drain_main();
+        events::drain();
 
         if (!window_alive || state.quit_requested)
         {
@@ -320,7 +315,11 @@ namespace tbx
             ui::reset();
             audio::reset();
             physics::reset();
-            g_state.reset(); // reverse-declaration-order shutdown
+            scripts::reset(); // the VMs die before their world
+            g_state.reset();  // window + sandbox, reverse-declaration order
+            assets::reset();  // stops the watcher (it posts through jobs)
+            events::reset();
+            jobs::reset(); // last: everything above may still drain into it
             return false;
         }
 
@@ -355,13 +354,13 @@ namespace tbx
                 || state.acquired_script_sources.contains(script.source.id))
                 continue;
             state.acquired_script_sources.insert(script.source.id);
-            if (const auto acquired = state.assets.load_now(script.source); !acquired)
+            if (const auto acquired = assets::load_now(script.source); !acquired)
                 TBX_ERROR("script source '{}': {}", script.source.id.to_string(), acquired.error());
         }
 
-        state.assets.collect_garbage();
-        state.scripts.update(app.state.delta_time);
-        audio::update(state.sandbox, state.assets, app.state.delta_time);
+        assets::collect_garbage();
+        scripts::update(app.state.delta_time);
+        audio::update(state.sandbox, app.state.delta_time);
         ui::update(app.state.delta_time);
 
         const float fixed_step =
@@ -371,8 +370,8 @@ namespace tbx
         while (g_fixed_accumulator >= fixed_step)
         {
             g_fixed_accumulator -= fixed_step;
-            state.scripts.fixed_update(fixed_step);
-            physics::update(state.sandbox, state.assets, state.events, fixed_step);
+            scripts::fixed_update(fixed_step);
+            physics::update(state.sandbox, fixed_step);
         }
 
         return true;
@@ -391,21 +390,6 @@ namespace tbx
 
     //// SUBSYSTEM ACCESS ////
 
-    Assets& get_assets()
-    {
-        return g_state->assets;
-    }
-
-    Events& get_events()
-    {
-        return g_state->events;
-    }
-
-    Jobs& get_jobs()
-    {
-        return g_state->jobs;
-    }
-
     RenderGraph& get_render_graph()
     {
         return g_state->render_graph;
@@ -414,11 +398,6 @@ namespace tbx
     Sandbox& get_sandbox()
     {
         return g_state->sandbox;
-    }
-
-    Scripts& get_scripts()
-    {
-        return g_state->scripts;
     }
 
     Window& get_window()

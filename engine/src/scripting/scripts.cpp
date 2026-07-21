@@ -3,43 +3,69 @@
 #include "tbx/debug/log.h"
 #include <filesystem>
 
-namespace tbx
+namespace tbx::scripts
 {
     //// COMPILED-IN BACKEND FACTORIES ////
     // One line per backend folder; TBX_SCRIPTING_HAS_* comes from tbx_backend_list(). Adding a
     // language = a folder implementing ScriptBackend + its factory declared here.
 
 #ifdef TBX_SCRIPTING_HAS_LUAU
-    std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox, Events& events);
+    std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox);
 #endif
 
-    //// SCRIPTS ////
+    //// STATE ////
 
-    Scripts::Scripts(Sandbox& sandbox, Events& events)
+    /// @brief
+    /// Purpose: The module's whole state: the backends, built against one bound sandbox.
+    struct ScriptsState
     {
+        Sandbox* sandbox = nullptr;
+        std::vector<std::unique_ptr<ScriptBackend>> _backends;
+    };
+
+    static std::unique_ptr<ScriptsState> g_scripts = {};
+
+    //// BOUNDARY ////
+
+    void bind(Sandbox& sandbox)
+    {
+        if (g_scripts && g_scripts->sandbox == &sandbox)
+            return;
+        g_scripts = std::make_unique<ScriptsState>();
+        g_scripts->sandbox = &sandbox;
         register_builtin_blocks();
 #ifdef TBX_SCRIPTING_HAS_LUAU
-        add_backend(make_luau_backend(sandbox, events));
+        add_backend(make_luau_backend(sandbox));
 #endif
     }
 
-    void Scripts::add_backend(std::unique_ptr<ScriptBackend> backend)
+    void add_backend(std::unique_ptr<ScriptBackend> backend)
     {
+        if (!g_scripts)
+        {
+            TBX_ERROR("scripts::add_backend needs a bound sandbox (scripts::bind first)");
+            return;
+        }
         TBX_INFO("scripting backend '{}' ready", backend->get_name());
-        _backends.push_back(std::move(backend));
+        g_scripts->_backends.push_back(std::move(backend));
     }
 
-    std::optional<std::reference_wrapper<ScriptBackend>> Scripts::route(const std::string& name)
+    void reset()
     {
-        if (_backends.empty())
+        g_scripts.reset();
+    }
+
+    static std::optional<std::reference_wrapper<ScriptBackend>> route(const std::string& name)
+    {
+        if (!g_scripts || g_scripts->_backends.empty())
             return {};
         const auto extension = std::filesystem::path(name).extension().string();
         if (!extension.empty())
-            for (const auto& backend : _backends)
+            for (const auto& backend : g_scripts->_backends)
                 if (backend->owns_extension(extension))
                     return *backend;
         // Extensionless names (tests, generated sources) run on the first backend.
-        return *_backends.front();
+        return *g_scripts->_backends.front();
     }
 
     /// @brief
@@ -50,7 +76,7 @@ namespace tbx
         return Uuid {.hi = hashed, .lo = ~hashed};
     }
 
-    Result<void> Scripts::load_source(
+    Result<void> load_source(
         const Uuid& id,
         const std::string& name,
         const std::string_view source)
@@ -61,7 +87,7 @@ namespace tbx
         return backend->get().load_source(id, name, source);
     }
 
-    Result<AssetHandle<ScriptSource>> Scripts::load_source(
+    Result<AssetHandle<ScriptSource>> load_source(
         const std::string& name,
         const std::string_view source)
     {
@@ -72,7 +98,7 @@ namespace tbx
         return ok(AssetHandle<ScriptSource>(id));
     }
 
-    Result<void> Scripts::reload_source(
+    Result<void> reload_source(
         const Uuid& id,
         const std::string& name,
         const std::string_view source)
@@ -83,30 +109,36 @@ namespace tbx
         return backend->get().reload_source(id, name, source);
     }
 
-    Result<void> Scripts::reload_source(const std::string& name, const std::string_view source)
+    Result<void> reload_source(const std::string& name, const std::string_view source)
     {
         return reload_source(derived_script_id(name), name, source);
     }
 
-    bool Scripts::owns(const std::string_view extension) const
+    bool owns(const std::string_view extension)
     {
-        for (const auto& backend : _backends)
+        if (!g_scripts)
+            return false;
+        for (const auto& backend : g_scripts->_backends)
             if (backend->owns_extension(extension))
                 return true;
         return false;
     }
 
-    void Scripts::fixed_update(const float fixed_delta_time)
+    void fixed_update(const float fixed_delta_time)
     {
-        for (const auto& backend : _backends)
+        if (!g_scripts)
+            return;
+        for (const auto& backend : g_scripts->_backends)
             backend->fixed_update(fixed_delta_time);
     }
 
-    void Scripts::update(const float delta_time)
+    void update(const float delta_time)
     {
+        if (!g_scripts)
+            return;
         // Every backend runs; each skips Script blocks whose source it never loaded, so mixed
         // C++/Lua/C# toys coexist in one sandbox.
-        for (const auto& backend : _backends)
+        for (const auto& backend : g_scripts->_backends)
             backend->update(delta_time);
     }
 }

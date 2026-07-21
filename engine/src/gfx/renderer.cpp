@@ -263,7 +263,7 @@ namespace tbx::gpu
         bool is_failed = false;
     };
 
-    static ResolvedMesh resolve_mesh(const Renderer& renderer, Assets& assets)
+    static ResolvedMesh resolve_mesh(const Renderer& renderer)
     {
         if (!renderer.model.is_set() || renderer.model.id == builtin::CUBE.id)
             return {.mesh = *g_renderer.cube};
@@ -274,7 +274,7 @@ namespace tbx::gpu
 
         // Ask the asset system every frame — the reference keeps the asset resident; the GPU
         // upload is only a cache over it (dropped via forget_asset when the asset goes).
-        const auto model = assets.load_now(renderer.model);
+        const auto model = assets::load_now(renderer.model);
         if (!model)
         {
             warn_once(renderer.model.id, "model unavailable: " + model.error());
@@ -298,15 +298,14 @@ namespace tbx::gpu
     };
 
     static ResolvedTexture resolve_texture_handle(
-        const AssetHandle<Texture>& handle,
-        Assets& assets)
+        const AssetHandle<Texture>& handle)
     {
         if (!handle.is_set())
             return {.texture = *g_renderer.white};
         const auto cached = g_renderer.textures_by_asset.find(handle.id);
         if (cached != g_renderer.textures_by_asset.end())
             return {.texture = *cached->second};
-        if (const auto texture = assets.load_now(handle))
+        if (const auto texture = assets::load_now(handle))
         {
             auto uploaded =
                 upload_texture(texture->get().width, texture->get().height, texture->get().pixels);
@@ -344,8 +343,7 @@ namespace tbx::gpu
     /// ShaderSource, the other falls back to the builtin pbr stage; pairs cache together.
     static void resolve_material_shaders(
         const Material& material,
-        ResolvedSurface& surface,
-        Assets& assets)
+        ResolvedSurface& surface)
     {
         if (!material.vertex.is_set() && !material.fragment.is_set())
             return;
@@ -368,7 +366,7 @@ namespace tbx::gpu
         auto fragment_text = std::string();
         if (material.vertex.is_set())
         {
-            const auto source = assets.load_now(material.vertex);
+            const auto source = assets::load_now(material.vertex);
             if (!source)
             {
                 warn_once(material.vertex.id, "material vertex shader: " + source.error());
@@ -382,7 +380,7 @@ namespace tbx::gpu
             vertex_text = g_renderer.pbr_vertex_text;
         if (material.fragment.is_set())
         {
-            const auto source = assets.load_now(material.fragment);
+            const auto source = assets::load_now(material.fragment);
             if (!source)
             {
                 warn_once(material.fragment.id, "material fragment shader: " + source.error());
@@ -412,7 +410,7 @@ namespace tbx::gpu
         surface.pipeline = *entry.pipeline;
     }
 
-    static ResolvedSurface resolve_surface(const Renderer& renderer, Assets& assets)
+    static ResolvedSurface resolve_surface(const Renderer& renderer)
     {
         auto surface = ResolvedSurface {
             .shader = *g_renderer.lit_shader,
@@ -421,7 +419,7 @@ namespace tbx::gpu
         if (!renderer.material.is_set())
             return surface; // the builtin white PBR surface
 
-        const auto material = assets.load_now(renderer.material);
+        const auto material = assets::load_now(renderer.material);
         if (!material)
         {
             warn_once(renderer.material.id, "material unavailable: " + material.error());
@@ -437,14 +435,14 @@ namespace tbx::gpu
         surface.uniforms = resolved.uniforms;
         if (resolved.albedo_map.is_set())
         {
-            const auto albedo_map = resolve_texture_handle(resolved.albedo_map, assets);
+            const auto albedo_map = resolve_texture_handle(resolved.albedo_map);
             surface.albedo = albedo_map.texture;
             if (albedo_map.is_failed)
                 surface.failure = FAILURE_TEXTURE;
         }
         if (resolved.normal_map.is_set())
         {
-            const auto normal_map = resolve_texture_handle(resolved.normal_map, assets);
+            const auto normal_map = resolve_texture_handle(resolved.normal_map);
             if (normal_map.is_failed)
                 surface.failure = FAILURE_TEXTURE;
             else
@@ -452,13 +450,13 @@ namespace tbx::gpu
         }
         if (resolved.metallic_roughness_map.is_set())
         {
-            const auto mr_map = resolve_texture_handle(resolved.metallic_roughness_map, assets);
+            const auto mr_map = resolve_texture_handle(resolved.metallic_roughness_map);
             if (mr_map.is_failed)
                 surface.failure = FAILURE_TEXTURE;
             else
                 surface.metallic_roughness_map = mr_map.texture;
         }
-        resolve_material_shaders(resolved, surface, assets);
+        resolve_material_shaders(resolved, surface);
         return surface;
     }
 
@@ -466,8 +464,7 @@ namespace tbx::gpu
     /// Purpose: A PostProcessing entry compiled against the builtin post vertex stage, cached
     /// by asset id (failures cache too, so a broken shader warns once and is skipped).
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
-        const AssetHandle<ShaderSource>& handle,
-        Assets& assets)
+        const AssetHandle<ShaderSource>& handle)
     {
         if (!handle.is_set())
             return {};
@@ -478,7 +475,7 @@ namespace tbx::gpu
                 return {};
             return cached->second;
         }
-        const auto source = assets.load_now(handle);
+        const auto source = assets::load_now(handle);
         if (!source)
         {
             warn_once(handle.id, "post shader unavailable: " + source.error());
@@ -566,7 +563,7 @@ namespace tbx::gpu
 
     //// BUILTIN PASSES ////
 
-    static void render_shadow_pass(Sandbox& sandbox, Assets& assets)
+    static void render_shadow_pass(Sandbox& sandbox)
     {
         if (!ensure_renderer_ready())
             return;
@@ -587,12 +584,12 @@ namespace tbx::gpu
                 *g_renderer.depth_shader,
                 "u_model",
                 sandbox.get_world_matrix(Toy(sandbox, entity)));
-            draw(resolve_mesh(renderer, assets).mesh);
+            draw(resolve_mesh(renderer).mesh);
         }
         end_render_pass();
     }
 
-    static void render_geometry_pass(Sandbox& sandbox, Assets& assets)
+    static void render_geometry_pass(Sandbox& sandbox)
     {
         if (!ensure_renderer_ready())
             return;
@@ -609,7 +606,7 @@ namespace tbx::gpu
         for (const auto [entity, post] : registry.view<PostProcessing>().each())
         {
             for (const AssetHandle<ShaderSource>& handle : post.shaders)
-                if (const auto stage = resolve_post_shader(handle, assets))
+                if (const auto stage = resolve_post_shader(handle))
                     post_chain_probe.push_back(*stage);
             break; // the first PostProcessing toy wins
         }
@@ -644,7 +641,7 @@ namespace tbx::gpu
             set_uniform(sky_shader, "u_sky", 0);
             const auto sky_bindings = std::array {TextureBinding {
                 .slot = 0,
-                .texture = std::cref(resolve_texture_handle(sky.texture, assets).texture.get())}};
+                .texture = std::cref(resolve_texture_handle(sky.texture).texture.get())}};
             draw(*g_renderer.fullscreen, sky_bindings);
             break;
         }
@@ -655,8 +652,8 @@ namespace tbx::gpu
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
-            const ResolvedMesh mesh = resolve_mesh(renderer, assets);
-            auto surface = resolve_surface(renderer, assets);
+            const ResolvedMesh mesh = resolve_mesh(renderer);
+            auto surface = resolve_surface(renderer);
             if (mesh.is_failed)
                 surface.failure = FAILURE_MODEL;
             if (surface.failure)
@@ -711,7 +708,7 @@ namespace tbx::gpu
         }
     }
 
-    static void render_post_pass(Sandbox& sandbox, Assets& assets)
+    static void render_post_pass(Sandbox& sandbox)
     {
         if (!ensure_renderer_ready() || !g_frame.is_post_active)
             return;
@@ -720,7 +717,7 @@ namespace tbx::gpu
         for (const auto [entity, post] : registry.view<PostProcessing>().each())
         {
             for (const AssetHandle<ShaderSource>& handle : post.shaders)
-                if (const auto stage = resolve_post_shader(handle, assets))
+                if (const auto stage = resolve_post_shader(handle))
                     post_chain.push_back(*stage);
             break;
         }
@@ -806,7 +803,7 @@ namespace tbx::gpu
         draw(*g_renderer.fullscreen, bindings);
     }
 
-    static void render_ui_pass(Sandbox& sandbox, Assets& assets)
+    static void render_ui_pass(Sandbox& sandbox)
     {
         if (!ensure_renderer_ready())
             return;
@@ -851,7 +848,7 @@ namespace tbx::gpu
         {
             if (!ui_block.document.is_set() || !registry.get<ToyHandle>(entity).is_enabled)
                 continue;
-            const auto document = assets.load_now(ui_block.document);
+            const auto document = assets::load_now(ui_block.document);
             if (!document)
             {
                 const Uuid key = ui_block.document.is_valid()
@@ -892,14 +889,14 @@ namespace tbx::gpu
             auto fragment_source = std::string();
             if (ui_block.vertex.is_set())
             {
-                if (const auto source = assets.load_now(ui_block.vertex))
+                if (const auto source = assets::load_now(ui_block.vertex))
                     vertex_source = source->get().text;
                 else
                     warn_once(ui_block.vertex.id, "ui vertex shader: " + source.error());
             }
             if (ui_block.fragment.is_set())
             {
-                if (const auto source = assets.load_now(ui_block.fragment))
+                if (const auto source = assets::load_now(ui_block.fragment))
                     fragment_source = source->get().text;
                 else
                     warn_once(ui_block.fragment.id, "ui fragment shader: " + source.error());
@@ -918,7 +915,7 @@ namespace tbx::gpu
         if (!is_app_running())
             return;
         begin_frame();
-        get_render_graph().render(sandbox, get_assets());
+        get_render_graph().render(sandbox);
     }
 }
 
@@ -956,12 +953,12 @@ namespace tbx
         }
     }
 
-    void RenderGraph::render(Sandbox& sandbox, Assets& assets)
+    void RenderGraph::render(Sandbox& sandbox)
     {
         gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         for (const RenderPass& pass : _passes)
             if (pass.render)
-                pass.render(sandbox, assets);
+                pass.render(sandbox);
     }
 
     void RenderGraph::set_passes(std::vector<RenderPass> passes)

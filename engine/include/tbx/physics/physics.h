@@ -47,5 +47,5 @@ namespace tbx::physics
     /// world (Shape::MESH colliders take their triangles from the toy's Renderer block, so
     /// mesh-collider toys must wear one), steps, writes dynamic poses back to Transforms, and
     /// emits collision events (delivered at the next pump drain).
-    TBX_API void update(Sandbox& sandbox, Assets& assets, Events& events, float fixed_delta_time);
+    TBX_API void update(Sandbox& sandbox, float fixed_delta_time);
 }

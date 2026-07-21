@@ -57,63 +57,67 @@ namespace tbx
         virtual void fixed_update(float fixed_delta_time) = 0;
     };
 
+}
+
+// The scripting coordinator: routes sources to the backend that owns their extension
+// (extensionless names go to the first backend) and fans update() out to all. Module state
+// (the backends, created for one bound sandbox) lives behind the boundary; reset() tears the
+// VMs down — run() resets BEFORE the world dies so no script outlives its toys. Main thread
+// only.
+namespace tbx::scripts
+{
     /// @brief
-    /// Purpose: The scripting coordinator: routes sources to the backend that owns their
-    /// extension (extensionless names go to the first backend) and fans update() out to all.
-    /// @details
-    /// Ownership: Owns every backend (compiled-in ones from TBX_SCRIPTING_BACKENDS plus any the
-    /// game adds). Thread Safety: Main thread only.
-    class TBX_API Scripts final
-    {
-      public:
-        Scripts(Sandbox& sandbox, Events& events);
+    /// Purpose: Registers an additional backend (e.g. the game exe's own C++ "scripting");
+    /// requires a bound sandbox.
+    TBX_API void add_backend(std::unique_ptr<ScriptBackend> backend);
 
-      public:
-        Scripts(const Scripts&) = delete;
-        Scripts& operator=(const Scripts&) = delete;
+    /// @brief
+    /// Purpose: Creates the compiled-in backends against this world. Binding a different
+    /// sandbox tears the old VMs down first; binding the same one is a no-op. run() binds
+    /// its sandbox at boot; tests bind theirs.
+    TBX_API void bind(Sandbox& sandbox);
 
-      public:
-        /// @brief
-        /// Purpose: Registers an additional backend (e.g. the game exe's own C++ "scripting").
-        void add_backend(std::unique_ptr<ScriptBackend> backend);
+    /// @brief
+    /// Purpose: Runs every backend's fixed-cadence hook; called from the fixed step alongside
+    /// physics so scripts can do physics-rate work.
+    TBX_API void fixed_update(float fixed_delta_time);
 
-        /// @brief
-        /// Purpose: Registers a source under an explicit asset id (the asset pipeline path).
-        Result<void> load_source(const Uuid& id, const std::string& name, std::string_view source);
+    /// @brief
+    /// Purpose: Registers a source under an explicit asset id (the asset pipeline path).
+    TBX_API Result<void> load_source(
+        const Uuid& id,
+        const std::string& name,
+        std::string_view source);
 
-        /// @brief
-        /// Purpose: Compiles a source under a deterministic id derived from its name and
-        /// returns the handle Script blocks use — the manual/test path.
-        Result<AssetHandle<ScriptSource>> load_source(
-            const std::string& name,
-            std::string_view source);
+    /// @brief
+    /// Purpose: Compiles a source under a deterministic id derived from its name and returns
+    /// the handle Script blocks use — the manual/test path.
+    TBX_API Result<AssetHandle<ScriptSource>> load_source(
+        const std::string& name,
+        std::string_view source);
 
-        /// @brief
-        /// Purpose: Hot reload under an explicit asset id.
-        Result<void> reload_source(const Uuid& id, const std::string& name, std::string_view source);
+    /// @brief
+    /// Purpose: True when some backend runs files with the given extension (".luau") —
+    /// listeners use it to filter asset events down to script sources.
+    TBX_API bool owns(std::string_view extension);
 
-        /// @brief
-        /// Purpose: Hot reload under the name-derived id (the manual/test path).
-        Result<void> reload_source(const std::string& name, std::string_view source);
+    /// @brief
+    /// Purpose: Hot reload under an explicit asset id.
+    TBX_API Result<void> reload_source(
+        const Uuid& id,
+        const std::string& name,
+        std::string_view source);
 
-        /// @brief
-        /// Purpose: Runs every scripted toy across every backend. Called by tbx::run().
-        void update(float delta_time);
+    /// @brief
+    /// Purpose: Hot reload under the name-derived id (the manual/test path).
+    TBX_API Result<void> reload_source(const std::string& name, std::string_view source);
 
-        /// @brief
-        /// Purpose: Runs every backend's fixed-cadence hook; called from the fixed step
-        /// alongside physics so scripts can do physics-rate work.
-        void fixed_update(float fixed_delta_time);
+    /// @brief
+    /// Purpose: Tears every backend (and its VM) down; the next bind() starts fresh. run()
+    /// calls this at shutdown, before the sandbox dies.
+    TBX_API void reset();
 
-        /// @brief
-        /// Purpose: True when some backend runs files with the given extension (".luau") —
-        /// listeners use it to filter asset events down to script sources.
-        bool owns(std::string_view extension) const;
-
-      private:
-        std::optional<std::reference_wrapper<ScriptBackend>> route(const std::string& name);
-
-      private:
-        std::vector<std::unique_ptr<ScriptBackend>> _backends;
-    };
+    /// @brief
+    /// Purpose: Runs every scripted toy across every backend. Called by tbx::run().
+    TBX_API void update(float delta_time);
 }
