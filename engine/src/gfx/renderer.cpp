@@ -871,13 +871,17 @@ namespace tbx::gpu
                          * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
                 world_position.y -= 1.2f;
                 const Vec4 clip = g_frame.view_projection * Vec4(world_position, 1.0f);
+                // Both states spell out display: RmlUi's style attribute only SETS the
+                // properties it parses — a property from an earlier style string (the
+                // display: none while behind the camera) is never removed, so coming back
+                // into view must explicitly set it visible again.
                 auto style = std::string("display: none;");
                 if (clip.w > 0.05f)
                 {
                     const float screen_x = (clip.x / clip.w * 0.5f + 0.5f) * width;
                     const float screen_y = (1.0f - (clip.y / clip.w * 0.5f + 0.5f)) * height;
                     style = std::format(
-                        "left: {}px; top: {}px;",
+                        "left: {}px; top: {}px; display: block;",
                         static_cast<int>(screen_x) - 80,
                         static_cast<int>(screen_y));
                 }
