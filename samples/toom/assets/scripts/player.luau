@@ -8,16 +8,16 @@ local kills: number = 0
 local frame: number = 0
 local shot_instance = nil
 
--- The HUD as plain data: bound to the UI once in start(); the script just mutates it and
--- the bound documents follow (data-style attributes in hud.html / health.rml).
+-- The HUD as plain data: bound once in start(), then the script just mutates the numbers —
+-- the documents turn them into bars via data-width attributes.
 local hud = {
-    kills_style = "width: 0px;",
-    health_style = "width: 200px;",
+    kills = 0,
+    health = 100,
 }
 
 function start(toy)
-    tbx.ui.bind("kills_style", hud, "kills_style")
-    tbx.ui.bind("health_style", hud, "health_style")
+    tbx.ui.bind(hud, "kills")
+    tbx.ui.bind(hud, "health")
 end
 
 local UP = { x = 0.0, y = 1.0, z = 0.0 }
@@ -33,7 +33,7 @@ local function fire(toy, position, forward)
         tbx.sandbox.despawn(hit.toy)
         kills = kills + 1
         toy:sticker("scored")
-        hud.kills_style = string.format("width: %dpx;", kills * 40)
+        hud.kills += 1
     end
     -- The gunshot is a kit: a speaker toy with the blip clip, placed at the hit.
     if shot_instance then

@@ -4,6 +4,7 @@
 #include "tbx/gfx/gpu.h"
 #include "tbx/utils/hash.h"
 #include <RmlUi/Core.h>
+#include <charconv>
 #include <filesystem>
 #include <format>
 #include <functional>
@@ -251,6 +252,32 @@ namespace tbx::ui
                     element->SetInnerRML(found->second);
                     element->SetAttribute("data-applied-text", found->second);
                 }
+            }
+        }
+        // Bars bind raw numbers: data-width="kills" data-width-scale="40" -> width in px.
+        for (const char* property : {"width", "height"})
+        {
+            const auto attribute = std::format("data-{}", property);
+            const Rml::Variant* size_binding = element->GetAttribute(attribute);
+            if (!size_binding)
+                continue;
+            const auto found = state.bindings.find(size_binding->Get<Rml::String>());
+            if (found == state.bindings.end())
+                continue;
+            auto scale = 1.0f;
+            if (const Rml::Variant* scale_attribute =
+                    element->GetAttribute(attribute + "-scale"))
+                scale = scale_attribute->Get<float>();
+            auto value = 0.0f;
+            const auto text = found->second;
+            std::from_chars(text.data(), text.data() + text.size(), value);
+            const auto pixels = std::format("{}px", value * scale);
+            const auto applied_key = std::format("data-applied-{}", property);
+            const Rml::Variant* applied = element->GetAttribute(applied_key);
+            if (!applied || applied->Get<Rml::String>() != pixels)
+            {
+                element->SetProperty(property, pixels);
+                element->SetAttribute(applied_key, pixels);
             }
         }
         if (const Rml::Variant* style_binding = element->GetAttribute("data-style"))

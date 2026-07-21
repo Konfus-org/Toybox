@@ -1,14 +1,15 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/gfx/render_target.h"
 #include "tbx/math/math.h"
 #include "tbx/ui/ui_document.h"
+#include "tbx/utils/api.h"
 #include "tbx/utils/color.h"
 #include <format>
 #include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
+
 
 // The concrete UI boundary (see cmake/tbx_backend.cmake): ui/rmlui/ implements it and its
 // library types never escape that folder. Pass-composable shape: draw(document) queues a
@@ -43,6 +44,15 @@ namespace tbx::ui
         std::string_view fragment_shader = {});
 
     /// @brief
+    /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
+    TBX_API void reset();
+
+    /// @brief
+    /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
+    /// documents; called by tbx::run() every frame.
+    TBX_API void update(float delta_time);
+
+    /// @brief
     /// Purpose: Renders everything queued by draw() into the target (cleared to transparent,
     /// premultiplied alpha) and empties the queue — the pass owns what happens to the
     /// texture afterwards.
@@ -56,15 +66,6 @@ namespace tbx::ui
     /// @brief
     /// Purpose: Releases the binding with the given name.
     TBX_API void unbind(const std::string& name);
-
-    /// @brief
-    /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
-    TBX_API void reset();
-
-    /// @brief
-    /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
-    /// documents; called by tbx::run() every frame.
-    TBX_API void update(float delta_time);
 
     // The typed one-off setters: push a value into a named slot right now.
 
@@ -96,20 +97,25 @@ namespace tbx::ui
     /// Purpose: Sets a slot to "x, y, z".
     TBX_API void set_vec3(const std::string& name, const Vec3& value);
 
-    // The live bind_to family: the slot follows the referenced variable (which must outlive
-    // the binding; unbind() releases it). Each returns through bind() with a UiBinding.
+    // The live bind family: this property binds to that UI element — mutate the variable
+    // and the element follows (the variable must outlive the binding; unbind() releases).
+    // Elements consume values via data-text (inner text), data-width/data-height (bar sizes,
+    // scaled by data-width-scale/data-height-scale), or data-style (raw style, engine use).
 
     /// @brief
-    /// Purpose: Live-links a slot to a bool.
-    inline void bind_to(std::string name, const bool& value)
+    /// Purpose: Binds a bool to the named element slot.
+    inline void bind(const bool& value, std::string name)
     {
-        auto source = [&value] { return std::string(value ? "true" : "false"); };
+        auto source = [&value]
+        {
+            return std::string(value ? "true" : "false");
+        };
         bind({.name = std::move(name), .source = std::move(source)});
     }
 
     /// @brief
-    /// Purpose: Live-links a slot to a color (#rrggbbaa).
-    inline void bind_to(std::string name, const Color& value)
+    /// Purpose: Binds a color (#rrggbbaa) to the named element slot.
+    inline void bind(const Color& value, std::string name)
     {
         auto source = [&value]
         {
@@ -124,43 +130,57 @@ namespace tbx::ui
     }
 
     /// @brief
-    /// Purpose: Live-links a slot to a float.
-    inline void bind_to(std::string name, const float& value)
-    {
-        auto source = [&value] { return std::format("{}", value); };
-        bind({.name = std::move(name), .source = std::move(source)});
-    }
-
-    /// @brief
-    /// Purpose: Live-links a slot to an int.
-    inline void bind_to(std::string name, const int& value)
-    {
-        auto source = [&value] { return std::format("{}", value); };
-        bind({.name = std::move(name), .source = std::move(source)});
-    }
-
-    /// @brief
-    /// Purpose: Live-links a slot to a string.
-    inline void bind_to(std::string name, const std::string& value)
-    {
-        auto source = [&value] { return value; };
-        bind({.name = std::move(name), .source = std::move(source)});
-    }
-
-    /// @brief
-    /// Purpose: Live-links a slot to a Vec2 ("x, y").
-    inline void bind_to(std::string name, const Vec2& value)
-    {
-        auto source = [&value] { return std::format("{}, {}", value.x, value.y); };
-        bind({.name = std::move(name), .source = std::move(source)});
-    }
-
-    /// @brief
-    /// Purpose: Live-links a slot to a Vec3 ("x, y, z").
-    inline void bind_to(std::string name, const Vec3& value)
+    /// Purpose: Binds a float to the named element slot.
+    inline void bind(const float& value, std::string name)
     {
         auto source = [&value]
-        { return std::format("{}, {}, {}", value.x, value.y, value.z); };
+        {
+            return std::format("{}", value);
+        };
+        bind({.name = std::move(name), .source = std::move(source)});
+    }
+
+    /// @brief
+    /// Purpose: Binds an int to the named element slot.
+    inline void bind(const int& value, std::string name)
+    {
+        auto source = [&value]
+        {
+            return std::format("{}", value);
+        };
+        bind({.name = std::move(name), .source = std::move(source)});
+    }
+
+    /// @brief
+    /// Purpose: Binds a string to the named element slot.
+    inline void bind(const std::string& value, std::string name)
+    {
+        auto source = [&value]
+        {
+            return value;
+        };
+        bind({.name = std::move(name), .source = std::move(source)});
+    }
+
+    /// @brief
+    /// Purpose: Binds a Vec2 ("x, y") to the named element slot.
+    inline void bind(const Vec2& value, std::string name)
+    {
+        auto source = [&value]
+        {
+            return std::format("{}, {}", value.x, value.y);
+        };
+        bind({.name = std::move(name), .source = std::move(source)});
+    }
+
+    /// @brief
+    /// Purpose: Binds a Vec3 ("x, y, z") to the named element slot.
+    inline void bind(const Vec3& value, std::string name)
+    {
+        auto source = [&value]
+        {
+            return std::format("{}, {}, {}", value.x, value.y, value.z);
+        };
         bind({.name = std::move(name), .source = std::move(source)});
     }
 }

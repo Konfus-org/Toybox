@@ -68,7 +68,7 @@ static int run_scene_selftest()
     bool reflection_works = false;
     tbx::Toy camera = {};
     auto stats = SelftestStats {};
-    tbx::ui::bind_to("scene_frames", stats.frames);
+    tbx::ui::bind(stats.frames, "scene_frames");
 
     while (tbx::run(app))
     {
