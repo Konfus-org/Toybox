@@ -849,8 +849,7 @@ namespace tbx::gpu
         auto& registry = sandbox.get_registry();
         for (const auto [entity, ui_block] : registry.view<Ui>().each())
         {
-            if (!ui_block.document.is_set() || !ui_block.is_visible
-                || !registry.get<ToyHandle>(entity).is_enabled)
+            if (!ui_block.document.is_set() || !registry.get<ToyHandle>(entity).is_enabled)
                 continue;
             const auto document = assets.load_now(ui_block.document);
             if (!document)

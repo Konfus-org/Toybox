@@ -1,6 +1,7 @@
 #pragma once
 #include "tbx/gfx/render_target.h"
 #include "tbx/math/math.h"
+#include "tbx/ui/ui_block.h"
 #include "tbx/ui/ui_document.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/color.h"

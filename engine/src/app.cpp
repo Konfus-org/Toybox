@@ -83,7 +83,6 @@ namespace tbx
             .field("document", &Ui::document)
             .field("vertex", &Ui::vertex)
             .field("fragment", &Ui::fragment)
-            .field("is_visible", &Ui::is_visible)
             .field("is_world_anchored", &Ui::is_world_anchored);
         register_block<Sky>("Sky")
             .field("texture", &Sky::texture)
