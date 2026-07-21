@@ -25,7 +25,9 @@ int main(int argc, char** argv)
         .title = "Toybox Doom",
         .asset_root = SAMPLE_ASSETS_PATH,
         .sandbox = "levels/arena.box",
-        .ui = "ui/hud.rml"};
+        .ui = "ui/hud.rml",
+    };
+
     float yaw = 0.0f;
     float pitch = 0.0f;
     int kills = 0;
@@ -56,7 +58,7 @@ int main(int argc, char** argv)
         yaw -= input::get_mouse_delta().x * 0.003f;
         pitch = std::clamp(pitch - input::get_mouse_delta().y * 0.003f, -1.4f, 1.4f);
         transform.rotation = math::angle_axis(yaw, Vec3(0.0f, 1.0f, 0.0f))
-            * math::angle_axis(pitch, Vec3(1.0f, 0.0f, 0.0f));
+                             * math::angle_axis(pitch, Vec3(1.0f, 0.0f, 0.0f));
         const Vec3 forward = transform.rotation * Vec3(0.0f, 0.0f, -1.0f);
         const Vec3 flat_forward = math::normalize(Vec3(forward.x, 0.0f, forward.z));
         const Vec3 right = transform.rotation * Vec3(1.0f, 0.0f, 0.0f);

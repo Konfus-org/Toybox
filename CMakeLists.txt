@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(TBX_BUILD_TESTS "Build engine tests" OFF)
-option(TBX_BUILD_SAMPLE "Build the sample game" ON)
+option(TBX_BUILD_SAMPLES "Build the sample games" ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(tbx_backend)
@@ -183,8 +183,8 @@ endfunction()
 
 # --- Executables ---
 add_subdirectory(runtime)
-if(TBX_BUILD_SAMPLE AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/sample")
-    add_subdirectory(sample)
+if(TBX_BUILD_SAMPLES AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/samples")
+    add_subdirectory(samples)
 endif()
 if(TBX_BUILD_TESTS)
     enable_testing()
