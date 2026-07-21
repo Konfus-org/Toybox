@@ -69,7 +69,7 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::filesystem::path asset_root = {};
-        AssetHandle<Json> sandbox = {};  // a .box layout the boot opens
+        AssetHandle<Box> sandbox = {};   // the .box (box of kits) the boot opens
         AssetHandle<Texture> icon = {};  // the window/taskbar icon
         AssetHandle<Json> config = {};   // the .tapp itself (set by load_app; watched live)
         GraphicsSettings graphics = {};

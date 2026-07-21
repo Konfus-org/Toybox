@@ -1,5 +1,6 @@
 #include "tbx/app.h"
 #include "tbx/physics/physics.h"
+#include "tbx/assets/assets.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests
@@ -12,9 +13,9 @@ namespace tbx::tests
         physics::reset();
         register_builtin_blocks();
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         sandbox.spawn("Floor")
             .with(Transform {.position = Vec3(0.0f, -0.5f, 0.0f)})
             .with(Collider {.half_extents = Vec3(20.0f, 0.5f, 20.0f)});
@@ -38,9 +39,9 @@ namespace tbx::tests
         // Arrange
         physics::reset();
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         Toy wall = sandbox.spawn("Wall")
                        .with(Transform {.position = Vec3(3.0f, 4.0f, 0.0f)})
                        .with(Collider {});
@@ -59,9 +60,9 @@ namespace tbx::tests
         // Arrange
         physics::reset();
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto collisions = std::vector<std::pair<uint32, uint32>>();
         events.collision.subscribe(
             &collisions,
@@ -95,9 +96,9 @@ namespace tbx::tests
         // Arrange
         physics::reset();
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
         auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         Toy target = sandbox.spawn("Target")
                          .with(Transform {.position = Vec3(0.0f, 0.0f, -5.0f)})
                          .with(Collider {});

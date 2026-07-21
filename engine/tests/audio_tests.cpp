@@ -71,8 +71,8 @@ namespace tbx::tests
         audio::reset();
         auto jobs = Jobs();
         auto events = Events();
-        auto sandbox = Sandbox(jobs);
         auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         sandbox.spawn("Speaker").with(AudioSource {});
 
         // Act / Assert: no listener, no clip loaded — surviving IS the behavior.

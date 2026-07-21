@@ -1,14 +1,14 @@
 #include "tbx/app.h"
-#include "tbx/debug/log.h"
-#include "tbx/debug/debug_view.h"
-#include "tbx/gfx/gpu.h"
 #include "tbx/audio/audio.h"
-#include "tbx/ui/ui.h"
+#include "tbx/debug/debug_view.h"
+#include "tbx/debug/log.h"
 #include "tbx/ecs/block.h"
+#include "tbx/files/files.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
-#include "tbx/files/files.h"
 #include "tbx/reflect/json_walker.h"
+#include "tbx/ui/ui.h"
 #include <chrono>
 #include <memory>
 #include <unordered_set>
@@ -40,7 +40,7 @@ namespace tbx
                       .height = app.height,
                       .is_headless = app.is_headless})
             , assets(jobs, events)
-            , sandbox(jobs)
+            , sandbox(jobs, assets)
             , scripts(sandbox, events)
             , previous_frame(std::chrono::steady_clock::now())
         {
@@ -84,11 +84,8 @@ namespace tbx
             .field("vertex", &Ui::vertex)
             .field("fragment", &Ui::fragment)
             .field("is_world_anchored", &Ui::is_world_anchored);
-        register_block<Sky>("Sky")
-            .field("texture", &Sky::texture)
-            .field("tint", &Sky::tint);
-        register_block<PostProcessing>("PostProcessing")
-            .field("shaders", &PostProcessing::shaders);
+        register_block<Sky>("Sky").field("texture", &Sky::texture).field("tint", &Sky::tint);
+        register_block<PostProcessing>("PostProcessing").field("shaders", &PostProcessing::shaders);
         register_block<Script>("Script").field("source", &Script::source);
         register_block<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
         register_block<AudioSource>("AudioSource")
@@ -138,8 +135,7 @@ namespace tbx
         if (!is_valid(*text))
             return fail("'{}' is not a valid .tapp (JSON)", tapp_file.string());
         auto app = App {};
-        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse(*text));
-            !read)
+        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse(*text)); !read)
             return std::unexpected(read.error());
         app.asset_root = tapp_file.parent_path();
         app.config = AssetHandle<Json>(tapp_file.filename().string());
@@ -159,7 +155,9 @@ namespace tbx
             {
                 if (const auto icon = state.assets.load_now(app.icon))
                     state.window.set_icon(
-                        icon->get().width, icon->get().height, icon->get().pixels);
+                        icon->get().width,
+                        icon->get().height,
+                        icon->get().pixels);
                 else
                     TBX_WARN("window icon: {}", icon.error());
             }
@@ -176,8 +174,10 @@ namespace tbx
     {
         register_builtin_blocks();
         register_app_types();
+
         g_state = std::make_unique<AppState>(app);
         AppState& state = *g_state;
+
         if (!state.window.is_headless())
         {
             gpu::initialize();
@@ -185,6 +185,7 @@ namespace tbx
         }
         if (!app.asset_root.empty())
             state.assets.set_root(app.asset_root);
+
         apply_settings(app, state);
 
         // The .tapp is an ordinary watched asset: loading it here registers it, and any
@@ -201,8 +202,7 @@ namespace tbx
                 {
                     if (std::string_view(reloaded.extension) != ".tapp")
                         return;
-                    if (const auto body =
-                            state.assets.load_now(AssetHandle<Json>(reloaded.id)))
+                    if (const auto body = state.assets.load_now(AssetHandle<Json>(reloaded.id)))
                         state.pending_config = body->get();
                 });
         }
@@ -210,7 +210,10 @@ namespace tbx
         // Idle-collected or hot-reloaded assets drop their render-side caches.
         state.events.asset_unloaded.subscribe(
             &state,
-            [](const AssetUnloaded& unloaded) { forget_asset(unloaded.id); });
+            [](const AssetUnloaded& unloaded)
+            {
+                forget_asset(unloaded.id);
+            });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
         state.events.asset_reloaded.subscribe(
@@ -220,8 +223,7 @@ namespace tbx
                 forget_asset(reloaded.id); // re-upload GPU copies of the fresh data
                 if (!state.scripts.owns(reloaded.extension))
                     return; // not a script source — nothing to (re)register
-                const auto script =
-                    state.assets.load_now(AssetHandle<ScriptSource>(reloaded.id));
+                const auto script = state.assets.load_now(AssetHandle<ScriptSource>(reloaded.id));
                 if (script)
                 {
                     if (const auto result = state.scripts.reload_source(
@@ -235,31 +237,22 @@ namespace tbx
         state.events.window_resized.subscribe(
             &state,
             [](const WindowResized& resized)
-            { gpu::set_viewport(resized.width, resized.height); });
+            {
+                gpu::set_viewport(resized.width, resized.height);
+            });
 
-        // Configured content is ordinary assets: the sandbox layout opens through the kit
-        // resolver, the UI document loads and shows. Failures request a clean exit.
+        // Configured content is ordinary assets: the box opens (its kits resolve through
+        // the sandbox's assets), the UI document loads and shows. Failures request a clean
+        // exit.
         if (app.sandbox.is_set())
         {
-            // Kit/level references inside the layout are Json assets too; streaming may call
-            // the resolver from a worker, which the mutex-guarded asset maps support.
-            const auto resolver = [&assets = state.assets](const std::string& reference)
-                -> Result<Json>
+            const auto box = state.assets.load_now(app.sandbox);
+            if (!box)
             {
-                auto body = assets.load_now(AssetHandle<Json>(reference));
-                if (!body)
-                    return std::unexpected(body.error());
-                return ok(Json(body->get()));
-            };
-            const auto layout = state.assets.load_now(app.sandbox);
-            if (!layout)
-            {
-                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, layout.error());
+                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, box.error());
                 state.quit_requested = true;
             }
-            else if (const auto opened = state.sandbox.open(
-                         {.kits = layout->get(), .resolver = resolver});
-                     !opened)
+            else if (const auto opened = state.sandbox.open(box->get()); !opened)
             {
                 TBX_ERROR("sandbox '{}': {}", app.sandbox.path, opened.error());
                 state.quit_requested = true;
@@ -287,7 +280,9 @@ namespace tbx
             state.window.swap();
 
         input::pump();
+
         const bool window_alive = state.window.pump(state.events);
+
         state.jobs.drain_main();
         state.events.drain();
 
@@ -310,8 +305,8 @@ namespace tbx
         if (state.pending_config)
         {
             // The .tapp changed on disk: deserialize into the LIVE App and push settings out.
-            if (const auto read = json_read(
-                    get_type_registry().find("App")->get(), app, *state.pending_config);
+            if (const auto read =
+                    json_read(get_type_registry().find("App")->get(), app, *state.pending_config);
                 !read)
                 TBX_ERROR("app config reload: {}", read.error());
             else
@@ -336,10 +331,7 @@ namespace tbx
                 continue;
             state.acquired_script_sources.insert(script.source.id);
             if (const auto acquired = state.assets.load_now(script.source); !acquired)
-                TBX_ERROR(
-                    "script source '{}': {}",
-                    script.source.id.to_string(),
-                    acquired.error());
+                TBX_ERROR("script source '{}': {}", script.source.id.to_string(), acquired.error());
         }
 
         state.assets.collect_garbage();
@@ -347,9 +339,8 @@ namespace tbx
         audio::update(state.sandbox, state.assets, app.delta_time);
         ui::update(app.delta_time);
 
-        const float fixed_step = app.physics.fixed_timestep > 0.0f
-            ? app.physics.fixed_timestep
-            : 1.0f / 60.0f;
+        const float fixed_step =
+            app.physics.fixed_timestep > 0.0f ? app.physics.fixed_timestep : 1.0f / 60.0f;
         static float g_fixed_accumulator = 0.0f;
         g_fixed_accumulator += app.delta_time;
         while (g_fixed_accumulator >= fixed_step)
@@ -358,6 +349,7 @@ namespace tbx
             state.scripts.fixed_update(fixed_step);
             physics::update(state.sandbox, state.assets, state.events, fixed_step);
         }
+
         return true;
     }
 

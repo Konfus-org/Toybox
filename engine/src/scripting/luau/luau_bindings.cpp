@@ -438,26 +438,7 @@ namespace tbx
         Sandbox& sandbox = bound_sandbox(lua);
         const char* reference = luaL_checkstring(lua, 1);
         const Vec3 position = lua_istable(lua, 2) ? check_vector3(lua, 2) : Vec3(0.0f, 0.0f, 0.0f);
-        if (!is_app_running())
-        {
-            luaL_error(lua, "spawn_kit needs a running app (no asset system)");
-            return 0;
-        }
-        auto& assets = get_assets();
-        const auto body = assets.load_now(AssetHandle<Json>(reference));
-        if (!body)
-        {
-            luaL_error(lua, "kit '%s': %s", reference, body.error().c_str());
-            return 0;
-        }
-        const auto resolver = [&assets](const std::string& nested) -> Result<Json>
-        {
-            auto nested_body = assets.load_now(AssetHandle<Json>(nested));
-            if (!nested_body)
-                return std::unexpected(nested_body.error());
-            return ok(Json(nested_body->get()));
-        };
-        const auto spawned = sandbox.spawn(body->get(), position, resolver);
+        const auto spawned = sandbox.spawn(AssetHandle<Kit>(reference), position);
         if (!spawned)
         {
             luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());

@@ -1,4 +1,5 @@
 #include "tbx/ecs/sandbox.h"
+#include "tbx/assets/assets.h"
 #include "tbx/math/transform.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
@@ -7,8 +8,9 @@ namespace tbx
 {
     //// SANDBOX: TOYS ////
 
-    Sandbox::Sandbox(Jobs& jobs)
+    Sandbox::Sandbox(Jobs& jobs, Assets& assets)
         : _jobs(jobs)
+        , _assets(assets)
     {
         register_builtin_blocks();
     }
@@ -163,14 +165,11 @@ namespace tbx
         return kit;
     }
 
-    Result<KitInstance> Sandbox::load_kit(
-        const Json& kit,
-        const Vec3& root_position,
-        const KitResolver& resolver)
+    Result<KitInstance> Sandbox::load_kit(const Json& kit, const Vec3& root_position)
     {
         auto reference_stack = std::vector<uint64>();
         auto spawned = std::vector<ToyId>();
-        auto result = load_kit_body(kit, root_position, resolver, reference_stack, spawned);
+        auto result = load_kit_body(kit, root_position, reference_stack, spawned);
         if (!result)
         {
             for (const ToyId id : spawned)
@@ -184,7 +183,6 @@ namespace tbx
     Result<KitInstance> Sandbox::load_kit_body(
         const Json& kit,
         const Vec3& root_position,
-        const KitResolver& resolver,
         std::vector<uint64>& reference_stack,
         std::vector<ToyId>& spawned)
     {
@@ -246,7 +244,8 @@ namespace tbx
                     _registry.get<Transform>(id).position += root_position;
             }
 
-            // Recurse into nested kit references (a kit can reference a kit...).
+            // Recurse into nested kit references (a kit can reference a kit...) — references
+            // are ordinary kit assets, resolved through the asset system like everything else.
             for (const Json& entry : kit.value("kits", Json::array()))
             {
                 const auto reference = entry.value("reference", std::string());
@@ -254,14 +253,11 @@ namespace tbx
                 for (const uint64 seen : reference_stack)
                     if (seen == reference_hash)
                         return fail("kit reference cycle detected at '{}'", reference);
-                if (!resolver)
-                    return fail(
-                        "kit references '{}' but no resolver was provided",
-                        reference);
 
-                auto body = resolver(reference);
-                if (!body)
-                    return std::unexpected(body.error());
+                const auto nested_kit =
+                    _assets.get().load_now(AssetHandle<Kit>(reference));
+                if (!nested_kit)
+                    return fail("kit '{}': {}", reference, nested_kit.error());
 
                 auto position = root_position;
                 if (entry.contains("position"))
@@ -271,8 +267,11 @@ namespace tbx
                         entry["position"].at(2).get<float>());
 
                 reference_stack.push_back(reference_hash);
-                auto nested =
-                    load_kit_body(*body, position, resolver, reference_stack, spawned);
+                auto nested = load_kit_body(
+                    nested_kit->get().body,
+                    position,
+                    reference_stack,
+                    spawned);
                 reference_stack.pop_back();
                 if (!nested)
                     return nested;
@@ -291,12 +290,17 @@ namespace tbx
         return instance;
     }
 
-    Result<KitInstance> Sandbox::spawn(
-        const Json& kit,
-        const Vec3& position,
-        const KitResolver& resolver)
+    Result<KitInstance> Sandbox::spawn(const AssetHandle<Kit>& kit, const Vec3& position)
     {
-        return load_kit(kit, position, resolver);
+        const auto loaded = _assets.get().load_now(kit);
+        if (!loaded)
+            return fail("kit '{}': {}", kit.path, loaded.error());
+        return load_kit(loaded->get().body, position);
+    }
+
+    Result<KitInstance> Sandbox::spawn(const Kit& kit, const Vec3& position)
+    {
+        return load_kit(kit.body, position);
     }
 
     void Sandbox::despawn(KitInstance instance)
@@ -316,49 +320,33 @@ namespace tbx
     {
         _kit_instances.clear();
         _streamed_entries.clear();
-        _layout_resolver = {};
         _has_stream_focus = false;
         _registry.clear(); // every toy, kit-spawned or not
     }
 
-    Result<void> Sandbox::open(Layout layout)
+    Result<void> Sandbox::open(const Box& box)
     {
-        const Json& body = layout.kits;
-        const KitResolver& resolver = layout.resolver;
-        if (!body.is_object())
-            return fail("sandbox layout is not a JSON object");
-        _layout_resolver = resolver;
-
         try
         {
-            for (const Json& entry : body.value("kits", Json::array()))
+            for (const BoxEntry& entry : box.kits)
             {
-                const auto reference = entry.value("reference", std::string());
-                auto position = Vec3(0.0f);
-                if (entry.contains("position"))
-                    position = Vec3(
-                        entry["position"].at(0).get<float>(),
-                        entry["position"].at(1).get<float>(),
-                        entry["position"].at(2).get<float>());
-
-                const bool is_streamed = entry.value("mode", std::string("always")) == "streamed";
-                auto body = resolver(reference);
-                if (!body)
-                    return std::unexpected(body.error());
-
-                if (!is_streamed)
+                if (entry.mode == KitMode::ALWAYS)
                 {
-                    auto loaded = load_kit(*body, position, resolver);
+                    auto loaded = spawn(entry.kit, entry.position);
                     if (!loaded)
                         return std::unexpected(loaded.error());
                     continue;
                 }
 
-                // Streamed: remember the entry + its saved bounds; the body reloads on demand.
+                // Streamed: remember the entry + the bounds its kit saved; the body itself
+                // reloads on demand (assets cache it in the meantime).
+                const auto kit = _assets.get().load_now(entry.kit);
+                if (!kit)
+                    return fail("kit '{}': {}", entry.kit.path, kit.error());
                 auto streamed = StreamedEntry {};
-                streamed.reference = reference;
-                streamed.position = position;
-                const Json bounds = body->value("bounds", Json::object());
+                streamed.kit = entry.kit;
+                streamed.position = entry.position;
+                const Json bounds = kit->get().body.value("bounds", Json::object());
                 if (bounds.contains("center"))
                     streamed.bounds_center = Vec3(
                         bounds["center"].at(0).get<float>(),
@@ -370,7 +358,7 @@ namespace tbx
         }
         catch (const Json::exception& e)
         {
-            return fail("malformed sandbox layout: {}", e.what());
+            return fail("malformed kit bounds: {}", e.what());
         }
         return {};
     }
@@ -398,33 +386,38 @@ namespace tbx
                 && distance <= entry.bounds_radius + STREAM_LOAD_MARGIN)
             {
                 entry.is_loading = true;
-                // Resolve (file IO/parse) on a worker; splice on the main thread. The Sandbox
-                // is engine-owned and outlives in-flight streams. The reference is copied into
-                // the task — the worker never touches sandbox state.
+                // Resolve (file IO/decode) on a worker through assets (its maps are
+                // mutex-guarded); splice on the main thread. The Sandbox is engine-owned and
+                // outlives in-flight streams. The handle is copied into the task — the
+                // worker never touches sandbox state, and the body is copied out so the
+                // asset cache may drop its copy at any time.
                 _jobs.get().start(
-                    [](Sandbox& sandbox,
-                       size index,
-                       std::string reference,
-                       KitResolver resolver) -> Task<void>
+                    [](Sandbox& sandbox, size index, AssetHandle<Kit> kit) -> Task<void>
                     {
                         co_await sandbox._jobs.get().on_worker();
-                        auto body = resolver(reference);
+                        auto loaded = sandbox._assets.get().load_now(kit);
+                        auto body = loaded
+                            ? Result<Json>(loaded->get().body)
+                            : Result<Json>(std::unexpected(loaded.error()));
                         co_await sandbox._jobs.get().on_main();
                         StreamedEntry& target = sandbox._streamed_entries[index];
                         target.is_loading = false;
                         if (!body)
                         {
-                            TBX_ERROR("streamed kit '{}': {}", target.reference, body.error());
+                            TBX_ERROR("streamed kit '{}': {}", target.kit.path, body.error());
                             co_return;
                         }
-                        auto loaded = sandbox.load_kit(*body, target.position, resolver);
-                        if (!loaded)
+                        auto spawned = sandbox.load_kit(*body, target.position);
+                        if (!spawned)
                         {
-                            TBX_ERROR("streamed kit '{}': {}", target.reference, loaded.error());
+                            TBX_ERROR(
+                                "streamed kit '{}': {}",
+                                target.kit.path,
+                                spawned.error());
                             co_return;
                         }
-                        target.instance = *loaded;
-                    }(*this, i, entry.reference, _layout_resolver));
+                        target.instance = *spawned;
+                    }(*this, i, entry.kit));
             }
             else if (is_loaded && distance >= entry.bounds_radius + STREAM_UNLOAD_MARGIN)
             {

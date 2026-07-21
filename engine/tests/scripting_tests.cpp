@@ -2,6 +2,7 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/rigid_body.h"
 #include "tbx/platform/keys.h"
+#include "tbx/assets/assets.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests
@@ -20,8 +21,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto mover = scripts.load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -40,8 +42,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
 
         // Act
@@ -55,8 +58,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         auto reload_count = 0;
         events.script_reloaded.subscribe(
@@ -87,8 +91,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto mover = scripts.load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -108,8 +113,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto spawner = scripts.load_source("spawner", R"(
 function start(toy)
@@ -133,8 +139,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto stepper = scripts.load_source("stepper", R"(
 function fixed_update(toy, delta_time)
@@ -162,8 +169,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto builder = scripts.load_source("builder", R"(
 function start(toy)
@@ -190,8 +198,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto mathy = scripts.load_source("mathy", R"(
 function start(toy)
@@ -219,8 +228,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto typed = scripts.load_source("typed", R"(
 function start(toy)
@@ -249,8 +259,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto mover = scripts.load_source("mover", MOVER_SOURCE);
         ASSERT_TRUE(mover.has_value());
@@ -271,8 +282,9 @@ end
     {
         // Arrange
         auto jobs = Jobs();
-        auto sandbox = Sandbox(jobs);
         auto events = Events();
+        auto assets = Assets(jobs, events);
+        auto sandbox = Sandbox(jobs, assets);
         auto scripts = Scripts(sandbox, events);
         const auto silent = scripts.load_source("silent", "local nothing_defined = true");
         ASSERT_TRUE(silent.has_value());

@@ -38,14 +38,14 @@ namespace tbx
     Result<Json> save(const T& object);
 
     /// @brief
-    /// Purpose: Instantiates a kit body into a sandbox (delegates to Sandbox::spawn). Nested
-    /// kit references resolve recursively through the resolver; cycles are load errors; root
-    /// position offsets every parentless toy.
+    /// Purpose: Instantiates a kit body into a sandbox — the load half of save() round-trips.
+    /// Nested kit references resolve recursively through the sandbox's assets; cycles are
+    /// load errors; root position offsets every parentless toy. Spawning a kit FILE is
+    /// Sandbox::spawn(AssetHandle<Kit>) — raw bodies live only on this serialization surface.
     TBX_API Result<KitInstance> load(
         Sandbox& sandbox,
         const Json& kit,
-        const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f),
-        const KitResolver& resolver = {});
+        const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f));
 
     /// @brief
     /// Purpose: Populates any registered type from JSON produced by save(); the type's migrate

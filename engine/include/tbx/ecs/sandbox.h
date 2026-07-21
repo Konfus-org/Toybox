@@ -5,6 +5,7 @@
 #include "tbx/utils/typedefs.h"
 #include "tbx/utils/uuid.h"
 #include "tbx/ecs/block.h"
+#include "tbx/ecs/box.h"
 #include "tbx/ecs/toy.h"
 #include "tbx/math/transform.h"
 #include "tbx/jobs/jobs.h"
@@ -17,25 +18,8 @@
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Turns a kit reference string into its JSON body. The default engine resolver
-    /// reads files; tests inject in-memory maps; the asset system replaces it later.
-    using KitResolver = std::function<Result<Json>(const std::string& reference)>;
-
+    class Assets;
     class Sandbox;
-
-    // Declared ahead of the class so the friend declaration below shares its TBX_API linkage
-    // (the full doc comment lives in serialization/serialization.h).
-    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
-
-    /// @brief
-    /// Purpose: How a sandbox-level kit entry loads — set ONLY at the sandbox level; nested kit
-    /// references always load with whatever pulls them in.
-    enum class KitMode : uint8
-    {
-        ALWAYS,
-        STREAMED
-    };
 
     /// @brief
     /// Purpose: Handle to one instantiated kit; despawn(instance) removes exactly the toys it
@@ -44,6 +28,14 @@ namespace tbx
     {
         uint64 id = 0;
     };
+
+    // Declared ahead of the class so the friend declarations below share their TBX_API
+    // linkage (the full doc comments live in serialization/serialization.h).
+    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
+    TBX_API Result<KitInstance> load(
+        Sandbox& sandbox,
+        const Json& kit,
+        const Vec3& root_position);
 
     /// @brief
     /// Purpose: THE world container: owns every toy and streams sandbox-level kit entries by
@@ -55,17 +47,7 @@ namespace tbx
     class TBX_API Sandbox final
     {
       public:
-        /// @brief
-        /// Purpose: What a sandbox opens: the kit entries ({"kits": [{reference, mode,
-        /// position}]}) plus the resolver that turns references into kit bodies.
-        struct Layout
-        {
-            Json kits = {};
-            KitResolver resolver = {};
-        };
-
-      public:
-        explicit Sandbox(Jobs& jobs);
+        Sandbox(Jobs& jobs, Assets& assets);
 
       public:
         Sandbox(const Sandbox&) = delete;
@@ -109,9 +91,9 @@ namespace tbx
         void set_parent(Toy child, Toy parent);
 
         /// @brief
-        /// Purpose: Opens a layout: ALWAYS entries load immediately; STREAMED entries
+        /// Purpose: Opens a box: ALWAYS entries load immediately; STREAMED entries
         /// load/unload by distance to the streaming focus (see stream()).
-        Result<void> open(Layout layout);
+        Result<void> open(const Box& box);
 
         /// @brief
         /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
@@ -119,13 +101,19 @@ namespace tbx
         void close();
 
         /// @brief
-        /// Purpose: Spawns a kit body: instantiates its toys (nested kit references resolve
-        /// recursively; cycles are errors; position offsets parentless toys) and returns the
-        /// instance handle for despawn().
+        /// Purpose: Spawns a kit asset: instantiates its toys (nested kit references resolve
+        /// recursively through assets; cycles are errors; position offsets parentless toys)
+        /// and returns the instance handle for despawn().
         Result<KitInstance> spawn(
-            const Json& kit,
-            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f),
-            const KitResolver& resolver = {});
+            const AssetHandle<Kit>& kit,
+            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
+
+        /// @brief
+        /// Purpose: Spawns an in-memory kit (the handle overload resolves through assets and
+        /// lands here).
+        Result<KitInstance> spawn(
+            const Kit& kit,
+            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
         /// @brief
         /// Purpose: Creates a toy with identity and a default Transform.
@@ -133,7 +121,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Literal-friendly toy spawn (a bare string literal would otherwise be
-        /// ambiguous between std::string and a Json kit body).
+        /// ambiguous with the kit overloads).
         Toy spawn(const char* name)
         {
             return spawn(std::string(name));
@@ -157,16 +145,13 @@ namespace tbx
         void process_streaming();
 
       private:
-        // Serialization internals — the public surface is tbx::save / tbx::load (save_load.h).
+        // Serialization internals — the public surface is tbx::save / tbx::load
+        // (serialization.h) plus the spawn overloads above.
         Json save_kit(std::span<const Toy> toys);
-        Result<KitInstance> load_kit(
-            const Json& kit,
-            const Vec3& root_position,
-            const KitResolver& resolver);
+        Result<KitInstance> load_kit(const Json& kit, const Vec3& root_position);
         Result<KitInstance> load_kit_body(
             const Json& kit,
             const Vec3& root_position,
-            const KitResolver& resolver,
             std::vector<uint64>& reference_stack,
             std::vector<ToyId>& spawned);
 
@@ -177,7 +162,7 @@ namespace tbx
       private:
         struct StreamedEntry
         {
-            std::string reference = {};
+            AssetHandle<Kit> kit = {};
             Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
             Vec3 bounds_center = Vec3(0.0f, 0.0f, 0.0f);
             float bounds_radius = 0.0f;
@@ -187,16 +172,20 @@ namespace tbx
 
       private:
         std::reference_wrapper<Jobs> _jobs;
+        std::reference_wrapper<Assets> _assets;
         Registry _registry;
         uint64 _next_kit_instance_id = 1;
         std::unordered_map<uint64, std::vector<ToyId>> _kit_instances;
         std::vector<StreamedEntry> _streamed_entries;
-        KitResolver _layout_resolver = {};
         Vec3 _stream_focus = Vec3(0.0f, 0.0f, 0.0f);
         bool _has_stream_focus = false;
 
         friend class Toy;
         friend TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
+        friend TBX_API Result<KitInstance> load(
+            Sandbox& sandbox,
+            const Json& kit,
+            const Vec3& root_position);
     };
 }
 
