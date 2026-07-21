@@ -21,14 +21,24 @@
                 "CMAKE_PDB_OUTPUT_DIRECTORY": "${sourceDir}/build/${presetName}/pdb",
                 "CMAKE_CXX_SCAN_FOR_MODULES": "OFF"
             },
-            "hidden": true
+            "hidden": true,
+            "warnings": {
+                "dev": false,
+                "deprecated": false
+            }
         },
         {
             "name": "msvc",
             "displayName": "Toybox (MSVC)",
             "inherits": "base",
-            "architecture": { "value": "x64", "strategy": "external" },
-            "toolset": { "value": "host=x64", "strategy": "external" },
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "external"
+            },
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "cl",
                 "CMAKE_CXX_COMPILER": "cl"
@@ -53,17 +63,35 @@
         }
     ],
     "buildPresets": [
-        { "name": "msvc-debug", "configurePreset": "msvc", "configuration": "Debug" },
-        { "name": "msvc-release", "configurePreset": "msvc", "configuration": "Release" },
-        { "name": "msvc-tests-debug", "configurePreset": "msvc-tests", "configuration": "Debug" },
-        { "name": "clang-debug", "configurePreset": "clang", "configuration": "Debug" }
+        {
+            "name": "msvc-debug",
+            "configurePreset": "msvc",
+            "configuration": "Debug"
+        },
+        {
+            "name": "msvc-release",
+            "configurePreset": "msvc",
+            "configuration": "Release"
+        },
+        {
+            "name": "msvc-tests-debug",
+            "configurePreset": "msvc-tests",
+            "configuration": "Debug"
+        },
+        {
+            "name": "clang-debug",
+            "configurePreset": "clang",
+            "configuration": "Debug"
+        }
     ],
     "testPresets": [
         {
             "name": "msvc-tests",
             "configurePreset": "msvc-tests",
             "configuration": "Debug",
-            "output": { "outputOnFailure": true }
+            "output": {
+                "outputOnFailure": true
+            }
         }
     ]
 }

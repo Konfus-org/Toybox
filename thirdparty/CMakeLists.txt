@@ -2,6 +2,11 @@
 # selected backends (tbx_backend() runs before this directory) pull in. Targets are global;
 # the only value the parent needs back is TBX_STEAMAUDIO_ROOT (runtime dll copies).
 
+# Third-party configure output is not ours to read: everything below ERROR (their
+# message(WARNING)/STATUS chatter) is silenced for this directory tree only — engine cmake
+# still warns normally, and compile-time silencing lives in cmake/third_party_warnings.cmake.
+set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
+
 # The cache is segmented per generator: FetchContent's sub-build trees are tied to the
 # generator that created them, and CMake hard-errors when a consumer with a different
 # generator reuses them.

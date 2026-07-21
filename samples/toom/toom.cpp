@@ -20,7 +20,9 @@ int main(int argc, char** argv)
         .title = "Toom",
         .asset_root = SAMPLE_ASSETS_PATH,
         .sandbox = AssetHandle<Json>("levels/arena.box"),
-        .icon = AssetHandle<Texture>("textures/ToomLogo.jpg")};
+        .icon = AssetHandle<Texture>("textures/ToomLogo.jpg"),
+    };
+
     bool scored = false;
     bool streamed_room_seen = false;
 
