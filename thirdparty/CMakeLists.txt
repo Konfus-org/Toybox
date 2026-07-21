@@ -118,6 +118,9 @@ if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
     set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
     # Jolt bakes /Wall /WX into CMAKE_CXX_FLAGS when ON, out of reach of the warnings sweep.
     set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+    # Jolt's own /Zi collides (D9025) with the project-wide /Z7 embedded debug format, which
+    # already covers its debug configs — so its hand-rolled symbol flag stays off.
+    set(GENERATE_DEBUG_SYMBOLS OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(JoltPhysics
         GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
         GIT_TAG v5.2.0
