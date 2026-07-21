@@ -11,7 +11,7 @@ namespace tbx
     template <>
     Result<Kit> load<Kit>(const std::filesystem::path& path)
     {
-        auto body = load<Json>(path);
+        auto body = load<serialization::Json>(path);
         if (!body)
             return std::unexpected(body.error());
         if (!body->is_object())
@@ -26,8 +26,8 @@ namespace tbx
     Kit save(Sandbox& sandbox, std::span<const Toy> toys)
     {
         Registry& registry = sandbox.get_registry();
-        auto kit = Json::object();
-        auto toys_json = Json::array();
+        auto kit = serialization::Json::object();
+        auto toys_json = serialization::Json::array();
         auto bounds_min = Vec3(0.0f);
         auto bounds_max = Vec3(0.0f);
         bool has_bounds = false;
@@ -35,7 +35,7 @@ namespace tbx
         for (const Toy& toy : toys)
         {
             const ToyId id = toy.get_id();
-            auto toy_json = Json::object();
+            auto toy_json = serialization::Json::object();
             const auto& identity = registry.get<ToyHandle>(id);
             toy_json["uuid"] = identity.uuid.to_string();
             toy_json["name"] = identity.name;
@@ -50,7 +50,7 @@ namespace tbx
                 stickers && !stickers->names.empty())
                 toy_json["stickers"] = stickers->names;
 
-            auto blocks = Json::array();
+            auto blocks = serialization::Json::array();
             for (const uint64 hash : get_block_registry().get_all_hashes())
             {
                 const auto operations = get_block_registry().find(hash);
@@ -78,7 +78,7 @@ namespace tbx
         const Vec3 center = has_bounds ? (bounds_min + bounds_max) * 0.5f : Vec3(0.0f);
         const float radius = has_bounds ? math::length(bounds_max - center) : 0.0f;
         kit["bounds"] =
-            Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
+            serialization::Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
         return Kit {.body = std::move(kit)};
     }
 
@@ -88,7 +88,7 @@ namespace tbx
     /// outermost load() mints the instance and rolls back on failure.
     static Result<void> load_kit_body(
         Sandbox& sandbox,
-        const Json& kit,
+        const serialization::Json& kit,
         const Vec3& root_position,
         std::vector<uint64>& reference_stack,
         std::vector<ToyId>& spawned)
@@ -103,17 +103,17 @@ namespace tbx
         try
         {
             // Pass 1: spawn every toy with identity, stickers, and blocks.
-            for (const Json& toy_json : kit.value("toys", Json::array()))
+            for (const serialization::Json& toy_json : kit.value("toys", serialization::Json::array()))
             {
                 Toy toy = sandbox.spawn(toy_json.value("name", std::string("Toy")));
                 toy.set_enabled(toy_json.value("is_enabled", true));
                 spawned.push_back(toy.get_id());
                 by_kit_uuid[toy_json.value("uuid", std::string())] = toy.get_id();
 
-                for (const Json& sticker : toy_json.value("stickers", Json::array()))
+                for (const serialization::Json& sticker : toy_json.value("stickers", serialization::Json::array()))
                     toy.sticker(sticker.get<std::string>());
 
-                for (const Json& block_json : toy_json.value("blocks", Json::array()))
+                for (const serialization::Json& block_json : toy_json.value("blocks", serialization::Json::array()))
                 {
                     const auto type_name = block_json.value("type", std::string());
                     const uint64 hashed = hash(type_name);
@@ -132,7 +132,7 @@ namespace tbx
             }
 
             // Pass 2: link parents by the kit file's uuids (fresh uuids were assigned live).
-            for (const Json& toy_json : kit.value("toys", Json::array()))
+            for (const serialization::Json& toy_json : kit.value("toys", serialization::Json::array()))
             {
                 if (!toy_json.contains("parent"))
                     continue;
@@ -154,7 +154,7 @@ namespace tbx
 
             // Recurse into nested kit references (a kit can reference a kit...) — references
             // are ordinary kit assets, resolved through the asset system like everything else.
-            for (const Json& entry : kit.value("kits", Json::array()))
+            for (const serialization::Json& entry : kit.value("kits", serialization::Json::array()))
             {
                 const auto reference = entry.value("reference", std::string());
                 const uint64 reference_hash = hash(reference);
@@ -185,7 +185,7 @@ namespace tbx
                     return nested;
             }
         }
-        catch (const Json::exception& e)
+        catch (const serialization::Json::exception& e)
         {
             return fail("malformed kit body: {}", e.what());
         }

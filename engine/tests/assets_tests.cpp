@@ -23,7 +23,7 @@ namespace tbx::tests
         events::asset_unloaded().subscribe(
             &unload_count,
             [&unload_count](const AssetUnloaded&) { ++unload_count; });
-        const auto loaded = assets::load_now(AssetHandle<Json>("thing.json"));
+        const auto loaded = assets::load_now(AssetHandle<serialization::Json>("thing.json"));
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         ASSERT_EQ(assets::get_loaded_count(), 1u);
 
@@ -37,7 +37,7 @@ namespace tbx::tests
         EXPECT_EQ(unload_count, 1);
 
         // A fresh reference simply reloads it from disk.
-        const auto reloaded = assets::load_now(AssetHandle<Json>("thing.json"));
+        const auto reloaded = assets::load_now(AssetHandle<serialization::Json>("thing.json"));
         ASSERT_TRUE(reloaded.has_value()) << reloaded.error();
         EXPECT_EQ(reloaded->get()["answer"].get<int>(), 42);
     }

@@ -75,7 +75,7 @@ namespace tbx::reflection
         size size_bytes = 0;
         uint32 version = 1;
         // Called by the JSON walker when stored version < current; edits the raw JSON in place.
-        std::function<void(Json&, uint32)> migrate = {};
+        std::function<void(serialization::Json&, uint32)> migrate = {};
         std::vector<FieldInfo> fields = {};
         void (*construct)(std::byte*) = nullptr;
         void (*destroy)(std::byte*) = nullptr;
@@ -284,7 +284,7 @@ namespace tbx::reflection
         /// @brief
         /// Purpose: Declares the schema version and the migration hook the JSON walker calls
         /// when loading older data (field renames, enum renumbering, shape changes).
-        TypeRegistration& version(uint32 version, std::function<void(Json&, uint32)> migrate)
+        TypeRegistration& version(uint32 version, std::function<void(serialization::Json&, uint32)> migrate)
         {
             _info.get().version = version;
             _info.get().migrate = std::move(migrate);

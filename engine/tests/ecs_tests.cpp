@@ -44,15 +44,15 @@ namespace tbx::tests
 
     /// @brief
     /// Purpose: Writes one kit body into the world's asset root.
-    static void write_kit(const TestWorld& world, const std::string& name, const Json& body)
+    static void write_kit(const TestWorld& world, const std::string& name, const serialization::Json& body)
     {
         auto file = std::ofstream(world.root / name);
-        file << dump(body);
+        file << serialization::dump(body);
     }
 
     /// @brief
     /// Purpose: Strips per-instantiation uuids so two saves of the same content compare equal.
-    static Json normalize_kit(Json kit)
+    static serialization::Json normalize_kit(serialization::Json kit)
     {
         auto ordinal_by_uuid = std::map<std::string, int>();
         for (auto& toy : kit["toys"])
@@ -192,19 +192,19 @@ namespace tbx::tests
         write_kit(
             world,
             "room.kit",
-            Json {
-                {"toys", Json::array()},
+            serialization::Json {
+                {"toys", serialization::Json::array()},
                 {"kits",
-                 Json::array(
-                     {Json {{"reference", "prefab.kit"}, {"position", {1.0f, 0.0f, 0.0f}}}})}});
+                 serialization::Json::array(
+                     {serialization::Json {{"reference", "prefab.kit"}, {"position", {1.0f, 0.0f, 0.0f}}}})}});
         write_kit(
             world,
             "level.kit",
-            Json {
-                {"toys", Json::array()},
+            serialization::Json {
+                {"toys", serialization::Json::array()},
                 {"kits",
-                 Json::array(
-                     {Json {{"reference", "room.kit"}, {"position", {10.0f, 0.0f, 0.0f}}}})}});
+                 serialization::Json::array(
+                     {serialization::Json {{"reference", "room.kit"}, {"position", {10.0f, 0.0f, 0.0f}}}})}});
 
         // Act
         auto sandbox = Sandbox();
@@ -225,17 +225,17 @@ namespace tbx::tests
         write_kit(
             world,
             "a.kit",
-            Json {
+            serialization::Json {
                 {"toys",
-                 Json::array(
-                     {Json {{"uuid", "00"}, {"name", "InsideA"}, {"blocks", Json::array()}}})},
-                {"kits", Json::array({Json {{"reference", "b.kit"}}})}});
+                 serialization::Json::array(
+                     {serialization::Json {{"uuid", "00"}, {"name", "InsideA"}, {"blocks", serialization::Json::array()}}})},
+                {"kits", serialization::Json::array({serialization::Json {{"reference", "b.kit"}}})}});
         write_kit(
             world,
             "b.kit",
-            Json {
-                {"toys", Json::array()},
-                {"kits", Json::array({Json {{"reference", "a.kit"}}})}});
+            serialization::Json {
+                {"toys", serialization::Json::array()},
+                {"kits", serialization::Json::array({serialization::Json {{"reference", "a.kit"}}})}});
         auto sandbox = Sandbox();
 
         // Act
@@ -254,9 +254,9 @@ namespace tbx::tests
         write_kit(
             world,
             "broken.kit",
-            Json {
-                {"toys", Json::array()},
-                {"kits", Json::array({Json {{"reference", "missing.kit"}}})}});
+            serialization::Json {
+                {"toys", serialization::Json::array()},
+                {"kits", serialization::Json::array({serialization::Json {{"reference", "missing.kit"}}})}});
         auto sandbox = Sandbox();
 
         // Act
@@ -270,13 +270,13 @@ namespace tbx::tests
     TEST(Sandbox, UnknownBlockTypeIsSkippedNotFatal)
     {
         // Arrange
-        auto kit = Json {
+        auto kit = serialization::Json {
             {"toys",
-             Json::array({Json {
+             serialization::Json::array({serialization::Json {
                  {"uuid", "00"},
                  {"name", "Survivor"},
                  {"blocks",
-                  Json::array({Json {{"type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
+                  serialization::Json::array({serialization::Json {{"type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
         auto sandbox = Sandbox();
 
         // Act

@@ -1,5 +1,6 @@
 #pragma once
 #include "tbx/utils/api.h"
+#include "tbx/utils/typedefs.h"
 #include "tbx/events/events.h"
 #include <memory>
 #include <cstddef>
@@ -8,6 +9,15 @@
 
 namespace tbx
 {
+    /// @brief
+    /// Purpose: A window's lifecycle: OPEN until the user closes it (pump() observes the OS
+    /// close request; CLOSED windows stay closed).
+    enum class WindowState : uint8
+    {
+        OPEN = 0,
+        CLOSED
+    };
+
     /// @brief
     /// Purpose: Window creation parameters; headless skips the OS window and GL context
     /// entirely (tests/tooling).
@@ -45,9 +55,13 @@ namespace tbx
         int get_height() const;
 
         /// @brief
-        /// Purpose: Polls OS events into tbx::input and the given Events; returns false when
-        /// the user closed the window. Called once per frame by Engine::pump().
-        bool pump();
+        /// Purpose: The window's lifecycle state — query it after pump().
+        WindowState get_state() const;
+
+        /// @brief
+        /// Purpose: Polls OS events into tbx::input and the event signals. Called once per
+        /// frame by the runtime; a user close shows up in get_state() afterwards.
+        void pump();
 
         /// @brief
         /// Purpose: Sets the OS window title.

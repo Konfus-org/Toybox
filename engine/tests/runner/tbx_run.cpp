@@ -142,7 +142,7 @@ out vec4 c; void main() { c = vec4(1.0); })");
                 }
                 tbx::gpu::apply_uniforms(
                     **probe,
-                    tbx::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
+                    tbx::serialization::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
                 reflection_works = found == 3;
             }
         }

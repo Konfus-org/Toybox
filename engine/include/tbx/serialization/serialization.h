@@ -31,14 +31,14 @@ namespace tbx
     /// Purpose: Serializes any registered type (reflection::describe / register_block) to JSON.
     template <typename T>
         requires(!std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
-    Result<Json> save(const T& object);
+    Result<serialization::Json> save(const T& object);
 
     /// @brief
     /// Purpose: Populates any registered type from JSON produced by save(); the type's migrate
     /// hook runs for older versions.
     template <typename T>
         requires(!std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
-    Result<void> load(T& object, const Json& data);
+    Result<void> load(T& object, const serialization::Json& data);
 }
 
 #include "tbx/serialization/serialization.inl"

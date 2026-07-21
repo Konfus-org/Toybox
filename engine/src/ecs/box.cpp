@@ -6,7 +6,7 @@ namespace tbx
     template <>
     Result<Box> load<Box>(const std::filesystem::path& path)
     {
-        auto body = load<Json>(path);
+        auto body = load<serialization::Json>(path);
         if (!body)
             return std::unexpected(body.error());
         if (!body->is_object())
@@ -15,7 +15,7 @@ namespace tbx
         auto box = Box {};
         try
         {
-            for (const Json& entry : body->value("kits", Json::array()))
+            for (const serialization::Json& entry : body->value("kits", serialization::Json::array()))
             {
                 auto box_entry = BoxEntry {};
                 box_entry.kit = AssetHandle<Kit>(entry.value("reference", std::string()));
@@ -29,7 +29,7 @@ namespace tbx
                 box.kits.push_back(std::move(box_entry));
             }
         }
-        catch (const Json::exception& e)
+        catch (const serialization::Json::exception& e)
         {
             return fail("malformed box '{}': {}", path.string(), e.what());
         }

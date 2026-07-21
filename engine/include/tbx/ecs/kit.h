@@ -18,7 +18,7 @@ namespace tbx
     /// form, and only the kit save/load pair below looks inside it.
     struct TBX_API Kit
     {
-        Json body = {};
+        serialization::Json body = {};
     };
 
     /// @brief

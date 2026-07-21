@@ -15,6 +15,7 @@ namespace tbx
         int width = 0;
         int height = 0;
         bool is_headless = false;
+        WindowState state = WindowState::OPEN;
         CursorMode applied_cursor_mode = CursorMode::NORMAL;
     };
 
@@ -185,10 +186,15 @@ namespace tbx
         return _state->height;
     }
 
-    bool Window::pump()
+    WindowState Window::get_state() const
+    {
+        return _state->state;
+    }
+
+    void Window::pump()
     {
         if (_state->is_headless)
-            return true;
+            return;
 
         // Gameplay asks for a cursor mode through input; the window owns the OS cursor, so
         // the request is applied here. LOCKED = SDL relative mode: invisible, pinned to the
@@ -211,7 +217,8 @@ namespace tbx
             {
                 case SDL_EVENT_QUIT:
                 case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                    return false;
+                    _state->state = WindowState::CLOSED;
+                    return;
                 case SDL_EVENT_KEY_DOWN:
                 case SDL_EVENT_KEY_UP:
                 {
@@ -250,7 +257,6 @@ namespace tbx
                     break;
             }
         }
-        return true;
     }
 
     void Window::set_title(const std::string& title)

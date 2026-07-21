@@ -27,7 +27,7 @@ namespace tbx
         float metallic = 0.0f;
         float roughness = 0.8f;
         Color emissive = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f};
-        Json uniforms = {};
+        serialization::Json uniforms = {};
     };
 
     /// @brief

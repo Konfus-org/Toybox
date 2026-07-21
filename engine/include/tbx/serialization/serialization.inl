@@ -27,7 +27,7 @@ namespace tbx
     template <typename T>
         requires(
             !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
-    Result<Json> save(const T& object)
+    Result<serialization::Json> save(const T& object)
     {
         const auto type = reflection::get_type_registry().find(reflection::TypeSlot<T>::hash);
         if (!type)
@@ -39,7 +39,7 @@ namespace tbx
     template <typename T>
         requires(
             !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
-    Result<void> load(T& object, const Json& data)
+    Result<void> load(T& object, const serialization::Json& data)
     {
         const auto type = reflection::get_type_registry().find(reflection::TypeSlot<T>::hash);
         if (!type)

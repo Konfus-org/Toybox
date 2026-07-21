@@ -4,13 +4,13 @@
 namespace tbx
 {
     template <>
-    Result<Json> load<Json>(const std::filesystem::path& path)
+    Result<serialization::Json> load<serialization::Json>(const std::filesystem::path& path)
     {
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        if (!is_valid(*text))
+        if (!serialization::is_valid(*text))
             return fail("'{}' is not valid JSON", path.string());
-        return parse(*text);
+        return serialization::parse(*text);
     }
 }

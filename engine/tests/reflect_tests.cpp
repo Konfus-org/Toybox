@@ -35,7 +35,7 @@ namespace tbx::tests
         reflection::describe<TestPlayer>("TestPlayer")
             .version(
                 2,
-                [](Json& data, uint32)
+                [](serialization::Json& data, uint32)
                 {
                     // v1 stored "health"; v2 renamed it to "hp".
                     if (data.contains("health"))
@@ -68,7 +68,7 @@ namespace tbx::tests
         original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));
 
         // Act
-        const Json data = serialization::json_write(type, original);
+        const serialization::Json data = serialization::json_write(type, original);
         auto loaded = TestChain {};
         const auto result = serialization::json_read(type, loaded, data);
 
@@ -93,7 +93,7 @@ namespace tbx::tests
         original.id = Uuid::generate();
 
         // Act
-        const Json data = serialization::json_write(type, original);
+        const serialization::Json data = serialization::json_write(type, original);
         auto loaded = TestPlayer {};
         const auto result = serialization::json_read(type, loaded, data);
 
@@ -115,7 +115,7 @@ namespace tbx::tests
         auto target = TestPlayer {};
 
         // Act
-        const auto result = serialization::json_read(type, target, Json::array());
+        const auto result = serialization::json_read(type, target, serialization::Json::array());
 
         // Assert
         EXPECT_FALSE(result.has_value());
@@ -125,7 +125,7 @@ namespace tbx::tests
     {
         // Arrange
         const reflection::TypeInfo& type = register_test_types();
-        auto old_data = Json::object();
+        auto old_data = serialization::Json::object();
         old_data["type"] = "TestPlayer";
         old_data["version"] = 1;
         old_data["health"] = 77.0f; // the v1 field name
@@ -143,7 +143,7 @@ namespace tbx::tests
     {
         // Arrange
         const reflection::TypeInfo& type = register_test_types();
-        auto current = Json::object();
+        auto current = serialization::Json::object();
         current["version"] = 2;
         current["health"] = 5.0f; // stale name would only be fixed by migrate
         current["hp"] = 50.0f;
@@ -161,7 +161,7 @@ namespace tbx::tests
     {
         // Arrange
         const reflection::TypeInfo& type = register_test_types();
-        auto sparse = Json::object();
+        auto sparse = serialization::Json::object();
         sparse["version"] = 2;
         sparse["hp"] = 12.0f;
 
@@ -179,7 +179,7 @@ namespace tbx::tests
     {
         // Arrange
         const reflection::TypeInfo& type = register_test_types();
-        auto bad = Json::object();
+        auto bad = serialization::Json::object();
         bad["version"] = 2;
         bad["hp"] = "not a number";
 

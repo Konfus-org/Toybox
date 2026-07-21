@@ -161,7 +161,7 @@ namespace tbx
                 auto streamed = StreamedEntry {};
                 streamed.kit = entry.kit;
                 streamed.position = entry.position;
-                const Json bounds = kit->get().body.value("bounds", Json::object());
+                const serialization::Json bounds = kit->get().body.value("bounds", serialization::Json::object());
                 if (bounds.contains("center"))
                     streamed.bounds_center = Vec3(
                         bounds["center"].at(0).get<float>(),
@@ -171,7 +171,7 @@ namespace tbx
                 _streamed_entries.push_back(std::move(streamed));
             }
         }
-        catch (const Json::exception& e)
+        catch (const serialization::Json::exception& e)
         {
             return fail("malformed kit bounds: {}", e.what());
         }

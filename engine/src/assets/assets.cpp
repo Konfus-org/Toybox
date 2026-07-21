@@ -92,7 +92,7 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Reads a sidecar id: ours are 32-hex uuids, v1 sidecars use bare numbers (kept
     /// as Uuid{0, number}); dashed guids tolerate too.
-    static Uuid parse_meta_id(const Json& meta)
+    static Uuid parse_meta_id(const serialization::Json& meta)
     {
         const auto it = meta.find("id");
         if (it == meta.end())
@@ -129,7 +129,7 @@ namespace tbx::assets
         {
             if (const auto text = files::read_text(meta_path))
             {
-                const Json meta = parse(*text);
+                const serialization::Json meta = serialization::parse(*text);
                 if (meta.is_object())
                     id = parse_meta_id(meta);
             }
@@ -139,11 +139,11 @@ namespace tbx::assets
         else
         {
             id = Uuid::generate();
-            auto meta = Json {
+            auto meta = serialization::Json {
                 {"id", id.to_string()},
                 {"version", 1},
                 {"type", asset_path.extension().string()}};
-            if (auto written = files::write_text(meta_path, dump(meta, 4)); !written)
+            if (auto written = files::write_text(meta_path, serialization::dump(meta, 4)); !written)
                 TBX_WARN("could not write '{}': {}", meta_path, written.error());
         }
         const std::scoped_lock lock(a._mutex);
@@ -185,9 +185,9 @@ namespace tbx::assets
                 if (!it->is_regular_file() || it->path().extension() != ".meta")
                     continue;
                 const auto text = files::read_text(it->path());
-                if (!text || !is_valid(*text))
+                if (!text || !serialization::is_valid(*text))
                     continue;
-                const Json meta = parse(*text);
+                const serialization::Json meta = serialization::parse(*text);
                 if (!meta.is_object())
                     continue;
                 const Uuid id = parse_meta_id(meta);
@@ -345,7 +345,7 @@ namespace tbx::assets
                 kind = Kind::TEX;
             else if (std::any_cast<ScriptSource>(&stored))
                 kind = Kind::SCRIPT;
-            else if (std::any_cast<Json>(&stored))
+            else if (std::any_cast<serialization::Json>(&stored))
                 kind = Kind::JSON;
             else if (std::any_cast<Model>(&stored))
                 kind = Kind::MODEL;
@@ -374,7 +374,7 @@ namespace tbx::assets
         {
             case Kind::TEX: redecode.template operator()<Texture>(); break;
             case Kind::SCRIPT: redecode.template operator()<ScriptSource>(); break;
-            case Kind::JSON: redecode.template operator()<Json>(); break;
+            case Kind::JSON: redecode.template operator()<serialization::Json>(); break;
             case Kind::MODEL: redecode.template operator()<Model>(); break;
             case Kind::SHADER: redecode.template operator()<ShaderSource>(); break;
             case Kind::CLIP: redecode.template operator()<AudioClip>(); break;

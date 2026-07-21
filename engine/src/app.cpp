@@ -130,10 +130,10 @@ namespace tbx
         const auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        if (!is_valid(*text))
+        if (!serialization::is_valid(*text))
             return fail("'{}' is not a valid .tapp (JSON)", path.string());
         auto app = App {};
-        if (auto read = serialization::json_read(reflection::get_type_registry().find("App")->get(), app, parse(*text));
+        if (auto read = serialization::json_read(reflection::get_type_registry().find("App")->get(), app, serialization::parse(*text));
             !read)
             return std::unexpected(read.error());
         return ok(std::move(app));
@@ -303,7 +303,8 @@ namespace tbx
 
         input::pump();
 
-        const bool window_alive = state.window.pump();
+        state.window.pump();
+        const bool window_alive = state.window.get_state() == WindowState::OPEN;
 
         jobs::drain_main();
         events::drain();
@@ -344,7 +345,7 @@ namespace tbx
         // The engine debug overlay rides F3.
         if (input::is_pressed(Key::F3))
             debug::view::toggle();
-        debug::view::update(app);
+        debug::view::update(app.state.delta_time);
 
         // Script sources referenced by spawned toys are ordinary assets: acquire each once —
         // the store emits asset_reloaded and the boot glue hands it to the right backend.

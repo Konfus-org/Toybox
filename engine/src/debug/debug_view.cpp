@@ -13,6 +13,7 @@ namespace tbx::debug::view
     struct DebugState
     {
         UiDocument document = {};
+        uint64 frame = 0;
         bool is_open = false;
         float smoothed_delta = 0.0f;
         float refresh_timer = 0.0f;
@@ -55,14 +56,15 @@ namespace tbx::debug::view
         set_open(!g_debug.is_open);
     }
 
-    void update(const App& app)
+    void update(const float delta_time)
     {
+        ++g_debug.frame;
         if (!g_debug.is_open || g_debug.document.text.empty())
             return;
         g_debug.smoothed_delta = g_debug.smoothed_delta <= 0.0f
-            ? app.state.delta_time
-            : g_debug.smoothed_delta * 0.9f + app.state.delta_time * 0.1f;
-        g_debug.refresh_timer -= app.state.delta_time;
+            ? delta_time
+            : g_debug.smoothed_delta * 0.9f + delta_time * 0.1f;
+        g_debug.refresh_timer -= delta_time;
         if (g_debug.refresh_timer > 0.0f)
             return;
         g_debug.refresh_timer = 0.25f;
@@ -72,7 +74,7 @@ namespace tbx::debug::view
         ui::set_string(
             "debug_fps",
             std::format("{:.0f} fps  ({:.2f} ms)", fps, g_debug.smoothed_delta * 1000.0f));
-        ui::set_string("debug_frame", std::format("frame {}", app.state.frame));
+        ui::set_string("debug_frame", std::format("frame {}", g_debug.frame));
         ui::set_string("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
         ui::set_string(
             "debug_assets",

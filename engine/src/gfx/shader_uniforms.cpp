@@ -6,7 +6,7 @@ namespace tbx::gpu
 {
     //// HELPERS ////
 
-    static bool read_floats(const Json& value, float* out, const int count)
+    static bool read_floats(const serialization::Json& value, float* out, const int count)
     {
         if (!value.is_array() || static_cast<int>(value.size()) < count)
             return false;
@@ -21,7 +21,7 @@ namespace tbx::gpu
 
     //// APPLY (backend-agnostic: reflection types the values, set_uniform does the work) ////
 
-    void apply_uniforms(const Shader& shader, const Json& values)
+    void apply_uniforms(const Shader& shader, const serialization::Json& values)
     {
         if (!values.is_object())
             return;
@@ -31,7 +31,7 @@ namespace tbx::gpu
             const auto it = values.find(uniform.name);
             if (it == values.end())
                 continue; // the shader keeps its current/default value
-            const Json& value = *it;
+            const serialization::Json& value = *it;
             const char* name = uniform.name.c_str();
             float floats[16] = {};
             bool applied = true;

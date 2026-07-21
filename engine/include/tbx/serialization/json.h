@@ -23,16 +23,10 @@ namespace tbx::serialization
 
 namespace tbx
 {
-    // The seam is organized under tbx::serialization; the type and the engine-wide verbs
-    // stay reachable at tbx scope — the same shape every api uses (tbx::parse/dump/is_valid).
-    using Json = serialization::Json;
-    using serialization::dump;
-    using serialization::is_valid;
-    using serialization::parse;
-
     /// @brief
-    /// Purpose: Loads (and validates) a JSON document from disk. Lives at tbx scope: it
-    /// specializes the tbx::load primary template (assets/load.h).
+    /// Purpose: Loads (and validates) a JSON document from disk. Lives at tbx scope because
+    /// it specializes the tbx::load primary template (assets/load.h).
     template <>
-    TBX_API Result<Json> load<Json>(const std::filesystem::path& path);
+    TBX_API Result<serialization::Json> load<serialization::Json>(
+        const std::filesystem::path& path);
 }

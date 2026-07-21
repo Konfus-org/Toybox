@@ -5,7 +5,6 @@
 
 namespace tbx
 {
-    struct App;
     struct UiDocument;
 }
 
@@ -36,5 +35,5 @@ namespace tbx::debug::view
 
     /// @brief
     /// Purpose: Refreshes the overlay's numbers; called by tbx::run() every frame.
-    TBX_API void update(const App& app);
+    TBX_API void update(float delta_time);
 }

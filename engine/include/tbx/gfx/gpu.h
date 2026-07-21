@@ -120,7 +120,7 @@ namespace tbx::gpu
     /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to
     /// a shader, typed by its reflection — the material system's engine: values the shader
     /// does not declare are skipped, declared kinds drive the parse. Backend-agnostic.
-    TBX_API void apply_uniforms(const Shader& shader, const Json& values);
+    TBX_API void apply_uniforms(const Shader& shader, const serialization::Json& values);
 
     /// @brief
     /// Purpose: Reflects a compiled shader's uniform schema (implemented per backend).
