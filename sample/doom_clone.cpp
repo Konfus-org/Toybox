@@ -1,5 +1,4 @@
 #include "tbx/app.h"
-#include "tbx/audio/audio.h"
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/physics/physics.h"
@@ -7,66 +6,12 @@
 #include "tbx/ui/ui.h"
 #include <cmath>
 #include <cstring>
+#include <optional>
 
-// The doom clone, fully data-driven: the level is levels/arena.box, rooms and the enemy are
-// .kit prefabs, the enemy brain is scripts/chase.luau, the floor material references an
-// engine-resources texture, the monkey statue is resources/Models/Monkey.fbx, the HUD is
-// ui/hud.rml, and the gunshot is sounds/blip.wav. Nothing here is embedded content — this file
-// is only the player controller and the selftest choreography.
-
-/// @brief
-/// Purpose: The startup manifest: touching each asset once registers its identity so kit files
-/// can reference everything by handle.
-struct LoadedContent
-{
-    tbx::AssetHandle<tbx::AudioClip> blip = {};
-    uint64 hud_document = 0;
-    bool is_ready = false;
-};
-
-static LoadedContent load_content()
-{
-    using namespace tbx;
-    auto content = LoadedContent {};
-    auto& assets = get_assets();
-
-    const auto chase = assets.load_now<ScriptSource>("scripts/chase.luau");
-    const auto monkey = assets.load_now<Model>("Models/Monkey.fbx"); // engine resources root
-    const auto floor = assets.load_now<Material>("materials/floor.mat");
-    const auto blip = assets.load_now<AudioClip>("sounds/blip.wav");
-    const auto hud = assets.load_now<UiDocument>("ui/hud.rml");
-    for (const auto* error : {
-             chase ? nullptr : &chase.error(),
-             monkey ? nullptr : &monkey.error(),
-             floor ? nullptr : &floor.error(),
-             blip ? nullptr : &blip.error(),
-             hud ? nullptr : &hud.error()})
-        if (error)
-        {
-            log_error("content: {}", *error);
-            return content;
-        }
-
-    content.blip = *blip;
-    if (const auto document = ui::load_document(assets.get(*hud)->get().text))
-        content.hud_document = *document;
-
-    const auto level = assets.load_now<Json>("levels/arena.box");
-    if (!level)
-    {
-        log_error("level: {}", level.error());
-        return content;
-    }
-    const auto opened = get_sandbox().open(
-        {.kits = assets.get(*level)->get(), .resolver = assets.make_kit_resolver()});
-    if (!opened)
-    {
-        log_error("level open: {}", opened.error());
-        return content;
-    }
-    content.is_ready = true;
-    return content;
-}
+// The doom clone, fully data-driven. The App declares the level and the HUD; the level chain
+// pulls in everything else: rooms, the player, the enemy (with its chase.luau brain), the floor
+// material, the monkey statue from the engine resources, and the gunshot sound. This file is
+// only the player controller and the selftest choreography.
 
 int main(int argc, char** argv)
 {
@@ -76,33 +21,35 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--selftest") == 0)
             selftest = true;
 
-    auto app = App {.title = "Toybox Doom", .asset_root = SAMPLE_ASSETS_PATH};
-    auto content = LoadedContent {};
+    auto app = App {
+        .title = "Toybox Doom",
+        .asset_root = SAMPLE_ASSETS_PATH,
+        .sandbox = "levels/arena.box",
+        .ui = "ui/hud.rml"};
     float yaw = 0.0f;
     float pitch = 0.0f;
     int kills = 0;
     Toy player = {};
-    Toy shot_speaker = {};
+    auto shot = std::optional<KitInstance> {};
     bool streamed_room_seen = false;
     size hub_toy_count = 0;
 
     while (run(app))
     {
         auto& sandbox = get_sandbox();
-
         if (app.frame == 1)
-        {
-            content = load_content();
-            if (!content.is_ready)
-                return 1;
-            player = sandbox.spawn("Player")
-                         .with(Transform {.position = Vec3(0.0f, 1.2f, 6.0f)})
-                         .with(Camera {})
-                         .with(AudioListener {});
             hub_toy_count = sandbox.get_toy_count();
-        }
         if (!player.is_alive())
-            continue;
+        {
+            // The player is a kit too (kits/player.kit, an ALWAYS entry of the level).
+            const auto found = sandbox.find("Player");
+            if (!found)
+            {
+                log_error("levels/arena.box did not spawn a Player");
+                return 1;
+            }
+            player = *found;
+        }
 
         // Mouse look + WASD on the ground plane.
         auto& transform = player.get_block<Transform>();
@@ -151,17 +98,19 @@ int main(int argc, char** argv)
                     sandbox.despawn(target);
                     ++kills;
                     ui::set_inline_style(
-                        content.hud_document, "kills",
-                        std::format(
-                            "position: absolute; left: 16px; top: 16px; width: {}px; "
-                            "height: 14px; background-color: #ff3333;",
-                            kills * 40));
+                        get_ui_document(),
+                        "kills",
+                        std::format("width: {}px;", kills * 40));
                 }
-                if (shot_speaker.is_alive())
-                    sandbox.despawn(shot_speaker);
-                shot_speaker = sandbox.spawn("Shot")
-                                   .with(Transform {.position = hit->position})
-                                   .with(AudioSource {.clip = content.blip, .is_playing = true});
+                // The gunshot is a kit: a speaker toy with the blip clip, placed at the hit.
+                if (shot)
+                    sandbox.despawn(*shot);
+                shot = std::nullopt;
+                const auto shot_kit = get_assets().load_now<Json>("kits/shot.kit");
+                const auto body = shot_kit ? get_assets().get(*shot_kit) : std::nullopt;
+                if (body)
+                    if (const auto spawned = sandbox.spawn(body->get(), hit->position))
+                        shot = *spawned;
             }
         }
 

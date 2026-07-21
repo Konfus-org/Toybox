@@ -8,6 +8,7 @@
 #include "tbx/platform/input.h"
 #include <chrono>
 #include <memory>
+#include <unordered_set>
 
 namespace tbx
 {
@@ -23,6 +24,8 @@ namespace tbx
         Sandbox sandbox;
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
+        std::unordered_set<Uuid> acquired_script_sources;
+        uint64 ui_document = 0;
         bool quit_requested = false;
 
         explicit AppState(const App& app)
@@ -121,6 +124,43 @@ namespace tbx
             [](const WindowResized& resized)
             { gpu::set_viewport(resized.width, resized.height); });
 
+        // Configured content is ordinary assets: the sandbox layout opens through the kit
+        // resolver, the UI document loads and shows. Failures request a clean exit.
+        if (!app.sandbox.empty())
+        {
+            const auto layout = state.assets.load_now<Json>(app.sandbox);
+            const auto body = layout ? state.assets.get(*layout) : std::nullopt;
+            if (!body)
+            {
+                log_error(
+                    "sandbox '{}': {}",
+                    app.sandbox,
+                    layout ? "did not load" : layout.error());
+                state.quit_requested = true;
+            }
+            else if (const auto opened = state.sandbox.open(
+                         {.kits = body->get(), .resolver = state.assets.make_kit_resolver()});
+                     !opened)
+            {
+                log_error("sandbox '{}': {}", app.sandbox, opened.error());
+                state.quit_requested = true;
+            }
+        }
+        if (!app.ui.empty() && !state.window.is_headless())
+        {
+            const auto document = state.assets.load_now<UiDocument>(app.ui);
+            const auto body = document ? state.assets.get(*document) : std::nullopt;
+            if (!body)
+                log_error(
+                    "ui '{}': {}",
+                    app.ui,
+                    document ? std::string("did not load") : document.error());
+            else if (const auto shown = ui::load_document(body->get().text))
+                state.ui_document = *shown;
+            else
+                log_error("ui '{}': {}", app.ui, shown.error());
+        }
+
         app.is_running = true;
         log_info(
             "Toybox app up ({}x{}{})",
@@ -160,6 +200,21 @@ namespace tbx
         app.delta_time = std::chrono::duration<float>(now - state.previous_frame).count();
         state.previous_frame = now;
         ++app.frame;
+
+        // Script sources referenced by spawned toys are ordinary assets: acquire each once —
+        // the store emits asset_reloaded and the boot glue hands it to the right backend.
+        for (auto&& [entity, script] : state.sandbox.get_registry().view<Script>().each())
+        {
+            if (script.source.id.is_nil()
+                || state.acquired_script_sources.contains(script.source.id))
+                continue;
+            state.acquired_script_sources.insert(script.source.id);
+            if (const auto acquired = state.assets.acquire(script.source); !acquired)
+                log_error(
+                    "script source '{}': {}",
+                    script.source.id.to_string(),
+                    acquired.error());
+        }
 
         state.scripts.update(app.delta_time);
         audio::update(state.sandbox, state.assets, app.delta_time);
@@ -208,6 +263,11 @@ namespace tbx
     Scripts& get_scripts()
     {
         return g_state->scripts;
+    }
+
+    uint64 get_ui_document()
+    {
+        return g_state ? g_state->ui_document : 0;
     }
 
     Window& get_window()

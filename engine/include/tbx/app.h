@@ -23,6 +23,8 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::filesystem::path asset_root = {};
+        std::string sandbox = {}; // a .box layout (asset-relative) the boot opens
+        std::string ui = {};      // a .rml document (asset-relative) the boot shows
 
         // Per-frame data (written by run()).
         float delta_time = 0.0f;
@@ -68,6 +70,11 @@ namespace tbx
     /// @brief
     /// Purpose: The scripting system.
     Scripts& get_scripts();
+
+    /// @brief
+    /// Purpose: The document App::ui loaded at boot (0 when none) — pass it to
+    /// ui::set_inline_style and friends.
+    uint64 get_ui_document();
 
     /// @brief
     /// Purpose: The OS window.

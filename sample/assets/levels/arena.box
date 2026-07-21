@@ -1,6 +1,10 @@
 {
     "kits": [
         {
+            "reference": "kits/player.kit",
+            "mode": "always"
+        },
+        {
             "reference": "kits/hub.kit",
             "mode": "always"
         },

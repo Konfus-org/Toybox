@@ -245,9 +245,9 @@ namespace tbx::audio
                 auto& cached = state->clips[source.clip.id];
                 if (!cached)
                 {
-                    const auto clip = assets.get(source.clip);
+                    const auto clip = assets.acquire(source.clip); // loads by tracked path
                     if (!clip)
-                        continue; // still loading
+                        continue;
                     cached = std::make_shared<AudioClip>(clip->get());
                 }
                 auto voice = Voice {};

@@ -88,6 +88,7 @@ namespace tbx
         Result<TAsset> decode(const std::filesystem::path& path);
 
         std::optional<std::string> find_relative_path(const Uuid& id);
+        void index_meta_sidecars(); // caller holds _mutex
         Result<Uuid> prepare(const std::string& relative_path); // .meta sidecar identity
         std::filesystem::path resolve_path(const std::string& relative_path) const;
         void store(const Uuid& id, const std::string& relative_path, std::any asset);
@@ -100,6 +101,7 @@ namespace tbx
         mutable std::mutex _mutex; // guards _assets + _entries_by_path
         std::unordered_map<Uuid, std::any> _assets;
         std::unordered_map<std::string, Entry> _entries_by_path;
+        bool _is_indexed = false;
         std::optional<FileWatcher> _watcher = {};
     };
 

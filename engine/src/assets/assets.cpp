@@ -267,7 +267,55 @@ namespace tbx
         for (const auto& [path, entry] : _entries_by_path)
             if (entry.id == id)
                 return path;
+        index_meta_sidecars();
+        for (const auto& [path, entry] : _entries_by_path)
+            if (entry.id == id)
+                return path;
         return {};
+    }
+
+    void Assets::index_meta_sidecars()
+    {
+        // Reads EXISTING sidecars only (no meta is ever written here), so any asset a kit
+        // references by uuid resolves without something having loaded it by path first.
+        if (_is_indexed)
+            return;
+        _is_indexed = true;
+        const auto index_root = [this](const std::filesystem::path& root)
+        {
+            if (root.empty() || !std::filesystem::exists(root))
+                return;
+            auto ec = std::error_code {};
+            for (auto it = std::filesystem::recursive_directory_iterator(root, ec);
+                 !ec && it != std::filesystem::recursive_directory_iterator();
+                 it.increment(ec))
+            {
+                if (!it->is_regular_file() || it->path().extension() != ".meta")
+                    continue;
+                const auto text = files::read_text(it->path());
+                if (!text || !is_valid_json(*text))
+                    continue;
+                const Json meta = parse_json(*text);
+                if (!meta.is_object())
+                    continue;
+                const Uuid id = parse_meta_id(meta);
+                if (id.is_nil())
+                    continue;
+                auto asset_path = it->path();
+                asset_path.replace_extension(); // strip ".meta"; the asset's extension remains
+                const auto relative =
+                    std::filesystem::relative(asset_path, root, ec).generic_string();
+                if (ec)
+                {
+                    ec.clear();
+                    continue;
+                }
+                if (!_entries_by_path.contains(relative))
+                    _entries_by_path[relative] = Entry {.id = id, .relative_path = relative};
+            }
+        };
+        index_root(_root); // the app root wins duplicate relative paths
+        index_root(std::filesystem::path(TBX_RESOURCES_PATH));
     }
 
     void Assets::store(const Uuid& id, const std::string& relative_path, std::any asset)
