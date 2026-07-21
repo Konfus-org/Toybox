@@ -20,10 +20,11 @@ namespace tbx::debug
 
     static DebugState g_debug = {};
 
-    void draw()
+    std::optional<std::reference_wrapper<const UiDocument>> get_document()
     {
-        if (g_debug.is_open && !g_debug.document.text.empty())
-            ui::draw(g_debug.document);
+        if (!g_debug.is_open || g_debug.document.text.empty())
+            return {};
+        return std::cref(g_debug.document);
     }
 
     bool is_open()

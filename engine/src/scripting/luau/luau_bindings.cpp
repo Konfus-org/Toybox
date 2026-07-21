@@ -646,13 +646,14 @@ namespace tbx
 
     static int ui_bind(lua_State* lua)
     {
-        // tbx.ui.bind(hud, "kills"): binds hud.kills to the "kills" element slot — scripts
-        // just mutate the table and the UI follows. An optional third argument renames the
-        // slot. The table pins in the VM registry; the VM outlives the UI (ui::reset clears
-        // bindings before scripts tear down).
+        // tbx.ui.bind(hud, "kills", "kills"): the property on the left (hud.kills — Lua
+        // cannot pass scalars by reference, so the table+key pair IS the property), the
+        // target tag on the right. Scripts just mutate the table and the UI follows. The
+        // table pins in the VM registry; the VM outlives the UI (ui::reset clears bindings
+        // before scripts tear down).
         luaL_checktype(lua, 1, LUA_TTABLE);
         const auto key = std::string(luaL_checkstring(lua, 2));
-        const auto name = std::string(luaL_optstring(lua, 3, key.c_str()));
+        const auto name = std::string(luaL_checkstring(lua, 3));
         lua_pushvalue(lua, 1);
         const int table_ref = lua_ref(lua, -1);
         lua_pop(lua, 1);

@@ -168,7 +168,6 @@ namespace tbx::ui
         std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
         std::unordered_map<std::string, std::string> bindings; // slot -> latest value
         std::unordered_map<std::string, UiBinding> live_bindings; // evaluated every update
-        std::vector<UiDocument> queued; // what draw() collected for the next draw_to()
         std::unique_ptr<gpu::Shader> shader;     // the builtin ui raster shaders (files)
         std::unique_ptr<gpu::Pipeline> pipeline; // premultiplied, no depth
         std::unique_ptr<gpu::Texture2d> white;
@@ -357,21 +356,11 @@ namespace tbx::ui
 
     //// BOUNDARY ////
 
-    void draw(const UiDocument& document)
+    void draw(const UiDocument& document, const gpu::RenderTarget& target)
     {
         UiState* state = ensure_ui_ready();
         if (!state)
             return;
-        state->queued.push_back(document);
-    }
-
-    void draw_to(const gpu::RenderTarget& target)
-    {
-        UiState* state = ensure_ui_ready();
-        if (!state)
-            return;
-        auto queued = std::move(state->queued);
-        state->queued.clear();
         if (!ensure_ui_pipeline(*state))
             return;
 
@@ -388,13 +377,11 @@ namespace tbx::ui
                  static_cast<float>(target.get_height())));
         state->renderer.shader = state->shader.get();
         state->renderer.white_texture = state->white.get();
-        for (const UiDocument& document : queued)
+
+        const uint64 key = hash(std::string_view(document.text));
+        if (DocumentEntry* cached = ensure_document(
+                *state, document, key, target.get_width(), target.get_height()))
         {
-            const uint64 key = hash(std::string_view(document.text));
-            DocumentEntry* cached = ensure_document(
-                *state, document, key, target.get_width(), target.get_height());
-            if (!cached)
-                continue;
             cached->last_drawn_frame = state->frame;
             apply_bindings(*state, cached->document);
             cached->context->Update();

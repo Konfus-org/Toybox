@@ -11,11 +11,11 @@
 #include <utility>
 
 // The concrete UI boundary (see cmake/tbx_backend.cmake): ui/rmlui/ implements it and its
-// library types never escape that folder. Pass-composable shape: draw(document) queues a
-// document, draw_to(target) renders everything queued into that texture — and the render
-// pass then does whatever it wants with the texture (the builtin ui pass composites it
-// fullscreen with the engine ui shaders). update() advances animations and retires
-// documents that stopped being drawn.
+// library types never escape that folder. No queues, no implicit targets: draw(document,
+// target) rasters that document into that texture right now, and the render pass owns what
+// happens to the texture afterwards (the builtin ui pass composites each Ui block's texture
+// through its own gpu pipeline). update() advances animations and retires documents that
+// stopped being drawn.
 //
 // Dynamic values flow through UiBinding objects: a binding links a document slot (elements
 // carrying data-text="name" / data-style="name") to a value source. bind_to() links a live
@@ -33,11 +33,11 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: Queues a document for the next draw_to(). Documents are cached by content
-    /// behind the boundary — drawing every frame is the API; what is not drawn disappears.
-    /// Shading is not the document's business: passes set gpu pipelines around the textures
-    /// draw_to produces (the builtin ui pass composites custom-shaded Ui blocks that way).
-    TBX_API void draw(const UiDocument& document);
+    /// Purpose: Rasters one document into one target right now (cleared to transparent,
+    /// premultiplied alpha). Documents are cached by content behind the boundary — drawing
+    /// every frame is the API; what is not drawn disappears. Shading is not the document's
+    /// business: passes set gpu pipelines around the textures this produces.
+    TBX_API void draw(const UiDocument& document, const gpu::RenderTarget& target);
 
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
@@ -47,12 +47,6 @@ namespace tbx::ui
     /// Purpose: Advances animations/layout, evaluates bindings, and retires long-undrawn
     /// documents; called by tbx::run() every frame.
     TBX_API void update(float delta_time);
-
-    /// @brief
-    /// Purpose: Renders everything queued by draw() into the target (cleared to transparent,
-    /// premultiplied alpha) and empties the queue — the pass owns what happens to the
-    /// texture afterwards.
-    TBX_API void draw_to(const gpu::RenderTarget& target);
 
     /// @brief
     /// Purpose: Registers a binding (replacing any with the same name); its source runs

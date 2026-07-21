@@ -54,8 +54,6 @@ namespace tbx::gpu
         std::unique_ptr<DepthTarget> shadow_target;
         std::unique_ptr<RenderTarget> post_source;
         std::unique_ptr<RenderTarget> post_swap;
-        std::unique_ptr<RenderTarget> ui_target;
-        CompiledPipeline ui_composite;
         std::string ui_composite_fragment_text;
         std::unordered_map<uint32, std::unique_ptr<RenderTarget>> ui_layer_targets;
         std::unordered_map<uint64, CompiledPipeline> ui_composites_by_pair;
@@ -824,18 +822,29 @@ namespace tbx::gpu
         }
         const int width = get_viewport_width();
         const int height = get_viewport_height();
-
-        // Documents queue shader-free; SHADING is pipeline business: plain Ui blocks share
-        // one texture composited with the builtin pipeline, while a block with custom stages
-        // rasters into its own texture and composites through its own gpu pipeline.
-        struct ShadedLayer
+        if (!g_renderer.ui_layer_targets.empty())
         {
-            uint32 entity = 0;
-            UiDocument document = {};
-            std::string vertex_source = {};
-            std::string fragment_source = {};
+            const auto& first = g_renderer.ui_layer_targets.begin()->second;
+            if (first->get_width() != width || first->get_height() != height)
+                g_renderer.ui_layer_targets.clear();
+        }
+
+        // No queues: each layer (every enabled Ui block, plus the debug overlay) draws to
+        // its own target and composites through its own gpu pipeline — custom stages when
+        // the block names them, the builtin ui composite otherwise.
+        const auto composite_layer = [&](const uint32 layer_key,
+                                         const UiDocument& document,
+                                         const std::string& vertex_source,
+                                         const std::string& fragment_source)
+        {
+            auto& target = g_renderer.ui_layer_targets[layer_key];
+            if (!target)
+                target = make_render_target(width, height);
+            ui::draw(document, *target);
+            if (CompiledPipeline* composite =
+                    resolve_ui_composite(vertex_source, fragment_source))
+                composite_ui_texture(*target, *composite);
         };
-        auto shaded_layers = std::vector<ShadedLayer>();
 
         auto& registry = sandbox.get_registry();
         for (const auto [entity, ui_block] : registry.view<Ui>().each())
@@ -876,61 +885,29 @@ namespace tbx::gpu
                 ui::set_string("anchor_" + registry.get<ToyHandle>(entity).name, style);
             }
 
-            if (!ui_block.vertex.is_set() && !ui_block.fragment.is_set())
-            {
-                ui::draw(document->get());
-                continue;
-            }
-            auto layer = ShadedLayer {
-                .entity = static_cast<uint32>(entity), .document = document->get()};
+            auto vertex_source = std::string();
+            auto fragment_source = std::string();
             if (ui_block.vertex.is_set())
             {
                 if (const auto source = assets.load_now(ui_block.vertex))
-                    layer.vertex_source = source->get().text;
+                    vertex_source = source->get().text;
                 else
                     warn_once(ui_block.vertex.id, "ui vertex shader: " + source.error());
             }
             if (ui_block.fragment.is_set())
             {
                 if (const auto source = assets.load_now(ui_block.fragment))
-                    layer.fragment_source = source->get().text;
+                    fragment_source = source->get().text;
                 else
                     warn_once(ui_block.fragment.id, "ui fragment shader: " + source.error());
             }
-            shaded_layers.push_back(std::move(layer));
+            composite_layer(
+                static_cast<uint32>(entity), document->get(), vertex_source, fragment_source);
         }
-        debug::draw(); // the engine overlay rides the shared texture
 
-        if (!g_renderer.ui_target || g_renderer.ui_target->get_width() != width
-            || g_renderer.ui_target->get_height() != height)
-        {
-            g_renderer.ui_target = make_render_target(width, height);
-            g_renderer.ui_layer_targets.clear();
-        }
-        ui::draw_to(*g_renderer.ui_target);
-        if (!g_renderer.ui_composite.shader)
-        {
-            CompiledPipeline* builtin = resolve_ui_composite({}, {});
-            if (!builtin)
-                return;
-            g_renderer.ui_composite.shader = std::move(builtin->shader);
-            g_renderer.ui_composite.pipeline = std::move(builtin->pipeline);
-        }
-        composite_ui_texture(*g_renderer.ui_target, g_renderer.ui_composite);
-
-        // Custom-shaded layers: raster alone, then composite through the block's pipeline.
-        for (ShadedLayer& layer : shaded_layers)
-        {
-            auto& target = g_renderer.ui_layer_targets[layer.entity];
-            if (!target)
-                target = make_render_target(width, height);
-            ui::draw(layer.document);
-            ui::draw_to(*target);
-            CompiledPipeline* composite =
-                resolve_ui_composite(layer.vertex_source, layer.fragment_source);
-            if (composite)
-                composite_ui_texture(*target, *composite);
-        }
+        // The engine overlay is just one more layer with the builtin composite.
+        if (const auto overlay = debug::get_document())
+            composite_layer(0xFFFFFFFFu, overlay->get(), {}, {});
     }
 
     void render(Sandbox& sandbox)

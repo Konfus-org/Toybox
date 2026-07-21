@@ -1,9 +1,13 @@
 #pragma once
 #include "tbx/utils/api.h"
 
+#include <functional>
+#include <optional>
+
 namespace tbx
 {
     struct App;
+    struct UiDocument;
 }
 
 // The engine's debug overlay: frame timing, world and asset counts, rendered through the UI
@@ -11,9 +15,9 @@ namespace tbx
 namespace tbx::debug
 {
     /// @brief
-    /// Purpose: Draws the overlay when open — called by the render graph's ui pass so it
-    /// lands inside the frame.
-    TBX_API void draw();
+    /// Purpose: The overlay's document while open (empty when closed) — the ui pass draws
+    /// it to a target like any other layer.
+    TBX_API std::optional<std::reference_wrapper<const UiDocument>> get_document();
 
     /// @brief
     /// Purpose: Whether the overlay is currently shown.

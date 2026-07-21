@@ -16,8 +16,8 @@ local hud = {
 }
 
 function start(toy)
-    tbx.ui.bind(hud, "kills")
-    tbx.ui.bind(hud, "health")
+    tbx.ui.bind(hud, "kills", "kills")
+    tbx.ui.bind(hud, "health", "health")
 end
 
 local UP = { x = 0.0, y = 1.0, z = 0.0 }

@@ -91,6 +91,8 @@ static int run_scene_selftest()
             camera = sandbox.spawn("Camera")
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
                          .with(tbx::Camera {});
+            sandbox.spawn("Panel").with(tbx::Ui {
+                .document = tbx::AssetHandle<tbx::UiDocument>("Ui/selftest_panel.rml")});
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
@@ -105,18 +107,8 @@ static int run_scene_selftest()
 
         if (app.frame == 1)
             tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
-        static const auto ui_panel = tbx::UiDocument {.text = R"(<rml>
-<head><style>
-body { width: 100%; height: 100%; }
-#panel { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
-         background-color: #00ff00; }
-#frames { position: absolute; left: 400px; top: 8px; font-family: Montserrat;
-          font-size: 14px; color: #ffffff; }
-</style></head>
-<body><div id="panel"/><div id="frames" data-text="scene_frames"/></body>
-</rml>)"};
+
         tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
-        tbx::ui::draw(ui_panel); // immediate: renders right now, on top of the frame
 
         const auto& window = tbx::get_window();
         const tbx::Color center =
