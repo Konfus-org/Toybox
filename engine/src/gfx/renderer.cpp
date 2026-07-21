@@ -171,9 +171,9 @@ void main()
             const float aspect = get_viewport_height() > 0
                 ? static_cast<float>(get_viewport_width()) / get_viewport_height()
                 : 1.0f;
-            const Mat4 projection = glm::perspective(
-                glm::radians(camera.fov_degrees), aspect, camera.near_plane, camera.far_plane);
-            view_projection = projection * glm::inverse(world);
+            const Mat4 projection = math::perspective(
+                math::radians(camera.fov_degrees), aspect, camera.near_plane, camera.far_plane);
+            view_projection = projection * math::inverse(world);
             has_camera = true;
             break;
         }
@@ -181,23 +181,23 @@ void main()
             return;
 
         // The first directional light is the sun; light looks along its -Z.
-        auto light_direction = glm::normalize(Vec3(-0.4f, -1.0f, -0.3f));
+        auto light_direction = math::normalize(Vec3(-0.4f, -1.0f, -0.3f));
         auto light_color = Color {};
         float light_intensity = 1.0f;
         for (const auto [entity, light] : registry.view<DirectionalLight>().each())
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
-            light_direction = glm::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+            light_direction = math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
             light_color = light.color;
             light_intensity = light.intensity;
             break;
         }
-        const Mat4 light_view = glm::lookAt(
+        const Mat4 light_view = math::look_at(
             -light_direction * 30.0f,
             Vec3(0.0f, 0.0f, 0.0f),
             Vec3(0.0f, 1.0f, 0.0f));
         const Mat4 light_view_projection =
-            glm::ortho(-25.0f, 25.0f, -25.0f, 25.0f, 0.1f, 100.0f) * light_view;
+            math::orthographic(-25.0f, 25.0f, -25.0f, 25.0f, 0.1f, 100.0f) * light_view;
 
         // Pass 1: depth from the light.
         begin_depth_pass(*g_renderer.shadow_target);

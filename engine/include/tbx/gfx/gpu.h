@@ -1,5 +1,5 @@
 #pragma once
-#include "tbx/core/json.h"
+#include "tbx/serialization/serialization.h"
 #include "tbx/core/math.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"

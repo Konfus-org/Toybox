@@ -80,14 +80,7 @@ namespace tbx
         /// @brief
         /// Purpose: Runs a callable on a worker thread; await the returned task for its result.
         template <typename Fn>
-        auto run(Fn fn) -> Task<std::invoke_result_t<Fn>>
-        {
-            co_await on_worker();
-            if constexpr (std::is_void_v<std::invoke_result_t<Fn>>)
-                fn();
-            else
-                co_return fn();
-        }
+        auto run(Fn fn) -> Task<std::invoke_result_t<Fn>>;
 
         /// @brief
         /// Purpose: Fire-and-forget: the coroutine owns itself and self-destroys when done.
@@ -98,28 +91,7 @@ namespace tbx
         /// Purpose: Blocks the calling thread until the task completes and returns its result.
         /// For main()-loop boundaries and tests — inside coroutines, co_await instead.
         template <typename T>
-        T wait(Task<T> task)
-        {
-            std::binary_semaphore done(0);
-            if constexpr (std::is_void_v<T>)
-            {
-                std::exception_ptr error;
-                start(wrap_for_wait(std::move(task), done, error));
-                done.acquire();
-                if (error)
-                    std::rethrow_exception(error);
-            }
-            else
-            {
-                std::optional<T> result;
-                std::exception_ptr error;
-                start(wrap_for_wait(std::move(task), done, result, error));
-                done.acquire();
-                if (error)
-                    std::rethrow_exception(error);
-                return std::move(*result);
-            }
-        }
+        T wait(Task<T> task);
 
         /// @brief
         /// Purpose: Schedule point: `co_await jobs.on_worker()` resumes on a pool thread.
@@ -139,36 +111,14 @@ namespace tbx
         static Task<void> wrap_for_wait(
             Task<void> task,
             std::binary_semaphore& done,
-            std::exception_ptr& error)
-        {
-            try
-            {
-                co_await std::move(task);
-            }
-            catch (...)
-            {
-                error = std::current_exception();
-            }
-            done.release();
-        }
+            std::exception_ptr& error);
 
         template <typename T>
         static Task<void> wrap_for_wait(
             Task<T> task,
             std::binary_semaphore& done,
             std::optional<T>& result,
-            std::exception_ptr& error)
-        {
-            try
-            {
-                result = co_await std::move(task);
-            }
-            catch (...)
-            {
-                error = std::current_exception();
-            }
-            done.release();
-        }
+            std::exception_ptr& error);
 
         void worker_loop(std::stop_token stop);
 
@@ -182,20 +132,6 @@ namespace tbx
 
         friend struct ScheduleOn;
     };
-
-    inline void ScheduleOn::await_suspend(std::coroutine_handle<> handle) const
-    {
-        if (resume_on_main)
-            jobs.get().post_main(
-                [handle]
-                {
-                    handle.resume();
-                });
-        else
-            jobs.get().post_worker(
-                [handle]
-                {
-                    handle.resume();
-                });
-    }
 }
+
+#include "tbx/jobs/jobs.inl"

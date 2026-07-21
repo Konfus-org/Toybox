@@ -277,7 +277,7 @@ namespace tbx::physics
     {
         if (!g_physics)
             return {};
-        const Vec3 normalized = glm::normalize(direction);
+        const Vec3 normalized = math::normalize(direction);
         const auto ray = JPH::RRayCast(
             to_jolt(origin),
             to_jolt(normalized * max_distance));

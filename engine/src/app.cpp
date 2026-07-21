@@ -112,7 +112,6 @@ namespace tbx
         state.previous_frame = now;
         ++app.frame;
 
-        state.sandbox.process_streaming();
         state.scripts.update(app.delta_time);
 
         static constexpr float FIXED_STEP = 1.0f / 60.0f;

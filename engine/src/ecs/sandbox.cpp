@@ -107,8 +107,8 @@ namespace tbx
     Mat4 Sandbox::get_world_matrix(Toy toy)
     {
         const auto& transform = _registry.get_or_emplace<Transform>(toy.get_id());
-        const Mat4 local = glm::translate(Mat4(1.0f), transform.position)
-            * glm::mat4_cast(transform.rotation) * glm::scale(Mat4(1.0f), transform.scale);
+        const Mat4 local = math::translate(Mat4(1.0f), transform.position)
+            * math::to_mat4(transform.rotation) * math::scale(Mat4(1.0f), transform.scale);
         const auto parent = get_parent(toy);
         if (!parent)
             return local;
@@ -157,9 +157,9 @@ namespace tbx
 
             if (const auto* transform = _registry.try_get<Transform>(id))
             {
-                bounds_min = has_bounds ? glm::min(bounds_min, transform->position)
+                bounds_min = has_bounds ? math::min(bounds_min, transform->position)
                                         : transform->position;
-                bounds_max = has_bounds ? glm::max(bounds_max, transform->position)
+                bounds_max = has_bounds ? math::max(bounds_max, transform->position)
                                         : transform->position;
                 has_bounds = true;
             }
@@ -167,7 +167,7 @@ namespace tbx
 
         kit["toys"] = std::move(toys_json);
         const Vec3 center = has_bounds ? (bounds_min + bounds_max) * 0.5f : Vec3(0.0f);
-        const float radius = has_bounds ? glm::length(bounds_max - center) : 0.0f;
+        const float radius = has_bounds ? math::length(bounds_max - center) : 0.0f;
         kit["bounds"] =
             Json {{"center", {center.x, center.y, center.z}}, {"radius", radius}};
         return kit;
@@ -313,15 +313,26 @@ namespace tbx
 
     //// SANDBOX: LAYOUT & STREAMING ////
 
-    Result<void> Sandbox::load_layout(const Json& layout, const KitResolver& resolver)
+    void Sandbox::close()
     {
-        if (!layout.is_object())
+        _kit_instances.clear();
+        _streamed_entries.clear();
+        _layout_resolver = {};
+        _has_stream_focus = false;
+        _registry.clear(); // every toy, kit-spawned or not
+    }
+
+    Result<void> Sandbox::open(Layout layout)
+    {
+        const Json& body = layout.kits;
+        const KitResolver& resolver = layout.resolver;
+        if (!body.is_object())
             return fail("sandbox layout is not a JSON object");
         _layout_resolver = resolver;
 
         try
         {
-            for (const Json& entry : layout.value("kits", Json::array()))
+            for (const Json& entry : body.value("kits", Json::array()))
             {
                 const auto reference = entry.value("reference", std::string());
                 auto position = Vec3(0.0f);
@@ -365,10 +376,11 @@ namespace tbx
         return {};
     }
 
-    void Sandbox::stream_from(const Vec3& focus)
+    void Sandbox::stream(const Vec3& focus)
     {
         _stream_focus = focus;
         _has_stream_focus = true;
+        process_streaming();
     }
 
     void Sandbox::process_streaming()
@@ -380,7 +392,7 @@ namespace tbx
         {
             StreamedEntry& entry = _streamed_entries[i];
             const float distance =
-                glm::length(_stream_focus - (entry.bounds_center + entry.position));
+                math::length(_stream_focus - (entry.bounds_center + entry.position));
             const bool is_loaded = entry.instance.has_value();
 
             if (!is_loaded && !entry.is_loading

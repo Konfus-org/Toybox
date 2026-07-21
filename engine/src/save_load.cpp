@@ -27,8 +27,4 @@ namespace tbx
         return sandbox.load_kit(kit, root_position, resolver);
     }
 
-    Result<void> load_layout(Sandbox& sandbox, const Json& layout, const KitResolver& resolver)
-    {
-        return sandbox.load_layout(layout, resolver);
-    }
 }

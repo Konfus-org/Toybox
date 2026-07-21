@@ -42,7 +42,7 @@ static tbx::Quat look_toward(const tbx::Vec3& direction)
 {
     const tbx::Vec3 up = std::abs(direction.y) > 0.99f ? tbx::Vec3(0.0f, 0.0f, -1.0f)
                                                        : tbx::Vec3(0.0f, 1.0f, 0.0f);
-    return glm::quatLookAt(glm::normalize(direction), up);
+    return tbx::math::quat_look_at(tbx::math::normalize(direction), up);
 }
 
 // Renders a plane + floating cube + angled sun and verifies by pixel readback that the cube is

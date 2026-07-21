@@ -48,6 +48,16 @@ namespace tbx
     class Sandbox final
     {
       public:
+        /// @brief
+        /// Purpose: What a sandbox opens: the kit entries ({"kits": [{reference, mode,
+        /// position}]}) plus the resolver that turns references into kit bodies.
+        struct Layout
+        {
+            Json kits = {};
+            KitResolver resolver = {};
+        };
+
+      public:
         explicit Sandbox(Jobs& jobs);
 
       public:
@@ -77,6 +87,16 @@ namespace tbx
         std::optional<Toy> get_parent(Toy child);
 
         /// @brief
+        /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
+        /// state. The sandbox is empty and ready to open another layout.
+        void close();
+
+        /// @brief
+        /// Purpose: Opens a layout: ALWAYS entries load immediately; STREAMED entries
+        /// load/unload by distance to the streaming focus (see stream()).
+        Result<void> open(Layout layout);
+
+        /// @brief
         /// Purpose: Direct registry access — the sandbox exposes its internals deliberately;
         /// systems iterate views without ceremony.
         Registry& get_registry()
@@ -93,16 +113,13 @@ namespace tbx
         Mat4 get_world_matrix(Toy toy);
 
         /// @brief
-        /// Purpose: Drives streaming; called once per frame by tbx::run().
-        void process_streaming();
-
-        /// @brief
         /// Purpose: Creates a toy with identity and a default Transform.
         Toy spawn(std::string name);
 
         /// @brief
-        /// Purpose: Sets the streaming focus (typically player/camera position, every frame).
-        void stream_from(const Vec3& focus);
+        /// Purpose: THE streaming call: sets the focus (typically player/camera position) and
+        /// loads/unloads streamed kits by distance. Call once per frame.
+        void stream(const Vec3& focus);
 
         /// @brief
         /// Purpose: Reparents a toy (pass a default Toy to clear the parent).
@@ -111,6 +128,9 @@ namespace tbx
         /// @brief
         /// Purpose: Despawns every toy a kit instance spawned.
         void unload_kit(KitInstance instance);
+
+      private:
+        void process_streaming();
 
       private:
         // Serialization internals — the public surface is tbx::save / tbx::load (save_load.h).
@@ -125,7 +145,6 @@ namespace tbx
             const KitResolver& resolver,
             std::vector<uint64>& reference_stack,
             std::vector<ToyId>& spawned);
-        Result<void> load_layout(const Json& layout, const KitResolver& resolver);
 
       private:
         static constexpr float STREAM_LOAD_MARGIN = 5.0f;
@@ -159,42 +178,7 @@ namespace tbx
             const Json& kit,
             const Vec3& root_position,
             const KitResolver& resolver);
-        friend Result<void> load_layout(
-            Sandbox& sandbox,
-            const Json& layout,
-            const KitResolver& resolver);
     };
-
-    //// TOY INLINE DEFINITIONS (need the Sandbox definition above) ////
-
-    inline Toy::Toy(Sandbox& sandbox, const ToyId id)
-        : _sandbox(sandbox)
-        , _id(id)
-    {
-    }
-
-    template <typename TBlock>
-    TBlock& Toy::get_block()
-    {
-        return _sandbox->get()._registry.get_or_emplace<TBlock>(_id);
-    }
-
-    template <typename TBlock>
-    bool Toy::has_block() const
-    {
-        return _sandbox && _sandbox->get()._registry.all_of<TBlock>(_id);
-    }
-
-    template <typename TBlock>
-    void Toy::remove_block()
-    {
-        _sandbox->get()._registry.remove<TBlock>(_id);
-    }
-
-    template <typename TBlock>
-    Toy& Toy::with(TBlock block)
-    {
-        _sandbox->get()._registry.emplace_or_replace<TBlock>(_id, std::move(block));
-        return *this;
-    }
 }
+
+#include "tbx/ecs/toy.inl"

@@ -272,12 +272,11 @@ namespace tbx::tests
                  {"mode", "streamed"},
                  {"position", {0.0f, 0.0f, 0.0f}}}})}};
         auto sandbox = Sandbox(jobs);
-        ASSERT_TRUE(load_layout(sandbox, layout, make_map_resolver({{"room", body}})).has_value());
+        ASSERT_TRUE(sandbox.open({.kits = layout, .resolver = make_map_resolver({{"room", body}})}).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
 
         // Act: focus inside the load band → the kit streams in (async).
-        sandbox.stream_from(Vec3(1.0f, 0.0f, 0.0f));
-        sandbox.process_streaming();
+        sandbox.stream(Vec3(1.0f, 0.0f, 0.0f));
         for (int i = 0; i < 500 && sandbox.get_toy_count() == 0; ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -286,14 +285,12 @@ namespace tbx::tests
         const size loaded_count = sandbox.get_toy_count();
 
         // Focus just outside the load band but inside the unload band → stays loaded.
-        sandbox.stream_from(Vec3(10.0f, 0.0f, 0.0f));
-        sandbox.process_streaming();
+        sandbox.stream(Vec3(10.0f, 0.0f, 0.0f));
         jobs.drain_main();
         const size hysteresis_count = sandbox.get_toy_count();
 
         // Focus beyond the unload band → unloads.
-        sandbox.stream_from(Vec3(100.0f, 0.0f, 0.0f));
-        sandbox.process_streaming();
+        sandbox.stream(Vec3(100.0f, 0.0f, 0.0f));
         jobs.drain_main();
 
         // Assert
@@ -313,11 +310,36 @@ namespace tbx::tests
         auto sandbox = Sandbox(jobs);
 
         // Act
-        const auto result = load_layout(sandbox, layout, make_map_resolver({{"sky", body}}));
+        const auto result = sandbox.open({.kits = layout, .resolver = make_map_resolver({{"sky", body}})});
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
         EXPECT_TRUE(sandbox.find_toy("Skybox").has_value());
+    }
+
+    TEST(Sandbox, CloseEmptiesTheSandboxForReopening)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto author = Sandbox(jobs);
+        const Json body = save(author, std::array {author.spawn("Skybox")});
+        auto layout = Json {
+            {"kits", Json::array({Json {{"reference", "sky"}, {"mode", "always"}}})}};
+        auto sandbox = Sandbox(jobs);
+        ASSERT_TRUE(
+            sandbox.open({.kits = layout, .resolver = make_map_resolver({{"sky", body}})})
+                .has_value());
+        ASSERT_EQ(sandbox.get_toy_count(), 1u);
+
+        // Act
+        sandbox.close();
+
+        // Assert: empty, and a fresh open works again.
+        EXPECT_EQ(sandbox.get_toy_count(), 0u);
+        EXPECT_TRUE(
+            sandbox.open({.kits = layout, .resolver = make_map_resolver({{"sky", body}})})
+                .has_value());
+        EXPECT_EQ(sandbox.get_toy_count(), 1u);
     }
 
     TEST(Sandbox, WorldMatrixComposesParentChain)

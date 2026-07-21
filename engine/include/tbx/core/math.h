@@ -1,19 +1,13 @@
 #pragma once
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
+// The one math seam: the selected backend (cmake tbx_backend(MATH ...)) provides the
+// Vec2/Vec3/Vec4/Quat/Mat4 types and the tbx::math function surface. Nothing else names the
+// library.
+#include <tbx_math_backend.h>
 
 namespace tbx
 {
-    using Vec2 = glm::vec2;
-    using Vec3 = glm::vec3;
-    using Vec4 = glm::vec4;
-    using Quat = glm::quat;
-    using Mat4 = glm::mat4;
-
     /// @brief
-    /// Purpose: Linear-space RGBA color, components in [0, 1].
+    /// Purpose: Linear-space RGBA color, components in [0, 1] (engine-owned, backend-free).
     struct Color
     {
         float r = 1.0f;

@@ -51,10 +51,9 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        auto parsed = Json::parse(*text, nullptr, false);
-        if (parsed.is_discarded())
+        if (!is_valid_json(*text))
             return fail("'{}' is not valid JSON", path.string());
-        return parsed;
+        return parse_json(*text);
     }
 
     //// ASSETS ////
@@ -92,8 +91,8 @@ namespace tbx
         auto id = Uuid {};
         if (auto text = files::read_text(meta_path))
         {
-            const auto meta = Json::parse(*text, nullptr, false);
-            if (!meta.is_discarded())
+            const Json meta = parse_json(*text);
+            if (meta.is_object())
                 id = Uuid::parse(meta.value("id", std::string()));
         }
         if (id.is_nil())
@@ -103,7 +102,7 @@ namespace tbx
                 {"id", id.to_string()},
                 {"version", 1},
                 {"type", asset_path.extension().string()}};
-            if (auto written = files::write_text(meta_path, meta.dump(4)); !written)
+            if (auto written = files::write_text(meta_path, dump_json(meta, 4)); !written)
                 log_warn("could not write '{}': {}", meta_path, written.error());
         }
         _entries_by_path[relative_path] = Entry {.id = id, .relative_path = relative_path};
