@@ -5,7 +5,7 @@ namespace tbx
 {
     template <typename T>
         requires(std::is_same_v<T, Sandbox>)
-    Result<Json> save(T& sandbox)
+    Result<Kit> save(T& sandbox)
     {
         auto toys = std::vector<Toy>();
         toys.reserve(sandbox.get_toy_count());
@@ -16,7 +16,7 @@ namespace tbx
 
     template <typename T>
         requires(std::is_same_v<T, Toy>)
-    Result<Json> save(const T& toy)
+    Result<Kit> save(const T& toy)
     {
         if (!toy.is_alive())
             return fail("cannot save: the toy is not alive");

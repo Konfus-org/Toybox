@@ -19,23 +19,6 @@
 namespace tbx
 {
     class Assets;
-    class Sandbox;
-
-    /// @brief
-    /// Purpose: Handle to one instantiated kit; despawn(instance) removes exactly the toys it
-    /// spawned (including toys from nested kit references).
-    struct TBX_API KitInstance
-    {
-        uint64 id = 0;
-    };
-
-    // Declared ahead of the class so the friend declarations below share their TBX_API
-    // linkage (the full doc comments live in serialization/serialization.h).
-    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
-    TBX_API Result<KitInstance> load(
-        Sandbox& sandbox,
-        const Json& kit,
-        const Vec3& root_position);
 
     /// @brief
     /// Purpose: THE world container: owns every toy and streams sandbox-level kit entries by
@@ -145,17 +128,6 @@ namespace tbx
         void process_streaming();
 
       private:
-        // Serialization internals — the public surface is tbx::save / tbx::load
-        // (serialization.h) plus the spawn overloads above.
-        Json save_kit(std::span<const Toy> toys);
-        Result<KitInstance> load_kit(const Json& kit, const Vec3& root_position);
-        Result<KitInstance> load_kit_body(
-            const Json& kit,
-            const Vec3& root_position,
-            std::vector<uint64>& reference_stack,
-            std::vector<ToyId>& spawned);
-
-      private:
         static constexpr float STREAM_LOAD_MARGIN = 5.0f;
         static constexpr float STREAM_UNLOAD_MARGIN = 15.0f; // > load margin: hysteresis band
 
@@ -181,10 +153,11 @@ namespace tbx
         bool _has_stream_focus = false;
 
         friend class Toy;
-        friend TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
+        // The kit serialization pair lives next to Kit (ecs/kit.h); load() needs the
+        // instance bookkeeping and the asset system.
         friend TBX_API Result<KitInstance> load(
             Sandbox& sandbox,
-            const Json& kit,
+            const Kit& kit,
             const Vec3& root_position);
     };
 }

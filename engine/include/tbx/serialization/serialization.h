@@ -11,24 +11,20 @@ namespace tbx
 {
     // THE save/load surface — one generic pair for everything: tbx::save<Sandbox>(sandbox)
     // (the whole world as a kit), tbx::save<Toy>(toy) (a one-toy kit), tbx::save(any
-    // registered type) (the reflection walker). Kits load back through tbx::load or
-    // Sandbox::spawn.
+    // registered type) (the reflection walker). The kit pair itself — save(sandbox, toys)
+    // and load(sandbox, kit) — lives next to Kit in ecs/kit.h.
 
     /// @brief
-    /// Purpose: Serializes chosen toys (blocks, stickers, parent links, bounds) as a kit body.
-    TBX_API Json save(Sandbox& sandbox, std::span<const Toy> toys);
-
-    /// @brief
-    /// Purpose: Serializes the whole sandbox — every live toy — as a kit body.
+    /// Purpose: Serializes the whole sandbox — every live toy — as a kit.
     template <typename T>
         requires(std::is_same_v<T, Sandbox>)
-    Result<Json> save(T& sandbox);
+    Result<Kit> save(T& sandbox);
 
     /// @brief
-    /// Purpose: Serializes one toy (with its blocks and stickers) as a kit body.
+    /// Purpose: Serializes one toy (with its blocks and stickers) as a kit.
     template <typename T>
         requires(std::is_same_v<T, Toy>)
-    Result<Json> save(const T& toy);
+    Result<Kit> save(const T& toy);
 
     /// @brief
     /// Purpose: Serializes any registered type (register_type/register_block) to JSON.
@@ -36,16 +32,6 @@ namespace tbx
         requires(
             !std::is_same_v<T, Sandbox> && !std::is_same_v<T, Toy> && !std::is_pointer_v<T>)
     Result<Json> save(const T& object);
-
-    /// @brief
-    /// Purpose: Instantiates a kit body into a sandbox — the load half of save() round-trips.
-    /// Nested kit references resolve recursively through the sandbox's assets; cycles are
-    /// load errors; root position offsets every parentless toy. Spawning a kit FILE is
-    /// Sandbox::spawn(AssetHandle<Kit>) — raw bodies live only on this serialization surface.
-    TBX_API Result<KitInstance> load(
-        Sandbox& sandbox,
-        const Json& kit,
-        const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f));
 
     /// @brief
     /// Purpose: Populates any registered type from JSON produced by save(); the type's migrate

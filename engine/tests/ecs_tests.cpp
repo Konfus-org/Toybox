@@ -156,7 +156,7 @@ namespace tbx::tests
                          .sticker("level");
         Toy child = source.spawn("Grunt").with(TestHealth {.hp = 33.0f, .armor = 1.0f});
         source.set_parent(child, parent);
-        const Json kit = save(source, std::array {parent, child});
+        const Kit kit = save(source, std::array {parent, child});
 
         // Act
         auto target = Sandbox(jobs, assets);
@@ -185,17 +185,17 @@ namespace tbx::tests
         auto assets = Assets(jobs, events);
         auto source = Sandbox(jobs, assets);
         Toy toy = source.spawn("Thing").with(TestHealth {.hp = 7.0f, .armor = 2.0f});
-        const Json first = save(source, std::array {toy});
+        const Kit first = save(source, std::array {toy});
 
         // Act
         auto target = Sandbox(jobs, assets);
         ASSERT_TRUE(load(target, first).has_value());
         const auto reloaded = target.find("Thing");
         ASSERT_TRUE(reloaded.has_value());
-        const Json second = save(target, std::array {*reloaded});
+        const Kit second = save(target, std::array {*reloaded});
 
         // Assert: identical content modulo per-instantiation uuids.
-        EXPECT_EQ(normalize_kit(first), normalize_kit(second));
+        EXPECT_EQ(normalize_kit(first.body), normalize_kit(second.body));
     }
 
     TEST(Sandbox, NestedKitsInstantiateRecursively)
@@ -205,7 +205,7 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox(world.jobs, world.assets);
-        write_kit(world, "prefab.kit", save(author, std::array {author.spawn("Pickup")}));
+        write_kit(world, "prefab.kit", save(author, std::array {author.spawn("Pickup")}).body);
         write_kit(
             world,
             "room.kit",
@@ -300,7 +300,7 @@ namespace tbx::tests
         auto sandbox = Sandbox(jobs, assets);
 
         // Act
-        const auto loaded = load(sandbox, kit);
+        const auto loaded = load(sandbox, Kit {.body = kit});
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -313,7 +313,7 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox(world.jobs, world.assets);
-        write_kit(world, "room.kit", save(author, std::array {author.spawn("RoomToy")}));
+        write_kit(world, "room.kit", save(author, std::array {author.spawn("RoomToy")}).body);
         const auto box = Box {
             .kits = {
                 BoxEntry {.kit = AssetHandle<Kit>("room.kit"), .mode = KitMode::STREAMED}}};
@@ -350,7 +350,7 @@ namespace tbx::tests
         // Arrange
         auto world = TestWorld();
         auto author = Sandbox(world.jobs, world.assets);
-        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}));
+        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox(world.jobs, world.assets);
 
@@ -371,7 +371,7 @@ namespace tbx::tests
         auto source = Sandbox(jobs, assets);
         Toy toy = source.spawn("Lamp");
         toy.set_enabled(false);
-        const Json kit = save(source, std::array {toy});
+        const Kit kit = save(source, std::array {toy});
 
         // Act
         auto target = Sandbox(jobs, assets);
@@ -389,7 +389,7 @@ namespace tbx::tests
         // Arrange
         auto world = TestWorld();
         auto author = Sandbox(world.jobs, world.assets);
-        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}));
+        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox(world.jobs, world.assets);
         ASSERT_TRUE(sandbox.open(box).has_value());
