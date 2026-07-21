@@ -126,7 +126,7 @@ return script
         scripts.update(0.016f);
 
         // Assert
-        const auto summoned = sandbox.find_toy("Friend");
+        const auto summoned = sandbox.find("Friend");
         ASSERT_TRUE(summoned.has_value());
         EXPECT_TRUE(Toy(*summoned).has_sticker("summoned"));
     }

@@ -46,7 +46,7 @@ FetchContent_Declare(luau
 FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau)
 
 # --- Backend selection (see cmake/tbx_backend.cmake) ---
-tbx_backend(MATH glm)
+tbx_backend(MATH glm core)
 tbx_backend(SERIALIZATION nlohmann)
 tbx_backend(PLATFORM sdl)
 tbx_backend(GFX gl)
@@ -98,14 +98,14 @@ file(GLOB_RECURSE TBX_SOURCES CONFIGURE_DEPENDS
     "engine/src/*.cpp" "engine/src/*.h" "engine/include/*.h")
 # Backend folders are chosen by tbx_backend(); strip every backend subfolder from
 # the glob, then add back only the selected ones.
-list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|math|serialization)/[^/]+/")
-list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES})
+list(FILTER TBX_SOURCES EXCLUDE REGEX "engine/src/(platform|gfx|physics|scripting|core|serialization)/[^/]+/")
+list(APPEND TBX_SOURCES ${TBX_PLATFORM_BACKEND_SOURCES} ${TBX_GFX_BACKEND_SOURCES} ${TBX_PHYSICS_BACKEND_SOURCES} ${TBX_SCRIPTING_BACKEND_SOURCES} ${TBX_MATH_BACKEND_SOURCES} ${TBX_SERIALIZATION_BACKEND_SOURCES})
 
 add_library(tbx STATIC ${TBX_SOURCES})
 target_include_directories(tbx PUBLIC engine/include)
 # Header-only backends contribute an include dir instead of sources.
 target_include_directories(tbx PUBLIC
-    "engine/src/math/${TBX_MATH_BACKEND}"
+    "engine/src/core/${TBX_MATH_BACKEND}"
     "engine/src/serialization/${TBX_SERIALIZATION_BACKEND}")
 target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 target_link_libraries(tbx

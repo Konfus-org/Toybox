@@ -61,10 +61,13 @@ namespace tbx
             &state,
             [&state](const AssetReloaded& reloaded)
             {
-                if (const auto script = state.assets.get_script(reloaded.id))
+                const auto script =
+                    state.assets.get(AssetHandle<ScriptSource> {.id = reloaded.id});
+                if (script)
                 {
-                    if (const auto result =
-                            state.scripts.reload_source(script->name, script->source);
+                    if (const auto result = state.scripts.reload_source(
+                            script->get().name,
+                            script->get().source);
                         !result)
                         log_error("{}", result.error());
                 }

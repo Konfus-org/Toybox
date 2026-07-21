@@ -12,17 +12,23 @@
 # (plus its FetchContent block in the root CMakeLists). It automatically becomes
 # a valid -DTBX_<SUBSYSTEM>_BACKEND=<name> option. Backend library types must
 # never escape their folder; the boundary header is the wall.
+# An optional third argument names the parent folder when it differs from the subsystem
+# (e.g. tbx_backend(MATH glm core) selects engine/src/core/<backend>).
 function(tbx_backend subsystem default)
     string(TOUPPER "${subsystem}" upper)
     string(TOLOWER "${subsystem}" lower)
     set(var "TBX_${upper}_BACKEND")
+    set(parent "${lower}")
+    if(ARGC GREATER 2)
+        set(parent "${ARGV2}")
+    endif()
 
     set(${var} "${default}" CACHE STRING "Backend for the ${lower} subsystem")
 
-    set(backend_dir "${CMAKE_SOURCE_DIR}/engine/src/${lower}/${${var}}")
+    set(backend_dir "${CMAKE_SOURCE_DIR}/engine/src/${parent}/${${var}}")
     if(NOT IS_DIRECTORY "${backend_dir}")
-        file(GLOB available RELATIVE "${CMAKE_SOURCE_DIR}/engine/src/${lower}"
-            "${CMAKE_SOURCE_DIR}/engine/src/${lower}/*")
+        file(GLOB available RELATIVE "${CMAKE_SOURCE_DIR}/engine/src/${parent}"
+            "${CMAKE_SOURCE_DIR}/engine/src/${parent}/*")
         set(options "")
         foreach(entry IN LISTS available)
             if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/engine/src/${lower}/${entry}")

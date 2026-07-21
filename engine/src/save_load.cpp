@@ -24,7 +24,7 @@ namespace tbx
         const Vec3& root_position,
         const KitResolver& resolver)
     {
-        return sandbox.load_kit(kit, root_position, resolver);
+        return sandbox.spawn(kit, root_position, resolver);
     }
 
 }

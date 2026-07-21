@@ -101,12 +101,12 @@ namespace tbx::tests
         auto stickered = std::vector<std::string>();
 
         // Act
-        const auto by_name = sandbox.find_toy("Grunt");
-        const auto by_uuid = sandbox.find_toy(grunt.get_uuid());
+        const auto by_name = sandbox.find("Grunt");
+        const auto by_uuid = sandbox.find(grunt.get_uuid());
         sandbox.for_each_sticker(
             "enemy",
             [&stickered](Toy toy) { stickered.push_back(toy.get_name()); });
-        const auto missing = sandbox.find_toy("Ghost");
+        const auto missing = sandbox.find("Ghost");
 
         // Assert
         ASSERT_TRUE(by_name.has_value());
@@ -138,8 +138,8 @@ namespace tbx::tests
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         EXPECT_EQ(target.get_toy_count(), 2u);
-        const auto room = target.find_toy("Room");
-        const auto grunt = target.find_toy("Grunt");
+        const auto room = target.find("Room");
+        const auto grunt = target.find("Grunt");
         ASSERT_TRUE(room.has_value());
         ASSERT_TRUE(grunt.has_value());
         EXPECT_TRUE(room->has_sticker("level"));
@@ -161,7 +161,7 @@ namespace tbx::tests
         // Act
         auto target = Sandbox(jobs);
         ASSERT_TRUE(load(target, first).has_value());
-        const auto reloaded = target.find_toy("Thing");
+        const auto reloaded = target.find("Thing");
         ASSERT_TRUE(reloaded.has_value());
         const Json second = save(target, std::array {*reloaded});
 
@@ -193,7 +193,7 @@ namespace tbx::tests
 
         // Assert: offsets compose 100 + 10 + 1.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
-        const auto pickup = sandbox.find_toy("Pickup");
+        const auto pickup = sandbox.find("Pickup");
         ASSERT_TRUE(pickup.has_value());
         EXPECT_EQ(Toy(*pickup).get_block<Transform>().position, Vec3(111.0f, 0.0f, 0.0f));
     }
@@ -255,7 +255,7 @@ namespace tbx::tests
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
-        EXPECT_TRUE(sandbox.find_toy("Survivor").has_value());
+        EXPECT_TRUE(sandbox.find("Survivor").has_value());
     }
 
     TEST(Sandbox, StreamedKitLoadsAndUnloadsWithHysteresis)
@@ -314,7 +314,7 @@ namespace tbx::tests
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
-        EXPECT_TRUE(sandbox.find_toy("Skybox").has_value());
+        EXPECT_TRUE(sandbox.find("Skybox").has_value());
     }
 
     TEST(Sandbox, CloseEmptiesTheSandboxForReopening)

@@ -321,7 +321,7 @@ namespace tbx
     static int sandbox_find(lua_State* lua)
     {
         Sandbox& sandbox = bound_sandbox(lua);
-        const auto toy = sandbox.find_toy(std::string_view(luaL_checkstring(lua, 1)));
+        const auto toy = sandbox.find(std::string_view(luaL_checkstring(lua, 1)));
         if (!toy)
         {
             lua_pushnil(lua);

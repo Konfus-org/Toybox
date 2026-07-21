@@ -1,4 +1,7 @@
 #pragma once
+#include "tbx/assets/asset_handle.h"
+#include "tbx/assets/script_source.h"
+#include "tbx/assets/texture.h"
 #include "tbx/core/result.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/core/uuid.h"
@@ -13,37 +16,6 @@
 
 namespace tbx
 {
-    /// @brief
-    /// Purpose: Decoded RGBA8 image asset.
-    struct Texture
-    {
-        int width = 0;
-        int height = 0;
-        std::vector<std::byte> pixels = {};
-    };
-
-    /// @brief
-    /// Purpose: Typed reference to a loaded asset; the id comes from the identity-only .meta
-    /// sidecar ({id, version, type}), so renames never break references.
-    template <typename TAsset>
-    struct AssetHandle
-    {
-        Uuid id = {};
-
-        bool is_valid() const
-        {
-            return !id.is_nil();
-        }
-    };
-
-    /// @brief
-    /// Purpose: Script source loaded from a .luau file (name = asset-relative path).
-    struct ScriptSource
-    {
-        std::string name = {};
-        std::string source = {};
-    };
-
     /// @brief
     /// Purpose: Async-first asset loading over a static extension table (png/luau/kit json),
     /// with .meta identity sidecars and watcher-driven hot reload.

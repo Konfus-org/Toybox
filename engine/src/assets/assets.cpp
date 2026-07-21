@@ -115,17 +115,6 @@ namespace tbx
         _entries_by_path[relative_path].id = id;
     }
 
-    std::optional<ScriptSource> Assets::get_script(const Uuid& id)
-    {
-        const auto it = _assets.find(id);
-        if (it == _assets.end())
-            return {};
-        const auto* script = std::any_cast<ScriptSource>(&it->second);
-        if (!script)
-            return {};
-        return *script;
-    }
-
     void Assets::handle_file_changed(const std::filesystem::path& path)
     {
         auto ec = std::error_code {};

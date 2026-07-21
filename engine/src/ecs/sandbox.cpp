@@ -49,7 +49,7 @@ namespace tbx
         _registry.destroy(id);
     }
 
-    std::optional<Toy> Sandbox::find_toy(const Uuid& uuid)
+    std::optional<Toy> Sandbox::find(const Uuid& uuid)
     {
         for (const auto [id, identity] : _registry.view<ToyHandle>().each())
             if (identity.uuid == uuid)
@@ -57,7 +57,7 @@ namespace tbx
         return {};
     }
 
-    std::optional<Toy> Sandbox::find_toy(std::string_view name)
+    std::optional<Toy> Sandbox::find(std::string_view name)
     {
         for (const auto [id, identity] : _registry.view<ToyHandle>().each())
             if (identity.name == name)
@@ -300,7 +300,15 @@ namespace tbx
         return instance;
     }
 
-    void Sandbox::unload_kit(KitInstance instance)
+    Result<KitInstance> Sandbox::spawn(
+        const Json& kit,
+        const Vec3& position,
+        const KitResolver& resolver)
+    {
+        return load_kit(kit, position, resolver);
+    }
+
+    void Sandbox::despawn(KitInstance instance)
     {
         const auto it = _kit_instances.find(instance.id);
         if (it == _kit_instances.end())
@@ -429,7 +437,7 @@ namespace tbx
             }
             else if (is_loaded && distance >= entry.bounds_radius + STREAM_UNLOAD_MARGIN)
             {
-                unload_kit(*entry.instance);
+                despawn(*entry.instance);
                 entry.instance.reset();
             }
         }

@@ -31,8 +31,8 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Handle to one instantiated kit; unload_kit() despawns exactly the toys this
-    /// instance spawned (including toys from nested kit references).
+    /// Purpose: Handle to one instantiated kit; despawn(instance) removes exactly the toys it
+    /// spawned (including toys from nested kit references).
     struct KitInstance
     {
         uint64 id = 0;
@@ -66,17 +66,12 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
-        /// destroyed.
-        void despawn(Toy toy);
-
-        /// @brief
         /// Purpose: Finds a toy by runtime uuid.
-        std::optional<Toy> find_toy(const Uuid& uuid);
+        std::optional<Toy> find(const Uuid& uuid);
 
         /// @brief
         /// Purpose: Finds the first toy with the given name.
-        std::optional<Toy> find_toy(std::string_view name);
+        std::optional<Toy> find(std::string_view name);
 
         /// @brief
         /// Purpose: Invokes the callback for every toy wearing the sticker.
@@ -85,16 +80,6 @@ namespace tbx
         /// @brief
         /// Purpose: A toy's parent, when it has one.
         std::optional<Toy> get_parent(Toy child);
-
-        /// @brief
-        /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
-        /// state. The sandbox is empty and ready to open another layout.
-        void close();
-
-        /// @brief
-        /// Purpose: Opens a layout: ALWAYS entries load immediately; STREAMED entries
-        /// load/unload by distance to the streaming focus (see stream()).
-        Result<void> open(Layout layout);
 
         /// @brief
         /// Purpose: Direct registry access — the sandbox exposes its internals deliberately;
@@ -113,21 +98,53 @@ namespace tbx
         Mat4 get_world_matrix(Toy toy);
 
         /// @brief
-        /// Purpose: Creates a toy with identity and a default Transform.
-        Toy spawn(std::string name);
-
-        /// @brief
-        /// Purpose: THE streaming call: sets the focus (typically player/camera position) and
-        /// loads/unloads streamed kits by distance. Call once per frame.
-        void stream(const Vec3& focus);
-
-        /// @brief
         /// Purpose: Reparents a toy (pass a default Toy to clear the parent).
         void set_parent(Toy child, Toy parent);
 
         /// @brief
+        /// Purpose: Opens a layout: ALWAYS entries load immediately; STREAMED entries
+        /// load/unload by distance to the streaming focus (see stream()).
+        Result<void> open(Layout layout);
+
+        /// @brief
+        /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
+        /// state. The sandbox is empty and ready to open another layout.
+        void close();
+
+        /// @brief
+        /// Purpose: Spawns a kit body: instantiates its toys (nested kit references resolve
+        /// recursively; cycles are errors; position offsets parentless toys) and returns the
+        /// instance handle for despawn().
+        Result<KitInstance> spawn(
+            const Json& kit,
+            const Vec3& position = Vec3(0.0f, 0.0f, 0.0f),
+            const KitResolver& resolver = {});
+
+        /// @brief
+        /// Purpose: Creates a toy with identity and a default Transform.
+        Toy spawn(std::string name);
+
+        /// @brief
+        /// Purpose: Literal-friendly toy spawn (a bare string literal would otherwise be
+        /// ambiguous between std::string and a Json kit body).
+        Toy spawn(const char* name)
+        {
+            return spawn(std::string(name));
+        }
+
+        /// @brief
         /// Purpose: Despawns every toy a kit instance spawned.
-        void unload_kit(KitInstance instance);
+        void despawn(KitInstance instance);
+
+        /// @brief
+        /// Purpose: Despawns a toy; its children are orphaned (parent links cleared), not
+        /// destroyed.
+        void despawn(Toy toy);
+
+        /// @brief
+        /// Purpose: Sets the focus (typically player/camera position) and
+        /// loads/unloads streamed kits by distance. Call once per frame.
+        void stream(const Vec3& focus);
 
       private:
         void process_streaming();
@@ -173,11 +190,6 @@ namespace tbx
 
         friend class Toy;
         friend Json save(Sandbox& sandbox, std::span<const Toy> toys);
-        friend Result<KitInstance> load(
-            Sandbox& sandbox,
-            const Json& kit,
-            const Vec3& root_position,
-            const KitResolver& resolver);
     };
 }
 
