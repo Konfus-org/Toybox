@@ -60,9 +60,9 @@ namespace tbx::debug
         if (!g_debug.is_open || g_debug.document.text.empty())
             return;
         g_debug.smoothed_delta = g_debug.smoothed_delta <= 0.0f
-            ? app.delta_time
-            : g_debug.smoothed_delta * 0.9f + app.delta_time * 0.1f;
-        g_debug.refresh_timer -= app.delta_time;
+            ? app.state.delta_time
+            : g_debug.smoothed_delta * 0.9f + app.state.delta_time * 0.1f;
+        g_debug.refresh_timer -= app.state.delta_time;
         if (g_debug.refresh_timer > 0.0f)
             return;
         g_debug.refresh_timer = 0.25f;
@@ -72,7 +72,7 @@ namespace tbx::debug
         ui::set_string(
             "debug_fps",
             std::format("{:.0f} fps  ({:.2f} ms)", fps, g_debug.smoothed_delta * 1000.0f));
-        ui::set_string("debug_frame", std::format("frame {}", app.frame));
+        ui::set_string("debug_frame", std::format("frame {}", app.state.frame));
         ui::set_string("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
         ui::set_string(
             "debug_assets",

@@ -60,7 +60,8 @@ static int run_scene_selftest()
 {
     // The engine resources folder doubles as the asset root: the red cube's material is an
     // engine-shipped asset (color comes from materials now, not renderer tints).
-    auto app = tbx::App {.title = "Toybox 2 scene", .asset_root = TBX_RESOURCES_PATH};
+    auto app = tbx::App {
+        .config = {.title = "Toybox 2 scene", .asset_root = TBX_RESOURCES_PATH}};
     float shadowed_brightness = -1.0f;
     float unshadowed_brightness = -1.0f;
     bool cube_is_red = false;
@@ -72,9 +73,9 @@ static int run_scene_selftest()
 
     while (tbx::run(app))
     {
-        stats.frames = static_cast<int>(app.frame);
+        stats.frames = static_cast<int>(app.state.frame);
         auto& sandbox = tbx::get_sandbox();
-        if (app.frame == 1)
+        if (app.state.frame == 1)
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
@@ -96,16 +97,16 @@ static int run_scene_selftest()
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
-        if (app.frame == 3)
+        if (app.state.frame == 3)
             camera.get_block<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
-        if (app.frame == 5)
+        if (app.state.frame == 5)
             camera.get_block<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(-2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 
-        if (app.frame == 1)
+        if (app.state.frame == 1)
             tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
 
         tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
@@ -113,7 +114,7 @@ static int run_scene_selftest()
         const auto& window = tbx::get_window();
         const tbx::Color center =
             tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
-        if (app.frame == 2)
+        if (app.state.frame == 2)
         {
             cube_is_red = center.r > 0.25f && center.r > center.g * 2.0f;
     // Shader reflection: an arbitrary shader's uniform schema is discoverable and drivable.
@@ -146,18 +147,18 @@ out vec4 c; void main() { c = vec4(1.0); })");
             }
         }
         }
-        if (app.frame == 4)
+        if (app.state.frame == 4)
             shadowed_brightness = center.r + center.g + center.b;
-        if (app.frame == 6)
+        if (app.state.frame == 6)
             unshadowed_brightness = center.r + center.g + center.b;
-        if (app.frame == 6)
+        if (app.state.frame == 6)
         {
             // The UI panel owns the top-left corner (GL readback is y-up).
             const tbx::Color corner = tbx::gpu::read_pixel(60, window.get_height() - 60);
             ui_panel_visible = corner.g > 0.8f && corner.r < 0.2f;
         }
 
-        if (app.frame >= 6)
+        if (app.state.frame >= 6)
             tbx::quit();
     }
 
@@ -192,7 +193,7 @@ int main(int argc, char** argv)
             return run_scene_selftest();
     }
 
-    auto app = tbx::App {.title = "Toybox 2"};
+    auto app = tbx::App {.config = {.title = "Toybox 2"}};
     bool selftest_passed = false;
     std::unique_ptr<tbx::gpu::Shader> shader = {};
     std::unique_ptr<tbx::gpu::Pipeline> pipeline = {};
@@ -230,7 +231,7 @@ int main(int argc, char** argv)
             selftest_passed = center_is_triangle && corner_is_clear;
         }
 
-        if (frame_limit >= 0 && app.frame >= static_cast<uint64>(frame_limit))
+        if (frame_limit >= 0 && app.state.frame >= static_cast<uint64>(frame_limit))
             tbx::quit();
     }
 

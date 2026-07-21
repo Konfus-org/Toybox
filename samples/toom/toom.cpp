@@ -37,7 +37,7 @@ int main(int argc, char** argv)
         {
             // The "selftest" sticker tells player.luau to run the choreography: shoot the
             // hub enemy, then sprint north until the far room streams in.
-            if (app.frame == 1)
+            if (app.state.frame == 1)
             {
                 auto player = sandbox.find("Player");
                 if (!player)
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
                 scored = true;
             if (sandbox.find("FarFloor"))
                 streamed_room_seen = true;
-            if (app.frame >= 300)
+            if (app.state.frame >= 300)
                 tbx::quit();
         }
 

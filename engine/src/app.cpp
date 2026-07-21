@@ -18,7 +18,7 @@ namespace tbx
     /// @brief
     /// Purpose: Everything the runtime owns, constructed in declaration order — that order IS
     /// the dependency graph, and reverse-order destruction IS shutdown.
-    struct AppState
+    struct Runtime
     {
         Jobs jobs = {};
         Events events = {};
@@ -28,17 +28,17 @@ namespace tbx
         RenderGraph render_graph = {};
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
-        std::optional<Json> pending_config; // a changed .tapp body awaiting re-apply
+        std::optional<App> pending_app; // a changed .tapp, freshly decoded, awaiting re-apply
         std::unordered_set<Uuid> acquired_script_sources;
         bool quit_requested = false;
 
-        explicit AppState(const App& app)
+        explicit Runtime(const App& app)
             : window(
                   WindowDescription {
-                      .title = app.title,
-                      .width = app.width,
-                      .height = app.height,
-                      .is_headless = app.is_headless})
+                      .title = app.config.title,
+                      .width = app.config.width,
+                      .height = app.config.height,
+                      .is_headless = app.config.is_headless})
             , assets(jobs, events)
             , sandbox(jobs, assets)
             , scripts(sandbox, events)
@@ -47,7 +47,7 @@ namespace tbx
         }
     };
 
-    static std::unique_ptr<AppState> g_state = {};
+    static std::unique_ptr<Runtime> g_state = {};
 
     //// REGISTRATION ////
 
@@ -113,47 +113,61 @@ namespace tbx
             .field("master_volume", &AudioSettings::master_volume);
         register_type<AssetSettings>("AssetSettings")
             .field("idle_lifetime_seconds", &AssetSettings::idle_lifetime_seconds);
+        register_type<AppConfig>("AppConfig")
+            .field("title", &AppConfig::title)
+            .field("width", &AppConfig::width)
+            .field("height", &AppConfig::height)
+            .field("is_headless", &AppConfig::is_headless)
+            .field("sandbox", &AppConfig::sandbox)
+            .field("icon", &AppConfig::icon);
+        register_type<AppSettings>("AppSettings")
+            .field("graphics", &AppSettings::graphics)
+            .field("physics", &AppSettings::physics)
+            .field("audio", &AppSettings::audio)
+            .field("assets", &AppSettings::assets);
         register_type<App>("App")
-            .field("title", &App::title)
-            .field("width", &App::width)
-            .field("height", &App::height)
-            .field("is_headless", &App::is_headless)
-            .field("sandbox", &App::sandbox)
-            .field("icon", &App::icon)
-            .field("graphics", &App::graphics)
-            .field("physics", &App::physics)
-            .field("audio", &App::audio)
-            .field("assets", &App::assets);
+            .field("config", &App::config)
+            .field("settings", &App::settings);
+    }
+
+    template <>
+    Result<App> load<App>(const std::filesystem::path& path)
+    {
+        register_app_types();
+        const auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!is_valid(*text))
+            return fail("'{}' is not a valid .tapp (JSON)", path.string());
+        auto app = App {};
+        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse(*text));
+            !read)
+            return std::unexpected(read.error());
+        return ok(std::move(app));
     }
 
     Result<App> load_app(const std::filesystem::path& tapp_file)
     {
-        register_app_types();
-        const auto text = files::read_text(tapp_file);
-        if (!text)
-            return std::unexpected(text.error());
-        if (!is_valid(*text))
-            return fail("'{}' is not a valid .tapp (JSON)", tapp_file.string());
-        auto app = App {};
-        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse(*text)); !read)
-            return std::unexpected(read.error());
-        app.asset_root = tapp_file.parent_path();
-        app.config = AssetHandle<Json>(tapp_file.filename().string());
-        return ok(std::move(app));
+        auto app = load<App>(tapp_file);
+        if (!app)
+            return app;
+        app->config.asset_root = tapp_file.parent_path();
+        app->config.file = tapp_file.filename();
+        return app;
     }
 
     /// @brief
     /// Purpose: Pushes the App's settings into every subsystem — run at boot and again
     /// whenever the watched .tapp changes.
-    static void apply_settings(App& app, AppState& state)
+    static void apply_settings(App& app, Runtime& state)
     {
         if (!state.window.is_headless())
         {
-            state.window.set_title(app.title);
-            state.window.set_vsync(app.graphics.is_vsync_enabled);
-            if (app.icon.is_set())
+            state.window.set_title(app.config.title);
+            state.window.set_vsync(app.settings.graphics.is_vsync_enabled);
+            if (app.config.icon.is_set())
             {
-                if (const auto icon = state.assets.load_now(app.icon))
+                if (const auto icon = state.assets.load_now(app.config.icon))
                     state.window.set_icon(
                         icon->get().width,
                         icon->get().height,
@@ -162,10 +176,10 @@ namespace tbx
                     TBX_WARN("window icon: {}", icon.error());
             }
         }
-        set_shadow_resolution(app.graphics.shadow_resolution);
-        physics::set_gravity(app.physics.gravity);
-        audio::set_master_volume(app.audio.master_volume);
-        state.assets.set_idle_lifetime(app.assets.idle_lifetime_seconds);
+        set_shadow_resolution(app.settings.graphics.shadow_resolution);
+        physics::set_gravity(app.settings.physics.gravity);
+        audio::set_master_volume(app.settings.audio.master_volume);
+        state.assets.set_idle_lifetime(app.settings.assets.idle_lifetime_seconds);
     }
 
     //// BOOT / SHUTDOWN ////
@@ -175,35 +189,37 @@ namespace tbx
         register_builtin_blocks();
         register_app_types();
 
-        g_state = std::make_unique<AppState>(app);
-        AppState& state = *g_state;
+        g_state = std::make_unique<Runtime>(app);
+        Runtime& state = *g_state;
 
         if (!state.window.is_headless())
         {
             gpu::initialize();
             gpu::set_viewport(state.window.get_width(), state.window.get_height());
         }
-        if (!app.asset_root.empty())
-            state.assets.set_root(app.asset_root);
+        if (!app.config.asset_root.empty())
+            state.assets.set_root(app.config.asset_root);
 
         apply_settings(app, state);
 
-        // The .tapp is an ordinary watched asset: loading it here registers it, and any
-        // change queues its fresh body for re-apply on the next frame.
-        if (app.config.is_set())
+        // The .tapp is an ordinary watched asset and the App IS its asset type: loading it
+        // here registers it, and any change queues a freshly decoded App for re-apply.
+        if (!app.config.file.empty())
         {
-            if (const auto config = state.assets.load_now(app.config))
-                (void)config;
-            else
-                TBX_WARN("app config: {}", config.error());
+            if (const auto self = state.assets.load_now(
+                    AssetHandle<App>(app.config.file.generic_string()));
+                !self)
+                TBX_WARN("app config: {}", self.error());
             state.events.asset_reloaded.subscribe(
                 &state,
                 [&state](const AssetReloaded& reloaded)
                 {
                     if (std::string_view(reloaded.extension) != ".tapp")
                         return;
-                    if (const auto body = state.assets.load_now(AssetHandle<Json>(reloaded.id)))
-                        state.pending_config = body->get();
+                    if (const auto fresh = state.assets.load_now(AssetHandle<App>(reloaded.id)))
+                        state.pending_app = fresh->get();
+                    else
+                        TBX_ERROR("app config reload: {}", fresh.error());
                 });
         }
 
@@ -244,22 +260,22 @@ namespace tbx
         // Configured content is ordinary assets: the box opens (its kits resolve through
         // the sandbox's assets), the UI document loads and shows. Failures request a clean
         // exit.
-        if (app.sandbox.is_set())
+        if (app.config.sandbox.is_set())
         {
-            const auto box = state.assets.load_now(app.sandbox);
+            const auto box = state.assets.load_now(app.config.sandbox);
             if (!box)
             {
-                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, box.error());
+                TBX_ERROR("sandbox '{}': {}", app.config.sandbox.path, box.error());
                 state.quit_requested = true;
             }
             else if (const auto opened = state.sandbox.open(box->get()); !opened)
             {
-                TBX_ERROR("sandbox '{}': {}", app.sandbox.path, opened.error());
+                TBX_ERROR("sandbox '{}': {}", app.config.sandbox.path, opened.error());
                 state.quit_requested = true;
             }
         }
 
-        app.is_running = true;
+        app.state.is_running = true;
         TBX_INFO(
             "Toybox app up ({}x{}{})",
             state.window.get_width(),
@@ -273,10 +289,10 @@ namespace tbx
     {
         if (!g_state)
             boot(app);
-        AppState& state = *g_state;
+        Runtime& state = *g_state;
 
         // Present what the host drew since the last run() call (skips cleanly on frame 0).
-        if (app.frame > 0)
+        if (app.state.frame > 0)
             state.window.swap();
 
         input::pump();
@@ -288,7 +304,7 @@ namespace tbx
 
         if (!window_alive || state.quit_requested)
         {
-            app.is_running = false;
+            app.state.is_running = false;
             debug::reset();
             ui::reset();
             audio::reset();
@@ -298,23 +314,21 @@ namespace tbx
         }
 
         const auto now = std::chrono::steady_clock::now();
-        app.delta_time = std::chrono::duration<float>(now - state.previous_frame).count();
+        app.state.delta_time = std::chrono::duration<float>(now - state.previous_frame).count();
         state.previous_frame = now;
-        ++app.frame;
+        ++app.state.frame;
 
-        if (state.pending_config)
+        if (state.pending_app)
         {
-            // The .tapp changed on disk: deserialize into the LIVE App and push settings out.
-            if (const auto read =
-                    json_read(get_type_registry().find("App")->get(), app, *state.pending_config);
-                !read)
-                TBX_ERROR("app config reload: {}", read.error());
-            else
-            {
-                apply_settings(app, state);
-                TBX_INFO("app settings re-applied from the .tapp");
-            }
-            state.pending_config.reset();
+            // The .tapp changed on disk: adopt its config + settings (state is runtime-only,
+            // and the derived paths cannot change while running) and push settings out.
+            state.pending_app->config.asset_root = app.config.asset_root;
+            state.pending_app->config.file = app.config.file;
+            app.config = state.pending_app->config;
+            app.settings = state.pending_app->settings;
+            state.pending_app.reset();
+            apply_settings(app, state);
+            TBX_INFO("app settings re-applied from the .tapp");
         }
 
         // The engine debug overlay rides F3.
@@ -335,14 +349,14 @@ namespace tbx
         }
 
         state.assets.collect_garbage();
-        state.scripts.update(app.delta_time);
-        audio::update(state.sandbox, state.assets, app.delta_time);
-        ui::update(app.delta_time);
+        state.scripts.update(app.state.delta_time);
+        audio::update(state.sandbox, state.assets, app.state.delta_time);
+        ui::update(app.state.delta_time);
 
         const float fixed_step =
-            app.physics.fixed_timestep > 0.0f ? app.physics.fixed_timestep : 1.0f / 60.0f;
+            app.settings.physics.fixed_timestep > 0.0f ? app.settings.physics.fixed_timestep : 1.0f / 60.0f;
         static float g_fixed_accumulator = 0.0f;
-        g_fixed_accumulator += app.delta_time;
+        g_fixed_accumulator += app.state.delta_time;
         while (g_fixed_accumulator >= fixed_step)
         {
             g_fixed_accumulator -= fixed_step;

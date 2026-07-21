@@ -1,4 +1,5 @@
 #include "tbx/assets/assets.h"
+#include "tbx/app.h"
 #include "tbx/debug/log.h"
 #include "tbx/files/files.h"
 #include <algorithm>
@@ -279,7 +280,7 @@ namespace tbx
         // re-enters prepare), then swap the result back in.
         enum class Kind
         {
-            NONE, TEX, SCRIPT, JSON, MODEL, SHADER, CLIP, MAT, DOC
+            NONE, TEX, SCRIPT, JSON, MODEL, SHADER, CLIP, MAT, DOC, APP
         };
         auto kind = Kind::NONE;
         {
@@ -301,6 +302,8 @@ namespace tbx
                 kind = Kind::MAT;
             else if (std::any_cast<UiDocument>(&stored))
                 kind = Kind::DOC;
+            else if (std::any_cast<App>(&stored))
+                kind = Kind::APP;
         }
 
         auto refreshed = Result<std::any>(std::unexpected(std::string("unknown asset shape")));
@@ -320,6 +323,7 @@ namespace tbx
             case Kind::CLIP: redecode.template operator()<AudioClip>(); break;
             case Kind::MAT: redecode.template operator()<Material>(); break;
             case Kind::DOC: redecode.template operator()<UiDocument>(); break;
+            case Kind::APP: redecode.template operator()<App>(); break;
             case Kind::NONE: break;
         }
         if (!refreshed)

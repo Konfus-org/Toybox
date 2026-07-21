@@ -1,21 +1,25 @@
 {
-    "title": "Toom",
-    "width": 1600,
-    "height": 900,
-    "sandbox": "levels/arena.box",
-    "icon": "textures/ToomLogo.jpg",
-    "graphics": {
-        "is_vsync_enabled": true,
-        "shadow_resolution": 2048
+    "config": {
+        "title": "Toom",
+        "width": 1600,
+        "height": 900,
+        "sandbox": "levels/arena.box",
+        "icon": "textures/ToomLogo.jpg"
     },
-    "physics": {
-        "fixed_timestep": 0.0166667,
-        "gravity": [0.0, -9.81, 0.0]
-    },
-    "audio": {
-        "master_volume": 1.0
-    },
-    "assets": {
-        "idle_lifetime_seconds": 60.0
+    "settings": {
+        "graphics": {
+            "is_vsync_enabled": true,
+            "shadow_resolution": 2048
+        },
+        "physics": {
+            "fixed_timestep": 0.0166667,
+            "gravity": [0.0, -9.81, 0.0]
+        },
+        "audio": {
+            "master_volume": 1.0
+        },
+        "assets": {
+            "idle_lifetime_seconds": 60.0
+        }
     }
 }
