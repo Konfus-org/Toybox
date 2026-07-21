@@ -57,6 +57,7 @@ namespace tbx::gpu
         std::unordered_map<Uuid, CompiledPipeline> post_shaders_by_asset;
         std::unordered_map<Uuid, uint64> ui_documents_by_asset;
         std::unordered_set<Uuid> warned_assets;
+        int shadow_resolution = 2048;
         std::string pbr_vertex_text;
         std::string pbr_fragment_text;
         std::string post_vertex_text;
@@ -220,7 +221,7 @@ namespace tbx::gpu
         constexpr std::byte WHITE[4] =
             {std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
         g_renderer.white = upload_texture(1, 1, WHITE);
-        g_renderer.shadow_target = make_depth_target(2048);
+        g_renderer.shadow_target = make_depth_target(g_renderer.shadow_resolution);
         return true;
     }
 
@@ -870,6 +871,15 @@ namespace tbx
     RenderPass make_ui_pass()
     {
         return {.name = "ui", .render = &gpu::render_ui_pass};
+    }
+
+    void set_shadow_resolution(const int resolution)
+    {
+        if (resolution <= 0 || resolution == gpu::g_renderer.shadow_resolution)
+            return;
+        gpu::g_renderer.shadow_resolution = resolution;
+        if (gpu::g_renderer.shadow_target)
+            gpu::g_renderer.shadow_target = gpu::make_depth_target(resolution);
     }
 
     void forget_asset(const Uuid& asset_id)

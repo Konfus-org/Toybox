@@ -7,6 +7,8 @@
 #include "tbx/ecs/block.h"
 #include "tbx/physics/physics.h"
 #include "tbx/platform/input.h"
+#include "tbx/files/files.h"
+#include "tbx/reflect/json_walker.h"
 #include <chrono>
 #include <memory>
 #include <unordered_set>
@@ -93,18 +95,71 @@ namespace tbx
             .field("is_playing", &AudioSource::is_playing);
     }
 
+    /// @brief
+    /// Purpose: Registers the App struct and its settings groups — the .tapp schema.
+    static void register_app_types()
+    {
+        static bool g_registered = false;
+        if (g_registered)
+            return;
+        g_registered = true;
+        register_type<GraphicsSettings>("GraphicsSettings")
+            .field("is_vsync_enabled", &GraphicsSettings::is_vsync_enabled)
+            .field("shadow_resolution", &GraphicsSettings::shadow_resolution);
+        register_type<PhysicsSettings>("PhysicsSettings")
+            .field("fixed_timestep", &PhysicsSettings::fixed_timestep)
+            .field("gravity", &PhysicsSettings::gravity);
+        register_type<AudioSettings>("AudioSettings")
+            .field("master_volume", &AudioSettings::master_volume);
+        register_type<AssetSettings>("AssetSettings")
+            .field("idle_lifetime_seconds", &AssetSettings::idle_lifetime_seconds);
+        register_type<App>("App")
+            .field("title", &App::title)
+            .field("width", &App::width)
+            .field("height", &App::height)
+            .field("is_headless", &App::is_headless)
+            .field("sandbox", &App::sandbox)
+            .field("icon", &App::icon)
+            .field("graphics", &App::graphics)
+            .field("physics", &App::physics)
+            .field("audio", &App::audio)
+            .field("assets", &App::assets);
+    }
+
+    Result<App> load_app(const std::filesystem::path& tapp_file)
+    {
+        register_app_types();
+        const auto text = files::read_text(tapp_file);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!is_valid_json(*text))
+            return fail("'{}' is not a valid .tapp (JSON)", tapp_file.string());
+        auto app = App {};
+        if (auto read = json_read(get_type_registry().find("App")->get(), app, parse_json(*text));
+            !read)
+            return std::unexpected(read.error());
+        app.asset_root = tapp_file.parent_path();
+        return ok(std::move(app));
+    }
+
     //// BOOT / SHUTDOWN ////
 
     static void boot(App& app)
     {
         register_builtin_blocks();
+        register_app_types();
         g_state = std::make_unique<AppState>(app);
         AppState& state = *g_state;
         if (!state.window.is_headless())
         {
             gpu::initialize();
             gpu::set_viewport(state.window.get_width(), state.window.get_height());
+            state.window.set_vsync(app.graphics.is_vsync_enabled);
         }
+        set_shadow_resolution(app.graphics.shadow_resolution);
+        physics::set_gravity(app.physics.gravity);
+        audio::set_master_volume(app.audio.master_volume);
+        state.assets.set_idle_lifetime(app.assets.idle_lifetime_seconds);
         if (!app.asset_root.empty())
             state.assets.set_root(app.asset_root);
         if (app.icon.is_set() && !state.window.is_headless())
@@ -241,14 +296,16 @@ namespace tbx
         audio::update(state.sandbox, state.assets, app.delta_time);
         ui::update(app.delta_time);
 
-        static constexpr float FIXED_STEP = 1.0f / 60.0f;
+        const float fixed_step = app.physics.fixed_timestep > 0.0f
+            ? app.physics.fixed_timestep
+            : 1.0f / 60.0f;
         static float g_fixed_accumulator = 0.0f;
         g_fixed_accumulator += app.delta_time;
-        while (g_fixed_accumulator >= FIXED_STEP)
+        while (g_fixed_accumulator >= fixed_step)
         {
-            g_fixed_accumulator -= FIXED_STEP;
-            state.scripts.fixed_update(FIXED_STEP);
-            physics::update(state.sandbox, state.assets, state.events, FIXED_STEP);
+            g_fixed_accumulator -= fixed_step;
+            state.scripts.fixed_update(fixed_step);
+            physics::update(state.sandbox, state.assets, state.events, fixed_step);
         }
         return true;
     }

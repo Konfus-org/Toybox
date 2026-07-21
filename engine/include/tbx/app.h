@@ -26,9 +26,41 @@
 namespace tbx
 {
     /// @brief
+    /// Purpose: Graphics configuration applied at boot.
+    struct TBX_API GraphicsSettings
+    {
+        bool is_vsync_enabled = true;
+        int shadow_resolution = 2048;
+    };
+
+    /// @brief
+    /// Purpose: Physics configuration applied at boot; fixed_timestep also paces
+    /// fixed_update scripting.
+    struct TBX_API PhysicsSettings
+    {
+        float fixed_timestep = 1.0f / 60.0f;
+        Vec3 gravity = Vec3(0.0f, -9.81f, 0.0f);
+    };
+
+    /// @brief
+    /// Purpose: Audio configuration applied at boot.
+    struct TBX_API AudioSettings
+    {
+        float master_volume = 1.0f;
+    };
+
+    /// @brief
+    /// Purpose: Asset system configuration applied at boot.
+    struct TBX_API AssetSettings
+    {
+        float idle_lifetime_seconds = 60.0f;
+    };
+
+    /// @brief
     /// Purpose: The application, as pure data: configuration in, per-frame data out. The whole
     /// runtime is one loop — `while (tbx::run(app)) { gpu::begin_frame(); ... }` — and run()
-    /// fills the frame fields each iteration.
+    /// fills the frame fields each iteration. Author it as a .tapp file and load_app() it, or
+    /// fill it in code; the reflected fields are exactly the .tapp schema.
     struct TBX_API App
     {
         // Configuration (read once, at the first run() call).
@@ -39,12 +71,22 @@ namespace tbx
         std::filesystem::path asset_root = {};
         AssetHandle<Json> sandbox = {};  // a .box layout the boot opens
         AssetHandle<Texture> icon = {};  // the window/taskbar icon
+        GraphicsSettings graphics = {};
+        PhysicsSettings physics = {};
+        AudioSettings audio = {};
+        AssetSettings assets = {};
 
         // Per-frame data (written by run()).
         float delta_time = 0.0f;
         uint64 frame = 0;
         bool is_running = false;
     };
+
+    /// @brief
+    /// Purpose: Loads a .tapp application config: the file deserializes straight into the App
+    /// struct (missing keys keep their defaults; sandbox/icon accept asset paths or uuids)
+    /// and the asset root becomes the .tapp's folder.
+    TBX_API Result<App> load_app(const std::filesystem::path& tapp_file);
 
     /// @brief
     /// Purpose: Runs one frame: presents the previous one, pumps OS events/jobs/events,

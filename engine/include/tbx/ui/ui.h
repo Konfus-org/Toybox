@@ -11,9 +11,8 @@
 namespace tbx::ui
 {
     /// @brief
-    /// Purpose: Loads a UI document from RML text and shows it; returns its id for
-    /// unload_document/set_document_visible.
-    TBX_API Result<uint64> load_document(const std::string& document);
+    /// Purpose: Advances animations/layout; called by tbx::run() every frame.
+    TBX_API void update(float delta_time);
 
     /// @brief
     /// Purpose: Renders every visible document on top of the frame — called by the renderer's
@@ -23,6 +22,15 @@ namespace tbx::ui
     /// @brief
     /// Purpose: Tears the UI down; the next call starts fresh. run() calls this at shutdown.
     TBX_API void reset();
+
+    /// @brief
+    /// Purpose: Loads a UI document from RML text and shows it; returns its id for
+    /// unload_document/set_document_visible.
+    TBX_API Result<uint64> load_document(const std::string& document);
+
+    /// @brief
+    /// Purpose: Closes one document by the id load_document returned.
+    TBX_API void unload_document(uint64 document_id);
 
     /// @brief
     /// Purpose: Shows or hides one document by id.
@@ -37,12 +45,4 @@ namespace tbx::ui
     /// Purpose: Replaces an element's inner text; the element is found by id across every
     /// loaded document.
     TBX_API void set_text(const std::string& element_id, const std::string& text);
-
-    /// @brief
-    /// Purpose: Closes one document by the id load_document returned.
-    TBX_API void unload_document(uint64 document_id);
-
-    /// @brief
-    /// Purpose: Advances animations/layout; called by tbx::run() every frame.
-    TBX_API void update(float delta_time);
 }

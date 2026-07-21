@@ -3,6 +3,7 @@
 #include "tbx/physics/collider.h"
 #include "tbx/debug/log.h"
 #include <SDL3/SDL.h>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <phonon.h>
@@ -63,6 +64,7 @@ namespace tbx::audio
     };
 
     static std::unique_ptr<AudioState> g_audio = {};
+    static std::atomic<float> g_master_volume = 1.0f;
 
     //// DSP (audio thread) ////
 
@@ -113,7 +115,8 @@ namespace tbx::audio
             parameters.hrtf = g_audio->hrtf;
             iplBinauralEffectApply(voice.effect, &parameters, &state.mono, &state.stereo);
 
-            const float gain = voice.volume * voice.attenuation * state.listener_volume;
+            const float gain = voice.volume * voice.attenuation * state.listener_volume
+                * g_master_volume.load(std::memory_order_relaxed);
             for (int frame = 0; frame < frame_count; ++frame)
             {
                 state.interleaved[frame * 2 + 0] += state.stereo.data[0][frame] * gain;
@@ -199,6 +202,11 @@ namespace tbx::audio
     void reset()
     {
         g_audio.reset();
+    }
+
+    void set_master_volume(const float volume)
+    {
+        g_master_volume.store(volume, std::memory_order_relaxed);
     }
 
     void update(Sandbox& sandbox, Assets& assets, const float)

@@ -82,6 +82,10 @@ namespace tbx
     TBX_API RenderPass make_ui_pass();
 
     /// @brief
+    /// Purpose: Sets the shadow map resolution (applied when the shadow pass next runs).
+    TBX_API void set_shadow_resolution(int resolution);
+
+    /// @brief
     /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
     /// compiled material pipelines, shown UI documents) — wired to the asset system's
     /// unload/reload events so caches follow asset lifetime instead of managing their own.

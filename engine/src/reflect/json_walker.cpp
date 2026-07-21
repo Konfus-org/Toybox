@@ -55,9 +55,15 @@ namespace tbx
                 return Json::array({c.r, c.g, c.b, c.a});
             }
             case FieldKind::UUID:
-            case FieldKind::ASSET:
-                // AssetHandle<T> is layout-identical to its Uuid id.
                 return reinterpret_cast<const Uuid*>(at)->to_string();
+            case FieldKind::ASSET:
+            {
+                // Resolved handles keep their identity; authoring-time handles keep the path.
+                const auto [id, asset_path] = field.read_asset(object);
+                if (id.is_nil() && !asset_path.empty())
+                    return asset_path;
+                return id.to_string();
+            }
             case FieldKind::ASSET_LIST:
             {
                 auto list = Json::array();
@@ -170,9 +176,22 @@ namespace tbx
                 return {};
             }
             case FieldKind::UUID:
-            case FieldKind::ASSET:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(value.get<std::string>());
                 return {};
+            case FieldKind::ASSET:
+            {
+                // A 32-hex string (dashes tolerated) is an identity; anything else is an
+                // asset-relative path resolved on first load.
+                auto text = value.get<std::string>();
+                auto stripped = text;
+                std::erase(stripped, '-');
+                const Uuid id = Uuid::parse(stripped);
+                if (id.is_nil())
+                    field.write_asset(object, Uuid {}, std::move(text));
+                else
+                    field.write_asset(object, id, std::string());
+                return {};
+            }
             case FieldKind::ASSET_LIST:
             {
                 if (!value.is_array())

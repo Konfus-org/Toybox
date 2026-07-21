@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace tbx
@@ -54,6 +55,10 @@ namespace tbx
         // Points at the owning TypeSlot's hash so nested types may register in any order;
         // empty for non-TYPE fields.
         std::optional<std::reference_wrapper<const uint64>> nested_hash = {};
+        // ASSET accessors: the concrete AssetHandle<T> is erased through these so readers
+        // and writers see both identity and authoring path; empty for every other kind.
+        std::function<std::pair<Uuid, std::string>(const std::byte*)> read_asset = {};
+        std::function<void(std::byte*, const Uuid&, std::string)> write_asset = {};
         // ASSET_LIST accessors: the concrete std::vector<AssetHandle<T>> is erased through
         // these (set by the matching field() overload); empty for every other kind.
         std::function<std::vector<Uuid>(const std::byte*)> read_asset_list = {};
@@ -217,6 +222,22 @@ namespace tbx
                 field.is_enum_signed = std::is_signed_v<std::underlying_type_t<TField>>;
             if constexpr (field_kind_of<TField>() == FieldKind::TYPE)
                 field.nested_hash = std::cref(TypeSlot<TField>::hash);
+            if constexpr (IsAssetHandle<TField>::value)
+            {
+                field.read_asset = [offset](const std::byte* object)
+                {
+                    const auto& handle =
+                        *std::launder(reinterpret_cast<const TField*>(object + offset));
+                    return std::pair<Uuid, std::string>(handle.id, handle.path);
+                };
+                field.write_asset =
+                    [offset](std::byte* object, const Uuid& id, std::string path)
+                {
+                    auto& handle = *std::launder(reinterpret_cast<TField*>(object + offset));
+                    handle.id = id;
+                    handle.path = std::move(path);
+                };
+            }
             _info.get().fields.push_back(std::move(field));
             return *this;
         }

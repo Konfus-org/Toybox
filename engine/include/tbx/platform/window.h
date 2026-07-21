@@ -50,6 +50,10 @@ namespace tbx
         bool pump(Events& events);
 
         /// @brief
+        /// Purpose: Enables/disables vertical sync on the presented frame.
+        void set_vsync(bool is_enabled);
+
+        /// @brief
         /// Purpose: Sets the window/taskbar icon from RGBA8 pixels.
         void set_icon(int width, int height, std::span<const std::byte> rgba_pixels);
 

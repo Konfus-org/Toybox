@@ -112,9 +112,17 @@ namespace tbx
                 push_vector_table(lua, &reinterpret_cast<const Color*>(at)->r, RGBA_KEYS, 4);
                 return 1;
             case FieldKind::UUID:
-            case FieldKind::ASSET:
                 lua_pushstring(lua, reinterpret_cast<const Uuid*>(at)->to_string().c_str());
                 return 1;
+            case FieldKind::ASSET:
+            {
+                const auto [id, asset_path] = field.read_asset(block);
+                if (id.is_nil() && !asset_path.empty())
+                    lua_pushstring(lua, asset_path.c_str());
+                else
+                    lua_pushstring(lua, id.to_string().c_str());
+                return 1;
+            }
             case FieldKind::ENUM:
             {
                 auto raw = uint64(0);
@@ -187,9 +195,20 @@ namespace tbx
                 read_vector_table(lua, value_index, &reinterpret_cast<Color*>(at)->r, RGBA_KEYS, 4);
                 return;
             case FieldKind::UUID:
-            case FieldKind::ASSET:
                 *reinterpret_cast<Uuid*>(at) = Uuid::parse(luaL_checkstring(lua, value_index));
                 return;
+            case FieldKind::ASSET:
+            {
+                auto text = std::string(luaL_checkstring(lua, value_index));
+                auto stripped = text;
+                std::erase(stripped, '-');
+                const Uuid id = Uuid::parse(stripped);
+                if (id.is_nil())
+                    field.write_asset(block, Uuid {}, std::move(text));
+                else
+                    field.write_asset(block, id, std::string());
+                return;
+            }
             case FieldKind::ENUM:
             {
                 const auto raw = static_cast<uint64>(luaL_checknumber(lua, value_index));

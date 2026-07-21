@@ -18,6 +18,10 @@ namespace tbx::audio
     TBX_API void update(Sandbox& sandbox, Assets& assets, float delta_time);
 
     /// @brief
+    /// Purpose: Scales every mixed voice (applied on top of listener/source volumes).
+    void set_master_volume(float volume);
+
+    /// @brief
     /// Purpose: Tears the audio engine down; the next update() starts fresh. run() calls this
     /// at shutdown, tests between scenarios.
     TBX_API void reset();

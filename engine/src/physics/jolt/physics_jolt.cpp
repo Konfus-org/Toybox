@@ -135,6 +135,7 @@ namespace tbx::physics
     };
 
     static std::unique_ptr<PhysicsState> g_physics = {};
+    static Vec3 g_gravity = Vec3(0.0f, -9.81f, 0.0f);
 
     static PhysicsState& ensure_simulation()
     {
@@ -261,10 +262,18 @@ namespace tbx::physics
         g_physics.reset();
     }
 
+    void set_gravity(const Vec3& gravity)
+    {
+        g_gravity = gravity;
+        if (g_physics)
+            g_physics->system.SetGravity(to_jolt(gravity));
+    }
+
     void update(Sandbox& sandbox, Assets& assets, Events& events, const float fixed_delta_time)
     {
         register_builtin_blocks();
         PhysicsState& physics = ensure_simulation();
+        physics.system.SetGravity(to_jolt(g_gravity));
         JPH::BodyInterface& bodies = physics.system.GetBodyInterface();
         auto& registry = sandbox.get_registry();
 

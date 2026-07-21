@@ -2,6 +2,7 @@
 #include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
 #include <cstring>
+#include <filesystem>
 
 // Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
 // the level chain pulls in everything else (rooms, walls, materials, the sky and post chain,
@@ -16,12 +17,15 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--selftest") == 0)
             selftest = true;
 
-    auto app = App {
-        .title = "Toom",
-        .asset_root = SAMPLE_ASSETS_PATH,
-        .sandbox = AssetHandle<Json>("levels/arena.box"),
-        .icon = AssetHandle<Texture>("textures/ToomLogo.jpg"),
-    };
+    // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in
+    // the .tapp; this file is only the loop and the selftest checks.
+    auto loaded = load_app(std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp");
+    if (!loaded)
+    {
+        log_error("Toom.tapp: {}", loaded.error());
+        return 1;
+    }
+    App app = std::move(*loaded);
 
     bool scored = false;
     bool streamed_room_seen = false;

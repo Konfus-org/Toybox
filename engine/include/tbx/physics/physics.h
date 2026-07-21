@@ -34,6 +34,10 @@ namespace tbx::physics
         float max_distance);
 
     /// @brief
+    /// Purpose: Sets the world gravity (applies to the running simulation immediately).
+    void set_gravity(const Vec3& gravity);
+
+    /// @brief
     /// Purpose: Tears the simulation down; the next step() starts fresh. run() calls this at
     /// shutdown, tests between scenarios.
     TBX_API void reset();

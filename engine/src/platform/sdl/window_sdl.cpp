@@ -238,6 +238,12 @@ namespace tbx
         return true;
     }
 
+    void Window::set_vsync(const bool is_enabled)
+    {
+        if (_state->window)
+            SDL_GL_SetSwapInterval(is_enabled ? 1 : 0);
+    }
+
     void Window::set_icon(
         const int width,
         const int height,
