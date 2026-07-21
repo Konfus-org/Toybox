@@ -73,6 +73,13 @@ namespace tbx
         bool is_enabled() const;
         void set_enabled(bool enabled);
 
+        // Whether this entity persists: a serialized entity (the default) is written by registry
+        // serialization and copied by registry copies/absorb; a non-serialized entity is transient
+        // per-registry state (a host's injected camera) that never saves and never crosses a
+        // registry copy — like runtime tags, its owner re-creates it where needed.
+        bool is_serialized() const;
+        void set_serialized(bool serialized);
+
         template <typename TComponent>
             requires std::derived_from<TComponent, Component>
         TComponent& add_component(const TComponent& component);
@@ -98,19 +105,11 @@ namespace tbx
         bool has_component() const;
 
       public:
-        /// @brief Serializes the entity to the self-describing { "type", "value" } form. By default
-        /// (include_defaults == false) properties equal to their default are omitted to keep
-        /// persisted files small; the reader reconstructs them from the type's defaults.
-        ///
-        /// Pass include_attributes == true to additionally enrich every property node with its
-        /// reflection metadata ({ "attributes": { type, nested, order, choices }, "value",
-        /// "is_default" }); this also forces every field to be written.
-        /// Persisted files use the lean form (both flags false); tooling that needs the full
-        /// reflected view passes both true.
-        static std::string serialize(
-            const Entity& entity,
-            bool include_defaults = false,
-            bool include_attributes = false);
+        /// @brief Serializes the entity to plain-value JSON. By default (include_defaults == false)
+        /// properties equal to their default are omitted to keep persisted files small; the reader
+        /// reconstructs them from the type's defaults. Pass include_defaults == true to write every
+        /// field (e.g. tooling that wants the full state).
+        static std::string serialize(const Entity& entity, bool include_defaults = false);
         static bool deserialize(std::string_view data, Entity& entity);
         static bool deserialize(
             std::string_view data,
@@ -144,10 +143,9 @@ namespace tbx
     };
 
     // Entity-reference serialization. A tbx::Entity used as a component/script *field* is a
-    // reference to another entity, so it serializes as just the target id (token "entity"), not the
-    // whole entity — the generic serializer finds these ADL hooks and special-cases the field. The
-    // inspector then shows an entity picker. A bound reference holds only the id (no registry); the
-    // game resolves it via the world.
+    // reference to another entity, so it serializes as just the target id, not the whole entity — the
+    // generic serializer finds these ADL hooks and special-cases the field. A bound reference holds
+    // only the id (no registry); the game resolves it via the world.
     TBX_API Uuid reference_id(const Entity& entity);
     TBX_API void bind_reference(Entity& entity, const Uuid& id);
 

@@ -142,6 +142,15 @@ namespace tbx
             .frame_epoch = frame_epoch,
             .frame_index = _frame_index};
 
+        // The post effects the caller passes carry (each pass was already camera-matched by the
+        // Rendering service), gathered before prepare_frame so a tag-gated effect's entities feed
+        // this frame's tag mask.
+        for (const auto& pass : caller_passes)
+            context.extra_post_effects.insert(
+                context.extra_post_effects.end(),
+                pass->post_effects.begin(),
+                pass->post_effects.end());
+
         // This frame's passes: the pipeline's built-ins plus the caller passes that matched this camera,
         // ordered by type (scene → post → overlay) but keeping registration order within each type. The
         // caller passes are kept alive across the render lane by the shared_ptrs the dispatch captured.
@@ -278,9 +287,9 @@ namespace tbx
             return FrameReadiness::ClearBlack;
         context.world = world;
 
-        // Tags whose entities feed the tag mask this frame: the world's own tag-gated post effects.
-        // Collected by capture() into view.mask_draw_commands.
-        const auto masked_tags = PostProcessor::masked_tags(*world, {});
+// Tags whose entities feed the tag mask this frame: the world's own tag-gated post effects
+        // plus this camera's injected extras. Collected by capture() into view.mask_draw_commands.
+        const auto masked_tags = PostProcessor::masked_tags(*world, context.extra_post_effects);
         const WorldViewResult& view = _resources->view.capture(
             *asset_manager,
             *world,
@@ -368,7 +377,7 @@ namespace tbx
         context.stride = static_cast<uint32>(sizeof(GpuIndexedDrawCommand));
         // The debug view can kill post for its cameras: explicitly (the toggle) or implicitly (a
         // non-final stage outputs raw intermediates that post effects would only distort).
-        context.use_post = PostProcessor::wants_post(*world, {})
+        context.use_post = PostProcessor::wants_post(*world, context.extra_post_effects)
                            && (!debug_applies
                                || (debug_view.post_processing_enabled
                                    && debug_view.stage == RenderDebugStage::FINAL));
@@ -380,7 +389,6 @@ namespace tbx
         auto lock = std::lock_guard(_debug_view_mutex);
         _debug_view = std::move(debug_view);
     }
-
 
     void RenderingPipeline::set_pre_present_callback(
         std::function<

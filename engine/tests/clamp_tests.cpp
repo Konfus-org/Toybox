@@ -29,17 +29,13 @@ TEST(ClampTests, ClampsValuesOutsideBounds)
 }
 
 // Positive: a Clamp serializes to exactly the same JSON as its bare underlying value, so swapping a
-// plain field for a Clamp is backwards compatible on disk and transparent to the editor.
+// plain field for a Clamp is backwards compatible on disk.
 TEST(ClampTests, SerializesIdenticallyToUnderlyingValue)
 {
     const tbx::Clamp<uint32, 256U> clamped = 4096U;
     const auto clamped_json = tbx::write_serialization_value<tbx::Json>(clamped);
     const auto plain_json = tbx::write_serialization_value<tbx::Json>(uint32(4096U));
     EXPECT_EQ(clamped_json, plain_json);
-
-    const auto clamped_token = tbx::get_property_type_token<tbx::Clamp<uint32, 256U>>();
-    const auto plain_token = tbx::get_property_type_token<uint32>();
-    EXPECT_EQ(clamped_token, plain_token);
 }
 
 // Negative: a value persisted before the field gained its floor (or any out-of-range wire value) is

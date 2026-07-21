@@ -1,0 +1,8 @@
+void serialize(::tbx::Json& json, const {{ name }}& value)
+{
+    ::tbx::serialize_serializable_variant(json, value);
+}
+void deserialize(const ::tbx::Json& json, {{ name }}& value)
+{
+    ::tbx::deserialize_serializable_variant(json, value);
+}

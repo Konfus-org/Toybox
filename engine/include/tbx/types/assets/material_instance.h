@@ -96,13 +96,6 @@ namespace tbx
 
         MaterialOverrides overrides = {};
     };
-
-    struct MaterialInstanceLoadParameters
-    {
-        bool operator==(const MaterialInstanceLoadParameters& other) const = default;
-    };
-
-    MaterialInstanceLoadParameters load_parameters_of(const MaterialInstance&);
 }
 
 #include "tbx/types/assets/material_instance.inl"

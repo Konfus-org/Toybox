@@ -1,0 +1,41 @@
+void serialize(::tbx::Json& tbx_json, const {{ name }}& tbx_value)
+{
+    tbx_json = ::tbx::Json::parse({{ write_callable }}(tbx_value));
+}
+void deserialize(const ::tbx::Json& tbx_json, {{ name }}& tbx_value)
+{
+    if (!{{ read_callable }}(tbx_json.dump(), tbx_value))
+        throw std::runtime_error("Failed to parse custom Toybox serializable type.");
+}
+std::string write_json_serializable_value(const {{ name }}& tbx_serialization_value)
+{
+    pre_serialize(tbx_serialization_value);
+    const auto tbx_serialization_data = {{ write_callable }}(tbx_serialization_value);
+    post_serialize(tbx_serialization_value);
+    return tbx_serialization_data;
+}
+bool read_json_serializable_value(
+    std::string_view tbx_serialization_data,
+    {{ name }}& tbx_serialization_value)
+{
+    pre_deserialize(tbx_serialization_value);
+    if (!{{ read_callable }}(tbx_serialization_data, tbx_serialization_value))
+        return false;
+    post_deserialize(tbx_serialization_value);
+    return true;
+}
+bool register_serializable_type(const {{ name }}*, ::tbx::RuntimeRegistrations* tbx_runtime)
+{
+    return ::tbx::register_serializable_type<{{ name }}>(
+        *tbx_runtime,
+        [](const {{ name }}& tbx_serialization_value)
+        {
+            return write_json_serializable_value(tbx_serialization_value);
+        },
+        [](std::string_view tbx_serialization_data, {{ name }}& tbx_serialization_value)
+        {
+            return read_json_serializable_value(
+                tbx_serialization_data,
+                tbx_serialization_value);
+        });
+}

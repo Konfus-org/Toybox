@@ -8,7 +8,8 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     TComponent& EntityRegistry::add(const Uuid& id, TArgs&&... args)
     {
-        register_entity_component_type<TComponent>();
+        // Component types are registered explicitly at module startup (see register_*_types
+        // aggregators); an unregistered type still adds fine, it just cannot serialize.
         auto guard = std::unique_lock(_mutex);
         auto handle = static_cast<entt::entity>(id.value - 1U);
         return _registry->emplace_or_replace<TComponent>(handle, std::forward<TArgs>(args)...);

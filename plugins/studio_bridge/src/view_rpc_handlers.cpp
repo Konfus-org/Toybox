@@ -1,4 +1,7 @@
 #include "view_rpc_handlers.h"
+#include "data_plane_ops.h"
+#include "glass_ops.h"
+#include "glass_state.h"
 #include "rpc_registrar.h"
 #include "view_ops.h"
 #include "wire.h"
@@ -13,11 +16,15 @@ namespace tbx::studio_bridge
     constexpr int RPC_VIEW_UNAVAILABLE_CODE = -32000;
 
     void register_view_handlers(
-        const RpcRegistrar& registrar, const EngineServices& services, ViewState& views)
+        const RpcRegistrar& registrar,
+        const EngineServices& services,
+        ViewState& views,
+        GlassState& glass,
+        DataPlaneState& data_plane)
     {
         registrar.add(
             Wire::VIEW_START,
-            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views, &data_plane](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // The kind selects which view stream is created.
                 const auto kind_token = params.value("kind", std::string());
@@ -49,6 +56,11 @@ namespace tbx::studio_bridge
                     view_info[Wire::NAME] = view_name;
                     view_info[Wire::FORMAT] = "bgra8";
                     view_info[Wire::WORLD_ASSET_ID] = world_id;
+                    // The view's data-plane slot (or -1 when the plane is unavailable/full — the
+                    // editor then keeps this view's hot traffic on the RPC fallbacks).
+                    const auto slot = acquire_view_slot(data_plane, view_name);
+                    view_info[Wire::SLOT] = slot;
+                    view_info[Wire::GENERATION] = view_slot_generation(data_plane, slot);
                     r.result(view_info);
                 }
                 else
@@ -58,13 +70,21 @@ namespace tbx::studio_bridge
             });
         registrar.add(
             Wire::VIEW_STOP,
-            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &views, &glass, &data_plane](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 const auto name = params.value(Wire::NAME, std::string());
                 if (name.empty())
+                {
                     stop_all_views(views, services);
+                    clear_all_glass(glass, services);
+                    release_all_view_slots(data_plane);
+                }
                 else
+                {
                     stop_view(views, services, name);
+                    clear_view_glass(glass, services, name);
+                    release_view_slot(data_plane, name);
+                }
                 r.result(tbx::Json::object());
             });
         registrar.add(
@@ -73,6 +93,14 @@ namespace tbx::studio_bridge
             {
                 // High-frequency notification from the focused editor viewport; no response.
                 apply_view_input(views, params);
+            });
+        registrar.add(
+            Wire::VIEW_SET_GLASS,
+            [&services, &glass](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                // The editor pushes its overlay cards' footprints whenever they change; the engine
+                // blurs the scene under them (the frosted-glass backdrop).
+                r.respond(set_view_glass(glass, services, params));
             });
         registrar.add(
             Wire::VIEW_FRAME_ASSET_PREVIEW,

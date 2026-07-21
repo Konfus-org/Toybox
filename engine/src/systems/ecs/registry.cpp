@@ -2,8 +2,9 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/ecs/tag_id.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
 #include <algorithm>
+#include <mutex>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -51,6 +52,15 @@ namespace tbx
     // rendering, physics, scripting — passes it over, while the editor (get_all / get / serialize) still
     // sees it so it can be listed and re-enabled. Defaults enabled.
     struct EntityEnabledComponent
+    {
+        bool value = true;
+    };
+
+    // Whether the entity persists. Absent (the default) means serialized; carrying the component with
+    // false marks a transient entity — registry serialization skips it and absorb (registry copies,
+    // play-mode snapshots) drops it, mirroring the runtime-tag policy: its owner (e.g. the editor
+    // bridge's injected view cameras) re-creates it where needed.
+    struct EntitySerializedComponent
     {
         bool value = true;
     };
@@ -117,14 +127,61 @@ namespace tbx
         return registry.get<TComponent>(entityHandle).value;
     }
 
+    // Process-wide set of live registries. A component type's owning plugin can unload at any time,
+    // and its component instances may live in any registry (the active world, a streamed chunk, the
+    // globals, a standalone/additive world), so unload must reach them all. Registries self-register
+    // here on construction so no separate tracking is needed. Guarded because streamed chunks are
+    // constructed on a worker thread while the main thread may be walking the set during unload.
+    struct LiveEntityRegistrySet
+    {
+        std::mutex mutex = {};
+        std::unordered_set<EntityRegistry*> registries = {};
+    };
+
+    static LiveEntityRegistrySet& live_entity_registry_set()
+    {
+        static LiveEntityRegistrySet set = {};
+        return set;
+    }
+
+    static void register_live_entity_registry(EntityRegistry* registry)
+    {
+        auto& set = live_entity_registry_set();
+        auto guard = std::lock_guard(set.mutex);
+        set.registries.insert(registry);
+    }
+
+    static void unregister_live_entity_registry(EntityRegistry* registry)
+    {
+        auto& set = live_entity_registry_set();
+        auto guard = std::lock_guard(set.mutex);
+        set.registries.erase(registry);
+    }
+
+    void for_each_live_entity_registry(const std::function<void(EntityRegistry&)>& callback)
+    {
+        if (!callback)
+            return;
+
+        // Hold the set lock across the whole walk so a registry cannot be destroyed (its destructor
+        // blocks on the same lock to deregister) while the callback still references it. No path
+        // holds a registry's own _mutex and then takes this lock, so there is no ordering cycle.
+        auto& set = live_entity_registry_set();
+        auto guard = std::lock_guard(set.mutex);
+        for (auto* registry : set.registries)
+            callback(*registry);
+    }
+
     EntityRegistry::EntityRegistry()
         : _registry(std::make_unique<entt::registry>())
     {
+        register_live_entity_registry(this);
     }
 
     EntityRegistry::EntityRegistry(const EntityRegistry& other)
         : _registry(std::make_unique<entt::registry>())
     {
+        register_live_entity_registry(this);
         for (const auto& entity : other.get_all())
             absorb(entity);
     }
@@ -140,7 +197,19 @@ namespace tbx
         return *this;
     }
 
-    EntityRegistry::~EntityRegistry() noexcept = default;
+    EntityRegistry::~EntityRegistry() noexcept
+    {
+        unregister_live_entity_registry(this);
+    }
+
+    void EntityRegistry::purge_component(const std::function<void(entt::registry&)>& clear_component)
+    {
+        if (!clear_component)
+            return;
+
+        auto guard = std::unique_lock(_mutex);
+        clear_component(*_registry);
+    }
 
     bool EntityRegistry::is_empty() const
     {
@@ -181,8 +250,6 @@ namespace tbx
         _registry->emplace<EntityParentComponent>(handle, EntityParentComponent {.value = parent});
         _registry->emplace<EntityOrderComponent>(handle, EntityOrderComponent {});
         _registry->emplace<EntityEnabledComponent>(handle, EntityEnabledComponent {});
-
-        track_plugin_owned_entity(id);
 
         return id;
     }
@@ -225,8 +292,6 @@ namespace tbx
         // order. Preserved if the entity already exists so a plain re-add doesn't silently re-enable it.
         if (!_registry->all_of<EntityEnabledComponent>(handle))
             _registry->emplace<EntityEnabledComponent>(handle, EntityEnabledComponent {});
-
-        track_plugin_owned_entity(id);
 
         return id;
     }
@@ -499,6 +564,24 @@ namespace tbx
         return is_handle_effectively_enabled(to_entity_handle(id));
     }
 
+    bool EntityRegistry::get_serialized(const Uuid& id) const
+    {
+        auto guard = std::shared_lock(_mutex);
+        const auto handle = to_entity_handle(id);
+        // Absent flag means serialized — only an explicit set_serialized(false) marks transience, so
+        // every entity created before this flag existed keeps persisting.
+        if (!_registry->valid(handle) || !_registry->all_of<EntitySerializedComponent>(handle))
+            return true;
+
+        return _registry->get<EntitySerializedComponent>(handle).value;
+    }
+
+    void EntityRegistry::set_serialized(const Uuid& id, bool serialized)
+    {
+        auto guard = std::unique_lock(_mutex);
+        set_component_value<EntitySerializedComponent>(*_registry, id, serialized);
+    }
+
     std::string EntityRegistry::get_layer(const Uuid& id) const
     {
         auto guard = std::shared_lock(_mutex);
@@ -515,6 +598,12 @@ namespace tbx
     {
         const auto id = source.get_id();
         if (!id.is_valid() || !source._registry.has_value())
+            return;
+
+        // Transient entities never cross a registry copy (the same policy as runtime tags): a
+        // play-mode snapshot or a saved chunk must not inherit e.g. the editor's injected view
+        // cameras — their owner re-creates them in whichever registry is live.
+        if (!source.is_serialized())
             return;
 
         auto& source_registry = source._registry->get();

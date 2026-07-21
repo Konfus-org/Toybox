@@ -1,9 +1,14 @@
 #pragma once
 #include "collider_pass_state.h"
+#include "data_plane_state.h"
+#include "draw_lane_state.h"
 #include "engine_services.h"
+#include "texture_state.h"
 #include "game_mode_state.h"
-#include "gizmo_layer_state.h"
 #include "gizmo_state.h"
+#include "glass_state.h"
+#include "highlight_state.h"
+#include "hover_state.h"
 #include "input_state.h"
 #include "log_state.h"
 #include "picking_state.h"
@@ -26,7 +31,7 @@ namespace tbx::studio_bridge
     /// Purpose: Bridges the engine to external tooling (Toybox Studio) over RPC. A thin orchestrator:
     /// it owns the shared engine-service handles and the bridge subsystems
     /// (views/input/gizmos/picking/play-mode/world-rpc/logging), and registers their RPC methods on
-    /// the router published by the WindowsRPC plugin (the transport it depends on).
+    /// the router published by the TcpRpc plugin (the transport it depends on).
     /// @details
     /// Ownership: Owns every subsystem; borrows the RPC router + host as services. Thread Safety: Not
     /// thread-safe; requests are handled on the main thread.
@@ -34,7 +39,7 @@ namespace tbx::studio_bridge
         name = "StudioBridge",
         version = "0.1.0",
         category = tbx::PluginCategory::DEFAULT,
-        dependencies = {"WindowsRPC"})]];
+        dependencies = {"TcpRpc"})]];
     class TBX_PLUGIN_API StudioBridge final : public tbx::Plugin
     {
       public:
@@ -54,9 +59,9 @@ namespace tbx::studio_bridge
         void on_recieve_message(tbx::Message& msg) override;
 
       public:
-        // The RPC services published by the WindowsRPC plugin, bound during the runtime-bind phase
+        // The RPC services published by the TcpRpc plugin, bound during the runtime-bind phase
         // (codegen). PUBLIC so the generated bind free function can reach the fields; held weak — the
-        // service provider owns them. The dependency on WindowsRPC guarantees they resolve.
+        // service provider owns them. The dependency on TcpRpc guarantees they resolve.
         [[tbx::inject]]
         std::weak_ptr<tbx::IRpcRouter> router = {};
 
@@ -89,11 +94,18 @@ namespace tbx::studio_bridge
         SyncEventState _sync_events = {};
         LogState _log = {};
         PickingState _picking = {};
+        HoverState _hover = {};
+        HighlightState _highlights = {};
+        GlassState _glass = {};
         ColliderPassState _collider_pass = {};
         InputState _input = {};
-        GizmoLayerState _gizmo_layers = {};
         GizmoControllerState _gizmos = {};
         ViewState _views = {};
+        DataPlaneState _data_plane = {};
+        DrawLaneState _draw_lane = {};
+        // Shared with the sprite pass callback (which realizes entries on the GPU); see
+        // texture_state.h for the locking contract.
+        std::shared_ptr<EditorTextureTable> _textures = std::make_shared<EditorTextureTable>();
 
         bool _had_client = false;
     };

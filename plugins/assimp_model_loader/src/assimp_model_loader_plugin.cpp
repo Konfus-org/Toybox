@@ -340,7 +340,6 @@ namespace assimp_model_loader
         auto async_loader =
             [job_system = job_system](
                 const std::filesystem::path& asset_path,
-                const tbx::ModelLoadParameters& parameters,
                 tbx::AssetLoadMetadata metadata,
                 const std::shared_ptr<tbx::Model>& asset) -> std::shared_future<tbx::Result>
         {
@@ -354,9 +353,9 @@ namespace assimp_model_loader
             }
             return system
                 ->schedule_with_future(
-                    [asset_path, parameters, metadata, asset]() -> tbx::Result
+                    [asset_path, metadata, asset]() -> tbx::Result
                     {
-                        return read_model(asset_path, parameters, metadata, *asset);
+                        return read_model(asset_path, metadata, *asset);
                     })
                 .share();
         };
@@ -376,7 +375,6 @@ namespace assimp_model_loader
 
     tbx::Result AssimpModelLoader::read_model(
         const std::filesystem::path& asset_path,
-        const tbx::ModelLoadParameters&,
         const tbx::AssetLoadMetadata&,
         tbx::Model& model)
     {

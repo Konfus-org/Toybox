@@ -43,8 +43,6 @@ namespace tbx
         std::shared_future<Result> pending_load = {};
         std::shared_ptr<TAsset> pending_reload_asset = {};
         std::optional<Result> completed_reload_result = std::nullopt;
-        AssetLoadParameters<TAsset> load_parameters = {};
-        bool has_load_parameters = false;
         uint64 revision = 0U;
     };
 
@@ -103,10 +101,7 @@ namespace tbx
             }
 
             auto& record = iterator->second;
-            auto parameters = record.has_load_parameters ? record.load_parameters
-                                                         : AssetLoadParameters<TAsset> {};
-            auto promise =
-                serialization_registry.read_async<TAsset>(entry.resolved_path, parameters);
+            auto promise = serialization_registry.read_async<TAsset>(entry.resolved_path);
             auto result = Result(promise.asset != nullptr, promise.asset ? "" : "Asset reload failed.");
             if (!result.succeeded())
             {
@@ -145,8 +140,6 @@ namespace tbx
                 record.asset = std::move(promise.asset);
                 record.pending_load = {};
                 record.pending_reload_asset = {};
-                record.load_parameters = parameters;
-                record.has_load_parameters = true;
                 record.stream_state = AssetStreamState::LOADED;
                 record.last_access = timestamp;
                 record.revision += 1U;
@@ -164,8 +157,6 @@ namespace tbx
             // The current asset stays visible until async reload proves the replacement is valid.
             record.pending_load = promise.promise;
             record.pending_reload_asset = std::move(promise.asset);
-            record.load_parameters = parameters;
-            record.has_load_parameters = true;
             record.stream_state = AssetStreamState::LOADING;
             record.last_access = timestamp;
 
@@ -213,25 +204,6 @@ namespace tbx
             iterator->second.is_pinned = is_pinned;
         }
     };
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    bool AssetManager::asset_load_parameters_match(
-        const Record<TAsset>& record,
-        const AssetLoadParameters<TAsset>& parameters)
-    {
-        return record.has_load_parameters && record.load_parameters == parameters;
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    void AssetManager::store_asset_load_parameters(
-        Record<TAsset>& record,
-        const AssetLoadParameters<TAsset>& parameters)
-    {
-        record.load_parameters = parameters;
-        record.has_load_parameters = true;
-    }
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
@@ -442,9 +414,7 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    std::shared_ptr<TAsset> AssetManager::load(
-        const Handle& handle,
-        const AssetLoadParameters<TAsset>& parameters)
+    std::shared_ptr<TAsset> AssetManager::load(const Handle& handle)
     {
         auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
@@ -469,7 +439,7 @@ namespace tbx
         auto& asset_record = record->get();
 
         asset_record.last_access = now;
-        if (!asset_record.asset || !asset_load_parameters_match(asset_record, parameters))
+        if (!asset_record.asset)
         {
             TBX_TRACE_INFO(
                 "Loading asset: '{}' (id={}, type={})",
@@ -480,7 +450,7 @@ namespace tbx
             const auto serialization_registry = lock_serialization_registry();
             auto read_result =
                 serialization_registry && serialization_registry->can_read<TAsset>()
-                    ? serialization_registry->read_result<TAsset>(entry.resolved_path, parameters)
+                    ? serialization_registry->read_result<TAsset>(entry.resolved_path)
                     : AssetReadResult<TAsset> {
                           .asset = {},
                           .result = Result(false, "Serialization loader is not registered."),
@@ -501,7 +471,6 @@ namespace tbx
                 warn_if_asset_metadata_is_invalid(asset_record, read_result.metadata);
                 asset_record.asset->id = asset_record.asset_id;
             }
-            store_asset_load_parameters(asset_record, parameters);
             asset_record.pending_load = {};
             asset_record.stream_state =
                 asset_record.asset ? AssetStreamState::LOADED : AssetStreamState::UNLOADED;
@@ -556,9 +525,6 @@ namespace tbx
         record.is_pinned = true;
         record.stream_state = AssetStreamState::LOADED;
         record.last_access = std::chrono::steady_clock::now();
-        // Mark parameters present so load()'s parameter-match check short-circuits to this asset
-        // instead of trying to read it from a (non-existent) file.
-        record.has_load_parameters = true;
         return asset;
     }
 
@@ -673,9 +639,7 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    AssetPromise<TAsset> AssetManager::load_async(
-        const Handle& handle,
-        const AssetLoadParameters<TAsset>& parameters)
+    AssetPromise<TAsset> AssetManager::load_async(const Handle& handle)
     {
         auto now = std::chrono::steady_clock::now();
         std::lock_guard lock(_mutex);
@@ -701,7 +665,7 @@ namespace tbx
         auto& asset_record = record->get();
 
         asset_record.last_access = now;
-        if (asset_record.asset && asset_load_parameters_match(asset_record, parameters))
+        if (asset_record.asset)
         {
             update_asset_stream_state(asset_record);
             result.asset = asset_record.asset;
@@ -717,7 +681,7 @@ namespace tbx
         const auto serialization_registry = lock_serialization_registry();
         auto promise =
             serialization_registry && serialization_registry->can_read<TAsset>()
-                ? serialization_registry->read_async<TAsset>(entry.resolved_path, parameters)
+                ? serialization_registry->read_async<TAsset>(entry.resolved_path)
                 : AssetPromise<TAsset>();
         if (!promise.asset)
         {
@@ -735,7 +699,6 @@ namespace tbx
         }
         asset_record.asset = std::move(promise.asset);
         asset_record.pending_load = promise.promise;
-        store_asset_load_parameters(asset_record, parameters);
         asset_record.stream_state =
             asset_record.asset ? AssetStreamState::LOADING : AssetStreamState::UNLOADED;
         update_asset_stream_state(asset_record);

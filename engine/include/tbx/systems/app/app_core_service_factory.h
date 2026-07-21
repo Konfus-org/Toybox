@@ -4,6 +4,7 @@
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/messaging/message_coordinator.h"
+#include "tbx/systems/connections/property_connection_system.h"
 #include "tbx/systems/scripting/script_system.h"
 #include "tbx/systems/world/manager.h"
 #include "tbx/tbx_api.h"
@@ -25,6 +26,7 @@ namespace tbx
         std::shared_ptr<WorldManager> world_manager = {};
         std::shared_ptr<ThreadManager> thread_manager = {};
         std::shared_ptr<ScriptSystem> script_system = {};
+        std::shared_ptr<PropertyConnectionSystem> property_connections = {};
     };
 
     /// @brief

@@ -67,6 +67,12 @@ namespace tbx
         /// @brief Gates the pass on the rendering camera — it contributes only when the camera carries
         /// at least one of these tags. Empty means the pass applies to every camera.
         std::vector<std::string> camera_tags = {};
+
+        /// @brief Post effects this pass contributes to the frame's post chain, run beside the world's
+        /// own PostProcessing effects (an effect's entity-tag gate works exactly as authored, feeding
+        /// the tag mask — how the editor's selection outline triggers purely off the editor.selected
+        /// tag). Contributed only for cameras matching the pass's tag gate, like prepare/execute.
+        std::vector<PostProcessingEffect> post_effects = {};
     };
 
     /// @brief

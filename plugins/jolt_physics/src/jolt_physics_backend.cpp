@@ -2,6 +2,12 @@
 #include "jolt_collision_layers.h"
 #include "jolt_runtime_lifetime.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/types/components/collider.h"
+#include "tbx/types/vertex.h"
+#include <algorithm>
+#include <cstdint>
+
+// clang-format off
 #include <Jolt/Geometry/AABox.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
@@ -15,6 +21,7 @@
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+// clang-format on
 
 namespace jolt_physics
 {
@@ -65,95 +72,168 @@ namespace jolt_physics
         return value * (1.0F / std::sqrt(length_squared));
     }
 
-    static JPH::RefConst<JPH::Shape> create_shape(const tbx::PhysicsColliderCreateInfo& create_info)
+    static JPH::RefConst<JPH::Shape> make_box_shape(const tbx::Vec3& half_extents)
     {
-        if (create_info.shape_type == tbx::PhysicsColliderShapeType::SPHERE)
-            return new JPH::SphereShape(std::max(0.001F, create_info.radius));
+        return new JPH::BoxShape(
+            JPH::Vec3(
+                std::max(0.001F, half_extents.x),
+                std::max(0.001F, half_extents.y),
+                std::max(0.001F, half_extents.z)));
+    }
 
-        if (create_info.shape_type == tbx::PhysicsColliderShapeType::CAPSULE)
-            return new JPH::CapsuleShape(
-                std::max(0.001F, create_info.half_height),
-                std::max(0.001F, create_info.radius));
+    static JPH::RefConst<JPH::Shape> make_sphere_shape(float radius)
+    {
+        return new JPH::SphereShape(std::max(0.001F, radius));
+    }
 
-        if (create_info.shape_type == tbx::PhysicsColliderShapeType::BOX)
+    static JPH::RefConst<JPH::Shape> make_capsule_shape(float radius, float half_height)
+    {
+        return new JPH::CapsuleShape(std::max(0.001F, half_height), std::max(0.001F, radius));
+    }
+
+    // Reads shape-local vertex positions (and triangles) from a collision mesh built by the engine.
+    // The engine has already baked any entity scale and model part transforms into these points.
+    static bool extract_mesh_geometry(
+        const tbx::Mesh& mesh,
+        std::vector<JPH::Vec3>& out_points,
+        std::vector<JPH::IndexedTriangle>& out_triangles)
+    {
+        const auto& buffer = mesh.vertices;
+        const auto& values = buffer.vertices;
+        const uint32 stride =
+            buffer.layout.stride / static_cast<uint32>(sizeof(float));
+        if (stride == 0U || values.empty() || (values.size() % stride) != 0U)
+            return false;
+
+        const uint32 position_offset =
+            tbx::try_get_vertex_attribute_offset(
+                buffer.layout, tbx::vertex_attribute_position_debug_name)
+                .value_or(0U);
+        if (position_offset + 2U >= stride)
+            return false;
+
+        const auto vertex_count = static_cast<uint32>(values.size() / stride);
+        out_points.reserve(vertex_count);
+        for (uint32 vertex = 0U; vertex < vertex_count; ++vertex)
         {
-            return new JPH::BoxShape(
-                JPH::Vec3(
-                    std::max(0.001F, create_info.half_extents.x),
-                    std::max(0.001F, create_info.half_extents.y),
-                    std::max(0.001F, create_info.half_extents.z)));
+            const size base =
+                static_cast<size>(vertex) * stride + position_offset;
+            out_points.push_back(
+                JPH::Vec3(values[base], values[base + 1U], values[base + 2U]));
         }
 
-        if (create_info.shape_type != tbx::PhysicsColliderShapeType::MESH
-            || create_info.mesh_vertices.empty())
-            return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
-
-        if (create_info.is_convex)
+        for (size index = 0U; index + 2U < mesh.indices.size(); index += 3U)
         {
-            JPH::Array<JPH::Vec3> convex_points = {};
-            convex_points.reserve(static_cast<JPH::uint>(create_info.mesh_vertices.size()));
-            for (const auto& vertex : create_info.mesh_vertices)
-                convex_points.push_back(to_jolt_vec3(vertex));
+            const uint32 index0 = mesh.indices[index];
+            const uint32 index1 = mesh.indices[index + 1U];
+            const uint32 index2 = mesh.indices[index + 2U];
+            if (index0 >= vertex_count || index1 >= vertex_count || index2 >= vertex_count)
+                continue;
 
-            auto convex_shape_result = JPH::ConvexHullShapeSettings(convex_points).Create();
-            if (convex_shape_result.HasError())
+            out_triangles.push_back(JPH::IndexedTriangle(index0, index1, index2, 0U));
+        }
+
+        return !out_points.empty();
+    }
+
+    static JPH::RefConst<JPH::Shape> make_mesh_shape(const tbx::Mesh& mesh, bool is_convex)
+    {
+        std::vector<JPH::Vec3> points = {};
+        std::vector<JPH::IndexedTriangle> triangles = {};
+        if (!extract_mesh_geometry(mesh, points, triangles))
+            return make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
+
+        // Convex hulls (also the only option for a body that moves) collide against anything; a
+        // triangle mesh is concave but static-only, so it is used only when the collider asks for it.
+        if (is_convex || triangles.empty())
+        {
+            JPH::Array<JPH::Vec3> hull_points = {};
+            hull_points.reserve(static_cast<JPH::uint>(points.size()));
+            for (const auto& point : points)
+                hull_points.push_back(point);
+
+            auto result = JPH::ConvexHullShapeSettings(hull_points).Create();
+            if (result.HasError())
             {
                 TBX_TRACE_WARNING(
                     "Jolt physics: failed to build convex mesh collider: {}",
-                    convex_shape_result.GetError().c_str());
-                return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
+                    result.GetError().c_str());
+                return make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
             }
-
-            return convex_shape_result.Get();
+            return result.Get();
         }
-
-        if (create_info.mesh_triangles.empty())
-            return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
 
         JPH::VertexList vertex_list = {};
-        vertex_list.reserve(static_cast<JPH::uint>(create_info.mesh_vertices.size()));
-        for (const auto& vertex : create_info.mesh_vertices)
-            vertex_list.push_back(JPH::Float3(vertex.x, vertex.y, vertex.z));
+        vertex_list.reserve(static_cast<JPH::uint>(points.size()));
+        for (const auto& point : points)
+            vertex_list.push_back(JPH::Float3(point.GetX(), point.GetY(), point.GetZ()));
 
         JPH::IndexedTriangleList triangle_list = {};
-        triangle_list.reserve(static_cast<JPH::uint>(create_info.mesh_triangles.size()));
-        for (const auto& triangle : create_info.mesh_triangles)
-        {
-            triangle_list.push_back(
-                JPH::IndexedTriangle(triangle.index0, triangle.index1, triangle.index2, 0U));
-        }
+        triangle_list.reserve(static_cast<JPH::uint>(triangles.size()));
+        for (const auto& triangle : triangles)
+            triangle_list.push_back(triangle);
 
-        auto mesh_shape_result =
+        auto result =
             JPH::MeshShapeSettings(std::move(vertex_list), std::move(triangle_list)).Create();
-        if (mesh_shape_result.HasError())
+        if (result.HasError())
         {
             TBX_TRACE_WARNING(
                 "Jolt physics: failed to build mesh collider: {}",
-                mesh_shape_result.GetError().c_str());
-            return new JPH::BoxShape(JPH::Vec3(0.5F, 0.5F, 0.5F));
+                result.GetError().c_str());
+            return make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
         }
-
-        return mesh_shape_result.Get();
+        return result.Get();
     }
 
-    static JPH::EMotionType get_motion_type(const tbx::PhysicsRigidbodyCreateInfo& create_info)
+    // The concrete shape is recovered from the polymorphic collider/trigger type; the mesh supplies
+    // geometry for mesh shapes only.
+    static JPH::RefConst<JPH::Shape> build_collider_shape(
+        const tbx::Collider& collider, const tbx::Mesh& mesh)
     {
-        if (!create_info.has_rigidbody)
+        if (const auto* box = dynamic_cast<const tbx::BoxCollider*>(&collider))
+            return make_box_shape(box->half_extents);
+        if (const auto* sphere = dynamic_cast<const tbx::SphereCollider*>(&collider))
+            return make_sphere_shape(sphere->radius);
+        if (const auto* capsule = dynamic_cast<const tbx::CapsuleCollider*>(&collider))
+            return make_capsule_shape(capsule->radius, capsule->half_height);
+        if (const auto* mesh_collider = dynamic_cast<const tbx::MeshCollider*>(&collider))
+            return make_mesh_shape(mesh, mesh_collider->is_convex);
+
+        return make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
+    }
+
+    static JPH::RefConst<JPH::Shape> build_trigger_shape(
+        const tbx::Trigger& trigger, const tbx::Mesh& mesh)
+    {
+        if (const auto* box = dynamic_cast<const tbx::BoxTrigger*>(&trigger))
+            return make_box_shape(box->half_extents);
+        if (const auto* sphere = dynamic_cast<const tbx::SphereTrigger*>(&trigger))
+            return make_sphere_shape(sphere->radius);
+        if (const auto* capsule = dynamic_cast<const tbx::CapsuleTrigger*>(&trigger))
+            return make_capsule_shape(capsule->radius, capsule->half_height);
+        if (const auto* mesh_trigger = dynamic_cast<const tbx::MeshTrigger*>(&trigger))
+            return make_mesh_shape(mesh, mesh_trigger->is_convex);
+
+        return make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
+    }
+
+    static JPH::EMotionType get_motion_type(const tbx::Rigidbody& rigidbody, bool physics_driven)
+    {
+        if (!physics_driven)
             return JPH::EMotionType::Static;
-
-        if (create_info.rigidbody.is_kinematic)
+        if (rigidbody.is_kinematic)
             return JPH::EMotionType::Kinematic;
-
         return JPH::EMotionType::Dynamic;
     }
 
     static void apply_dynamic_body_settings(
-        const tbx::PhysicsBackendSettings& settings,
         const tbx::Rigidbody& rigidbody,
-        bool is_trigger_only,
+        bool is_sensor,
+        float max_linear_velocity,
+        float max_angular_velocity,
         JPH::BodyCreationSettings& out_body_settings)
     {
-        out_body_settings.mIsSensor = is_trigger_only;
+        out_body_settings.mIsSensor = is_sensor;
         out_body_settings.mAllowSleeping = rigidbody.is_sleep_enabled;
         out_body_settings.mFriction = rigidbody.friction;
         out_body_settings.mRestitution = rigidbody.restitution;
@@ -162,8 +242,8 @@ namespace jolt_physics
         out_body_settings.mLinearVelocity = to_jolt_vec3(rigidbody.linear_velocity);
         out_body_settings.mAngularVelocity = to_jolt_vec3(rigidbody.angular_velocity);
         out_body_settings.mGravityFactor = rigidbody.is_gravity_enabled ? 1.0F : 0.0F;
-        out_body_settings.mMaxLinearVelocity = std::max(0.0F, settings.max_linear_velocity);
-        out_body_settings.mMaxAngularVelocity = std::max(0.0F, settings.max_angular_velocity);
+        out_body_settings.mMaxLinearVelocity = std::max(0.0F, max_linear_velocity);
+        out_body_settings.mMaxAngularVelocity = std::max(0.0F, max_angular_velocity);
         out_body_settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
         out_body_settings.mMassPropertiesOverride.mMass = rigidbody.mass;
 
@@ -183,7 +263,15 @@ namespace jolt_physics
         shutdown();
     }
 
-    void JoltPhysicsBackend::initialize(const tbx::PhysicsBackendSettings& settings)
+    void JoltPhysicsBackend::initialize(
+        tbx::Vec3 gravity,
+        uint32 max_body_count,
+        uint32 max_contact_constraints,
+        uint32 max_body_pairs,
+        uint32 solver_velocity_iterations,
+        uint32 solver_position_iterations,
+        float max_linear_velocity,
+        float max_angular_velocity)
     {
         if (_is_ready)
             return;
@@ -194,6 +282,12 @@ namespace jolt_physics
             return;
         }
 
+        _gravity = gravity;
+        _solver_velocity_iterations = solver_velocity_iterations;
+        _solver_position_iterations = solver_position_iterations;
+        _max_linear_velocity = max_linear_velocity;
+        _max_angular_velocity = max_angular_velocity;
+
         constexpr JPH::uint temp_allocator_bytes = 64U * 1024U * 1024U;
         _temp_allocator =
             std::make_unique<JPH::TempAllocatorImplWithMallocFallback>(temp_allocator_bytes);
@@ -202,17 +296,16 @@ namespace jolt_physics
             JPH::cMaxPhysicsBarriers);
 
         _physics_system.Init(
-            std::max<std::uint32_t>(1U, settings.max_body_count),
+            std::max<std::uint32_t>(1U, max_body_count),
             0,
-            std::max<std::uint32_t>(1U, settings.max_body_pairs),
-            std::max<std::uint32_t>(1U, settings.max_contact_constraints),
+            std::max<std::uint32_t>(1U, max_body_pairs),
+            std::max<std::uint32_t>(1U, max_contact_constraints),
             get_broad_phase_layer_interface(),
             get_object_vs_broad_phase_layer_filter(),
             get_object_layer_pair_filter());
         _physics_system.SetContactListener(&_contact_listener);
-
-        _settings = settings;
-        apply_settings(_settings);
+        _physics_system.SetGravity(to_jolt_vec3(_gravity));
+        apply_solver_settings();
         _is_ready = true;
     }
 
@@ -229,16 +322,54 @@ namespace jolt_physics
         JoltRuntimeLifetime::release();
     }
 
-    void JoltPhysicsBackend::update(
-        const tbx::PhysicsBackendSettings& settings,
-        const tbx::DeltaTime& dt)
+    void JoltPhysicsBackend::set_gravity(tbx::Vec3 gravity)
+    {
+        _gravity = gravity;
+        if (_is_ready)
+            _physics_system.SetGravity(to_jolt_vec3(_gravity));
+    }
+
+    void JoltPhysicsBackend::set_solver_velocity_iterations(uint32 iterations)
+    {
+        _solver_velocity_iterations = iterations;
+        if (_is_ready)
+            apply_solver_settings();
+    }
+
+    void JoltPhysicsBackend::set_solver_position_iterations(uint32 iterations)
+    {
+        _solver_position_iterations = iterations;
+        if (_is_ready)
+            apply_solver_settings();
+    }
+
+    void JoltPhysicsBackend::set_max_linear_velocity(float max_linear_velocity)
+    {
+        // Applies to bodies created after this point; existing bodies keep their creation limit.
+        _max_linear_velocity = max_linear_velocity;
+    }
+
+    void JoltPhysicsBackend::set_max_angular_velocity(float max_angular_velocity)
+    {
+        _max_angular_velocity = max_angular_velocity;
+    }
+
+    void JoltPhysicsBackend::apply_solver_settings()
+    {
+        auto jolt_settings = _physics_system.GetPhysicsSettings();
+        jolt_settings.mNumVelocitySteps =
+            std::max<std::uint32_t>(2U, _solver_velocity_iterations);
+        jolt_settings.mNumPositionSteps =
+            std::max<std::uint32_t>(1U, _solver_position_iterations);
+        _physics_system.SetPhysicsSettings(jolt_settings);
+    }
+
+    void JoltPhysicsBackend::step(const tbx::DeltaTime& dt)
     {
         if (!_is_ready || !_temp_allocator || !_job_system)
             return;
 
-        _settings = settings;
-        apply_settings(_settings);
-        JPH::EPhysicsUpdateError update_error = _physics_system.Update(
+        const JPH::EPhysicsUpdateError update_error = _physics_system.Update(
             static_cast<float>(std::max(0.0001, dt.seconds)),
             1,
             _temp_allocator.get(),
@@ -251,286 +382,55 @@ namespace jolt_physics
         }
     }
 
-    void JoltPhysicsBackend::drain_contact_events(std::vector<tbx::PhysicsContactEvent>& out_events)
+    bool JoltPhysicsBackend::get_state(
+        const tbx::PhysicsHandle& handle, tbx::PhysicsEntityState& out_state)
     {
-        _drained_contacts.clear();
-        _contact_listener.drain(_drained_contacts);
+        out_state = {};
+        const auto body_it = _bodies.find(handle.id);
+        if (body_it == _bodies.end())
+            return false;
 
-        for (const auto& record : _drained_contacts)
+        const auto& body_interface = _physics_system.GetBodyInterface();
+        const JPH::BodyID body_id = body_it->second.body_id;
+        if (!body_interface.IsAdded(body_id))
+            return false;
+
+        out_state.transform.position = to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
+        out_state.transform.rotation = to_tbx_quat(body_interface.GetRotation(body_id));
+        // Jolt carries no scale; the engine keeps the entity's own scale, so report unit here.
+        out_state.transform.scale = tbx::Vec3(1.0F, 1.0F, 1.0F);
+        out_state.linear_velocity = to_tbx_vec3(body_interface.GetLinearVelocity(body_id));
+        out_state.angular_velocity = to_tbx_vec3(body_interface.GetAngularVelocity(body_id));
+
+        auto neighbors = std::vector<JoltContactNeighbor>();
+        _contact_listener.get_contacts(get_body_key(body_id), neighbors);
+        out_state.contacts.reserve(neighbors.size());
+        for (const auto& neighbor : neighbors)
         {
-            // Bodies destroyed between the step and the drain no longer map to a rigidbody handle;
-            // their events are dropped.
-            const tbx::PhysicsRigidbodyHandle rigidbody_a =
-                try_get_rigidbody_for_body(record.body_a);
-            const tbx::PhysicsRigidbodyHandle rigidbody_b =
-                try_get_rigidbody_for_body(record.body_b);
-            if (!rigidbody_a.is_valid() || !rigidbody_b.is_valid())
+            const tbx::PhysicsHandle other = try_get_body_handle(neighbor.other_body_key);
+            if (!other.is_valid())
                 continue;
 
-            // Sensor bodies report through the trigger overlap path. Contact removal callbacks
-            // carry no body flags, so trigger-only pairs are filtered here for both phases.
-            if (is_trigger_only_body(rigidbody_a) || is_trigger_only_body(rigidbody_b))
-                continue;
-
-            out_events.push_back(
-                tbx::PhysicsContactEvent {
-                    .rigidbody_a = rigidbody_a,
-                    .rigidbody_b = rigidbody_b,
-                    .position = to_tbx_vec3_from_rvec3(record.position),
-                    .normal = to_tbx_vec3(record.normal),
-                    .phase = record.phase,
+            out_state.contacts.push_back(
+                tbx::PhysicsContact {
+                    .other = other,
+                    .position = to_tbx_vec3_from_rvec3(neighbor.position),
+                    .normal = to_tbx_vec3(neighbor.normal),
                 });
         }
-    }
 
-    bool JoltPhysicsBackend::raycast(
-        const tbx::RaycastQuery& raycast_query,
-        tbx::PhysicsRigidbodyHandle ignored_rigidbody,
-        tbx::PhysicsRaycastHit& out_hit) const
-    {
-        out_hit = {};
-        if (!_is_ready)
-            return false;
+        if (body_it->second.is_sensor)
+            gather_overlaps(body_it->second, out_state.overlaps);
 
-        const tbx::Vec3 ray_direction =
-            get_safe_normalized(raycast_query.ray.direction, tbx::Vec3(0.0F, 0.0F, -1.0F));
-        const float max_distance = std::max(0.0F, raycast_query.max_distance);
-        if (max_distance <= 0.0F)
-            return false;
-
-        const JPH::RRayCast ray = JPH::RRayCast(
-            to_jolt_rvec3(raycast_query.ray.origin),
-            to_jolt_vec3(ray_direction * max_distance));
-
-        const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
-        JPH::RayCastResult ray_hit = {};
-        bool has_hit = false;
-        if (ignored_rigidbody.is_valid())
-        {
-            auto ignored_it = _rigidbodies.find(ignored_rigidbody.value);
-            if (ignored_it != _rigidbodies.end())
-            {
-                JPH::IgnoreSingleBodyFilter ignore_body_filter =
-                    JPH::IgnoreSingleBodyFilter(ignored_it->second.body_id);
-                has_hit = narrow_phase_query.CastRay(ray, ray_hit, {}, {}, ignore_body_filter);
-            }
-            else
-            {
-                has_hit = narrow_phase_query.CastRay(ray, ray_hit);
-            }
-        }
-        else
-        {
-            has_hit = narrow_phase_query.CastRay(ray, ray_hit);
-        }
-
-        out_hit.has_hit = has_hit;
-        if (!has_hit)
-            return true;
-
-        out_hit.rigidbody = try_get_rigidbody_for_body(ray_hit.mBodyID);
-        out_hit.hit_fraction = ray_hit.mFraction;
-        out_hit.hit_position = to_tbx_vec3_from_rvec3(ray.GetPointOnRay(ray_hit.mFraction));
         return true;
     }
 
-    tbx::PhysicsColliderHandle JoltPhysicsBackend::create_collider(
-        const tbx::PhysicsColliderCreateInfo& create_info)
+    void JoltPhysicsBackend::gather_overlaps(
+        const JoltBodyResource& body, std::vector<tbx::PhysicsHandle>& out_overlaps) const
     {
-        if (!_is_ready)
-            return {};
-
-        JPH::RefConst<JPH::Shape> shape = create_shape(create_info);
-        if (!shape)
-            return {};
-
-        tbx::PhysicsColliderHandle handle = tbx::PhysicsColliderHandle {
-            .value = _next_collider_handle++,
-        };
-        _colliders[handle.value] = JoltColliderResource {
-            .shape = shape,
-            .is_trigger_only = create_info.is_trigger_only,
-        };
-        return handle;
-    }
-
-    void JoltPhysicsBackend::destroy_collider(tbx::PhysicsColliderHandle collider)
-    {
-        if (!collider.is_valid())
-            return;
-
-        _colliders.erase(collider.value);
-    }
-
-    bool JoltPhysicsBackend::get_shape(
-        tbx::PhysicsColliderHandle collider, std::vector<tbx::Vec3>& out_triangle_vertices) const
-    {
-        const auto collider_it = _colliders.find(collider.value);
-        if (collider_it == _colliders.end() || collider_it->second.shape == nullptr)
-            return false;
-
-        // Stream the cooked shape's debug triangles (Jolt's own debug-render soup: a convex hull
-        // yields its hull faces, a mesh shape its triangles). Shape-local space, identity pose, unit
-        // scale — any entity scale was baked into the shape's source points at creation.
-        const JPH::Shape& shape = *collider_it->second.shape;
-        JPH::Shape::GetTrianglesContext context = {};
-        shape.GetTrianglesStart(
-            context,
-            JPH::AABox::sBiggest(),
-            JPH::Vec3::sZero(),
-            JPH::Quat::sIdentity(),
-            JPH::Vec3::sReplicate(1.0F));
-
-        const auto start_count = out_triangle_vertices.size();
-        constexpr int TRIANGLE_BATCH = 256; // >= Jolt's cGetTrianglesMinTrianglesRequested
-        std::vector<JPH::Float3> batch(static_cast<size>(TRIANGLE_BATCH) * 3U);
-        for (;;)
-        {
-            const int triangle_count =
-                shape.GetTrianglesNext(context, TRIANGLE_BATCH, batch.data());
-            if (triangle_count <= 0)
-                break;
-
-            for (int vertex = 0; vertex < triangle_count * 3; ++vertex)
-            {
-                const auto& point = batch[static_cast<size>(vertex)];
-                out_triangle_vertices.emplace_back(point.x, point.y, point.z);
-            }
-        }
-        return out_triangle_vertices.size() > start_count;
-    }
-
-    void JoltPhysicsBackend::update_collider(
-        tbx::PhysicsColliderHandle collider,
-        const tbx::PhysicsColliderCreateInfo& update_info)
-    {
-        auto collider_it = _colliders.find(collider.value);
-        if (collider_it == _colliders.end())
-            return;
-
-        JPH::RefConst<JPH::Shape> shape = create_shape(update_info);
-        if (!shape)
-            return;
-
-        collider_it->second.shape = shape;
-        collider_it->second.is_trigger_only = update_info.is_trigger_only;
-
-        auto& body_interface = _physics_system.GetBodyInterface();
-        for (auto& rigidbody_entry : _rigidbodies)
-        {
-            if (rigidbody_entry.second.collider != collider)
-                continue;
-
-            if (!body_interface.IsAdded(rigidbody_entry.second.body_id))
-                continue;
-
-            body_interface
-                .SetShape(rigidbody_entry.second.body_id, shape, true, JPH::EActivation::Activate);
-        }
-    }
-
-    tbx::PhysicsRigidbodyHandle JoltPhysicsBackend::create_rigidbody(
-        const tbx::PhysicsRigidbodyCreateInfo& create_info)
-    {
-        if (!_is_ready || !create_info.collider.is_valid())
-            return {};
-
-        auto collider_it = _colliders.find(create_info.collider.value);
-        if (collider_it == _colliders.end() || !collider_it->second.shape)
-            return {};
-
-        const auto object_layer =
-            create_info.has_rigidbody ? get_moving_object_layer() : get_static_object_layer();
-        auto body_settings = JPH::BodyCreationSettings(
-            collider_it->second.shape,
-            to_jolt_rvec3(create_info.transform.position),
-            to_jolt_quat(create_info.transform.rotation),
-            get_motion_type(create_info),
-            object_layer);
-        body_settings.mIsSensor = create_info.is_trigger_only;
-
-        if (create_info.has_rigidbody)
-        {
-            apply_dynamic_body_settings(
-                _settings,
-                create_info.rigidbody,
-                create_info.is_trigger_only,
-                body_settings);
-        }
-
-        auto activation = JPH::EActivation::DontActivate;
-        if (create_info.has_rigidbody && !create_info.rigidbody.is_kinematic)
-            activation = JPH::EActivation::Activate;
-
-        JPH::BodyID body_id =
-            _physics_system.GetBodyInterface().CreateAndAddBody(body_settings, activation);
-        if (body_id.IsInvalid())
-            return {};
-
-        tbx::PhysicsRigidbodyHandle handle = tbx::PhysicsRigidbodyHandle {
-            .value = _next_rigidbody_handle++,
-        };
-        _rigidbodies[handle.value] = JoltRigidbodyResource {
-            .body_id = body_id,
-            .collider = create_info.collider,
-            .last_transform = create_info.transform,
-        };
-        _rigidbody_by_body_key[get_body_key(body_id)] = handle;
-        return handle;
-    }
-
-    void JoltPhysicsBackend::destroy_rigidbody(tbx::PhysicsRigidbodyHandle rigidbody)
-    {
-        auto rigidbody_it = _rigidbodies.find(rigidbody.value);
-        if (rigidbody_it == _rigidbodies.end())
-            return;
-
-        auto& body_interface = _physics_system.GetBodyInterface();
-        const JPH::BodyID body_id = rigidbody_it->second.body_id;
-        if (body_interface.IsAdded(body_id))
-        {
-            body_interface.RemoveBody(body_id);
-            body_interface.DestroyBody(body_id);
-        }
-
-        _rigidbody_by_body_key.erase(get_body_key(body_id));
-        _rigidbodies.erase(rigidbody_it);
-    }
-
-    tbx::PhysicsRigidbodyState JoltPhysicsBackend::get_rigidbody_state(
-        tbx::PhysicsRigidbodyHandle rigidbody) const
-    {
-        auto rigidbody_it = _rigidbodies.find(rigidbody.value);
-        if (rigidbody_it == _rigidbodies.end())
-            return {};
-
-        const auto& body_interface = _physics_system.GetBodyInterface();
-        const JPH::BodyID body_id = rigidbody_it->second.body_id;
-        if (!body_interface.IsAdded(body_id))
-            return {};
-
-        auto state = tbx::PhysicsRigidbodyState {};
-        state.is_valid = true;
-        state.transform = rigidbody_it->second.last_transform;
-        state.transform.position = to_tbx_vec3_from_rvec3(body_interface.GetPosition(body_id));
-        state.transform.rotation = to_tbx_quat(body_interface.GetRotation(body_id));
-        state.linear_velocity = to_tbx_vec3(body_interface.GetLinearVelocity(body_id));
-        state.angular_velocity = to_tbx_vec3(body_interface.GetAngularVelocity(body_id));
-        return state;
-    }
-
-    void JoltPhysicsBackend::get_rigidbody_overlaps(
-        tbx::PhysicsRigidbodyHandle rigidbody,
-        std::vector<tbx::PhysicsRigidbodyHandle>& out_overlaps) const
-    {
-        out_overlaps.clear();
-        auto rigidbody_it = _rigidbodies.find(rigidbody.value);
-        if (rigidbody_it == _rigidbodies.end())
-            return;
-
         const auto& body_interface = _physics_system.GetBodyInterface();
         const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
-        const JPH::BodyID body_id = rigidbody_it->second.body_id;
+        const JPH::BodyID body_id = body.body_id;
         if (!body_interface.IsAdded(body_id))
             return;
 
@@ -555,131 +455,247 @@ namespace jolt_physics
             ignore_self_filter);
 
         out_overlaps.reserve(static_cast<size>(collector.mHits.size()));
-        for (const auto& overlap_hit : collector.mHits)
+        for (const auto& hit : collector.mHits)
         {
-            tbx::PhysicsRigidbodyHandle overlapped_rigidbody =
-                try_get_rigidbody_for_body(overlap_hit.mBodyID2);
-            if (overlapped_rigidbody.is_valid())
-                out_overlaps.push_back(overlapped_rigidbody);
+            const tbx::PhysicsHandle overlapped = try_get_body_handle(get_body_key(hit.mBodyID2));
+            if (overlapped.is_valid())
+                out_overlaps.push_back(overlapped);
         }
     }
 
-    void JoltPhysicsBackend::update_rigidbody(
-        tbx::PhysicsRigidbodyHandle rigidbody,
-        const tbx::PhysicsRigidbodyUpdateInfo& update_info)
+    bool JoltPhysicsBackend::raycast(
+        const tbx::RaycastQuery& raycast_query,
+        const std::vector<tbx::PhysicsHandle>& ignored,
+        tbx::PhysicsRaycastHit& out_hit) const
     {
-        auto rigidbody_it = _rigidbodies.find(rigidbody.value);
-        if (rigidbody_it == _rigidbodies.end())
-            return;
+        out_hit = {};
+        if (!_is_ready)
+            return false;
 
-        auto& body_interface = _physics_system.GetBodyInterface();
-        const JPH::BodyID body_id = rigidbody_it->second.body_id;
-        if (!body_interface.IsAdded(body_id))
-            return;
+        const tbx::Vec3 ray_direction =
+            get_safe_normalized(raycast_query.ray.direction, tbx::Vec3(0.0F, 0.0F, -1.0F));
+        const float max_distance = std::max(0.0F, raycast_query.max_distance);
+        if (max_distance <= 0.0F)
+            return false;
 
-        if (!update_info.has_rigidbody)
+        const JPH::RRayCast ray = JPH::RRayCast(
+            to_jolt_rvec3(raycast_query.ray.origin),
+            to_jolt_vec3(ray_direction * max_distance));
+
+        JPH::IgnoreMultipleBodiesFilter ignore_filter = {};
+        ignore_filter.Reserve(static_cast<JPH::uint>(ignored.size()));
+        for (const auto& ignored_handle : ignored)
         {
-            body_interface.SetPositionAndRotation(
-                body_id,
-                to_jolt_rvec3(update_info.transform.position),
-                to_jolt_quat(update_info.transform.rotation),
-                JPH::EActivation::DontActivate);
-            rigidbody_it->second.last_transform = update_info.transform;
-            return;
+            const auto ignored_it = _bodies.find(ignored_handle.id);
+            if (ignored_it != _bodies.end())
+                ignore_filter.IgnoreBody(ignored_it->second.body_id);
         }
 
-        const auto& rigidbody_component = update_info.rigidbody;
-        if (rigidbody_component.is_kinematic)
-        {
-            body_interface.MoveKinematic(
-                body_id,
-                to_jolt_rvec3(update_info.transform.position),
-                to_jolt_quat(update_info.transform.rotation),
-                std::max(0.0001F, update_info.dt_seconds));
-            body_interface.SetLinearVelocity(
-                body_id,
-                to_jolt_vec3(rigidbody_component.linear_velocity));
-            body_interface.SetAngularVelocity(
-                body_id,
-                to_jolt_vec3(rigidbody_component.angular_velocity));
-            rigidbody_it->second.last_transform = update_info.transform;
-        }
-        else if (update_info.is_transform_dirty)
-        {
-            if (rigidbody_component.transform_sync_mode == tbx::PhysicsTransformSyncMode::TELEPORT)
-            {
-                body_interface.SetPositionAndRotation(
-                    body_id,
-                    to_jolt_rvec3(update_info.transform.position),
-                    to_jolt_quat(update_info.transform.rotation),
-                    JPH::EActivation::Activate);
-            }
-            else if (
-                rigidbody_component.transform_sync_mode == tbx::PhysicsTransformSyncMode::SWEEP)
-            {
-                body_interface.SetLinearVelocity(
-                    body_id,
-                    to_jolt_vec3(update_info.sweep_linear_velocity));
-                body_interface.SetAngularVelocity(
-                    body_id,
-                    to_jolt_vec3(update_info.sweep_angular_velocity));
-                body_interface.ActivateBody(body_id);
-            }
-        }
+        const auto& narrow_phase_query = _physics_system.GetNarrowPhaseQuery();
+        JPH::RayCastResult ray_hit = {};
+        const bool has_hit = narrow_phase_query.CastRay(ray, ray_hit, {}, {}, ignore_filter);
 
-        body_interface.SetFriction(body_id, rigidbody_component.friction);
-        body_interface.SetRestitution(body_id, rigidbody_component.restitution);
-        body_interface.SetGravityFactor(
-            body_id,
-            rigidbody_component.is_gravity_enabled ? 1.0F : 0.0F);
+        out_hit.has_hit = has_hit;
+        if (!has_hit)
+            return true;
+
+        out_hit.rigidbody = try_get_body_handle(get_body_key(ray_hit.mBodyID));
+        out_hit.hit_position = to_tbx_vec3_from_rvec3(ray.GetPointOnRay(ray_hit.mFraction));
+        return true;
     }
 
-    void JoltPhysicsBackend::apply_settings(const tbx::PhysicsBackendSettings& settings)
+    tbx::PhysicsHandle JoltPhysicsBackend::store_shape(
+        JPH::RefConst<JPH::Shape> shape, bool is_sensor)
     {
-        auto jolt_settings = _physics_system.GetPhysicsSettings();
-        jolt_settings.mNumVelocitySteps =
-            std::max<std::uint32_t>(2U, settings.solver_velocity_iterations);
-        jolt_settings.mNumPositionSteps =
-            std::max<std::uint32_t>(1U, settings.solver_position_iterations);
+        if (!shape)
+            return {};
 
-        _physics_system.SetPhysicsSettings(jolt_settings);
-        _physics_system.SetGravity(to_jolt_vec3(settings.gravity));
+        const tbx::PhysicsHandle handle = tbx::PhysicsHandle(tbx::Uuid::generate());
+        _shapes[handle.id] = JoltShapeResource {.shape = shape, .is_sensor = is_sensor};
+        _pending_shape_id = handle.id;
+        return handle;
+    }
+
+    JPH::RefConst<JPH::Shape> JoltPhysicsBackend::take_pending_shape(
+        bool& out_is_sensor, tbx::Uuid& out_shape_id)
+    {
+        out_is_sensor = false;
+        out_shape_id = {};
+        if (!_pending_shape_id.is_valid())
+            return nullptr;
+
+        const auto shape_it = _shapes.find(_pending_shape_id);
+        _pending_shape_id = {};
+        if (shape_it == _shapes.end())
+            return nullptr;
+
+        out_is_sensor = shape_it->second.is_sensor;
+        out_shape_id = shape_it->first;
+        return shape_it->second.shape;
+    }
+
+    tbx::PhysicsHandle JoltPhysicsBackend::create_collider(
+        const tbx::Collider& collider, const tbx::Mesh& mesh)
+    {
+        if (!_is_ready)
+            return {};
+
+        return store_shape(build_collider_shape(collider, mesh), false);
+    }
+
+    tbx::PhysicsHandle JoltPhysicsBackend::create_trigger(
+        const tbx::Trigger& trigger, const tbx::Mesh& mesh)
+    {
+        if (!_is_ready)
+            return {};
+
+        return store_shape(build_trigger_shape(trigger, mesh), true);
+    }
+
+    tbx::PhysicsHandle JoltPhysicsBackend::create_rigidbody(
+        tbx::Transform transform, tbx::Rigidbody rigidbody)
+    {
+        if (!_is_ready)
+            return {};
+
+        bool is_sensor = false;
+        tbx::Uuid shape_id = {};
+        JPH::RefConst<JPH::Shape> shape = take_pending_shape(is_sensor, shape_id);
+        // Dynamic bodies use no shape by default; give a unit box so the body is still valid.
+        if (!shape)
+            shape = make_box_shape(tbx::Vec3(0.5F, 0.5F, 0.5F));
+
+        const bool physics_driven = rigidbody.is_valid();
+        const auto object_layer =
+            physics_driven ? get_moving_object_layer() : get_static_object_layer();
+        auto body_settings = JPH::BodyCreationSettings(
+            shape,
+            to_jolt_rvec3(transform.position),
+            to_jolt_quat(transform.rotation),
+            get_motion_type(rigidbody, physics_driven),
+            object_layer);
+        body_settings.mIsSensor = is_sensor;
+
+        if (physics_driven)
+        {
+            apply_dynamic_body_settings(
+                rigidbody,
+                is_sensor,
+                _max_linear_velocity,
+                _max_angular_velocity,
+                body_settings);
+        }
+
+        auto activation = JPH::EActivation::DontActivate;
+        if (physics_driven && !rigidbody.is_kinematic)
+            activation = JPH::EActivation::Activate;
+
+        const JPH::BodyID body_id =
+            _physics_system.GetBodyInterface().CreateAndAddBody(body_settings, activation);
+        if (body_id.IsInvalid())
+            return {};
+
+        const tbx::PhysicsHandle handle = tbx::PhysicsHandle(tbx::Uuid::generate());
+        _bodies[handle.id] = JoltBodyResource {
+            .body_id = body_id,
+            .shape_id = shape_id,
+            .is_sensor = is_sensor,
+        };
+        _body_by_key[get_body_key(body_id)] = handle.id;
+        return handle;
+    }
+
+    void JoltPhysicsBackend::destroy(const tbx::PhysicsHandle& physics_handle)
+    {
+        if (const auto body_it = _bodies.find(physics_handle.id); body_it != _bodies.end())
+        {
+            auto& body_interface = _physics_system.GetBodyInterface();
+            const JPH::BodyID body_id = body_it->second.body_id;
+            if (body_interface.IsAdded(body_id))
+            {
+                body_interface.RemoveBody(body_id);
+                body_interface.DestroyBody(body_id);
+            }
+
+            _contact_listener.remove_body(get_body_key(body_id));
+            _body_by_key.erase(get_body_key(body_id));
+            _bodies.erase(body_it);
+            return;
+        }
+
+        _shapes.erase(physics_handle.id);
+        if (_pending_shape_id == physics_handle.id)
+            _pending_shape_id = {};
+    }
+
+    std::vector<tbx::Vec3>& JoltPhysicsBackend::get_debug_shape(
+        tbx::PhysicsHandle physics_handle) const
+    {
+        _debug_shape.clear();
+
+        tbx::Uuid shape_id = physics_handle.id;
+        if (const auto body_it = _bodies.find(physics_handle.id); body_it != _bodies.end())
+            shape_id = body_it->second.shape_id;
+
+        const auto shape_it = _shapes.find(shape_id);
+        if (shape_it == _shapes.end() || shape_it->second.shape == nullptr)
+            return _debug_shape;
+
+        // Stream the cooked shape's debug triangles in shape-local space at unit scale — any entity
+        // scale was baked into the shape's source points at creation.
+        const JPH::Shape& shape = *shape_it->second.shape;
+        JPH::Shape::GetTrianglesContext context = {};
+        shape.GetTrianglesStart(
+            context,
+            JPH::AABox::sBiggest(),
+            JPH::Vec3::sZero(),
+            JPH::Quat::sIdentity(),
+            JPH::Vec3::sReplicate(1.0F));
+
+        constexpr int TRIANGLE_BATCH = 256; // >= Jolt's cGetTrianglesMinTrianglesRequested
+        auto batch = std::vector<JPH::Float3>(static_cast<size>(TRIANGLE_BATCH) * 3U);
+        for (;;)
+        {
+            const int triangle_count =
+                shape.GetTrianglesNext(context, TRIANGLE_BATCH, batch.data());
+            if (triangle_count <= 0)
+                break;
+
+            for (int vertex = 0; vertex < triangle_count * 3; ++vertex)
+            {
+                const auto& point = batch[static_cast<size>(vertex)];
+                _debug_shape.emplace_back(point.x, point.y, point.z);
+            }
+        }
+        return _debug_shape;
+    }
+
+    tbx::PhysicsHandle JoltPhysicsBackend::try_get_body_handle(std::uint32_t body_key) const
+    {
+        const auto it = _body_by_key.find(body_key);
+        if (it == _body_by_key.end())
+            return {};
+
+        return tbx::PhysicsHandle(it->second);
     }
 
     void JoltPhysicsBackend::clear_resources()
     {
-        auto rigidbody_handles = std::vector<tbx::PhysicsRigidbodyHandle> {};
-        rigidbody_handles.reserve(_rigidbodies.size());
-        for (const auto& rigidbody_entry : _rigidbodies)
+        auto& body_interface = _physics_system.GetBodyInterface();
+        for (const auto& body_entry : _bodies)
         {
-            rigidbody_handles.push_back(
-                tbx::PhysicsRigidbodyHandle {.value = rigidbody_entry.first});
+            const JPH::BodyID body_id = body_entry.second.body_id;
+            if (body_interface.IsAdded(body_id))
+            {
+                body_interface.RemoveBody(body_id);
+                body_interface.DestroyBody(body_id);
+            }
         }
 
-        for (tbx::PhysicsRigidbodyHandle rigidbody : rigidbody_handles)
-            destroy_rigidbody(rigidbody);
-
-        _colliders.clear();
-        _rigidbody_by_body_key.clear();
-    }
-
-    bool JoltPhysicsBackend::is_trigger_only_body(tbx::PhysicsRigidbodyHandle rigidbody) const
-    {
-        const auto rigidbody_it = _rigidbodies.find(rigidbody.value);
-        if (rigidbody_it == _rigidbodies.end())
-            return false;
-
-        const auto collider_it = _colliders.find(rigidbody_it->second.collider.value);
-        return collider_it != _colliders.end() && collider_it->second.is_trigger_only;
-    }
-
-    tbx::PhysicsRigidbodyHandle JoltPhysicsBackend::try_get_rigidbody_for_body(
-        const JPH::BodyID& body_id) const
-    {
-        auto rigidbody_it = _rigidbody_by_body_key.find(get_body_key(body_id));
-        if (rigidbody_it == _rigidbody_by_body_key.end())
-            return {};
-
-        return rigidbody_it->second;
+        _bodies.clear();
+        _body_by_key.clear();
+        _shapes.clear();
+        _pending_shape_id = {};
+        _contact_listener.clear();
     }
 }

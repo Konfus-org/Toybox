@@ -1,4 +1,4 @@
-{
+﻿{
     "version": 6,
     "cmakeMinimumRequired": {
         "major": 3,
@@ -12,7 +12,7 @@
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "TBX_PLUGIN_ABI_VERSION": "1",
+                "TBX_PLUGIN_ABI_VERSION": "2",
                 "TBX_BUILD_TESTS": "OFF",
                 "TBX_ENABLE_COMPILER_CACHE": "ON",
                 "TBX_ENABLE_DEBUG_SANITIZERS": "OFF",

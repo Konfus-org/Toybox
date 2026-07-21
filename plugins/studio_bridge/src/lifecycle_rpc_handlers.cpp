@@ -1,4 +1,5 @@
 #include "lifecycle_rpc_handlers.h"
+#include "data_plane_ops.h"
 #include "engine_services.h"
 #include "game_mode_ops.h"
 #include "game_mode_state.h"
@@ -19,13 +20,14 @@ namespace tbx::studio_bridge
         const EngineServices& services,
         GameModeState& game_mode,
         SyncEventState& events,
+        DataPlaneState& data_plane,
         std::function<void(bool paused)> set_paused,
         std::function<void()> request_step,
         std::function<void()> request_shutdown)
     {
         registrar.add(
             Wire::EDITOR_HELLO,
-            [&services](const tbx::Json& params, tbx::RpcResponder& r)
+            [&services, &data_plane](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 // The editor bundles the asset-preview world's dependencies (sky texture + material, the
                 // preview globals + world) beside its executable and hands us that directory here. Add it
@@ -42,6 +44,21 @@ namespace tbx::studio_bridge
                 result["protocolVersion"] = PROTOCOL_VERSION;
                 result["engine"] = "Toybox";
                 result["app"] = services.app_name;
+
+                // The shared-memory data plane rides beside the RPC channel for the hot lanes.
+                // Created lazily here (the first hello) and advertised by file path; when creation
+                // fails the field is simply absent and the editor runs RPC-only.
+                if (const auto host = services.rpc_host.lock())
+                {
+                    if (const auto created = ensure_data_plane(data_plane, host->port());
+                        !created && !is_data_plane_available(data_plane))
+                        TBX_TRACE_WARNING(
+                            "StudioBridge: data plane unavailable ({}); running RPC-only.",
+                            created.get_report());
+                }
+                if (is_data_plane_available(data_plane))
+                    result[Wire::DATA_PLANE] = describe_data_plane(data_plane);
+
                 r.result(result);
             });
         registrar.add(

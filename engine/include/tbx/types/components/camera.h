@@ -14,6 +14,7 @@ namespace tbx
     class TBX_API Camera : public Component
     {
       public:
+        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION();
         Camera();
 
       public:
@@ -29,6 +30,15 @@ namespace tbx
         RenderTarget get_render_target() const;
         Viewport get_viewport() const;
 
+        /// @brief
+        /// Purpose: Whether this camera renders every frame (the default) or is throttled to the
+        /// engine's bounded idle refresh — the owner (e.g. an editor viewport that is not focused,
+        /// dragged, or playing) sets it false so an untouched view stops paying a full render per
+        /// frame. Never freezes: an idle camera still refreshes periodically. Runtime-only state,
+        /// never serialized.
+        bool is_render_active() const;
+        void set_render_active(bool active);
+
         float get_aspect() const;
         float get_fov() const;
         float get_z_near() const;
@@ -41,8 +51,6 @@ namespace tbx
         const Mat4& get_projection_matrix() const;
 
       private:
-        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
-
         [[serialize]]
         RenderTarget _render_target = {};
         [[serialize]]
@@ -58,5 +66,6 @@ namespace tbx
 
         float _aspect = 1.78f;
         Mat4 _projection_matrix = Mat4(1.0f);
+        bool _render_active = true;
     };
 }

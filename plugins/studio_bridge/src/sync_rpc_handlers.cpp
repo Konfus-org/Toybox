@@ -22,7 +22,9 @@ namespace tbx::studio_bridge
     {
         // The uniform address-addressed sync verbs: every tier (entity, component, asset, …) is one
         // { address } (see EngineAddress on the editor side) instead of a verb family per kind. describe
-        // reads an object, set/reset/isDefault write one of its fields (the leaf the address ends on).
+        // reads an object, set writes one of its fields (the leaf the address ends on). Default-tracking
+        // and reset are the editor's own concern (it computes them from its C# mirror defaults), so there
+        // are no reset/isDefault verbs.
         registrar.add_query(
             Wire::SYNC_DESCRIBE,
             [&services, &views](const tbx::Json& params, tbx::Json& reply)
@@ -42,12 +44,6 @@ namespace tbx::studio_bridge
         registrar.add(Wire::SYNC_SET, set_handler);
         registrar.add(Wire::COMPONENT_SET, set_handler);
         registrar.add(Wire::ENTITY_SET, set_handler);
-        registrar.add(
-            Wire::SYNC_RESET,
-            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
-            {
-                r.respond(sync_reset_path(services, views, params));
-            });
         // The sync.event channel's subscription verbs: which (address, key) raises the editor wants
         // streamed back (see sync_event_ops).
         registrar.add(
@@ -67,23 +63,6 @@ namespace tbx::studio_bridge
             [&events](const tbx::Json& params, tbx::RpcResponder& r)
             {
                 r.respond(unsubscribe_sync_event(events, params));
-            });
-        registrar.add(
-            Wire::SYNC_IS_DEFAULT,
-            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
-            {
-                auto is_default = false;
-                const auto result = sync_is_default_path(services, views, params, is_default);
-                if (result)
-                {
-                    auto reply = tbx::Json::object();
-                    reply[Wire::IS_DEFAULT_REPLY] = is_default;
-                    r.result(reply);
-                }
-                else
-                {
-                    r.respond(result);
-                }
             });
     }
 }

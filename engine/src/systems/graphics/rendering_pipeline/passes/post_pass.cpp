@@ -44,7 +44,8 @@ namespace tbx
         // sample an up-to-date silhouette. Decided here (not via a context flag) so it stays an
         // automatic, internal detail of the post path: the mask exists only to serve tag-gated post
         // effects, which is exactly what a non-empty masked-tag set means.
-        const bool needs_tag_mask = !PostProcessor::masked_tags(*context.world, {}).empty();
+        const bool needs_tag_mask =
+            !PostProcessor::masked_tags(*context.world, context.extra_post_effects).empty();
         if (needs_tag_mask)
             if (auto result = render_tag_mask(context); !result)
                 return result;
@@ -55,15 +56,16 @@ namespace tbx
         if (!asset_manager)
             return Result(false, "Post pass has no asset manager.");
 
-        // Post effects come from the world's own PostProcessing components (scanned inside run); the
-        // pipeline injects no extra effects.
+        // Post effects come from the world's own PostProcessing components (scanned inside run) plus
+        // the ones this camera's caller passes carry (the editor's selection outline rides a pass
+        // gated on the editor-camera tag, so it never reaches game views).
         return _post.run(
             _resources.cache,
             *asset_manager,
             *context.world,
             context.output_size,
             context.uniforms_buffer,
-            {});
+            context.extra_post_effects);
     }
 
     Result PostPass::render_tag_mask(FramePassContext& context)

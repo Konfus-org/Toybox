@@ -6,7 +6,6 @@
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/world/manager.h"
-#include "tbx/systems/graphics/external_camera.h"
 #include "tbx/systems/graphics/render_pass.h"
 #include "tbx/systems/graphics/rendering_pipeline.h"
 #include "tbx/systems/graphics/settings.h"
@@ -95,37 +94,6 @@ namespace tbx
         void remove_render_pass(const Uuid& id);
 
         /// @brief
-        /// Purpose: Registers an external camera (an editor viewport or asset preview) the engine
-        /// renders each frame after the active world's cameras — a camera that is not an entity in the
-        /// active world. Returns an id used to update or remove it.
-        /// @details
-        /// Thread Safety: Call from the main thread. The owner mutates the camera between frames via
-        /// update_external_camera; the engine snapshots it for the render lane in render_external_cameras.
-        ExternalCameraId register_external_camera(ExternalCamera camera);
-
-        /// @brief
-        /// Purpose: Replaces a registered external camera's snapshot (new pose, target, or world). The
-        /// owner calls this each frame before the engine renders. A no-op for an unknown id.
-        /// @details
-        /// Thread Safety: Call from the main thread.
-        void update_external_camera(const ExternalCameraId& id, ExternalCamera camera);
-
-        /// @brief
-        /// Purpose: Removes a registered external camera (and drops the engine's reference to its
-        /// override world). A no-op for an unknown id.
-        /// @details
-        /// Thread Safety: Call from the main thread.
-        void unregister_external_camera(const ExternalCameraId& id);
-
-        /// @brief
-        /// Purpose: Renders every registered external camera into its own target. The app loop calls
-        /// this once per frame after the active world's cameras; it snapshots the registry and dispatches
-        /// one render() per external camera through the same path as world cameras.
-        /// @details
-        /// Thread Safety: Call from the main thread, while no frame is pending (same contract as render).
-        void render_external_cameras(const DeltaTime& delta_time, const GraphicsSettings& settings);
-
-        /// @brief
         /// Purpose: Registers a callback invoked on the render lane right before each present,
         /// while the back buffer still holds the finished frame. Pass an empty callback to clear.
         /// @details
@@ -201,19 +169,5 @@ namespace tbx
         std::vector<std::pair<Uuid, std::shared_ptr<RenderPass>>> _render_passes = {};
         std::mutex _render_passes_mutex = {};
 
-        // External cameras (editor viewports / asset previews) the engine renders that are not entities
-        // in the active world. Snapshotted under the mutex per frame so the owner can register/update on
-        // the main thread while frames dispatch; render_external_cameras copies them out and renders
-        // outside the lock.
-        std::vector<std::pair<ExternalCameraId, ExternalCamera>> _external_cameras = {};
-        std::mutex _external_cameras_mutex = {};
-
-        // Idle-throttle bookkeeping for external cameras (main-thread only, alongside
-        // render_external_cameras / unregister_external_camera). _external_camera_frame counts calls to
-        // render_external_cameras; the map records the frame each camera last actually rendered so an
-        // idle camera (render_active == false) can still be refreshed at a bounded interval. Not a
-        // snapshot — never touched on the render lane, so it needs no lock.
-        std::unordered_map<ExternalCameraId, uint64> _external_camera_last_render = {};
-        uint64 _external_camera_frame = 0U;
     };
 }

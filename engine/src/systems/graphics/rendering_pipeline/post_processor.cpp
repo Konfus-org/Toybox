@@ -237,9 +237,8 @@ namespace tbx
                 .padding1 = 0U};
             if (auto result = backend.write_buffer(
                     _post_uniforms.get(),
-                    &post_uniforms,
-                    sizeof(post_uniforms),
-                    0U);
+                    BufferRegion {.size = sizeof(post_uniforms)},
+                    &post_uniforms);
                 !result)
                 return result;
 

@@ -44,6 +44,17 @@ namespace tbx::studio_bridge
         return world_id == 0U ? services.active_world() : resolve_world_by_id(views, world_id);
     }
 
+    // The world's own game camera: the first camera entity that is NOT one the bridge injected
+    // (bridge view cameras carry the editor-camera runtime tag). Used wherever "the game camera"
+    // is meant — seeding a new view's pose and mirroring game views.
+    static tbx::Entity first_game_camera(const tbx::World& world)
+    {
+        for (auto entity : world.get_with<tbx::Camera>())
+            if (!entity.has_tag(Tags::EDITOR_CAMERA))
+                return entity;
+        return tbx::Entity();
+    }
+
     // Builds an initial camera view for a new view's texture. Editor/game views open aligned with
     // the active world's game camera (game views also copy its lens); preview views open at the
     // origin (the orbit camera takes over). Editor views carry the editor-camera tag so the gizmo /
@@ -64,7 +75,7 @@ namespace tbx::studio_bridge
         // is false and the orbit camera takes over on the first input update.
         if ((seed_pose || copy_game_lens) && world)
         {
-            auto game_camera = world->first_with<tbx::Camera>();
+            auto game_camera = first_game_camera(*world);
             if (game_camera.get_id().is_valid())
             {
                 if (seed_pose && game_camera.has_component<tbx::Transform>())
@@ -127,8 +138,8 @@ namespace tbx::studio_bridge
 
         // Free the surfaces of views that have stopped. Any view's present drains the queue, so a
         // stopped view's GPU texture is reclaimed as soon as another view renders (or at shutdown).
-        for (const auto& texture : views.pending_shared_destroys)
-            backend.destroy_shared_target(texture);
+        for (const auto shared_texture : views.pending_shared_destroys)
+            backend.destroy_resource(shared_texture);
         views.pending_shared_destroys.clear();
 
         for (auto& view : views.streams)
@@ -138,18 +149,39 @@ namespace tbx::studio_bridge
 
             if (view->surface_state == ViewSurfaceState::Pending)
             {
-                // Create the shared surface on first present (here on the render lane), then tell the
-                // editor its cross-process handle exactly once. The engine draws the view straight into
-                // this texture from the next frame on.
-                auto info = tbx::SharedTargetInfo();
-                if (const auto result =
-                        backend.create_shared_target(view->texture, backbuffer_size, info))
+                // Create the shared surface on first present (here on the render lane): a standard
+                // texture flagged is_shared, whose OS-global cross-process handle we then hand to the
+                // editor exactly once. Re-point the view's camera at that texture by its resource id so
+                // the engine draws the view straight into it from the next frame on.
+                auto desc = tbx::TextureDesc {
+                    .format = tbx::TextureFormat::RGBA8,
+                    .size = backbuffer_size,
+                    .is_shared = true,
+                    .debug_name = view->name,
+                };
+                auto texture_id = tbx::INVALID_GPU_ID;
+                uint64 shared_handle = 0U;
+                auto result = backend.create_texture(desc, texture_id);
+                if (result)
+                    result = backend.get_gpu_handle(texture_id, shared_handle);
+
+                if (result && shared_handle != 0U)
                 {
-                    view->shared = info;
+                    view->shared_texture = texture_id;
+                    view->shared_handle = shared_handle;
+                    view->shared_width = backbuffer_size.width;
+                    view->shared_height = backbuffer_size.height;
+
+                    auto target = tbx::RenderTexture(tbx::Uuid(texture_id));
+                    target.size = backbuffer_size;
+                    view->texture = target;
+                    view->view.camera.set_target(target);
                     view->surface_state = ViewSurfaceState::Ready;
                 }
                 else
                 {
+                    if (texture_id != tbx::INVALID_GPU_ID)
+                        backend.destroy_resource(texture_id);
                     view->surface_state = ViewSurfaceState::Unavailable;
                     TBX_TRACE_ERROR(
                         "StudioBridge: GPU texture sharing unavailable for view '{}': {}",
@@ -160,9 +192,9 @@ namespace tbx::studio_bridge
                 // Announce either way; a zero handle tells the editor to show its empty ghost.
                 auto params = tbx::Json::object();
                 params[Wire::NAME] = view->name;
-                params["sharedHandle"] = view->shared.shared_handle;
-                params["width"] = view->shared.width;
-                params["height"] = view->shared.height;
+                params["sharedHandle"] = view->shared_handle;
+                params["width"] = view->shared_width;
+                params["height"] = view->shared_height;
                 params[Wire::FORMAT] = "bgra8";
                 if (const auto host = services.rpc_host.lock())
                     host->send_notification(Wire::VIEW_SURFACE, params);
@@ -215,18 +247,14 @@ namespace tbx::studio_bridge
         }
     }
 
-    // Registers the (type-built, camera-seeded) view's external camera with the engine and adds it
-    // to the collection. world_override is the preview world (null = active world).
-    static void register_and_add(
+    // Adds the (type-built, camera-seeded) view to the collection. The camera entity itself is
+    // injected into the view's world by the next sync_camera_entities pass — lazily and
+    // self-healingly, so a world swap (play restore, world switch) just re-creates it.
+    static void add_view(
         ViewState& views,
         const EngineServices& services,
-        std::unique_ptr<ViewStream> view,
-        const std::shared_ptr<tbx::World>& world_override)
+        std::unique_ptr<ViewStream> view)
     {
-        if (auto rendering = services.rendering.lock())
-            view->external_camera_id =
-                rendering->register_external_camera({view->view, view->texture, world_override});
-
         {
             auto lock = std::lock_guard(views.mutex);
             // Give the view a fresh input slot so the map mirrors the live views exactly (consumers can
@@ -235,6 +263,21 @@ namespace tbx::studio_bridge
             views.streams.push_back(std::move(view));
         }
         refresh_present_callback(views, services);
+    }
+
+    // Removes a view's injected camera entity from the world it lives in (a dead world already took
+    // the entity with it).
+    static void remove_camera_entity(ViewStream& view)
+    {
+        if (!view.camera_entity.is_valid())
+            return;
+        if (const auto world = view.camera_world.lock(); world && world->has(view.camera_entity))
+        {
+            auto entity = world->get(view.camera_entity);
+            world->destroy(entity);
+        }
+        view.camera_entity = tbx::Uuid();
+        view.camera_world = {};
     }
 
     // Uniform render scale for an editor viewport sized to its on-screen pane: the render target is the
@@ -283,7 +326,7 @@ namespace tbx::studio_bridge
         view->view.tags.push_back(name);
 
         out_name = name;
-        register_and_add(views, services, std::move(view), world_id == 0U ? nullptr : world);
+        add_view(views, services, std::move(view));
         TBX_TRACE_INFO("StudioBridge: editor view started ('{}', world {}).", out_name, world_id);
         return Result::OK;
     }
@@ -309,7 +352,7 @@ namespace tbx::studio_bridge
             world, view->texture, /*editor_tag*/ false, /*game_lens*/ true, /*pose*/ true);
 
         out_name = name;
-        register_and_add(views, services, std::move(view), world_id == 0U ? nullptr : world);
+        add_view(views, services, std::move(view));
         TBX_TRACE_INFO("StudioBridge: game view started ('{}', world {}).", out_name, world_id);
         return Result::OK;
     }
@@ -352,7 +395,7 @@ namespace tbx::studio_bridge
         view->orbit_distance = 3.0F;
 
         out_name = name;
-        register_and_add(views, services, std::move(view), preview_world);
+        add_view(views, services, std::move(view));
         TBX_TRACE_INFO("StudioBridge: asset preview view started ('{}', world {}).", name, world_id);
         return Result::OK;
     }
@@ -387,15 +430,16 @@ namespace tbx::studio_bridge
                     views.worlds.erase(world);
                 }
             // GL/D3D teardown is only safe on the render lane, so hand the surface to the next present
-            // callback rather than freeing it here on the main thread.
-            views.pending_shared_destroys.push_back(removed->texture);
+            // callback rather than freeing it here on the main thread. A view whose surface never
+            // reached Ready has no shared texture to reclaim.
+            if (removed->shared_texture != tbx::INVALID_GPU_ID)
+                views.pending_shared_destroys.push_back(removed->shared_texture);
         }
 
+        remove_camera_entity(*removed);
         if (owned_world.is_valid())
             if (auto world_manager = services.world_manager.lock())
                 world_manager->close_world(owned_world);
-        if (auto rendering = services.rendering.lock())
-            rendering->unregister_external_camera(removed->external_camera_id);
         refresh_present_callback(views, services);
         TBX_TRACE_INFO("StudioBridge: view stopped ('{}').", removed->name);
     }
@@ -422,15 +466,15 @@ namespace tbx::studio_bridge
                         owned_worlds.push_back(world->second->id);
             views.worlds.clear();
             for (auto& view : removed)
-                views.pending_shared_destroys.push_back(view->texture);
+                if (view->shared_texture != tbx::INVALID_GPU_ID)
+                    views.pending_shared_destroys.push_back(view->shared_texture);
         }
 
+        for (auto& view : removed)
+            remove_camera_entity(*view);
         if (auto world_manager = services.world_manager.lock())
             for (const auto& id : owned_worlds)
                 world_manager->close_world(id);
-        if (auto rendering = services.rendering.lock())
-            for (auto& view : removed)
-                rendering->unregister_external_camera(view->external_camera_id);
         refresh_present_callback(views, services);
         TBX_TRACE_INFO("StudioBridge: all views stopped.");
     }
@@ -452,7 +496,7 @@ namespace tbx::studio_bridge
             const auto world = game->world_id == 0U ? active : world_by_id_locked(views, game->world_id);
             if (!world)
                 continue;
-            auto game_camera = world->first_with<tbx::Camera>();
+            auto game_camera = first_game_camera(*world);
             if (!game_camera.get_id().is_valid())
                 continue;
             const auto game_view = tbx::CameraView::from_entity(game_camera);
@@ -464,44 +508,78 @@ namespace tbx::studio_bridge
         }
     }
 
-    void push_external_cameras(ViewState& views, const EngineServices& services, bool is_playing)
+    void sync_camera_entities(ViewState& views, const EngineServices& services, bool is_playing)
     {
-        auto rendering = services.rendering.lock();
-        if (!rendering)
-            return;
-
         // Frames a view keeps rendering at full rate after its last activity, so a just-finished drag or
         // a triggered async model load settles on screen before the engine throttles the view down.
         constexpr uint32 IDLE_SETTLE_FRAMES = 20U;
 
+        // The active world resolves through the world manager (its own locking), so fetch it before
+        // taking the views lock.
+        const auto active = services.active_world();
+
         auto lock = std::lock_guard(views.mutex);
         for (auto& view : views.streams)
         {
-            // Each view renders the world at its world_id; id 0 (the active world) passes a null override
-            // so the pipeline falls back to the active world. Re-resolved every frame so a bound world
-            // that has since gone away (closed) cleanly reverts to nothing rather than a dangling render.
-            auto world_override = world_by_id_locked(views, view->world_id);
+            // The world this view renders: the active world for id 0, else its bound/preview world.
+            // Re-resolved every frame so a bound world that has since gone away (closed) cleanly
+            // drops its camera — the dead world took the injected entity down with it.
+            auto world = view->world_id == 0U ? active : world_by_id_locked(views, view->world_id);
+            if (!world)
+            {
+                view->camera_entity = tbx::Uuid();
+                view->camera_world = {};
+                continue;
+            }
+
+            // Ensure the injected camera entity exists in the CURRENT world object. A play-mode
+            // restore or a world switch replaces the registry (transient entities never cross a
+            // registry copy), so a stale id simply re-creates here — self-healing by construction.
+            const auto current_world = view->camera_world.lock();
+            if (!view->camera_entity.is_valid() || current_world != world
+                || !world->has(view->camera_entity))
+            {
+                auto entity = world->create_entity(std::format("Studio View ({})", view->name));
+                // Never serialized: the camera must not save with the user's world nor survive a
+                // registry copy (play snapshot) — this sync re-creates it wherever it's missing.
+                entity.set_serialized(false);
+                entity.add_component(tbx::Transform {});
+                entity.add_component(view->view.camera);
+                // The entity carries the view camera's tags (editor-camera + the view name) as
+                // runtime tags, so the tag-gated editor render passes apply and editor-authored
+                // gizmo layers can scope to one viewport.
+                for (const auto& tag : view->view.tags)
+                    entity.add_tag(tag, /*serialized*/ false);
+                view->camera_entity = entity.get_id();
+                view->camera_world = world;
+            }
 
             // Is anything happening in this view this frame? Play mode animates every view; a view still
             // creating/priming its surface must draw; focus, held buttons and pressed move-keys cover fly,
             // orbit and gizmo-drag interaction; an auto-orbiting preview animates on its own. Inspector
             // edits (no viewport input) aren't detected here — the engine's bounded idle refresh shows
             // those within a few frames, so a missed signal degrades to a small lag, never a frozen view.
-            bool active = is_playing || view->surface_state != ViewSurfaceState::Presented;
+            bool view_active = is_playing || view->surface_state != ViewSurfaceState::Presented;
             if (const auto input = views.inputs.find(view->name); input != views.inputs.end())
-                active = active || input->second.focused || input->second.buttons != 0U
-                         || input->second.move_keys != 0U || !input->second.keys.empty();
+                view_active = view_active || input->second.focused || input->second.buttons != 0U
+                              || input->second.move_keys != 0U || !input->second.keys.empty();
             if (const auto* preview = dynamic_cast<AssetPreviewViewStream*>(view.get()))
-                active = active || preview->auto_orbit;
+                view_active = view_active || preview->auto_orbit;
 
-            if (active)
+            if (view_active)
                 view->idle_settle_frames = IDLE_SETTLE_FRAMES;
             else if (view->idle_settle_frames > 0U)
                 --view->idle_settle_frames;
 
-            auto camera = tbx::ExternalCamera {view->view, view->texture, std::move(world_override)};
-            camera.render_active = active || view->idle_settle_frames > 0U;
-            rendering->update_external_camera(view->external_camera_id, std::move(camera));
+            // Mirror the bridge-side camera (pose + lens + target) onto the entity the engine
+            // actually renders; the render-active flag drives the engine's idle throttle.
+            auto entity = world->get(view->camera_entity);
+            auto& transform = entity.get_component<tbx::Transform>();
+            transform.position = view->view.position;
+            transform.rotation = view->view.rotation;
+            auto& camera = entity.get_component<tbx::Camera>();
+            camera = view->view.camera;
+            camera.set_render_active(view_active || view->idle_settle_frames > 0U);
         }
     }
 

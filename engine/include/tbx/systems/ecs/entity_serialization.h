@@ -10,9 +10,8 @@ namespace tbx
 
     // Whole-component serialization primitives. These bridge a live component on an entity to and
     // from its serialized JSON and are the only operations here that touch the registry's component
-    // storage. Everything below is built on them plus the reflection registry — which already carries
-    // each property's attributes and defaults — so the per-property editing surface needs nothing
-    // beyond serialization.
+    // storage. The per-property helpers below are built on them: a property is read/written by
+    // round-tripping the whole component through its own serialize/deserialize.
 
     /// @brief Serializes one component of an entity to its full { "type", "value" } JSON (every field
     /// present). Fails when the entity/registry is gone or the component is unknown or missing.
@@ -36,36 +35,20 @@ namespace tbx
     /// entity does not have it.
     TBX_API Result remove_component(const Entity& entity, std::string_view component_name);
 
-    /// @brief Reads one property of one component as a self-describing { "type", "value" } node.
-    /// Fails when the component or property is unknown.
+    /// @brief Reads one property of one component as its bare serialized value. Fails when the
+    /// component or property is unknown.
     TBX_API Result serialize_component_property(
         const Entity& entity,
         std::string_view component_name,
         std::string_view property_name,
-        std::string& out_node_json);
+        std::string& out_value_json);
 
-    /// @brief Writes one property of one component in place from its bare serialized value (not a
-    /// { "type", "value" } wrapper); other properties on the component are left untouched. Fails when
-    /// the component or property is unknown or the value cannot be applied.
+    /// @brief Writes one property of one component in place from its bare serialized value; other
+    /// properties on the component are left untouched. Fails when the component or property is unknown
+    /// or the value cannot be applied.
     TBX_API Result apply_component_property(
         const Entity& entity,
         std::string_view component_name,
         std::string_view property_name,
         std::string_view value_json);
-
-    /// @brief Reports whether one property currently equals the value it has on a default-constructed
-    /// component. Fails when the component or property is unknown.
-    TBX_API Result is_component_property_default(
-        const Entity& entity,
-        std::string_view component_name,
-        std::string_view property_name,
-        bool& out_is_default);
-
-    /// @brief Resets one property to the value it has on a default-constructed component. Fails when
-    /// the component or property is unknown, or the property has no captured default (its owner is not
-    /// default-constructible).
-    TBX_API Result reset_component_property(
-        const Entity& entity,
-        std::string_view component_name,
-        std::string_view property_name);
 }

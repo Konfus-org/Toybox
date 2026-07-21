@@ -3,7 +3,6 @@
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/interfaces/window_backend.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/async/job_system.h"
 #include "tbx/systems/async/thread_manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/messaging/message_coordinator.h"
@@ -25,7 +24,6 @@ namespace tbx
         const auto asset_manager = provider.try_get_service<AssetManager>().lock();
         const auto world_manager = provider.try_get_service<WorldManager>().lock();
         const auto thread_manager = provider.try_get_service<ThreadManager>().lock();
-        const auto job_system = provider.try_get_service<JobSystem>().lock();
 
         const auto window_backend = provider.try_get_service<IWindowBackend>();
         const auto physics_backend = provider.try_get_service<IPhysicsBackend>();
@@ -57,7 +55,6 @@ namespace tbx
                 asset_manager,
                 world_manager,
                 thread_manager,
-                job_system,
                 message_coordinator,
                 physics_settings);
             provider.register_service<Physics>(physics);

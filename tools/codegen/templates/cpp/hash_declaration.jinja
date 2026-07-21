@@ -1,0 +1,5 @@
+template <>
+struct std::hash<{{ qualified }}>
+{
+    {{ api_prefix }}::size operator()(const {{ qualified }}& value) const;
+};

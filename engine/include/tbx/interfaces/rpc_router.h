@@ -56,7 +56,7 @@ namespace tbx
     /// it from the service provider and register methods, so RPC surface is no longer owned by a
     /// single plugin.
     /// @details
-    /// Ownership: Owned by whichever plugin publishes it (the WindowsRPC plugin); consumers hold a
+    /// Ownership: Owned by whichever plugin publishes it (the TcpRpc plugin); consumers hold a
     /// weak_ptr and must deregister their methods on detach. Thread Safety: Registration and dispatch
     /// happen on the host's main thread; not safe for concurrent use.
     class TBX_API IRpcRouter

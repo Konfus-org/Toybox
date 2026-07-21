@@ -70,7 +70,7 @@ namespace tbx
         if (!is_valid() || !_bind_runtime)
             return;
 
-        _bind_runtime(instance.get(), &service_provider);
+        _bind_runtime(instance.get(), &service_provider, _registrations.get());
     }
 
     void LoadedPlugin::register_services(ServiceProvider& service_provider)
@@ -81,7 +81,7 @@ namespace tbx
         if (_register_services)
         {
             auto plugin_scope = ScopedPluginContext(_plugin_id);
-            _register_services(instance.get(), &service_provider);
+            _register_services(instance.get(), &service_provider, _registrations.get());
         }
         _services_registered = true;
     }
@@ -125,11 +125,25 @@ namespace tbx
     void LoadedPlugin::set_id(Uuid plugin_id)
     {
         _plugin_id = plugin_id;
+        // Stand up this plugin's registration container now (before register_services / attach run
+        // under its ScopedPluginContext) so active_plugin_runtime() can resolve the plugin id to it.
+        _registrations =
+            plugin_id.is_valid() ? std::make_unique<RuntimeRegistrations>(plugin_id) : nullptr;
     }
 
     Uuid LoadedPlugin::get_id() const
     {
         return _plugin_id;
+    }
+
+    RuntimeRegistrations* LoadedPlugin::get_registrations() const
+    {
+        return _registrations.get();
+    }
+
+    void LoadedPlugin::release_registrations()
+    {
+        _registrations.reset();
     }
 
 }

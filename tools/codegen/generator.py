@@ -12,16 +12,24 @@ import re
 from pathlib import Path
 
 from asset_codegen import (
+    asset_registration_function_name,
     emit_asset_body,
     emit_asset_body_declarations,
+    emit_asset_body_registration_statement,
     emit_asset_meta,
     emit_asset_meta_declarations,
+    emit_asset_meta_registration_statement,
+    emit_asset_registration_function,
+    emit_asset_registration_function_declaration,
     emit_asset_type_registration,
     emit_asset_type_registration_declarations,
+    emit_asset_type_registration_statement,
     emit_custom_asset,
     emit_custom_asset_declarations,
+    emit_custom_asset_registration_statement,
     emit_text_asset,
     emit_text_asset_declarations,
+    emit_text_asset_registration_statement,
 )
 from common_codegen import emit_type_name, emit_version
 from enum_codegen import emit_enum, emit_enum_declarations
@@ -41,10 +49,12 @@ from model import (
     is_asset,
     json_key,
     qualified_name,
+    sanitized_name,
     serialized_fields,
     type_version,
 )
 from parser import parse_source
+from render import render_lines
 from processors import (
     AppProcessor,
     CodegenContext,
@@ -86,15 +96,16 @@ PLUGIN_CATEGORY_EXPRESSIONS = {
     "gameplay": "::tbx::PluginCategory::GAMEPLAY",
 }
 
+# Default load-after dependencies for a gameplay plugin that declares none of its own. These are the
+# engine's headless-safe systems (physics, asset loaders, profiling) named exactly as each plugin
+# registers itself — so a scripts plugin loads after them. Input/rendering/windowing plugins are
+# deliberately omitted: they are excluded in headless runs, and depending on them would make every
+# gameplay plugin fail to load there. Scripts resolve those services lazily and degrade gracefully
+# when they are absent.
 GAMEPLAY_PLUGIN_DEFAULT_DEPENDENCIES = [
-    "SdlBaseSystemsPlugin",
-    "SdlWindowingPlugin",
-    "SdlOpenGlContextManagerPlugin",
-    "OpenGlRenderingPlugin",
-    "SdlInputPlugin",
-    "JoltPhysicsPlugin",
-    "AssimpModelLoaderPlugin",
-    "StbImageLoaderPlugin",
+    "JoltPhysics",
+    "AssimpModelLoader",
+    "StbImageLoader",
     "ShaderIncludeLoader",
     "PerformanceMonitor",
 ]
@@ -377,8 +388,8 @@ def emit_script_asset_declarations(type_info: SerializableType, prop_fields: lis
         f"::tbx::Result {override_helper}(const ::tbx::Json& tbx_json, {type_info.name}& tbx_value);",
         f"void {bind_helper}({type_info.name}& tbx_value, ::tbx::ScriptContext& tbx_context);",
         # Wraps the comma-bearing register_script_type<...> template call in a function so callers
-        # (the auto-register macro, and the plugin registration) invoke it without template-arg commas.
-        f"bool register_script_type_{type_info.name}();",
+        # (module aggregators, plugin/app entries) invoke it without template-arg commas.
+        f"bool register_script_type_{type_info.name}(::tbx::RuntimeRegistrations& tbx_runtime);",
         "",
     ]
 
@@ -430,7 +441,7 @@ def emit_script_json_function_definitions(type_info: SerializableType, fields: l
 
         lines.extend(
             [
-                "    ::tbx::read_typed_serialization_field(",
+                "    ::tbx::read_serialization_field(",
                 "        tbx_json,",
                 f"        {cpp_string(json_key(field))},",
                 f"        tbx_value.{field.name},",
@@ -474,11 +485,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
                 [
                     f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
                     "        {",
-                    "            auto tbx_reference = ::tbx::Handle {};",
-                    "            ::tbx::read_typed_serialization_value(*tbx_value_it, tbx_reference);",
-                    "            auto tbx_binding = ::tbx::ScriptBinding {};",
-                    "            tbx_binding.script = tbx_reference.id;",
-                    f"            tbx_value.set_script_reference({cpp_string(json_key(field))}, tbx_binding);",
+                    f"            tbx_value.set_script_reference({cpp_string(json_key(field))}, ::tbx::parse_script_reference_value(*tbx_value_it));",
                     f"            tbx_value.{field.name} = {{}};",
                     "        }",
                 ]
@@ -488,7 +495,7 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
         lines.extend(
             [
                 f"        if (const auto tbx_value_it = tbx_json.find({cpp_string(json_key(field))}); tbx_value_it != tbx_json.end())",
-                f"            ::tbx::read_typed_serialization_value(*tbx_value_it, tbx_value.{field.name});",
+                f"            ::tbx::read_serialization_value(*tbx_value_it, tbx_value.{field.name});",
             ]
         )
     lines.extend(
@@ -527,16 +534,13 @@ def emit_script_asset(type_info: SerializableType, version: str, prop_fields: li
     lines.extend(
         [
             "}",
-            f"bool register_script_type_{type_info.name}()",
+            f"bool register_script_type_{type_info.name}(::tbx::RuntimeRegistrations& tbx_runtime)",
             "{",
             "    return ::tbx::register_script_type<",
             f"        {type_info.name},",
             f"        &{override_helper},",
-            f"        &{bind_helper}>({version});",
+            f"        &{bind_helper}>(tbx_runtime, {version});",
             "}",
-            "TBX_SERIALIZATION_AUTO_REGISTER(",
-            "    tbx_script_asset_type_registration_,",
-            f"    register_script_type_{type_info.name}());",
             "",
         ]
     )
@@ -679,60 +683,70 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                         f"{type_info.name} text mode requires exactly one serialized field."
                     )
 
+                registration_statements: list[list[str]] = []
                 lines.extend(
                     emit_asset_type_registration_declarations(type_info)
                     if target == "header"
-                    else emit_asset_type_registration(type_info, version)
+                    else emit_asset_type_registration(type_info)
                 )
-                if mode == "text":
+                registration_statements.append(
+                    emit_asset_type_registration_statement(type_info, version)
+                )
+                if mode == "text" or text_fields:
+                    text_field = prop_fields[0] if mode == "text" else text_fields[0]
                     lines.extend(
                         emit_text_asset_declarations(type_info)
                         if target == "header"
-                        else emit_text_asset(type_info, version, prop_fields[0])
+                        else emit_text_asset(type_info, text_field)
                     )
-                elif text_fields:
-                    lines.extend(
-                        emit_text_asset_declarations(type_info)
-                        if target == "header"
-                        else emit_text_asset(type_info, version, text_fields[0])
+                    registration_statements.append(
+                        emit_text_asset_registration_statement(type_info, version, text_field)
                     )
                 if mode == "json" and prop_fields:
                     lines.extend(
                         emit_asset_body_declarations(type_info)
                         if target == "header"
-                        else emit_asset_body(type_info, version, prop_fields)
+                        else emit_asset_body(type_info, prop_fields)
+                    )
+                    registration_statements.append(
+                        emit_asset_body_registration_statement(type_info, version)
                     )
                 if meta_fields:
                     lines.extend(
                         emit_asset_meta_declarations(type_info)
                         if target == "header"
-                        else emit_asset_meta(type_info, version, meta_fields)
+                        else emit_asset_meta(type_info, meta_fields)
+                    )
+                    registration_statements.append(
+                        emit_asset_meta_registration_statement(type_info, version)
                     )
                 if mode == "json" and not text_fields and not prop_fields and not meta_fields:
+                    custom_asset_callables: tuple[str, str] | None = None
                     if custom_write_callable is not None and custom_read_callable is not None:
-                        if target == "header":
-                            lines.extend(emit_custom_asset_declarations(type_info))
-                        else:
-                            lines.extend(
-                                emit_custom_asset(
-                                    type_info,
-                                    version,
-                                    custom_write_callable,
-                                    custom_read_callable,
-                                )
-                            )
+                        custom_asset_callables = (custom_write_callable, custom_read_callable)
                     elif type_info.has_serializer:
-                        if target == "header":
-                            lines.extend(emit_custom_asset_declarations(type_info))
-                        else:
-                            lines.extend(
-                                emit_custom_asset(
-                                    type_info,
-                                    version,
-                                    f"::tbx::Serializer<{type_info.name}>::serialize",
-                                    f"::tbx::Serializer<{type_info.name}>::deserialize",
-                                )
+                        custom_asset_callables = (
+                            f"::tbx::Serializer<{type_info.name}>::serialize",
+                            f"::tbx::Serializer<{type_info.name}>::deserialize",
+                        )
+                    if custom_asset_callables is not None:
+                        lines.extend(
+                            emit_custom_asset_declarations(type_info)
+                            if target == "header"
+                            else emit_custom_asset(type_info)
+                        )
+                        registration_statements.append(
+                            emit_custom_asset_registration_statement(
+                                type_info,
+                                version,
+                                *custom_asset_callables,
                             )
+                        )
+                lines.extend(
+                    emit_asset_registration_function_declaration(type_info)
+                    if target == "header"
+                    else emit_asset_registration_function(type_info, registration_statements)
+                )
             else:
                 if mode != "json":
                     raise CodegenError(f"{type_info.name} text mode is only supported for assets.")
@@ -744,23 +758,41 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     if len(text_fields) > 1:
                         raise CodegenError(f"{type_info.name} can only have one [[tbx::text]] field.")
 
+                    registration_statements = [
+                        emit_asset_type_registration_statement(type_info, version)
+                    ]
                     lines.extend(
                         emit_asset_type_registration_declarations(type_info)
                         if target == "header"
-                        else emit_asset_type_registration(type_info, version)
+                        else emit_asset_type_registration(type_info)
                     )
                     if text_fields:
                         lines.extend(
                             emit_text_asset_declarations(type_info)
                             if target == "header"
-                            else emit_text_asset(type_info, version, text_fields[0])
+                            else emit_text_asset(type_info, text_fields[0])
+                        )
+                        registration_statements.append(
+                            emit_text_asset_registration_statement(
+                                type_info,
+                                version,
+                                text_fields[0],
+                            )
                         )
                     if meta_fields:
                         lines.extend(
                             emit_asset_meta_declarations(type_info)
                             if target == "header"
-                            else emit_asset_meta(type_info, version, meta_fields)
+                            else emit_asset_meta(type_info, meta_fields)
                         )
+                        registration_statements.append(
+                            emit_asset_meta_registration_statement(type_info, version)
+                        )
+                    lines.extend(
+                        emit_asset_registration_function_declaration(type_info)
+                        if target == "header"
+                        else emit_asset_registration_function(type_info, registration_statements)
+                    )
                     return lines
                 if meta_fields:
                     raise CodegenError(f"{type_info.name} has [[tbx::meta]] fields but is not an Asset.")
@@ -794,6 +826,57 @@ def emit_serialization_type(type_info: SerializableType, target: str) -> list[st
                     )
 
     return lines
+
+
+def registrar_call_lines(
+    type_info: SerializableType,
+    runtime_reference: str,
+    runtime_pointer: str,
+) -> list[str]:
+    """Fully-qualified call statements invoking every registrar the type's generated glue defines,
+    or an empty list for types that emit none (templates, plain enums, variant aliases). The branch
+    conditions mirror emit_serialization_type, which decides what actually gets emitted; module
+    aggregators, plugin entries, and app entries all route through this one helper. The serializable
+    registrar takes the runtime by POINTER (so unregistered-type calls still fall through to the
+    engine's ellipsis fallback), hence the separate reference/pointer spellings."""
+    prefix = f"{type_info.namespace}::" if type_info.namespace else ""
+    if has_attr(type_info.attrs, "register_script"):
+        if type_version(type_info) is None:
+            raise CodegenError(f"{type_info.name} is a script and requires [[tbx::version(N)]].")
+        return [f"{prefix}register_script_type_{type_info.name}({runtime_reference});"]
+
+    if not has_attr(type_info.attrs, "serializable"):
+        return []
+    # A template value type serializes inline (header-only) and is never runtime-registered.
+    if type_info.template_params:
+        return []
+    if type_info.declaration_kind == "enum":
+        return []
+
+    serializable_call = [
+        f"{prefix}register_serializable_type(",
+        f"    static_cast<const {qualified_name(type_info)}*>(nullptr),",
+        f"    {runtime_pointer});",
+    ]
+    has_custom_serialization = has_attr(type_info.attrs, "custom_serialization")
+    prop_fields = serialized_fields(type_info)
+    if type_info.declaration_kind == "using":
+        if (
+            attr_value(type_info.attrs, "array") is not None
+            or has_custom_serialization
+            or prop_fields
+        ):
+            return serializable_call
+        # Variant aliases get serialize/deserialize glue but no runtime registration.
+        return []
+
+    if attr_value(type_info.attrs, "array") is not None:
+        return serializable_call
+    if is_asset(type_info) or fields_of(type_info, "text") or fields_of(type_info, "meta"):
+        return [f"{prefix}{asset_registration_function_name(type_info)}({runtime_reference});"]
+    if prop_fields or has_custom_serialization or type_info.has_serializer:
+        return serializable_call
+    return []
 
 
 def default_codegen_registry() -> CodegenRegistry:
@@ -984,8 +1067,8 @@ def emit_plugin_source(
     type_info: SerializableType,
     include_path: str,
     plugin_abi_version: str,
-    script_types: list[SerializableType] | None = None,
-    script_include_paths: list[str] | None = None,
+    registration_types: list[SerializableType] | None = None,
+    registration_include_paths: list[str] | None = None,
 ) -> list[str]:
     plugin_name = plugin_metadata_arg(type_info, 0, type_info.name) or type_info.name
     plugin_version = plugin_metadata_arg(type_info, 1)
@@ -1014,6 +1097,12 @@ def emit_plugin_source(
     register_fields = service_register_fields(type_info)
     inject_fields = fields_of(type_info, "inject")
 
+    registrar_lines: list[str] = []
+    for registration_type in registration_types or []:
+        registrar_lines.extend(
+            registrar_call_lines(registration_type, "*registrations", "registrations")
+        )
+
     lines = [
         GENERATED_CODE_BANNER,
         f"#include {cpp_string(include_path)}",
@@ -1023,9 +1112,9 @@ def emit_plugin_source(
     ]
     if inject_fields or register_attrs or register_fields:
         lines.append("#include \"tbx/systems/scripting/service_ref.h\"")
-    if script_types:
-        for script_include_path in sorted(set(script_include_paths or [])):
-            lines.append(f"#include {cpp_string(script_include_path)}")
+    if registrar_lines:
+        for registration_include_path in sorted(set(registration_include_paths or [])):
+            lines.append(f"#include {cpp_string(registration_include_path)}")
     if register_fields:
         lines.append("#include <memory>")
     if register_attrs:
@@ -1033,14 +1122,15 @@ def emit_plugin_source(
     lines.append("")
     lines.extend(emit_namespaced_runtime_service_definitions(type_info))
 
-    if script_types or register_attrs or register_fields:
+    if registrar_lines or register_attrs or register_fields:
         lines.extend(
             [
                 "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_services(",
                 "    ::tbx::Plugin* plugin,",
-                "    ::tbx::ServiceProvider* service_provider)",
+                "    ::tbx::ServiceProvider* service_provider,",
+                "    ::tbx::RuntimeRegistrations* registrations)",
                 "{",
-                "    if (plugin == nullptr || service_provider == nullptr)",
+                "    if (plugin == nullptr || service_provider == nullptr || registrations == nullptr)",
                 "        return;",
                 "",
                 f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
@@ -1049,17 +1139,8 @@ def emit_plugin_source(
                 "",
             ]
         )
-        for script_type in script_types or []:
-            version = type_version(script_type)
-            if version is None:
-                raise CodegenError(
-                    f"{script_type.name} is a script and requires [[tbx::version(N)]]."
-                )
-            namespace_prefix = f"{script_type.namespace}::" if script_type.namespace else ""
-            lines.append(
-                f"    static_cast<void>({namespace_prefix}register_script_type_{script_type.name}());"
-            )
-        if script_types and (register_attrs or register_fields):
+        lines.extend(f"    {line}" if line else line for line in registrar_lines)
+        if registrar_lines and (register_attrs or register_fields):
             lines.append("")
         if register_attrs or register_fields:
             lines.append("    ::tbx::register_runtime_services(*typed_plugin, *service_provider);")
@@ -1070,9 +1151,10 @@ def emit_plugin_source(
             [
                 "TBX_PLUGIN_ENTRY_EXPORT void tbx_bind_plugin_runtime(",
                 "    ::tbx::Plugin* plugin,",
-                "    ::tbx::ServiceProvider* service_provider)",
+                "    ::tbx::ServiceProvider* service_provider,",
+                "    ::tbx::RuntimeRegistrations* registrations)",
                 "{",
-                "    if (plugin == nullptr || service_provider == nullptr)",
+                "    if (plugin == nullptr || service_provider == nullptr || registrations == nullptr)",
                 "        return;",
                 "",
                 f"    auto* typed_plugin = dynamic_cast<{qualified_plugin_name}*>(plugin);",
@@ -1085,32 +1167,17 @@ def emit_plugin_source(
         lines.extend(["}", ""])
 
     lines.extend(
-        [
-            "::tbx::PluginMeta tbx_get_plugin_meta()",
-            "{",
-            "    auto meta = ::tbx::PluginMeta {};",
-            f"    meta.name = {cpp_string(plugin_name)};",
-            f"    meta.version = {cpp_string(plugin_version)};",
-            f"    meta.description = {cpp_string(description or '')};",
-            f"    meta.dependencies = {dependency_initializer};",
-            f"    meta.abi_version = {validated_plugin_abi_version}U;",
-            f"    meta.category = {category_expression};",
-            "    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;",
-            f"    meta.priority = {priority}U;",
-            "    return meta;",
-            "}",
-            "",
-            "TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* tbx_create_plugin()",
-            "{",
-            f"    return new {qualified_plugin_name}();",
-            "}",
-            "",
-            "TBX_PLUGIN_ENTRY_EXPORT void tbx_destroy_plugin(::tbx::Plugin* plugin)",
-            "{",
-            "    delete plugin;",
-            "}",
-            "",
-        ]
+        render_lines(
+            "cpp/plugin_meta_factory.jinja",
+            plugin_name=cpp_string(plugin_name),
+            plugin_version=cpp_string(plugin_version),
+            description=cpp_string(description or ""),
+            dependency_initializer=dependency_initializer,
+            abi_version=validated_plugin_abi_version,
+            category_expression=category_expression,
+            priority=priority,
+            qualified_plugin_name=qualified_plugin_name,
+        )
     )
     return lines
 
@@ -1156,7 +1223,12 @@ def generate_plugin_meta(
     return json.dumps(metadata, indent=4) + "\n"
 
 
-def emit_app_source(type_info: SerializableType, include_path: str) -> list[str]:
+def emit_app_source(
+    type_info: SerializableType,
+    include_path: str,
+    registration_types: list[SerializableType] | None = None,
+    registration_include_paths: list[str] | None = None,
+) -> list[str]:
     app_attr = find_attr(type_info.attrs, "app")
     if app_attr is None:
         raise CodegenError(f"{type_info.name} is an app and requires [[tbx::app(\"name\", \"version\")]].")
@@ -1167,23 +1239,27 @@ def emit_app_source(type_info: SerializableType, include_path: str) -> list[str]
             f"{type_info.name} is an app and requires [[tbx::app(\"name\", \"version\")]]."
         )
 
-    qualified_app_name = qualified_name(type_info)
-    return [
-        GENERATED_CODE_BANNER,
-        f"#include {cpp_string(include_path)}",
-        "#include \"tbx/systems/app/application.h\"",
-        "",
-        "TBX_APP_ENTRY_EXPORT ::tbx::Application* tbx_create_app()",
-        "{",
-        f"    return new {qualified_app_name}();",
-        "}",
-        "",
-        "TBX_APP_ENTRY_EXPORT void tbx_destroy_app(::tbx::Application* app)",
-        "{",
-        "    delete app;",
-        "}",
-        "",
-    ]
+    registrar_lines: list[str] = []
+    for registration_type in registration_types or []:
+        registrar_lines.extend(
+            registrar_call_lines(registration_type, "*registrations", "registrations")
+        )
+
+    registration_includes: list[str] = []
+    if registrar_lines:
+        registration_includes = [
+            cpp_string(registration_include_path)
+            for registration_include_path in sorted(set(registration_include_paths or []))
+        ]
+
+    return render_lines(
+        "cpp/app_source.jinja",
+        banner=GENERATED_CODE_BANNER,
+        include=cpp_string(include_path),
+        qualified_app_name=qualified_name(type_info),
+        registration_includes=registration_includes,
+        registrar_lines=[f"    {line}" if line else line for line in registrar_lines],
+    )
 
 
 def generate_source(
@@ -1191,8 +1267,8 @@ def generate_source(
     types: list[SerializableType] | None = None,
     include_path: str | None = None,
     plugin_abi_version: str = "1",
-    script_types: list[SerializableType] | None = None,
-    script_include_paths: list[str] | None = None,
+    registration_types: list[SerializableType] | None = None,
+    registration_include_paths: list[str] | None = None,
 ) -> str:
     registry = default_codegen_registry()
     plugin_processor = PluginProcessor()
@@ -1210,7 +1286,17 @@ def generate_source(
     if app_types:
         if include_path is None:
             raise CodegenError(f"{app_types[0].name} app generation requires an include path.")
-        return "\n".join(emit_app_source(app_types[0], include_path)).rstrip() + "\n"
+        return (
+            "\n".join(
+                emit_app_source(
+                    app_types[0],
+                    include_path,
+                    registration_types,
+                    registration_include_paths,
+                )
+            ).rstrip()
+            + "\n"
+        )
 
     if plugin_types:
         if include_path is None:
@@ -1221,8 +1307,8 @@ def generate_source(
                     plugin_types[0],
                     include_path,
                     plugin_abi_version,
-                    script_types,
-                    script_include_paths,
+                    registration_types,
+                    registration_include_paths,
                 )
             ).rstrip()
             + "\n"
@@ -1277,8 +1363,8 @@ def run_codegen(
     output_source_path: Path,
     include_root: Path | None = None,
     plugin_abi_version: str = "1",
-    script_types: list[SerializableType] | None = None,
-    script_include_paths: list[str] | None = None,
+    registration_types: list[SerializableType] | None = None,
+    registration_include_paths: list[str] | None = None,
     output_plugin_meta_path: Path | None = None,
     plugin_resource_directory: str | None = None,
 ) -> None:
@@ -1293,8 +1379,8 @@ def run_codegen(
             types,
             include_path,
             plugin_abi_version,
-            script_types,
-            script_include_paths,
+            registration_types,
+            registration_include_paths,
         ),
     )
     if output_plugin_meta_path is not None:
@@ -1312,3 +1398,95 @@ def run_codegen(
                 plugin_resource_directory,
             ),
         )
+
+
+def module_registration_function_name(module_name: str) -> str:
+    return f"register_{sanitized_name(module_name)}_types"
+
+
+def generate_module_registration_header(module_name: str, api_macro: str) -> str:
+    macro_prefix = f"{api_macro} " if api_macro else ""
+    lines = [
+        GENERATED_CODE_BANNER,
+        "#pragma once",
+    ]
+    # An exported aggregator (e.g. TBX_API) must be includable on its own — pull in the macro's home.
+    if api_macro:
+        lines.append('#include "tbx/tbx_api.h"')
+    lines += [
+        "namespace tbx",
+        "{",
+        "    class RuntimeRegistrations;",
+        f"    {macro_prefix}void {module_registration_function_name(module_name)}("
+        "RuntimeRegistrations& registrations);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def generate_module_registration_source(
+    module_name: str,
+    header_name: str,
+    module_inputs: list[tuple[str, str, list[str]]],
+) -> str:
+    """The per-module aggregator: includes each registrar-bearing input header (and its generated
+    header for the registrar declarations) and calls every registrar in declaration order.
+    ``module_inputs`` entries are (include_path, generated_header_name, registrar call lines)."""
+    lines = [
+        GENERATED_CODE_BANNER,
+        f"#include {cpp_string(header_name)}",
+    ]
+    for module_include_path, generated_header_name, _ in module_inputs:
+        lines.append(f"#include {cpp_string(module_include_path)}")
+        lines.append(f"#include {cpp_string(generated_header_name)}")
+    lines.extend(
+        [
+            "",
+            "namespace tbx",
+            "{",
+            f"void {module_registration_function_name(module_name)}(RuntimeRegistrations& registrations)",
+            "{",
+        ]
+    )
+    call_lines = [line for _, _, calls in module_inputs for line in calls]
+    if call_lines:
+        lines.extend(f"    {line}" if line else line for line in call_lines)
+    else:
+        lines.append("    static_cast<void>(registrations);")
+    lines.extend(["}", "}"])
+    return "\n".join(lines) + "\n"
+
+
+def run_module_registration_codegen(
+    module_name: str,
+    module_api_macro: str,
+    module_output_stem: Path,
+    input_paths: list[Path],
+    include_root: Path | None = None,
+) -> None:
+    module_inputs: list[tuple[str, str, list[str]]] = []
+    for input_path in input_paths:
+        source = input_path.read_text(encoding="utf-8")
+        types = parse_source(source, str(input_path), read_include_context(input_path, include_root))
+        call_lines: list[str] = []
+        for parsed_type in types:
+            call_lines.extend(registrar_call_lines(parsed_type, "registrations", "&registrations"))
+        if not call_lines:
+            continue
+        # The generated tree mirrors the source-relative layout, so the input's generated header
+        # resolves at the same relative path (a bare stem would miss nested headers, e.g.
+        # tbx/types/components/transform.generated.h).
+        include_path = resolve_include_path(input_path, include_root)
+        generated_include = include_path.rsplit(".", 1)[0] + ".generated.h"
+        module_inputs.append((include_path, generated_include, call_lines))
+
+    output_header_path = module_output_stem.with_name(module_output_stem.name + ".generated.h")
+    output_source_path = module_output_stem.with_name(module_output_stem.name + ".generated.cpp")
+    write_if_different(
+        output_header_path,
+        generate_module_registration_header(module_name, module_api_macro),
+    )
+    write_if_different(
+        output_source_path,
+        generate_module_registration_source(module_name, output_header_path.name, module_inputs),
+    )

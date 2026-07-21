@@ -32,7 +32,6 @@ namespace stb_image_loader
       private:
         tbx::Result read_texture(
             const std::filesystem::path& asset_path,
-            const tbx::TextureLoadParameters& parameters,
             const tbx::AssetLoadMetadata& metadata,
             tbx::Texture& texture) const;
     };

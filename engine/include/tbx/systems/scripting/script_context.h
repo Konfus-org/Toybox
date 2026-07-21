@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/interfaces/script_instance.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script_context.generated.h"
@@ -12,10 +11,10 @@
 namespace tbx
 {
     class World;
+    class Script;
 
     // Identifies which runtime script instance a reference resolves to (a script on a given entity
-    // in a given world). Backend-agnostic — used by ScriptSystem's resolver and any language
-    // backend.
+    // in a given world). Used by ScriptSystem's resolver.
     struct ScriptLookup
     {
         Uuid world = {};
@@ -37,20 +36,17 @@ namespace tbx
         Uuid binding_id = {};
     };
 
-    // Resolves a script reference to a live instance on the same entity. Implemented by
-    // ScriptSystem; returns the language-neutral IScriptInstance so any backend can resolve
-    // cross-references.
+    // Resolves a script reference to the live Script instance it names. Implemented by ScriptSystem.
     class IScriptResolver
     {
       public:
         virtual ~IScriptResolver() noexcept = default;
 
-        virtual std::weak_ptr<IScriptInstance> try_get_script(const ScriptLookup& lookup) = 0;
+        virtual std::weak_ptr<Script> try_get_script(const ScriptLookup& lookup) = 0;
     };
 
     /// @brief
-    /// Purpose: Runtime context bound to one active script instance
-    /// (entity/world/services/resolver). Handed to every scripting backend; backend-agnostic.
+    /// Purpose: Runtime context bound to one active script instance (entity/world/services/resolver).
     class TBX_API ScriptContext final
     {
       public:

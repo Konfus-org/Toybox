@@ -40,15 +40,19 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view WORLD_LOAD = "world.load";
         inline constexpr std::string_view WORLD_CLOSE = "world.close";
 
-        // entity.create/describe/move/removeComponent/addScript are dormant: no Studio 2.0 call
+        // entity.create/describe/move/removeComponent are dormant: no Studio 2.0 call
         // site yet; kept for the world tree's structural editing.
         inline constexpr std::string_view ENTITY_CREATE = "entity.create";
         inline constexpr std::string_view ENTITY_DESCRIBE = "entity.describe";
+        inline constexpr std::string_view ENTITY_DUPLICATE = "entity.duplicate";
         inline constexpr std::string_view ENTITY_DESTROY = "entity.destroy";
         inline constexpr std::string_view ENTITY_MOVE = "entity.move";
         inline constexpr std::string_view ENTITY_ADD_COMPONENT = "entity.addComponent";
         inline constexpr std::string_view ENTITY_REMOVE_COMPONENT = "entity.removeComponent";
+        // The gadget lifecycle pair: attach a script binding to an entity / detach one by its
+        // engine-assigned bindingId (see world_ops add_script/remove_script).
         inline constexpr std::string_view ENTITY_ADD_SCRIPT = "entity.addScript";
+        inline constexpr std::string_view ENTITY_REMOVE_SCRIPT = "entity.removeScript";
 
         inline constexpr std::string_view ASSET_DESCRIBE = "asset.describe";
         inline constexpr std::string_view ASSET_SAVE = "asset.save";
@@ -75,8 +79,6 @@ namespace tbx::studio_bridge
         // Transform, or its undo) rides COMPONENT_SET; an entity scalar edit rides ENTITY_SET.
         inline constexpr std::string_view COMPONENT_SET = "component.set";
         inline constexpr std::string_view ENTITY_SET = "entity.set";
-        inline constexpr std::string_view SYNC_RESET = "sync.reset";
-        inline constexpr std::string_view SYNC_IS_DEFAULT = "sync.isDefault";
         // The sync.event channel: the editor subscribes (address, key) pairs; the engine streams the
         // matching raises back as sync.event notifications (see sync_event_ops).
         inline constexpr std::string_view SYNC_SUBSCRIBE = "sync.subscribe";
@@ -96,6 +98,11 @@ namespace tbx::studio_bridge
         // The editor's selection push (Ecs/WorldSelection): engine-global {key: "ids", value: [...]}.
         inline constexpr std::string_view SELECTION_SET = "selection.set";
 
+        // The property-connection pair (the editor's value wires): add one source→target property
+        // link on the target's entity / remove the link driving a target property. See connection_ops.
+        inline constexpr std::string_view CONNECTION_ADD = "connection.add";
+        inline constexpr std::string_view CONNECTION_REMOVE = "connection.remove";
+
         // The runtime physics surface: raycast is a reply-carrying query, overlapScan a manual trigger
         // scan request by component address. The trigger/collider raises ride the sync.event channel.
         inline constexpr std::string_view PHYSICS_RAYCAST = "physics.raycast";
@@ -105,24 +112,25 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view VIEW_STOP = "view.stop";
         inline constexpr std::string_view VIEW_INPUT = "view.input";
         inline constexpr std::string_view VIEW_PICK = "view.pick";
-        // view.pickRect/projectEntities/queryOcclusion/frameAssetPreview are dormant: no Studio 2.0
-        // call site yet; kept for box-select, the billboard/icon overlays (which batch projection
-        // and ride the occlusion query), and asset-preview framing.
+        // view.pickRect is dormant (no Studio 2.0 call site yet; kept for box-select).
         inline constexpr std::string_view VIEW_PICK_RECT = "view.pickRect";
+        // The gadget overlay's anchor queries: projectEntities places/scales its cards (optionally
+        // filtered to an ids list) and queryOcclusion fades the cards of covered entities.
         inline constexpr std::string_view VIEW_PROJECT_ENTITIES = "view.projectEntities";
         inline constexpr std::string_view VIEW_QUERY_OCCLUSION = "view.queryOcclusion";
         inline constexpr std::string_view VIEW_SET_GIZMO = "view.setGizmo";
+        // The editor's frosted-glass card backdrops: per view, the normalized overlay-card rects the
+        // engine blurs under (see glass_ops).
+        inline constexpr std::string_view VIEW_SET_GLASS = "view.setGlass";
         inline constexpr std::string_view VIEW_FRAME_ASSET_PREVIEW = "view.frameAssetPreview";
         // Engine-to-editor notifications (sent through the RPC host, never registered).
         inline constexpr std::string_view VIEW_SURFACE = "view.surface";
         inline constexpr std::string_view VIEW_PRESENTED = "view.presented";
+        // The focused editor view's entity-under-cursor changed: { view, id-or-null }. The editor
+        // consumes it for a hover name chip; the highlight itself renders engine-side (tag mask).
+        inline constexpr std::string_view VIEW_HOVER = "view.hover";
         // Dormant notification: nothing consumes it yet; kept for the game panel's cursor capture.
         inline constexpr std::string_view INPUT_MOUSE_LOCK = "input.mouseLock";
-
-        // The editor-authored gizmo overlay: retained named layers of drawing ops the layer store
-        // replays into the engine's gizmo renderer over editor viewports.
-        inline constexpr std::string_view GIZMOS_SET = "gizmos.set";
-        inline constexpr std::string_view GIZMOS_REMOVE = "gizmos.remove";
 
         // --- Recurring JSON param/reply keys ---
 
@@ -152,6 +160,8 @@ namespace tbx::studio_bridge
         // Common param/reply fields.
         inline constexpr std::string_view ID = "id";
         inline constexpr std::string_view IDS = "ids";
+        // view.setGlass: the normalized [x, y, width, height] card rects to blur under.
+        inline constexpr std::string_view RECTS = "rects";
         inline constexpr std::string_view NAME = "name";
         inline constexpr std::string_view TYPE = "type";
         inline constexpr std::string_view VALUE = "value";
@@ -161,6 +171,17 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view INDEX = "index";
         inline constexpr std::string_view SCRIPT = "script";
         inline constexpr std::string_view SCRIPTS = "scripts";
+        // A script binding's engine-assigned identity (entity.removeScript's target and the
+        // script-override sync path's binding segment) and its per-binding override blob's key.
+        inline constexpr std::string_view BINDING_ID = "bindingId";
+        inline constexpr std::string_view OVERRIDES = "overrides";
+        // The connection.add/remove params: the source property's identity (the target's rides the
+        // shared entityId/component/property keys).
+        inline constexpr std::string_view SOURCE_ENTITY_ID = "sourceEntityId";
+        inline constexpr std::string_view SOURCE_COMPONENT = "sourceComponent";
+        inline constexpr std::string_view SOURCE_PROPERTY = "sourceProperty";
+        // The script container component's wire name (the script-override sync path routes on it).
+        inline constexpr std::string_view SCRIPT_CONTAINER = "script_container";
         inline constexpr std::string_view TAGS = "tags";
         inline constexpr std::string_view GLOBAL = "global";
         inline constexpr std::string_view ENABLED = "enabled";
@@ -175,9 +196,8 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view SOURCE_FILE = "file";
         inline constexpr std::string_view SOURCE_LINE = "line";
         inline constexpr std::string_view OCCLUDED = "occluded";
-        // A gizmo layer's synced values (camelCase, the editor's generated wire keys).
+        // The transform-gizmo handles' drawing-op streams (view.setGizmo).
         inline constexpr std::string_view OPS = "ops";
-        inline constexpr std::string_view IS_VISIBLE = "isVisible";
         // The transform-gizmo params (view.setGizmo): the editor-pushed handle set + snap settings.
         inline constexpr std::string_view HANDLES = "handles";
         inline constexpr std::string_view KIND = "kind";
@@ -193,6 +213,22 @@ namespace tbx::studio_bridge
         // The view.pick reply's handle-tap flag: the cursor was on a gizmo handle, so neither select
         // nor clear.
         inline constexpr std::string_view GIZMO = "gizmo";
+        // Registers editor-supplied raster data (e.g. rasterized icons) as a texture the draw
+        // lane's sprite commands can reference by the replied id. Generic: the engine stores and
+        // samples pixels, it has no idea what they depict.
+        inline constexpr std::string_view TEXTURE_UPLOAD = "texture.upload";
+        inline constexpr std::string_view WIDTH = "width";
+        inline constexpr std::string_view HEIGHT = "height";
+        inline constexpr std::string_view DATA = "data";
+
+        // The editor.hello reply's data-plane advert (absent when the mapping could not be created)
+        // and the view.start reply's slot assignment within it.
+        inline constexpr std::string_view DATA_PLANE = "dataPlane";
+        inline constexpr std::string_view LAYOUT_VERSION = "layoutVersion";
+        inline constexpr std::string_view SIZE = "size";
+        inline constexpr std::string_view SLOT = "slot";
+        inline constexpr std::string_view GENERATION = "generation";
+
         // The editor.setRenderLayers params: the collider wireframe modes, the post toggle, and the
         // render-stage name ("final"/"diffuse"/"normals"/"shadows"/"depth").
         inline constexpr std::string_view COLLIDERS_ALL = "collidersAll";
@@ -222,8 +258,6 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view POSITION = "position";
         inline constexpr std::string_view NORMAL = "normal";
         inline constexpr std::string_view FRACTION = "fraction";
-        // The reply key of sync.isDefault (distinct from the describe shape's "is_default" below).
-        inline constexpr std::string_view IS_DEFAULT_REPLY = "isDefault";
 
         // The describe payload shape: entity bodies and per-field wrappers.
         inline constexpr std::string_view ENTITY = "entity";
@@ -231,6 +265,10 @@ namespace tbx::studio_bridge
         inline constexpr std::string_view COMPONENTS = "components";
         inline constexpr std::string_view IS_GLOBAL = "is_global";
         inline constexpr std::string_view IS_DEFAULT = "is_default";
+        // The script default the field would carry with no override — the editor resets to it and shows
+        // "modified" against it. Only the compiled script knows its authored defaults, so the enrichment
+        // carries them; the editor cannot derive them C#-side.
+        inline constexpr std::string_view DEFAULT = "default";
         inline constexpr std::string_view ATTRIBUTES = "attributes";
         inline constexpr std::string_view CHOICES = "choices";
     }

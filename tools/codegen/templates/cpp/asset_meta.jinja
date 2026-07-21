@@ -1,0 +1,49 @@
+std::true_type has_meta_serialization(const {{ name }}*)
+{
+    return {};
+}
+std::true_type has_meta_json_fields(const {{ name }}*)
+{
+    return {};
+}
+::tbx::Result {{ read_helper }}(std::string_view data, {{ name }}& asset)
+{
+    try
+    {
+        const auto json = ::tbx::JsonParser::parse(data);
+        const {{ name }} default_asset {};
+{% for field in fields %}
+        ::tbx::read_serialization_field(
+            json,
+            {{ field.key }},
+            asset.{{ field.name }},
+            default_asset.{{ field.name }});
+{% endfor %}
+        return ::tbx::Result();
+    }
+    catch (...)
+    {
+        return ::tbx::make_serialization_failure(
+            "Failed to parse Toybox asset meta JSON.");
+    }
+}
+::tbx::Result {{ write_helper }}(const {{ name }}& asset, std::string& output)
+{
+    try
+    {
+        auto json = ::tbx::Json::object();
+{% for field in fields %}
+        ::tbx::write_serialization_field(
+            json,
+            {{ field.key }},
+            asset.{{ field.name }});
+{% endfor %}
+        output = json.dump(4);
+        return ::tbx::Result();
+    }
+    catch (...)
+    {
+        return ::tbx::make_serialization_failure(
+            "Failed to serialize Toybox asset meta JSON.");
+    }
+}

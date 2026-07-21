@@ -55,12 +55,13 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Backend interface implemented by input plugins: raw device polling that the engine's
-    /// InputManager reads to build each frame's input snapshot. Mirrors the window/graphics/physics
-    /// backend split, keeping device specifics in a plugin while the manager stays engine-owned.
+    /// Purpose: Backend interface implemented by input plugins: raw device polling that the
+    /// engine's InputManager reads to build each frame's input snapshot. Mirrors the
+    /// window/graphics/physics backend split, keeping device specifics in a plugin while the
+    /// manager stays engine-owned.
     /// @details
-    /// Ownership: Implementations own backend/device resources. Thread Safety: Not thread-safe; drive
-    /// from the update thread.
+    /// Ownership: Implementations own backend/device resources. Thread Safety: Not thread-safe;
+    /// drive from the update thread.
     class TBX_API IInputBackend
     {
       public:
@@ -71,8 +72,6 @@ namespace tbx
         virtual MouseState get_mouse_state() const = 0;
         virtual void set_mouse_lock_mode(MouseLockMode mode) = 0;
         virtual MouseLockMode get_mouse_lock_mode() const = 0;
-        // Per-frame backend bookkeeping: applies the requested mouse-lock mode and resets event-driven
-        // deltas (e.g. mouse wheel) accumulated since the last frame.
-        virtual void update_backend_state() = 0;
+        virtual void update() = 0;
     };
 }

@@ -26,6 +26,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -180,6 +181,7 @@ namespace tbx
         _world_manager = core.world_manager;
         _thread_manager = core.thread_manager;
         _script_system = core.script_system;
+        _property_connections = core.property_connections;
     }
 
     int Application::register_runtime_services(const CommandList& command_list)
@@ -606,6 +608,10 @@ namespace tbx
         // is gated on play mode, so not simulating freezes behavior without unloading the world.
         if (const auto frame_world_manager = _world_manager.lock())
             frame_world_manager->update(delta_time, get_settings().world);
+        // Property connections (the editor's value wires) evaluate every frame — edit mode included,
+        // so wiring gives immediate feedback — and before scripts, so scripts observe driven values.
+        if (const auto property_connections = _property_connections.lock())
+            property_connections->update();
         if (should_simulate)
         {
             if (const auto script_system = _script_system.lock())
@@ -616,55 +622,89 @@ namespace tbx
                 script_system->update(delta_time);
             }
         }
-        // Every camera in the world renders into its own target; cameras without one present
-        // to the main window. Headless apps never created a rendering service, so this whole
-        // block naturally no-ops there.
+        // Every camera in every open world (the active world plus standalone instances — e.g. the
+        // editor's asset-preview worlds) renders into its own target; only active-world cameras
+        // without a target present to the main window. Headless apps never created a rendering
+        // service, so this whole block naturally no-ops there.
         {
             const auto rendering = _rendering.lock();
             const auto render_window_manager = _window_manager.lock();
             const auto render_world_manager = _world_manager.lock();
-            const auto active_world =
-                render_world_manager ? render_world_manager->get_active_world().lock() : nullptr;
-            if (rendering && active_world)
+            if (rendering && render_world_manager)
             {
-                for (auto& camera_entity : active_world->get_with<Camera>())
+                // How many frames an idle camera (render_active == false, e.g. an unfocused editor
+                // viewport) may skip before it is refreshed anyway. Bounds staleness so an idle view
+                // keeps updating (~app_fps / this) instead of freezing, even if its owner never
+                // flips render_active back on — while sparing it a full render every frame.
+                constexpr uint64 IDLE_RENDER_INTERVAL_FRAMES = 6U;
+                ++_camera_render_frame;
+                auto seen_cameras = std::unordered_set<Uuid>();
+
+                const auto active_world = render_world_manager->get_active_world().lock();
+                for (const auto& world : render_world_manager->get_open_worlds())
                 {
-                    const auto camera_view = CameraView::from_entity(camera_entity);
-                    if (!camera_view.is_valid)
-                        continue;
-
-                    auto output_target = camera_view.camera.get_render_target();
-                    auto renders_to_main_window = false;
-                    if (!output_target.id.is_valid())
+                    const bool is_active_world = world == active_world;
+                    for (auto& camera_entity : world->get_with<Camera>())
                     {
-                        if (!render_window_manager || !render_window_manager->has_main_window())
+                        const auto camera_view = CameraView::from_entity(camera_entity);
+                        if (!camera_view.is_valid)
                             continue;
 
-                        // A hidden main window (a Studio-hosted engine) is never seen, so the game
-                        // view is not worth drawing into it every frame. It still hosts the shared
-                        // GL context that editor-view render textures borrow, so render it once to
-                        // create that context, then skip it on every later frame.
-                        if (_is_hidden && _hidden_context_primed)
+                        auto output_target = camera_view.camera.get_render_target();
+                        auto renders_to_main_window = false;
+                        if (!output_target.id.is_valid())
+                        {
+                            // Only the active world's cameras may claim the main window; a
+                            // target-less camera in a standalone instance renders nowhere.
+                            if (!is_active_world || !render_window_manager
+                                || !render_window_manager->has_main_window())
+                                continue;
+
+                            // A hidden main window (a Studio-hosted engine) is never seen, so the
+                            // game view is not worth drawing into it every frame. It still hosts
+                            // the shared GL context that editor-view render textures borrow, so
+                            // render it once to create that context, then skip it afterwards.
+                            if (_is_hidden && _hidden_context_primed)
+                                continue;
+
+                            output_target = RenderTarget(render_window_manager->get_main_window());
+                            renders_to_main_window = true;
+                        }
+
+                        // Idle throttle: a camera whose owner marked it inactive renders only at
+                        // the bounded refresh interval, measured from its last drawn frame.
+                        const auto camera_id = camera_entity.get_id();
+                        seen_cameras.insert(camera_id);
+                        const auto last = _camera_last_render.find(camera_id);
+                        const bool first_seen = last == _camera_last_render.end();
+                        const bool idle_due =
+                            !first_seen
+                            && (_camera_render_frame - last->second) >= IDLE_RENDER_INTERVAL_FRAMES;
+                        if (!camera_view.camera.is_render_active() && !first_seen && !idle_due)
                             continue;
 
-                        output_target = RenderTarget(render_window_manager->get_main_window());
-                        renders_to_main_window = true;
+                        rendering->render(
+                            delta_time,
+                            get_settings().graphics,
+                            camera_view,
+                            output_target,
+                            is_active_world ? std::shared_ptr<World>() : world);
+                        _camera_last_render[camera_id] = _camera_render_frame;
+
+                        if (renders_to_main_window && _is_hidden)
+                            _hidden_context_primed = true;
                     }
-
-                    rendering
-                        ->render(delta_time, get_settings().graphics, camera_view, output_target);
-
-                    if (renders_to_main_window && _is_hidden)
-                        _hidden_context_primed = true;
                 }
-            }
 
-            // External cameras (editor viewports / asset previews) the engine renders that are NOT
-            // entities in the active world. A host plugin (Studio) registered them and updated
-            // their poses/worlds earlier this frame in its update; render them after the world
-            // cameras so they observe the same simulated world this frame.
-            if (rendering)
-                rendering->render_external_cameras(delta_time, get_settings().graphics);
+                // Drop throttle bookkeeping for cameras that no longer exist (closed views), so the
+                // map tracks only live cameras.
+                std::erase_if(
+                    _camera_last_render,
+                    [&seen_cameras](const std::pair<const Uuid, uint64>& entry)
+                    {
+                        return !seen_cameras.contains(entry.first);
+                    });
+            }
         }
 
         //// UPDATE: BROADCAST FRAME END AND COMMIT ASSET WORK ////

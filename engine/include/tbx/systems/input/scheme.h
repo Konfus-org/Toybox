@@ -36,7 +36,7 @@ namespace tbx
         std::vector<std::reference_wrapper<const InputAction>> get_all_actions() const;
 
       private:
-        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
+        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION();
 
         [[serialize]]
         std::string _name = {};

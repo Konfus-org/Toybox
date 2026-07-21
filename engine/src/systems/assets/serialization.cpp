@@ -1,7 +1,5 @@
 #include "tbx/systems/assets/serialization.h"
-#include "tbx/systems/assets/describe.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include "tbx/types/assets/asset.h"
 #include <algorithm>
 #include <memory>
@@ -10,68 +8,47 @@
 
 namespace tbx
 {
-    class SerializationRegistrationStore final
+    // One plugin's (or the engine core's) asset-type registrations, owned by that plugin's
+    // RuntimeRegistrations. Dropping the container on unload releases the loader/serializer thunks while the
+    // registering module is still mapped, so no std::function manager runs after its module unmaps.
+    struct AssetTypeRegistrations final : RuntimeRegistrationsData
     {
-      public:
-        static SerializationRegistrationStore& get_instance()
-        {
-            static SerializationRegistrationStore store = {};
-            return store;
-        }
+        std::mutex mutex = {};
+        std::vector<AssetTypeRegistration> entries = {};
+    };
 
-      public:
-        SerializationRegistrationStore(const SerializationRegistrationStore&) = delete;
-        SerializationRegistrationStore& operator=(const SerializationRegistrationStore&) = delete;
-        SerializationRegistrationStore(SerializationRegistrationStore&&) = delete;
-        SerializationRegistrationStore& operator=(SerializationRegistrationStore&&) = delete;
-
-      public:
-        std::mutex& asset_type_mutex()
-        {
-            return _asset_type_mutex;
-        }
-
-        std::vector<AssetTypeRegistration>& asset_types()
-        {
-            return _asset_types;
-        }
-
-        std::mutex& serializable_type_mutex()
-        {
-            return _serializable_type_mutex;
-        }
-
-        std::vector<SerializableTypeRegistration>& serializable_types()
-        {
-            return _serializable_types;
-        }
-
-      private:
-        SerializationRegistrationStore() = default;
-        ~SerializationRegistrationStore() noexcept = default;
-
-      private:
-        std::mutex _asset_type_mutex = {};
-        std::vector<AssetTypeRegistration> _asset_types = {};
-        std::mutex _serializable_type_mutex = {};
-        std::vector<SerializableTypeRegistration> _serializable_types = {};
+    // One plugin's (or the engine core's) serializable-type registrations, owned the same way.
+    struct SerializableTypeRegistrations final : RuntimeRegistrationsData
+    {
+        std::mutex mutex = {};
+        std::vector<SerializableTypeRegistration> entries = {};
     };
 
     std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type)
     {
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        const auto& registrations = store.asset_types();
-        const auto existing = std::ranges::find_if(
-            registrations,
-            [type](const AssetTypeRegistration& registered)
+        // Fan out engine core first; the first container that owns the type wins.
+        auto found = std::optional<AssetTypeRegistration> {};
+        for_each_plugin_runtime(
+            [&found, type](RuntimeRegistrations& runtime)
             {
-                return registered.type == type;
-            });
-        if (existing == registrations.end())
-            return std::nullopt;
+                if (found)
+                    return;
 
-        return *existing;
+                auto* data = runtime.try_get_data<AssetTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                const auto existing = std::ranges::find_if(
+                    data->entries,
+                    [type](const AssetTypeRegistration& registered)
+                    {
+                        return registered.type == type;
+                    });
+                if (existing != data->entries.end())
+                    found = *existing;
+            });
+        return found;
     }
 
     std::optional<AssetTypeRegistration> get_asset_type_registration(std::string_view type_name)
@@ -79,205 +56,185 @@ namespace tbx
         if (type_name.empty())
             return std::nullopt;
 
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        const auto& registrations = store.asset_types();
-        const auto existing = std::ranges::find_if(
-            registrations,
-            [type_name](const AssetTypeRegistration& registered)
+        auto found = std::optional<AssetTypeRegistration> {};
+        for_each_plugin_runtime(
+            [&found, type_name](RuntimeRegistrations& runtime)
             {
-                return registered.type_name == type_name;
-            });
-        if (existing == registrations.end())
-            return std::nullopt;
+                if (found)
+                    return;
 
-        return *existing;
+                auto* data = runtime.try_get_data<AssetTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                const auto existing = std::ranges::find_if(
+                    data->entries,
+                    [type_name](const AssetTypeRegistration& registered)
+                    {
+                        return registered.type_name == type_name;
+                    });
+                if (existing != data->entries.end())
+                    found = *existing;
+            });
+        return found;
     }
 
-    void unregister_asset_type_entry(std::type_index asset_type)
-    {
-        if (asset_type == std::type_index(typeid(void)))
-            return;
-
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        auto& registrations = store.asset_types();
-        const auto iterator = std::ranges::find_if(
-            registrations,
-            [asset_type](const AssetTypeRegistration& registration)
-            {
-                return registration.type == asset_type;
-            });
-        if (iterator != registrations.end())
-            registrations.erase(iterator);
-    }
-
-    void register_asset_type_entry(AssetTypeRegistration entry)
+    void register_asset_type_entry(RuntimeRegistrations& owner, AssetTypeRegistration entry)
     {
         if (entry.type == std::type_index(typeid(void)))
             return;
 
-        const auto registration_type = entry.type;
+        // Whichever container already owns this asset type keeps it (engine core visited first), so a
+        // plugin can neither shadow an engine asset type nor create a stray duplicate — it only
+        // enriches an entry in its OWN container.
+        auto owned_by_other = false;
+        for_each_plugin_runtime(
+            [&](RuntimeRegistrations& runtime)
+            {
+                if (&runtime == &owner)
+                    return;
 
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        auto& registrations = store.asset_types();
+                auto* data = runtime.try_get_data<AssetTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                if (std::ranges::any_of(
+                        data->entries,
+                        [&entry](const AssetTypeRegistration& registered)
+                        {
+                            return registered.type == entry.type;
+                        }))
+                    owned_by_other = true;
+            });
+
+        if (owned_by_other)
+            return;
+
+        auto& data = owner.get_data<AssetTypeRegistrations>();
+        auto guard = std::lock_guard(data.mutex);
         const auto existing = std::ranges::find_if(
-            registrations,
+            data.entries,
             [&entry](const AssetTypeRegistration& registered)
             {
                 return registered.type == entry.type;
             });
-        if (existing == registrations.end())
+        if (existing == data.entries.end())
         {
-            registrations.push_back(std::move(entry));
-        }
-        else
-        {
-            // Prevent plugin code from replacing engine-owned callbacks for existing asset types.
-            if (has_active_plugin_id())
-                return;
-
-            if (!entry.type_name.empty())
-                existing->type_name = std::move(entry.type_name);
-            if (entry.version != 0U)
-                existing->version = entry.version;
-            if (entry.create_asset)
-                existing->create_asset = std::move(entry.create_asset);
-            if (entry.read_body)
-                existing->read_body = std::move(entry.read_body);
-            if (entry.write_body)
-                existing->write_body = std::move(entry.write_body);
-            if (entry.transform_meta)
-                existing->transform_meta = std::move(entry.transform_meta);
-            if (entry.write_meta)
-                existing->write_meta = std::move(entry.write_meta);
-            if (entry.describe)
-                existing->describe = std::move(entry.describe);
-            if (entry.is_script)
-                existing->is_script = true;
+            data.entries.push_back(std::move(entry));
             return;
         }
 
-        track_plugin_owned_asset_type(registration_type);
+        // Same container already carries this type: enrich in place.
+        if (!entry.type_name.empty())
+            existing->type_name = std::move(entry.type_name);
+        if (entry.version != 0U)
+            existing->version = entry.version;
+        if (entry.create_asset)
+            existing->create_asset = std::move(entry.create_asset);
+        if (entry.read_body)
+            existing->read_body = std::move(entry.read_body);
+        if (entry.write_body)
+            existing->write_body = std::move(entry.write_body);
+        if (entry.transform_meta)
+            existing->transform_meta = std::move(entry.transform_meta);
+        if (entry.write_meta)
+            existing->write_meta = std::move(entry.write_meta);
+        if (entry.is_script)
+            existing->is_script = true;
     }
 
     std::vector<AssetTypeRegistration> get_asset_type_registrations()
     {
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.asset_type_mutex());
-        return store.asset_types();
+        auto registrations = std::vector<AssetTypeRegistration> {};
+        for_each_plugin_runtime(
+            [&registrations](RuntimeRegistrations& runtime)
+            {
+                auto* data = runtime.try_get_data<AssetTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                registrations.insert(
+                    registrations.end(),
+                    data->entries.begin(),
+                    data->entries.end());
+            });
+        return registrations;
     }
 
     std::vector<SerializableTypeRegistration> get_serializable_type_registrations()
     {
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.serializable_type_mutex());
-        return store.serializable_types();
-    }
-
-    void unregister_serializable_type_entry(std::string_view name)
-    {
-        if (name.empty())
-            return;
-
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.serializable_type_mutex());
-        auto& registrations = store.serializable_types();
-        const auto iterator = std::ranges::find_if(
-            registrations,
-            [name](const SerializableTypeRegistration& registration)
+        auto registrations = std::vector<SerializableTypeRegistration> {};
+        for_each_plugin_runtime(
+            [&registrations](RuntimeRegistrations& runtime)
             {
-                return registration.name == name;
+                auto* data = runtime.try_get_data<SerializableTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                registrations.insert(
+                    registrations.end(),
+                    data->entries.begin(),
+                    data->entries.end());
             });
-        if (iterator != registrations.end())
-            registrations.erase(iterator);
+        return registrations;
     }
 
     void clear_serialization_registrations()
     {
-        auto& store = SerializationRegistrationStore::get_instance();
-        {
-            auto guard = std::lock_guard(store.serializable_type_mutex());
-            store.serializable_types().clear();
-        }
-        {
-            auto guard = std::lock_guard(store.asset_type_mutex());
-            store.asset_types().clear();
-        }
+        // Shutdown: drop every container's asset-type and serializable-type thunks while their
+        // modules are still mapped.
+        for_each_plugin_runtime(
+            [](RuntimeRegistrations& runtime)
+            {
+                if (auto* data = runtime.try_get_data<AssetTypeRegistrations>())
+                {
+                    auto guard = std::lock_guard(data->mutex);
+                    data->entries.clear();
+                }
+                if (auto* data = runtime.try_get_data<SerializableTypeRegistrations>())
+                {
+                    auto guard = std::lock_guard(data->mutex);
+                    data->entries.clear();
+                }
+            });
     }
 
-    std::string describe_serializable_asset(std::string_view type_name)
-    {
-        const auto registration = get_asset_type_registration(type_name);
-        if (!registration || !registration->create_asset)
-            return {};
-
-        auto asset = registration->create_asset();
-        if (!asset)
-            return {};
-
-        // Delegate to the instance describe (body assets and meta-only assets alike) so the two
-        // describes share one serialization path.
-        return describe_serializable_asset_instance(asset.get(), type_name);
-    }
-
-    std::string describe_serializable_asset_instance(const void* asset, std::string_view type_name)
-    {
-        if (asset == nullptr)
-            return {};
-
-        const auto registration = get_asset_type_registration(type_name);
-        if (!registration)
-            return {};
-
-        // Enter the editor scopes here, in the engine module, so the generated serialize the body/meta writer
-        // invokes — which reads a per-module thread-local switch — emits the enriched, every-field shape.
-        const auto include_all = OmitDefaultFieldsScope(false);
-        const auto include_attrs = AttributeSerializationScope(true);
-        auto body = std::string();
-
-        // Body assets (materials, shaders, …) describe their body; meta-only assets (textures) describe their
-        // flat .meta import settings. The same { attributes, value } shape feeds the editor's grid either way.
-        if (registration->write_body)
-        {
-            if (!registration->write_body(asset, body))
-                return {};
-        }
-        else if (registration->write_meta)
-        {
-            if (!registration->write_meta(asset, body))
-                return {};
-        }
-        else
-        {
-            return {};
-        }
-
-        return body;
-    }
-
-    void register_serializable_type_entry(SerializableTypeRegistration entry)
+    void register_serializable_type_entry(
+        RuntimeRegistrations& owner,
+        SerializableTypeRegistration entry)
     {
         if (entry.name.empty() || !entry.write_value || !entry.read_value)
             return;
 
-        const auto registration_name = entry.name;
-
-        auto& store = SerializationRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.serializable_type_mutex());
-        auto& registrations = store.serializable_types();
-        const auto existing = std::ranges::find_if(
-            registrations,
-            [&entry](const SerializableTypeRegistration& registered)
+        // First registration of a name wins, wherever it lives (engine core visited first). A plugin
+        // re-registering an existing name is ignored, so it never comes to own that entry.
+        auto already_registered = false;
+        for_each_plugin_runtime(
+            [&](RuntimeRegistrations& runtime)
             {
-                return registered.name == entry.name;
+                auto* data = runtime.try_get_data<SerializableTypeRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                if (std::ranges::any_of(
+                        data->entries,
+                        [&entry](const SerializableTypeRegistration& registered)
+                        {
+                            return registered.name == entry.name;
+                        }))
+                    already_registered = true;
             });
-        if (existing != registrations.end())
+
+        if (already_registered)
             return;
 
-        registrations.push_back(std::move(entry));
-
-        track_plugin_owned_serializable_registration(registration_name);
+        auto& data = owner.get_data<SerializableTypeRegistrations>();
+        auto guard = std::lock_guard(data.mutex);
+        data.entries.push_back(std::move(entry));
     }
 }

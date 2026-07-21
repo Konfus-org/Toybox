@@ -3,9 +3,11 @@
 #include "tbx/systems/plugin_api/loaded_plugin.generated.h"
 #include "tbx/systems/plugin_api/plugin_meta.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/plugin_api/shared_library.h"
 #include <list>
+#include <memory>
 
 namespace tbx
 {
@@ -62,6 +64,14 @@ namespace tbx
         void set_id(Uuid plugin_id);
         Uuid get_id() const;
 
+        // The registration container this plugin owns (its type registrations, services, asset
+        // dirs/pins). Null once released. Non-owning access for the unloader.
+        RuntimeRegistrations* get_registrations() const;
+        // Drops the container, releasing everything this plugin registered — component instances are
+        // purged from every live registry, and its type registrations / thunks are destroyed — while
+        // the plugin's library is still mapped. Idempotent.
+        void release_registrations();
+
       public:
         PluginMeta meta;
         std::unique_ptr<SharedLibrary> library;
@@ -69,6 +79,9 @@ namespace tbx
 
       private:
         PluginInstanceId _plugin_id = PluginInstanceId {};
+        // Owns everything this plugin registers (type registrations, services, asset dirs/pins).
+        // Created when the plugin id is assigned; dropping it releases the plugin's registrations.
+        std::unique_ptr<RuntimeRegistrations> _registrations = {};
         std::weak_ptr<ServiceProvider> _attached_service_provider = {};
         RegisterPluginServicesFn _register_services = nullptr;
         BindPluginRuntimeFn _bind_runtime = nullptr;

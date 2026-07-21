@@ -58,6 +58,12 @@ namespace tbx
         bool has_active_world() const;
 
         /// @brief
+        /// Purpose: Every open world — the active world (first, when set) plus each standalone
+        /// instance from open_world(STANDALONE). Additive layers are not listed separately: their
+        /// entities live in the active world. The application renders each open world's cameras.
+        std::vector<std::shared_ptr<World>> get_open_worlds() const;
+
+        /// @brief
         /// Purpose: Opens a world asset in one of three modes. REPLACE replaces the single active world
         /// (loads+activates, pins the handle, honors streaming), preserving the current world on failure.
         /// ADDITIVE loads on top of the current active world: its entities are injected into the active world

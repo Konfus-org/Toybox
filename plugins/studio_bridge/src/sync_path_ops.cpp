@@ -2,6 +2,7 @@
 #include "asset_ops.h"
 #include "bridge_utils.h"
 #include "engine_services.h"
+#include "script_override_ops.h"
 #include "wire.h"
 #include "world_ops.h"
 #include "tbx/systems/ecs/entity_serialization.h"
@@ -13,11 +14,12 @@
 namespace tbx::studio_bridge
 {
     // What a uniform sync.* { path } resolves to (see EngineAddress on the editor side). The path is the
-    // single addressing scheme for every tier; the verbs (describe/set/reset/isDefault) act on what it names.
+    // single addressing scheme for every tier; the verbs (describe/set) act on what it names.
     enum class PathKind
     {
         ComponentProperty, // world/{w}/entities/{id}/components/{wire}/{property}
         ComponentDescribe, // world/{w}/entities/{id}/components/{wire}
+        ScriptOverride,    // …/components/script_container/scripts/{bindingId}/overrides/{field}
         EntityScalar,      // world/{w}/entities/{id}/{name|is_enabled|is_global|tags}
         EntityDescribe,    // world/{w}/entities/{id}
         WorldDescribe,     // world/{w}
@@ -89,6 +91,23 @@ namespace tbx::studio_bridge
                 legacy[Wire::COMPONENT] = seg[5];
                 if (seg.size() == 6)
                     return PathKind::ComponentDescribe;
+
+                // A script binding's per-field override is deeper than a component property:
+                // …/script_container/scripts/{bindingId}/overrides/{field}. It gets its own kind so
+                // writes stay lean per field (script_override_ops) instead of round-tripping the
+                // container's whole binding list.
+                if (auto binding_id = uint64(0); seg[5] == Wire::SCRIPT_CONTAINER
+                                                 && seg.size() >= 10 && seg[6] == Wire::SCRIPTS
+                                                 && seg[8] == Wire::OVERRIDES
+                                                 && parse_uint(seg[7], binding_id))
+                {
+                    legacy[Wire::BINDING_ID] = binding_id;
+                    auto field = seg[9];
+                    for (auto i = size_t(10); i < seg.size(); ++i)
+                        field += "/" + seg[i];
+                    legacy[Wire::PROPERTY] = field;
+                    return PathKind::ScriptOverride;
+                }
 
                 // The tail is the property name; deeper segments (nested members) join with '/' — flat today,
                 // ready for nested support once the property addressing grows it.
@@ -170,45 +189,6 @@ namespace tbx::studio_bridge
             return Result(false, "Missing 'value'.");
 
         return tbx::apply_component_property(entity, component, property, value_iterator->dump());
-    }
-
-    static Result sync_reset(
-        const EngineServices& services, ViewState& views, const tbx::Json& params)
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_sync_entity(services, views, params, entity); !resolved)
-            return resolved;
-
-        auto component = std::string();
-        if (const auto required = require_string(params, Wire::COMPONENT, component); !required)
-            return required;
-
-        auto property = std::string();
-        if (const auto required = require_string(params, Wire::PROPERTY, property); !required)
-            return required;
-
-        return tbx::reset_component_property(entity, component, property);
-    }
-
-    static Result sync_is_default(
-        const EngineServices& services,
-        ViewState& views,
-        const tbx::Json& params,
-        bool& out_is_default)
-    {
-        auto entity = tbx::Entity();
-        if (const auto resolved = resolve_sync_entity(services, views, params, entity); !resolved)
-            return resolved;
-
-        auto component = std::string();
-        if (const auto required = require_string(params, Wire::COMPONENT, component); !required)
-            return required;
-
-        auto property = std::string();
-        if (const auto required = require_string(params, Wire::PROPERTY, property); !required)
-            return required;
-
-        return tbx::is_component_property_default(entity, component, property, out_is_default);
     }
 
     Result sync_describe_path(
@@ -304,6 +284,9 @@ namespace tbx::studio_bridge
             case PathKind::ComponentProperty:
                 legacy[Wire::VALUE] = *value_iterator;
                 return sync_set(services, views, legacy);
+            case PathKind::ScriptOverride:
+                legacy[Wire::VALUE] = *value_iterator;
+                return set_script_override(services, views, legacy);
             case PathKind::EntityScalar:
                 return set_entity_scalar(services, views, legacy, scalar, *value_iterator);
             case PathKind::AssetProperty:
@@ -314,42 +297,6 @@ namespace tbx::studio_bridge
                     *value_iterator);
             default:
                 return Result(false, "sync.set: unsupported path '" + path + "'.");
-        }
-    }
-
-    Result sync_reset_path(
-        const EngineServices& services, ViewState& views, const tbx::Json& params)
-    {
-        const auto path = params.value(Wire::ADDRESS, std::string());
-        auto legacy = tbx::Json::object();
-        auto scalar = std::string();
-        switch (parse_sync_path(path, legacy, scalar))
-        {
-            case PathKind::ComponentProperty:
-                return sync_reset(services, views, legacy);
-            case PathKind::EntityScalar:
-                return Result(false, "Entity fields have no reset.");
-            default:
-                return Result(false, "sync.reset: unsupported path '" + path + "'.");
-        }
-    }
-
-    Result sync_is_default_path(
-        const EngineServices& services,
-        ViewState& views,
-        const tbx::Json& params,
-        bool& out_is_default)
-    {
-        const auto path = params.value(Wire::ADDRESS, std::string());
-        auto legacy = tbx::Json::object();
-        auto scalar = std::string();
-        switch (parse_sync_path(path, legacy, scalar))
-        {
-            case PathKind::ComponentProperty:
-                return sync_is_default(services, views, legacy, out_is_default);
-            default:
-                out_is_default = false;
-                return Result(false, "sync.isDefault: unsupported path '" + path + "'.");
         }
     }
 }

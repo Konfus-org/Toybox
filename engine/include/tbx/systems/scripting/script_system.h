@@ -34,9 +34,16 @@ namespace tbx
         ScriptSystem& operator=(ScriptSystem&&) noexcept = delete;
 
       public:
-        std::weak_ptr<IScriptInstance> try_get_script(const ScriptLookup& lookup) override;
+        std::weak_ptr<Script> try_get_script(const ScriptLookup& lookup) override;
         void fixed_update(const DeltaTime& dt);
         void update(const DeltaTime& dt);
+
+        /// @brief Applies override values onto the LIVE instance of one binding (the editor tweaking
+        /// a script field mid-play) so the running script keeps its per-instance state. Succeeds as a
+        /// no-op when the binding has no live instance —
+        /// while not simulating there is nothing to touch; the binding's stored overrides land on the
+        /// next instantiate. The json carries the same per-field typed values instantiate consumes.
+        Result apply_overrides(const ScriptLookup& lookup, const Json& overrides);
 
         /// @brief Destroys every live script instance so the next update re-instantiates them fresh
         /// (running on_start again) against the current world. Used when the world is wholesale

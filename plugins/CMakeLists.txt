@@ -10,14 +10,13 @@ foreach(plugin_dir IN ITEMS
     shader_include_loader
     assimp_model_loader
     performance_monitor
-    cpp_scripting
     sdl_base_systems
     sdl_opengl_context_manager
     sdl_windowing
     sdl_input
     jolt_physics
     opengl_rendering
-    windows_rpc
+    tcp_rpc
     studio_bridge
 )
     add_subdirectory(${plugin_dir})

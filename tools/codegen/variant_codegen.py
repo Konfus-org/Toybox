@@ -1,25 +1,15 @@
+"""std::variant serialization glue — rendered through the C++ template pack (``templates/cpp``)."""
+
 from __future__ import annotations
 
 from model import SerializableType
+from render import render_lines
 
 
 def emit_variant_declarations(type_info: SerializableType) -> list[str]:
-    return [
-        f"void serialize(::tbx::Json& json, const {type_info.name}& value);",
-        f"void deserialize(const ::tbx::Json& json, {type_info.name}& value);",
-        "",
-    ]
+    # Declarations are the plain serialize/deserialize pair, identical to the enum decl shape.
+    return render_lines("cpp/enum_declarations.jinja", name=type_info.name)
 
 
 def emit_variant(type_info: SerializableType) -> list[str]:
-    return [
-        f"void serialize(::tbx::Json& json, const {type_info.name}& value)",
-        "{",
-        "    ::tbx::serialize_serializable_variant(json, value);",
-        "}",
-        f"void deserialize(const ::tbx::Json& json, {type_info.name}& value)",
-        "{",
-        "    ::tbx::deserialize_serializable_variant(json, value);",
-        "}",
-        "",
-    ]
+    return render_lines("cpp/variant_definition.jinja", name=type_info.name)

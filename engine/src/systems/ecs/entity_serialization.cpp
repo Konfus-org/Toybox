@@ -4,8 +4,8 @@
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/files/json.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
+#include <algorithm>
 #include <functional>
 #include <mutex>
 #include <ranges>
@@ -31,47 +31,54 @@ namespace tbx
         Json components = {};
     };
 
-    class EntityComponentRegistrationStore final
+    // One plugin's (or the engine core's) component type registrations. Owned by that plugin's
+    // RuntimeRegistrations, so dropping the container removes them — and, because the defining plugin is
+    // unloading, strips every instance of those component types from all live registries (running
+    // each component destructor) while the module is still mapped.
+    struct ComponentRegistrations final : RuntimeRegistrationsData
     {
-      public:
-        static EntityComponentRegistrationStore& get_instance()
+        std::mutex mutex = {};
+        std::vector<EntityComponentTypeRegistration> entries = {};
+
+        // Runs only when a plugin's container is dropped on unload (never for the engine core at
+        // process exit): the plugin's component types become unavailable, so strip every instance
+        // from all live registries while the module is still mapped.
+        void on_container_unloading() override
         {
-            static EntityComponentRegistrationStore store = {};
-            return store;
+            auto guard = std::lock_guard(mutex);
+            for (const auto& entry : entries)
+            {
+                if (!entry.clear_all)
+                    continue;
+
+                for_each_live_entity_registry(
+                    [&entry](EntityRegistry& registry)
+                    {
+                        registry.purge_component(entry.clear_all);
+                    });
+            }
         }
-
-      public:
-        EntityComponentRegistrationStore(const EntityComponentRegistrationStore&) = delete;
-        EntityComponentRegistrationStore& operator=(const EntityComponentRegistrationStore&) =
-            delete;
-        EntityComponentRegistrationStore(EntityComponentRegistrationStore&&) = delete;
-        EntityComponentRegistrationStore& operator=(EntityComponentRegistrationStore&&) = delete;
-
-      public:
-        std::mutex& mutex()
-        {
-            return _mutex;
-        }
-
-        std::vector<EntityComponentTypeRegistration>& registrations()
-        {
-            return _registrations;
-        }
-
-      private:
-        EntityComponentRegistrationStore() = default;
-        ~EntityComponentRegistrationStore() noexcept = default;
-
-      private:
-        std::mutex _mutex = {};
-        std::vector<EntityComponentTypeRegistration> _registrations = {};
     };
 
     static std::vector<EntityComponentTypeRegistration> snapshot_entity_component_type_registrations()
     {
-        auto& store = EntityComponentRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.mutex());
-        return store.registrations();
+        // Fan out across every container, engine core first, so an engine-owned component wins any
+        // name/type collision against a plugin's.
+        auto registrations = std::vector<EntityComponentTypeRegistration> {};
+        for_each_plugin_runtime(
+            [&registrations](RuntimeRegistrations& runtime)
+            {
+                auto* data = runtime.try_get_data<ComponentRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                registrations.insert(
+                    registrations.end(),
+                    data->entries.begin(),
+                    data->entries.end());
+            });
+        return registrations;
     }
 
     static bool read_entity_payload(std::string_view data, SerializedEntityPayload& payload)
@@ -79,24 +86,22 @@ namespace tbx
         try
         {
             const auto json = JsonParser::parse(data);
-            // Envelope scalars use the self-describing { "type", "value" } wrapper.
-            read_typed_serialization_field(json, "id", payload.id, Uuid {});
-            read_typed_serialization_field(json, "name", payload.name, std::string {});
-            read_typed_serialization_field(
-                json, "tags", payload.tags, std::vector<std::string> {});
+            read_serialization_field(json, "id", payload.id, Uuid {});
+            read_serialization_field(json, "name", payload.name, std::string {});
+            read_serialization_field(json, "tags", payload.tags, std::vector<std::string> {});
             // Back-compat: worlds written before the multi-tag migration carry a single "tag" string;
             // seed it as the entity's one serialized tag when the new "tags" field is absent/empty.
             if (payload.tags.empty())
             {
                 auto legacy_tag = std::string {};
-                read_typed_serialization_field(json, "tag", legacy_tag, std::string {});
+                read_serialization_field(json, "tag", legacy_tag, std::string {});
                 if (!legacy_tag.empty())
                     payload.tags.push_back(legacy_tag);
             }
-            read_typed_serialization_field(json, "layer", payload.layer, std::string {});
-            read_typed_serialization_field(json, "parent", payload.parent, Uuid {});
-            read_typed_serialization_field(json, "order", payload.order, 0);
-            read_typed_serialization_field(json, "is_enabled", payload.is_enabled, true);
+            read_serialization_field(json, "layer", payload.layer, std::string {});
+            read_serialization_field(json, "parent", payload.parent, Uuid {});
+            read_serialization_field(json, "order", payload.order, 0);
+            read_serialization_field(json, "is_enabled", payload.is_enabled, true);
             // "components" is a structural keyed collection whose values are already-typed component
             // bodies, so the container itself is not wrapped.
             if (const auto components = json.find("components"); components != json.end())
@@ -122,125 +127,87 @@ namespace tbx
         return snapshot_entity_component_type_registrations();
     }
 
-    void unregister_entity_component_type_entry(std::type_index component_type)
-    {
-        if (component_type == std::type_index(typeid(void)))
-            return;
-
-        auto& store = EntityComponentRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.mutex());
-        auto& registrations = store.registrations();
-        const auto iterator = std::ranges::find_if(
-            registrations,
-            [component_type](const EntityComponentTypeRegistration& registration)
-            {
-                return registration.type == component_type;
-            });
-        if (iterator != registrations.end())
-            registrations.erase(iterator);
-    }
-
-    void register_entity_component_type_entry(EntityComponentTypeRegistration entry)
+    void register_entity_component_type_entry(
+        RuntimeRegistrations& owner,
+        EntityComponentTypeRegistration entry)
     {
         if (entry.type == std::type_index(typeid(void)) || entry.type_id == entt::id_type())
             return;
-        const auto component_type = entry.type;
 
-        // Component serializers live process-wide so plugin unload can remove plugin-owned
-        // component registrations across worlds.
-        auto& store = EntityComponentRegistrationStore::get_instance();
-        auto guard = std::lock_guard(store.mutex());
-        auto& registrations = store.registrations();
+        // Whichever container already owns this component type keeps it. The engine core is visited
+        // first, so a plugin can neither shadow an engine component nor come to "own" (and later
+        // purge, on unload) a type it did not define — it only enriches an entry in its OWN
+        // container.
+        auto owned_by_other = false;
+        for_each_plugin_runtime(
+            [&](RuntimeRegistrations& runtime)
+            {
+                if (&runtime == &owner)
+                    return;
+
+                auto* data = runtime.try_get_data<ComponentRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                if (std::ranges::any_of(
+                        data->entries,
+                        [&entry](const EntityComponentTypeRegistration& registered)
+                        {
+                            return registered.type == entry.type;
+                        }))
+                    owned_by_other = true;
+            });
+
+        if (owned_by_other)
+            return;
+
+        auto& data = owner.get_data<ComponentRegistrations>();
+        auto guard = std::lock_guard(data.mutex);
         const auto existing = std::ranges::find_if(
-            registrations,
+            data.entries,
             [&entry](const EntityComponentTypeRegistration& registered)
             {
                 return registered.type == entry.type;
             });
-        if (existing == registrations.end())
+        if (existing == data.entries.end())
         {
-            registrations.push_back(std::move(entry));
-        }
-        else
-        {
-            // Prevent plugin code from replacing engine-owned serializers for existing components.
-            if (has_active_plugin_id())
-                return;
-
-            if (!entry.name.empty())
-                existing->name = std::move(entry.name);
-            if (!entry.type_name.empty())
-                existing->type_name = std::move(entry.type_name);
-            if (entry.write_value)
-                existing->write_value = std::move(entry.write_value);
-            if (entry.read_value)
-                existing->read_value = std::move(entry.read_value);
-            if (entry.describe)
-                existing->describe = std::move(entry.describe);
+            data.entries.push_back(std::move(entry));
             return;
         }
 
-        track_plugin_owned_component_registration(component_type);
+        // Same container already carries this type: enrich in place, order-independently.
+        if (!entry.name.empty())
+            existing->name = std::move(entry.name);
+        if (!entry.type_name.empty())
+            existing->type_name = std::move(entry.type_name);
+        if (entry.write_value)
+            existing->write_value = std::move(entry.write_value);
+        if (entry.read_value)
+            existing->read_value = std::move(entry.read_value);
+        if (entry.copy_value)
+            existing->copy_value = std::move(entry.copy_value);
+        if (entry.clear_all)
+            existing->clear_all = std::move(entry.clear_all);
     }
 
-    // Reshapes the entity's id envelope node into the same { "attributes", "value", "is_default" } form
-    // the components carry under attribute serialization. The components themselves are already attributed
-    // by their own generated serialize (run under AttributeSerializationScope), so only the engine-managed
-    // id — which is written lean by the envelope writer — needs reshaping here. The id is engine-assigned,
-    // hence never "default".
-    static void enrich_entity_id(Json& json)
+    std::string Entity::serialize(const Entity& entity, bool include_defaults)
     {
-        if (!json.is_object())
-            return;
-
-        const auto id_iterator = json.find("id");
-        if (id_iterator == json.end() || !id_iterator->is_object())
-            return;
-
-        auto& id_node = *id_iterator;
-        auto attributes = Json::object();
-        if (const auto type_iterator = id_node.find(std::string(PROPERTY_TYPE_KEY));
-            type_iterator != id_node.end())
-            attributes[std::string(PROPERTY_TYPE_KEY)] = *type_iterator;
-
-        auto rebuilt = Json::object();
-        if (const auto value_iterator = id_node.find(std::string(PROPERTY_VALUE_KEY));
-            value_iterator != id_node.end())
-            rebuilt[std::string(PROPERTY_VALUE_KEY)] = std::move(*value_iterator);
-        rebuilt[std::string(PROPERTY_ATTRIBUTES_KEY)] = std::move(attributes);
-        rebuilt[std::string(PROPERTY_IS_DEFAULT_KEY)] = false;
-        id_node = std::move(rebuilt);
-    }
-
-    std::string Entity::serialize(
-        const Entity& entity,
-        bool include_defaults,
-        bool include_attributes)
-    {
-        // Persisted entities omit properties equal to their default (include_defaults == false);
-        // attribute enrichment needs every field, so it forces the full set. Both scopes govern the whole
-        // serialize call graph: each component's generated serialize honors them, emitting attribute-rich
-        // nodes when include_attributes is on.
-        const auto write_all = include_defaults || include_attributes;
-        const auto omit_scope = OmitDefaultFieldsScope(!write_all);
-        const auto attribute_scope = AttributeSerializationScope(include_attributes);
+        // Persisted entities omit properties equal to their default (include_defaults == false). The
+        // scope governs the whole serialize call graph: each component's generated serialize honors it.
+        const auto omit_scope = OmitDefaultFieldsScope(!include_defaults);
 
         auto json = Json::object();
-        // Envelope scalars are written as self-describing { "type", "value" } so every value on disk
-        // specifies its type. The id is always written (identity must never be omitted).
-        write_typed_serialization_field(json, "id", entity.get_id());
-        write_typed_serialization_field(json, "name", entity.get_name());
-        write_typed_serialization_field(json, "tags", entity.get_persistent_tags());
-        write_typed_serialization_field(json, "layer", entity.get_layer());
-        write_typed_serialization_field(json, "parent", entity.get_parent());
-        write_typed_serialization_field(json, "order", entity.get_order());
-        write_typed_serialization_field(json, "is_enabled", entity.is_enabled());
+        // The id is always written (identity must never be omitted); the rest are plain values.
+        write_serialization_field(json, "id", entity.get_id());
+        write_serialization_field(json, "name", entity.get_name());
+        write_serialization_field(json, "tags", entity.get_persistent_tags());
+        write_serialization_field(json, "layer", entity.get_layer());
+        write_serialization_field(json, "parent", entity.get_parent());
+        write_serialization_field(json, "order", entity.get_order());
+        write_serialization_field(json, "is_enabled", entity.is_enabled());
 
         auto components = Json::object();
-        // The order components are visited (their registration order) before the JSON object alphabetizes
-        // its keys; emitted as component_order on the attribute path so the editor lists components in this
-        // natural order rather than alphabetically.
-        auto component_order = Json::array();
         if (entity._registry.has_value())
         {
             auto& registry = entity._registry->get();
@@ -270,20 +237,11 @@ namespace tbx
                         continue;
 
                     components[entry.name] = JsonParser::parse(entry.write_value(value));
-                    component_order.push_back(entry.name);
                 }
             }
         }
 
-        json["components"] = components;
-        if (include_attributes)
-            json["component_order"] = std::move(component_order);
-
-        // Components are already attribute-enriched by their own serialize under the scope above; only the
-        // engine-managed id envelope needs reshaping into the same attributed form.
-        if (include_attributes)
-            enrich_entity_id(json);
-
+        json["components"] = std::move(components);
         return json.dump();
     }
 
@@ -299,144 +257,11 @@ namespace tbx
         return true;
     }
 
-    // Unwraps a typed { "type", "value" } node to its inner value (or returns the node as-is when it is
-    // already a bare value).
-    static const Json& typed_value(const Json& node)
-    {
-        if (node.is_object())
-            if (const auto value = node.find("value"); value != node.end())
-                return *value;
-        return node;
-    }
-
-    // Rewrites one legacy shape-typed collider (cube/sphere/capsule/mesh, each with an embedded
-    // trigger) into the matching new per-shape component: the shaped collider, or — when the old
-    // collider's trigger was trigger-only — the shaped trigger carrying its overlap settings. The old
-    // dimension fields/id/is_enabled carry over verbatim; the stale embedded trigger field is dropped.
-    static void migrate_legacy_collider(
-        Json& components,
-        const char* legacy_key,
-        const char* collider_key,
-        const char* trigger_key)
-    {
-        const auto legacy = components.find(legacy_key);
-        if (legacy == components.end())
-            return;
-
-        Json old = *legacy;
-        components.erase(legacy_key);
-        if (!old.is_object())
-            return;
-
-        auto component = Json::object();
-        for (const char* field : {"half_extents", "radius", "half_height", "is_convex", "id",
-                                  "is_enabled"})
-            if (const auto value = old.find(field); value != old.end())
-                component[field] = *value;
-
-        // The legacy trigger bit lived inside the collider; a trigger-only collider becomes a shaped
-        // trigger carrying its overlap settings.
-        bool is_trigger_only = false;
-        if (const auto trigger = old.find("trigger"); trigger != old.end())
-        {
-            const Json& trigger_body = typed_value(*trigger);
-            if (trigger_body.is_object())
-            {
-                if (const auto flag = trigger_body.find("is_trigger_only"); flag != trigger_body.end())
-                {
-                    const Json& value = typed_value(*flag);
-                    is_trigger_only = value.is_boolean() && value.get<bool>();
-                }
-                if (is_trigger_only)
-                    for (const char* field : {"overlap_execution_mode", "is_overlap_enabled"})
-                        if (const auto value = trigger_body.find(field); value != trigger_body.end())
-                            component[field] = *value;
-            }
-        }
-
-        const char* new_key = is_trigger_only ? trigger_key : collider_key;
-        if (!components.contains(new_key))
-            components[new_key] = std::move(component);
-    }
-
-    // Rewrites component bodies written before the mesh/material/collider rework so old worlds still
-    // load: a StaticMesh becomes a Renderer (its `handle` field becomes `model`), the old whole-entity
-    // MaterialInstance override becomes the Renderer's single whole-model material (its `material`
-    // handle), the removed DynamicMesh component is dropped, and each shape-typed collider becomes the
-    // unified Collider/Trigger.
-    static void migrate_legacy_components(Json& components)
-    {
-        if (!components.is_object())
-            return;
-
-        auto renderer = Json::object();
-        bool has_renderer = false;
-
-        if (const auto static_mesh = components.find("static_mesh");
-            static_mesh != components.end())
-        {
-            renderer = *static_mesh;
-            if (renderer.is_object())
-            {
-                if (const auto handle = renderer.find("handle"); handle != renderer.end())
-                {
-                    renderer["model"] = *handle;
-                    renderer.erase("handle");
-                }
-            }
-            has_renderer = true;
-            components.erase("static_mesh");
-        }
-
-        if (const auto material_instance = components.find("material_instance");
-            material_instance != components.end())
-        {
-            if (material_instance->is_object())
-            {
-                const auto material = material_instance->find("material");
-                if (material != material_instance->end() && material->is_object())
-                {
-                    if (const auto value = material->find(std::string(PROPERTY_VALUE_KEY));
-                        value != material->end())
-                    {
-                        // A single Renderer material entry is a whole-model override, matching the
-                        // legacy component's whole-entity semantic.
-                        auto materials_value = Json::array();
-                        materials_value.push_back(*value);
-                        auto materials_node = Json::object();
-                        materials_node[std::string(PROPERTY_TYPE_KEY)] = "array";
-                        materials_node[std::string(PROPERTY_VALUE_KEY)] = std::move(materials_value);
-                        if (!has_renderer)
-                            has_renderer = true;
-                        renderer["materials"] = std::move(materials_node);
-                    }
-                }
-            }
-            components.erase("material_instance");
-        }
-
-        components.erase("dynamic_mesh");
-
-        migrate_legacy_collider(components, "cube_collider", "box_collider", "box_trigger");
-        migrate_legacy_collider(components, "sphere_collider", "sphere_collider", "sphere_trigger");
-        migrate_legacy_collider(
-            components,
-            "capsule_collider",
-            "capsule_collider",
-            "capsule_trigger");
-        migrate_legacy_collider(components, "mesh_collider", "mesh_collider", "mesh_trigger");
-
-        if (has_renderer && !components.contains("renderer"))
-            components["renderer"] = std::move(renderer);
-    }
-
     bool Entity::deserialize(std::string_view data, EntityRegistry& registry, Entity& entity)
     {
         auto payload = SerializedEntityPayload();
         if (!read_entity_payload(data, payload))
             return false;
-
-        migrate_legacy_components(payload.components);
 
         entity = Entity();
         entity._id = registry.add(payload.id, payload.name, payload.layer, payload.parent);
@@ -485,7 +310,8 @@ namespace tbx
         auto entities = Json::array();
         for (const auto& entity : registry.get_all())
         {
-            if (!entity.get_id().is_valid())
+            // Transient entities (the editor bridge's injected view cameras) are never written.
+            if (!entity.get_id().is_valid() || !entity.is_serialized())
                 continue;
 
             auto record = Json::parse(Entity::serialize(entity), nullptr, false);
@@ -610,19 +436,9 @@ namespace tbx
                 false,
                 std::string("Entity already has a '").append(component_name).append("' component."));
 
-        // Emplace the component at its defaults by deserializing the type's describe(false) body — a lean,
-        // all-fields { "type", "value" } serialization of a default-constructed instance, the same shape
-        // read_value consumes. Falls back to an empty object when the type captured no describe (the
-        // generated deserialize then leaves every field at its in-source default).
-        auto body = std::string("{}");
-        if (entry->describe)
-        {
-            auto described = entry->describe(false);
-            if (!described.empty())
-                body = std::move(described);
-        }
-
-        if (!entry->read_value(body, *registry._registry, handle))
+        // Emplace the component at its defaults: reading an empty object applies no fields, so the
+        // generated deserialize leaves every field at its in-source default.
+        if (!entry->read_value("{}", *registry._registry, handle))
             return Result(
                 false,
                 std::string("Failed to add component '").append(component_name).append("'."));
@@ -669,10 +485,10 @@ namespace tbx
         const Entity& entity,
         std::string_view component_name,
         std::string_view property_name,
-        std::string& out_node_json)
+        std::string& out_value_json)
     {
         // Read a property by serializing the whole component — every field is present on this path
-        // (no default omission) — and lifting out its { "type", "value" } node.
+        // (no default omission) — and lifting out its bare value.
         std::string component_json;
         if (const auto read = serialize_component(entity, component_name, component_json); !read)
             return read;
@@ -685,7 +501,7 @@ namespace tbx
                 false,
                 std::string("Unknown property '").append(property_name).append("'."));
 
-        out_node_json = field->dump();
+        out_value_json = field->dump();
         return Result::OK;
     }
 
@@ -701,7 +517,7 @@ namespace tbx
 
         // Edit by round-trip: serialize the whole component, overwrite the one field's value, then
         // deserialize it back via apply_component. Going through the component's own
-        // serialize/deserialize reaches private [[prop]] fields without naming them and needs no
+        // serialize/deserialize reaches private [[serialize]] fields without naming them and needs no
         // per-property accessors.
         std::string component_json;
         if (const auto read = serialize_component(entity, component_name, component_json); !read)
@@ -712,89 +528,12 @@ namespace tbx
             return Result(false, "Component did not serialize to an object.");
 
         const auto field = component.find(std::string(property_name));
-        if (field == component.end() || !field->is_object())
+        if (field == component.end())
             return Result(
                 false,
                 std::string("Unknown property '").append(property_name).append("'."));
 
-        (*field)[std::string(PROPERTY_VALUE_KEY)] = std::move(value);
+        *field = std::move(value);
         return apply_component(entity, component_name, component.dump());
-    }
-
-    // Resolves a component property's default value from the type's describe(false) thunk — a lean,
-    // all-fields serialization of a default-constructed instance carried on the component registration.
-    // Returns false when the component/property is unknown or the type has no captured default (e.g. it is
-    // not default-constructible). This replaces the old type-reflection registry's captured defaults.
-    static bool find_component_property_default(
-        std::string_view component_name,
-        std::string_view property_name,
-        Json& out_value)
-    {
-        const auto entries = get_entity_component_type_registrations();
-        const auto entry = std::ranges::find_if(
-            entries,
-            [&component_name](const EntityComponentTypeRegistration& candidate)
-            { return candidate.name == component_name; });
-        if (entry == entries.end() || !entry->describe)
-            return false;
-
-        const auto schema = Json::parse(entry->describe(false), nullptr, false);
-        const auto field = schema.is_object() ? schema.find(std::string(property_name)) : schema.end();
-        if (field == schema.end() || !field->is_object())
-            return false;
-
-        const auto value = field->find(std::string(PROPERTY_VALUE_KEY));
-        if (value == field->end())
-            return false;
-
-        out_value = *value;
-        return true;
-    }
-
-    Result is_component_property_default(
-        const Entity& entity,
-        std::string_view component_name,
-        std::string_view property_name,
-        bool& out_is_default)
-    {
-        // Read the live property value (this also validates the component/property exist).
-        std::string node_json;
-        if (const auto read =
-                serialize_component_property(entity, component_name, property_name, node_json);
-            !read)
-            return read;
-
-        auto default_value = Json();
-        if (!find_component_property_default(component_name, property_name, default_value))
-        {
-            // No captured default to compare against.
-            out_is_default = false;
-            return Result::OK;
-        }
-
-        const auto node = Json::parse(node_json, nullptr, false);
-        const auto value = node.is_object() ? node.find(std::string(PROPERTY_VALUE_KEY))
-                                            : node.end();
-        out_is_default = value != node.end() && *value == default_value;
-        return Result::OK;
-    }
-
-    Result reset_component_property(
-        const Entity& entity,
-        std::string_view component_name,
-        std::string_view property_name)
-    {
-        auto default_value = Json();
-        if (!find_component_property_default(component_name, property_name, default_value))
-            return Result(
-                false,
-                std::string("Property '").append(property_name).append("' has no default value."));
-
-        // Reset is just a set to the captured default value.
-        return apply_component_property(
-            entity,
-            component_name,
-            property_name,
-            default_value.dump());
     }
 }

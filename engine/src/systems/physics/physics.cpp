@@ -1,8 +1,6 @@
 #include "tbx/systems/physics/physics.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/async/job_system.h"
-#include "tbx/systems/async/parallel_for.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/ecs/entity.h"
 #include "tbx/types/assets/model.h"
@@ -12,6 +10,9 @@
 #include "tbx/types/components/rigidbody.h"
 #include "tbx/types/components/transform.h"
 #include "tbx/types/quaternions.h"
+#include "tbx/types/vertex.h"
+#include <algorithm>
+#include <cmath>
 
 namespace tbx
 {
@@ -34,20 +35,22 @@ namespace tbx
         return has_collider_shape(entity) || has_trigger_shape(entity);
     }
 
-    // The shared Trigger behavior of whichever shaped trigger the entity carries, when any.
-    static const Trigger* try_get_trigger_collider(const Entity& entity)
+    // The shaped solid collider the entity carries, when any, as its shared Collider base — the
+    // backend recovers the concrete shape from it.
+    static const Collider* try_get_solid_collider(const Entity& entity)
     {
-        if (entity.has_component<BoxTrigger>())
-            return &entity.get_component<BoxTrigger>();
-        if (entity.has_component<SphereTrigger>())
-            return &entity.get_component<SphereTrigger>();
-        if (entity.has_component<CapsuleTrigger>())
-            return &entity.get_component<CapsuleTrigger>();
-        if (entity.has_component<MeshTrigger>())
-            return &entity.get_component<MeshTrigger>();
+        if (entity.has_component<BoxCollider>())
+            return &entity.get_component<BoxCollider>();
+        if (entity.has_component<SphereCollider>())
+            return &entity.get_component<SphereCollider>();
+        if (entity.has_component<CapsuleCollider>())
+            return &entity.get_component<CapsuleCollider>();
+        if (entity.has_component<MeshCollider>())
+            return &entity.get_component<MeshCollider>();
         return nullptr;
     }
 
+    // The shared Trigger behavior of whichever shaped trigger the entity carries, when any.
     static Trigger* try_get_trigger_collider(Entity& entity)
     {
         if (entity.has_component<BoxTrigger>())
@@ -90,7 +93,7 @@ namespace tbx
     }
 
     // The backend body is a non-solid sensor when the entity has a trigger but no solid collider; an
-    // entity with both gets a solid body that still reports overlaps.
+    // entity with both gets a solid body.
     static bool is_trigger_only_collider(const Entity& entity)
     {
         return has_trigger_shape(entity) && !has_collider_shape(entity);
@@ -149,27 +152,28 @@ namespace tbx
         return get_vec3_distance_squared(current.scale, previous_scale) > scale_epsilon_squared;
     }
 
-    static Vec3 calculate_angular_velocity_for_step(
-        const Quat& start_rotation,
-        const Quat& target_rotation,
-        float dt_seconds)
+    // Config that shapes a backend body, excluding the velocities the read-back overwrites each
+    // frame (comparing those would rebuild every dynamic body every step).
+    static bool has_rigidbody_config_changed(const Rigidbody& current, const Rigidbody& previous)
     {
-        Quat normalized_start = normalize(start_rotation);
-        Quat normalized_target = normalize(target_rotation);
+        return current.mass != previous.mass || current.is_kinematic != previous.is_kinematic
+               || current.is_gravity_enabled != previous.is_gravity_enabled
+               || current.friction != previous.friction
+               || current.restitution != previous.restitution
+               || current.linear_damping != previous.linear_damping
+               || current.angular_damping != previous.angular_damping
+               || current.is_sleep_enabled != previous.is_sleep_enabled
+               || current.sleep_velocity_threshold != previous.sleep_velocity_threshold
+               || current.sleep_time_seconds != previous.sleep_time_seconds;
+    }
 
-        Quat delta_rotation = normalize(normalized_target * glm::conjugate(normalized_start));
-        if (delta_rotation.w < 0.0F)
-            delta_rotation = -delta_rotation;
-
-        float clamped_w = std::clamp(delta_rotation.w, -1.0F, 1.0F);
-        float half_angle_sine = std::sqrt(std::max(0.0F, 1.0F - clamped_w * clamped_w));
-        if (half_angle_sine <= 0.000001F)
-            return Vec3(0.0F, 0.0F, 0.0F);
-
-        Vec3 axis =
-            Vec3(delta_rotation.x, delta_rotation.y, delta_rotation.z) * (1.0F / half_angle_sine);
-        float angle_radians = 2.0F * std::atan2(half_angle_sine, clamped_w);
-        return axis * (angle_radians / std::max(0.0001F, dt_seconds));
+    // A rigidbody value whose is_valid() is false, so create_rigidbody builds a static body for an
+    // entity that has a collider/trigger but no live Rigidbody component.
+    static Rigidbody make_static_body_marker()
+    {
+        auto marker = Rigidbody {};
+        marker.mass = 0.0F;
+        return marker;
     }
 
     static Vec3 get_safe_scale(const Vec3& scale)
@@ -201,7 +205,7 @@ namespace tbx
         const Mat4& mesh_transform,
         const Vec3& mesh_scale,
         std::vector<Vec3>& vertices,
-        std::vector<PhysicsMeshTriangle>& triangles)
+        std::vector<uint32>& indices)
     {
         const auto& vertex_values = mesh.vertices.vertices;
         const size stride_bytes = static_cast<size>(mesh.vertices.layout.stride);
@@ -247,7 +251,7 @@ namespace tbx
         if (mesh_indices.size() >= 3U)
         {
             const size triangle_count = static_cast<size>(mesh_indices.size()) / 3U;
-            triangles.reserve(triangles.size() + triangle_count);
+            indices.reserve(indices.size() + triangle_count * 3U);
             for (size triangle_index = 0U; triangle_index < triangle_count; ++triangle_index)
             {
                 const size index_base = triangle_index * 3U;
@@ -258,12 +262,9 @@ namespace tbx
                     || index2 >= vertices.size())
                     continue;
 
-                triangles.push_back(
-                    PhysicsMeshTriangle {
-                        .index0 = static_cast<uint32>(index0),
-                        .index1 = static_cast<uint32>(index1),
-                        .index2 = static_cast<uint32>(index2),
-                    });
+                indices.push_back(static_cast<uint32>(index0));
+                indices.push_back(static_cast<uint32>(index1));
+                indices.push_back(static_cast<uint32>(index2));
             }
         }
 
@@ -276,15 +277,15 @@ namespace tbx
         Mat4 parent_transform = Mat4(1.0F);
     };
 
-    static bool try_get_mesh_collider_data(
+    static bool try_gather_model_geometry(
         AssetManager& asset_manager,
         const Entity& entity,
         const Vec3& scale,
         std::vector<Vec3>& vertices,
-        std::vector<PhysicsMeshTriangle>& triangles)
+        std::vector<uint32>& indices)
     {
         vertices.clear();
-        triangles.clear();
+        indices.clear();
 
         if (!entity.has_component<Renderer>())
             return false;
@@ -301,8 +302,7 @@ namespace tbx
         {
             bool has_any_mesh = false;
             for (const auto& mesh : model->meshes)
-                has_any_mesh |=
-                    try_append_mesh_geometry(mesh, Mat4(1.0F), scale, vertices, triangles);
+                has_any_mesh |= try_append_mesh_geometry(mesh, Mat4(1.0F), scale, vertices, indices);
 
             return has_any_mesh;
         }
@@ -362,7 +362,7 @@ namespace tbx
                     part_transform,
                     scale,
                     vertices,
-                    triangles);
+                    indices);
             }
 
             for (const auto child_index : part.children)
@@ -378,87 +378,57 @@ namespace tbx
         return has_any_part_mesh;
     }
 
-    static PhysicsColliderCreateInfo create_collider_info_for_entity(
+    // Builds the flattened, scale-baked collision mesh a mesh collider/trigger hands to the backend.
+    static bool try_build_collision_mesh(
         AssetManager& asset_manager,
         const Entity& entity,
-        const Transform& transform,
-        bool is_physics_driven)
+        const Vec3& scale,
+        Mesh& out_mesh)
     {
-        auto create_info = PhysicsColliderCreateInfo {};
-        create_info.is_trigger_only = is_trigger_only_collider(entity);
+        auto vertices = std::vector<Vec3> {};
+        auto indices = std::vector<uint32> {};
+        if (!try_gather_model_geometry(asset_manager, entity, scale, vertices, indices))
+            return false;
 
-        if (entity.has_component<BoxCollider>() || entity.has_component<BoxTrigger>())
+        auto floats = std::vector<float> {};
+        floats.reserve(vertices.size() * 3U);
+        for (const auto& vertex : vertices)
         {
-            create_info.shape_type = PhysicsColliderShapeType::BOX;
-            create_info.half_extents = entity.has_component<BoxCollider>()
-                                           ? entity.get_component<BoxCollider>().half_extents
-                                           : entity.get_component<BoxTrigger>().half_extents;
-            return create_info;
+            floats.push_back(vertex.x);
+            floats.push_back(vertex.y);
+            floats.push_back(vertex.z);
         }
 
-        if (entity.has_component<SphereCollider>() || entity.has_component<SphereTrigger>())
+        out_mesh = Mesh {};
+        out_mesh.vertices.layout =
+            VertexBufferLayout(std::vector<VertexData> {VertexFormat::VEC3});
+        out_mesh.vertices.vertices = std::move(floats);
+        out_mesh.indices = std::move(indices);
+        return !out_mesh.vertices.vertices.empty();
+    }
+
+    static Entity find_entity_in_worlds(
+        const std::vector<std::shared_ptr<World>>& worlds, const Uuid& entity_id)
+    {
+        for (const auto& world : worlds)
         {
-            create_info.shape_type = PhysicsColliderShapeType::SPHERE;
-            create_info.radius = entity.has_component<SphereCollider>()
-                                     ? entity.get_component<SphereCollider>().radius
-                                     : entity.get_component<SphereTrigger>().radius;
-            return create_info;
+            if (world && world->has(entity_id))
+                return world->get(entity_id);
         }
-
-        if (entity.has_component<CapsuleCollider>() || entity.has_component<CapsuleTrigger>())
-        {
-            create_info.shape_type = PhysicsColliderShapeType::CAPSULE;
-            if (entity.has_component<CapsuleCollider>())
-            {
-                const auto& capsule = entity.get_component<CapsuleCollider>();
-                create_info.radius = capsule.radius;
-                create_info.half_height = capsule.half_height;
-            }
-            else
-            {
-                const auto& capsule = entity.get_component<CapsuleTrigger>();
-                create_info.radius = capsule.radius;
-                create_info.half_height = capsule.half_height;
-            }
-            return create_info;
-        }
-
-        if (entity.has_component<MeshCollider>() || entity.has_component<MeshTrigger>())
-        {
-            const bool is_convex = entity.has_component<MeshCollider>()
-                                       ? entity.get_component<MeshCollider>().is_convex
-                                       : entity.get_component<MeshTrigger>().is_convex;
-            create_info.shape_type = PhysicsColliderShapeType::MESH;
-            create_info.is_convex = is_convex || is_physics_driven;
-            if (try_get_mesh_collider_data(
-                    asset_manager,
-                    entity,
-                    transform.scale,
-                    create_info.mesh_vertices,
-                    create_info.mesh_triangles))
-                return create_info;
-
-            TBX_TRACE_WARNING(
-                "Physics: mesh collider on entity {} has no usable mesh geometry, using fallback "
-                "box shape.",
-                entity.get_id());
-        }
-
-        create_info.shape_type = PhysicsColliderShapeType::BOX;
-        create_info.half_extents = Vec3(0.5F, 0.5F, 0.5F);
-        return create_info;
+        return Entity {};
     }
 
     struct Physics::EntityRecord
     {
-        PhysicsColliderHandle collider = {};
-        PhysicsRigidbodyHandle rigidbody = {};
+        PhysicsHandle shape_handle = {};
+        PhysicsHandle body_handle = {};
         Vec3 last_position = Vec3(0.0F, 0.0F, 0.0F);
         Quat last_rotation = Quat(1.0F, 0.0F, 0.0F, 0.0F);
         Vec3 last_scale = Vec3(1.0F, 1.0F, 1.0F);
         bool has_last_transform = false;
         bool is_physics_driven = false;
         bool is_trigger_only = false;
+        Rigidbody last_rigidbody = {};
     };
 
     void Physics::EntityRecordDeleter::operator()(EntityRecord* record) const noexcept
@@ -473,14 +443,12 @@ namespace tbx
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
         std::weak_ptr<ThreadManager> thread_manager,
-        std::weak_ptr<JobSystem> job_system,
         const PhysicsSettings& settings)
         : Physics(
               std::move(backend),
               std::move(asset_manager),
               std::move(world_manager),
               std::move(thread_manager),
-              std::move(job_system),
               std::weak_ptr<IMessageCoordinator>(),
               settings)
     {
@@ -491,7 +459,6 @@ namespace tbx
         std::weak_ptr<AssetManager> asset_manager,
         std::weak_ptr<WorldManager> world_manager,
         std::weak_ptr<ThreadManager> thread_manager,
-        std::weak_ptr<JobSystem> job_system,
         std::weak_ptr<IMessageCoordinator> message_coordinator,
         const PhysicsSettings& settings)
         : _backend(std::move(backend))
@@ -499,7 +466,6 @@ namespace tbx
         , _message_coordinator(message_coordinator)
         , _world_manager(std::move(world_manager))
         , _thread_manager(std::move(thread_manager))
-        , _job_system(std::move(job_system))
     {
         if (auto coordinator = _message_coordinator.lock())
         {
@@ -525,7 +491,17 @@ namespace tbx
         }
 
         if (auto backend_strong = _backend.lock())
-            backend_strong->initialize(get_backend_settings(settings));
+        {
+            backend_strong->initialize(
+                settings.gravity,
+                settings.max_body_count,
+                settings.max_contact_constraints,
+                settings.max_body_pairs,
+                settings.solver_velocity_iterations,
+                settings.solver_position_iterations,
+                settings.max_linear_velocity,
+                settings.max_angular_velocity);
+        }
     }
 
     Physics::~Physics() noexcept
@@ -556,23 +532,22 @@ namespace tbx
         // Backend queries cannot run while a simulation step is in flight, so join it first.
         wait_for_pending_step();
 
-        auto ignored_rigidbody = PhysicsRigidbodyHandle {};
+        auto ignored = std::vector<PhysicsHandle> {};
         if (raycast_query.ignore_entity && raycast_query.ignored_entity_id.is_valid())
         {
             if (const auto record_it = _records_by_entity.find(raycast_query.ignored_entity_id);
                 record_it != _records_by_entity.end())
-                ignored_rigidbody = record_it->second->rigidbody;
+                ignored.push_back(record_it->second->body_handle);
         }
 
         auto backend_hit = PhysicsRaycastHit {};
-        if (!backend->raycast(raycast_query, ignored_rigidbody, backend_hit) || !backend_hit)
+        if (!backend->raycast(raycast_query, ignored, backend_hit) || !backend_hit)
             return {};
 
         return RaycastResult {
             .has_hit = true,
-            .hit_entity_id = try_get_entity_for_rigidbody(backend_hit.rigidbody),
+            .hit_entity_id = try_get_entity_for_body(backend_hit.rigidbody),
             .hit_position = backend_hit.hit_position,
-            .hit_fraction = backend_hit.hit_fraction,
         };
     }
 
@@ -586,12 +561,10 @@ namespace tbx
         wait_for_pending_step();
 
         const auto record_it = _records_by_entity.find(entity_id);
-        if (record_it == _records_by_entity.end() || !record_it->second->collider.is_valid())
+        if (record_it == _records_by_entity.end() || !record_it->second->shape_handle.is_valid())
             return {};
 
-        auto triangle_vertices = std::vector<Vec3>();
-        backend->get_shape(record_it->second->collider, triangle_vertices);
-        return triangle_vertices;
+        return backend->get_debug_shape(record_it->second->shape_handle);
     }
 
     void Physics::update(const DeltaTime& dt, const PhysicsSettings& settings)
@@ -620,15 +593,7 @@ namespace tbx
         wait_for_pending_step();
         if (_results_pending)
         {
-            for (const auto& world : worlds)
-            {
-                if (!world)
-                    continue;
-
-                sync_backend_to_entities(*world);
-                process_trigger_colliders(*world);
-            }
-            process_contact_events(worlds);
+            process_state(worlds);
             _results_pending = false;
         }
 
@@ -637,12 +602,14 @@ namespace tbx
             if (!world)
                 continue;
 
-            sync_entities_to_backend(*world, static_cast<float>(dt.seconds));
+            sync_entities_to_backend(*world);
         }
         _pending_model_reloads.clear();
 
-        // Hand the heavy step off to the lane and return; its results are committed on the next call.
-        dispatch_step(settings, dt);
+        // The backend is idle here (step joined), so settings can be pushed safely before the next
+        // step is dispatched.
+        apply_backend_settings(settings);
+        dispatch_step(dt);
     }
 
     void Physics::reset()
@@ -651,41 +618,50 @@ namespace tbx
             return;
 
         // Join and discard the in-flight step: its result is from the world as it was before the
-        // reset, so committing it (the _results_pending path in update) would write a stale simulation
-        // step over the freshly-replaced entity state.
+        // reset, so committing it (the _results_pending path in update) would write a stale
+        // simulation step over the freshly-replaced entity state.
         wait_for_pending_step();
         _results_pending = false;
 
-        // Destroy every backend body/collider and forget all tracking; the next sync rebuilds them
+        // Destroy every backend body/shape and forget all tracking; the next sync rebuilds them
         // from the live entity transforms, so no position or velocity survives the reset.
         clear_resources();
         _pending_model_reloads.clear();
     }
 
-    void Physics::dispatch_step(const PhysicsSettings& settings, const DeltaTime& dt)
+    void Physics::apply_backend_settings(const PhysicsSettings& settings) const
     {
         auto backend = _backend.lock();
         if (!backend)
             return;
 
-        const auto backend_settings = get_backend_settings(settings);
+        backend->set_gravity(settings.gravity);
+        backend->set_solver_velocity_iterations(settings.solver_velocity_iterations);
+        backend->set_solver_position_iterations(settings.solver_position_iterations);
+        backend->set_max_linear_velocity(settings.max_linear_velocity);
+        backend->set_max_angular_velocity(settings.max_angular_velocity);
+    }
+
+    void Physics::dispatch_step(const DeltaTime& dt)
+    {
+        auto backend = _backend.lock();
+        if (!backend)
+            return;
+
         if (_has_physics_lane)
         {
             if (auto thread_manager = _thread_manager.lock())
             {
                 _pending_step = thread_manager->post_with_future(
                     PHYSICS_LANE_NAME,
-                    [backend, backend_settings, dt]()
-                    {
-                        backend->update(backend_settings, dt);
-                    });
+                    [backend, dt]() { backend->step(dt); });
                 _results_pending = true;
                 return;
             }
         }
 
         // No lane available: run synchronously so physics still advances.
-        backend->update(backend_settings, dt);
+        backend->step(dt);
         _results_pending = true;
     }
 
@@ -703,207 +679,204 @@ namespace tbx
             destroy_record(*record_entry.second);
 
         _records_by_entity.clear();
-        _entity_by_rigidbody_handle.clear();
+        _entity_by_body_handle.clear();
         _overlap_entities_by_trigger.clear();
+        _contacts_by_entity.clear();
     }
 
     void Physics::destroy_record(EntityRecord& record)
     {
         if (auto backend = _backend.lock())
         {
-            if (record.rigidbody.is_valid())
-                backend->destroy_rigidbody(record.rigidbody);
+            if (record.body_handle.is_valid())
+                backend->destroy(record.body_handle);
 
-            if (record.collider.is_valid())
-                backend->destroy_collider(record.collider);
+            if (record.shape_handle.is_valid())
+                backend->destroy(record.shape_handle);
         }
 
-        _entity_by_rigidbody_handle.erase(record.rigidbody.value);
+        _entity_by_body_handle.erase(record.body_handle.id);
         record = {};
     }
 
-    PhysicsBackendSettings Physics::get_backend_settings(const PhysicsSettings& settings)
-    {
-        return PhysicsBackendSettings {
-            .gravity = settings.gravity,
-            .max_body_count = settings.max_body_count,
-            .max_contact_constraints = settings.max_contact_constraints,
-            .max_body_pairs = settings.max_body_pairs,
-            .solver_velocity_iterations = settings.solver_velocity_iterations,
-            .solver_position_iterations = settings.solver_position_iterations,
-            .max_linear_velocity = settings.max_linear_velocity,
-            .max_angular_velocity = settings.max_angular_velocity,
-        };
-    }
-
-    void Physics::process_contact_events(const std::vector<std::shared_ptr<World>>& worlds)
+    void Physics::process_state(const std::vector<std::shared_ptr<World>>& worlds)
     {
         auto backend = _backend.lock();
         if (!backend)
             return;
 
-        _contact_events.clear();
-        backend->drain_contact_events(_contact_events);
-        if (_contact_events.empty())
-            return;
-
-        for (const auto& contact : _contact_events)
+        for (auto& record_entry : _records_by_entity)
         {
-            const Uuid entity_a_id = try_get_entity_for_rigidbody(contact.rigidbody_a);
-            const Uuid entity_b_id = try_get_entity_for_rigidbody(contact.rigidbody_b);
-            if (!entity_a_id.is_valid() || !entity_b_id.is_valid())
+            const Uuid& entity_id = record_entry.first;
+            auto& record = *record_entry.second;
+            if (!record.body_handle.is_valid())
                 continue;
 
-            const bool is_begin_phase = contact.phase == PhysicsContactPhase::BEGIN;
-            for (const auto& world : worlds)
-            {
-                if (!world)
-                    continue;
+            auto state = PhysicsEntityState {};
+            if (!backend->get_state(record.body_handle, state))
+                continue;
 
-                if (world->has(entity_a_id))
+            auto entity = find_entity_in_worlds(worlds, entity_id);
+            if (!entity.get_id().is_valid() || !entity.has_component<Transform>())
+                continue;
+
+            // --- read the simulated pose/velocity back into the entity ---
+            if (entity.has_component<Rigidbody>())
+            {
+                auto& rigidbody = entity.get_component<Rigidbody>();
+                rigidbody.linear_velocity = state.linear_velocity;
+                rigidbody.angular_velocity = state.angular_velocity;
+
+                // Only a dynamic body is moved by the simulation; a kinematic body's pose is owned
+                // by scripts (sync destroys+recreates it when they move it), so it is left alone.
+                if (!rigidbody.is_kinematic)
                 {
-                    auto entity_a = world->get(entity_a_id);
-                    dispatch_contact_to_colliders(
-                        entity_a,
-                        ColliderContactEvent {
-                            .entity_id = entity_a_id,
-                            .other_entity_id = entity_b_id,
-                            .position = contact.position,
-                            .normal = contact.normal,
-                        },
-                        is_begin_phase);
+                    auto& transform = entity.get_component<Transform>();
+                    auto world_transform = state.transform;
+                    world_transform.scale = transform.scale;
+
+                    auto parent_entity = Entity {};
+                    if (entity.try_get_parent_entity(parent_entity)
+                        && parent_entity.has_component<Transform>())
+                    {
+                        const auto parent_world_transform =
+                            parent_entity.get_component<Transform>().to_world_space(parent_entity);
+                        const auto local_transform =
+                            world_to_local_tranform(parent_world_transform, world_transform);
+                        transform.position = local_transform.position;
+                        transform.rotation = local_transform.rotation;
+                    }
+                    else
+                    {
+                        transform.position = world_transform.position;
+                        transform.rotation = world_transform.rotation;
+                    }
+
+                    record.last_position = world_transform.position;
+                    record.last_rotation = world_transform.rotation;
+                    record.last_scale = world_transform.scale;
+                    record.has_last_transform = true;
                 }
+            }
 
-                if (world->has(entity_b_id))
+            // --- turn the current contact/overlap sets into begin/stay/end callbacks ---
+            if (has_collider_shape(entity))
+            {
+                auto current_contacts = std::unordered_set<Uuid> {};
+                auto& previous_contacts = _contacts_by_entity[entity_id];
+                for (const auto& contact : state.contacts)
                 {
-                    auto entity_b = world->get(entity_b_id);
-                    dispatch_contact_to_colliders(
-                        entity_b,
-                        ColliderContactEvent {
-                            .entity_id = entity_b_id,
-                            .other_entity_id = entity_a_id,
-                            .position = contact.position,
-                            .normal = contact.normal,
-                        },
-                        is_begin_phase);
-                }
-            }
-        }
-    }
-
-    void Physics::process_trigger_colliders(World& world)
-    {
-        auto backend = _backend.lock();
-        if (!backend)
-            return;
-
-        auto active_trigger_entities = std::unordered_set<Uuid>();
-        auto trigger_entities = world.get_with<Transform>();
-        for (auto& trigger_entity : trigger_entities)
-        {
-            const Uuid trigger_entity_id = trigger_entity.get_id();
-            auto* trigger_collider = try_get_trigger_collider(trigger_entity);
-            if (trigger_collider == nullptr)
-                continue;
-
-            active_trigger_entities.insert(trigger_entity_id);
-            if (!trigger_collider->is_overlap_enabled)
-            {
-                trigger_collider->is_manual_scan_requested = false;
-                trigger_collider->occupant_count = 0;
-                _overlap_entities_by_trigger.erase(trigger_entity_id);
-                continue;
-            }
-
-            if (!should_execute_overlap_query(
-                    trigger_collider->overlap_execution_mode,
-                    trigger_collider->is_manual_scan_requested))
-            {
-                trigger_collider->is_manual_scan_requested = false;
-                continue;
-            }
-            trigger_collider->is_manual_scan_requested = false;
-
-            auto current_overlaps = std::unordered_set<Uuid>();
-            if (const auto record_it = _records_by_entity.find(trigger_entity_id);
-                record_it != _records_by_entity.end())
-            {
-                auto overlapped_rigidbodies = std::vector<PhysicsRigidbodyHandle> {};
-                backend->get_rigidbody_overlaps(
-                    record_it->second->rigidbody,
-                    overlapped_rigidbodies);
-                current_overlaps.reserve(overlapped_rigidbodies.size());
-                for (const PhysicsRigidbodyHandle overlapped_rigidbody : overlapped_rigidbodies)
-                {
-                    const Uuid overlapped_entity_id =
-                        try_get_entity_for_rigidbody(overlapped_rigidbody);
-                    if (!overlapped_entity_id.is_valid()
-                        || overlapped_entity_id == trigger_entity_id)
+                    const Uuid other_entity_id = try_get_entity_for_body(contact.other);
+                    if (!other_entity_id.is_valid() || other_entity_id == entity_id)
                         continue;
 
-                    current_overlaps.insert(overlapped_entity_id);
+                    current_contacts.insert(other_entity_id);
+                    if (!previous_contacts.contains(other_entity_id))
+                    {
+                        dispatch_contact_to_colliders(
+                            entity,
+                            ColliderContactEvent {
+                                .entity_id = entity_id,
+                                .other_entity_id = other_entity_id,
+                                .position = contact.position,
+                                .normal = contact.normal,
+                            },
+                            true);
+                    }
                 }
-            }
 
-            auto& previous_overlaps = _overlap_entities_by_trigger[trigger_entity_id];
-            for (const Uuid& overlapped_entity_id : current_overlaps)
-            {
-                const ColliderOverlapEvent event = ColliderOverlapEvent {
-                    .trigger_entity_id = trigger_entity_id,
-                    .overlapped_entity_id = overlapped_entity_id,
-                };
-                const bool was_overlapping = previous_overlaps.contains(overlapped_entity_id);
-                const auto& callbacks = was_overlapping ? trigger_collider->overlap_stay_callbacks
-                                                        : trigger_collider->overlap_begin_callbacks;
-                for (const auto& callback : callbacks)
+                for (const Uuid& other_entity_id : previous_contacts)
                 {
-                    if (callback)
-                        callback(event);
+                    if (current_contacts.contains(other_entity_id))
+                        continue;
+
+                    dispatch_contact_to_colliders(
+                        entity,
+                        ColliderContactEvent {
+                            .entity_id = entity_id,
+                            .other_entity_id = other_entity_id,
+                        },
+                        false);
                 }
+
+                if (current_contacts.empty())
+                    _contacts_by_entity.erase(entity_id);
+                else
+                    previous_contacts = std::move(current_contacts);
             }
 
-            for (const Uuid& overlapped_entity_id : previous_overlaps)
+            if (auto* trigger = try_get_trigger_collider(entity))
             {
-                if (current_overlaps.contains(overlapped_entity_id))
-                    continue;
-
-                const ColliderOverlapEvent event = ColliderOverlapEvent {
-                    .trigger_entity_id = trigger_entity_id,
-                    .overlapped_entity_id = overlapped_entity_id,
-                };
-                for (const auto& callback : trigger_collider->overlap_end_callbacks)
+                if (!trigger->is_overlap_enabled)
                 {
-                    if (callback)
-                        callback(event);
+                    trigger->is_manual_scan_requested = false;
+                    trigger->occupant_count = 0;
+                    _overlap_entities_by_trigger.erase(entity_id);
+                }
+                else if (should_execute_overlap_query(
+                             trigger->overlap_execution_mode, trigger->is_manual_scan_requested))
+                {
+                    trigger->is_manual_scan_requested = false;
+
+                    auto current_overlaps = std::unordered_set<Uuid> {};
+                    for (const auto& overlapped_handle : state.overlaps)
+                    {
+                        const Uuid overlapped_entity_id =
+                            try_get_entity_for_body(overlapped_handle);
+                        if (!overlapped_entity_id.is_valid() || overlapped_entity_id == entity_id)
+                            continue;
+
+                        current_overlaps.insert(overlapped_entity_id);
+                    }
+
+                    auto& previous_overlaps = _overlap_entities_by_trigger[entity_id];
+                    for (const Uuid& overlapped_entity_id : current_overlaps)
+                    {
+                        const auto event = ColliderOverlapEvent {
+                            .trigger_entity_id = entity_id,
+                            .overlapped_entity_id = overlapped_entity_id,
+                        };
+                        const bool was_overlapping = previous_overlaps.contains(overlapped_entity_id);
+                        const auto& callbacks = was_overlapping ? trigger->overlap_stay_callbacks
+                                                                : trigger->overlap_begin_callbacks;
+                        for (const auto& callback : callbacks)
+                        {
+                            if (callback)
+                                callback(event);
+                        }
+                    }
+
+                    for (const Uuid& overlapped_entity_id : previous_overlaps)
+                    {
+                        if (current_overlaps.contains(overlapped_entity_id))
+                            continue;
+
+                        const auto event = ColliderOverlapEvent {
+                            .trigger_entity_id = entity_id,
+                            .overlapped_entity_id = overlapped_entity_id,
+                        };
+                        for (const auto& callback : trigger->overlap_end_callbacks)
+                        {
+                            if (callback)
+                                callback(event);
+                        }
+                    }
+
+                    trigger->occupant_count = static_cast<size>(current_overlaps.size());
+                    if (current_overlaps.empty())
+                        _overlap_entities_by_trigger.erase(entity_id);
+                    else
+                        previous_overlaps = std::move(current_overlaps);
+                }
+                else
+                {
+                    trigger->is_manual_scan_requested = false;
                 }
             }
-
-            trigger_collider->occupant_count = static_cast<size>(current_overlaps.size());
-
-            if (current_overlaps.empty())
-            {
-                _overlap_entities_by_trigger.erase(trigger_entity_id);
-                continue;
-            }
-
-            previous_overlaps = std::move(current_overlaps);
         }
-
-        auto stale_trigger_entities = std::vector<Uuid>();
-        stale_trigger_entities.reserve(_overlap_entities_by_trigger.size());
-        for (const auto& overlap_entry : _overlap_entities_by_trigger)
-        {
-            if (active_trigger_entities.contains(overlap_entry.first))
-                continue;
-
-            stale_trigger_entities.push_back(overlap_entry.first);
-        }
-
-        for (const Uuid& stale_trigger_entity : stale_trigger_entities)
-            _overlap_entities_by_trigger.erase(stale_trigger_entity);
     }
 
-    void Physics::sync_entities_to_backend(World& world, float dt_seconds)
+    void Physics::sync_entities_to_backend(World& world)
     {
         auto asset_manager = _asset_manager.lock();
         auto backend = _backend.lock();
@@ -916,122 +889,99 @@ namespace tbx
         for (auto& entity : entities)
         {
             const Uuid entity_id = entity.get_id();
-            const auto world_transform = entity.get_component<Transform>().to_world_space(entity);
             const bool has_rigidbody_component = entity.has_component<Rigidbody>();
             const bool has_collider = has_any_collider(entity);
             if (!has_rigidbody_component && !has_collider)
                 continue;
 
-            const bool is_trigger_only = is_trigger_only_collider(entity);
             const auto* rigidbody =
                 has_rigidbody_component ? &entity.get_component<Rigidbody>() : nullptr;
             const bool is_physics_driven = rigidbody != nullptr && rigidbody->is_valid();
             if (has_rigidbody_component && !is_physics_driven)
                 continue;
 
+            const bool is_trigger_only = is_trigger_only_collider(entity);
+            const auto world_transform = entity.get_component<Transform>().to_world_space(entity);
             active_entities.insert(entity_id);
 
             auto record_it = _records_by_entity.find(entity_id);
-            if (record_it != _records_by_entity.end()
-                && (record_it->second->is_physics_driven != is_physics_driven
-                    || record_it->second->is_trigger_only != is_trigger_only
+            if (record_it != _records_by_entity.end())
+            {
+                auto& record = *record_it->second;
+                const bool needs_rebuild =
+                    record.is_physics_driven != is_physics_driven
+                    || record.is_trigger_only != is_trigger_only
                     || (entity.has_component<Renderer>()
                         && _pending_model_reloads.contains(
                             entity.get_component<Renderer>().model.handle.id))
-                    || (uses_mesh_shape(entity)
-                        && record_it->second->has_last_transform
-                        && has_scale_changed(
-                            world_transform.scale,
-                            record_it->second->last_scale))))
-            {
-                destroy_record(*record_it->second);
+                    || (uses_mesh_shape(entity) && record.has_last_transform
+                        && has_scale_changed(world_transform.scale, record.last_scale))
+                    || (record.has_last_transform
+                        && has_transform_changed(
+                            world_transform,
+                            record.last_position,
+                            record.last_rotation,
+                            record.last_scale))
+                    || (is_physics_driven
+                        && has_rigidbody_config_changed(*rigidbody, record.last_rigidbody));
+                if (!needs_rebuild)
+                    continue;
+
+                destroy_record(record);
                 _records_by_entity.erase(record_it);
-                record_it = _records_by_entity.end();
             }
 
-            if (record_it == _records_by_entity.end())
+            // --- (re)create the body: define the shape, then place it ---
+            auto shape_handle = PhysicsHandle {};
+            if (has_collider_shape(entity))
             {
-                const PhysicsColliderCreateInfo collider_info = create_collider_info_for_entity(
-                    *asset_manager,
-                    entity,
-                    world_transform,
-                    is_physics_driven);
-                PhysicsColliderHandle collider = backend->create_collider(collider_info);
-                if (!collider.is_valid())
-                    continue;
+                const Collider* collider = try_get_solid_collider(entity);
+                auto collision_mesh = Mesh {};
+                const Mesh* mesh = &Mesh::EMPTY;
+                if (entity.has_component<MeshCollider>()
+                    && try_build_collision_mesh(
+                        *asset_manager, entity, world_transform.scale, collision_mesh))
+                    mesh = &collision_mesh;
+                if (collider != nullptr)
+                    shape_handle = backend->create_collider(*collider, *mesh);
+            }
+            else if (has_trigger_shape(entity))
+            {
+                auto* trigger = try_get_trigger_collider(entity);
+                auto collision_mesh = Mesh {};
+                const Mesh* mesh = &Mesh::EMPTY;
+                if (entity.has_component<MeshTrigger>()
+                    && try_build_collision_mesh(
+                        *asset_manager, entity, world_transform.scale, collision_mesh))
+                    mesh = &collision_mesh;
+                if (trigger != nullptr)
+                    shape_handle = backend->create_trigger(*trigger, *mesh);
+            }
 
-                const PhysicsRigidbodyCreateInfo rigidbody_info = PhysicsRigidbodyCreateInfo {
-                    .collider = collider,
-                    .transform = world_transform,
-                    .rigidbody = rigidbody != nullptr ? *rigidbody : Rigidbody {},
-                    .has_rigidbody = is_physics_driven,
-                    .is_trigger_only = is_trigger_only,
-                };
-                PhysicsRigidbodyHandle rigidbody_handle = backend->create_rigidbody(rigidbody_info);
-                if (!rigidbody_handle.is_valid())
-                {
-                    backend->destroy_collider(collider);
-                    continue;
-                }
-
-                auto record_ptr = EntityRecordPtr(new EntityRecord());
-                auto& record = *record_ptr;
-                record.collider = collider;
-                record.rigidbody = rigidbody_handle;
-                record.last_position = world_transform.position;
-                record.last_rotation = world_transform.rotation;
-                record.last_scale = world_transform.scale;
-                record.has_last_transform = true;
-                record.is_physics_driven = is_physics_driven;
-                record.is_trigger_only = is_trigger_only;
-                _records_by_entity[entity_id] = std::move(record_ptr);
-                _entity_by_rigidbody_handle[rigidbody_handle.value] = entity_id;
+            const Rigidbody body_rigidbody =
+                is_physics_driven ? *rigidbody : make_static_body_marker();
+            const PhysicsHandle body_handle =
+                backend->create_rigidbody(world_transform, body_rigidbody);
+            if (!body_handle.is_valid())
+            {
+                if (shape_handle.is_valid())
+                    backend->destroy(shape_handle);
                 continue;
             }
 
-            auto& record = *record_it->second;
-            const bool transform_is_dirty = record.has_last_transform
-                                            && has_transform_changed(
-                                                world_transform,
-                                                record.last_position,
-                                                record.last_rotation,
-                                                record.last_scale);
-            auto update_info = PhysicsRigidbodyUpdateInfo {
-                .transform = world_transform,
-                .rigidbody = rigidbody != nullptr ? *rigidbody : Rigidbody {},
-                .has_rigidbody = is_physics_driven,
-                .is_trigger_only = is_trigger_only,
-                .is_transform_dirty = transform_is_dirty,
-                .dt_seconds = std::max(0.0001F, dt_seconds),
-            };
-
-            if (is_physics_driven && rigidbody != nullptr && !rigidbody->is_kinematic
-                && transform_is_dirty
-                && rigidbody->transform_sync_mode == PhysicsTransformSyncMode::SWEEP)
-            {
-                const PhysicsRigidbodyState current_state =
-                    backend->get_rigidbody_state(record.rigidbody);
-                const float safe_dt_seconds = std::max(0.0001F, dt_seconds);
-                if (current_state.is_valid)
-                {
-                    update_info.sweep_linear_velocity =
-                        (world_transform.position - current_state.transform.position)
-                        / safe_dt_seconds;
-                    update_info.sweep_angular_velocity = calculate_angular_velocity_for_step(
-                        current_state.transform.rotation,
-                        world_transform.rotation,
-                        safe_dt_seconds);
-                }
-            }
-
-            backend->update_rigidbody(record.rigidbody, update_info);
-            if (!is_physics_driven || (rigidbody != nullptr && rigidbody->is_kinematic))
-            {
-                record.last_position = world_transform.position;
-                record.last_rotation = world_transform.rotation;
-                record.last_scale = world_transform.scale;
-                record.has_last_transform = true;
-            }
+            auto record_ptr = EntityRecordPtr(new EntityRecord());
+            auto& record = *record_ptr;
+            record.shape_handle = shape_handle;
+            record.body_handle = body_handle;
+            record.last_position = world_transform.position;
+            record.last_rotation = world_transform.rotation;
+            record.last_scale = world_transform.scale;
+            record.has_last_transform = true;
+            record.is_physics_driven = is_physics_driven;
+            record.is_trigger_only = is_trigger_only;
+            record.last_rigidbody = body_rigidbody;
+            _records_by_entity[entity_id] = std::move(record_ptr);
+            _entity_by_body_handle[body_handle.id] = entity_id;
         }
 
         auto stale_entities = std::vector<Uuid>();
@@ -1052,114 +1002,15 @@ namespace tbx
 
             destroy_record(*record_it->second);
             _records_by_entity.erase(record_it);
+            _contacts_by_entity.erase(stale_entity);
+            _overlap_entities_by_trigger.erase(stale_entity);
         }
     }
 
-    void Physics::sync_backend_to_entities(World& world)
+    Uuid Physics::try_get_entity_for_body(const PhysicsHandle& body_handle) const
     {
-        auto backend = _backend.lock();
-        if (!backend)
-            return;
-
-        // Snapshot the records into an indexable buffer so the per-body state reads can be chunked
-        // across job-system workers. The reads are safe to run in parallel: the simulation step is
-        // already joined (no PhysicsSystem::Update in flight), each read only touches its own body's
-        // state plus the now read-only record map, and each job writes its own slot. The ECS
-        // write-back below stays serial — it mutates components and walks parent chains, which the
-        // entt registry does not synchronize for compound access.
-        _sync_readback.clear();
-        _sync_readback.reserve(_records_by_entity.size());
-        for (auto& record_entry : _records_by_entity)
-            _sync_readback.push_back(
-                SyncReadback {
-                    .entity_id = record_entry.first,
-                    .record = record_entry.second.get(),
-                });
-
-        auto job_system = _job_system.lock();
-        parallel_for(
-            job_system.get(),
-            _sync_readback.size(),
-            [this, &backend](size index)
-            {
-                auto& item = _sync_readback[index];
-                if (item.record->rigidbody.is_valid())
-                    item.state = backend->get_rigidbody_state(item.record->rigidbody);
-            });
-
-        for (auto& item : _sync_readback)
-        {
-            const Uuid& entity_id = item.entity_id;
-            auto& record = *item.record;
-
-            if (!world.has<Transform>(entity_id))
-                continue;
-
-            auto entity = world.get(entity_id);
-            if (!entity.get_id().is_valid())
-                continue;
-            auto& transform = entity.get_component<Transform>();
-
-            if (!world.has<Rigidbody>(entity_id))
-            {
-                const auto world_transform =
-                    entity.get_component<Transform>().to_world_space(entity);
-                record.last_position = world_transform.position;
-                record.last_rotation = world_transform.rotation;
-                record.last_scale = world_transform.scale;
-                record.has_last_transform = true;
-                continue;
-            }
-
-            const PhysicsRigidbodyState& state = item.state;
-            if (!state.is_valid)
-                continue;
-
-            auto& rigidbody = entity.get_component<Rigidbody>();
-            rigidbody.linear_velocity = state.linear_velocity;
-            rigidbody.angular_velocity = state.angular_velocity;
-
-            if (rigidbody.is_kinematic)
-            {
-                const auto world_transform =
-                    entity.get_component<Transform>().to_world_space(entity);
-                record.last_position = world_transform.position;
-                record.last_rotation = world_transform.rotation;
-                record.last_scale = world_transform.scale;
-                record.has_last_transform = true;
-                continue;
-            }
-
-            auto world_transform = state.transform;
-            world_transform.scale = transform.scale;
-            auto parent_entity = Entity {};
-            if (entity.try_get_parent_entity(parent_entity)
-                && parent_entity.has_component<Transform>())
-            {
-                const auto parent_world_transform =
-                    parent_entity.get_component<Transform>().to_world_space(parent_entity);
-                const auto local_transform =
-                    world_to_local_tranform(parent_world_transform, world_transform);
-                transform.position = local_transform.position;
-                transform.rotation = local_transform.rotation;
-            }
-            else
-            {
-                transform.position = world_transform.position;
-                transform.rotation = world_transform.rotation;
-            }
-
-            record.last_position = world_transform.position;
-            record.last_rotation = world_transform.rotation;
-            record.last_scale = world_transform.scale;
-            record.has_last_transform = true;
-        }
-    }
-
-    Uuid Physics::try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const
-    {
-        auto entity_it = _entity_by_rigidbody_handle.find(rigidbody.value);
-        if (entity_it == _entity_by_rigidbody_handle.end())
+        const auto entity_it = _entity_by_body_handle.find(body_handle.id);
+        if (entity_it == _entity_by_body_handle.end())
             return {};
 
         return entity_it->second;

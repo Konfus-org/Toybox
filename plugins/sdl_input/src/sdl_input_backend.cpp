@@ -112,7 +112,7 @@ namespace sdl_input
         return _mouse_lock_mode;
     }
 
-    void SdlInputBackend::update_backend_state()
+    void SdlInputBackend::update()
     {
         _wheel_delta = 0.0F;
         apply_mouse_lock_mode();

@@ -11,7 +11,7 @@ namespace tbx
     /// connected client plus connection/port queries. Replies to a request go through RpcResponder
     /// instead; this interface is for engine->client pushes (log lines, view-surface events, …).
     /// @details
-    /// Ownership: Published as a service by the transport plugin (WindowsRPC); consumers hold a
+    /// Ownership: Published as a service by the transport plugin (TcpRpc); consumers hold a
     /// weak_ptr and lock at the point of use. Thread Safety: Main-thread only.
     class TBX_API IRpcHost
     {

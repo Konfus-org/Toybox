@@ -6,6 +6,11 @@
 
 namespace tbx
 {
+    // The per-thread "which plugin is registering right now" context. Registration sites resolve the
+    // active plugin id to the owning RuntimeRegistrations (see runtime_registrations.*);
+    // loads/unloads set the id
+    // around each plugin entry point via ScopedPluginContext. This is the whole of plugin ownership
+    // now — there is no separate tracker: each plugin's container is the record of what it owns.
     class PluginOwnershipContext final
     {
       public:

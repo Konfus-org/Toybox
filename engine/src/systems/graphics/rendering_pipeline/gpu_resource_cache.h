@@ -110,7 +110,6 @@ namespace tbx
             CacheId id,
             const TextureDesc& desc,
             const void* pixels,
-            size pixels_size,
             bool pinned);
         std::optional<GpuId> add_pipeline(
             CacheId id,

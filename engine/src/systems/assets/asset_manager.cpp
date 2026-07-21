@@ -5,7 +5,7 @@
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/files/messages.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include <cstddef>
 
 namespace tbx
@@ -235,7 +235,8 @@ namespace tbx
         if (!is_pinned)
             return;
 
-        track_plugin_owned_asset_pin(Handle(entry->get().normalized_path, entry->get().asset_id));
+        active_plugin_runtime().add_pin(
+            Handle(entry->get().normalized_path, entry->get().asset_id));
     }
 
     void AssetManager::add_directory(const std::filesystem::path& path)
@@ -263,7 +264,7 @@ namespace tbx
         if (directories.size() == directory_count)
             return;
 
-        track_plugin_owned_asset_directory(directories.back());
+        active_plugin_runtime().add_asset_directory(directories.back());
 
         watch_asset_directory(directories.back());
     }
@@ -432,7 +433,7 @@ namespace tbx
         const std::filesystem::path& watched_path,
         const FileWatchChange& change)
     {
-        if (!AssetRegistry::should_track_asset_path(change.path))
+        if (!AssetRegistry::should_track_asset_path(change.path, lock_file_ops().get()))
             return;
 
         enum class PendingAssetEventType
@@ -705,9 +706,9 @@ namespace tbx
                 },
                 FileWatchOptions {
                     .filter =
-                        [](const std::filesystem::path& path)
+                        [this](const std::filesystem::path& path)
                     {
-                        return AssetRegistry::should_track_asset_path(path);
+                        return AssetRegistry::should_track_asset_path(path, lock_file_ops().get());
                     },
                 },
                 file_ops));

@@ -1,0 +1,17 @@
+auto std::formatter<{{ qualified }}>::format(const {{ qualified }}& value, std::format_context& ctx) const
+    -> std::format_context::iterator
+{
+    auto name = std::string_view("(unknown)");
+    switch (value)
+    {
+{% for value in values %}
+        case {{ value.label }}:
+            name = {{ value.json }};
+            break;
+{% endfor %}
+        default:
+            break;
+    }
+
+    return _formatter.format(std::string(name), ctx);
+}

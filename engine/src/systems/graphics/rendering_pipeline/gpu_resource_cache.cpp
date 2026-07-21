@@ -249,9 +249,10 @@ namespace tbx
         const std::vector<GpuVertexData> vertices = convert_vertices(mesh, vertex_count);
         if (auto result = backend->write_buffer(
                 _vertices.get(),
-                vertices.data(),
-                sizeof(GpuVertexData) * vertices.size(),
-                sizeof(GpuVertexData) * vertex_range.offset);
+                BufferRegion {
+                    .offset = sizeof(GpuVertexData) * vertex_range.offset,
+                    .size = sizeof(GpuVertexData) * vertices.size()},
+                vertices.data());
             !result)
             return std::nullopt;
 
@@ -262,9 +263,10 @@ namespace tbx
             global_indices[i] = mesh.indices[i] + vertex_range.offset;
         if (auto result = backend->write_buffer(
                 _indices.get(),
-                global_indices.data(),
-                sizeof(uint32) * global_indices.size(),
-                sizeof(uint32) * index_range.offset);
+                BufferRegion {
+                    .offset = sizeof(uint32) * index_range.offset,
+                    .size = sizeof(uint32) * global_indices.size()},
+                global_indices.data());
             !result)
             return std::nullopt;
 
@@ -350,9 +352,10 @@ namespace tbx
 
         if (auto result = backend->write_buffer(
                 _material_table.get(),
-                &material,
-                sizeof(GpuMaterialData),
-                record.material_id * sizeof(GpuMaterialData));
+                BufferRegion {
+                    .offset = record.material_id * sizeof(GpuMaterialData),
+                    .size = sizeof(GpuMaterialData)},
+                &material);
             !result)
             return std::nullopt;
         record.last_data = material;
@@ -397,8 +400,8 @@ namespace tbx
             .wrap = texture->wrap,
             .is_linear_filtering_enabled = texture->filter == TextureFilter::LINEAR};
 
-        // The backend uploads 4 bytes/pixel for RGBA8. A 3-channel RGB source is short by a quarter,
-        // so write_texture would reject it: expand RGB -> RGBA (opaque alpha) before uploading.
+        // The backend uploads 4 bytes/pixel for RGBA8, so a 3-channel RGB source would be misread and
+        // over-read: expand RGB -> RGBA (opaque alpha) before uploading.
         if (is_rgb)
         {
             const size pixel_count =
@@ -414,14 +417,13 @@ namespace tbx
                 rgba[pixel * 4U + 1U] = texture->pixels[src + 1U];
                 rgba[pixel * 4U + 2U] = texture->pixels[src + 2U];
             }
-            if (const auto index = add_texture(id, desc, rgba.data(), rgba.size(), pinned))
+            if (const auto index = add_texture(id, desc, rgba.data(), pinned))
                 return index;
             _failed_textures.insert(id);
             return std::nullopt;
         }
 
-        if (const auto index =
-                add_texture(id, desc, texture->pixels.data(), texture->pixels.size(), pinned))
+        if (const auto index = add_texture(id, desc, texture->pixels.data(), pinned))
             return index;
         _failed_textures.insert(id);
         return std::nullopt;
@@ -431,7 +433,6 @@ namespace tbx
         const CacheId id,
         const TextureDesc& desc,
         const void* pixels,
-        const size pixels_size,
         const bool pinned)
     {
         if (const auto cached = get_texture(id))
@@ -445,15 +446,14 @@ namespace tbx
         auto texture_id = INVALID_GPU_ID;
         if (auto result = backend->create_texture(desc, texture_id); !result)
             return std::nullopt;
-        auto region =
-            TextureUpdateDesc {.width = desc.size.width, .height = desc.size.height};
-        if (auto result = backend->write_texture(texture_id, region, pixels, pixels_size); !result)
+        auto region = TextureRegion {.width = desc.size.width, .height = desc.size.height};
+        if (auto result = backend->write_texture(texture_id, region, pixels); !result)
         {
             backend->destroy_resource(texture_id);
             return std::nullopt;
         }
         uint64 bindless_handle = 0U;
-        if (auto result = backend->get_texture_bindless_handle(texture_id, bindless_handle);
+        if (auto result = backend->get_gpu_handle(texture_id, bindless_handle);
             !result || bindless_handle == 0U)
         {
             backend->destroy_resource(texture_id);
@@ -477,9 +477,8 @@ namespace tbx
         }
         if (auto result = backend->write_buffer(
                 _texture_table.get(),
-                &bindless_handle,
-                sizeof(uint64),
-                index * sizeof(uint64));
+                BufferRegion {.offset = index * sizeof(uint64), .size = sizeof(uint64)},
+                &bindless_handle);
             !result)
         {
             backend->destroy_resource(texture_id);

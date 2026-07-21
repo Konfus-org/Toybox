@@ -1,0 +1,5 @@
+::tbx::register_asset_body_type<{{ name }}>(
+    tbx_runtime,
+    {{ version }},
+    ::tbx::read_json_asset_body<{{ name }}>,
+    ::tbx::write_json_asset_body<{{ name }}>);

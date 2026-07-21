@@ -26,6 +26,11 @@ namespace tbx
         IndexBuffer indices = {};
         MeshBounds bounds = {};
 
+        /// @brief Purpose: Produces an empty mesh
+        /// @details Ownership: References static mesh data owned by the module.
+        /// Thread Safety: Safe to read concurrently.
+        static const Mesh EMPTY;
+
         /// @brief Purpose: Provides a triangle mesh.
         /// @details Ownership: References static mesh data owned by the module.
         /// Thread Safety: Safe to read concurrently.

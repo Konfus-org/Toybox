@@ -77,15 +77,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Provides model-specific read parameters for serialized model assets.
-    struct ModelLoadParameters
-    {
-        bool operator==(const ModelLoadParameters& other) const = default;
-    };
-
-    ModelLoadParameters load_parameters_of(const Model&);
-
-    /// @brief
     /// Purpose: Visits every drawn mesh of a model with the matrix it draws under: each part's mesh
     /// under `root_matrix * part.transform` when the model has parts, otherwise every mesh at the
     /// root — mirroring the renderer's placement rule so geometry queries and drawing can't disagree.

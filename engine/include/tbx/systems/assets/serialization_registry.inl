@@ -69,24 +69,6 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    bool SerializationRegistry::has_reader() const
-    {
-        std::lock_guard lock(_mutex);
-        const auto registration = find_registration<TAsset>();
-        const auto asset_registration =
-            get_asset_type_registration(std::type_index(typeid(TAsset)));
-        const bool has_default_reader =
-            asset_registration.has_value()
-            && (asset_registration->read_body || asset_registration->transform_meta);
-        if (!registration.has_value())
-            return has_default_reader;
-
-        return static_cast<bool>(registration->get().reader)
-               || static_cast<bool>(registration->get().async_reader) || has_default_reader;
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
     void SerializationRegistry::register_transformer(Transformer<TAsset> transformer)
     {
         TBX_ASSERT(
@@ -96,7 +78,7 @@ namespace tbx
 
         std::lock_guard lock(_mutex);
         auto& registration = get_or_create_registration<TAsset>();
-        registration.transformers.push_back(std::move(transformer));
+        registration.transformer = std::move(transformer);
     }
 
     template <typename TAsset>
@@ -108,20 +90,8 @@ namespace tbx
         if (!registration.has_value())
             return;
 
-        registration->get().transformers.clear();
+        registration->get().transformer = {};
         erase_registration_if_empty<TAsset>();
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
-    bool SerializationRegistry::has_transformer() const
-    {
-        std::lock_guard lock(_mutex);
-        const auto registration = find_registration<TAsset>();
-        const auto asset_registration =
-            get_asset_type_registration(std::type_index(typeid(TAsset)));
-        return (registration.has_value() && !registration->get().transformers.empty())
-               || (asset_registration.has_value() && asset_registration->transform_meta);
     }
 
     template <typename TAsset>
@@ -139,7 +109,7 @@ namespace tbx
             return true;
 
         const bool has_registered_transformer =
-            registration.has_value() && !registration->get().transformers.empty();
+            registration.has_value() && static_cast<bool>(registration->get().transformer);
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
         const bool has_default_reader =
@@ -151,11 +121,10 @@ namespace tbx
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
     AssetReadResult<TAsset> SerializationRegistry::read_result(
-        const std::filesystem::path& asset_path,
-        const AssetLoadParameters<TAsset>& parameters) const
+        const std::filesystem::path& asset_path) const
     {
         Reader<TAsset> reader = {};
-        std::vector<Transformer<TAsset>> transformers = {};
+        Transformer<TAsset> transformer = {};
         auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
@@ -166,7 +135,7 @@ namespace tbx
             if (registration.has_value())
             {
                 reader = registration->get().reader;
-                transformers = registration->get().transformers;
+                transformer = registration->get().transformer;
             }
         }
 
@@ -201,7 +170,7 @@ namespace tbx
 
         if (reader)
         {
-            read.result = reader(asset_path, parameters, metadata, *read.asset);
+            read.result = reader(asset_path, metadata, *read.asset);
         }
         else if (asset_registration.has_value() && asset_registration->read_body)
         {
@@ -228,17 +197,19 @@ namespace tbx
             return read;
         }
 
-        prepend_default_meta_transformers(asset_registration, meta_data, loaded_meta, transformers);
-
-        for (const auto& transformer : transformers)
+        auto post_read_result = apply_post_read_steps<TAsset>(
+            asset_registration,
+            meta_data,
+            loaded_meta,
+            metadata,
+            asset_path,
+            transformer,
+            *read.asset);
+        if (!post_read_result.succeeded())
         {
-            auto transform_result = transformer(asset_path, parameters, metadata, *read.asset);
-            if (!transform_result.succeeded())
-            {
-                read.asset.reset();
-                read.result = std::move(transform_result);
-                return read;
-            }
+            read.asset.reset();
+            read.result = std::move(post_read_result);
+            return read;
         }
 
         read.result.ok();
@@ -247,22 +218,11 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    std::shared_ptr<TAsset> SerializationRegistry::read(
-        const std::filesystem::path& asset_path,
-        const AssetLoadParameters<TAsset>& parameters) const
-    {
-        auto read = read_result<TAsset>(asset_path, parameters);
-        return read.result.succeeded() ? read.asset : std::shared_ptr<TAsset>();
-    }
-
-    template <typename TAsset>
-        requires std::derived_from<TAsset, Asset>
     AssetPromise<TAsset> SerializationRegistry::read_async(
-        const std::filesystem::path& asset_path,
-        const AssetLoadParameters<TAsset>& parameters) const
+        const std::filesystem::path& asset_path) const
     {
         AsyncReader<TAsset> async_reader = {};
-        std::vector<Transformer<TAsset>> transformers = {};
+        Transformer<TAsset> transformer = {};
         auto file_ops = lock_file_ops();
         const auto asset_registration =
             get_asset_type_registration(std::type_index(typeid(TAsset)));
@@ -273,13 +233,13 @@ namespace tbx
             if (registration.has_value())
             {
                 async_reader = registration->get().async_reader;
-                transformers = registration->get().transformers;
+                transformer = registration->get().transformer;
             }
         }
 
         if (!async_reader)
         {
-            auto sync_read = read_result<TAsset>(asset_path, parameters);
+            auto sync_read = read_result<TAsset>(asset_path);
             auto result = AssetPromise<TAsset> {};
             result.asset = std::move(sync_read.asset);
             result.metadata = sync_read.metadata;
@@ -318,7 +278,7 @@ namespace tbx
         result.asset = std::make_shared<TAsset>();
         result.metadata = metadata;
 
-        auto loader_future = async_reader(asset_path, parameters, metadata, result.asset);
+        auto loader_future = async_reader(asset_path, metadata, result.asset);
         if (!loader_future.valid())
         {
             result.asset.reset();
@@ -327,25 +287,27 @@ namespace tbx
             return result;
         }
 
-        auto asset = result.asset;
-        prepend_default_meta_transformers(asset_registration, meta_data, loaded_meta, transformers);
-        if (transformers.empty())
+        // Nothing to do after the loader: hand its future straight through.
+        if (!loaded_meta && !transformer)
         {
             result.promise = std::move(loader_future);
             return result;
         }
 
+        auto asset = result.asset;
         if (loader_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
         {
             auto load_result = loader_future.get();
             if (load_result.succeeded())
             {
-                for (const auto& transformer : transformers)
-                {
-                    load_result = transformer(asset_path, parameters, metadata, *asset);
-                    if (!load_result.succeeded())
-                        break;
-                }
+                load_result = apply_post_read_steps<TAsset>(
+                    asset_registration,
+                    meta_data,
+                    loaded_meta,
+                    metadata,
+                    asset_path,
+                    transformer,
+                    *asset);
             }
             if (!load_result.succeeded())
                 result.asset.reset();
@@ -355,29 +317,27 @@ namespace tbx
 
         result.promise = std::async(
                              std::launch::async,
-                             [this,
-                              asset_path,
-                              parameters,
+                             [asset_registration,
+                              meta_data,
+                              loaded_meta,
                               metadata,
+                              asset_path,
+                              transformer = std::move(transformer),
                               asset,
-                              loader_future = std::move(loader_future),
-                              transformers = std::move(transformers)]() mutable
+                              loader_future = std::move(loader_future)]() mutable
                              {
                                  auto load_result = loader_future.get();
                                  if (!load_result.succeeded())
                                      return load_result;
 
-                                 for (const auto& transformer : transformers)
-                                 {
-                                     auto transform_result =
-                                         transformer(asset_path, parameters, metadata, *asset);
-                                     if (!transform_result.succeeded())
-                                         return transform_result;
-                                 }
-
-                                 auto result = Result();
-                                 result.ok();
-                                 return result;
+                                 return apply_post_read_steps<TAsset>(
+                                     asset_registration,
+                                     meta_data,
+                                     loaded_meta,
+                                     metadata,
+                                     asset_path,
+                                     transformer,
+                                     *asset);
                              })
                              .share();
         return result;
@@ -455,7 +415,7 @@ namespace tbx
             return;
 
         const auto& registration = static_cast<const Registration<TAsset>&>(*iterator->second);
-        if (registration.reader || registration.async_reader || !registration.transformers.empty()
+        if (registration.reader || registration.async_reader || registration.transformer
             || !registration.extensions.empty())
             return;
 
@@ -464,50 +424,40 @@ namespace tbx
 
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
-    void SerializationRegistry::prepend_default_meta_transformers(
+    Result SerializationRegistry::apply_post_read_steps(
         const std::optional<AssetTypeRegistration>& asset_registration,
         const std::optional<std::string>& meta_data,
         bool loaded_meta,
-        std::vector<Transformer<TAsset>>& transformers)
+        const AssetLoadMetadata& metadata,
+        const std::filesystem::path& asset_path,
+        const Transformer<TAsset>& transformer,
+        TAsset& asset)
     {
-        if (!loaded_meta)
-            return;
-
-        auto default_transformers = std::vector<Transformer<TAsset>> {};
-        if (asset_registration.has_value() && asset_registration->transform_meta
-            && meta_data.has_value())
+        if (loaded_meta)
         {
-            default_transformers.push_back(
-                [asset_registration, meta_data](
-                    const std::filesystem::path&,
-                    const AssetLoadParameters<TAsset>&,
-                    const AssetLoadMetadata&,
-                    TAsset& asset)
-                {
-                    auto result =
-                        asset_registration->transform_meta(*meta_data, static_cast<void*>(&asset));
-                    if (!result.succeeded())
-                        return result;
-
-                    return Result();
-                });
+            // Apply the asset's [[meta]] import settings from the sidecar, then the common
+            // id/version fields.
+            if (asset_registration.has_value() && asset_registration->transform_meta
+                && meta_data.has_value())
+            {
+                auto meta_result =
+                    asset_registration->transform_meta(*meta_data, static_cast<void*>(&asset));
+                if (!meta_result.succeeded())
+                    return meta_result;
+            }
+            apply_asset_common_meta(metadata, asset);
         }
 
-        default_transformers.push_back(
-            [](const std::filesystem::path&,
-               const AssetLoadParameters<TAsset>&,
-               const AssetLoadMetadata& metadata,
-               TAsset& asset)
-            {
-                apply_asset_common_meta(metadata, asset);
-                return Result();
-            });
+        if (transformer)
+        {
+            auto transform_result = transformer(asset_path, metadata, asset);
+            if (!transform_result.succeeded())
+                return transform_result;
+        }
 
-        default_transformers.insert(
-            default_transformers.end(),
-            std::make_move_iterator(transformers.begin()),
-            std::make_move_iterator(transformers.end()));
-        transformers = std::move(default_transformers);
+        auto result = Result();
+        result.ok();
+        return result;
     }
 
     inline Result SerializationRegistry::try_load_registered_asset_body(

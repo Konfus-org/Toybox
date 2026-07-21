@@ -10,11 +10,12 @@
 namespace tbx
 {
     class Plugin;
+    class RuntimeRegistrations;
 
     using CreatePluginFn = Plugin* (*)();
     using DestroyPluginFn = void (*)(Plugin*);
-    using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*);
-    using RegisterPluginServicesFn = void (*)(Plugin*, ServiceProvider*);
+    using BindPluginRuntimeFn = void (*)(Plugin*, ServiceProvider*, RuntimeRegistrations*);
+    using RegisterPluginServicesFn = void (*)(Plugin*, ServiceProvider*, RuntimeRegistrations*);
 
     // Base type for runtime-loadable plugins. The runtime owns plugin lifetimes and
     // guarantees that callbacks occur on the main thread unless documented otherwise.
@@ -82,7 +83,7 @@ namespace tbx
         static Result dispatcher_missing_result(std::string_view action);
 
         std::weak_ptr<IMessageDispatcher> _dispatcher = {};
-        PluginInstanceId _plugin_id = PluginInstanceId {};
+        PluginInstanceId _plugin_id = PluginInstanceId();
     };
 }
 

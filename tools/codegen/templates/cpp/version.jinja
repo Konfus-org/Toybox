@@ -1,0 +1,8 @@
+inline std::true_type has_serialization_version(const {{ name }}*)
+{
+    return {};
+}
+inline std::integral_constant<uint32, {{ version }}> serialization_version(const {{ name }}*)
+{
+    return {};
+}

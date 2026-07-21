@@ -1,0 +1,6 @@
+std::true_type has_struct_serialization(const {{ name }}*);
+{{ api_prefix }}bool register_serializable_type(const {{ name }}*, ::tbx::RuntimeRegistrations* tbx_runtime);
+{% if needs_json %}
+{{ api_prefix }}void serialize(::tbx::Json& tbx_json, const {{ name }}& tbx_value);
+{{ api_prefix }}void deserialize(const ::tbx::Json& tbx_json, {{ name }}& tbx_value);
+{% endif %}

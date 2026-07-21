@@ -294,18 +294,6 @@ namespace tbx
 
         MaterialConfig config = {};
     };
-
-    /// @brief
-    /// Purpose: Provides material-specific read parameters for serialized material assets.
-    /// @details
-    /// Ownership: Value type settings owned by the caller.
-    /// Thread Safety: Safe to copy between threads.
-    struct MaterialLoadParameters
-    {
-        bool operator==(const MaterialLoadParameters& other) const = default;
-    };
-
-    MaterialLoadParameters load_parameters_of(const Material&);
 }
 
 #include "tbx/types/assets/material.inl"

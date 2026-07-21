@@ -1,0 +1,24 @@
+::size std::hash<{{ qualified }}>::operator()(const {{ qualified }}& value) const
+{
+{% if mode == 'variant' %}
+    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;
+    seed = ::tbx::hash_combine(seed, value.index());
+    std::visit(
+        [&seed](const auto& tbx_variant_value)
+        {
+            seed = ::tbx::hash_combine(seed, tbx_variant_value);
+        },
+        value);
+    return static_cast<::size>(seed);
+{% elif mode == 'single' %}
+    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;
+    seed = ::tbx::hash_combine(seed, {{ single_expression }});
+    return static_cast<::size>(seed);
+{% else %}
+    auto seed = ::tbx::TBX_FNV1A_OFFSET_BASIS;
+{% for expression in field_expressions %}
+    seed = ::tbx::hash_combine(seed, {{ expression }});
+{% endfor %}
+    return static_cast<::size>(seed);
+{% endif %}
+}

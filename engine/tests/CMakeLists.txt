@@ -28,6 +28,6 @@ endif()
 
 include(engine_test_targets)
 
-# Runtime reflection API coverage. Reflects engine-registered components (e.g. Transform) directly, so
-# no per-test attribute codegen is needed — the reflection records are registered inside the Engine DLL.
-tbx_add_engine_test(NAME ReflectionTests)
+# Engine unit tests. Exercises engine-registered types (e.g. Transform) directly against the Engine
+# DLL, so no per-test attribute codegen is needed. All *.cpp in this directory build into one binary.
+tbx_add_engine_test(NAME EngineTests)

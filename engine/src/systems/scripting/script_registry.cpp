@@ -1,5 +1,5 @@
 #include "tbx/systems/scripting/script_registry.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -7,53 +7,65 @@
 
 namespace tbx
 {
-    static std::unordered_map<std::string, ScriptRegistration>& script_registrations()
+    // One plugin's (or the engine core's) script registrations, owned by that plugin's
+    // RuntimeRegistrations.
+    // Keyed by the script's stable type name; the values are plain function pointers, so dropping the
+    // container on unload trivially destroys them (no module-hosted std::function manager runs). Live
+    // script instances are already dropped first by the ScriptSystem's PluginUnloadingEvent handler.
+    struct ScriptRegistrations final : RuntimeRegistrationsData
     {
-        static auto g_registrations = std::unordered_map<std::string, ScriptRegistration> {};
-        return g_registrations;
-    }
+        std::mutex mutex = {};
+        std::unordered_map<std::string, ScriptRegistration> entries = {};
+    };
 
-    static std::mutex& script_registry_mutex()
+    void register_script_entry(
+        RuntimeRegistrations& owner,
+        std::string type_name,
+        ScriptRegistration entry)
     {
-        static auto g_mutex = std::mutex {};
-        return g_mutex;
-    }
-
-    void register_script_entry(std::string type_name, ScriptRegistration entry)
-    {
-        {
-            auto guard = std::lock_guard(script_registry_mutex());
-            script_registrations().insert_or_assign(type_name, entry);
-        }
-
-        // Tag the entry with the currently-loading plugin so it is purged in lock-step with the asset-type
-        // registration created in the same register_script_type call when that module unloads. Takes the
-        // lock separately: the tracker has its own mutex and must not nest under ours.
-        track_plugin_owned_script_registration(type_name);
+        auto& data = owner.get_data<ScriptRegistrations>();
+        auto guard = std::lock_guard(data.mutex);
+        data.entries.insert_or_assign(std::move(type_name), entry);
     }
 
     const ScriptRegistration* get_script_registration(std::string_view type_name)
     {
-        auto guard = std::lock_guard(script_registry_mutex());
-        const auto iterator = script_registrations().find(std::string(type_name));
-        if (iterator == script_registrations().end())
-            return nullptr;
+        // Fan out engine core first: the first container that carries the name wins. The returned
+        // pointer stays valid until its container is dropped (unordered_map keeps element addresses
+        // stable across inserts/rehashes; entries are only erased on unload / shutdown).
+        const ScriptRegistration* found = nullptr;
+        const auto key = std::string(type_name);
+        for_each_plugin_runtime(
+            [&found, &key](RuntimeRegistrations& runtime)
+            {
+                if (found)
+                    return;
 
-        return &iterator->second;
-    }
+                auto* data = runtime.try_get_data<ScriptRegistrations>();
+                if (!data)
+                    return;
 
-    void unregister_script_entry(std::string_view type_name)
-    {
-        if (type_name.empty())
-            return;
-
-        auto guard = std::lock_guard(script_registry_mutex());
-        script_registrations().erase(std::string(type_name));
+                auto guard = std::lock_guard(data->mutex);
+                const auto iterator = data->entries.find(key);
+                if (iterator != data->entries.end())
+                    found = &iterator->second;
+            });
+        return found;
     }
 
     void clear_script_registrations()
     {
-        auto guard = std::lock_guard(script_registry_mutex());
-        script_registrations().clear();
+        // Shutdown: drop every container's script function pointers while their modules are still
+        // mapped, so no pointer into an about-to-unload module lingers.
+        for_each_plugin_runtime(
+            [](RuntimeRegistrations& runtime)
+            {
+                auto* data = runtime.try_get_data<ScriptRegistrations>();
+                if (!data)
+                    return;
+
+                auto guard = std::lock_guard(data->mutex);
+                data->entries.clear();
+            });
     }
 }

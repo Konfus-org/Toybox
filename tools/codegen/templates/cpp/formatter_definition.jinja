@@ -1,0 +1,9 @@
+auto std::formatter<{{ qualified }}>::format(const {{ qualified }}& value, std::format_context& ctx) const
+    -> std::format_context::iterator
+{
+    return _formatter.format(
+        std::format(
+            {{ format_text }},
+            {{ value_args }}),
+        ctx);
+}

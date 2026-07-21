@@ -64,12 +64,14 @@ namespace tbx::studio_bridge
     /// @brief Mirrors the live game camera's pose + lens onto every game view's camera each frame.
     void sync_game_cameras(ViewState& views, const EngineServices& services);
 
-    /// @brief Pushes each view's current camera (pose + lens + world) to the engine's
-    /// external-camera registry. Call once per frame after the cameras are updated; the engine
-    /// renders the registered cameras. `is_playing` keeps every view rendering at full rate during
-    /// play; otherwise a view that is idle (unfocused, no input/drag, done loading) is pushed as
-    /// idle so the engine throttles it to a low refresh rate instead of a full render every frame.
-    void push_external_cameras(ViewState& views, const EngineServices& services, bool is_playing);
+    /// @brief Mirrors each view's current camera (pose + lens + target) onto the transient camera
+    /// entity the bridge injects into the view's world — creating it when missing (first frame, a
+    /// play-mode restore, a world switch), so it is self-healing. The engine then renders it like
+    /// any world camera. Call once per frame after the cameras are updated. `is_playing` keeps every
+    /// view rendering at full rate during play; otherwise an idle view (unfocused, no input/drag,
+    /// done loading) is marked render-inactive so the engine throttles it to its bounded idle
+    /// refresh instead of a full render every frame.
+    void sync_camera_entities(ViewState& views, const EngineServices& services, bool is_playing);
 
     /// @brief Returns a view's camera (for picking / projection). Fails for an unknown/invalid view.
     Result resolve_view_camera(

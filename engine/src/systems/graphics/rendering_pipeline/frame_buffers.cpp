@@ -43,7 +43,7 @@ namespace tbx
         const GpuId id = slot.buffer.get();
         if (data != nullptr && size > 0U)
         {
-            if (auto result = backend->write_buffer(id, data, size, 0U); !result)
+            if (auto result = backend->write_buffer(id, BufferRegion {.size = size}, data); !result)
                 return INVALID_GPU_ID;
         }
         return id;

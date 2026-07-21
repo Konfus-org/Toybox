@@ -117,9 +117,6 @@ namespace tbx
         Plugin* find_plugin(const std::string& plugin_name) const;
 
       private:
-        struct OwnershipTracker;
-
-      private:
         void add_loaded(LoadedPlugins& loaded_plugins);
         void attach_all_unattached();
         void bind_all_runtime();
@@ -144,7 +141,6 @@ namespace tbx
         std::weak_ptr<IFileOps> _provided_file_ops = {};
         std::weak_ptr<IFileOps> _file_ops = {};
         std::unique_ptr<FileWatcher> _watcher = {};
-        std::unique_ptr<OwnershipTracker> _ownership_tracker = {};
 
         std::weak_ptr<ServiceProvider> _service_provider = {};
         bool _attached = false;

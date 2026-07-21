@@ -333,7 +333,7 @@ namespace opengl_rendering
     }
 
     void OpenGlTexture::update(
-        const tbx::TextureUpdateDesc& desc,
+        const tbx::TextureRegion& region,
         const GLenum upload_format,
         const GLenum upload_type,
         const void* data) const
@@ -342,12 +342,12 @@ namespace opengl_rendering
         {
             glTextureSubImage3D(
                 _texture_id,
-                static_cast<GLint>(desc.mip_level),
-                static_cast<GLint>(desc.x),
-                static_cast<GLint>(desc.y),
-                static_cast<GLint>(desc.array_layer),
-                static_cast<GLsizei>(desc.width),
-                static_cast<GLsizei>(desc.height),
+                static_cast<GLint>(region.mip_level),
+                static_cast<GLint>(region.x),
+                static_cast<GLint>(region.y),
+                static_cast<GLint>(region.array_layer),
+                static_cast<GLsizei>(region.width),
+                static_cast<GLsizei>(region.height),
                 1,
                 upload_format,
                 upload_type,
@@ -357,11 +357,11 @@ namespace opengl_rendering
 
         glTextureSubImage2D(
             _texture_id,
-            static_cast<GLint>(desc.mip_level),
-            static_cast<GLint>(desc.x),
-            static_cast<GLint>(desc.y),
-            static_cast<GLsizei>(desc.width),
-            static_cast<GLsizei>(desc.height),
+            static_cast<GLint>(region.mip_level),
+            static_cast<GLint>(region.x),
+            static_cast<GLint>(region.y),
+            static_cast<GLsizei>(region.width),
+            static_cast<GLsizei>(region.height),
             upload_format,
             upload_type,
             data);

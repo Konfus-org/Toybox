@@ -72,6 +72,16 @@ namespace tbx
         return _render_target;
     }
 
+    bool Camera::is_render_active() const
+    {
+        return _render_active;
+    }
+
+    void Camera::set_render_active(bool active)
+    {
+        _render_active = active;
+    }
+
     Viewport Camera::get_viewport() const
     {
         return _viewport;

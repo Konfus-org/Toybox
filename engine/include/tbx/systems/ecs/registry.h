@@ -101,6 +101,11 @@ namespace tbx
         /// live world registry without serializing through JSON.
         void absorb(const Entity& source);
 
+        /// @brief Runs a component-type clear thunk against this registry's backing store under the
+        /// write lock, destroying every instance of that component type. Used when a component type's
+        /// owning plugin unloads (the type becomes unavailable): see for_each_live_entity_registry.
+        void purge_component(const std::function<void(entt::registry&)>& clear_component);
+
       public:
         /// @brief Serializes a whole registry to a JSON array of entity records (each the lean
         /// Entity::serialize form). Custom-serialization entry point for the [[serializable]]
@@ -145,6 +150,9 @@ namespace tbx
         int get_order_value(const Uuid& id) const;
         void set_order_value(const Uuid& id, int order);
 
+        bool get_serialized(const Uuid& id) const;
+        void set_serialized(const Uuid& id, bool serialized);
+
         bool get_enabled(const Uuid& id) const;
         // Effective enabled: false when this entity OR any ancestor is disabled, so a disabled parent
         // disables its whole subtree for the typed queries. Takes the lock; for_each_with uses it.
@@ -166,6 +174,13 @@ namespace tbx
         mutable std::shared_mutex _mutex = {};
         std::unique_ptr<entt::registry> _registry = nullptr;
     };
+
+    /// @brief Invokes the callback for every live EntityRegistry in the process, one at a time. Each
+    /// registry self-registers on construction and removes itself on destruction, so this reaches
+    /// every world / chunk / globals registry currently in memory. Used to strip a plugin's component
+    /// instances from all registries when the plugin unloads. The internal registry list is held for
+    /// the duration of the walk, so a registry cannot be destroyed mid-callback.
+    TBX_API void for_each_live_entity_registry(const std::function<void(EntityRegistry&)>& callback);
 }
 
 // Both classes are now complete, so the template bodies (which each need the other type) can be

@@ -4,10 +4,8 @@ namespace tbx::studio_bridge
 {
     class RpcRegistrar;
     struct GizmoControllerState;
-    struct GizmoLayerState;
 
-    /// @brief Registers the gizmo editor RPC methods: the transform-tool mode served by the
-    /// gizmo ops, and the editor-authored overlay layers served by the gizmo-layer ops.
-    void register_gizmo_handlers(
-        const RpcRegistrar& registrar, GizmoControllerState& gizmos, GizmoLayerState& layers);
+    /// @brief Registers the gizmo editor RPC methods: the transform-tool mode served by the gizmo
+    /// ops. (The editor's overlay drawing rides the data plane's draw lane, not RPC.)
+    void register_gizmo_handlers(const RpcRegistrar& registrar, GizmoControllerState& gizmos);
 }

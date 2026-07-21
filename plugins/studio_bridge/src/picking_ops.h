@@ -1,12 +1,31 @@
 #pragma once
+#include "tbx/systems/ecs/registry.h"
 #include "tbx/systems/files/json.h"
+#include "tbx/systems/graphics/camera_view.h"
 #include "tbx/utils/result.h"
+
+namespace tbx
+{
+    class World;
+}
 
 namespace tbx::studio_bridge
 {
     struct EngineServices;
     struct PickingState;
     struct ViewState;
+
+    /// @brief The entity under a normalized cursor position (top-left origin) in a world, from a
+    /// view's camera — the three-pass raycast view.pick answers with (triangle-precise renderables →
+    /// collider/trigger AABBs → physics fallback, which only hits while playing). An invalid entity
+    /// when nothing is hit. Shared by the pick RPC and the per-frame hover pass.
+    tbx::Entity raycast_entity(
+        PickingState& picking,
+        const EngineServices& services,
+        const tbx::CameraView& camera_view,
+        tbx::World& world,
+        float u,
+        float v);
 
     /// @brief Picks the entity under a normalized click { view, u, v } (top-left origin): builds a
     /// ray from the view's camera and returns the nearest triangle-precise static-mesh hit as

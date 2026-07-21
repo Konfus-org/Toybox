@@ -43,41 +43,27 @@ namespace tbx
         // Copies a live component value from one registry into another without going through JSON, so an
         // EntityRegistry can absorb entities from another registry directly (see EntityRegistry::absorb).
         std::function<bool(const void*, entt::registry&, entt::entity)> copy_value = {};
-        // A describe(include_attributes) thunk carried over from the serializable registration: it
-        // serializes a default instance (the editor's source of a component's property schema,
-        // defaults and attributes). See SerializableTypeRegistration.
-        std::function<std::string(bool)> describe = {};
+        // Destroys every instance of this component type in an entt registry (running each component's
+        // destructor). Invoked when the type's owning plugin unloads: the type becomes unavailable, so
+        // its components are stripped from all live registries while the module is still mapped. Like
+        // copy_value, it is statically typed in the component's own defining module.
+        std::function<void(entt::registry&)> clear_all = {};
     };
 
     TBX_API std::vector<EntityComponentTypeRegistration> get_entity_component_type_registrations();
-    TBX_API void unregister_entity_component_type_entry(std::type_index component_type);
-    TBX_API void register_entity_component_type_entry(EntityComponentTypeRegistration entry);
+    TBX_API void register_entity_component_type_entry(
+        RuntimeRegistrations& owner,
+        EntityComponentTypeRegistration entry);
 
     template <typename TComponent>
         requires std::derived_from<TComponent, Component>
-    static bool register_entity_component_type()
-    {
-        ensure_serializable_type_registered<TComponent>();
-
-        auto type_name = get_serialization_type_name<TComponent>();
-        if (type_name.empty())
-            type_name = typeid(TComponent).name();
-
-        register_entity_component_type_entry(
-            EntityComponentTypeRegistration {
-                .type_name = type_name,
-                .type = std::type_index(typeid(TComponent)),
-                .type_id = entt::type_hash<TComponent>::value(),
-            });
-        return true;
-    }
-
-    template <typename TComponent>
-        requires std::derived_from<TComponent, Component>
-    static bool register_entity_component_type(const SerializableTypeRegistration& registration)
+    static bool register_entity_component_type(
+        RuntimeRegistrations& owner,
+        const SerializableTypeRegistration& registration)
     {
         const auto read_value = registration.read_value;
         register_entity_component_type_entry(
+            owner,
             EntityComponentTypeRegistration {
                 .name = registration.name,
                 .type_name = registration.type_name,
@@ -119,7 +105,11 @@ namespace tbx
                         return false;
                     }
                 },
-                .describe = registration.describe,
+                .clear_all =
+                    [](entt::registry& registry)
+                {
+                    registry.clear<TComponent>();
+                },
             });
         return true;
     }
@@ -128,9 +118,11 @@ namespace tbx
         requires std::derived_from<TComponent, Component>
     struct SerializableTypeRegistrationHook<TComponent>
     {
-        static bool register_type(const SerializableTypeRegistration& registration)
+        static bool register_type(
+            RuntimeRegistrations& owner,
+            const SerializableTypeRegistration& registration)
         {
-            return register_entity_component_type<TComponent>(registration);
+            return register_entity_component_type<TComponent>(owner, registration);
         }
     };
 }

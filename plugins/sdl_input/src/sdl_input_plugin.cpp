@@ -41,7 +41,7 @@ namespace sdl_input
     void SdlInput::on_update(const tbx::DeltaTime&)
     {
         if (auto backend = input_backend.lock())
-            backend->update_backend_state();
+            backend->update();
     }
 
     bool SdlInput::accumulate_wheel_delta(void* userdata, SDL_Event* event)

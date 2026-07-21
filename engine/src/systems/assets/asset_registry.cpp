@@ -97,12 +97,13 @@ namespace tbx
         if (lowered_name == "cmakelists.txt")
             return true;
 
+        // C++ headers are handled separately in should_track_asset_path: a header with a `.meta`
+        // sidecar is a script asset, one without is plain source. Implementation files are never assets.
         const auto lowered_extension = tbx::to_lower(path.extension().string());
-        return lowered_extension == ".cmake" || lowered_extension == ".h"
-               || lowered_extension == ".hh" || lowered_extension == ".hpp"
-               || lowered_extension == ".c" || lowered_extension == ".cc"
-               || lowered_extension == ".cpp" || lowered_extension == ".cxx"
-               || lowered_extension == ".in" || lowered_extension == ".log";
+        return lowered_extension == ".cmake" || lowered_extension == ".c"
+               || lowered_extension == ".cc" || lowered_extension == ".cpp"
+               || lowered_extension == ".cxx" || lowered_extension == ".in"
+               || lowered_extension == ".log";
     }
 
     static std::unique_ptr<Handle> try_read_handle_from_meta(
@@ -148,7 +149,9 @@ namespace tbx
         }
     }
 
-    bool AssetRegistry::should_track_asset_path(const std::filesystem::path& asset_path)
+    bool AssetRegistry::should_track_asset_path(
+        const std::filesystem::path& asset_path,
+        const IFileOps* file_ops)
     {
         if (asset_path.empty())
             return false;
@@ -160,10 +163,13 @@ namespace tbx
             return false;
         if (is_non_asset_file(asset_path))
             return false;
-        // Ordinary `.meta` files are sidecars, not assets in their own right. Script metas are the
-        // exception: a `*.h.meta` IS the asset (it has no separate payload file), so track it.
+        // A `.meta` file is a sidecar, never an asset in its own right.
         if (asset_path.extension() == ".meta")
-            return asset_pairing::is_self_describing_metadata(asset_path.generic_string());
+            return false;
+        // A C++ header is the payload of a script asset only when it carries a `.meta` sidecar; a plain
+        // header (no sidecar) is ordinary source and is not tracked.
+        if (asset_pairing::is_source_header(asset_path))
+            return file_ops != nullptr && file_ops->exists(asset_pairing::metadata_path(asset_path));
         return true;
     }
 
@@ -435,7 +441,7 @@ namespace tbx
         const std::filesystem::path& asset_path)
     {
         auto result = AssetRegistryMutationResult();
-        if (!should_track_asset_path(asset_path))
+        if (!should_track_asset_path(asset_path, lock_file_ops().get()))
         {
             result.result = make_failed_result("Path is not a tracked asset.");
             return result;
@@ -598,7 +604,7 @@ namespace tbx
         {
             if (file_ops->get_type(entry) != FileType::FILE)
                 continue;
-            if (!should_track_asset_path(entry))
+            if (!should_track_asset_path(entry, file_ops.get()))
                 continue;
 
             asset_entries.push_back(entry);

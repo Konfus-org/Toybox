@@ -1,7 +1,7 @@
 option(TBX_BUILD_SHARED "Build Toybox core engine as a shared library" ON)
 option(TBX_ENABLE_VERBOSE "Enable verbose Toybox diagnostics" OFF)
 
-set(TBX_PLUGIN_ABI_VERSION 1 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
+set(TBX_PLUGIN_ABI_VERSION 2 CACHE STRING "Plugin ABI version used for plugin compatibility checks" FORCE)
 
 message(STATUS "")
 message(STATUS "Configuring Toybox Engine:")
@@ -128,6 +128,17 @@ tbx_codegen_generate_attribute_headers(
     SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src"
     OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/generated/src"
     INCLUDE_SCOPE PRIVATE
+)
+
+# The explicit-registration aggregator: register_engine_types(RuntimeRegistrations&), called by the
+# launcher (and test hosts) at startup — engine types no longer self-register at static init.
+tbx_codegen_generate_module_registration(
+    TARGET Engine
+    MODULE_NAME engine
+    API_MACRO TBX_API
+    SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/generated/include"
+    INCLUDE_SCOPE PUBLIC
 )
 
 target_compile_definitions(Engine

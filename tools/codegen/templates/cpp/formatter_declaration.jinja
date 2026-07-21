@@ -1,0 +1,13 @@
+template <>
+struct std::formatter<{{ qualified }}>
+{
+    constexpr auto parse(std::format_parse_context& ctx)
+    {
+        return _formatter.parse(ctx);
+    }
+
+    {{ api_prefix }}auto format(const {{ qualified }}& value, std::format_context& ctx) const
+        -> std::format_context::iterator;
+
+    std::formatter<std::string> _formatter;
+};

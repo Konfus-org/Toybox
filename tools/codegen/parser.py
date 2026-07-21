@@ -1,16 +1,22 @@
-"""Small C++ metadata parser for Toybox code generation.
+"""C++ metadata parser for Toybox code generation.
 
-This parser is intentionally shallow: it recognizes declarations and attributes
-well enough to build metadata, then leaves all behavior decisions to processors.
+Structure (Layer 2 of the codegen: Parser / Normalizer):
+  * a dependency-free tokenizer (``cpp_lexer``) delimits declarations robustly across comments,
+    string/char/raw literals, preprocessor lines and balanced brackets;
+  * a line-anchored walker over those tokens finds top-level namespaces, records, enums and aliases;
+  * each discovered declaration's body/header is classified by small text sub-parsers.
+
+It recognizes declarations well enough to build the neutral IR (``model``) and leaves every behavior
+decision to downstream processors.
 """
 
 from __future__ import annotations
 
 import re
 
+from cpp_lexer import ATTR, EOF, ID, PUNCT, Token, tokenize
 from model import (
     Attribute,
-    CodegenError,
     EnumValue,
     Field,
     SerializableType,
@@ -19,23 +25,18 @@ from model import (
 )
 
 
-# Toybox attributes live in the `tbx::` attribute namespace. Engine code (which is itself inside
-# `namespace tbx`) omits the scope and writes the bare name, e.g. [[serializable]] / [[serialize]];
-# examples and plugins write it out in full, e.g. [[tbx::serializable]] / [[tbx::serialize]]. Both
-# forms normalize to the same bare captured name.
-ATTRIBUTE_PATTERN = re.compile(
-    r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]"
-)
-NAMESPACE_PATTERN = re.compile(r"^\s*namespace\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*(?:\{)?\s*$")
-TYPE_PATTERN = re.compile(
-    r"^\s*(struct|class)\s+((?:[A-Za-z_]\w*_API|TBX_API)\s+)?([A-Za-z_]\w*)"
-    r"(?:\s+final)?\s*(?::\s*([^{]+))?\s*(?:\{)?\s*$"
-)
-TEMPLATE_PATTERN = re.compile(r"^\s*template\s*<(.+)>\s*$")
-ENUM_PATTERN = re.compile(
-    r"^\s*enum\s+(class\s+)?([A-Za-z_]\w*)\s*(?::\s*([A-Za-z_]\w*(?:::[A-Za-z_]\w*)?))?\s*(?:\{)?\s*$"
-)
-USING_PATTERN = re.compile(r"^\s*using\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*;")
+# --------------------------------------------------------------------------------------------------
+# Attribute parsing (text level).
+# --------------------------------------------------------------------------------------------------
+
+# Toybox attributes live in the `tbx::` attribute namespace. Engine code (inside `namespace tbx`)
+# writes the bare name, e.g. [[serializable]]; plugins/examples write [[tbx::serializable]]. Both
+# forms normalize to the same captured name.
+# DOTALL so an attribute's argument list may span multiple source lines (the tokenizer keeps a
+# multi-line ``[[ ... ]]`` block as one token; the legacy scanner instead pre-collapsed newlines).
+ATTRIBUTE_PATTERN = re.compile(r"\[\[\s*(?:tbx::)?([A-Za-z_]\w*)\s*(?:\((.*?)\))?\s*\]\]", re.DOTALL)
+ENUM_VALUE_PATTERN = re.compile(r"^\s*([A-Za-z_]\w*)\s*(.*?)(?:,|$)")
+EQUALITY_OPERATOR_PATTERN = re.compile(r"\boperator\s*==")
 SERIALIZER_PATTERN = re.compile(
     r"\bstruct\s+(?:(?:[A-Za-z_]\w*_API|TBX_API)\s+)?Serializer\s*<\s*([A-Za-z_]\w*)\s*>"
 )
@@ -43,14 +44,21 @@ FIELD_PATTERN = re.compile(
     r"^\s*(?:(?:static|inline|constexpr|const)\s+)*(.+?)\s+([A-Za-z_]\w*)"
     r"(?:\s*(?:=|\{).*)?;\s*$"
 )
-ENUM_VALUE_PATTERN = re.compile(r"^\s*([A-Za-z_]\w*)\s*(.*?)(?:,|$)")
-EQUALITY_OPERATOR_PATTERN = re.compile(r"\boperator\s*==")
+
+ACCESS_LABELS = {"public", "private", "protected"}
+# Leading keywords that mark a class-body declaration as something other than a serializable data
+# member (type aliases, friends, statics, function specifiers, nested types, templates).
+_NON_MEMBER_LEADING = re.compile(
+    r"^(?:using|typedef|friend|static|constexpr|consteval|constinit|inline|virtual|explicit|"
+    r"template|struct|class|union|enum)\b"
+)
+# Identifiers accepted between the record keyword and its name as an export/API macro.
+_API_MACRO = re.compile(r"^(?:[A-Za-z_]\w*_API|TBX_API)$")
 
 
 def parse_arguments(raw: str | None, preserve_string_literals: bool = False) -> list[str]:
     if raw is None or not raw.strip():
         return []
-
     return split_attribute_values(raw, preserve_string_literals=preserve_string_literals)
 
 
@@ -78,7 +86,6 @@ def parse_attribute_arguments(raw: str | None) -> tuple[list[str], dict[str, str
         if named_argument is None:
             positional_args.append(normalize_attribute_argument(argument))
             continue
-
         name, value = named_argument
         named_args[name] = normalize_attribute_argument(value)
     return positional_args, named_args
@@ -96,81 +103,15 @@ def remove_attributes(text: str) -> str:
     return ATTRIBUTE_PATTERN.sub("", text)
 
 
-def collapse_multiline_attributes(source: str) -> str:
-    """Keep attribute blocks on one line before running the lightweight parser."""
-
-    output: list[str] = []
-    index = 0
-    while index < len(source):
-        if source.startswith("[[", index):
-            end = source.find("]]", index + 2)
-            if end != -1:
-                attribute_text = source[index : end + 2].replace("\r", " ").replace("\n", " ")
-                output.append(attribute_text)
-                index = end + 2
-                continue
-
-        output.append(source[index])
-        index += 1
-
-    return "".join(output)
+def _attr_from_token(token: Token) -> list[Attribute]:
+    return parse_attributes(f"[[{token.value}]]")
 
 
-def collapse_multiline_using_declarations(source: str) -> str:
-    lines = source.splitlines()
-    output: list[str] = []
-    pending: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        if pending:
-            pending.append(stripped)
-            if ";" in stripped:
-                output.append(" ".join(pending))
-                pending = []
-            continue
-
-        if stripped.startswith("using ") and ";" not in stripped:
-            pending.append(stripped)
-            continue
-
-        output.append(line)
-
-    if pending:
-        output.append(" ".join(pending))
-
-    return "\n".join(output)
-
-
-def find_matching_type_end(lines: list[str], start: int) -> int:
-    depth = 0
-    for index in range(start, len(lines)):
-        depth += lines[index].count("{")
-        depth -= lines[index].count("}")
-        if depth <= 0 and "};" in lines[index]:
-            return index
-    raise CodegenError(f"Could not find end of type declaration starting at line {start + 1}.")
-
-
-def current_namespace(lines: list[str], upto: int) -> str:
-    namespace = ""
-    for line in lines[: upto + 1]:
-        match = NAMESPACE_PATTERN.match(line)
-        if match:
-            namespace = match.group(1)
-    return namespace
-
-
-ACCESS_LABELS = {"public", "private", "protected"}
-# Leading keywords that mark a class-body declaration as something other than a serializable data
-# member (type aliases, friends, statics, function specifiers, nested types, templates).
-_NON_MEMBER_LEADING = re.compile(
-    r"^(?:using|typedef|friend|static|constexpr|consteval|constinit|inline|virtual|explicit|"
-    r"template|struct|class|union|enum)\b"
-)
-
+# --------------------------------------------------------------------------------------------------
+# Body sub-parsers (operate on the exact source text of a type body).
+# --------------------------------------------------------------------------------------------------
 
 def _skip_string(text: str, index: int) -> int:
-    """``text[index]`` is a quote character; return the index just past the closing quote."""
     quote = text[index]
     index += 1
     while index < len(text):
@@ -185,7 +126,6 @@ def _skip_string(text: str, index: int) -> int:
 
 
 def _skip_block(text: str, index: int) -> int:
-    """``text[index]`` is ``{``; return the index just past the matching ``}``."""
     depth = 0
     while index < len(text):
         character = text[index]
@@ -214,36 +154,7 @@ def _skip_block(text: str, index: int) -> int:
     return index
 
 
-def _extract_class_body(type_text: str) -> str:
-    """Return the text strictly inside a type's outermost ``{ ... }`` braces."""
-    index = 0
-    while index < len(type_text):
-        character = type_text[index]
-        if character in "\"'":
-            index = _skip_string(type_text, index)
-            continue
-        if type_text.startswith("//", index):
-            newline = type_text.find("\n", index)
-            index = len(type_text) if newline == -1 else newline
-            continue
-        if type_text.startswith("/*", index):
-            close = type_text.find("*/", index + 2)
-            index = len(type_text) if close == -1 else close + 2
-            continue
-        if type_text.startswith("[[", index):
-            close = type_text.find("]]", index + 2)
-            index = len(type_text) if close == -1 else close + 2
-            continue
-        if character == "{":
-            close = _skip_block(type_text, index)
-            return type_text[index + 1 : close - 1]
-        index += 1
-    return ""
-
-
 def _remove_angle_groups(text: str) -> str:
-    """Strip balanced ``<...>`` template-argument groups so a parameter-list ``(`` can be detected
-    without confusing it for a ``(`` nested inside a template argument (e.g. std::function<void()>)."""
     out: list[str] = []
     depth = 0
     for character in text:
@@ -271,24 +182,16 @@ def _make_field_from_head(head: str, access: str) -> Field | None:
     before_initializer = declaration.split("=", 1)[0]
     if "(" in _remove_angle_groups(before_initializer):
         return None
-
     match = FIELD_PATTERN.match(declaration + ";")
     if not match:
         return None
-    return Field(
-        name=match.group(2),
-        type_name=match.group(1).strip(),
-        attrs=attrs,
-        access=access,
-    )
+    return Field(name=match.group(2), type_name=match.group(1).strip(), attrs=attrs, access=access)
 
 
-def parse_fields(lines: list[str], start: int, end: int, default_access: str) -> list[Field]:
-    """Parse a type's class-body data members, tracking access and skipping every non-data-member
-    declaration. All data members are recorded (not just attributed ones); subsystem ownership and
-    the public-by-default serialization decision are left to downstream processors."""
-
-    body = _extract_class_body("\n".join(lines[start : end + 1]))
+def parse_fields_in_body(body: str, default_access: str) -> list[Field]:
+    """Parse a type's data members from the exact text between its outermost braces, tracking access
+    and skipping every non-data-member declaration. All data members are recorded (not just attributed
+    ones); ownership and the public-by-default serialization decision are left to processors."""
     fields: list[Field] = []
     access = default_access
     accumulated: list[str] = []
@@ -328,9 +231,6 @@ def parse_fields(lines: list[str], start: int, end: int, default_access: str) ->
             index += 1
             continue
         if character == "{" and paren_depth == 0:
-            # A class-body brace ends the current declaration: it is either a data member's braced
-            # initializer, a function body, or a nested type body. The text before the brace decides;
-            # in every case the brace block (and any trailing ';') is consumed here.
             head = "".join(accumulated)
             after_block = _skip_block(body, index)
             cursor = after_block
@@ -345,7 +245,6 @@ def parse_fields(lines: list[str], start: int, end: int, default_access: str) ->
             index = cursor
             continue
         if character == "{":
-            # Brace inside a parameter list (e.g. a default argument) — keep it balanced verbatim.
             after_block = _skip_block(body, index)
             accumulated.append(body[index:after_block])
             index = after_block
@@ -369,33 +268,24 @@ def parse_fields(lines: list[str], start: int, end: int, default_access: str) ->
             continue
         accumulated.append(character)
         index += 1
-
     return fields
 
 
-def parse_enum_values(lines: list[str], start: int, end: int) -> list[EnumValue]:
+def parse_enum_values_in_body(body: str) -> list[EnumValue]:
     values: list[EnumValue] = []
-    for line in lines[start + 1 : end]:
+    for line in body.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("//"):
             continue
-
         match = ENUM_VALUE_PATTERN.match(stripped)
         if not match:
             continue
-
         name = match.group(1)
         if name in {"}", "{"}:
             continue
-
         attrs = parse_attributes(line)
         values.append(EnumValue(name=name, json_name=attr_value(attrs, "name") or name))
-
     return values
-
-
-def has_equality_operator(lines: list[str], start: int, end: int) -> bool:
-    return any(EQUALITY_OPERATOR_PATTERN.search(line) for line in lines[start + 1 : end])
 
 
 def base_type_names(bases: str) -> list[str]:
@@ -430,123 +320,307 @@ def append_inherited_fields(types: list[SerializableType]) -> None:
         inherited = inherited_fields(type_info, {type_info.name})
         if not inherited:
             continue
-
         existing = {field.name for field in type_info.fields}
         type_info.fields = [field for field in inherited if field.name not in existing] + type_info.fields
 
 
+# --------------------------------------------------------------------------------------------------
+# Token walker (top-level declaration discovery).
+# --------------------------------------------------------------------------------------------------
+
+_RECORD_KEYWORDS = {"struct", "class"}
+
+
+def _line_tokens(tokens: list[Token], start: int) -> tuple[list[Token], int]:
+    """Return the tokens on the same source line as ``tokens[start]`` and the index of the next line."""
+    line = tokens[start].line
+    index = start
+    collected: list[Token] = []
+    while tokens[index].kind != EOF and tokens[index].line == line:
+        collected.append(tokens[index])
+        index += 1
+    return collected, index
+
+
+def _match_braces(tokens: list[Token], open_index: int) -> int:
+    """Given the index of a ``{`` token, return the index of its matching ``}`` (or EOF index)."""
+    depth = 0
+    index = open_index
+    while tokens[index].kind != EOF:
+        token = tokens[index]
+        if token.kind == PUNCT and token.value == "{":
+            depth += 1
+        elif token.kind == PUNCT and token.value == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return index
+
+
+def _find_body_open(tokens: list[Token], start: int) -> int | None:
+    """From ``start``, return the index of the record/enum body-opening ``{``, or None if a top-level
+    ``;`` (a forward declaration) is reached first."""
+    index = start
+    while tokens[index].kind != EOF:
+        token = tokens[index]
+        if token.kind == PUNCT and token.value == "{":
+            return index
+        if token.kind == PUNCT and token.value == ";":
+            return None
+        index += 1
+    return None
+
+
+def _next_line_index(tokens: list[Token], from_index: int) -> int:
+    """Index of the first token on a line after ``tokens[from_index]`` (skipping a trailing ';')."""
+    line = tokens[from_index].line
+    index = from_index
+    while tokens[index].kind != EOF and tokens[index].line == line:
+        index += 1
+    return index
+
+
+def _parse_record_header(
+    tokens: list[Token], start: int, body_open: int, source: str
+) -> tuple[str, str, str]:
+    """Extract (api_macro, name, bases) from a record header between the keyword and the body '{'."""
+    api_macro = ""
+    name = ""
+    index = start
+    while index < body_open:
+        token = tokens[index]
+        if token.kind == ID:
+            if not name and not api_macro and _API_MACRO.match(token.value):
+                api_macro = token.value
+                index += 1
+                continue
+            name = token.value
+            index += 1
+            break
+        index += 1
+    bases = ""
+    while index < body_open:
+        token = tokens[index]
+        if token.kind == PUNCT and token.value == ":":
+            bases = source[token.end:tokens[body_open].pos].lstrip()
+            break
+        index += 1
+    return api_macro, name, bases
+
+
+def _parse_enum_header(
+    tokens: list[Token], start: int, body_open: int, source: str
+) -> tuple[bool, str, str]:
+    """Extract (scoped, name, underlying_type) from an enum header."""
+    index = start
+    scoped = False
+    if index < body_open and tokens[index].kind == ID and tokens[index].value == "class":
+        scoped = True
+        index += 1
+    name = ""
+    while index < body_open:
+        if tokens[index].kind == ID:
+            name = tokens[index].value
+            index += 1
+            break
+        index += 1
+    underlying = ""
+    while index < body_open:
+        token = tokens[index]
+        if token.kind == PUNCT and token.value == ":":
+            underlying = source[token.end:tokens[body_open].pos].strip()
+            break
+        index += 1
+    return scoped, name, underlying
+
+
+def _parse_using(tokens: list[Token], start: int, source: str) -> tuple[str | None, str, int | None]:
+    """Parse a `using Name = value;` alias. Returns (name|None, value, semicolon_index|None)."""
+    index = start
+    if index >= len(tokens) or tokens[index].kind != ID:
+        return None, "", None
+    name = tokens[index].value
+    index += 1
+    if not (index < len(tokens) and tokens[index].kind == PUNCT and tokens[index].value == "="):
+        return None, "", None
+    eq = index
+    while tokens[index].kind != EOF and not (tokens[index].kind == PUNCT and tokens[index].value == ";"):
+        index += 1
+    if tokens[index].kind == EOF:
+        return None, "", None
+    # Collapse a multi-line alias to a single spaced line (matching the legacy using-collapse).
+    raw_value = source[tokens[eq].end:tokens[index].pos]
+    value = " ".join(part.strip() for part in raw_value.splitlines()).strip()
+    return name, value, index
+
+
 def parse_type_declarations(source: str, source_path: str) -> list[SerializableType]:
-    """Return declarations carrying passive Toybox metadata.
-
-    The parser deliberately stops at discovery. It does not decide whether
-    serialization, hashing, plugins, or another subsystem owns an attribute.
-    """
-
-    normalized_source = collapse_multiline_using_declarations(collapse_multiline_attributes(source))
-    lines = normalized_source.splitlines()
+    """Return declarations carrying passive Toybox metadata. The walker stops at discovery; it does
+    not decide which subsystem owns an attribute."""
+    tokens = tokenize(source)
     serializer_types = {match.group(1) for match in SERIALIZER_PATTERN.finditer(source)}
+    types: list[SerializableType] = []
+
+    namespace = ""
     pending_attrs: list[Attribute] = []
-    # A `template <...>` header (and any `requires` clause) sits on its own line(s) before the struct
-    # it templates. It is remembered here so the following declaration can carry its parameter list.
     pending_template = ""
-    metadata_types: list[SerializableType] = []
 
     index = 0
-    while index < len(lines):
-        line = lines[index]
-        attrs = parse_attributes(line)
-        without_attrs = remove_attributes(line).strip()
+    total = len(tokens)
+    while tokens[index].kind != EOF:
+        line, next_line = _line_tokens(tokens, index)
 
-        if attrs and without_attrs in {"", ";"}:
-            pending_attrs.extend(attrs)
-            index += 1
-            continue
-        if pending_attrs and not attrs and (not without_attrs or without_attrs.startswith("//")):
-            index += 1
-            continue
+        lead = 0
+        while lead < len(line) and line[lead].kind == ATTR:
+            lead += 1
+        rest = line[lead:]
+        line_attrs: list[Attribute] = [a for token in line if token.kind == ATTR for a in _attr_from_token(token)]
 
-        template_match = TEMPLATE_PATTERN.match(without_attrs)
-        if template_match is not None:
-            pending_template = template_match.group(1).strip()
-            pending_attrs.extend(attrs)
-            index += 1
-            continue
-        # A constraint clause continues the pending template header; skip it but keep the header so the
-        # struct that follows still picks up its parameter list.
-        if pending_template and without_attrs.startswith("requires"):
-            index += 1
+        # Attribute-only line (optionally a trailing ';'): accumulate and move on.
+        if not rest or (len(rest) == 1 and rest[0].kind == PUNCT and rest[0].value == ";"):
+            pending_attrs.extend(line_attrs)
+            index = next_line
             continue
 
-        active_attrs = pending_attrs + attrs
-        pending_attrs = []
-        # The template header only applies to the immediately following declaration; consume it here so
-        # a stray header before a function or unrelated line never leaks onto a later struct.
-        active_template = pending_template
-        pending_template = ""
+        head = rest[0]
 
-        type_match = TYPE_PATTERN.match(without_attrs)
-        if type_match:
-            end = find_matching_type_end(lines, index)
-            type_name = type_match.group(3)
-            default_access = "public" if type_match.group(1) == "struct" else "private"
-            fields = parse_fields(lines, index, end, default_access)
+        if head.kind == ID and head.value == "namespace":
+            parts = [t.value for t in rest[1:] if t.kind == ID]
+            if parts:
+                namespace = "::".join(parts)
+            pending_attrs = []
+            pending_template = ""
+            index = next_line
+            continue
+
+        if head.kind == ID and head.value == "template":
+            head_index = index + lead
+            angle = head_index + 1
+            if angle < total and tokens[angle].kind == PUNCT and tokens[angle].value == "<":
+                depth = 0
+                cursor = angle
+                while tokens[cursor].kind != EOF:
+                    if tokens[cursor].kind == PUNCT and tokens[cursor].value == "<":
+                        depth += 1
+                    elif tokens[cursor].kind == PUNCT and tokens[cursor].value == ">":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    cursor += 1
+                close = cursor
+                after = close + 1
+                # Only a bare `template <...>` line (nothing after the '>' on that line) carries forward.
+                if tokens[close].kind != EOF and after < total and tokens[after].line == tokens[close].line:
+                    pending_attrs = []
+                    pending_template = ""
+                    index = next_line
+                    continue
+                pending_template = source[tokens[angle].end:tokens[close].pos].strip()
+                pending_attrs.extend(line_attrs)
+                index = next_line
+                continue
+            pending_attrs = []
+            pending_template = ""
+            index = next_line
+            continue
+
+        if head.kind == ID and head.value == "requires" and pending_template:
+            index = next_line
+            continue
+
+        active_attrs = pending_attrs + line_attrs
+        head_index = index + lead
+
+        if head.kind == ID and head.value in _RECORD_KEYWORDS:
+            body_open = _find_body_open(tokens, head_index + 1)
+            if body_open is None:  # forward declaration, not a definition
+                pending_attrs = []
+                pending_template = ""
+                index = next_line
+                continue
+            body_close = _match_braces(tokens, body_open)
+            declaration_kind = head.value
+            default_access = "public" if declaration_kind == "struct" else "private"
+            api_macro, name, bases = _parse_record_header(tokens, head_index + 1, body_open, source)
+            body_text = source[tokens[body_open].end:tokens[body_close].pos]
+            fields = parse_fields_in_body(body_text, default_access)
             if active_attrs or fields:
-                metadata_types.append(
+                types.append(
                     SerializableType(
-                        namespace=current_namespace(lines, index),
-                        name=type_name,
-                        declaration_kind=type_match.group(1),
+                        namespace=namespace,
+                        name=name,
+                        declaration_kind=declaration_kind,
                         attrs=active_attrs,
-                        api_macro=(type_match.group(2) or "").strip(),
-                        bases=type_match.group(4) or "",
+                        api_macro=api_macro,
+                        bases=bases,
                         fields=fields,
-                        template_params=active_template,
-                        has_serializer=type_name in serializer_types,
-                        has_equality_operator=has_equality_operator(lines, index, end),
+                        template_params=pending_template,
+                        has_serializer=name in serializer_types,
+                        has_equality_operator=bool(EQUALITY_OPERATOR_PATTERN.search(body_text)),
                         source_path=source_path,
-                        line=index + 1,
+                        line=head.line,
                     )
                 )
-            index = end + 1
+            pending_attrs = []
+            pending_template = ""
+            index = _next_line_index(tokens, body_close)
             continue
 
-        enum_match = ENUM_PATTERN.match(without_attrs)
-        if enum_match:
-            end = find_matching_type_end(lines, index)
+        if head.kind == ID and head.value == "enum":
+            body_open = _find_body_open(tokens, head_index + 1)
+            if body_open is None:
+                pending_attrs = []
+                pending_template = ""
+                index = next_line
+                continue
+            body_close = _match_braces(tokens, body_open)
+            scoped, name, underlying = _parse_enum_header(tokens, head_index + 1, body_open, source)
             if active_attrs:
-                metadata_types.append(
+                body_text = source[tokens[body_open].end:tokens[body_close].pos]
+                types.append(
                     SerializableType(
-                        namespace=current_namespace(lines, index),
-                        name=enum_match.group(2),
+                        namespace=namespace,
+                        name=name,
                         declaration_kind="enum",
                         attrs=active_attrs,
-                        enum_values=parse_enum_values(lines, index, end),
-                        enum_scoped=enum_match.group(1) is not None,
-                        enum_underlying_type=enum_match.group(3) or "",
+                        enum_values=parse_enum_values_in_body(body_text),
+                        enum_scoped=scoped,
+                        enum_underlying_type=underlying,
                         source_path=source_path,
-                        line=index + 1,
+                        line=head.line,
                     )
                 )
-            index = end + 1
+            pending_attrs = []
+            pending_template = ""
+            index = _next_line_index(tokens, body_close)
             continue
 
-        using_match = USING_PATTERN.match(without_attrs)
-        if using_match and active_attrs:
-            metadata_types.append(
-                SerializableType(
-                    namespace=current_namespace(lines, index),
-                    name=using_match.group(1),
-                    declaration_kind="using",
-                    attrs=active_attrs,
-                    alias_value=using_match.group(2),
-                    source_path=source_path,
-                    line=index + 1,
+        if head.kind == ID and head.value == "using":
+            alias_name, alias_value, semi_index = _parse_using(tokens, head_index + 1, source)
+            if alias_name is not None and active_attrs:
+                types.append(
+                    SerializableType(
+                        namespace=namespace,
+                        name=alias_name,
+                        declaration_kind="using",
+                        attrs=active_attrs,
+                        alias_value=alias_value,
+                        source_path=source_path,
+                        line=head.line,
+                    )
                 )
-            )
+            pending_attrs = []
+            pending_template = ""
+            index = next_line if semi_index is None else _next_line_index(tokens, semi_index)
+            continue
 
-        index += 1
+        # Any other content line: drop pending metadata and advance a line.
+        pending_attrs = []
+        pending_template = ""
+        index = next_line
 
-    return metadata_types
+    return types
 
 
 def parse_source(
@@ -555,7 +629,6 @@ def parse_source(
     context_source: str = "",
 ) -> list[SerializableType]:
     """Parse source plus include context into the neutral codegen IR."""
-
     context_types = parse_type_declarations(context_source, source_path) if context_source else []
     source_types = parse_type_declarations(source, source_path)
     all_types = context_types + source_types

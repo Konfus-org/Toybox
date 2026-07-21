@@ -1,0 +1,26 @@
+{{ banner }}
+#include {{ include }}
+#include "tbx/systems/app/application.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
+{% for registration_include in registration_includes %}
+#include {{ registration_include }}
+{% endfor %}
+
+TBX_APP_ENTRY_EXPORT ::tbx::Application* tbx_create_app()
+{
+    return new {{ qualified_app_name }}();
+}
+
+TBX_APP_ENTRY_EXPORT void tbx_destroy_app(::tbx::Application* app)
+{
+    delete app;
+}
+
+TBX_APP_ENTRY_EXPORT void tbx_register_app_types(::tbx::RuntimeRegistrations* registrations)
+{
+    if (registrations == nullptr)
+        return;
+{% for registrar_line in registrar_lines %}
+{{ registrar_line }}
+{% endfor %}
+}

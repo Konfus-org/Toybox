@@ -28,9 +28,15 @@ function(tbx_codegen_register_generated_files)
 endfunction()
 
 function(tbx_codegen_collect_python_sources out_var)
+    # Codegen inputs = the generator modules plus the template packs; both must retrigger generation
+    # when edited. (Vendored third-party code under _vendor/ is stable and intentionally excluded.)
     file(GLOB codegen_sources
         CONFIGURE_DEPENDS
         "${TBX_CODEGEN_ROOT}/*.py")
+    file(GLOB_RECURSE codegen_templates
+        CONFIGURE_DEPENDS
+        "${TBX_CODEGEN_ROOT}/templates/*.jinja")
+    list(APPEND codegen_sources ${codegen_templates})
     list(SORT codegen_sources)
     set(${out_var} "${codegen_sources}" PARENT_SCOPE)
 endfunction()
@@ -143,6 +149,106 @@ function(tbx_codegen_generate_attribute_headers)
     )
 endfunction()
 
+function(tbx_codegen_generate_module_registration)
+    set(options)
+    set(one_value_args TARGET MODULE_NAME API_MACRO SOURCE_ROOT OUTPUT_ROOT INCLUDE_SCOPE)
+    cmake_parse_arguments(TBX_CODEGEN "${options}" "${one_value_args}" "" ${ARGN})
+
+    if(NOT TBX_CODEGEN_TARGET)
+        message(FATAL_ERROR "tbx_codegen_generate_module_registration: TARGET is required")
+    endif()
+    if(NOT TARGET ${TBX_CODEGEN_TARGET})
+        message(FATAL_ERROR
+            "tbx_codegen_generate_module_registration: target '${TBX_CODEGEN_TARGET}' does not exist")
+    endif()
+    if(NOT TBX_CODEGEN_MODULE_NAME)
+        message(FATAL_ERROR "tbx_codegen_generate_module_registration: MODULE_NAME is required")
+    endif()
+    if(NOT TBX_CODEGEN_SOURCE_ROOT)
+        message(FATAL_ERROR "tbx_codegen_generate_module_registration: SOURCE_ROOT is required")
+    endif()
+    if(NOT TBX_CODEGEN_OUTPUT_ROOT)
+        message(FATAL_ERROR "tbx_codegen_generate_module_registration: OUTPUT_ROOT is required")
+    endif()
+
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+    set(include_scope "${TBX_CODEGEN_INCLUDE_SCOPE}")
+    if(NOT include_scope)
+        set(include_scope PUBLIC)
+    endif()
+
+    # Same input condition as the attribute pass: a module's registrable types live in headers that
+    # either spell a [[tbx::...]] attribute or include their own .generated.h. The generator itself
+    # filters down to the types that actually define a registrar.
+    file(
+        GLOB_RECURSE module_headers
+        CONFIGURE_DEPENDS
+        "${TBX_CODEGEN_SOURCE_ROOT}/*.h"
+        "${TBX_CODEGEN_SOURCE_ROOT}/*.hpp"
+    )
+    list(SORT module_headers)
+
+    set(module_inputs "")
+    foreach(module_header IN LISTS module_headers)
+        file(READ "${module_header}" module_header_text)
+        if(module_header_text MATCHES "\\[\\[tbx::"
+            OR module_header_text MATCHES "#include[ \t]+\"[^\"]+\\.generated\\.h\"")
+            list(APPEND module_inputs "${module_header}")
+        endif()
+    endforeach()
+
+    tbx_codegen_collect_python_sources(module_codegen_sources)
+
+    set(module_stem "${TBX_CODEGEN_OUTPUT_ROOT}/tbx/${TBX_CODEGEN_MODULE_NAME}_types")
+    set(output_header "${module_stem}.generated.h")
+    set(output_source "${module_stem}.generated.cpp")
+
+    set(api_macro_args "")
+    if(TBX_CODEGEN_API_MACRO)
+        set(api_macro_args --module-api-macro "${TBX_CODEGEN_API_MACRO}")
+    endif()
+
+    add_custom_command(
+        OUTPUT
+            "${output_header}"
+            "${output_source}"
+        COMMAND ${Python3_EXECUTABLE}
+            "${TBX_CODEGEN_ROOT}/tbx_attribute_codegen.py"
+            --emit-module-registration
+            --module-name "${TBX_CODEGEN_MODULE_NAME}"
+            --module-output "${module_stem}"
+            --include-root "${TBX_CODEGEN_SOURCE_ROOT}"
+            ${api_macro_args}
+            ${module_inputs}
+        DEPENDS
+            ${module_inputs}
+            ${module_codegen_sources}
+        COMMENT "Generating Toybox module type registration for ${TBX_CODEGEN_MODULE_NAME}"
+        VERBATIM
+    )
+
+    string(MAKE_C_IDENTIFIER
+        "${TBX_CODEGEN_TARGET}_ModuleRegistrationCodegen_${TBX_CODEGEN_MODULE_NAME}"
+        module_registration_codegen_target)
+    add_custom_target(${module_registration_codegen_target}
+        DEPENDS "${output_header}" "${output_source}")
+    set_target_properties(${module_registration_codegen_target} PROPERTIES FOLDER "utility")
+    add_dependencies(${TBX_CODEGEN_TARGET} ${module_registration_codegen_target})
+
+    set_source_files_properties("${output_header}" PROPERTIES HEADER_FILE_ONLY TRUE)
+    target_sources(${TBX_CODEGEN_TARGET} PRIVATE "${output_header}" "${output_source}")
+    target_include_directories(${TBX_CODEGEN_TARGET}
+        ${include_scope}
+            $<BUILD_INTERFACE:${TBX_CODEGEN_OUTPUT_ROOT}>
+    )
+
+    tbx_codegen_register_generated_files(
+        BASE_DIR "${TBX_CODEGEN_OUTPUT_ROOT}"
+        FILES "${output_header}" "${output_source}"
+    )
+endfunction()
+
 function(tbx_codegen_generate_plugin_registration)
     set(options)
     set(one_value_args TARGET BASE_DIR)
@@ -158,7 +264,7 @@ function(tbx_codegen_generate_plugin_registration)
         message(FATAL_ERROR "tbx_codegen_generate_plugin_registration: BASE_DIR is required")
     endif()
     if(NOT DEFINED TBX_PLUGIN_ABI_VERSION)
-        set(TBX_PLUGIN_ABI_VERSION 1)
+        set(TBX_PLUGIN_ABI_VERSION 2)
     endif()
 
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -196,7 +302,7 @@ function(tbx_codegen_generate_plugin_registration)
     list(SORT plugin_attribute_inputs)
 
     set(plugin_input "")
-    set(script_inputs "")
+    set(registration_inputs "")
     foreach(attribute_input IN LISTS plugin_attribute_inputs)
         file(READ "${attribute_input}" attribute_input_text)
         if(attribute_input_text MATCHES "\\[\\[(tbx::)?register_plugin")
@@ -206,8 +312,12 @@ function(tbx_codegen_generate_plugin_registration)
             endif()
             set(plugin_input "${attribute_input}")
         endif()
-        if(attribute_input_text MATCHES "\\[\\[(tbx::)?register_script")
-            list(APPEND script_inputs "${attribute_input}")
+        # Every attribute-bearing file feeds the entry point: the generator wires up only the types
+        # whose glue defines a registrar (scripts, serializables, assets).
+        if(attribute_input_text MATCHES "\\[\\[tbx::"
+            OR attribute_input_text MATCHES "\\[\\[(tbx::)?register_script"
+            OR attribute_input_text MATCHES "#include[ \t]+\"[^\"]+\\.generated\\.h\"")
+            list(APPEND registration_inputs "${attribute_input}")
         endif()
     endforeach()
 
@@ -226,9 +336,9 @@ function(tbx_codegen_generate_plugin_registration)
     set(output_header "${generated_dir}/${input_stem}.generated.h")
     set(output_source "${generated_dir}/${input_stem}.generated.cpp")
     set(output_plugin_meta "${generated_dir}/${input_stem}.plugin.meta")
-    set(script_input_args "")
-    foreach(script_input IN LISTS script_inputs)
-        list(APPEND script_input_args --script-input "${script_input}")
+    set(registration_input_args "")
+    foreach(registration_input IN LISTS registration_inputs)
+        list(APPEND registration_input_args --registration-input "${registration_input}")
     endforeach()
 
     add_custom_command(
@@ -244,12 +354,12 @@ function(tbx_codegen_generate_plugin_registration)
             --output-plugin-meta "${output_plugin_meta}"
             --include-root "${TBX_CODEGEN_BASE_DIR}/src"
             --plugin-abi-version "${TBX_PLUGIN_ABI_VERSION}"
-            --script-include-root "${TBX_CODEGEN_BASE_DIR}/src"
+            --registration-include-root "${TBX_CODEGEN_BASE_DIR}/src"
             --plugin-resource-directory "${plugin_resource_directory}"
-            ${script_input_args}
+            ${registration_input_args}
         DEPENDS
             "${plugin_input}"
-            ${script_inputs}
+            ${registration_inputs}
             ${attribute_codegen_sources}
         COMMENT "Generating Toybox plugin entry points for ${TBX_CODEGEN_TARGET}"
         VERBATIM
@@ -310,6 +420,7 @@ function(tbx_codegen_generate_app_registration)
     list(SORT app_attribute_inputs)
 
     set(app_input "")
+    set(registration_inputs "")
     foreach(attribute_input IN LISTS app_attribute_inputs)
         file(READ "${attribute_input}" attribute_input_text)
         if(attribute_input_text MATCHES "\\[\\[tbx::app")
@@ -318,6 +429,13 @@ function(tbx_codegen_generate_app_registration)
                     "tbx_codegen_generate_app_registration: target '${TBX_CODEGEN_TARGET}' has multiple [[tbx::app]] declarations")
             endif()
             set(app_input "${attribute_input}")
+        endif()
+        # App-module types register through the generated tbx_register_app_types export; every
+        # attribute-bearing file feeds it and the generator keeps only registrar-defining types.
+        if(attribute_input_text MATCHES "\\[\\[tbx::"
+            OR attribute_input_text MATCHES "\\[\\[(tbx::)?register_script"
+            OR attribute_input_text MATCHES "#include[ \t]+\"[^\"]+\\.generated\\.h\"")
+            list(APPEND registration_inputs "${attribute_input}")
         endif()
     endforeach()
 
@@ -336,6 +454,11 @@ function(tbx_codegen_generate_app_registration)
     set(output_header "${generated_dir}/${input_stem}.generated.h")
     set(output_source "${generated_dir}/${input_stem}.generated.cpp")
 
+    set(registration_input_args "")
+    foreach(registration_input IN LISTS registration_inputs)
+        list(APPEND registration_input_args --registration-input "${registration_input}")
+    endforeach()
+
     add_custom_command(
         OUTPUT
             "${output_header}"
@@ -346,8 +469,11 @@ function(tbx_codegen_generate_app_registration)
             --output-header "${output_header}"
             --output-source "${output_source}"
             --include-root "${TBX_CODEGEN_SOURCE_DIR}"
+            --registration-include-root "${TBX_CODEGEN_SOURCE_DIR}"
+            ${registration_input_args}
         DEPENDS
             "${app_input}"
+            ${registration_inputs}
             ${attribute_codegen_sources}
         COMMENT "Generating Toybox app entry points for ${TBX_CODEGEN_TARGET}"
         VERBATIM

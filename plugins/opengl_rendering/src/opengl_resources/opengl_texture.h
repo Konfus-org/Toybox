@@ -44,7 +44,7 @@ namespace opengl_rendering
         /// being reallocated. Thread Safety: render thread only.
         GLuint64 get_or_create_bindless_handle();
         void update(
-            const tbx::TextureUpdateDesc& desc,
+            const tbx::TextureRegion& region,
             GLenum upload_format,
             GLenum upload_type,
             const void* data) const;

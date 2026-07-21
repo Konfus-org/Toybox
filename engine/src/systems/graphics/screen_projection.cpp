@@ -7,7 +7,8 @@ namespace tbx
 {
     std::vector<EntityScreenPosition> project_entities_to_screen(
         const CameraView& camera,
-        World& world)
+        World& world,
+        const std::unordered_set<Uuid>* only)
     {
         // Project through one precomputed view-projection — CameraView::project_to_screen would rebuild
         // it per entity, which is wasteful when sweeping a whole world.
@@ -17,6 +18,14 @@ namespace tbx
         auto positions = std::vector<EntityScreenPosition>();
         for (auto entity : world.get_with<Transform>())
         {
+            if (only != nullptr && !only->contains(entity.get_id()))
+                continue;
+
+            // Transient entities (a host's injected view cameras) are plumbing, not world content —
+            // never worth a screen anchor.
+            if (!entity.is_serialized())
+                continue;
+
             const auto world_position =
                 entity.get_component<Transform>().to_world_space(entity).position;
 

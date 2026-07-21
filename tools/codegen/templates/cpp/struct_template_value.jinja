@@ -1,0 +1,13 @@
+{{ template_header }}
+void serialize(::tbx::Json& tbx_json, const {{ type_reference }}& tbx_value)
+{
+    tbx_json = ::tbx::write_serialization_value<::tbx::Json>(
+        tbx_value.{{ field_name }});
+}
+{{ template_header }}
+void deserialize(const ::tbx::Json& tbx_json, {{ type_reference }}& tbx_value)
+{
+    ::tbx::read_serialization_value(
+        tbx_json,
+        tbx_value.{{ field_name }});
+}

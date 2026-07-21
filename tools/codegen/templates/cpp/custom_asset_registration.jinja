@@ -1,0 +1,19 @@
+::tbx::register_asset_body_type<{{ name }}>(
+    tbx_runtime,
+    {{ version }},
+    [](std::string_view data, {{ name }}& value)
+    {
+        ::tbx::pre_deserialize(value);
+        if (!{{ read_callable }}(data, value))
+            return ::tbx::make_serialization_failure(
+                "Failed to parse custom Toybox asset body.");
+        ::tbx::post_deserialize(value);
+        return ::tbx::Result();
+    },
+    [](const {{ name }}& value, std::string& output)
+    {
+        ::tbx::pre_serialize(value);
+        output = {{ write_callable }}(value);
+        ::tbx::post_serialize(value);
+        return ::tbx::Result();
+    });

@@ -1,30 +1,21 @@
+"""Shared type-name / version glue — rendered through the C++ template pack (``templates/cpp``)."""
+
 from __future__ import annotations
 
 from model import SerializableType, cpp_string, type_name, type_version
+from render import render_lines
 
 
 def emit_type_name(type_info: SerializableType) -> list[str]:
-    return [
-        f"inline constexpr std::string_view serialization_type_name(const {type_info.name}*)",
-        "{",
-        f"    return {cpp_string(type_name(type_info))};",
-        "}",
-        "",
-    ]
+    return render_lines(
+        "cpp/type_name.jinja",
+        name=type_info.name,
+        type_name=cpp_string(type_name(type_info)),
+    )
 
 
 def emit_version(type_info: SerializableType) -> list[str]:
     version = type_version(type_info)
     if version is None:
         return []
-    return [
-        f"inline std::true_type has_serialization_version(const {type_info.name}*)",
-        "{",
-        "    return {};",
-        "}",
-        f"inline std::integral_constant<uint32, {version}> serialization_version(const {type_info.name}*)",
-        "{",
-        "    return {};",
-        "}",
-        "",
-    ]
+    return render_lines("cpp/version.jinja", name=type_info.name, version=version)

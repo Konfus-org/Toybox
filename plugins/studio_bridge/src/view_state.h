@@ -12,13 +12,13 @@
 namespace tbx::studio_bridge
 {
     /// @brief
-    /// Purpose: The editor's render views — the view-stream collection, each view's camera (registered
-    /// with the engine as an ExternalCamera, which the engine renders), and the cross-process shared
-    /// GPU surface lifecycle. Nothing here renders: the engine renders the external cameras and the
-    /// gizmo/collider/selection passes draw the overlays. Plain state: view_ops owns the behavior
-    /// (view start/stop, camera seeding/sync, the present-callback surface lifecycle, and the
-    /// view-resolution queries every other domain calls). Other subsystems reach the views through
-    /// with_views_locked / resolve_view_camera.
+    /// Purpose: The editor's render views — the view-stream collection, each view's camera (mirrored
+    /// onto a transient camera entity injected into the view's world, which the engine renders like
+    /// any world camera), and the cross-process shared GPU surface lifecycle. Nothing here renders:
+    /// the engine renders the world cameras and the gizmo/collider/selection passes draw the
+    /// overlays. Plain state: view_ops owns the behavior (view start/stop, camera seeding/sync, the
+    /// present-callback surface lifecycle, and the view-resolution queries every other domain calls).
+    /// Other subsystems reach the views through with_views_locked / resolve_view_camera.
     /// @details
     /// Ownership: Owned by the plugin by value. Owns the streams (and through them each view's render
     /// texture + external-camera registration), their forwarded input, and the pending shared-surface
@@ -42,8 +42,8 @@ namespace tbx::studio_bridge
         // The forwarded input for each live view, keyed by view name — created and dropped with the view
         // so it never outlives its stream. Kept off the stream so a ViewStream is purely render state.
         std::unordered_map<std::string, ViewInput> inputs = {};
-        // Render textures of stopped views awaiting shared-surface teardown on the render lane.
-        std::vector<tbx::RenderTexture> pending_shared_destroys = {};
+        // Shared-texture resource ids of stopped views awaiting teardown on the render lane.
+        std::vector<tbx::GpuId> pending_shared_destroys = {};
         mutable std::mutex mutex = {};
     };
 }

@@ -5,7 +5,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from generator import GENERATED_CODE_BANNER, generate_header, generate_source
+from generator import (
+    GENERATED_CODE_BANNER,
+    generate_header,
+    generate_module_registration_header,
+    generate_module_registration_source,
+    generate_source,
+    registrar_call_lines,
+    run_module_registration_codegen,
+)
 from model import CodegenError, external_name, fields_of, find_attr
 from parser import parse_source
 from resource_codegen import generate_builtin_asset_headers, generate_material_instance_header
@@ -47,6 +55,44 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertIn("tbx_value.amount);", source_output)
         self.assertTrue(output.startswith(GENERATED_CODE_BANNER))
 
+    def test_editor_hint_attributes_are_passive(self) -> None:
+        # icon/color/slider/hidden annotate a type/field for the editor property grid but must not
+        # affect serialization: every field still serializes, and the hints ride along in the IR.
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            [[icon(Move)]];
+            [[color(Blue)]];
+            struct Widget
+            {
+                [[slider(0, 1)]] float intensity = 0.0f;
+                [[hidden]] int cache = 0;
+                float normal_field = 0.0f;
+            };
+            }
+            """
+        widget = parse_source(textwrap.dedent(source))[0]
+        self.assertIsNotNone(find_attr(widget.attrs, "icon"))
+        self.assertIsNotNone(find_attr(widget.attrs, "color"))
+        source_output = self.generate_source(source)
+        for field_key in ('"intensity"', '"cache"', '"normal_field"'):
+            self.assertIn(field_key, source_output)
+
+    def test_editor_hint_attribute_arity_is_validated(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            struct Widget
+            {
+                [[slider(0, 1, 2)]] float intensity = 0.0f;
+            };
+            }
+            """
+        with self.assertRaises(CodegenError):
+            self.generate(source)
+
     def test_single_field_struct_serialization_is_flattened(self) -> None:
         source = """
             namespace tbx::tests
@@ -63,10 +109,9 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn("tbx_json = ::tbx::write_serialization_value<::tbx::Json>(", output)
         self.assertIn("if (tbx_json.is_object() || tbx_json.is_null())", output)
-        # The keyed branch must unwrap the self-describing { "type", "value" } wrapper so a typed
-        # single field (e.g. an enum) authored in the keyed form loads its real value instead of
-        # falling back to the type's default.
-        self.assertIn("::tbx::read_typed_serialization_field(", output)
+        # The keyed branch reads the field back by key (the force_keyed asset-body form), while the
+        # bare form reads the field value directly.
+        self.assertIn("::tbx::read_serialization_field(", output)
         self.assertIn("::tbx::read_serialization_value(", output)
 
     def test_template_value_type_gets_header_only_passthrough_serialization(self) -> None:
@@ -119,33 +164,10 @@ class AttributeCodegenTests(unittest.TestCase):
 
         output = self.generate_source(source)
 
-        self.assertIn("::tbx::write_typed_serialization_field(", output)
-        self.assertIn("::tbx::read_typed_serialization_field(", output)
+        self.assertIn("::tbx::write_serialization_field(", output)
+        self.assertIn("::tbx::read_serialization_field(", output)
         self.assertIn('"amount"', output)
         self.assertIn('"count"', output)
-
-    def test_fields_emit_declaration_order_metadata(self) -> None:
-        source = """
-            namespace tbx::tests
-            {
-            [[serializable]];
-            struct Value
-            {
-                int amount = 0;
-
-                int other = 0;
-            };
-            }
-            """
-
-        output = self.generate_source(source)
-
-        # Structural metadata (nested wire type, declaration order) is baked into the generated
-        # serialize as a PropertyAttributeInfo descriptor, emitted inline next to the value when
-        # attribute serialization is on. There is no separate reflection record.
-        self.assertIn("::tbx::PropertyAttributeInfo", output)
-        self.assertIn(".order = 0", output)
-        self.assertIn(".order = 1", output)
 
     def test_no_reflection_registry_is_generated(self) -> None:
         source = """
@@ -163,17 +185,17 @@ class AttributeCodegenTests(unittest.TestCase):
 
         output = self.generate_source(source)
 
-        # The runtime type-reflection registry is gone: no TypeReflection record, builder, or registrar.
-        # Metadata travels through serialization (PropertyAttributeInfo) and a describe() thunk on the
-        # serializable registration instead.
+        # There is no reflection registry or metadata: no TypeReflection record, builder, registrar,
+        # or per-field PropertyAttributeInfo descriptor — the generated serialize writes plain values.
         self.assertNotIn("TypeReflection", output)
         self.assertNotIn("register_type_reflection", output)
         self.assertNotIn("TBX_REFLECTION_AUTO_REGISTER", output)
         self.assertNotIn("tbx_build_type_reflection", output)
-        # The serializable registration is still emitted; the describe metadata is added generically
-        # by make_serializable_type_registration, not per-type codegen.
+        self.assertNotIn("PropertyAttributeInfo", output)
+        # The serializable registration is still emitted (name -> read/write) as an explicitly
+        # callable registrar taking the per-module registration container.
         self.assertIn(
-            "register_serializable_type(static_cast<const Value*>(nullptr))",
+            "bool register_serializable_type(const Value*, ::tbx::RuntimeRegistrations* tbx_runtime)",
             output,
         )
 
@@ -213,7 +235,10 @@ class AttributeCodegenTests(unittest.TestCase):
         )
 
         self.assertIn("std::true_type has_struct_serialization(const Value*);", output)
-        self.assertIn("bool register_serializable_type(const Value*);", output)
+        self.assertIn(
+            "bool register_serializable_type(const Value*, ::tbx::RuntimeRegistrations* tbx_runtime);",
+            output,
+        )
         self.assertNotIn("tbx_value.", output)
         self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", output)
 
@@ -402,9 +427,7 @@ class AttributeCodegenTests(unittest.TestCase):
         output = generate_source("example_plugin.generated.h", types, "tbx/tests/example_plugin.h")
 
         self.assertIn(
-            'meta.dependencies = {"SdlBaseSystemsPlugin", "SdlWindowingPlugin", '
-            '"SdlOpenGlContextManagerPlugin", "OpenGlRenderingPlugin", "SdlInputPlugin", '
-            '"JoltPhysicsPlugin", "AssimpModelLoaderPlugin", "StbImageLoaderPlugin", '
+            'meta.dependencies = {"JoltPhysics", "AssimpModelLoader", "StbImageLoader", '
             '"ShaderIncludeLoader", "PerformanceMonitor"};',
             output,
         )
@@ -442,8 +465,8 @@ class AttributeCodegenTests(unittest.TestCase):
             "example_plugin.generated.h",
             plugin_types,
             "tbx/tests/example_plugin.h",
-            script_types=script_types,
-            script_include_paths=["tbx/tests/door_controller.h"],
+            registration_types=script_types,
+            registration_include_paths=["tbx/tests/door_controller.h"],
         )
 
         # The plugin source includes each script header and invokes its registration wrapper; the
@@ -451,7 +474,7 @@ class AttributeCodegenTests(unittest.TestCase):
         # script's own generated source, not the plugin source.
         self.assertIn('#include "tbx/tests/door_controller.h"', output)
         self.assertIn("void tbx_register_plugin_services(", output)
-        self.assertIn("tbx::tests::register_script_type_DoorController()", output)
+        self.assertIn("tbx::tests::register_script_type_DoorController(*registrations);", output)
         self.assertNotIn("tbx_register_plugin_scripts", output)
         self.assertNotIn("tbx_unregister_plugin_scripts", output)
         self.assertNotIn("unregister_asset_type_entry", output)
@@ -934,31 +957,7 @@ class AttributeCodegenTests(unittest.TestCase):
         self.assertNotIn("TypeReflection", output)
         self.assertNotIn("register_type_reflection", output)
 
-    def test_nested_type_name_is_emitted_for_struct_and_vector_props(self) -> None:
-        output = self.generate_source(
-            """
-            namespace tbx::tests
-            {
-            [[serializable]];
-            struct Inner
-            {
-                int a = 0;
-            };
-            [[serializable]];
-            struct Outer
-            {
-                Inner inner = {};
-
-                std::vector<Inner> items = {};
-            };
-            }
-            """
-        )
-        # Both the nested struct field and the vector-of-struct field resolve to the element wire name,
-        # emitted as the attribute descriptor's nested name.
-        self.assertIn('.nested = "inner"', output)
-
-    def test_map_prop_serializes_and_resolves_value_type_for_reflection(self) -> None:
+    def test_map_prop_serializes_through_generic_value_template(self) -> None:
         output = self.generate_source(
             """
             namespace tbx::tests
@@ -978,11 +977,8 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        # Map fields serialize through the generic value template (no map-specific emission)...
+        # Map fields serialize through the generic value template (no map-specific emission).
         self.assertIn("tbx_value.by_id,", output)
-        # ...and the nested (mapped) type name resolves to the value type's wire name in the attribute
-        # descriptor so the editor can resolve it.
-        self.assertIn('.nested = "inner"', output)
 
     def test_core_render_pipeline_script_registration_is_generated(self) -> None:
         output = self.generate_source(
@@ -1019,7 +1015,7 @@ class AttributeCodegenTests(unittest.TestCase):
 
         self.assertIn("write_script_reference_field(", output)
         self.assertIn("read_script_reference_field(", output)
-        self.assertIn("ScriptBinding", output)
+        self.assertIn("parse_script_reference_value(", output)
         self.assertIn('set_script_reference("linked_door"', output)
         self.assertIn("bind_script_reference_field(", output)
 
@@ -1038,7 +1034,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_asset_type<Value>(3)", output)
+        self.assertIn("::tbx::register_asset_type<Value>(tbx_runtime, 3);", output)
         self.assertNotIn("register_asset_body_type<Value>", output)
         self.assertNotIn("register_asset_meta_type<Value>", output)
 
@@ -1080,7 +1076,7 @@ class AttributeCodegenTests(unittest.TestCase):
             }
             """
         )
-        self.assertIn("register_asset_type<Value>(4)", output)
+        self.assertIn("::tbx::register_asset_type<Value>(tbx_runtime, 4);", output)
         self.assertIn("register_asset_body_type<Value>", output)
         self.assertIn("register_asset_meta_type<Value>", output)
 
@@ -1622,4 +1618,374 @@ class AttributeCodegenTests(unittest.TestCase):
                 };
                 }
                 """
+            )
+
+    def test_serializable_registrar_takes_runtime_registrations(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            struct Value
+            {
+                int amount = 0;
+            };
+            }
+            """
+
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn(
+            "bool register_serializable_type(const Value*, ::tbx::RuntimeRegistrations* tbx_runtime);",
+            header_output,
+        )
+        self.assertIn(
+            "bool register_serializable_type(const Value*, ::tbx::RuntimeRegistrations* tbx_runtime)",
+            source_output,
+        )
+        # The registrar forwards the runtime by reference into the engine template overload.
+        self.assertIn("*tbx_runtime,", source_output)
+        self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", source_output)
+
+    def test_asset_registrations_are_aggregated_into_one_function(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[serializable]];
+            [[version(2)]];
+            struct Value : Asset
+            {
+                int amount = 0;
+                [[meta]]
+                int import_version = 0;
+            };
+            }
+            """
+
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn(
+            "bool register_asset_registrations_Value(::tbx::RuntimeRegistrations& tbx_runtime);",
+            header_output,
+        )
+        self.assertIn(
+            "bool register_asset_registrations_Value(::tbx::RuntimeRegistrations& tbx_runtime)",
+            source_output,
+        )
+        type_index = source_output.find("::tbx::register_asset_type<Value>(tbx_runtime, 2);")
+        body_index = source_output.find("::tbx::register_asset_body_type<Value>(")
+        meta_index = source_output.find("::tbx::register_asset_meta_type<Value>(")
+        function_index = source_output.find("bool register_asset_registrations_Value(")
+        self.assertNotEqual(-1, type_index)
+        self.assertNotEqual(-1, body_index)
+        self.assertNotEqual(-1, meta_index)
+        self.assertLess(function_index, type_index)
+        self.assertLess(type_index, body_index)
+        self.assertLess(body_index, meta_index)
+        self.assertIn("tbx_runtime,", source_output)
+        self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", source_output)
+
+    def test_script_registrar_takes_runtime_registrations(self) -> None:
+        source = """
+            namespace tbx::tests
+            {
+            [[register_script]]
+            [[version(1)]]
+            class DoorController : public tbx::Script
+            {
+              public:
+                float open_speed = 1.0F;
+            };
+            }
+            """
+
+        header_output = self.generate(source)
+        source_output = self.generate_source(source)
+
+        self.assertIn(
+            "bool register_script_type_DoorController(::tbx::RuntimeRegistrations& tbx_runtime);",
+            header_output,
+        )
+        self.assertIn(
+            "bool register_script_type_DoorController(::tbx::RuntimeRegistrations& tbx_runtime)",
+            source_output,
+        )
+        self.assertIn(">(tbx_runtime, 1);", source_output)
+        self.assertNotIn("TBX_SERIALIZATION_AUTO_REGISTER", source_output)
+
+    def test_plugin_entries_take_registrations_and_call_registrars(self) -> None:
+        plugin_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[register_plugin("ExamplePlugin", "1.2.3")]];
+                [[register(tbx::IWindowManager, create_window_manager)]];
+                class ExamplePlugin final : public tbx::Plugin
+                {
+                  public:
+                    std::shared_ptr<tbx::IWindowManager> create_window_manager(
+                        tbx::ServiceProvider& service_provider);
+
+                    [[inject]]
+                    std::weak_ptr<tbx::IWindowManager> window_manager = {};
+                };
+                }
+                """
+            )
+        )
+        registration_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[serializable]];
+                struct Settings
+                {
+                    int amount = 0;
+
+                    int count = 0;
+                };
+
+                [[serializable]];
+                [[version(2)]];
+                struct Level : Asset
+                {
+                    int seed = 0;
+                };
+
+                [[register_script]];
+                [[version(7U)]];
+                class DoorController final : public tbx::Script
+                {
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source(
+            "example_plugin.generated.h",
+            plugin_types,
+            "tbx/tests/example_plugin.h",
+            registration_types=registration_types,
+            registration_include_paths=["tbx/tests/game_types.h"],
+        )
+
+        self.assertIn('#include "tbx/tests/game_types.h"', output)
+        self.assertIn(
+            "TBX_PLUGIN_ENTRY_EXPORT void tbx_register_plugin_services(\n"
+            "    ::tbx::Plugin* plugin,\n"
+            "    ::tbx::ServiceProvider* service_provider,\n"
+            "    ::tbx::RuntimeRegistrations* registrations)",
+            output,
+        )
+        self.assertIn(
+            "TBX_PLUGIN_ENTRY_EXPORT void tbx_bind_plugin_runtime(\n"
+            "    ::tbx::Plugin* plugin,\n"
+            "    ::tbx::ServiceProvider* service_provider,\n"
+            "    ::tbx::RuntimeRegistrations* registrations)",
+            output,
+        )
+        self.assertIn(
+            "if (plugin == nullptr || service_provider == nullptr || registrations == nullptr)",
+            output,
+        )
+        self.assertIn("tbx::tests::register_serializable_type(", output)
+        self.assertIn("static_cast<const tbx::tests::Settings*>(nullptr),", output)
+        self.assertIn("tbx::tests::register_asset_registrations_Level(*registrations);", output)
+        self.assertIn("tbx::tests::register_script_type_DoorController(*registrations);", output)
+        # Type registrars run before service registration.
+        registrar_index = output.find("tbx::tests::register_serializable_type(")
+        services_index = output.find("::tbx::register_runtime_services(")
+        self.assertNotEqual(-1, services_index)
+        self.assertLess(registrar_index, services_index)
+
+    def test_app_source_generates_type_registration_export(self) -> None:
+        app_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[app(name = "ExampleApp", version = "1.2.3")]];
+                class ExampleApp final : public tbx::Application
+                {
+                };
+                }
+                """
+            )
+        )
+        registration_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[serializable]];
+                struct Settings
+                {
+                    int amount = 0;
+
+                    int count = 0;
+                };
+                }
+                """
+            )
+        )
+
+        output = generate_source(
+            "example_app.generated.h",
+            app_types,
+            "tbx/tests/example_app.h",
+            registration_types=registration_types,
+            registration_include_paths=["tbx/tests/game_types.h"],
+        )
+
+        self.assertIn('#include "tbx/tests/game_types.h"', output)
+        self.assertIn(
+            "TBX_APP_ENTRY_EXPORT void tbx_register_app_types(::tbx::RuntimeRegistrations* registrations)",
+            output,
+        )
+        self.assertIn("if (registrations == nullptr)", output)
+        self.assertIn("tbx::tests::register_serializable_type(", output)
+        self.assertIn("static_cast<const tbx::tests::Settings*>(nullptr),", output)
+
+        # The export is emitted even when the app module contributes no registrars.
+        empty_output = generate_source(
+            "example_app.generated.h",
+            app_types,
+            "tbx/tests/example_app.h",
+        )
+        self.assertIn(
+            "TBX_APP_ENTRY_EXPORT void tbx_register_app_types(::tbx::RuntimeRegistrations* registrations)",
+            empty_output,
+        )
+        self.assertNotIn("register_serializable_type(", empty_output)
+
+    def test_module_registration_mode_emits_header_and_source(self) -> None:
+        module_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx::tests
+                {
+                [[serializable]];
+                struct Settings
+                {
+                    int amount = 0;
+
+                    int count = 0;
+                };
+
+                [[serializable]];
+                [[version(2)]];
+                struct Level : Asset
+                {
+                    int seed = 0;
+                };
+
+                [[serializable]];
+                enum class Mode
+                {
+                    FULL [[name("full")]]
+                };
+                }
+                """
+            )
+        )
+
+        call_lines: list[str] = []
+        for module_type in module_types:
+            call_lines.extend(registrar_call_lines(module_type, "registrations", "&registrations"))
+        header_output = generate_module_registration_header("engine", "TBX_API")
+        source_output = generate_module_registration_source(
+            "engine",
+            "engine_types.generated.h",
+            [("tbx/tests/game_types.h", "game_types.generated.h", call_lines)],
+        )
+
+        self.assertIn("#pragma once", header_output)
+        self.assertIn('#include "tbx/tbx_api.h"', header_output)
+        self.assertIn("class RuntimeRegistrations;", header_output)
+        self.assertIn(
+            "TBX_API void register_engine_types(RuntimeRegistrations& registrations);",
+            header_output,
+        )
+        self.assertIn('#include "engine_types.generated.h"', source_output)
+        self.assertIn('#include "tbx/tests/game_types.h"', source_output)
+        self.assertIn('#include "game_types.generated.h"', source_output)
+        self.assertIn(
+            "void register_engine_types(RuntimeRegistrations& registrations)",
+            source_output,
+        )
+        self.assertIn("tbx::tests::register_serializable_type(", source_output)
+        self.assertIn("static_cast<const tbx::tests::Settings*>(nullptr),", source_output)
+        self.assertIn("&registrations);", source_output)
+        self.assertIn("tbx::tests::register_asset_registrations_Level(registrations);", source_output)
+        # A plain enum has no runtime registrar; nothing about it lands in the aggregator.
+        self.assertNotIn("Mode", source_output)
+
+    def test_module_registration_codegen_resolves_nested_generated_includes(self) -> None:
+        # The aggregator cpp must include each input's generated header at the SAME relative path as
+        # the input (the generated tree mirrors the source layout); a bare stem would not resolve.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            nested_dir = root / "include" / "tbx" / "types"
+            nested_dir.mkdir(parents=True)
+            (nested_dir / "widget.h").write_text(
+                textwrap.dedent(
+                    """
+                    namespace tbx::tests
+                    {
+                    [[serializable]];
+                    struct Widget
+                    {
+                        int amount = 0;
+
+                        int count = 0;
+                    };
+                    }
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            output_stem = root / "generated" / "engine_types"
+            run_module_registration_codegen(
+                "engine",
+                "TBX_API",
+                output_stem,
+                [nested_dir / "widget.h"],
+                root / "include",
+            )
+
+            source_output = (root / "generated" / "engine_types.generated.cpp").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn('#include "tbx/types/widget.h"', source_output)
+            self.assertIn('#include "tbx/types/widget.generated.h"', source_output)
+
+    def test_types_without_registrars_contribute_no_registrar_calls(self) -> None:
+        module_types = parse_source(
+            textwrap.dedent(
+                """
+                namespace tbx
+                {
+                [[serializable]];
+                template <typename TAsset>
+                struct AssetHandle
+                {
+                    Handle handle = {};
+                };
+
+                [[serializable]];
+                using Variant = std::variant<int, float>;
+                }
+                """
+            )
+        )
+
+        for module_type in module_types:
+            self.assertEqual(
+                [],
+                registrar_call_lines(module_type, "registrations", "&registrations"),
             )

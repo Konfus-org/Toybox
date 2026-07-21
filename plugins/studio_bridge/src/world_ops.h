@@ -50,12 +50,28 @@ namespace tbx::studio_bridge
     /// @brief Binds a script to an entity.
     Result add_script(const EngineServices& services, ViewState& views, const tbx::Json& params);
 
+    /// @brief Detaches one script binding from an entity by its engine-assigned { bindingId }.
+    Result remove_script(
+        const EngineServices& services, ViewState& views, const tbx::Json& params);
+
+    /// @brief The field schema of the script asset with the given id as a plain { field: default }
+    /// object (the script's authored default body). Empty object when the id resolves to no
+    /// describable script. Shared by the describe enrichment and the script-override sync ops
+    /// (script_override_ops), which need the same per-field defaults.
+    tbx::Json describe_script_schema(const EngineServices& services, uint64 script_id);
+
     /// @brief Creates an entity, replying with its new id.
     Result create_entity(
         const EngineServices& services,
         ViewState& views,
         const tbx::Json& params,
         tbx::Json& out_reply);
+
+    /// @brief Clones the { entityId } entity and its whole subtree — components, script bindings and
+    /// scalar state included — placing the clone after the last of the source's siblings. The clones
+    /// get fresh entity ids and fresh script binding ids, so they are independent of their sources.
+    Result duplicate_entity(
+        const EngineServices& services, ViewState& views, const tbx::Json& params);
 
     /// @brief Destroys an entity (and its descendants).
     Result destroy_entity(

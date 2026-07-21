@@ -65,14 +65,23 @@ namespace tbx
     /// trigger.
     /// @details
     /// A trigger is the collider's overlap behavior split into its own component: it reports
-    /// begin/stay/end overlaps with other physics bodies through its callback lists. An entity with a
-    /// trigger but no collider of the same shape is a sensor (no physical collision). All overlap
+    /// begin/stay/end overlaps with other physics bodies through its callback lists. An entity with
+    /// a trigger but no collider of the same shape is a sensor (no physical collision). All overlap
     /// callbacks and the pending-scan request are runtime-only and never serialized.
     /// Ownership: Owns overlap settings by value; callback lifetimes are owned by the lists.
     /// Thread Safety: Not thread-safe; mutate and trigger from the main thread.
     [[serializable]];
     struct TBX_API Trigger : Component
     {
+        // Polymorphic so a physics backend can recover the concrete shaped trigger (BoxTrigger,
+        // SphereTrigger, ...) from a `const Trigger&` via dynamic_cast.
+        Trigger() = default;
+        Trigger(const Trigger&) = default;
+        Trigger(Trigger&&) noexcept = default;
+        Trigger& operator=(const Trigger&) = default;
+        Trigger& operator=(Trigger&&) noexcept = default;
+        virtual ~Trigger() noexcept = default;
+
         ColliderOverlapExecutionMode overlap_execution_mode = ColliderOverlapExecutionMode::AUTO;
 
         bool is_overlap_enabled = true;
@@ -112,6 +121,15 @@ namespace tbx
     [[serializable]];
     struct TBX_API Collider : Component
     {
+        // Polymorphic so a physics backend can recover the concrete shaped collider (BoxCollider,
+        // SphereCollider, ...) from a `const Collider&` via dynamic_cast.
+        Collider() = default;
+        Collider(const Collider&) = default;
+        Collider(Collider&&) noexcept = default;
+        Collider& operator=(const Collider&) = default;
+        Collider& operator=(Collider&&) noexcept = default;
+        virtual ~Collider() noexcept = default;
+
         // Runtime contact state — set at play time and never persisted.
         [[do_not_serialize]]
         std::vector<ColliderContactCallback> contact_begin_callbacks = {};
@@ -147,7 +165,6 @@ namespace tbx
         CapsuleCollider(float collider_radius, float collider_half_height);
 
         float radius = 0.5F;
-
         float half_height = 0.5F;
     };
 
@@ -193,7 +210,8 @@ namespace tbx
         float half_height = 0.5F;
     };
 
-    /// @brief Purpose: A mesh-shaped overlap trigger sourced from the entity's model (its Renderer).
+    /// @brief Purpose: A mesh-shaped overlap trigger sourced from the entity's model (its
+    /// Renderer).
     [[serializable]];
     struct TBX_API MeshTrigger : Trigger
     {

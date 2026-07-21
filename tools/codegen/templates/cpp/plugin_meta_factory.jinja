@@ -1,0 +1,23 @@
+::tbx::PluginMeta tbx_get_plugin_meta()
+{
+    auto meta = ::tbx::PluginMeta {};
+    meta.name = {{ plugin_name }};
+    meta.version = {{ plugin_version }};
+    meta.description = {{ description }};
+    meta.dependencies = {{ dependency_initializer }};
+    meta.abi_version = {{ abi_version }}U;
+    meta.category = {{ category_expression }};
+    meta.linkage = ::tbx::PluginLinkage::DYNAMIC;
+    meta.priority = {{ priority }}U;
+    return meta;
+}
+
+TBX_PLUGIN_ENTRY_EXPORT ::tbx::Plugin* tbx_create_plugin()
+{
+    return new {{ qualified_plugin_name }}();
+}
+
+TBX_PLUGIN_ENTRY_EXPORT void tbx_destroy_plugin(::tbx::Plugin* plugin)
+{
+    delete plugin;
+}

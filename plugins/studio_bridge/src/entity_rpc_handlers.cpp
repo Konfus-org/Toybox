@@ -30,6 +30,12 @@ namespace tbx::studio_bridge
             {
                 r.respond(add_script(services, views, params));
             });
+        registrar.add(
+            Wire::ENTITY_REMOVE_SCRIPT,
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(remove_script(services, views, params));
+            });
         registrar.add_query(
             Wire::ENTITY_DESCRIBE,
             [&services, &views](const tbx::Json& params, tbx::Json& reply)
@@ -41,6 +47,12 @@ namespace tbx::studio_bridge
             [&services, &views](const tbx::Json& params, tbx::Json& reply)
             {
                 return create_entity(services, views, params, reply);
+            });
+        registrar.add(
+            Wire::ENTITY_DUPLICATE,
+            [&services, &views](const tbx::Json& params, tbx::RpcResponder& r)
+            {
+                r.respond(duplicate_entity(services, views, params));
             });
         registrar.add(
             Wire::ENTITY_DESTROY,

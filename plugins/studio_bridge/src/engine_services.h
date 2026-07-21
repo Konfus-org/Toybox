@@ -8,7 +8,6 @@
 #include "tbx/systems/input/input_manager.h"
 #include "tbx/systems/physics/physics.h"
 #include "tbx/systems/scripting/script_system.h"
-#include "tbx/systems/scripting/scripting_registry.h"
 #include "tbx/systems/world/manager.h"
 #include <functional>
 #include <memory>
@@ -34,13 +33,12 @@ namespace tbx::studio_bridge
         std::weak_ptr<tbx::AssetManager> asset_manager = {};
         std::weak_ptr<tbx::InputManager> input_manager = {};
         std::weak_ptr<tbx::Gizmos> gizmos = {};
-        std::weak_ptr<tbx::ScriptingRegistry> scripting_registry = {};
         // The simulation systems, reset when leaving play mode so no body/velocity or per-script
         // runtime state survives the restore of the pre-play world snapshot.
         std::weak_ptr<tbx::Physics> physics = {};
         std::weak_ptr<tbx::ScriptSystem> script_system = {};
 
-        // The RPC transport (published by the WindowsRPC plugin) the subsystems push notifications
+        // The RPC transport (published by the TcpRpc plugin) the subsystems push notifications
         // through. Set by the bridge once bound; subsystems lock it at the point of use.
         std::weak_ptr<tbx::IRpcHost> rpc_host = {};
         std::optional<std::reference_wrapper<const tbx::GraphicsSettings>> graphics_settings = {};

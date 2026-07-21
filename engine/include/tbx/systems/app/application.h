@@ -11,6 +11,7 @@
 #include "tbx/systems/graphics/gizmos.h"
 #include "tbx/systems/graphics/rendering.h"
 #include "tbx/systems/physics/physics.h"
+#include "tbx/systems/connections/property_connection_system.h"
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "tbx/systems/plugin_api/service_provider.h"
 #include "tbx/systems/scripting/script_system.h"
@@ -22,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <unordered_map>
 
 #if defined(TBX_PLATFORM_WINDOWS)
     #define TBX_APP_ENTRY_EXPORT extern "C" __declspec(dllexport)
@@ -115,10 +117,18 @@ namespace tbx
         std::weak_ptr<Gizmos> _gizmos = {};
         std::weak_ptr<Rendering> _rendering = {};
         std::weak_ptr<ScriptSystem> _script_system = {};
+        std::weak_ptr<PropertyConnectionSystem> _property_connections = {};
 
         uint64 _update_count = 0;
         double _time_running = 0;
         double _fixed_update_accumulator_seconds = 0.0;
+
+        // Idle-throttle bookkeeping for the per-frame camera renders in update(): the frame counter
+        // and the frame each camera last actually rendered, so a camera marked render-inactive (an
+        // idle editor viewport) is refreshed at a bounded interval instead of every frame. Entries
+        // for cameras that disappear are pruned each frame.
+        std::unordered_map<Uuid, uint64> _camera_last_render = {};
+        uint64 _camera_render_frame = 0U;
 
         // Optional --live-together-die-together watchdog: monitors the launching process and
         // requests exit when it dies. Declared last so it is stopped/joined first on teardown,
@@ -128,4 +138,8 @@ namespace tbx
 
     using CreateAppFn = Application* (*)();
     using DestroyAppFn = void (*)(Application*);
+    // Optional app-module export: registers the app's serializable/asset/script types into the
+    // given container. Resolved and invoked by the launcher before the app runs; absent when the
+    // app module defines no attribute types.
+    using RegisterAppTypesFn = void (*)(RuntimeRegistrations*);
 }

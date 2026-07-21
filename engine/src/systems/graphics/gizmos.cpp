@@ -605,7 +605,7 @@ namespace tbx
                 BufferDesc {.usage = BufferUsage::STORAGE, .size = byte_size, .is_dynamic = true},
                 vertex_buffer))
             return;
-        if (!backend.write_buffer(vertex_buffer, vertices.data(), byte_size, 0U))
+        if (!backend.write_buffer(vertex_buffer, BufferRegion {.size = byte_size}, vertices.data()))
         {
             backend.destroy_resource(vertex_buffer);
             return;
@@ -619,7 +619,8 @@ namespace tbx
             backend.destroy_resource(vertex_buffer);
             return;
         }
-        backend.write_buffer(uniform_buffer, &view_projection, sizeof(Mat4), 0U);
+        backend.write_buffer(
+            uniform_buffer, BufferRegion {.size = sizeof(Mat4)}, &view_projection);
 
         auto group = INVALID_GPU_ID;
         const auto group_desc = BindGroupDesc {

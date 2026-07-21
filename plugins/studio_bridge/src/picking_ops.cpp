@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx::studio_bridge
@@ -127,28 +128,21 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
-    Result pick(
+    tbx::Entity raycast_entity(
         PickingState& picking,
         const EngineServices& services,
-        ViewState& views,
-        const tbx::Json& params,
-        tbx::Json& out_reply)
+        const tbx::CameraView& camera_view,
+        tbx::World& world,
+        float u,
+        float v)
     {
-        const auto u = params.value("u", 0.0F);
-        const auto v = params.value("v", 0.0F);
-
-        auto camera_view = tbx::CameraView();
-        auto world = std::shared_ptr<tbx::World>();
-        if (const auto resolved =
-                resolve_view(services, views, params, "No world to pick in.", camera_view, world);
-            !resolved)
-            return resolved;
         auto assets = services.asset_manager.lock();
         if (!assets)
-            return Result(false, "No world to pick in.");
+            return tbx::Entity();
 
-        // Unproject the normalized click into a world-space ray (correct for both perspective and
-        // orthographic cameras); the same CameraView helper the gizmo uses, so the two stay in lock-step.
+        // Unproject the normalized cursor into a world-space ray (correct for both perspective and
+        // orthographic cameras); the same CameraView helper the gizmo uses, so the two stay in
+        // lock-step.
         const auto world_ray = camera_view.cursor_ray(u, v);
         auto best_distance = std::numeric_limits<float>::max();
         auto hit = tbx::Entity();
@@ -156,7 +150,7 @@ namespace tbx::studio_bridge
         // Pass 1: triangle-precise against renderable meshes — the geometry you actually see and click.
         // (An AABB-only test wrongly picks any large entity whose bounds enclose the camera, e.g. a room
         // interior, because the ray starts inside it.)
-        for (auto entity : world->get_with<tbx::Renderer, tbx::Transform>())
+        for (auto entity : world.get_with<tbx::Renderer, tbx::Transform>())
         {
             const auto model =
                 try_load_model(*assets, entity.get_component<tbx::Renderer>().model, picking);
@@ -177,7 +171,7 @@ namespace tbx::studio_bridge
         // Pass 2: invisible collider/trigger volumes (no renderable mesh) via their shape bounds, so
         // sensors/lights can still be clicked. Front-face only (distance > epsilon) so a volume that
         // merely encloses the camera doesn't swallow every click.
-        for (auto entity : world->get_with<tbx::Transform>())
+        for (auto entity : world.get_with<tbx::Transform>())
         {
             if (entity.has_component<tbx::Renderer>())
                 continue;
@@ -207,10 +201,31 @@ namespace tbx::studio_bridge
                     .max_distance = 100000.0F,
                 };
                 if (const auto result = physics->raycast(query))
-                    hit = world->get(result.hit_entity_id);
+                    hit = world.get(result.hit_entity_id);
             }
         }
 
+        return hit;
+    }
+
+    Result pick(
+        PickingState& picking,
+        const EngineServices& services,
+        ViewState& views,
+        const tbx::Json& params,
+        tbx::Json& out_reply)
+    {
+        const auto u = params.value("u", 0.0F);
+        const auto v = params.value("v", 0.0F);
+
+        auto camera_view = tbx::CameraView();
+        auto world = std::shared_ptr<tbx::World>();
+        if (const auto resolved =
+                resolve_view(services, views, params, "No world to pick in.", camera_view, world);
+            !resolved)
+            return resolved;
+
+        const auto hit = raycast_entity(picking, services, camera_view, *world, u, v);
         if (hit.get_id().is_valid())
             out_reply[Wire::ID] = hit.get_id().value;
         else
@@ -292,8 +307,17 @@ namespace tbx::studio_bridge
             !resolved)
             return resolved;
 
+        // An optional ids filter projects only the entities the editor actually anchors overlays to
+        // (open cards, wire targets, the hovered entity) instead of sweeping the whole world.
+        auto only = std::unordered_set<tbx::Uuid>();
+        if (const auto ids = params.find(Wire::IDS); ids != params.end() && ids->is_array())
+            for (const auto& id : *ids)
+                if (id.is_number_unsigned())
+                    only.insert(tbx::Uuid(id.get<uint64>()));
+
         auto items = tbx::Json::array();
-        for (const auto& position : tbx::project_entities_to_screen(camera_view, *world))
+        for (const auto& position :
+             tbx::project_entities_to_screen(camera_view, *world, only.empty() ? nullptr : &only))
         {
             auto entry = tbx::Json::object();
             entry[Wire::ID] = position.id.value;

@@ -98,14 +98,13 @@ namespace
         auto json = tbx::Json();
         tbx::serialize(json, map);
 
-        // The variant field wraps twice: { type: "variant", value: { type: <alternative>, value } }.
-        auto& chord_value =
-            json.at("schemes").at("value").at(0).at("actions").at("value").at(0).at("bindings")
-                .at("value").at(0).at("control").at("value").at("value");
-        ASSERT_EQ(chord_value.at("key").at("value"), "S");
-        chord_value.at("key").at("value") = static_cast<int>(tbx::InputKey::S);
-        json.at("schemes").at("value").at(0).at("actions").at("value").at(0).at("value_type")
-            .at("value") = static_cast<int>(tbx::InputActionValueType::BUTTON);
+        // Fields are plain values; only the variant control keeps its { type, value } discriminator,
+        // so the chord fields live under the control's "value".
+        auto& action_json = json.at("schemes").at(0).at("actions").at(0);
+        auto& chord_value = action_json.at("bindings").at(0).at("control").at("value");
+        ASSERT_EQ(chord_value.at("key"), "S");
+        chord_value.at("key") = static_cast<int>(tbx::InputKey::S);
+        action_json.at("value_type") = static_cast<int>(tbx::InputActionValueType::BUTTON);
 
         auto restored = tbx::InputMap();
         tbx::deserialize(json, restored);

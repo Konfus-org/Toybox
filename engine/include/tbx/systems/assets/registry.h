@@ -78,7 +78,12 @@ namespace tbx
         std::filesystem::path resolve_asset_path(const std::filesystem::path& asset_path) const;
         std::filesystem::path resolve_asset_path(const Handle& handle) const;
         Result scan_asset_directory(const std::filesystem::path& root);
-        static bool should_track_asset_path(const std::filesystem::path& asset_path);
+        // A source header (`.h`/`.hpp`/`.hh`) is an asset only when it has a metadata sidecar (i.e. it is
+        // a script), which requires probing the filesystem — hence the file-ops parameter. Null file-ops
+        // means a source header cannot be confirmed as a script and is not tracked.
+        static bool should_track_asset_path(
+            const std::filesystem::path& asset_path,
+            const IFileOps* file_ops);
 
       private:
         // Removes the entry at `iterator` from both indexes (_entries_by_path and _path_by_id),

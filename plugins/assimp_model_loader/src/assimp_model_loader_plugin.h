@@ -29,7 +29,6 @@ namespace assimp_model_loader
       private:
         static tbx::Result read_model(
             const std::filesystem::path& asset_path,
-            const tbx::ModelLoadParameters& parameters,
             const tbx::AssetLoadMetadata& metadata,
             tbx::Model& model);
     };

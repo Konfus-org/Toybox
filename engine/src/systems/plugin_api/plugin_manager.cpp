@@ -1,23 +1,16 @@
 #include "tbx/systems/plugin_api/plugin_manager.h"
 #include "plugin_loader.h"
-#include "plugin_ownership_tracker.h"
 #include "plugin_unloader.h"
 #include "tbx/interfaces/file_ops.h"
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/messages.h"
-#include "tbx/systems/plugin_api/plugin_ownership.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
 
 namespace tbx
 {
-    struct PluginManager::OwnershipTracker
-    {
-        std::shared_ptr<PluginOwnershipTracker> impl = {};
-    };
-
     static bool plugin_manager_path_contains_directory_token(
         const std::filesystem::path& path,
         std::string_view directory_name_lowered)
@@ -126,11 +119,8 @@ namespace tbx
         std::weak_ptr<IFileOps> file_ops)
         : _provided_file_ops(file_ops)
         , _file_ops(file_ops)
-        , _ownership_tracker(std::make_unique<OwnershipTracker>())
         , _service_provider(service_provider)
     {
-        _ownership_tracker->impl = std::make_shared<PluginOwnershipTracker>();
-        bind_plugin_ownership_tracker(_ownership_tracker->impl);
     }
 
     PluginManager::~PluginManager() noexcept
@@ -138,7 +128,6 @@ namespace tbx
         unload_all();
         TBX_ASSERT(_loaded.empty(), "Plugin manager destroyed with loaded plugin containers.");
         TBX_ASSERT(_watcher == nullptr, "Plugin manager destroyed with an active file watcher.");
-        bind_plugin_ownership_tracker({});
 
         auto pending_changes_lock = std::lock_guard<std::mutex>(_pending_file_changes_mutex);
         TBX_ASSERT(
@@ -503,13 +492,9 @@ namespace tbx
         auto msg_coordinator = service_provider->get_service<IMessageCoordinator>().lock();
         auto plugin_unloader = PluginUnloader();
         if (msg_coordinator)
-            plugin_unloader.unload(
-                plugins,
-                *service_provider,
-                *_ownership_tracker->impl,
-                *msg_coordinator);
+            plugin_unloader.unload(plugins, *service_provider, *msg_coordinator);
         else
-            plugin_unloader.unload(plugins, *service_provider, *_ownership_tracker->impl);
+            plugin_unloader.unload(plugins, *service_provider);
     }
 
     void PluginManager::process_pending_file_changes()

@@ -605,7 +605,7 @@ namespace tbx
         void apply_value(const InputActionValue& value, const DeltaTime& delta_time);
 
       private:
-        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION;
+        TBX_EXPOSE_PRIVATES_TO_SERIALIZATION();
 
         void invoke_on_start() const;
         void invoke_on_performed() const;

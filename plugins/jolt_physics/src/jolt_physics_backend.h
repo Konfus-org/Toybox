@@ -1,7 +1,9 @@
 #pragma once
 #include "jolt_contact_listener.h"
 #include "tbx/interfaces/physics_backend.h"
+#include "tbx/types/uuid.h"
 #include <Jolt/Jolt.h>
+#include <cstdint>
 
 // clang-format off
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -11,19 +13,27 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 // clang-format on
 
+#include <memory>
+#include <unordered_map>
+#include <vector>
+
 namespace jolt_physics
 {
-    struct JoltColliderResource
+    // A cooked collision shape, created by create_collider/create_trigger and consumed by the next
+    // create_rigidbody. Kept addressable by its own handle so the engine can destroy it and query
+    // its debug geometry.
+    struct JoltShapeResource
     {
         JPH::RefConst<JPH::Shape> shape = nullptr;
-        bool is_trigger_only = false;
+        bool is_sensor = false;
     };
 
-    struct JoltRigidbodyResource
+    // A placed simulation body, created by create_rigidbody from the pending shape.
+    struct JoltBodyResource
     {
         JPH::BodyID body_id = {};
-        tbx::PhysicsColliderHandle collider = {};
-        tbx::Transform last_transform = {};
+        tbx::Uuid shape_id = {};
+        bool is_sensor = false;
     };
 
     class JoltPhysicsBackend final : public tbx::IPhysicsBackend
@@ -32,56 +42,69 @@ namespace jolt_physics
         ~JoltPhysicsBackend() noexcept override;
 
       public:
-        void initialize(const tbx::PhysicsBackendSettings& settings) override;
+        void initialize(
+            tbx::Vec3 gravity,
+            uint32 max_body_count,
+            uint32 max_contact_constraints,
+            uint32 max_body_pairs,
+            uint32 solver_velocity_iterations,
+            uint32 solver_position_iterations,
+            float max_linear_velocity,
+            float max_angular_velocity) override;
         void shutdown() override;
-        void update(const tbx::PhysicsBackendSettings& settings, const tbx::DeltaTime& dt) override;
-        void drain_contact_events(std::vector<tbx::PhysicsContactEvent>& out_events) override;
+
+        void set_gravity(tbx::Vec3 gravity) override;
+        void set_solver_velocity_iterations(uint32 iterations) override;
+        void set_solver_position_iterations(uint32 iterations) override;
+        void set_max_linear_velocity(float max_linear_velocity) override;
+        void set_max_angular_velocity(float max_angular_velocity) override;
+
+        void step(const tbx::DeltaTime& dt) override;
+        bool get_state(const tbx::PhysicsHandle& handle, tbx::PhysicsEntityState& out_state)
+            override;
+
         bool raycast(
             const tbx::RaycastQuery& raycast_query,
-            tbx::PhysicsRigidbodyHandle ignored_rigidbody,
+            const std::vector<tbx::PhysicsHandle>& ignored,
             tbx::PhysicsRaycastHit& out_hit) const override;
 
-        tbx::PhysicsColliderHandle create_collider(
-            const tbx::PhysicsColliderCreateInfo& create_info) override;
-        void destroy_collider(tbx::PhysicsColliderHandle collider) override;
-        void update_collider(
-            tbx::PhysicsColliderHandle collider,
-            const tbx::PhysicsColliderCreateInfo& update_info) override;
-        bool get_shape(
-            tbx::PhysicsColliderHandle collider,
-            std::vector<tbx::Vec3>& out_triangle_vertices) const override;
+        tbx::PhysicsHandle create_collider(const tbx::Collider& collider, const tbx::Mesh& mesh)
+            override;
+        tbx::PhysicsHandle create_trigger(const tbx::Trigger& trigger, const tbx::Mesh& mesh)
+            override;
+        tbx::PhysicsHandle create_rigidbody(tbx::Transform transform, tbx::Rigidbody rigidbody)
+            override;
+        void destroy(const tbx::PhysicsHandle& physics_handle) override;
 
-        tbx::PhysicsRigidbodyHandle create_rigidbody(
-            const tbx::PhysicsRigidbodyCreateInfo& create_info) override;
-        void destroy_rigidbody(tbx::PhysicsRigidbodyHandle rigidbody) override;
-        tbx::PhysicsRigidbodyState get_rigidbody_state(
-            tbx::PhysicsRigidbodyHandle rigidbody) const override;
-        void get_rigidbody_overlaps(
-            tbx::PhysicsRigidbodyHandle rigidbody,
-            std::vector<tbx::PhysicsRigidbodyHandle>& out_overlaps) const override;
-        void update_rigidbody(
-            tbx::PhysicsRigidbodyHandle rigidbody,
-            const tbx::PhysicsRigidbodyUpdateInfo& update_info) override;
+        std::vector<tbx::Vec3>& get_debug_shape(tbx::PhysicsHandle physics_handle) const override;
 
       private:
-        void apply_settings(const tbx::PhysicsBackendSettings& settings);
+        void apply_solver_settings();
         void clear_resources();
-        bool is_trigger_only_body(tbx::PhysicsRigidbodyHandle rigidbody) const;
-        tbx::PhysicsRigidbodyHandle try_get_rigidbody_for_body(const JPH::BodyID& body_id) const;
+        tbx::PhysicsHandle store_shape(JPH::RefConst<JPH::Shape> shape, bool is_sensor);
+        JPH::RefConst<JPH::Shape> take_pending_shape(bool& out_is_sensor, tbx::Uuid& out_shape_id);
+        tbx::PhysicsHandle try_get_body_handle(std::uint32_t body_key) const;
+        void gather_overlaps(
+            const JoltBodyResource& body, std::vector<tbx::PhysicsHandle>& out_overlaps) const;
 
       private:
         JPH::PhysicsSystem _physics_system = {};
         JoltContactEventListener _contact_listener = {};
         std::unique_ptr<JPH::TempAllocator> _temp_allocator = nullptr;
         std::unique_ptr<JPH::JobSystemThreadPool> _job_system = nullptr;
-        std::unordered_map<uint64, JoltColliderResource> _colliders = {};
-        std::unordered_map<uint64, JoltRigidbodyResource> _rigidbodies = {};
-        std::unordered_map<uint32, tbx::PhysicsRigidbodyHandle> _rigidbody_by_body_key = {};
-        // Reused across drains so contact hand-off does no per-step heap allocation.
-        std::vector<JoltContactRecord> _drained_contacts = {};
-        tbx::PhysicsBackendSettings _settings = {};
-        uint64 _next_collider_handle = 1U;
-        uint64 _next_rigidbody_handle = 1U;
+        std::unordered_map<tbx::Uuid, JoltShapeResource> _shapes = {};
+        std::unordered_map<tbx::Uuid, JoltBodyResource> _bodies = {};
+        std::unordered_map<std::uint32_t, tbx::Uuid> _body_by_key = {};
+        tbx::Uuid _pending_shape_id = {};
+
+        tbx::Vec3 _gravity = tbx::Vec3(0.0F, -9.81F, 0.0F);
+        uint32 _solver_velocity_iterations = 10U;
+        uint32 _solver_position_iterations = 2U;
+        float _max_linear_velocity = 500.0F;
+        float _max_angular_velocity = 250.0F;
+
+        // Reused across get_debug_shape calls so debug queries do no per-call heap churn.
+        mutable std::vector<tbx::Vec3> _debug_shape = {};
         bool _is_ready = false;
     };
 }

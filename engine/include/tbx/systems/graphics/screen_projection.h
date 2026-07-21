@@ -3,6 +3,7 @@
 #include "tbx/tbx_api.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/uuid.h"
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
@@ -21,15 +22,17 @@ namespace tbx
 
     /// @brief
     /// Purpose: Projects every Transform-bearing entity in `world` to `camera`'s normalized screen
-    /// coordinates (top-left origin), skipping any entity behind the camera. A thin convenience over
-    /// the per-point pieces it builds on — CameraView::project_to_screen (the projection) and
-    /// tbx::distance (the depth) — that computes the view-projection once so a whole world projects
-    /// cheaply. Useful for viewport overlays (the editor's entity billboards), debug labels,
-    /// world-anchored UI, and the like.
+    /// coordinates (top-left origin), skipping any entity behind the camera. When `only` is non-null,
+    /// projects just those entity ids (how a caller anchoring a handful of overlays skips sweeping a
+    /// large world). A thin convenience over the per-point pieces it builds on —
+    /// CameraView::project_to_screen (the projection) and tbx::distance (the depth) — that computes
+    /// the view-projection once so a batch projects cheaply. Useful for viewport overlays (the
+    /// editor's entity billboards), debug labels, world-anchored UI, and the like.
     /// @details
     /// Ownership: Returns a value vector the caller owns. Thread Safety: Reads the world; don't mutate
     /// that world concurrently.
     TBX_API std::vector<EntityScreenPosition> project_entities_to_screen(
         const CameraView& camera,
-        World& world);
+        World& world,
+        const std::unordered_set<Uuid>* only = nullptr);
 }

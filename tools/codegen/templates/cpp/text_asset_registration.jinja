@@ -1,0 +1,11 @@
+::tbx::register_asset_body_type<{{ name }}>(
+    tbx_runtime,
+    {{ version }},
+    [](std::string_view data, {{ name }}& value)
+    {
+        return ::tbx::read_text_asset_body(data, value.{{ field_name }});
+    },
+    [](const {{ name }}& value, std::string& output)
+    {
+        return ::tbx::write_text_asset_body(value.{{ field_name }}, output);
+    });

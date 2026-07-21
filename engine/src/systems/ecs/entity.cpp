@@ -279,6 +279,35 @@ namespace tbx
         registry.set_enabled(_id, enabled);
     }
 
+    bool Entity::is_serialized() const
+    {
+        if (!_registry.has_value())
+            return true;
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to read entity serialized flag from a stale handle.");
+            return true;
+        }
+
+        return registry.get_serialized(_id);
+    }
+
+    void Entity::set_serialized(bool serialized)
+    {
+        if (!_registry.has_value())
+            return;
+
+        auto& registry = _registry->get();
+        if (!registry.has(_id))
+        {
+            TBX_ASSERT(false, "Attempted to write entity serialized flag to a stale handle.");
+            return;
+        }
+
+        registry.set_serialized(_id, serialized);
+    }
+
     bool Entity::try_get_parent_entity(Entity& out_parent) const
     {
         out_parent = Entity {};

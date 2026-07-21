@@ -52,14 +52,14 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Base class for script prototypes with shared runtime context and binding support.
+    /// Purpose: Base class for script prototypes: both the serialized asset prototype and the live
+    /// runtime instance, with shared runtime context and binding support.
     /// @details
-    /// Lifetime hooks are driven by ScriptSystem (via a scripting backend): on_start once before the
-    /// first update, on_update / on_fixed_update each tick, and on_destroy when the binding is removed.
-    /// Subclasses override the hooks they need; the empty defaults make every hook optional. A Script is
-    /// both an Asset (serialized prototype) and an IScriptInstance (runtime lifetime). It lives in the
-    /// engine so compiled C++ scripts inherit it directly and future language backends reuse it.
-    class TBX_API Script : public Asset, public IScriptInstance
+    /// Lifetime hooks are driven by ScriptSystem: on_start once before the first update, on_update /
+    /// on_fixed_update each tick, and on_destroy when the binding is removed. Subclasses override the
+    /// hooks they need; the empty defaults make every hook optional. It lives in the engine so compiled
+    /// C++ scripts inherit it directly.
+    class TBX_API Script : public Asset
     {
       public:
         Script() = default;
@@ -72,13 +72,13 @@ namespace tbx
         Script& operator=(Script&&) noexcept = delete;
 
       public:
-        void on_start() override {}
-        void on_update(const DeltaTime&) override {}
-        void on_fixed_update(const DeltaTime&) override {}
-        void on_destroy() override {}
+        virtual void on_start() {}
+        virtual void on_update(const DeltaTime&) {}
+        virtual void on_fixed_update(const DeltaTime&) {}
+        virtual void on_destroy() {}
 
-        // Binds the per-tick runtime context (entity/world/services). Driven by the scripting backend
-        // before the lifecycle hooks run.
+        // Binds the per-tick runtime context (entity/world/services). Driven by ScriptSystem before the
+        // lifecycle hooks run.
         void bind(ScriptContext context);
 
       protected:
@@ -115,9 +115,40 @@ namespace tbx
         void set_script_reference(std::string_view field_name, ScriptBinding binding);
     };
 
-    // A script reference is serialized as just the referenced script asset's id, carried as a Handle so
-    // the editor renders it with the generic asset picker (no script type needed). It resolves to that
-    // script's instance on the same entity at bind time.
+    // The wire keys of a script reference's cross-entity value shape (see
+    // parse_script_reference_value / write_script_reference_field).
+    inline constexpr std::string_view SCRIPT_REFERENCE_SCRIPT_KEY = "script";
+    inline constexpr std::string_view SCRIPT_REFERENCE_ENTITY_KEY = "entity";
+    inline constexpr std::string_view SCRIPT_REFERENCE_BINDING_KEY = "bindingId";
+
+    // Parses a script-reference value node into the binding it names. The value is either the
+    // cross-entity object { script, entity, bindingId } (an unset entity means "on my own entity")
+    // or — the legacy, pre-cross-entity shape — the referenced script asset's bare id.
+    template <typename TJson>
+    inline ScriptBinding parse_script_reference_value(const TJson& field)
+    {
+        auto binding = ScriptBinding {};
+        if (field.is_object())
+        {
+            binding.script = Uuid(field.value(std::string(SCRIPT_REFERENCE_SCRIPT_KEY), static_cast<uint64>(0U)));
+            binding.entity = Uuid(field.value(std::string(SCRIPT_REFERENCE_ENTITY_KEY), static_cast<uint64>(0U)));
+            binding.binding_id =
+                Uuid(field.value(std::string(SCRIPT_REFERENCE_BINDING_KEY), static_cast<uint64>(0U)));
+        }
+        else
+        {
+            auto reference = Handle {};
+            read_serialization_value(field, reference);
+            binding.script = reference.id;
+        }
+        return binding;
+    }
+
+    // A script reference serializes as a first-class "script" wire shape: { type: "script", value:
+    // { script, entity, bindingId } }. The entity + binding id pin the exact gadget instance — on
+    // another entity when set (the editor's cross-entity wires); unset entity = "on my own entity",
+    // which is also how every legacy same-entity reference reads. The editor renders the token as a
+    // wireable gadget plug rather than an asset picker.
     template <typename TJson, typename TScript>
     inline void read_script_reference_field(
         const TJson& json,
@@ -126,10 +157,10 @@ namespace tbx
         std::weak_ptr<TScript>& script)
     {
         static_assert(std::derived_from<TScript, Script>);
-        auto reference = Handle {};
-        read_typed_serialization_field(json, field_name, reference, Handle {});
         auto binding = ScriptBinding {};
-        binding.script = reference.id;
+        const auto key = make_serialization_json_key(field_name);
+        if (const auto field = json.find(key); field != json.end())
+            binding = parse_script_reference_value(*field);
         owner.set_script_reference(field_name, binding);
         script = {};
     }
@@ -142,19 +173,25 @@ namespace tbx
         const std::weak_ptr<TScript>& script)
     {
         static_assert(std::derived_from<TScript, Script>);
-        auto reference = Handle {};
+        // Prefer the live target's own binding (it knows its entity + binding id exactly); fall back
+        // to the stored reference so an unresolved wire still round-trips.
+        auto binding = ScriptBinding {};
         if (const auto resolved = script.lock())
         {
             if (const auto resolved_binding = resolved->get_script_binding())
-                reference.id = resolved_binding->script;
+                binding = *resolved_binding;
         }
-        if (!reference.id.is_valid())
+        if (!binding.script.is_valid() && !binding.binding_id.is_valid())
         {
             if (const auto stored_binding = owner.get_script_reference(field_name))
-                reference.id = stored_binding->script;
+                binding = *stored_binding;
         }
 
-        write_typed_serialization_field(json, field_name, reference);
+        auto value = TJson::object();
+        value[std::string(SCRIPT_REFERENCE_SCRIPT_KEY)] = binding.script.value;
+        value[std::string(SCRIPT_REFERENCE_ENTITY_KEY)] = binding.entity.value;
+        value[std::string(SCRIPT_REFERENCE_BINDING_KEY)] = binding.binding_id.value;
+        json[make_serialization_json_key(field_name)] = std::move(value);
     }
 
     template <typename TScript>
@@ -166,19 +203,21 @@ namespace tbx
     {
         static_assert(std::derived_from<TScript, Script>);
         const auto binding = owner.get_script_reference(field_name);
-        if (!binding.has_value() || !binding->script.is_valid())
+        if (!binding.has_value() || (!binding->script.is_valid() && !binding->binding_id.is_valid()))
         {
             script = {};
             return;
         }
 
+        // The stored entity pins a cross-entity target; unset means the owner's own entity.
         auto resolved = context.get_resolver()
                             .try_get_script(
                                 ScriptLookup {
                                     .world = context.get_world_id(),
-                                    .entity = context.get_entity_id(),
+                                    .entity = binding->entity.is_valid() ? binding->entity
+                                                                         : context.get_entity_id(),
                                     .script = binding->script,
-                                    .binding_id = {},
+                                    .binding_id = binding->binding_id,
                                 })
                             .lock();
         script = std::dynamic_pointer_cast<TScript>(resolved);

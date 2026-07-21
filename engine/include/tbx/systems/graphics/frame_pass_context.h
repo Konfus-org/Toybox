@@ -3,6 +3,8 @@
 #include "tbx/systems/graphics/camera_view.h"
 #include "tbx/systems/graphics/settings.h"
 #include "tbx/types/assets/world.h"
+#include "tbx/types/components/post_processing.h"
+#include <vector>
 #include "tbx/types/size.h"
 #include "tbx/types/typedefs.h"
 
@@ -31,6 +33,11 @@ namespace tbx
         GpuId draw_args_buffer = INVALID_GPU_ID;
         GpuId uniforms_buffer = INVALID_GPU_ID;
         bool use_post = false;
+
+        // The post effects contributed by this frame's caller passes (each pass camera-matched by
+        // the Rendering service, so everything here applies to THIS camera); the post pass appends
+        // them to the world's own stack and their entity-tag gates feed the tag mask.
+        std::vector<PostProcessingEffect> extra_post_effects = {};
 
         // Frame GPU targets the post pass owns and publishes (in its prepare) for the other passes:
         // scene_color/scene_depth are the offscreen targets the forward pass renders into when post is

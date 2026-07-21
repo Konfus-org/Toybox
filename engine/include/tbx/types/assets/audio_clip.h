@@ -18,16 +18,4 @@ namespace tbx
         [[do_not_serialize]]
         std::vector<float> samples = {};
     };
-
-    /// @brief
-    /// Purpose: Provides audio-specific read parameters for serialized audio assets.
-    /// @details
-    /// Ownership: Value type settings owned by the caller.
-    /// Thread Safety: Safe to copy between threads.
-    struct AudioLoadParameters
-    {
-        bool operator==(const AudioLoadParameters& other) const = default;
-    };
-
-    AudioLoadParameters load_parameters_of(const AudioClip&);
 }

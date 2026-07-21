@@ -12,6 +12,10 @@ namespace tbx::studio_bridge
         // Stamped on selected entities; the editor's selection-outline post effect is gated on it.
         inline const std::string SELECTED = "editor.selected";
 
+        // Stamped on the single entity under the cursor of the focused editor view (moved as the
+        // hover changes); the editor's hover-highlight post effect is gated on it.
+        inline const std::string HOVERED = "editor.hovered";
+
         // Stamped on the bridge's editor view cameras (which live in the bridge's own registry, never
         // the game world); the editor render passes are gated on it, so game and asset-preview views
         // never receive them.

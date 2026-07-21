@@ -3,7 +3,6 @@
 #include "engine_services.h"
 #include "view_ops.h"
 #include "wire.h"
-#include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/ecs/entity_serialization.h"
 #include "tbx/types/assets/material_instance.h"
@@ -23,57 +22,6 @@
 
 namespace tbx::studio_bridge
 {
-    // The value payload of a described field, under either the lean { "type", "value" } wrapper or the
-    // attribute-enriched { "attributes", "value", "is_default" } one (both carry "value"). Null when the
-    // node is not such a wrapper.
-    static tbx::Json* describe_field_value(tbx::Json& node)
-    {
-        if (!node.is_object())
-            return nullptr;
-
-        const auto value_iterator = node.find(Wire::VALUE);
-        return value_iterator == node.end() ? nullptr : &(*value_iterator);
-    }
-
-    // The selectable choices (an enum's enumerator names) on a described schema field, or null when the
-    // field has none. The schema comes from the attribute-enriched describe, so choices ride under
-    // "attributes".
-    static const tbx::Json* describe_field_choices(const tbx::Json& field)
-    {
-        if (!field.is_object())
-            return nullptr;
-
-        const auto attributes_iterator = field.find(Wire::ATTRIBUTES);
-        if (attributes_iterator == field.end() || !attributes_iterator->is_object())
-            return nullptr;
-
-        const auto choices_iterator = attributes_iterator->find(Wire::CHOICES);
-        if (choices_iterator == attributes_iterator->end() || !choices_iterator->is_array()
-            || choices_iterator->empty())
-            return nullptr;
-
-        return &(*choices_iterator);
-    }
-
-    // The declared type token of a described schema field (e.g. "entity"/"handle"), read from the
-    // attribute-enriched describe where the token rides under "attributes". Null when absent.
-    static const tbx::Json* describe_field_type(const tbx::Json& field)
-    {
-        if (!field.is_object())
-            return nullptr;
-
-        const auto attributes_iterator = field.find(Wire::ATTRIBUTES);
-        if (attributes_iterator == field.end() || !attributes_iterator->is_object())
-            return nullptr;
-
-        const auto type_iterator = attributes_iterator->find(Wire::TYPE);
-        if (type_iterator == attributes_iterator->end() || !type_iterator->is_string()
-            || type_iterator->get_ref<const std::string&>().empty())
-            return nullptr;
-
-        return &(*type_iterator);
-    }
-
     // Reads an optional "parent" param: a missing/0 value means the root (an invalid Uuid).
     static tbx::Uuid read_parent_param(const tbx::Json& params)
     {
@@ -128,11 +76,7 @@ namespace tbx::studio_bridge
         return find_preview_world_with(views, id);
     }
 
-    // The field schema of the script asset with the given id: lean ({ type, value=default }) when
-    // attributed is false, attribute-enriched (type token + enum choices) when true.
-    // Empty object when the id resolves to no describable script.
-    static tbx::Json describe_script_schema(
-        const EngineServices& services, uint64 script_id, bool attributed)
+    tbx::Json describe_script_schema(const EngineServices& services, uint64 script_id)
     {
         if (script_id == 0U)
             return tbx::Json::object();
@@ -148,121 +92,97 @@ namespace tbx::studio_bridge
             return tbx::Json::object();
 
         // typeid on the loaded prototype identifies the concrete script type; its registration carries
-        // the module-correct describe that emits attributes (type tokens, enum choices).
+        // the module-correct body writer. Serializing the loaded prototype (the script's authored
+        // default instance) yields a plain { field: value } body — the schema of defaults an
+        // un-overridden binding runs at. There are no type tokens / enum choices any more.
         const auto& prototype = *asset;
         const auto registration =
             tbx::get_asset_type_registration(std::type_index(typeid(prototype)));
-        if (!registration || !registration->is_script || !registration->describe)
+        if (!registration || !registration->is_script || !registration->write_body)
             return tbx::Json::object();
 
-        auto schema = tbx::Json::parse(registration->describe(attributed), nullptr, false);
+        auto body = std::string();
+        if (const auto wrote = registration->write_body(asset.get(), body); !wrote)
+            return tbx::Json::object();
+
+        auto schema = tbx::Json::parse(body, nullptr, false);
         return schema.is_object() ? std::move(schema) : tbx::Json::object();
     }
 
     // Expands each bound script's overrides into the script's FULL editable field set so the inspector
     // can show (and edit) every property of a script — not just the ones already set away from default.
-    // Each emitted field carries its type token + enum choices (for the right widget),
-    // its current value (the override if set, else the script default), an is_default flag, and the lean
-    // default value (so the editor can reset and persist only the fields actually changed). The cache
-    // reuses one (lean, attributed) schema pair per script type across the entities of a describe pass.
+    // Each emitted field carries its current value (the override if set, else the script default), the
+    // script default itself, and an is_default flag — the default rides along because only the compiled
+    // script knows its authored defaults, so the editor can't derive them C#-side to drive reset/modified
+    // state. Component bodies are now plain values (no type tokens / enum choices travel), so a field's
+    // default IS the bare value the script's plain body carries. The cache reuses one plain schema per
+    // script type across the entities of a describe pass.
     static void enrich_script_overrides(
         const EngineServices& services,
         tbx::Json& entity_json,
-        std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>& schema_cache)
+        std::unordered_map<uint64, tbx::Json>& schema_cache)
     {
         const auto components_iterator = entity_json.find(Wire::COMPONENTS);
         if (components_iterator == entity_json.end() || !components_iterator->is_object())
             return;
 
-        const auto container_iterator = components_iterator->find("script_container");
+        const auto container_iterator = components_iterator->find(Wire::SCRIPT_CONTAINER);
         if (container_iterator == components_iterator->end() || !container_iterator->is_object())
             return;
 
+        // The container serializes plainly: its "scripts" is the binding array directly, and each
+        // binding's "script"/"overrides" are the bare id and the bare { field: value } override blob.
         const auto scripts_iterator = container_iterator->find(Wire::SCRIPTS);
-        if (scripts_iterator == container_iterator->end())
+        if (scripts_iterator == container_iterator->end() || !scripts_iterator->is_array())
             return;
 
-        auto* bindings = describe_field_value(*scripts_iterator);
-        if (bindings == nullptr || !bindings->is_array())
-            return;
-
-        for (auto& binding : *bindings)
+        for (auto& binding : *scripts_iterator)
         {
             if (!binding.is_object())
                 continue;
 
             const auto script_iterator = binding.find(Wire::SCRIPT);
-            const auto overrides_iterator = binding.find("overrides");
+            const auto overrides_iterator = binding.find(Wire::OVERRIDES);
             if (script_iterator == binding.end() || overrides_iterator == binding.end())
                 continue;
 
-            const auto* script_value = describe_field_value(*script_iterator);
-            auto* overrides = describe_field_value(*overrides_iterator);
+            auto& overrides = *overrides_iterator;
             // The override blob must be an object, but it may legitimately be empty (a freshly attached
             // script overrides nothing yet) — we still expand it to the script's full field set below.
-            if (script_value == nullptr || !script_value->is_number_unsigned()
-                || overrides == nullptr || !overrides->is_object())
+            if (!script_iterator->is_number_unsigned() || !overrides.is_object())
                 continue;
 
-            const auto script_id = script_value->get<uint64>();
+            const auto script_id = script_iterator->get<uint64>();
             auto cached = schema_cache.find(script_id);
             if (cached == schema_cache.end())
-                cached = schema_cache
-                             .emplace(
-                                 script_id,
-                                 std::make_pair(
-                                     describe_script_schema(services, script_id, /*attributed=*/false),
-                                     describe_script_schema(services, script_id, /*attributed=*/true)))
+                cached = schema_cache.emplace(script_id, describe_script_schema(services, script_id))
                              .first;
 
-            const auto& lean_schema = cached->second.first;
-            const auto& attr_schema = cached->second.second;
-            if (!lean_schema.is_object() || lean_schema.empty())
+            const auto& schema = cached->second;
+            if (!schema.is_object() || schema.empty())
                 continue;
 
             // Rebuild the override blob as the script's FULL field set: every field the script exposes,
-            // carrying its current value (the existing override if set, else the script's default), the
-            // declared type token + enum choices (for the right widget), an is_default flag,
-            // and the lean default value. The editor renders all of them and, on save, sends back only the
-            // fields whose value differs from this default — so the persisted blob stays lean.
+            // carrying its current value (the existing override if set, else the script's default) and an
+            // is_default flag. The editor renders all of them and, on save, sends back only the fields
+            // whose value differs from the default — so the persisted blob stays lean.
             auto rebuilt = tbx::Json::object();
-            for (const auto& [field_name, lean_field] : lean_schema.items())
+            for (const auto& [field_name, default_value] : schema.items())
             {
-                if (!lean_field.is_object())
-                    continue;
-
-                // The lean schema field is { "type", "value" }; its value is the script's default for
-                // this field. (describe_field_value takes a mutable node, so reach "value" directly here.)
-                const auto default_iterator = lean_field.find(Wire::VALUE);
-                if (default_iterator == lean_field.end())
-                    continue;
-                const tbx::Json* default_value = &(*default_iterator);
-
-                // Use the existing override's value when this field is overridden; else the default.
+                // Use the existing override's value when this field is overridden; else the default. Both
+                // are bare values under the plain wire format.
                 const tbx::Json* override_value = nullptr;
-                if (const auto existing = overrides->find(field_name);
-                    existing != overrides->end() && existing->is_object())
-                    override_value = describe_field_value(*existing);
+                if (const auto existing = overrides.find(field_name); existing != overrides.end())
+                    override_value = &(*existing);
 
                 auto field = tbx::Json::object();
-                // The reference token (entity/handle/…) and any enum choices ride under the
-                // attributed schema, where the parser reads them to pick the right picker/widget.
-                const auto attr_iterator = attr_schema.find(field_name);
-                if (attr_iterator != attr_schema.end())
-                {
-                    if (const auto* type = describe_field_type(*attr_iterator))
-                        field[Wire::TYPE] = *type;
-                    if (const auto* choices = describe_field_choices(*attr_iterator))
-                        field[Wire::CHOICES] = *choices;
-                }
-
-                field[Wire::VALUE] = override_value != nullptr ? *override_value : *default_value;
-                field[Wire::IS_DEFAULT] = override_value == nullptr || *override_value == *default_value;
-                field["default"] = *default_value;
+                field[Wire::VALUE] = override_value != nullptr ? *override_value : default_value;
+                field[Wire::DEFAULT] = default_value;
+                field[Wire::IS_DEFAULT] = override_value == nullptr || *override_value == default_value;
                 rebuilt[field_name] = std::move(field);
             }
 
-            *overrides = std::move(rebuilt);
+            overrides = std::move(rebuilt);
         }
     }
 
@@ -360,17 +280,19 @@ namespace tbx::studio_bridge
         auto world = world_for(services, views, params);
         if (world)
         {
-            // One (lean, attributed) script-schema pair per type, reused across every entity in this pass.
-            auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
+            // One plain script-schema per type, reused across every entity in this pass.
+            auto schema_cache = std::unordered_map<uint64, tbx::Json>();
             for (const auto& entity : world->get_all())
             {
-                // The editor needs every field plus reflection metadata, so serialize with both
-                // defaults and attribute enrichment on.
+                // Transient entities (the bridge's own injected view cameras) are engine plumbing,
+                // not world content — the editor never sees them.
+                if (!entity.is_serialized())
+                    continue;
+
+                // The editor needs every field, so serialize with defaults included. Component bodies
+                // come through as plain values (no schema metadata).
                 auto entity_json = tbx::Json::parse(
-                    tbx::Entity::serialize(
-                        entity,
-                        /*include_defaults=*/true,
-                        /*include_attributes=*/true),
+                    tbx::Entity::serialize(entity, /*include_defaults=*/true),
                     nullptr,
                     false);
                 if (!entity_json.is_discarded() && entity_json.is_object())
@@ -414,10 +336,10 @@ namespace tbx::studio_bridge
         if (!entity.get_id().is_valid())
             return Result(false, "Entity not found.");
 
-        // Same per-entity shape describe_world emits: every field plus reflection metadata. Lets
+        // Same per-entity shape describe_world emits: every field, plain component bodies. Lets
         // the editor re-query just the selected entity to stay in sync with the running game.
         auto entity_json = tbx::Json::parse(
-            tbx::Entity::serialize(entity, /*include_defaults=*/true, /*include_attributes=*/true),
+            tbx::Entity::serialize(entity, /*include_defaults=*/true),
             nullptr,
             false);
         if (entity_json.is_discarded() || !entity_json.is_object())
@@ -425,7 +347,7 @@ namespace tbx::studio_bridge
 
         entity_json[Wire::IS_GLOBAL] = world->is_global(id);
 
-        auto schema_cache = std::unordered_map<uint64, std::pair<tbx::Json, tbx::Json>>();
+        auto schema_cache = std::unordered_map<uint64, tbx::Json>();
         enrich_script_overrides(services, entity_json, schema_cache);
 
         out_reply[Wire::ENTITY] = std::move(entity_json);
@@ -525,6 +447,33 @@ namespace tbx::studio_bridge
         return Result::OK;
     }
 
+    Result remove_script(
+        const EngineServices& services, ViewState& views, const tbx::Json& params)
+    {
+        auto entity = tbx::Entity();
+        if (const auto resolved = resolve_sync_entity(services, views, params, entity); !resolved)
+            return resolved;
+
+        auto binding_id = uint64(0);
+        if (const auto required = require_uint(params, Wire::BINDING_ID, binding_id); !required)
+            return required;
+
+        if (!entity.has_component<tbx::ScriptContainer>())
+            return Result(false, "Entity has no script container.");
+
+        // The container stays even when its last binding goes: an empty container is valid data and
+        // removing the component here would surprise an editor that only asked to drop one binding.
+        auto& container = entity.get_component<tbx::ScriptContainer>();
+        const auto erased = std::erase_if(
+            container.scripts,
+            [binding_id](const tbx::ScriptContainerBinding& binding)
+            {
+                return binding.binding_id.value == binding_id;
+            });
+        return erased > 0 ? Result::OK
+                          : Result(false, "Entity has no script binding with that id.");
+    }
+
     Result create_entity(
         const EngineServices& services,
         ViewState& views,
@@ -559,6 +508,98 @@ namespace tbx::studio_bridge
         entity.set_order(max_order + 1);
 
         out_reply[Wire::ID] = entity.get_id().value;
+        return Result::OK;
+    }
+
+    Result duplicate_entity(
+        const EngineServices& services, ViewState& views, const tbx::Json& params)
+    {
+        auto world = std::shared_ptr<tbx::World>();
+        auto root_id = tbx::Uuid();
+        if (const auto resolved = resolve_entity_world(services, views, params, world, root_id);
+            !resolved)
+            return resolved;
+        if (!world->has(root_id))
+            return Result(false, "Entity not found.");
+
+        // Collect the source subtree parents-first (the same walk destroy_entity uses), so every
+        // clone's parent — an original or an earlier clone — already exists when its clone is made.
+        auto sources = std::vector<tbx::Uuid> {root_id};
+        for (size index = 0U; index < sources.size(); ++index)
+        {
+            const auto parent_id = sources[index];
+            for (const auto& candidate : world->get_all())
+            {
+                if (candidate.get_parent().value == parent_id.value)
+                    sources.push_back(candidate.get_id());
+            }
+        }
+
+        // The clone lands after the last of the source's siblings (create_entity's placement),
+        // scanned before any clone exists so only the originals count.
+        const auto root_parent = world->get(root_id).get_parent();
+        auto max_order = -1;
+        for (const auto& sibling : world->get_all())
+        {
+            if (sibling.get_parent().value == root_parent.value)
+                max_order = std::max(max_order, sibling.get_order());
+        }
+
+        // Each source id maps to its clone's fresh id so descendants reparent onto the cloned
+        // subtree; the root clone keeps the source root's parent.
+        auto clone_ids = std::unordered_map<uint64, tbx::Uuid>();
+        for (const auto& source_id : sources)
+        {
+            const auto source = world->get(source_id);
+            if (!source.get_id().is_valid())
+                continue;
+
+            const auto mapped_parent = clone_ids.find(source.get_parent().value);
+            const auto parent =
+                mapped_parent != clone_ids.end() ? mapped_parent->second : source.get_parent();
+            auto clone = parent.is_valid() ? world->create_entity(source.get_name(), parent)
+                                           : world->create_entity(source.get_name());
+            if (!clone.get_id().is_valid())
+                return Result(false, "Failed to create the duplicate entity.");
+            clone_ids.emplace(source_id.value, clone.get_id());
+
+            clone.set_layer(source.get_layer());
+            clone.set_enabled(source.is_enabled());
+            clone.set_order(source_id.value == root_id.value ? max_order + 1 : source.get_order());
+            for (const auto& tag : source.get_persistent_tags())
+                clone.add_tag(tag, /*serialized=*/true);
+            if (world->is_global(source_id))
+                world->set_global(clone.get_id(), true);
+
+            // Copy the components through the entity serialization round-trip: each serialized
+            // component node is exactly the shape apply_component consumes, so applying it onto the
+            // fresh clone recreates the component with every non-default field.
+            auto source_json = tbx::Json::parse(tbx::Entity::serialize(source), nullptr, false);
+            if (source_json.is_discarded() || !source_json.is_object())
+                return Result(false, "Failed to serialize the source entity.");
+
+            if (const auto components = source_json.find(Wire::COMPONENTS);
+                components != source_json.end() && components->is_object())
+            {
+                for (const auto& [component_name, component_json] : components->items())
+                {
+                    if (const auto applied =
+                            tbx::apply_component(clone, component_name, component_json.dump());
+                        !applied)
+                        return applied;
+                }
+            }
+
+            // A script binding's id is an engine-assigned identity (the editor's gadget system
+            // addresses overrides and removal by it), so the clone's bindings get fresh ones to stay
+            // independent of their sources.
+            if (clone.has_component<tbx::ScriptContainer>())
+            {
+                for (auto& binding : clone.get_component<tbx::ScriptContainer>().scripts)
+                    binding.binding_id = tbx::Uuid::generate();
+            }
+        }
+
         return Result::OK;
     }
 
@@ -780,8 +821,8 @@ namespace tbx::studio_bridge
         if (world_id == 0U)
             return Result(false, "Cannot close the active world.");
 
-        // Drop the bridge's reference FIRST (so the next push_external_cameras stops handing the world to
-        // any bound view), then release it in the manager.
+        // Drop the bridge's reference FIRST (so the next sync_camera_entities stops binding any view
+        // camera to the world), then release it in the manager.
         const auto instance_id = unregister_world(views, world_id);
         if (!instance_id.is_valid())
             return Result(false, "Unknown world id.");

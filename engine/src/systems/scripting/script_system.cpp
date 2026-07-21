@@ -3,12 +3,15 @@
 #include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/plugin_api/messages.h"
-#include "tbx/systems/scripting/scripting_registry.h"
+#include "tbx/systems/scripting/script.h"
+#include "tbx/systems/scripting/script_registry.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/components/script_container.h"
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <string>
+#include <typeindex>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -26,10 +29,91 @@ namespace tbx
             });
     }
 
+    // Deep-copies a script prototype by routing it through its registered body serializer, so a fresh
+    // instance starts from the asset's authored default values before per-binding overrides apply.
+    static std::shared_ptr<Script> clone_script_prototype(const Script& prototype)
+    {
+        auto registration = get_asset_type_registration(std::type_index(typeid(prototype)));
+        if (!registration.has_value() || !registration->create_asset)
+            return {};
+
+        auto asset = registration->create_asset();
+        if (!asset)
+            return {};
+
+        if (registration->write_body && registration->read_body)
+        {
+            auto data = std::string();
+            if (!registration->write_body(&prototype, data).succeeded())
+                return {};
+            if (!registration->read_body(data, asset.get()).succeeded())
+                return {};
+        }
+
+        asset->id = prototype.id;
+        asset->version = prototype.version;
+        auto* script = dynamic_cast<Script*>(asset.release());
+        if (script == nullptr)
+            return {};
+
+        return std::shared_ptr<Script>(script);
+    }
+
+    // Resolves the script registration for a live instance from its concrete asset type.
+    static const ScriptRegistration* script_registration_for(const Script& script)
+    {
+        const auto asset_registration = get_asset_type_registration(std::type_index(typeid(script)));
+        return asset_registration.has_value() ? get_script_registration(asset_registration->type_name)
+                                              : nullptr;
+    }
+
+    // Loads a script asset, clones its authored prototype, and applies the binding's stored overrides.
+    // Returns null when the asset is not a script (or fails to clone), leaving the binding uninstantiated.
+    static std::shared_ptr<Script> instantiate_script(
+        AssetManager& asset_manager,
+        const Handle& script,
+        const Json& overrides)
+    {
+        auto prototype = std::dynamic_pointer_cast<Script>(asset_manager.load(script));
+        if (!prototype)
+            return {};
+
+        auto instance = clone_script_prototype(*prototype);
+        if (!instance)
+        {
+            TBX_TRACE_WARNING("Failed to create script instance id={}.", script.id);
+            return {};
+        }
+
+        if (const auto* registration = script_registration_for(*instance);
+            registration != nullptr && registration->apply_overrides && !overrides.is_null()
+            && !overrides.empty())
+        {
+            if (auto result = registration->apply_overrides(overrides, instance.get());
+                !result.succeeded())
+            {
+                TBX_TRACE_WARNING(
+                    "Failed to apply script overrides id={}: {}", script.id, result.get_report());
+                return {};
+            }
+        }
+
+        return instance;
+    }
+
+    // Binds the runtime context onto a live instance, then runs the type's generated bind_runtime
+    // (resolving injected services and script references).
+    static void bind_script(Script& script, ScriptContext& context)
+    {
+        script.bind(context);
+        if (const auto* registration = script_registration_for(script);
+            registration != nullptr && registration->bind_runtime)
+            registration->bind_runtime(&script, context);
+    }
+
     struct ScriptSystemStateRecord
     {
-        std::shared_ptr<IScriptInstance> instance = {};
-        std::weak_ptr<IScriptingBackend> backend = {};
+        std::shared_ptr<Script> instance = {};
         bool started = false;
         bool touched = false;
     };
@@ -126,14 +210,6 @@ namespace tbx
         if (!services || !asset_manager)
             return;
 
-        auto registry = services->try_get_service<ScriptingRegistry>().lock();
-        if (!registry)
-            return;
-
-        const auto backends = registry->backends();
-        if (backends.empty())
-            return;
-
         consume_script_reloads();
 
         for (auto& entry : _state->instances)
@@ -146,7 +222,7 @@ namespace tbx
                 continue;
 
             world->for_each_with<ScriptContainer>(
-                [this, &backends, &dt, &world, &services, fixed](Entity& entity)
+                [this, &asset_manager, &dt, &world, &services, fixed](Entity& entity)
                 {
                     auto& container = entity.get_component<ScriptContainer>();
                     for (const auto& binding : container.scripts)
@@ -158,19 +234,8 @@ namespace tbx
                         auto& record = _state->instances[key];
                         record.touched = true;
                         if (!record.instance)
-                        {
-                            // First backend that recognizes the asset owns this binding for its lifetime.
-                            for (const auto& backend : backends)
-                            {
-                                if (auto created =
-                                        backend->instantiate(binding.script, binding.overrides))
-                                {
-                                    record.instance = std::move(created);
-                                    record.backend = backend;
-                                    break;
-                                }
-                            }
-                        }
+                            record.instance = instantiate_script(
+                                *asset_manager, binding.script, binding.overrides);
                         if (!record.instance)
                             continue;
 
@@ -186,8 +251,7 @@ namespace tbx
                             world,
                             *services,
                             *this);
-                        if (auto backend = record.backend.lock())
-                            backend->bind(*record.instance, context);
+                        bind_script(*record.instance, context);
 
                         if (!record.started)
                         {
@@ -224,6 +288,32 @@ namespace tbx
         }
     }
 
+    Result ScriptSystem::apply_overrides(const ScriptLookup& lookup, const Json& overrides)
+    {
+        const auto iterator = _state->instances.find(
+            ScriptSystemStateKey {
+                .world = lookup.world,
+                .entity = lookup.entity,
+                .script = lookup.script,
+                .binding_id = lookup.binding_id,
+            });
+        if (iterator == _state->instances.end() || !iterator->second.instance)
+            return Result();
+
+        // A live instance IS the Script, so a mid-play tweak routes through the same generated per-type
+        // apply the initial instantiate used — fields present in the json land on the instance,
+        // everything else keeps its running state.
+        auto& script = *iterator->second.instance;
+        const auto* registration = script_registration_for(script);
+        if (registration == nullptr || registration->apply_overrides == nullptr)
+            return Result(false, "Script type has no override registration.");
+
+        if (overrides.is_null() || overrides.empty())
+            return Result();
+
+        return registration->apply_overrides(overrides, &script);
+    }
+
     void ScriptSystem::reset()
     {
         // Tear down every live instance (running its on_destroy) and forget it, so the next update
@@ -248,19 +338,34 @@ namespace tbx
         update(dt, false);
     }
 
-    std::weak_ptr<IScriptInstance> ScriptSystem::try_get_script(const ScriptLookup& lookup)
+    std::weak_ptr<Script> ScriptSystem::try_get_script(const ScriptLookup& lookup)
     {
         if (lookup.binding_id.is_valid())
         {
-            auto iterator = _state->instances.find(
-                ScriptSystemStateKey {
-                    .world = lookup.world,
-                    .entity = lookup.entity,
-                    .script = lookup.script,
-                    .binding_id = lookup.binding_id,
+            if (lookup.script.is_valid())
+            {
+                auto iterator = _state->instances.find(
+                    ScriptSystemStateKey {
+                        .world = lookup.world,
+                        .entity = lookup.entity,
+                        .script = lookup.script,
+                        .binding_id = lookup.binding_id,
+                    });
+                return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
+                                                           : iterator->second.instance;
+            }
+
+            // A binding id alone identifies the instance (ids are unique per world); a reference
+            // that didn't carry the script asset id still resolves.
+            const auto by_binding = std::ranges::find_if(
+                _state->instances,
+                [&lookup](const auto& entry)
+                {
+                    return entry.first.world == lookup.world && entry.first.entity == lookup.entity
+                           && entry.first.binding_id == lookup.binding_id;
                 });
-            return iterator == _state->instances.end() ? std::weak_ptr<IScriptInstance> {}
-                                                       : iterator->second.instance;
+            return by_binding == _state->instances.end() ? std::weak_ptr<Script> {}
+                                                         : by_binding->second.instance;
         }
 
         const auto iterator = std::ranges::find_if(
@@ -270,7 +375,7 @@ namespace tbx
                 return entry.first.world == lookup.world && entry.first.entity == lookup.entity
                        && entry.first.script == lookup.script;
             });
-        return iterator == _state->instances.end() ? std::weak_ptr<IScriptInstance> {}
+        return iterator == _state->instances.end() ? std::weak_ptr<Script> {}
                                                    : iterator->second.instance;
     }
 
@@ -288,7 +393,6 @@ namespace tbx
                 entry.second.instance->on_destroy();
 
             entry.second.instance = {};
-            entry.second.backend = {};
             entry.second.started = false;
         }
         _state->pending_script_reloads.clear();

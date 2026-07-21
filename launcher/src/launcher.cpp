@@ -1,8 +1,10 @@
 #include "launcher.h"
+#include "tbx/engine_types.generated.h"
 #include "tbx/systems/app/application.h"
 #include "tbx/systems/app/command_list.h"
 #include "tbx/systems/debugging/logging.h"
 #include "tbx/systems/debugging/macros.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include "tbx/systems/plugin_api/shared_library.h"
 #include <filesystem>
 #include <memory>
@@ -71,6 +73,10 @@ int Launcher::run(int argc, char* argv[])
                 ? executable_directory.lexically_normal()
                 : std::filesystem::path(working_directory_value).lexically_normal();
 
+        // The launcher is the composition root: engine (and below, app) types register explicitly
+        // into the core container before the app runs — nothing self-registers at static init.
+        tbx::register_engine_types(tbx::engine_core_runtime());
+
         auto app_library = tbx::load_shared_lib(executable_directory / app_module_name);
         if (!app_library->is_valid())
         {
@@ -101,6 +107,13 @@ int Launcher::run(int argc, char* argv[])
             TBX_ASSERT(false, "Launcher found an invalid app module.");
             return -1;
         }
+
+        // App-module types land in the core container too: the app is not a plugin, and its
+        // module outlives every world (unloaded after the app is destroyed).
+        auto register_app_types =
+            app_library->get_symbol<tbx::RegisterAppTypesFn>("tbx_register_app_types");
+        if (register_app_types != nullptr)
+            register_app_types(&tbx::engine_core_runtime());
 
         auto app = std::unique_ptr<tbx::Application, tbx::DestroyAppFn>(create_app(), destroy_app);
         if (!app)

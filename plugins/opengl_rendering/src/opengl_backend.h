@@ -36,37 +36,15 @@ namespace opengl_rendering
 
         tbx::Result begin_frame(const tbx::RenderTarget& output_target) override;
         tbx::Result end_frame() override;
-
-        tbx::Result present() override;
-        void wait_for_idle() override;
-
-        tbx::Result create_shared_target(
-            const tbx::RenderTarget& target,
-            const tbx::Size& size,
-            tbx::SharedTargetInfo& out_info) override;
-        void destroy_shared_target(const tbx::RenderTarget& target) override;
-
-        tbx::Result read_back_buffer(
-            const tbx::Size& backbuffer_size,
-            std::vector<uint8>& out_pixels) override;
-
         tbx::Result begin_render_pass(const tbx::RenderPassDesc& pass) override;
         tbx::Result end_render_pass() override;
 
+        tbx::Result get_gpu_handle(const tbx::GpuId& texture_uuid, uint64& out_handle) override;
+
+        tbx::Result destroy_resource(const tbx::GpuId& resource_uuid) override;
+
         tbx::Result bind_group(uint32 set_index, const tbx::GpuId& group_resource_uuid) override;
         tbx::Result bind_raster_pipeline(const tbx::GpuId& pipeline_resource_uuid) override;
-
-        tbx::Result draw(
-            uint32 index_count,
-            uint32 instance_count,
-            uint32 first_index,
-            int32 vertex_offset,
-            uint32 first_instance) override;
-        tbx::Result draw_indirect(
-            const tbx::GpuId& argument_buffer,
-            uint64 offset,
-            uint32 draw_count,
-            uint32 stride) override;
 
         tbx::Result create_bind_group(const tbx::BindGroupDesc& desc, tbx::GpuId& out_resource_uuid)
             override;
@@ -82,23 +60,39 @@ namespace opengl_rendering
             const tbx::TextureDesc& desc,
             tbx::GpuId& out_resource_uuid) override;
 
-        bool supports_bindless_textures() const override;
-        tbx::Result get_texture_bindless_handle(
-            const tbx::GpuId& texture_uuid,
-            uint64& out_handle) override;
-
         tbx::Result write_buffer(
             const tbx::GpuId& resource_uuid,
-            const void* data,
-            uint64 data_size,
-            uint64 offset) override;
+            const tbx::BufferRegion& region,
+            const void* data) override;
         tbx::Result write_texture(
             const tbx::GpuId& resource_uuid,
-            const tbx::TextureUpdateDesc& desc,
-            const void* data,
-            uint64 data_size) override;
+            const tbx::TextureRegion& region,
+            const void* data) override;
 
-        tbx::Result destroy_resource(const tbx::GpuId& resource_uuid) override;
+        tbx::Result read_buffer(
+            const tbx::GpuId& resource_uuid,
+            const tbx::BufferRegion& region,
+            void* out_data) override;
+        tbx::Result read_texture(
+            const tbx::GpuId& resource_uuid,
+            const tbx::TextureRegion& region,
+            void* out_data) override;
+
+        tbx::Result draw(
+            uint32 index_count,
+            uint32 instance_count,
+            uint32 first_index,
+            int32 vertex_offset,
+            uint32 first_instance) override;
+        tbx::Result draw_indirect(
+            const tbx::GpuId& argument_buffer,
+            uint64 offset,
+            uint32 draw_count,
+            uint32 stride) override;
+
+        tbx::Result present() override;
+        void wait_for_idle() override;
+
         void destroy_context(const tbx::Window& window);
 
       private:
@@ -124,12 +118,13 @@ namespace opengl_rendering
         OpenGlResourceCache _cache = {};
         OpenGlState _state = {};
 
-        // A GPU texture another process samples directly (zero readback). The D3D11 texture is the
-        // cross-process surface; it is registered with GL through WGL_NV_DX_interop2 as a
-        // renderbuffer (renderbuffer, not texture, sidesteps an NVIDIA FBO-incomplete bug) and
-        // attached to a private framebuffer this backend draws the view into. Pointers are stored
-        // type-erased so this header stays free of <d3d11.h>/<windows.h>.
-        struct SharedTarget
+        // A GPU texture (created via create_texture with TextureDesc::is_shared) another process
+        // samples directly (zero readback). The D3D11 texture is the cross-process surface; it is
+        // registered with GL through WGL_NV_DX_interop2 as a renderbuffer (renderbuffer, not texture,
+        // sidesteps an NVIDIA FBO-incomplete bug) and attached to a private framebuffer this backend
+        // draws the view into. Pointers are stored type-erased so this header stays free of
+        // <d3d11.h>/<windows.h>.
+        struct SharedTexture
         {
             void* d3d_texture = nullptr;       // ID3D11Texture2D*
             void* keyed_mutex = nullptr;       // IDXGIKeyedMutex*
@@ -142,18 +137,20 @@ namespace opengl_rendering
             bool is_locked = false; // wglDXLockObjectsNV held for the in-flight frame
         };
         tbx::Result ensure_d3d_interop_ready();
-        void release_shared_target(SharedTarget& target);
-        void destroy_all_shared_targets();
+        tbx::Result create_shared_texture(const tbx::TextureDesc& desc, tbx::GpuId id);
+        void release_shared_texture(SharedTexture& texture);
+        void destroy_all_shared_textures();
 
         // The D3D11 device that owns every shared texture, plus the GL<->D3D interop device opened
-        // on it. Created lazily on the render lane the first time a shared target is requested.
+        // on it. Created lazily on the render lane the first time a shared texture is created.
         void* _d3d_device = nullptr;     // ID3D11Device*
         void* _d3d_context = nullptr;    // ID3D11DeviceContext*
         void* _interop_device = nullptr; // HANDLE from wglDXOpenDeviceNV
-        // Keyed by target id so concurrently streamed views never collide; the active one is set in
-        // begin_frame and drives the keyed-mutex/lock handshake through end_frame.
-        std::unordered_map<uint64, SharedTarget> _shared_targets = {};
-        SharedTarget* _active_shared_target = nullptr;
+        // Keyed by the texture's resource id so concurrently streamed views never collide; the active
+        // one is set in begin_frame (when the frame output names it) and drives the keyed-mutex/lock
+        // handshake through end_frame.
+        std::unordered_map<tbx::GpuId, SharedTexture> _shared_textures = {};
+        SharedTexture* _active_shared_texture = nullptr;
 
         uint32 _output_framebuffer = 0U;
         uint32 _output_color_texture = 0U;

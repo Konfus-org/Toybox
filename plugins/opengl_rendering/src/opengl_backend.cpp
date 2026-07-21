@@ -417,7 +417,7 @@ namespace opengl_rendering
     void OpenGlGraphicsBackend::cleanup()
     {
         destroy_output_framebuffer();
-        destroy_all_shared_targets();
+        destroy_all_shared_textures();
         const auto context_backend = lock_context_backend();
 
         if (_state.is_loaded && context_backend)
@@ -491,13 +491,15 @@ namespace opengl_rendering
         if (auto result = ensure_gl_loaded(); !result)
             return result;
 
-        _active_shared_target = nullptr;
+        _active_shared_texture = nullptr;
 #ifdef _WIN32
-        // A streamed view renders straight into its shared GPU texture (no readback). Take the
-        // texture from the editor first: producer acquires keyed-mutex key 0, then locks the
-        // registered object for GL. A short acquire timeout means a not-yet-consuming editor can
-        // never stall the lane — we just fall through to the throwaway framebuffer below.
-        if (const auto it = _shared_targets.find(output_target.id.value); it != _shared_targets.end())
+        // A streamed view renders straight into its shared GPU texture (no readback) when the frame
+        // output names one (its resource id). Take the texture from the editor first: producer
+        // acquires keyed-mutex key 0, then locks the registered object for GL. A short acquire timeout
+        // means a not-yet-consuming editor can never stall the lane — we just fall through to the
+        // throwaway framebuffer below.
+        if (const auto it = _shared_textures.find(output_target.id.value);
+            it != _shared_textures.end())
         {
             auto& shared = it->second;
             auto* mutex = static_cast<IDXGIKeyedMutex*>(shared.keyed_mutex);
@@ -510,7 +512,7 @@ namespace opengl_rendering
                 if (g_wglDXLockObjectsNV(_interop_device, 1, &shared.gl_interop_object))
                 {
                     shared.is_locked = true;
-                    _active_shared_target = &shared;
+                    _active_shared_texture = &shared;
                     _state.current_target = _contexts.front();
                     clear_bound_state();
                     _is_texture_frame = true;
@@ -538,12 +540,12 @@ namespace opengl_rendering
         clear_bound_state();
         auto result = consume_gl_errors("end_frame");
 #ifdef _WIN32
-        if (_active_shared_target != nullptr)
+        if (_active_shared_texture != nullptr)
         {
             // Flush GL work into the shared texture, release it back to D3D, then hand the texture
             // to the editor: producer releases keyed-mutex key 1 (the editor acquires 1 / releases
             // 0). wglDXUnlockObjectsNV inserts the GL/D3D sync, so the editor sees a complete frame.
-            auto& shared = *_active_shared_target;
+            auto& shared = *_active_shared_texture;
             glFlush();
             if (shared.is_locked)
             {
@@ -551,7 +553,7 @@ namespace opengl_rendering
                 shared.is_locked = false;
             }
             static_cast<IDXGIKeyedMutex*>(shared.keyed_mutex)->ReleaseSync(1U);
-            _active_shared_target = nullptr;
+            _active_shared_texture = nullptr;
         }
 #endif
         _state.current_target = {};
@@ -584,53 +586,119 @@ namespace opengl_rendering
         return present(_state.current_target);
     }
 
-    tbx::Result OpenGlGraphicsBackend::read_back_buffer(
-        const tbx::Size& backbuffer_size,
-        std::vector<uint8>& out_pixels)
+    tbx::Result OpenGlGraphicsBackend::read_buffer(
+        const tbx::GpuId& resource_uuid,
+        const tbx::BufferRegion& region,
+        void* out_data)
     {
-        // One-shot synchronous capture for headless --screenshot. The editor never takes this path
-        // (it samples shared textures directly), so a plain blocking read is fine — no PBO ring.
+        if (auto result = require_gl_ready_for_resource_ops(); !result)
+            return result;
+
+        if (region.size == 0U)
+            return make_success();
+        if (!out_data)
+            return make_failure("OpenGL backend: buffer read destination is null.");
+
+        const auto buffer_it = _cache.buffers.find(resource_uuid);
+        if (buffer_it == _cache.buffers.end())
+            return make_failure("OpenGL backend: buffer was not found.");
+        if (region.offset + region.size > buffer_it->second.size)
+            return make_failure("OpenGL backend: buffer read exceeds buffer size.");
+
+        glGetNamedBufferSubData(
+            buffer_it->second.buffer.get_buffer_id(),
+            static_cast<GLintptr>(region.offset),
+            static_cast<GLsizeiptr>(region.size),
+            out_data);
+        return consume_gl_errors("read_buffer");
+    }
+
+    tbx::Result OpenGlGraphicsBackend::read_texture(
+        const tbx::GpuId& resource_uuid,
+        const tbx::TextureRegion& region,
+        void* out_data)
+    {
         if (!_state.is_loaded)
-            return make_failure("OpenGL backend: cannot read the back buffer before GL is loaded.");
+            return make_failure("OpenGL backend: cannot read a texture before GL is loaded.");
+        if (!out_data)
+            return make_failure("OpenGL backend: texture read destination is null.");
 
-        const auto width = backbuffer_size.width;
-        const auto height = backbuffer_size.height;
-        if (width == 0U || height == 0U)
-            return make_failure("OpenGL backend: cannot read a zero-sized back buffer.");
-
-        const auto stride = static_cast<size>(width) * 4U;
-        const auto buffer_bytes = stride * height;
-
-        GLint previous_read_framebuffer = 0;
-        GLint previous_pack_alignment = 4;
-        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_read_framebuffer);
-        glGetIntegerv(GL_PACK_ALIGNMENT, &previous_pack_alignment);
-
-        auto scratch = std::vector<uint8>(buffer_bytes);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, get_output_framebuffer());
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadBuffer(_is_texture_frame ? GL_COLOR_ATTACHMENT0 : GL_BACK);
-        glReadPixels(
-            0,
-            0,
-            static_cast<GLsizei>(width),
-            static_cast<GLsizei>(height),
-            GL_BGRA,
-            GL_UNSIGNED_BYTE,
-            scratch.data());
-
-        glPixelStorei(GL_PACK_ALIGNMENT, previous_pack_alignment);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer));
-
-        out_pixels.resize(buffer_bytes);
-        // GL rows are bottom-up; deliver top-down.
-        for (uint32 row = 0U; row < height; ++row)
+        // A null resource reads the active frame output as BGRA8 top-down rows: a one-shot synchronous
+        // capture for headless --screenshot. There is no addressable texture resource behind the
+        // window/offscreen backbuffer, and the editor never takes this path (it samples shared
+        // textures directly), so a plain blocking read is fine — no PBO ring.
+        if (resource_uuid == tbx::INVALID_GPU_ID)
         {
-            const auto* src = scratch.data() + static_cast<size>(height - 1U - row) * stride;
-            std::memcpy(out_pixels.data() + static_cast<size>(row) * stride, src, stride);
+            const auto width = region.width;
+            const auto height = region.height;
+            if (width == 0U || height == 0U)
+                return make_failure("OpenGL backend: cannot read a zero-sized frame output.");
+
+            const auto stride = static_cast<size>(width) * 4U;
+            const auto buffer_bytes = stride * height;
+
+            GLint previous_read_framebuffer = 0;
+            GLint previous_pack_alignment = 4;
+            glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_read_framebuffer);
+            glGetIntegerv(GL_PACK_ALIGNMENT, &previous_pack_alignment);
+
+            auto scratch = std::vector<uint8>(buffer_bytes);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, get_output_framebuffer());
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glReadBuffer(_is_texture_frame ? GL_COLOR_ATTACHMENT0 : GL_BACK);
+            glReadPixels(
+                0,
+                0,
+                static_cast<GLsizei>(width),
+                static_cast<GLsizei>(height),
+                GL_BGRA,
+                GL_UNSIGNED_BYTE,
+                scratch.data());
+
+            glPixelStorei(GL_PACK_ALIGNMENT, previous_pack_alignment);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer));
+
+            auto* out_bytes = static_cast<uint8*>(out_data);
+            // GL rows are bottom-up; deliver top-down.
+            for (uint32 row = 0U; row < height; ++row)
+            {
+                const auto* src = scratch.data() + static_cast<size>(height - 1U - row) * stride;
+                std::memcpy(out_bytes + static_cast<size>(row) * stride, src, stride);
+            }
+            return consume_gl_errors("read_texture");
         }
 
-        return consume_gl_errors("read_back_buffer");
+        const auto texture_it = _cache.textures.find(resource_uuid);
+        if (texture_it == _cache.textures.end())
+            return make_failure("OpenGL backend: texture was not found.");
+
+        const auto& texture = texture_it->second;
+        if (region.x + region.width > texture.size.width
+            || region.y + region.height > texture.size.height)
+            return make_failure("OpenGL backend: texture read exceeds texture bounds.");
+        if (region.array_layer >= texture.array_layer_count)
+            return make_failure("OpenGL backend: texture read array layer is out of bounds.");
+
+        // The region plus the texture's format determine the byte count; out_data holds exactly that.
+        const uint64 region_byte_size = static_cast<uint64>(region.width)
+                                        * static_cast<uint64>(region.height)
+                                        * texture.bytes_per_pixel;
+
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glGetTextureSubImage(
+            texture.texture.get_texture_id(),
+            static_cast<GLint>(region.mip_level),
+            static_cast<GLint>(region.x),
+            static_cast<GLint>(region.y),
+            static_cast<GLint>(region.array_layer),
+            static_cast<GLsizei>(region.width),
+            static_cast<GLsizei>(region.height),
+            1,
+            texture.upload_format,
+            texture.upload_type,
+            static_cast<GLsizei>(region_byte_size),
+            out_data);
+        return consume_gl_errors("read_texture");
     }
 
 #ifdef _WIN32
@@ -695,18 +763,16 @@ namespace opengl_rendering
         return make_success();
     }
 
-    tbx::Result OpenGlGraphicsBackend::create_shared_target(
-        const tbx::RenderTarget& target,
-        const tbx::Size& size,
-        tbx::SharedTargetInfo& out_info)
+    tbx::Result OpenGlGraphicsBackend::create_shared_texture(
+        const tbx::TextureDesc& texture_desc,
+        const tbx::GpuId id)
     {
-        if (!target.id.is_valid())
-            return make_failure("OpenGL backend: shared target id is invalid.");
+        const auto size = texture_desc.size;
         if (size.width == 0U || size.height == 0U)
-            return make_failure("OpenGL backend: shared target size is zero.");
+            return make_failure("OpenGL backend: shared texture size is zero.");
         if (_contexts.empty())
             return make_failure(
-                "OpenGL backend: a window context must exist before creating a shared target.");
+                "OpenGL backend: a window context must exist before creating a shared texture.");
 
         if (auto result = make_current(_contexts.front()); !result)
             return result;
@@ -714,21 +780,6 @@ namespace opengl_rendering
             return result;
         if (auto result = ensure_d3d_interop_ready(); !result)
             return result;
-
-        // Idempotent per target: a same-size request returns the existing handle; a resize rebuilds.
-        if (const auto it = _shared_targets.find(target.id.value); it != _shared_targets.end())
-        {
-            if (it->second.size.width == size.width && it->second.size.height == size.height)
-            {
-                out_info.shared_handle =
-                    static_cast<uint64>(reinterpret_cast<uintptr_t>(it->second.share_handle));
-                out_info.width = size.width;
-                out_info.height = size.height;
-                return make_success();
-            }
-            release_shared_target(it->second);
-            _shared_targets.erase(it);
-        }
 
         auto* device = static_cast<ID3D11Device*>(_d3d_device);
 
@@ -827,7 +878,7 @@ namespace opengl_rendering
             return make_failure("OpenGL backend: shared render target framebuffer is incomplete.");
         }
 
-        auto shared = SharedTarget();
+        auto shared = SharedTexture();
         shared.d3d_texture = texture;
         shared.keyed_mutex = keyed_mutex;
         shared.gl_interop_object = gl_object;
@@ -836,15 +887,12 @@ namespace opengl_rendering
         shared.depth_renderbuffer = depth_rb;
         shared.framebuffer = fbo;
         shared.size = size;
-        _shared_targets[target.id.value] = shared;
+        _shared_textures[id] = shared;
 
-        out_info.shared_handle = static_cast<uint64>(reinterpret_cast<uintptr_t>(share_handle));
-        out_info.width = size.width;
-        out_info.height = size.height;
-        return consume_gl_errors("create_shared_target");
+        return consume_gl_errors("create_shared_texture");
     }
 
-    void OpenGlGraphicsBackend::release_shared_target(SharedTarget& target)
+    void OpenGlGraphicsBackend::release_shared_texture(SharedTexture& target)
     {
         if (target.gl_interop_object != nullptr && _interop_device != nullptr)
         {
@@ -875,33 +923,18 @@ namespace opengl_rendering
         target.share_handle = nullptr;
     }
 
-    void OpenGlGraphicsBackend::destroy_shared_target(const tbx::RenderTarget& target)
+    void OpenGlGraphicsBackend::destroy_all_shared_textures()
     {
-        const auto it = _shared_targets.find(target.id.value);
-        if (it == _shared_targets.end())
-            return;
-
-        // GL deletes need a current context; the render lane usually has one, but make it explicit.
-        if (!_contexts.empty())
-            (void)make_current(_contexts.front());
-        if (_active_shared_target == &it->second)
-            _active_shared_target = nullptr;
-        release_shared_target(it->second);
-        _shared_targets.erase(it);
-    }
-
-    void OpenGlGraphicsBackend::destroy_all_shared_targets()
-    {
-        // release_shared_target issues GL deletes (framebuffers/renderbuffers), so it needs a current
+        // release_shared_texture issues GL deletes (framebuffers/renderbuffers), so it needs a current
         // context. cleanup() can call this after the lane's context is no longer current, so make one
-        // current explicitly, mirroring destroy_shared_target.
+        // current explicitly.
         if (!_contexts.empty())
             (void)make_current(_contexts.front());
 
-        for (auto& [id, target] : _shared_targets)
-            release_shared_target(target);
-        _shared_targets.clear();
-        _active_shared_target = nullptr;
+        for (auto& [id, texture] : _shared_textures)
+            release_shared_texture(texture);
+        _shared_textures.clear();
+        _active_shared_texture = nullptr;
 
         if (_interop_device != nullptr && g_wglDXCloseDeviceNV != nullptr)
             g_wglDXCloseDeviceNV(_interop_device);
@@ -919,23 +952,16 @@ namespace opengl_rendering
         return make_failure("OpenGL backend: GPU texture sharing is only implemented on Windows.");
     }
 
-    tbx::Result OpenGlGraphicsBackend::create_shared_target(
-        const tbx::RenderTarget&,
-        const tbx::Size&,
-        tbx::SharedTargetInfo&)
+    tbx::Result OpenGlGraphicsBackend::create_shared_texture(const tbx::TextureDesc&, tbx::GpuId)
     {
         return make_failure("OpenGL backend: GPU texture sharing is only implemented on Windows.");
     }
 
-    void OpenGlGraphicsBackend::release_shared_target(SharedTarget&)
+    void OpenGlGraphicsBackend::release_shared_texture(SharedTexture&)
     {
     }
 
-    void OpenGlGraphicsBackend::destroy_shared_target(const tbx::RenderTarget&)
-    {
-    }
-
-    void OpenGlGraphicsBackend::destroy_all_shared_targets()
+    void OpenGlGraphicsBackend::destroy_all_shared_textures()
     {
     }
 #endif
@@ -1431,6 +1457,19 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::destroy_resource(const tbx::GpuId& resource_uuid)
     {
+        if (auto shared_it = _shared_textures.find(resource_uuid);
+            shared_it != _shared_textures.end())
+        {
+            // release_shared_texture issues GL deletes, so make a context current explicitly.
+            if (!_contexts.empty())
+                (void)make_current(_contexts.front());
+            if (_active_shared_texture == &shared_it->second)
+                _active_shared_texture = nullptr;
+            release_shared_texture(shared_it->second);
+            _shared_textures.erase(shared_it);
+            return make_success();
+        }
+
         if (auto group_it = _cache.bind_groups.find(resource_uuid);
             group_it != _cache.bind_groups.end())
         {
@@ -1660,6 +1699,19 @@ namespace opengl_rendering
         if (desc.size.width == 0U || desc.size.height == 0U)
             return make_failure("OpenGL backend: texture size must be greater than zero.");
 
+        // A shared texture is a cross-process surface (D3D11 + keyed mutex) the backend renders into
+        // when a frame's output names it; it lives in its own map, not the sampleable texture cache.
+        if (desc.is_shared)
+        {
+            out_resource_uuid = next_resource_id();
+            if (auto result = create_shared_texture(desc, out_resource_uuid); !result)
+            {
+                out_resource_uuid = tbx::INVALID_GPU_ID;
+                return result;
+            }
+            return make_success();
+        }
+
         out_resource_uuid = next_resource_id();
         _cache.textures.emplace(
             out_resource_uuid,
@@ -1682,20 +1734,27 @@ namespace opengl_rendering
         return make_success();
     }
 
-    bool OpenGlGraphicsBackend::supports_bindless_textures() const
-    {
-        // Bindless is assumed available on the semi-modern GPU/PC targets this backend supports.
-        return true;
-    }
-
-    tbx::Result OpenGlGraphicsBackend::get_texture_bindless_handle(
+    tbx::Result OpenGlGraphicsBackend::get_gpu_handle(
         const tbx::GpuId& texture_uuid,
         uint64& out_handle)
     {
         out_handle = 0U;
+
+        // A shared texture exposes its OS-global cross-process share handle; a normal sampled texture
+        // exposes a resident ARB_bindless_texture handle indexable from shaders by uint.
+        if (const auto shared_it = _shared_textures.find(texture_uuid);
+            shared_it != _shared_textures.end())
+        {
+            out_handle =
+                static_cast<uint64>(reinterpret_cast<uintptr_t>(shared_it->second.share_handle));
+            if (out_handle == 0U)
+                return make_failure("OpenGL backend: shared texture has no cross-process handle.");
+            return make_success();
+        }
+
         const auto iterator = _cache.textures.find(texture_uuid);
         if (iterator == _cache.textures.end())
-            return make_failure("OpenGL backend: texture not found for bindless handle.");
+            return make_failure("OpenGL backend: texture not found for GPU handle.");
 
         const GLuint64 handle = iterator->second.texture.get_or_create_bindless_handle();
         if (handle == 0U)
@@ -1707,9 +1766,8 @@ namespace opengl_rendering
 
     tbx::Result OpenGlGraphicsBackend::write_buffer(
         const tbx::GpuId& resource_uuid,
-        const void* data,
-        const uint64 data_size,
-        const uint64 offset)
+        const tbx::BufferRegion& region,
+        const void* data)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1718,21 +1776,20 @@ namespace opengl_rendering
         if (buffer_it == _cache.buffers.end())
             return make_failure("OpenGL backend: buffer was not found.");
 
-        if (data_size > 0U && !data)
+        if (region.size > 0U && !data)
             return make_failure("OpenGL backend: buffer update data is null.");
 
-        if (offset + data_size > buffer_it->second.size)
+        if (region.offset + region.size > buffer_it->second.size)
             return make_failure("OpenGL backend: buffer update exceeds buffer size.");
 
-        buffer_it->second.buffer.update(data, data_size, offset);
+        buffer_it->second.buffer.update(data, region.size, region.offset);
         return consume_gl_errors("update_buffer");
     }
 
     tbx::Result OpenGlGraphicsBackend::write_texture(
         const tbx::GpuId& resource_uuid,
-        const tbx::TextureUpdateDesc& desc,
-        const void* data,
-        const uint64 data_size)
+        const tbx::TextureRegion& region,
+        const void* data)
     {
         if (auto result = require_gl_ready_for_resource_ops(); !result)
             return result;
@@ -1741,25 +1798,20 @@ namespace opengl_rendering
         if (texture_it == _cache.textures.end())
             return make_failure("OpenGL backend: texture was not found.");
 
-        if (data_size > 0U && !data)
+        if (region.width > 0U && region.height > 0U && !data)
             return make_failure("OpenGL backend: texture update data is null.");
 
         const auto& texture = texture_it->second;
-        if (desc.x + desc.width > texture.size.width || desc.y + desc.height > texture.size.height)
+        if (region.x + region.width > texture.size.width
+            || region.y + region.height > texture.size.height)
             return make_failure("OpenGL backend: texture update exceeds texture bounds.");
-        if (desc.array_layer >= texture.array_layer_count)
+        if (region.array_layer >= texture.array_layer_count)
             return make_failure("OpenGL backend: texture update array layer is out of bounds.");
 
-        const uint64 update_byte_size = static_cast<uint64>(desc.width)
-                                        * static_cast<uint64>(desc.height)
-                                        * texture.bytes_per_pixel;
-        if (data != nullptr && data_size < update_byte_size)
-            return make_failure("OpenGL backend: texture update data is smaller than region size.");
-
-        texture.texture.update(desc, texture.upload_format, texture.upload_type, data);
+        texture.texture.update(region, texture.upload_format, texture.upload_type, data);
         // Refresh the mip chain from the freshly uploaded base level. Only the base level carries
         // source pixels; smaller levels are derived here.
-        if (desc.mip_level == 0U)
+        if (region.mip_level == 0U)
             texture.texture.generate_mipmaps();
         return consume_gl_errors("update_texture");
     }
@@ -1818,7 +1870,8 @@ namespace opengl_rendering
                || _cache.buffers.contains(_next_resource_id)
                || _cache.raster_pipelines.contains(_next_resource_id)
                || _cache.samplers.contains(_next_resource_id)
-               || _cache.textures.contains(_next_resource_id))
+               || _cache.textures.contains(_next_resource_id)
+               || _shared_textures.contains(_next_resource_id))
         {
             ++_next_resource_id;
         }
@@ -2060,8 +2113,8 @@ namespace opengl_rendering
 #ifdef _WIN32
         // A streamed view draws into its shared texture's framebuffer; everything else keeps the
         // window backbuffer (0) or the throwaway texture framebuffer.
-        if (_active_shared_target != nullptr)
-            return _active_shared_target->framebuffer;
+        if (_active_shared_texture != nullptr)
+            return _active_shared_texture->framebuffer;
 #endif
         return _is_texture_frame ? _output_framebuffer : 0U;
     }

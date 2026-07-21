@@ -32,11 +32,10 @@ namespace stb_image_loader
             {"png", "jpg", "jpeg", "tga", "bmp"},
             [this](
                 const std::filesystem::path& asset_path,
-                const tbx::TextureLoadParameters& parameters,
                 const tbx::AssetLoadMetadata& metadata,
                 tbx::Texture& texture)
             {
-                return read_texture(asset_path, parameters, metadata, texture);
+                return read_texture(asset_path, metadata, texture);
             });
     }
 
@@ -53,7 +52,6 @@ namespace stb_image_loader
 
     tbx::Result StbImageLoader::read_texture(
         const std::filesystem::path& asset_path,
-        const tbx::TextureLoadParameters& parameters,
         const tbx::AssetLoadMetadata&,
         tbx::Texture& texture) const
     {
@@ -65,7 +63,15 @@ namespace stb_image_loader
             return result;
         }
 
-        tbx::Texture load_texture = parameters.texture;
+        // Default texture settings used when no .meta sidecar overrides them.
+        tbx::Texture load_texture = tbx::Texture(
+            tbx::Size(1, 1),
+            tbx::TextureWrap::REPEAT,
+            tbx::TextureFilter::LINEAR,
+            tbx::TextureFormat::RGBA,
+            tbx::TextureMipmaps::ENABLED,
+            tbx::TextureCompression::AUTO,
+            std::vector<tbx::Pixel> {255, 255, 255, 255});
         auto meta_path = asset_path;
         meta_path += ".meta";
         if (files->exists(meta_path))

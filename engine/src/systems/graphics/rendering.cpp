@@ -11,9 +11,9 @@ namespace tbx
 {
     constexpr auto RENDER_LANE_NAME = std::string_view("render");
 
-    // Writes BGRA, top-down pixels (the layout IGraphicsBackend::read_back_buffer delivers) as a
-    // 32-bit BMP. Used by capture_screenshot so a real rendered frame can be inspected without a
-    // window-capture step (GDI/PrintWindow return black for hardware GL surfaces).
+    // Writes BGRA, top-down pixels (the layout IGraphicsBackend::read_texture delivers for the frame
+    // output) as a 32-bit BMP. Used by capture_screenshot so a real rendered frame can be inspected
+    // without a window-capture step (GDI/PrintWindow return black for hardware GL surfaces).
     static bool write_bgra_bmp(
         const std::filesystem::path& path,
         uint32 width,
@@ -261,8 +261,12 @@ namespace tbx
                 if (attempt < WARMUP_FRAMES)
                     return;
 
-                auto pixels = std::vector<uint8>();
-                if (backend.read_back_buffer(backbuffer_size, pixels) && !pixels.empty())
+                // A null resource id reads the active frame output as BGRA8 top-down rows.
+                auto pixels = std::vector<uint8>(
+                    static_cast<size>(backbuffer_size.width) * backbuffer_size.height * 4U);
+                const auto region = TextureRegion {
+                    .width = backbuffer_size.width, .height = backbuffer_size.height};
+                if (backend.read_texture(INVALID_GPU_ID, region, pixels.data()) && !pixels.empty())
                 {
                     const bool wrote = write_bgra_bmp(
                         state->path, backbuffer_size.width, backbuffer_size.height, pixels);
@@ -370,78 +374,6 @@ namespace tbx
             {
                 return entry.first == id;
             });
-    }
-
-    ExternalCameraId Rendering::register_external_camera(ExternalCamera camera)
-    {
-        const auto id = Uuid::generate();
-        auto guard = std::lock_guard(_external_cameras_mutex);
-        _external_cameras.emplace_back(id, std::move(camera));
-        return id;
-    }
-
-    void Rendering::update_external_camera(const ExternalCameraId& id, ExternalCamera camera)
-    {
-        auto guard = std::lock_guard(_external_cameras_mutex);
-        for (auto& [existing_id, existing] : _external_cameras)
-            if (existing_id == id)
-            {
-                existing = std::move(camera);
-                return;
-            }
-    }
-
-    void Rendering::unregister_external_camera(const ExternalCameraId& id)
-    {
-        auto guard = std::lock_guard(_external_cameras_mutex);
-        std::erase_if(
-            _external_cameras,
-            [&id](const std::pair<ExternalCameraId, ExternalCamera>& entry)
-            {
-                return entry.first == id;
-            });
-        // Drop the idle-throttle bookkeeping too so a later camera reusing this id starts fresh
-        // (both this and render_external_cameras run on the main thread, so no extra lock is needed).
-        _external_camera_last_render.erase(id);
-    }
-
-    void Rendering::render_external_cameras(
-        const DeltaTime& delta_time,
-        const GraphicsSettings& settings)
-    {
-        // How many frames an idle external camera (render_active == false) may skip before it is
-        // refreshed anyway. Bounds staleness so an idle editor viewport keeps updating (at ~app_fps /
-        // this) instead of freezing, even if its owner never flips render_active back on — while still
-        // sparing it a full render every frame when nothing is happening.
-        constexpr uint64 IDLE_RENDER_INTERVAL_FRAMES = 6U;
-
-        // Snapshot the registry under the lock, then render OUTSIDE it: render() posts to the render
-        // lane and takes other locks, so holding this mutex across it would serialize the owner's
-        // update_external_camera() against frame dispatch (and risk lock-ordering issues).
-        auto snapshot = std::vector<std::pair<ExternalCameraId, ExternalCamera>>();
-        {
-            auto guard = std::lock_guard(_external_cameras_mutex);
-            snapshot.reserve(_external_cameras.size());
-            for (const auto& entry : _external_cameras)
-                snapshot.push_back(entry);
-        }
-
-        ++_external_camera_frame;
-        for (const auto& [id, camera] : snapshot)
-        {
-            // Render an active camera every frame; an idle one only once per idle interval (or on its
-            // first sighting). Only an actual render advances its last-render frame, so the interval is
-            // measured from the last frame drawn, not the last frame considered.
-            const auto last = _external_camera_last_render.find(id);
-            const bool first_seen = last == _external_camera_last_render.end();
-            const bool idle_due =
-                !first_seen && (_external_camera_frame - last->second) >= IDLE_RENDER_INTERVAL_FRAMES;
-            if (!camera.render_active && !first_seen && !idle_due)
-                continue;
-
-            render(delta_time, settings, camera.view, camera.target, camera.world_override);
-            _external_camera_last_render[id] = _external_camera_frame;
-        }
     }
 
     void Rendering::wait_for_render_frame() noexcept

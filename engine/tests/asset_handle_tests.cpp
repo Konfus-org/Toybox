@@ -32,19 +32,6 @@ TEST(AssetHandleTests, UnsetAssetHandleRoundTripsInvalid)
     EXPECT_EQ(restored.get_id(), tbx::Uuid());
 }
 
-// Positive: a typed asset handle advertises its own editor token, so the describe layer tells the
-// inspector which picker to show (distinct from a plain entity reference's "entity").
-TEST(AssetHandleTests, TypedHandlesCarryTheirEditorToken)
-{
-    EXPECT_EQ(tbx::get_property_type_token<tbx::AssetHandle<tbx::Material>>(), "asset");
-}
-
-// Negative: a plain (non-handle) value keeps its own token — the asset token is handle-only.
-TEST(AssetHandleTests, NonHandleValueDoesNotCarryAnAssetToken)
-{
-    EXPECT_NE(tbx::get_property_type_token<int>(), "asset");
-}
-
 // Positive: the handle reads BOTH the bare-id form (as the engine persists it) and the { "id": ... }
 // object form (as the editor sync sends a handle) — so migrating a Handle field to AssetHandle never drops
 // a value coming from either path.

@@ -1,10 +1,10 @@
 #pragma once
 #include "tbx/interfaces/graphics_backend.h"
 #include "tbx/systems/graphics/camera_view.h"
-#include "tbx/systems/graphics/external_camera.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/render_texture.h"
 #include "tbx/types/typedefs.h"
+#include "tbx/types/uuid.h"
 #include "tbx/types/vectors.h"
 #include <memory>
 #include <string>
@@ -26,27 +26,36 @@ namespace tbx::studio_bridge
 
     /// @brief
     /// Purpose: One editor-facing render view — the shared state every view kind has. A camera
-    /// (`view`) the engine renders as an ExternalCamera into a dedicated render texture that is a
-    /// shared GPU surface the editor samples directly (zero copy, no readback). Derived structs add
-    /// only what their kind needs (EditorViewStream / GameViewStream / AssetPreviewViewStream). The
-    /// forwarded viewport input lives off the stream, in the ViewState's per-view ViewInput.
+    /// (`view`) the bridge mirrors onto a transient camera entity it injects into the view's world
+    /// (see sync_camera_entities), which the engine renders like any world camera into a dedicated
+    /// render texture that is a shared GPU surface the editor samples directly (zero copy, no
+    /// readback). Derived structs add only what their kind needs (EditorViewStream / GameViewStream /
+    /// AssetPreviewViewStream). The forwarded viewport input lives off the stream, in the ViewState's
+    /// per-view ViewInput.
     /// @details
-    /// Ownership: Owns its render texture + the id of the external camera it registered with the engine.
-    /// The shared GPU texture itself is owned by the graphics backend (keyed by texture id) and torn
-    /// down on the render lane. Thread Safety: mutated on the main thread under the ViewState lock;
-    /// the surface fields are also read on the render lane (present callback) under that lock.
+    /// Ownership: Owns its render texture + the transient camera entity it injected (removed when the
+    /// view stops). The shared GPU texture itself is owned by the graphics backend (keyed by texture
+    /// id) and torn down on the render lane. Thread Safety: mutated on the main thread under the
+    /// ViewState lock; the surface fields are also read on the render lane (present callback) under
+    /// that lock.
     struct ViewStream
     {
         virtual ~ViewStream() = default;
 
         std::string name = {};
         tbx::RenderTexture texture = {};
-        // The camera the engine renders for this view (pose + lens + tags). Updated each frame from the
-        // view's forwarded input (editor/preview) or mirrored from the game camera (game), then pushed
-        // to the engine's external-camera registry. Editor views carry the editor-camera tag so the
-        // gizmo / collider / selection passes apply.
+        // The camera this view renders from (pose + lens + tags) — the bridge-side source of truth.
+        // Updated each frame from the view's forwarded input (editor/preview) or mirrored from the
+        // game camera (game), then written onto the injected camera entity. Editor views carry the
+        // editor-camera tag so the gizmo / collider / selection passes apply.
         tbx::CameraView view = {};
-        tbx::ExternalCameraId external_camera_id = {};
+        // The transient (never-serialized) camera entity the bridge injected into the view's world.
+        // Recreated by sync_camera_entities whenever the world it lived in is swapped (play-mode
+        // restore, world switch), so it is self-healing; invalid until the first sync.
+        tbx::Uuid camera_entity = {};
+        // The world the camera entity currently lives in — so a stop can remove it from the right
+        // world even after the view's bound world changed.
+        std::weak_ptr<tbx::World> camera_world = {};
 
         // The engine runtime id of the world this view renders and picks against: 0 = the active editing
         // world, or a non-zero id in the ViewState world registry (a preview world, or a world.load'd
@@ -57,8 +66,14 @@ namespace tbx::studio_bridge
         // drops that world from the registry. A view that merely references a bound world leaves it alone.
         bool owns_world = false;
 
-        // The view's shared GPU surface and where it is in its lifecycle (see ViewSurfaceState).
-        tbx::SharedTargetInfo shared = {};
+        // The view's shared GPU texture (the cross-process surface the editor samples directly) and
+        // where it is in its lifecycle (see ViewSurfaceState). Created on first present as a standard
+        // is_shared texture; once Ready, the view's camera targets it by this resource id so the engine
+        // renders straight into it. shared_handle is the OS-global handle announced to the editor.
+        tbx::GpuId shared_texture = tbx::INVALID_GPU_ID;
+        uint64 shared_handle = 0U;
+        uint32 shared_width = 0U;
+        uint32 shared_height = 0U;
         ViewSurfaceState surface_state = ViewSurfaceState::Pending;
 
         // Idle throttle: frames still to render at full rate after the last activity in this view (focus,

@@ -37,11 +37,19 @@ class AttributeSchemaRegistry:
         self._schemas = {
             "array": AttributeSchema(1, frozenset({"value"})),
             "app": AttributeSchema(None, frozenset({"name", "version"})),
+            # Editor-presentation hints. Passive: they annotate a type or field for the editor's
+            # property grid but never affect serialization (they are not SPECIAL_FIELD_ATTRS, so an
+            # annotated field still serializes normally). These move icon/color/slider/hidden off the
+            # hand-written C# mirror types and onto the C++ declarations that own the data.
+            "color": AttributeSchema(1, frozenset({"value"})),
             "custom_serialization": AttributeSchema(2, frozenset({"read", "write"})),
             "do_not_serialize": AttributeSchema(0, frozenset()),
+            "hidden": AttributeSchema(0, frozenset()),
+            "icon": AttributeSchema(1, frozenset({"value"})),
             "inject": AttributeSchema(),
             "meta": AttributeSchema(None, frozenset({"fields"})),
             "name": AttributeSchema(1, frozenset({"value"})),
+            "slider": AttributeSchema(2, frozenset({"max", "min"})),
             "post_deserialize": AttributeSchema(1, frozenset({"method"})),
             "post_serialize": AttributeSchema(1, frozenset({"method"})),
             "pre_deserialize": AttributeSchema(1, frozenset({"method"})),

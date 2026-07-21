@@ -7,7 +7,7 @@
 #include <vector>
 
 #ifndef TBX_PLUGIN_ABI_VERSION
-    #define TBX_PLUGIN_ABI_VERSION 1
+    #define TBX_PLUGIN_ABI_VERSION 2
 #endif
 
 namespace tbx

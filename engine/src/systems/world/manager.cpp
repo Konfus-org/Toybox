@@ -509,6 +509,18 @@ namespace tbx
         _state->instances.erase(it);
     }
 
+    std::vector<std::shared_ptr<World>> WorldManager::get_open_worlds() const
+    {
+        auto worlds = std::vector<std::shared_ptr<World>>();
+        worlds.reserve(1U + _state->instances.size());
+        if (_state->active_world)
+            worlds.push_back(_state->active_world);
+        for (const auto& [id, instance] : _state->instances)
+            if (instance.world)
+                worlds.push_back(instance.world);
+        return worlds;
+    }
+
     std::vector<Entity> WorldManager::collect_runtime_entities(
         const World& world,
         const std::vector<Uuid>& asset_entity_ids)
@@ -519,7 +531,9 @@ namespace tbx
         auto entities = std::vector<Entity>();
         for (const auto& entity : world.get_all())
         {
-            if (!asset_entities.contains(entity.get_id()))
+            // Transient entities (a host's injected cameras) never persist, so they are not
+            // "created since load" content for the primary chunk either.
+            if (!asset_entities.contains(entity.get_id()) && entity.is_serialized())
                 entities.push_back(entity);
         }
 

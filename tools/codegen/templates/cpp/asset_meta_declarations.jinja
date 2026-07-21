@@ -1,0 +1,4 @@
+std::true_type has_meta_serialization(const {{ name }}*);
+std::true_type has_meta_json_fields(const {{ name }}*);
+{{ api_prefix }}::tbx::Result {{ read_helper }}(std::string_view data, {{ name }}& asset);
+{{ api_prefix }}::tbx::Result {{ write_helper }}(const {{ name }}& asset, std::string& output);

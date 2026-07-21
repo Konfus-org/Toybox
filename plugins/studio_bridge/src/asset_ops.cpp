@@ -6,7 +6,6 @@
 #include "wire.h"
 #include "world_ops.h"
 #include "tbx/systems/assets/asset_pairing.h"
-#include "tbx/systems/assets/describe.h"
 #include "tbx/systems/assets/serialization.h"
 #include "tbx/types/assets/material.h"
 #include "tbx/types/assets/model.h"
@@ -124,12 +123,11 @@ namespace tbx::studio_bridge
 
         // Find the registered asset by id, read its current on-disk state type-erased (the registry
         // resolves the concrete type from the loader path claims and its own serialized-format list),
-        // then serialize it with the same enriched per-field shape entity.describe emits so the editor
-        // renders it through the existing JsonParser/PropertyGrid path. The body is serialized by
-        // describe_serializable_asset_instance IN THE ENGINE MODULE, so the attribute-rich schema (enum
-        // choices, categories, list element templates) travels — and it picks the body or the flat
-        // .meta automatically, so materials and meta-only assets (textures) both work. The id matches
-        // the value the handle picker wrote (editor.listAssets advertises entry.asset_id.value).
+        // then serialize it to its plain body so the editor renders it through the existing
+        // JsonParser/PropertyGrid path. A body asset (material, …) writes its body; a meta-only asset
+        // (texture) writes its flat .meta import settings — either way the reply is real field values,
+        // no schema metadata. The id matches the value the handle picker wrote (editor.listAssets
+        // advertises entry.asset_id.value).
         for (const auto& entry : asset_manager->get_registered_assets())
         {
             if (entry.asset_id.value != asset_id)
@@ -139,14 +137,29 @@ namespace tbx::studio_bridge
             if (!read.result.succeeded() || !read.asset || read.type_name.empty())
                 return Result(false, "Failed to load asset: " + read.result.get_report());
 
-            const auto serialized =
-                tbx::describe_serializable_asset_instance(read.asset.get(), read.type_name);
-            if (serialized.empty())
+            const auto registration = tbx::get_asset_type_registration(read.type_name);
+            if (!registration)
                 return Result(false, "This asset type can't be edited in the inspector.");
+
+            auto serialized = std::string();
+            if (registration->write_body)
+            {
+                if (const auto wrote = registration->write_body(read.asset.get(), serialized); !wrote)
+                    return wrote;
+            }
+            else if (registration->write_meta)
+            {
+                if (const auto wrote = registration->write_meta(read.asset.get(), serialized); !wrote)
+                    return wrote;
+            }
+            else
+            {
+                return Result(false, "This asset type can't be edited in the inspector.");
+            }
 
             auto body = tbx::Json::parse(serialized, nullptr, false);
             if (body.is_discarded() || !body.is_object())
-                return Result(false, "Failed to parse described asset body.");
+                return Result(false, "Failed to parse the asset body.");
 
             // The registered type name (not the extension) is what asset.save keys on; the editor sends
             // it back verbatim so a round-trip save resolves the right serializer.
@@ -246,11 +259,6 @@ namespace tbx::studio_bridge
         auto assets = tbx::Json::array();
         auto scripts = tbx::Json::array();
 
-        // A scripting backend claims its source extension (e.g. ".h" for C++), so an asset whose file
-        // extension a backend recognises is a script source the editor can bind to an entity. Resolved
-        // once per list so each asset can be flagged for the editor's script picker.
-        auto scripting = services.scripting_registry.lock();
-
         if (auto asset_manager = services.asset_manager.lock())
         {
             // Surface the engine/bridge-provided preview assets alongside the project's: their directory
@@ -281,17 +289,10 @@ namespace tbx::studio_bridge
                                               ? entry.normalized_path
                                               : entry.resolved_path.stem().string();
 
-                // A self-describing script meta (e.g. "X.h.meta") IS the asset, so its registered path
-                // ends in ".meta"; the source extension a scripting backend claims is the part before it.
-                // Strip a trailing ".meta" so the lookup sees ".h" rather than ".meta".
-                auto source_path = entry.resolved_path;
-                if (source_path.extension() == ".meta")
-                    source_path = source_path.stem();
-                auto extension = source_path.extension().string();
-                for (auto& character : extension)
-                    character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
-                const auto is_script =
-                    scripting && !extension.empty() && !scripting->for_extension(extension).expired();
+                // A script is an ordinary asset whose payload is its C++ header (paired with its .cpp and
+                // its .h.meta sidecar), so the engine's own pairing rule tells the editor which assets are
+                // scripts — no scripting service to query.
+                const auto is_script = tbx::asset_pairing::is_source_header(entry.resolved_path);
 
                 const auto asset_type = asset_type_from_path(entry.resolved_path);
 
@@ -302,12 +303,11 @@ namespace tbx::studio_bridge
                 asset[Wire::PATH] = entry.normalized_path;
                 asset["isScript"] = is_script;
                 asset["isBuiltin"] = builtin_ids.contains(entry.asset_id.value);
-                // hasMeta: a script's self-describing .h.meta IS the asset (always "has" metadata); every
-                // other asset has metadata only if its `<asset>.meta` sidecar exists on disk. The editor
-                // surfaces the missing ones so they can be generated.
-                asset["hasMeta"] = is_script
-                                   || std::filesystem::exists(
-                                       tbx::asset_pairing::metadata_path(entry.resolved_path));
+                // hasMeta: an asset has metadata when its `<payload>.meta` sidecar exists on disk (a
+                // script's `.h` always has its `.h.meta`). The editor surfaces the missing ones so they
+                // can be generated.
+                asset["hasMeta"] = std::filesystem::exists(
+                    tbx::asset_pairing::metadata_path(entry.resolved_path));
                 // A material also advertises its render-role type so the editor can preview a sky
                 // material as the background (and hide the mesh/material pickers for it).
                 if (asset_type == "mat")
@@ -384,7 +384,7 @@ namespace tbx::studio_bridge
 
         // A body asset (material, shader, …) round-trips through read_body/write_body; a meta-only asset
         // (texture) round-trips its [[meta]] import settings through transform_meta/write_meta. The editor's
-        // typed body is the same { type, value } shape both readers accept.
+        // body is plain field values, the same shape both readers accept.
         const auto is_body = registration->read_body && registration->write_body;
         const auto is_meta = registration->transform_meta && registration->write_meta;
         if (!is_body && !is_meta)
@@ -438,9 +438,9 @@ namespace tbx::studio_bridge
         if (!body.is_object())
             body = tbx::Json::object();
 
-        // Set (or introduce) the one field's value in the self-describing { "value": … } form the reader
-        // expects; an unknown property is simply ignored by read_body (it walks the type's own fields).
-        body[std::string(property)][std::string(tbx::PROPERTY_VALUE_KEY)] = value;
+        // Set (or introduce) the one field's bare value in the plain body the reader expects; an unknown
+        // property is simply ignored by read_body (it walks the type's own fields).
+        body[std::string(property)] = value;
 
         return registration->read_body(body.dump(), asset.get());
     }
@@ -478,7 +478,7 @@ namespace tbx::studio_bridge
             return Result(false, "Could not create asset of type: " + type);
 
         // Seed initial field values (e.g. a material's chosen type) from the editor's partial body; absent
-        // fields keep their defaults. read_body deserializes the same lean/typed shape the grid round-trips.
+        // fields keep their defaults. read_body deserializes the same plain-value shape the grid round-trips.
         if (initial_body != nullptr && initial_body->is_object() && registration->read_body)
             if (const auto read = registration->read_body(initial_body->dump(), asset.get()); !read)
                 return read;
@@ -522,9 +522,12 @@ namespace tbx::studio_bridge
         if (std::filesystem::exists(resolved))
             return Result(false, "An asset already exists at: " + resolved.generic_string());
 
+        // The .world body is plain values: a Handle serializes to its bare id, so globals is the
+        // globals asset's id and chunks is a bare array of chunk ids (mirrors World's generated
+        // serialize).
         auto world = tbx::Json::object();
-        world["globals"] = {{"type", "handle"}, {"value", globals_id.value}};
-        world["chunks"] = {{"type", "array"}, {"value", tbx::Json::array({chunk_id.value})}};
+        world["globals"] = globals_id.value;
+        world["chunks"] = tbx::Json::array({chunk_id.value});
         if (auto stream = std::ofstream(resolved); stream)
             stream << world.dump(4);
         else

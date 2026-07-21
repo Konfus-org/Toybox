@@ -83,9 +83,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        std::shared_ptr<TAsset> load(
-            const Handle& handle,
-            const AssetLoadParameters<TAsset>& parameters = {});
+        std::shared_ptr<TAsset> load(const Handle& handle);
 
         std::shared_ptr<Asset> load(const Handle& handle);
 
@@ -250,9 +248,7 @@ namespace tbx
         /// Thread Safety: Safe to call concurrently; internal state is synchronized.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        AssetPromise<TAsset> load_async(
-            const Handle& handle,
-            const AssetLoadParameters<TAsset>& parameters = {});
+        AssetPromise<TAsset> load_async(const Handle& handle);
 
         /// @brief
         /// Purpose: Streams an asset out if it is unreferenced or forced.
@@ -349,12 +345,6 @@ namespace tbx
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        static bool asset_load_parameters_match(
-            const Record<TAsset>& record,
-            const AssetLoadParameters<TAsset>& parameters);
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
         static AssetUsage build_asset_usage(const Record<TAsset>& record);
 
         template <typename TAsset>
@@ -396,12 +386,6 @@ namespace tbx
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
         static void populate_loaded_asset_data(const std::shared_ptr<TAsset>& asset);
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        static void store_asset_load_parameters(
-            Record<TAsset>& record,
-            const AssetLoadParameters<TAsset>& parameters);
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>

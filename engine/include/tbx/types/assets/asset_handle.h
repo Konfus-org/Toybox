@@ -3,7 +3,6 @@
 #include "tbx/types/handle.h"
 #include "tbx/types/uuid.h"
 #include <concepts>
-#include <string_view>
 #include <utility>
 
 namespace tbx
@@ -16,8 +15,8 @@ namespace tbx
     /// @details
     /// Ownership: Owns only the Handle identity, never the asset. Serializes exactly as its underlying Handle
     /// (a bare id, tolerant of both the bare and { "id": ... } forms on read) so a typed AssetHandle field is
-    /// byte-identical on the wire and on disk to a plain Handle field — the type tag is compile-time only, and
-    /// only its editor token differs ("asset" vs "handle"). Thread Safety: Matches Handle; safe to copy.
+    /// byte-identical on the wire and on disk to a plain Handle field — the type tag is compile-time only.
+    /// Thread Safety: Matches Handle; safe to copy.
     [[serializable]];
     template <typename TAsset>
         requires std::derived_from<TAsset, Asset>
@@ -57,14 +56,6 @@ namespace tbx
 
         Handle handle = {};
     };
-
-    /// @brief The editor token this field carries so the inspector shows an asset picker (distinct from a
-    /// plain handle or entity reference). Pointer-based ADL hook, matching property_choices.
-    template <typename TAsset>
-    std::string_view property_token(const AssetHandle<TAsset>*)
-    {
-        return "asset";
-    }
 }
 
 // The handle serializes exactly as its underlying Handle (a bare id, tolerant of the { "id": ... }

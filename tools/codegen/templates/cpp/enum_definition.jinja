@@ -1,0 +1,36 @@
+void serialize(::tbx::Json& json, const {{ name }}& value)
+{
+    switch (value)
+    {
+{% for value in values %}
+        case {{ value.label }}:
+            json = {{ value.json }};
+            return;
+{% endfor %}
+        default:
+            json = nullptr;
+            return;
+    }
+}
+void deserialize(const ::tbx::Json& json, {{ name }}& value)
+{
+    if (json.is_number_integer())
+    {
+        value = static_cast<{{ name }}>(json.get<int>());
+        return;
+    }
+    if (!json.is_string())
+    {
+        value = static_cast<{{ name }}>(0);
+        return;
+    }
+    const auto name = json.get<std::string>();
+{% for value in values %}
+    if (name == {{ value.json }})
+    {
+        value = {{ value.label }};
+        return;
+    }
+{% endfor %}
+    value = static_cast<{{ name }}>(0);
+}

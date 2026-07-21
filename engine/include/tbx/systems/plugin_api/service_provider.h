@@ -7,7 +7,7 @@
 #include "tbx/systems/debugging/macros.h"
 #include "tbx/systems/world/manager.h"
 #include "tbx/systems/plugin_api/plugin_ownership.h"
-#include "tbx/systems/plugin_api/plugin_ownership_tracking.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include "tbx/tbx_api.h"
 #include <concepts>
 #include <memory>

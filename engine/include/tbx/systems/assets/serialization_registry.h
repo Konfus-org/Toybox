@@ -18,10 +18,6 @@
 
 namespace tbx
 {
-    // Per-asset load parameters live next to their asset structs (see e.g. TextureLoadParameters in
-    // texture.h); AssetLoadParameters<T> resolves them via the load_parameters_of overloads declared
-    // in asset.h.
-
     /// @brief
     /// Purpose: Carries sidecar metadata parsed before asset payload loading.
     /// @details
@@ -54,8 +50,8 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Stores per-type asset readers (plus transformers) that deserialize a source file into an
-    /// asset, keyed by the file extensions each reader claims.
+    /// Purpose: Stores per-type asset readers (plus an optional post-read transformer) that deserialize a
+    /// source file into an asset, keyed by the file extensions each reader claims.
     /// @details
     /// A reader owns a binary/foreign format's deserialization (an image reader reads .png/.jpg into a
     /// Texture, a model reader reads .fbx/.obj into a Model) and registers the extensions it handles, so
@@ -70,7 +66,6 @@ namespace tbx
             requires std::derived_from<TAsset, Asset>
         using Reader = std::function<Result(
             const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters,
             const AssetLoadMetadata& metadata,
             TAsset& asset)>;
 
@@ -78,7 +73,6 @@ namespace tbx
             requires std::derived_from<TAsset, Asset>
         using AsyncReader = std::function<std::shared_future<Result>(
             const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters,
             AssetLoadMetadata metadata,
             const std::shared_ptr<TAsset>& asset)>;
 
@@ -86,12 +80,10 @@ namespace tbx
             requires std::derived_from<TAsset, Asset>
         using Transformer = std::function<Result(
             const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters,
             const AssetLoadMetadata& metadata,
             TAsset& asset)>;
 
       public:
-        SerializationRegistry();
         explicit SerializationRegistry(std::weak_ptr<IFileOps> file_ops);
         ~SerializationRegistry() noexcept = default;
 
@@ -116,10 +108,8 @@ namespace tbx
             requires std::derived_from<TAsset, Asset>
         void deregister_reader();
 
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        bool has_reader() const;
-
+        // Registers the post-read hook for TAsset, run after the reader/body read and the .meta
+        // application (e.g. shader include expansion). One per type; registering again replaces it.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
         void register_transformer(Transformer<TAsset> transformer);
@@ -130,32 +120,18 @@ namespace tbx
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        bool has_transformer() const;
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
         bool can_read() const;
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        AssetReadResult<TAsset> read_result(
-            const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters = {}) const;
+        AssetReadResult<TAsset> read_result(const std::filesystem::path& asset_path) const;
 
         AssetReadResult<Asset> read_registered_asset_result(
             const std::filesystem::path& asset_path) const;
 
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        std::shared_ptr<TAsset> read(
-            const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters = {}) const;
-
-        template <typename TAsset>
-            requires std::derived_from<TAsset, Asset>
-        AssetPromise<TAsset> read_async(
-            const std::filesystem::path& asset_path,
-            const AssetLoadParameters<TAsset>& parameters = {}) const;
+        AssetPromise<TAsset> read_async(const std::filesystem::path& asset_path) const;
 
         // Serializes an asset to disk. A reader-backed type (model/texture) has no writer, so this always
         // routes through the engine's JSON serializer (the codegen write_body); it fails when the type has
@@ -194,7 +170,7 @@ namespace tbx
         {
             Reader<TAsset> reader = {};
             AsyncReader<TAsset> async_reader = {};
-            std::vector<Transformer<TAsset>> transformers = {};
+            Transformer<TAsset> transformer = {};
         };
 
       private:
@@ -223,9 +199,6 @@ namespace tbx
         // holds `_mutex`.
         const RegistrationBase* find_reader_for_extension(
             const std::filesystem::path& asset_path) const;
-        // Resolves the registered type name of the reader claiming `asset_path`'s extension, or an empty
-        // string when no reader claims it.
-        std::string resolve_reader_type_name(const std::filesystem::path& asset_path) const;
         static Result try_read_asset_common_meta(
             const Json& data,
             const std::filesystem::path& meta_path,
@@ -235,13 +208,19 @@ namespace tbx
         static void apply_asset_common_meta(const AssetLoadMetadata& metadata, Asset& asset);
         std::shared_ptr<IFileOps> lock_file_ops() const;
 
+        // The fixed post-read pipeline shared by every read path: apply the .meta import settings
+        // (codegen transform_meta) and the common id/version fields when a sidecar was loaded, then
+        // run the type's registered post-read transformer, if any.
         template <typename TAsset>
             requires std::derived_from<TAsset, Asset>
-        static void prepend_default_meta_transformers(
+        static Result apply_post_read_steps(
             const std::optional<AssetTypeRegistration>& asset_registration,
             const std::optional<std::string>& meta_data,
             bool loaded_meta,
-            std::vector<Transformer<TAsset>>& transformers);
+            const AssetLoadMetadata& metadata,
+            const std::filesystem::path& asset_path,
+            const Transformer<TAsset>& transformer,
+            TAsset& asset);
 
         static Result try_load_registered_asset_body(
             const std::filesystem::path& asset_path,
@@ -265,9 +244,9 @@ namespace tbx
             const AssetTypeRegistration& asset_registration,
             const void* asset);
 
-        // Writes a self-describing script meta (`*.h.meta`): identity only (id/version/type), never a
-        // serialized body — so saving a script asset cannot clobber its identity.
-        static Result write_self_describing_script_meta(
+        // Writes a script's `<header>.h.meta` sidecar: identity + type only (id/version/type), never a
+        // serialized body — so saving a script asset writes the sidecar, never its `.h` payload.
+        static Result write_script_meta_sidecar(
             IFileOps& file_ops,
             const std::filesystem::path& asset_path,
             const AssetTypeRegistration& asset_registration);
@@ -282,7 +261,6 @@ namespace tbx
 
       private:
         mutable std::mutex _mutex = {};
-        std::shared_ptr<IFileOps> _owned_file_ops = nullptr;
         std::weak_ptr<IFileOps> _file_ops = {};
         std::unordered_map<std::type_index, std::unique_ptr<RegistrationBase>> _registrations = {};
     };

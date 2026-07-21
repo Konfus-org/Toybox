@@ -584,6 +584,7 @@ namespace tbx
         return stride_bytes == 0U ? 16U : stride_bytes / static_cast<uint32>(sizeof(float));
     }
 
+    const Mesh Mesh::EMPTY = Mesh({}, {});
     const Mesh Mesh::TRIANGLE = make_triangle_mesh();
     const Mesh Mesh::QUAD = make_quad_mesh();
     const Mesh Mesh::FULLSCREEN_QUAD = make_fullscreen_quad_mesh();

@@ -1,10 +1,7 @@
 #include "plugin_unloader.h"
 #include "tbx/systems/assets/manager.h"
-#include "tbx/systems/assets/serialization.h"
 #include "tbx/systems/debugging/macros.h"
-#include "tbx/systems/ecs/registry.h"
-#include "tbx/systems/scripting/script_registry.h"
-#include "tbx/types/components/component.h"
+#include "tbx/systems/plugin_api/runtime_registrations.h"
 #include "tbx/utils/string_utils.h"
 #include <algorithm>
 #include <functional>
@@ -39,51 +36,41 @@ namespace tbx
         return to_lower(left.name) < to_lower(right.name);
     }
 
-    static void clear_plugin_owned_resources(
-        Uuid plugin_id,
-        ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker)
+    // Releases everything a plugin registered, in one place, while its library is still mapped:
+    //   - unpins the assets it pinned and removes the asset directories it added, and
+    //   - deregisters its services in reverse registration order (a service another plugin still
+    //     holds survives until that plugin's instance is destroyed, back-to-front, below), then
+    //   - drops its RuntimeRegistrations, which purges its component instances from every live
+    //     registry and destroys its component / script / asset-type / serializable-type
+    //     registrations.
+    // No tracking is consulted: the plugin's container is the record of what it owns.
+    static void release_plugin_owned_resources(
+        LoadedPlugin& plugin,
+        ServiceProvider& service_provider)
     {
-        if (!plugin_id.is_valid())
-            return;
-
-        const auto owned_resources = ownership_tracker.snapshot_and_clear(plugin_id);
-
-        for (const auto& component_type : owned_resources.component_types)
-            unregister_entity_component_type_entry(component_type);
-
-        for (const auto& serializable_type_name : owned_resources.serializable_type_names)
-            unregister_serializable_type_entry(serializable_type_name);
-
-        for (const auto& asset_type : owned_resources.asset_types)
-            unregister_asset_type_entry(asset_type);
-
-        for (const auto& script_type_name : owned_resources.script_type_names)
-            unregister_script_entry(script_type_name);
-
-        if (auto asset_manager = service_provider.try_get_service<AssetManager>().lock())
+        auto* registrations = plugin.get_registrations();
+        if (registrations)
         {
-            for (const auto& handle : owned_resources.pinned_asset_handles)
-                asset_manager->set_pinned(handle, false);
+            if (auto asset_manager = service_provider.try_get_service<AssetManager>().lock())
+            {
+                for (const auto& handle : registrations->get_pinned_handles())
+                    asset_manager->set_pinned(handle, false);
 
-            for (const auto& directory : owned_resources.asset_directories)
-                asset_manager->remove_directory(directory);
+                for (const auto& directory : registrations->get_asset_directories())
+                    asset_manager->remove_directory(directory);
+            }
+
+            const auto& services = registrations->get_services();
+            for (auto service = services.rbegin(); service != services.rend(); ++service)
+                service_provider.deregister_service(*service);
         }
 
-        if (auto entity_registry = service_provider.try_get_service<EntityRegistry>().lock())
-        {
-            for (const auto& entity_id : owned_resources.entity_ids)
-                entity_registry->get(entity_id).destroy();
-        }
-
-        for (const auto& service_type : owned_resources.service_types)
-            service_provider.deregister_service(service_type);
+        plugin.release_registrations();
     }
 
     static void unload_plugins(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker,
         std::optional<std::reference_wrapper<IMessageCoordinator>> coordinator);
 
     static void detach_plugins(
@@ -167,25 +154,23 @@ namespace tbx
 
     void PluginUnloader::unload(
         LoadedPlugins& loaded_plugins,
-        ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker)
+        ServiceProvider& service_provider)
     {
-        unload_plugins(loaded_plugins, service_provider, ownership_tracker, std::nullopt);
+        unload_plugins(loaded_plugins, service_provider, std::nullopt);
     }
 
     static void unload_plugins(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker,
         std::optional<std::reference_wrapper<IMessageCoordinator>> coordinator)
     {
         detach_plugins(loaded_plugins, service_provider, coordinator);
         if (coordinator.has_value())
             coordinator->get().flush();
 
-        for (const auto& plugin : loaded_plugins)
+        for (auto& plugin : loaded_plugins)
         {
-            clear_plugin_owned_resources(plugin.get_id(), service_provider, ownership_tracker);
+            release_plugin_owned_resources(plugin, service_provider);
             if (coordinator.has_value())
                 coordinator->get().flush();
         }
@@ -205,9 +190,8 @@ namespace tbx
     void PluginUnloader::unload(
         LoadedPlugins& loaded_plugins,
         ServiceProvider& service_provider,
-        PluginOwnershipTracker& ownership_tracker,
         IMessageCoordinator& coordinator)
     {
-        unload_plugins(loaded_plugins, service_provider, ownership_tracker, std::ref(coordinator));
+        unload_plugins(loaded_plugins, service_provider, std::ref(coordinator));
     }
 }

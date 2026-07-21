@@ -20,33 +20,19 @@
 #include <variant>
 #include <vector>
 
-#define TBX_SERIALIZATION_CONCAT_INNER(Left, Right) Left##Right
-#define TBX_SERIALIZATION_CONCAT(Left, Right) TBX_SERIALIZATION_CONCAT_INNER(Left, Right)
-#if defined(TBX_PLUGIN_EXPORTING_SYMBOLS)
-    #define TBX_SERIALIZATION_AUTO_REGISTER(Name, Expression)                                      \
-        static constexpr bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = true
-#else
-    #define TBX_SERIALIZATION_AUTO_REGISTER(Name, Expression)                                      \
-        /* NOLINTNEXTLINE(bugprone-throwing-static-initialization) */                              \
-        static const bool TBX_SERIALIZATION_CONCAT(Name, __COUNTER__) = []() noexcept              \
-        {                                                                                          \
-            Expression;                                                                            \
-            return true;                                                                           \
-        }()
-#endif
-
 // Grants the serialization codegen friend access to a type's non-public [[tbx::serialize]] members.
 // Place it inside the class body (any access section) and terminate the invocation with ';'. The
 // generated ::tbx::SerializationAccess<T> specialization — befriended here — carries the type's
 // serialize/deserialize bodies, so it can reach private members; the free serialize/deserialize
 // functions delegate to it.
-#define TBX_EXPOSE_PRIVATES_TO_SERIALIZATION                                                       \
+#define TBX_EXPOSE_PRIVATES_TO_SERIALIZATION()                                                     \
     template <typename>                                                                            \
     friend struct ::tbx::SerializationAccess
 
 namespace tbx
 {
     struct Asset;
+    class RuntimeRegistrations;
     class ScriptContext;
     template <typename TOwner, typename TProp>
     class Observable;
@@ -67,12 +53,6 @@ namespace tbx
         std::type_index type = std::type_index(typeid(void));
         std::function<std::string(const void*)> write_value = {};
         std::function<bool(std::string_view, void*)> read_value = {};
-
-        // describe(include_attributes) serializes a default-constructed instance — lean (every
-        // field) when false, or attribute-enriched when true — giving the editor a type's full
-        // property schema (defaults, attributes, nested types, choices) without a live instance.
-        // Empty/null when the type is not default-constructible.
-        std::function<std::string(bool)> describe = {};
     };
 
     /// @brief
@@ -90,24 +70,10 @@ namespace tbx
         std::function<Result(std::string_view, void*)> read_body = {};
         std::function<Result(const void*, std::string&)> write_body = {};
         std::function<Result(std::string_view, void*)> transform_meta = {};
-        // Serializes an asset's [[meta]] fields (e.g. a texture's wrap/filter/format import settings) to the
-        // flat .meta sidecar. The shape follows the per-module attribute thread-local: lean flat values for
-        // persistence, the attribute-rich { attributes, value } shape under AttributeSerializationScope so the
-        // inspector can describe meta-only assets the same way it describes body assets. Null for asset types
-        // with no [[meta]] fields. Counterpart to transform_meta, which reads the meta back (tolerant of both
-        // the flat on-disk form and the editor's typed save).
+        // Serializes an asset's [[meta]] fields (e.g. a texture's wrap/filter/format import
+        // settings) to the flat .meta sidecar as bare values. Null for asset types with no [[meta]]
+        // fields. Counterpart to transform_meta, which reads the meta back.
         std::function<Result(const void*, std::string&)> write_meta = {};
-        // Serializes a default-constructed instance as the editor's schema — lean (every field)
-        // when include_attributes is false, attribute-enriched (type tokens, choices, nested types)
-        // when true — the same per-field shape entity.describe emits. Unlike write_body, the
-        // describe lambda enters the editor scopes (OmitDefaultFieldsScope /
-        // AttributeSerializationScope) IN ITS OWN MODULE, so the scope and the generated serialize
-        // share the per-module attribute thread-local and the attributes actually travel; calling
-        // write_body across a module boundary under scopes entered elsewhere silently falls back to
-        // the lean form. Set by the type's registering module (e.g. a scripts plugin) for body
-        // asset types; null when unavailable. Lets the editor describe a plugin-owned asset's
-        // schema (a script's overridable fields and their type tokens) without a live instance.
-        std::function<std::string(bool)> describe = {};
         // True when this asset type is a script (in any language). Lets the editor build a script
         // catalog without knowing how any backend runs scripts.
         bool is_script = false;
@@ -116,12 +82,12 @@ namespace tbx
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(std::type_index type);
     TBX_API std::optional<AssetTypeRegistration> get_asset_type_registration(
         std::string_view type_name);
-    TBX_API void unregister_asset_type_entry(std::type_index asset_type);
-    TBX_API void register_asset_type_entry(AssetTypeRegistration entry);
+    TBX_API void register_asset_type_entry(RuntimeRegistrations& owner, AssetTypeRegistration entry);
     TBX_API std::vector<AssetTypeRegistration> get_asset_type_registrations();
     TBX_API std::vector<SerializableTypeRegistration> get_serializable_type_registrations();
-    TBX_API void unregister_serializable_type_entry(std::string_view name);
-    TBX_API void register_serializable_type_entry(SerializableTypeRegistration entry);
+    TBX_API void register_serializable_type_entry(
+        RuntimeRegistrations& owner,
+        SerializableTypeRegistration entry);
     // Drops every asset-type and serializable-type registration. These hold loader/serializer
     // std::functions that may live in a dynamically-loaded module (e.g. the app module); the engine
     // clears them during shutdown, while every module is still mapped, so they aren't destroyed
@@ -136,7 +102,7 @@ namespace tbx
     template <typename TValue>
     struct SerializableTypeRegistrationHook
     {
-        static bool register_type(const SerializableTypeRegistration&)
+        static bool register_type(RuntimeRegistrations&, const SerializableTypeRegistration&)
         {
             return false;
         }
@@ -224,9 +190,9 @@ namespace tbx
     }
 
     template <typename TValue>
-    static bool ensure_serializable_type_registered()
+    static bool ensure_serializable_type_registered(RuntimeRegistrations& owner)
     {
-        return register_serializable_type(static_cast<const TValue*>(nullptr));
+        return register_serializable_type(static_cast<const TValue*>(nullptr), &owner);
     }
 
     template <typename TValue>
@@ -361,16 +327,6 @@ namespace tbx
     template <typename TKey, typename TValue, typename THash, typename TEqual, typename TAllocator>
     struct IsSerializableMap<std::unordered_map<TKey, TValue, THash, TEqual, TAllocator>>
         : std::true_type
-    {
-    };
-
-    template <typename TValue>
-    struct IsStdVariant : std::false_type
-    {
-    };
-
-    template <typename... TAlternatives>
-    struct IsStdVariant<std::variant<TAlternatives...>> : std::true_type
     {
     };
 
@@ -774,149 +730,6 @@ namespace tbx
         return result;
     }
 
-    // Keys for the self-describing property wrapper: every property is { "type": <token>, "value":
-    // <value> }. A [[prop]] std::variant carries the token "variant" with its value being the
-    // variant's own { "type", "value" } alternative (see get_property_type_token); the reader takes
-    // the wrapper's "value" and lets read_serialization_value interpret it by the field's static
-    // type. Structural metadata (nested type, declaration order, enum choices) is not written here
-    // on the persistence path; attribute serialization (see AttributeSerializationScope) folds it
-    // in inline when requested.
-    inline constexpr std::string_view PROPERTY_TYPE_KEY = "type";
-    inline constexpr std::string_view PROPERTY_VALUE_KEY = "value";
-
-    // The attribute-enrichment wrapper key. Persisted data stays lean { "type", "value" };
-    // serializing under AttributeSerializationScope emits each field as { "attributes": { "type",
-    // <metadata> }, "value", "is_default" } so the editor metadata travels with the value. Never
-    // written to disk.
-    inline constexpr std::string_view PROPERTY_ATTRIBUTES_KEY = "attributes";
-
-    // The type token a std::variant property carries; its value is the variant's own {type,value}.
-    inline constexpr std::string_view PROPERTY_VARIANT_TOKEN = "variant";
-
-    template <typename TValue>
-    struct PropertyValueType
-    {
-        using type = TValue;
-    };
-
-    template <typename TOwner, typename TProp>
-    struct PropertyValueType<Observable<TOwner, TProp>>
-    {
-        using type = TProp;
-    };
-
-    template <typename T, T Min, T Max>
-    struct PropertyValueType<Clamp<T, Min, Max>>
-    {
-        using type = T;
-    };
-
-    // ---------------------------------------------------------------------------------------------------
-    // Serializable type metadata
-    //
-    // There is no separate reflection registry. The code generator bakes each [[prop]] field's
-    // structural metadata (type token, nested type, declaration order, enum choices) into the
-    // generated serialize, which emits it inline next to the value under
-    // AttributeSerializationScope. The editor reads a type's full schema by serializing a
-    // default-constructed instance with attributes on (SerializableTypeRegistration::describe);
-    // property get/set/reset go through the type's own serialize/deserialize.
-    // ---------------------------------------------------------------------------------------------------
-
-    /// @brief Structural metadata for one [[prop]] field, baked into the generated serialize and
-    /// emitted inline (next to the value) only when attribute serialization is on. The type token
-    /// and enum choices are derived from the field's static type. Holds string_views into generated
-    /// string literals — never owns storage.
-    struct PropertyAttributeInfo
-    {
-        // The wire name of the field's (unwrapped) type, e.g. "quat" for a quaternion rotation that
-        // shares the structural "vec4" token. The editor uses it to disambiguate such types.
-        std::string_view nested = {};
-        // The field's declaration index within its struct. The serialized JSON object stores keys
-        // in alphabetical order, losing source order; the editor sorts by this to present fields as
-        // declared.
-        int order = 0;
-    };
-
-    // ADL hook the code generator specialises per enum type to advertise its enumerator names; the
-    // variadic catch-all leaves every other type choice-less. Lets attribute serialization render
-    // an enum property as a dropdown.
-    inline std::vector<std::string> property_choices(...)
-    {
-        return {};
-    }
-
-    // ADL hook letting a type advertise its own editor token, overriding the structural default. A typed
-    // asset handle (AssetHandle) overloads it to return "asset" so the inspector shows an asset picker; the
-    // variadic catch-all returns "" (empty), meaning "use the built-in token logic below".
-    inline std::string_view property_token(...)
-    {
-        return {};
-    }
-
-    /// @brief Resolves the selectable choices for a property via the generated property_choices
-    /// overloads, unwrapping Observable like get_property_type_token. Empty for non-enum
-    /// properties.
-    template <typename TValue>
-    static std::vector<std::string> get_property_choices()
-    {
-        using Clean = std::remove_cvref_t<TValue>;
-        if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
-            return get_property_choices<typename PropertyValueType<Clean>::type>();
-        else
-            return property_choices(static_cast<const Clean*>(nullptr));
-    }
-
-    /// @brief
-    /// Purpose: Resolves the editor type token for a serialized property so self-describing JSON
-    /// can drive a generic property grid. Reuses the existing variant type-name map for primitives,
-    /// vectors and matrices, and the registered serialization type name for nested structs.
-    template <typename TValue>
-    static std::string get_property_type_token()
-    {
-        using Clean = std::remove_cvref_t<TValue>;
-        // A type may advertise its own editor token (AssetHandle → "asset"), overriding the structural
-        // default; an empty token falls through to the built-in logic.
-        if (const auto token = property_token(static_cast<const Clean*>(nullptr)); !token.empty())
-            return std::string(token);
-        if constexpr (requires(const Clean& reference) { reference_id(reference); })
-        {
-            // A reference field (e.g. tbx::Entity) is editor-pickable: it carries the "entity" token and its
-            // value is just the referenced id, so the inspector shows an entity picker.
-            return "entity";
-        }
-        else if constexpr (IsObservable<Clean>::value || IsClamp<Clean>::value)
-        {
-            return get_property_type_token<typename PropertyValueType<Clean>::type>();
-        }
-        else if constexpr (IsSerializableVector<Clean>::value)
-        {
-            return "array";
-        }
-        else if constexpr (IsSerializableMap<Clean>::value)
-        {
-            return "map";
-        }
-        else if constexpr (IsStdVariant<Clean>::value)
-        {
-            // A variant is self-describing through its value's own { "type", "value" }; the
-            // property token "variant" tells the reader/editor to treat the value as that, not as a
-            // sub-struct.
-            return std::string(PROPERTY_VARIANT_TOKEN);
-        }
-        else if constexpr (std::is_same_v<Clean, std::string>)
-        {
-            return "string";
-        }
-        else
-        {
-            constexpr std::string_view type_name = SerializableVariantTypeName<Clean>::VALUE;
-            if constexpr (type_name.empty())
-                return "object";
-            else
-                return make_serializable_type_name(type_name);
-        }
-    }
-
     // Per-thread switch controlling whether fields equal to their default are omitted on write.
     // Default is false (include everything) so that internal whole-object serializations — e.g. the
     // editor's component property get/set/is_default round-trips (Entity::*_component_property),
@@ -959,233 +772,24 @@ namespace tbx
         bool _previous;
     };
 
-    // Per-thread switch controlling whether generated serialize emits each [[prop]] field as the
-    // enriched { "attributes": { type, category, description, view, readonly, hidden, nested,
-    // choices }, "value", "is_default" } node instead of the lean { "type", "value" }. Default is
-    // false (lean). The editor / reflection paths turn it on for one serialize call via
-    // AttributeSerializationScope; persistence never does. This replaces the old runtime
-    // type-reflection registry: the metadata is baked into the generated serialize and travels with
-    // the value.
-    inline bool& serialization_include_attributes_flag()
-    {
-        static thread_local bool flag = false;
-        return flag;
-    }
-
-    inline bool serialization_includes_attributes()
-    {
-        return serialization_include_attributes_flag();
-    }
-
-    // RAII guard that sets the include-attributes switch for the current thread and restores it on
-    // scope exit. Nesting-safe: saves and restores the previous value.
-    class AttributeSerializationScope
-    {
-      public:
-        explicit AttributeSerializationScope(bool include = true)
-            : _previous(serialization_include_attributes_flag())
-        {
-            serialization_include_attributes_flag() = include;
-        }
-
-        ~AttributeSerializationScope()
-        {
-            serialization_include_attributes_flag() = _previous;
-        }
-
-        AttributeSerializationScope(const AttributeSerializationScope&) = delete;
-        AttributeSerializationScope& operator=(const AttributeSerializationScope&) = delete;
-        AttributeSerializationScope(AttributeSerializationScope&&) = delete;
-        AttributeSerializationScope& operator=(AttributeSerializationScope&&) = delete;
-
-      private:
-        bool _previous;
-    };
-
-    // The key under which a field's default-equality flag rides in the attribute-enriched node.
-    inline constexpr std::string_view PROPERTY_IS_DEFAULT_KEY = "is_default";
-
-    /// @brief
-    /// Writes a property as a self-describing { "type": <token>, "value": <value> } object. A
-    /// std::variant value carries token "variant" and its own { "type", "value" } as the value.
-    /// This three-argument overload always writes the lean form (no attributes, no default
-    /// omission); it is used for entity-envelope scalars that carry no reflected metadata.
+    // Default-aware field write. When the per-thread omit-defaults switch is on (the persistence
+    // path) and the value serializes identically to default_value, the field is skipped entirely —
+    // the reader reconstructs it from the default (read_serialization_field substitutes the default
+    // for an absent field). With the switch off (internal whole-object serializations) every field
+    // is written. Comparison is on the serialized JSON form, so the field type needs no operator==.
     template <typename TJson, typename TValue>
-    static void write_typed_serialization_field(
-        TJson& json,
-        std::string_view field_name,
-        const TValue& value)
-    {
-        const auto key = make_serialization_json_key(field_name);
-        auto field = TJson::object();
-        field[std::string(PROPERTY_TYPE_KEY)] = get_property_type_token<TValue>();
-        field[std::string(PROPERTY_VALUE_KEY)] = write_serialization_value<TJson>(value);
-        json[key] = std::move(field);
-    }
-
-    /// @brief
-    /// Default-aware field write. When the per-thread omit-defaults switch is on (the persistence
-    /// path) and the value serializes identically to default_value, the field is skipped entirely —
-    /// the reader reconstructs it from the default (read_typed_serialization_field substitutes the
-    /// default for an absent field). With the switch off (the describe / reflect path and all
-    /// internal whole-object serializations) every field is written, exactly like the
-    /// three-argument overload. The value is serialized once and reused. Comparison is on the
-    /// serialized JSON form, matching the reflection is-default semantics, so the field type needs
-    /// no operator==.
-    template <typename TJson, typename TValue>
-    static void write_typed_serialization_field(
+    static void write_serialization_field(
         TJson& json,
         std::string_view field_name,
         const TValue& value,
-        const TValue& default_value,
-        const PropertyAttributeInfo& attributes = {})
-    {
-        auto serialized = write_serialization_value<TJson>(value);
-        const bool equals_default = serialized == write_serialization_value<TJson>(default_value);
-
-        // Attribute path (editor / reflection): emit the value alongside its baked metadata and a
-        // default-equality flag, so the metadata travels with the value and no separate registry is
-        // needed. Always writes the field (the editor shows defaulted properties too).
-        if (serialization_includes_attributes())
-        {
-            auto attribute_node = TJson::object();
-            attribute_node[std::string(PROPERTY_TYPE_KEY)] = get_property_type_token<TValue>();
-            // Declaration order, so the editor can re-sort the alphabetical JSON keys back to
-            // source order.
-            attribute_node["order"] = attributes.order;
-            if (!attributes.nested.empty())
-                attribute_node["nested"] = std::string(attributes.nested);
-            // Choices derived from the static type (an enum's enumerator names) render as a
-            // dropdown in the editor.
-            if (auto choices = get_property_choices<TValue>(); !choices.empty())
-            {
-                auto choices_node = TJson::array();
-                for (const auto& choice : choices)
-                    choices_node.push_back(choice);
-                attribute_node["choices"] = std::move(choices_node);
-            }
-            // A resizable container (std::vector) advertises the JSON of one default-constructed
-            // element so the editor can append a new entry without knowing the element's type. It
-            // is serialized in this same attribute scope, so its shape matches the existing
-            // elements exactly (attributed object for a struct element, bare value for a
-            // primitive). Only the editor reads it; persistence keeps the attribute scope off, so
-            // it is never written to disk. Unwrap Observable so a wrapped vector still advertises
-            // its element.
-            using UnwrappedValue = typename PropertyValueType<std::remove_cvref_t<TValue>>::type;
-            if constexpr (IsSerializableVector<UnwrappedValue>::value)
-            {
-                using ElementType = typename UnwrappedValue::value_type;
-                if constexpr (std::is_default_constructible_v<ElementType>)
-                    attribute_node["element_template"] =
-                        write_serialization_value<TJson>(ElementType {});
-            }
-
-            auto field = TJson::object();
-            field[std::string(PROPERTY_ATTRIBUTES_KEY)] = std::move(attribute_node);
-            field[std::string(PROPERTY_VALUE_KEY)] = std::move(serialized);
-            field[std::string(PROPERTY_IS_DEFAULT_KEY)] = equals_default;
-            json[make_serialization_json_key(field_name)] = std::move(field);
-            return;
-        }
-
-        // Lean path (persistence / internal round-trips): self-describing { "type", "value" }, with
-        // the field omitted entirely when it equals its default and the omit switch is on.
-        if (serialization_omits_default_fields() && equals_default)
-            return;
-
-        const auto key = make_serialization_json_key(field_name);
-        auto field = TJson::object();
-        field[std::string(PROPERTY_TYPE_KEY)] = get_property_type_token<TValue>();
-        field[std::string(PROPERTY_VALUE_KEY)] = std::move(serialized);
-        json[key] = std::move(field);
-    }
-
-    /// @brief
-    /// Writes one field of an asset's flat .meta sidecar. The .meta is historically a flat map of bare
-    /// values (e.g. `"wrap": "repeat"`), unlike the self-describing { "type", "value" } body — so on the
-    /// persistence path this emits the bare value directly, keeping the on-disk format stable. Under the
-    /// editor's AttributeSerializationScope it instead defers to write_typed_serialization_field, producing
-    /// the same attribute-rich { attributes, value, is_default } node body fields get, so the inspector can
-    /// describe a meta-only asset (a texture's import settings) with enum dropdowns and categories. The
-    /// tolerant meta reader (read_typed_serialization_field) reads both shapes back.
-    template <typename TJson, typename TValue>
-    static void write_meta_serialization_field(
-        TJson& json,
-        std::string_view field_name,
-        const TValue& value,
-        const TValue& default_value,
-        const PropertyAttributeInfo& attributes = {})
-    {
-        if (serialization_includes_attributes())
-        {
-            write_typed_serialization_field(json, field_name, value, default_value, attributes);
-            return;
-        }
-
-        // Flat persistence form — bare value, every field present (the .meta is not lean).
-        json[make_serialization_json_key(field_name)] = write_serialization_value<TJson>(value);
-    }
-
-    /// @brief
-    /// Reads a single node written by write_typed_serialization_field. The node is always the
-    /// self-describing { "type", "value", ... } wrapper; its "value" is read by the field's static
-    /// type — a variant's value is its own { "type", "value" } alternative, every other value is
-    /// the raw payload, and read_serialization_value interprets both.
-    template <typename TJson, typename TValue>
-    static void read_typed_serialization_value(const TJson& node, TValue& value)
-    {
-        // An explicit null means "no value" — keep the caller's default (an absent field is already
-        // handled one level up in read_typed_serialization_field).
-        if (node.is_null())
-            return;
-
-        // Self-describing form: { "type", "value", ... } — read the "value".
-        if (const auto value_iterator = node.find(std::string(PROPERTY_VALUE_KEY));
-            value_iterator != node.end())
-        {
-            read_serialization_value(*value_iterator, value);
-            return;
-        }
-
-        // Bare scalar form: a value whose type is already implied by its context carries no
-        // { "type", "value" } wrapper — most commonly a leaf primitive such as a color channel
-        // (`"r": 1`), since the containing color already named its type. Read it directly.
-        // Previously this silently dropped the value to its default, which (for example) turned an
-        // authored white tint into black — corrupting render output with no diagnostic.
-        //
-        // A bare object/array (no "value" key) is foreign/legacy structure we can't safely
-        // reinterpret as this field's static type without risking a throwing get<T> that would fail
-        // the whole asset load; preserve the historical behavior and keep the caller's default.
-        if (node.is_object() || node.is_array())
-            return;
-
-        read_serialization_value(node, value);
-    }
-
-    /// @brief
-    /// Reads a property written by write_typed_serialization_field, falling back to a default when
-    /// the field is absent.
-    template <typename TJson, typename TValue>
-    static void read_typed_serialization_field(
-        const TJson& json,
-        std::string_view field_name,
-        TValue& value,
         const TValue& default_value)
     {
-        if (json.is_null())
-        {
-            value = default_value;
+        auto serialized = write_serialization_value<TJson>(value);
+        if (serialization_omits_default_fields()
+            && serialized == write_serialization_value<TJson>(default_value))
             return;
-        }
 
-        const auto value_iterator = find_serialization_field(json, field_name);
-        if (value_iterator == json.end())
-        {
-            value = default_value;
-            return;
-        }
-
-        read_typed_serialization_value(*value_iterator, value);
+        json[make_serialization_json_key(field_name)] = std::move(serialized);
     }
 
     template <typename TValue, typename TWriteValue, typename TReadValue>
@@ -1196,15 +800,13 @@ namespace tbx
         auto registration = SerializableTypeRegistration {
             .name = make_serializable_type_name(
                 serialization_type_name(static_cast<const TValue*>(nullptr))),
-            .type_name =
-                std::string(serialization_type_name(static_cast<const TValue*>(nullptr))),
+            .type_name = std::string(serialization_type_name(static_cast<const TValue*>(nullptr))),
             .type = std::type_index(typeid(TValue)),
         };
 
-        // write_value is the canonical serializer (it routes through the generated serialize, which
-        // honors the omit-defaults and attribute scopes). Both the type-erased write_value and
-        // describe reuse it, so describe needs no ADL-resolved free serialize — important for alias
-        // types (e.g. glm vectors) whose associated namespace is not tbx.
+        // write_value is the canonical serializer, routing through the generated serialize (which
+        // honors the omit-defaults scope). Type-erased so it works for alias types (e.g. glm
+        // vectors) whose associated namespace is not tbx.
         registration.write_value = [write_value](const void* value)
         {
             return write_value(*static_cast<const TValue*>(value));
@@ -1214,40 +816,29 @@ namespace tbx
         {
             return read_value(data, *static_cast<TValue*>(value));
         };
-        registration.describe = [write_value](bool include_attributes) -> std::string
-        {
-            if constexpr (std::is_default_constructible_v<TValue>)
-            {
-                // Every field present (the editor shows defaulted properties), optionally
-                // attribute-rich.
-                const auto include_all = OmitDefaultFieldsScope(false);
-                const auto include_attrs = AttributeSerializationScope(include_attributes);
-                return write_value(TValue {});
-            }
-            else
-            {
-                return std::string();
-            }
-        };
 
         return registration;
     }
 
     template <typename TValue, typename TWriteValue, typename TReadValue>
-    static bool register_serializable_type(TWriteValue write_value, TReadValue read_value)
+    static bool register_serializable_type(
+        RuntimeRegistrations& owner,
+        TWriteValue write_value,
+        TReadValue read_value)
     {
         const auto entry = make_serializable_type_registration<TValue>(
             std::move(write_value),
             std::move(read_value));
-        register_serializable_type_entry(entry);
-        SerializableTypeRegistrationHook<TValue>::register_type(entry);
+        register_serializable_type_entry(owner, entry);
+        SerializableTypeRegistrationHook<TValue>::register_type(owner, entry);
         return true;
     }
 
     template <typename TValue>
-    static bool register_serializable_type()
+    static bool register_serializable_type(RuntimeRegistrations& owner)
     {
         return register_serializable_type<TValue>(
+            owner,
             [](const TValue& value)
             {
                 return Serializer<TValue>::serialize(value);
@@ -1264,8 +855,7 @@ namespace tbx
         // Every asset registration starts with the same stable type name, runtime C++ type, and
         // factory. Specialized registrations append body/meta/runtime callbacks below.
         return AssetTypeRegistration {
-            .type_name =
-                std::string(serialization_type_name(static_cast<const TAsset*>(nullptr))),
+            .type_name = std::string(serialization_type_name(static_cast<const TAsset*>(nullptr))),
             .type = std::type_index(typeid(TAsset)),
             .version = version,
             .create_asset =
@@ -1300,25 +890,32 @@ namespace tbx
     }
 
     template <typename TAsset>
-    static bool register_asset_type(uint32 version)
+    static bool register_asset_type(RuntimeRegistrations& owner, uint32 version)
     {
-        register_asset_type_entry(make_asset_type_registration<TAsset>(version));
+        register_asset_type_entry(owner, make_asset_type_registration<TAsset>(version));
         return true;
     }
 
     template <typename TAsset, typename TReadBody, typename TWriteBody>
-    static bool register_asset_body_type(uint32 version, TReadBody read_body, TWriteBody write_body)
+    static bool register_asset_body_type(
+        RuntimeRegistrations& owner,
+        uint32 version,
+        TReadBody read_body,
+        TWriteBody write_body)
     {
         auto entry = make_asset_type_registration<TAsset>(version);
         entry.read_body = make_asset_body_reader<TAsset>(std::move(read_body));
         entry.write_body = make_asset_body_writer<TAsset>(std::move(write_body));
-        register_asset_type_entry(std::move(entry));
+        register_asset_type_entry(owner, std::move(entry));
         return true;
     }
 
     template <typename TAsset, typename TTransformMeta, typename TWriteMeta>
     static bool register_asset_meta_type(
-        uint32 version, TTransformMeta transform_meta, TWriteMeta write_meta)
+        RuntimeRegistrations& owner,
+        uint32 version,
+        TTransformMeta transform_meta,
+        TWriteMeta write_meta)
     {
         auto entry = make_asset_type_registration<TAsset>(version);
         entry.transform_meta =
@@ -1331,7 +928,7 @@ namespace tbx
         {
             return write_meta(*static_cast<const TAsset*>(asset), output);
         };
-        register_asset_type_entry(std::move(entry));
+        register_asset_type_entry(owner, std::move(entry));
         return true;
     }
 

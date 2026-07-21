@@ -1,0 +1,42 @@
+std::string write_json_serializable_value(const {{ name }}& tbx_serialization_value)
+{
+    pre_serialize(tbx_serialization_value);
+    auto tbx_serialization_json = ::tbx::Json();
+    serialize(tbx_serialization_json, tbx_serialization_value);
+    const auto tbx_serialization_data = tbx_serialization_json.dump();
+    post_serialize(tbx_serialization_value);
+    return tbx_serialization_data;
+}
+bool read_json_serializable_value(
+    std::string_view tbx_serialization_data,
+    {{ name }}& tbx_serialization_value)
+{
+    try
+    {
+        pre_deserialize(tbx_serialization_value);
+        deserialize(
+            ::tbx::JsonParser::parse(tbx_serialization_data),
+            tbx_serialization_value);
+        post_deserialize(tbx_serialization_value);
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+bool register_serializable_type(const {{ name }}*, ::tbx::RuntimeRegistrations* tbx_runtime)
+{
+    return ::tbx::register_serializable_type<{{ name }}>(
+        *tbx_runtime,
+        [](const {{ name }}& tbx_serialization_value)
+        {
+            return write_json_serializable_value(tbx_serialization_value);
+        },
+        [](std::string_view tbx_serialization_data, {{ name }}& tbx_serialization_value)
+        {
+            return read_json_serializable_value(
+                tbx_serialization_data,
+                tbx_serialization_value);
+        });
+}

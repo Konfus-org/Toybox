@@ -289,11 +289,10 @@ namespace tbx::shader_loader
         registry->register_transformer<tbx::Shader>(
             [this](
                 const std::filesystem::path& asset_path,
-                const tbx::ShaderLoadParameters& parameters,
                 const tbx::AssetLoadMetadata& metadata,
                 tbx::Shader& shader)
             {
-                return transform_shader(asset_path, parameters, metadata, shader);
+                return transform_shader(asset_path, metadata, shader);
             });
     }
 
@@ -309,7 +308,6 @@ namespace tbx::shader_loader
 
     tbx::Result ShaderIncludeLoader::transform_shader(
         const std::filesystem::path& asset_path,
-        const tbx::ShaderLoadParameters&,
         const tbx::AssetLoadMetadata&,
         tbx::Shader& shader)
     {

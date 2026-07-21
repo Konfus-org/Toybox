@@ -10,6 +10,7 @@
 
 namespace tbx
 {
+    class RuntimeRegistrations;
     class ScriptContext;
 
     /// @brief
@@ -33,13 +34,17 @@ namespace tbx
     // a type_index holds a type_info* into the owning module, so after a scripts plugin unloads its old
     // entries' keys would dangle and the next map rehash would read freed memory. A name key is always
     // valid, and a reload re-registers the same name after the old entry is purged.
-    TBX_API void register_script_entry(std::string type_name, ScriptRegistration entry);
+    // Records a script registration into the owning module's RuntimeRegistrations. Dropping that
+    // container on unload releases the entry, so its function pointers never dangle after the module
+    // unmaps — no separate tracking is needed.
+    TBX_API void register_script_entry(
+        RuntimeRegistrations& owner,
+        std::string type_name,
+        ScriptRegistration entry);
+    // Looks a script up by type name, fanning out across the engine core and every loaded plugin
+    // (engine core first).
     TBX_API const ScriptRegistration* get_script_registration(std::string_view type_name);
-    // Removes a single script registration by type name. Called during plugin unload for each entry the
-    // unloading module owns (owner-keyed via the plugin ownership tracker), so its function pointers into
-    // that module never dangle after it unmaps.
-    TBX_API void unregister_script_entry(std::string_view type_name);
-    // Clears every script registration. Used at shutdown before the owning modules unload.
+    // Clears every container's script registrations. Used at shutdown before the owning modules unload.
     TBX_API void clear_script_registrations();
 
     /// @brief
@@ -53,7 +58,7 @@ namespace tbx
         typename TScript,
         Result (*ApplyOverrides)(const Json&, TScript&),
         void (*BindRuntime)(TScript&, ScriptContext&)>
-    bool register_script_type(uint32 version)
+    bool register_script_type(RuntimeRegistrations& owner, uint32 version)
     {
         auto entry = make_asset_type_registration<TScript>(version);
         entry.read_body = [](std::string_view data, void* asset)
@@ -64,23 +69,11 @@ namespace tbx
         {
             return write_json_asset_body(*static_cast<const TScript*>(asset), output);
         };
-        // Describes the script's overridable fields as the editor's schema. Entering the scopes and
-        // running the serialize together here (the script's own module) is what makes the per-module
-        // attribute thread-local line up, so a field's type token and enum choices reach the
-        // editor's script-override widgets.
-        entry.describe = [](bool include_attributes) -> std::string
-        {
-            const auto include_all = OmitDefaultFieldsScope(false);
-            const auto include_attrs = AttributeSerializationScope(include_attributes);
-            auto output = std::string();
-            if (!write_json_asset_body(TScript {}, output).succeeded())
-                return std::string();
-            return output;
-        };
         entry.is_script = true;
-        register_asset_type_entry(std::move(entry));
+        register_asset_type_entry(owner, std::move(entry));
 
         register_script_entry(
+            owner,
             std::string(serialization_type_name(static_cast<const TScript*>(nullptr))),
             ScriptRegistration {
                 .apply_overrides = [](const Json& json, void* asset) -> Result

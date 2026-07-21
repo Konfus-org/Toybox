@@ -1,11 +1,11 @@
 #pragma once
+#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/interfaces/physics_backend.h"
 #include "tbx/systems/assets/manager.h"
 #include "tbx/systems/assets/messages.h"
 #include "tbx/systems/async/thread_manager.h"
-#include "tbx/systems/world/manager.h"
-#include "tbx/interfaces/message_dispatcher.h"
 #include "tbx/systems/physics/settings.h"
+#include "tbx/systems/world/manager.h"
 #include "tbx/types/assets/world.h"
 #include "tbx/types/raycast.h"
 #include "tbx/types/typedefs.h"
@@ -13,12 +13,12 @@
 #include "tbx/types/vectors.h"
 #include <future>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx
 {
-    class JobSystem;
-
     /// @brief
     /// Purpose: Application-owned physics service that synchronizes ECS components with the
     /// registered physics backend.
@@ -36,14 +36,12 @@ namespace tbx
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<WorldManager> world_manager,
             std::weak_ptr<ThreadManager> thread_manager,
-            std::weak_ptr<JobSystem> job_system,
             const PhysicsSettings& settings);
         Physics(
             std::weak_ptr<IPhysicsBackend> backend,
             std::weak_ptr<AssetManager> asset_manager,
             std::weak_ptr<WorldManager> world_manager,
             std::weak_ptr<ThreadManager> thread_manager,
-            std::weak_ptr<JobSystem> job_system,
             std::weak_ptr<IMessageCoordinator> message_coordinator,
             const PhysicsSettings& settings);
         ~Physics() noexcept;
@@ -75,16 +73,14 @@ namespace tbx
 
       private:
         void clear_resources();
-        static PhysicsBackendSettings get_backend_settings(const PhysicsSettings& settings);
-        void process_contact_events(const std::vector<std::shared_ptr<World>>& worlds);
-        void process_trigger_colliders(World& world);
-        void sync_entities_to_backend(World& world, float dt_seconds);
-        void sync_backend_to_entities(World& world);
-        Uuid try_get_entity_for_rigidbody(PhysicsRigidbodyHandle rigidbody) const;
+        void apply_backend_settings(const PhysicsSettings& settings) const;
+        void process_state(const std::vector<std::shared_ptr<World>>& worlds);
+        void sync_entities_to_backend(World& world);
+        Uuid try_get_entity_for_body(const PhysicsHandle& body_handle) const;
         void on_asset_reloaded(const AssetReloadedEvent& event);
 
         // Dispatches the backend simulation step onto the physics lane and records it as in-flight.
-        void dispatch_step(const PhysicsSettings& settings, const DeltaTime& dt);
+        void dispatch_step(const DeltaTime& dt);
         // Joins the in-flight backend step, if any, so the backend is safe to touch on this thread.
         void wait_for_pending_step() const noexcept;
 
@@ -96,16 +92,6 @@ namespace tbx
         };
         using EntityRecordPtr = std::unique_ptr<EntityRecord, EntityRecordDeleter>;
 
-        // One entry per tracked body for the read-back pass: the heavy per-body backend state read
-        // is gathered into `state` in parallel, then applied to the ECS serially. `record` points at
-        // a _records_by_entity entry (stable for the duration of a single sync).
-        struct SyncReadback
-        {
-            Uuid entity_id = {};
-            EntityRecord* record = nullptr;
-            PhysicsRigidbodyState state = {};
-        };
-
         void destroy_record(EntityRecord& record);
 
       private:
@@ -114,14 +100,11 @@ namespace tbx
         std::weak_ptr<IMessageCoordinator> _message_coordinator = {};
         std::weak_ptr<WorldManager> _world_manager = {};
         std::weak_ptr<ThreadManager> _thread_manager = {};
-        std::weak_ptr<JobSystem> _job_system = {};
         std::unordered_map<Uuid, EntityRecordPtr> _records_by_entity = {};
-        // Reused across frames so the read-back pass does no per-frame heap allocation.
-        std::vector<SyncReadback> _sync_readback = {};
-        // Reused across frames so the contact drain does no per-frame heap allocation.
-        std::vector<PhysicsContactEvent> _contact_events = {};
-        std::unordered_map<uint64, Uuid> _entity_by_rigidbody_handle = {};
+        // body handle id -> owning entity, for read-back, raycasts, contacts and overlaps.
+        std::unordered_map<Uuid, Uuid> _entity_by_body_handle = {};
         std::unordered_map<Uuid, std::unordered_set<Uuid>> _overlap_entities_by_trigger = {};
+        std::unordered_map<Uuid, std::unordered_set<Uuid>> _contacts_by_entity = {};
         std::unordered_set<Uuid> _pending_model_reloads = {};
         Uuid _asset_reload_handler = {};
 

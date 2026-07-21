@@ -22,7 +22,7 @@ namespace sdl_input
         tbx::MouseState get_mouse_state() const override;
         void set_mouse_lock_mode(tbx::MouseLockMode mode) override;
         tbx::MouseLockMode get_mouse_lock_mode() const override;
-        void update_backend_state() override;
+        void update() override;
 
         void add_wheel_delta(float wheel_delta);
 

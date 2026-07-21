@@ -42,12 +42,6 @@ namespace tbx
         return {};
     }
 
-    SerializationRegistry::SerializationRegistry()
-        : _owned_file_ops(std::make_shared<FileOperator>())
-        , _file_ops(_owned_file_ops)
-    {
-    }
-
     SerializationRegistry::SerializationRegistry(std::weak_ptr<IFileOps> file_ops)
         : _file_ops(std::move(file_ops))
     {
@@ -104,51 +98,11 @@ namespace tbx
             }
         }
 
-        // A script asset is a self-describing `*.h.meta`: that one file carries identity only
-        // (id/version/type) and has no body. Every other registered asset keeps a payload file with
-        // a separate `<payload>.meta` sidecar.
-        const auto self_describing =
-            asset_pairing::is_self_describing_metadata(asset_path.generic_string());
-
-        // Registered polymorphic assets still use the normal Toybox meta for a stable id and
-        // version. The expected version is resolved after the concrete C++ type is known.
+        // Every registered asset — scripts included — keeps a payload file plus a `<payload>.meta`
+        // sidecar. A script's payload is its `<header>.h`; the sidecar carries id/version/type. The
+        // expected version is resolved after the concrete C++ type is known.
         auto metadata = AssetLoadMetadata {};
         auto meta_data = std::optional<std::string> {};
-        auto self_describing_json = Json {};
-        if (self_describing)
-        {
-            auto contents = std::string();
-            if (!file_ops->read_file(asset_path, FileDataFormat::UTF8_TEXT, contents))
-            {
-                read.result = make_failed_result(
-                    std::string("Failed to read script asset meta '")
-                        .append(asset_path.string())
-                        .append("'."));
-                return read;
-            }
-            try
-            {
-                self_describing_json = JsonParser::parse(contents);
-            }
-            catch (const std::exception& exception)
-            {
-                read.result = make_failed_result(
-                    std::string("Failed to parse script asset meta '")
-                        .append(asset_path.string())
-                        .append("': ")
-                        .append(exception.what()));
-                return read;
-            }
-            auto meta_result =
-                try_read_asset_common_meta(self_describing_json, asset_path, 0U, metadata);
-            if (!meta_result.succeeded())
-            {
-                read.result = std::move(meta_result);
-                return read;
-            }
-            meta_data = std::move(contents);
-        }
-        else
         {
             auto loaded_meta = false;
             auto meta_result = try_read_serialized_asset_meta(
@@ -173,18 +127,24 @@ namespace tbx
             return read;
         }
 
-        // Only polymorphic metas may use "type" as the registered C++ discriminator because
-        // legacy metas such as shaders already use that key for asset-specific settings.
+        // The "type" key in a meta names the registered C++ discriminator. Honor it for a source-header
+        // payload (a script names its type there, since the header stem can't resolve it) and for legacy
+        // polymorphic metas that opt in with "polymorphic": true — other assets reuse "type" for
+        // asset-specific settings (e.g. shaders), so those are left to the extension/stem resolution below.
         auto type_name = std::string();
-        if (metadata.polymorphic && meta_data.has_value())
+        const auto source_header = asset_pairing::is_source_header(asset_path);
+        if (meta_data.has_value() && (source_header || metadata.polymorphic))
         {
             auto meta_json = Json();
-            auto is_polymorphic = false;
-            if (JsonParser::try_parse(*meta_data, meta_json)
-                && JsonParser::try_get(meta_json, "polymorphic", is_polymorphic)
-                && is_polymorphic)
+            if (JsonParser::try_parse(*meta_data, meta_json))
             {
-                JsonParser::try_get(meta_json, "type", type_name);
+                auto is_polymorphic = false;
+                if (source_header
+                    || (JsonParser::try_get(meta_json, "polymorphic", is_polymorphic)
+                        && is_polymorphic))
+                {
+                    JsonParser::try_get(meta_json, "type", type_name);
+                }
             }
         }
         // Resolve the registered type for the JSON fallback (reader-claimed extensions returned above):
@@ -231,10 +191,11 @@ namespace tbx
             return read;
         }
 
-        // A self-describing script meta carries identity only — no body to overlay. The script's
-        // default values come from its source (compiled-in for C++), and per-entity values are
+        // A script asset carries identity only — its `.h` payload is source, not a serialized body. The
+        // script's default values come from its source (compiled-in for C++), and per-entity values are
         // applied later from the entity's binding overrides.
-        if (!self_describing && file_ops->exists(asset_path) && asset_registration->read_body)
+        if (!asset_registration->is_script && file_ops->exists(asset_path)
+            && asset_registration->read_body)
         {
             auto body_result = try_load_registered_asset_body(
                 asset_path,
@@ -251,7 +212,7 @@ namespace tbx
         // Apply the asset's [[meta]] import settings from the sidecar (e.g. a texture's wrap/filter/format)
         // — the counterpart to the body read above. The normal AssetManager load applies this as a
         // transformer; this direct read must do the same or meta-only assets come back at struct defaults.
-        if (!self_describing && asset_registration->transform_meta && meta_data.has_value())
+        if (!asset_registration->is_script && asset_registration->transform_meta && meta_data.has_value())
         {
             if (auto meta_result = asset_registration->transform_meta(*meta_data, asset.get());
                 !meta_result.succeeded())
@@ -344,8 +305,10 @@ namespace tbx
         if (!file_ops)
             return make_failed_result("Serialization registry has no file operations.");
 
-        if (asset_pairing::is_self_describing_metadata(asset_path.generic_string()))
-            return write_self_describing_script_meta(*file_ops, asset_path, asset_registration);
+        // A script's payload is its `.h` source — never overwrite it with a serialized body. Persist the
+        // asset's identity + type to the `<header>.h.meta` sidecar instead.
+        if (asset_registration.is_script)
+            return write_script_meta_sidecar(*file_ops, asset_path, asset_registration);
 
         // A meta-only asset (e.g. a texture) has no body file — it persists its [[meta]] import settings to
         // the flat .meta sidecar instead.
@@ -406,19 +369,20 @@ namespace tbx
         return Result();
     }
 
-    Result SerializationRegistry::write_self_describing_script_meta(
+    Result SerializationRegistry::write_script_meta_sidecar(
         IFileOps& file_ops,
         const std::filesystem::path& asset_path,
         const AssetTypeRegistration& asset_registration)
     {
-        // A script meta carries identity only — there is no body to serialize (defaults live in the
-        // script source, per-entity values on the entity). Preserve the existing id and keep the
-        // asset-system keys authoritative from the registration so the file stays valid. Saving a
-        // script asset must never clobber its identity meta with a property body.
+        // A script's `<header>.h.meta` sidecar carries identity + type only — there is no body to
+        // serialize (defaults live in the script source, per-entity values on the entity). Preserve the
+        // existing id and keep the asset-system keys authoritative from the registration so the file
+        // stays valid. Saving a script asset must never write into its `.h` payload.
+        const auto meta_path = asset_pairing::metadata_path(asset_path);
         auto meta_json = Json::object();
         auto existing = std::string();
-        if (file_ops.exists(asset_path)
-            && file_ops.read_file(asset_path, FileDataFormat::UTF8_TEXT, existing))
+        if (file_ops.exists(meta_path)
+            && file_ops.read_file(meta_path, FileDataFormat::UTF8_TEXT, existing))
         {
             try
             {
@@ -431,18 +395,19 @@ namespace tbx
             }
         }
 
-        // Identity only — strip any stale serialized body a legacy meta may have carried.
+        // Identity + type only — strip any stale serialized body or the legacy `polymorphic` flag a
+        // previous meta may have carried (a source-header payload resolves its type without it).
         meta_json.erase("properties");
+        meta_json.erase("polymorphic");
         meta_json["type"] = asset_registration.type_name;
-        meta_json["polymorphic"] = true;
         if (asset_registration.version != 0U)
             meta_json["version"] = asset_registration.version;
 
-        if (!file_ops.write_file(asset_path, FileDataFormat::UTF8_TEXT, meta_json.dump(4).append("\n")))
+        if (!file_ops.write_file(meta_path, FileDataFormat::UTF8_TEXT, meta_json.dump(4).append("\n")))
         {
             return make_failed_result(
                 std::string("Failed to write script asset meta '")
-                    .append(asset_path.string())
+                    .append(meta_path.string())
                     .append("'."));
         }
 
@@ -476,14 +441,6 @@ namespace tbx
         }
 
         return nullptr;
-    }
-
-    std::string SerializationRegistry::resolve_reader_type_name(
-        const std::filesystem::path& asset_path) const
-    {
-        std::lock_guard lock(_mutex);
-        const auto* registration = find_reader_for_extension(asset_path);
-        return registration != nullptr ? registration->type_name : std::string();
     }
 
     std::shared_ptr<IFileOps> SerializationRegistry::lock_file_ops() const

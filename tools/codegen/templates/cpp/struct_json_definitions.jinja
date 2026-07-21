@@ -1,0 +1,64 @@
+{% if mode == 'empty' %}
+void serialize(::tbx::Json& tbx_json, const {{ name }}&)
+{
+    tbx_json = ::tbx::Json::object();
+}
+void deserialize(const ::tbx::Json&, {{ name }}&)
+{
+}
+{% elif mode == 'single_value' %}
+void serialize(::tbx::Json& tbx_json, const {{ name }}& tbx_value)
+{
+    tbx_json = ::tbx::write_serialization_value<::tbx::Json>(
+        tbx_value.{{ fields[0].name }});
+}
+void deserialize(const ::tbx::Json& tbx_json, {{ name }}& tbx_value)
+{
+    const {{ name }} tbx_default_value {};
+    if (tbx_json.is_object() || tbx_json.is_null())
+    {
+        ::tbx::read_serialization_field(
+            tbx_json,
+            {{ fields[0].key }},
+            tbx_value.{{ fields[0].name }},
+            tbx_default_value.{{ fields[0].name }});
+        return;
+    }
+
+    ::tbx::read_serialization_value(
+        tbx_json,
+        tbx_value.{{ fields[0].name }});
+}
+{% else %}
+void serialize(::tbx::Json& tbx_json, const {{ name }}& tbx_value)
+{
+    const {{ name }} tbx_default_value {};
+{% for field in fields %}
+    ::tbx::write_serialization_field(
+        tbx_json,
+        {{ field.key }},
+        tbx_value.{{ field.name }},
+        tbx_default_value.{{ field.name }});
+{% endfor %}
+}
+void deserialize(const ::tbx::Json& tbx_json, {{ name }}& tbx_value)
+{
+    const {{ name }} tbx_default_value {};
+{% if single_keyed %}
+    if (!tbx_json.is_object() && !tbx_json.is_null())
+    {
+        ::tbx::read_serialization_value(
+            tbx_json,
+            tbx_value.{{ fields[0].name }});
+        return;
+    }
+{% endif %}
+{% for field in fields %}
+    ::tbx::read_serialization_field(
+        tbx_json,
+        {{ field.key }},
+        tbx_value.{{ field.name }},
+        tbx_default_value.{{ field.name }});
+{% endfor %}
+}
+{% endif %}

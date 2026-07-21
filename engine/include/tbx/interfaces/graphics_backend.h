@@ -124,17 +124,39 @@ namespace tbx
         uint32 mip_count = 1U;
         uint32 array_layer_count = 1U;
         TextureWrap wrap = TextureWrap::CLAMP_TO_EDGE;
+        // When set, the backend renders into this texture through an OS-global, cross-process
+        // shared surface (a DXGI global shared handle on Windows) that a host process can sample
+        // directly with no CPU readback. get_gpu_handle returns that cross-process handle; the
+        // surface is BGRA8 and guarded by a keyed mutex (producer acquires key 0 / releases key 1;
+        // the consumer acquires 1 / releases 0). The backend fails creation when texture sharing is
+        // unsupported.
+        bool is_shared = false;
         bool is_depth_comparison_enabled = false;
         bool is_linear_filtering_enabled = true;
         std::string debug_name = {};
     };
 
     /// @brief
-    /// Purpose: Describes a texture update region.
+    /// Purpose: Identifies a byte range within a buffer resource for a transfer (write or read). The
+    /// transfer moves `size` bytes starting at `offset`; the caller-supplied data/out_data pointer
+    /// holds exactly that many bytes.
     /// @details
-    /// Ownership: Owns region values by copy; upload data is supplied separately.
+    /// Ownership: Owns region values by copy; transfer data is supplied separately.
     /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
-    struct TBX_API TextureUpdateDesc
+    struct TBX_API BufferRegion
+    {
+        uint64 offset = 0U;
+        uint64 size = 0U;
+    };
+
+    /// @brief
+    /// Purpose: Identifies a pixel region within a texture resource for a transfer (write or read).
+    /// The region plus the texture's format determine the transfer's byte count, so the
+    /// caller-supplied data/out_data pointer holds width * height * bytes-per-pixel bytes.
+    /// @details
+    /// Ownership: Owns region values by copy; transfer data is supplied separately.
+    /// Thread Safety: Safe for concurrent reads; synchronize mutation externally.
+    struct TBX_API TextureRegion
     {
         uint32 x = 0U;
         uint32 y = 0U;
@@ -262,21 +284,6 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Identifies a GPU texture the backend renders into and a host process can sample
-    /// directly, with no CPU readback.
-    /// @details
-    /// shared_handle is an OS-global, cross-process texture handle (a DXGI global shared handle on
-    /// Windows) whose numeric value can be handed to another process verbatim. The texture is
-    /// BGRA8 and guarded by a keyed mutex (producer acquires key 0 / releases key 1; the consumer
-    /// acquires 1 / releases 0).
-    struct SharedTargetInfo
-    {
-        uint64 shared_handle = 0U;
-        uint32 width = 0U;
-        uint32 height = 0U;
-    };
-
-    /// @brief
     /// Purpose: Defines the explicit resource and command contract implemented by graphics
     /// backends.
     /// @details
@@ -302,7 +309,12 @@ namespace tbx
         virtual Result begin_render_pass(const RenderPassDesc& pass) = 0;
         virtual Result end_render_pass() = 0;
 
+        virtual Result get_gpu_handle(const GpuId& texture_uuid, uint64& out_handle) = 0;
+
         virtual Result destroy_resource(const GpuId& resource_uuid) = 0;
+
+        virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
+        virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;
 
         virtual Result create_bind_group(const BindGroupDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_buffer(const BufferDesc& desc, GpuId& out_resource_uuid) = 0;
@@ -312,66 +324,30 @@ namespace tbx
         virtual Result create_sampler(const SamplerDesc& desc, GpuId& out_resource_uuid) = 0;
         virtual Result create_texture(const TextureDesc& desc, GpuId& out_resource_uuid) = 0;
 
-        /// @brief Whether the backend supports referencing textures by resident bindless handle.
-        virtual bool supports_bindless_textures() const = 0;
-        /// @brief Returns a resident bindless handle for a sampled texture, indexable from shaders.
-        /// @details Fails if bindless is unsupported or the resource is not a sampled texture.
-        virtual Result get_texture_bindless_handle(
-            const GpuId& texture_uuid,
-            uint64& out_handle) = 0;
-
         virtual Result write_buffer(
             const GpuId& resource_uuid,
-            const void* data,
-            uint64 data_size,
-            uint64 offset) = 0;
+            const BufferRegion& region,
+            const void* data) = 0;
         virtual Result write_texture(
             const GpuId& resource_uuid,
-            const TextureUpdateDesc& desc,
-            const void* data,
-            uint64 data_size) = 0;
-
-        virtual Result present() = 0;
-        virtual void wait_for_idle() = 0;
+            const TextureRegion& region,
+            const void* data) = 0;
 
         /// @brief
-        /// Purpose: Creates a GPU texture that this backend renders the given target into and that
-        /// another process can sample directly (zero-copy), returning its cross-process shared
-        /// handle and dimensions in out_info.
-        /// @details
-        /// Thread Safety: Call on the render lane (it touches GPU state). Backends without
-        /// texture-sharing support fail the result. While a target has a shared texture, the
-        /// backend draws that target's frames into it and drives the keyed-mutex handshake around
-        /// begin_frame/end_frame. Idempotent per target.
-        virtual Result create_shared_target(
-            const RenderTarget& target,
-            const Size& size,
-            SharedTargetInfo& out_info)
-        {
-            return Result(false, "GPU texture sharing is not supported by this backend.");
-        }
-
+        /// Purpose: Copies the buffer region's bytes back out into out_data (the read counterpart of
+        /// write_buffer).
+        virtual Result read_buffer(
+            const GpuId& resource_uuid,
+            const BufferRegion& region,
+            void* out_data) = 0;
         /// @brief
-        /// Purpose: Destroys the shared texture previously created for target.
-        /// @details Thread Safety: Call on the render lane. No-op if the target has none.
-        virtual void destroy_shared_target(const RenderTarget& target)
-        {
-        }
-
-        /// @brief
-        /// Purpose: Copies the current back buffer into out_pixels as tightly packed BGRA8 rows in
-        /// top-down order, resizing out_pixels as needed.
-        /// @details
-        /// Thread Safety: Call on the render lane after rendering and before present. A one-shot
-        /// synchronous capture (used by headless --screenshot); not the editor's per-frame path,
-        /// which uses zero-copy shared targets. Backends without readback fail the result.
-        virtual Result read_back_buffer(const Size& backbuffer_size, std::vector<uint8>& out_pixels)
-        {
-            return Result(false, "Back buffer readback is not supported by this backend.");
-        }
-
-        virtual Result bind_group(uint32 set_index, const GpuId& group_resource_uuid) = 0;
-        virtual Result bind_raster_pipeline(const GpuId& pipeline_resource_uuid) = 0;
+        /// Purpose: Copies the texture region's pixels back out into out_data as tightly packed rows
+        /// (the read counterpart of write_texture). A resource_uuid of INVALID_GPU_ID reads the
+        /// active frame output instead, delivering BGRA8 top-down rows (used by headless capture).
+        virtual Result read_texture(
+            const GpuId& resource_uuid,
+            const TextureRegion& region,
+            void* out_data) = 0;
 
         virtual Result draw(
             uint32 index_count,
@@ -384,5 +360,8 @@ namespace tbx
             uint64 offset,
             uint32 draw_count,
             uint32 stride) = 0;
+
+        virtual Result present() = 0;
+        virtual void wait_for_idle() = 0;
     };
 }

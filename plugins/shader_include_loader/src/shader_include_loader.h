@@ -29,7 +29,6 @@ namespace tbx::shader_loader
       private:
         tbx::Result transform_shader(
             const std::filesystem::path& asset_path,
-            const tbx::ShaderLoadParameters& parameters,
             const tbx::AssetLoadMetadata& metadata,
             tbx::Shader& shader);
     };

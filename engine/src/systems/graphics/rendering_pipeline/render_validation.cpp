@@ -36,8 +36,7 @@ namespace tbx
             dark[0],  dark[1],  dark[2],  dark[3],
             light[0], light[1], light[2], light[3]};
         return static_cast<uint32>(
-            cache.add_texture(VALIDATION_CHECKER_KEY, desc, pixels, sizeof(pixels), true)
-                .value_or(0U));
+            cache.add_texture(VALIDATION_CHECKER_KEY, desc, pixels, true).value_or(0U));
     }
 
     // Registers one pinned validation material whose lane-0 param carries the debug color; only the
