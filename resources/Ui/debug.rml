@@ -1,0 +1,20 @@
+<rml>
+<head><style>
+body { width: 100%; height: 100%; font-family: Montserrat; }
+#debug_panel { position: absolute; right: 16px; top: 16px; width: 280px;
+               background-color: #101418dd; border-width: 1px; border-color: #3a4450;
+               padding: 12px; font-size: 15px; color: #cde3cd; }
+#debug_title { font-size: 17px; color: #8fd48f; margin-bottom: 8px; }
+#debug_panel div { display: block; height: 22px; }
+</style></head>
+<body>
+    <div id="debug_panel">
+        <div id="debug_title">Toybox debug</div>
+        <div id="debug_fps">-</div>
+        <div id="debug_frame">-</div>
+        <div id="debug_toys">-</div>
+        <div id="debug_assets">-</div>
+        <div id="debug_viewport">-</div>
+    </div>
+</body>
+</rml>

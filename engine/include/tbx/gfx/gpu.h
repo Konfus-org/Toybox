@@ -132,17 +132,6 @@ namespace tbx::gpu
     TBX_API std::unique_ptr<RenderTarget> make_render_target(int width, int height);
 
     /// @brief
-    /// Purpose: Renders the sandbox: every MeshRenderer toy, lit by the DirectionalLight,
-    /// shadowed, seen from the first Camera. ALL rendering lives in tbx::gpu. Builtin
-    /// primitives only — use the Assets overload to resolve model/texture handles.
-    TBX_API void render(Sandbox& sandbox);
-
-    /// @brief
-    /// Purpose: Renders the sandbox with asset resolution: MeshRenderer model/texture handles
-    /// upload on first sight and cache by asset id.
-    TBX_API void render(Sandbox& sandbox, Assets& assets);
-
-    /// @brief
     /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to
     /// a shader, typed by its reflection — the material system's engine: values the shader
     /// does not declare are skipped, declared kinds drive the parse. Backend-agnostic.

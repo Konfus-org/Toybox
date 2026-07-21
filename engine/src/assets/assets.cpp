@@ -328,6 +328,17 @@ namespace tbx
         index_root(std::filesystem::path(TBX_RESOURCES_PATH));
     }
 
+    /// @brief
+    /// Purpose: Stamps an AssetReloaded event's fixed extension buffer from a path.
+    static AssetReloaded make_reloaded_event(const Uuid& id, const std::string& relative_path)
+    {
+        auto event = AssetReloaded {.id = id};
+        const auto extension = std::filesystem::path(relative_path).extension().string();
+        const auto length = std::min(extension.size(), sizeof(event.extension) - 1);
+        extension.copy(event.extension, length);
+        return event;
+    }
+
     void Assets::store(const Uuid& id, const std::string& relative_path, std::any asset)
     {
         {
@@ -336,23 +347,31 @@ namespace tbx
             _entries_by_path[relative_path].id = id;
         }
         // First loads announce too — glue (e.g. script registration) reacts uniformly.
-        _events.get().asset_reloaded.emit({.id = id});
+        _events.get().asset_reloaded.emit(make_reloaded_event(id, relative_path));
     }
 
-    std::function<Result<Json>(const std::string&)> Assets::make_kit_resolver()
+    Result<Assets::ResolvedHandle> Assets::resolve_handle(const Uuid& id, const std::string& path)
     {
-        // Kits/levels are Json assets; streaming may call this from a worker, which the
-        // mutex-guarded maps and inline decode support.
-        return [this](const std::string& reference) -> Result<Json>
+        if (!id.is_nil())
         {
-            auto handle = load_now<Json>(reference);
-            if (!handle)
-                return std::unexpected(handle.error());
-            const auto body = get(*handle);
-            if (!body)
-                return fail("kit '{}' did not load", reference);
-            return ok(Json(body->get()));
-        };
+            // Resolved identity; the tracked path (meta index) is where re-decodes come from.
+            const auto tracked = find_relative_path(id);
+            return ok(ResolvedHandle {
+                .id = id,
+                .relative_path = tracked ? *tracked : path});
+        }
+        if (path.empty())
+            return fail("cannot load: the handle references nothing (no id, no path)");
+        auto prepared = prepare(path);
+        if (!prepared)
+            return std::unexpected(prepared.error());
+        return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
+    }
+
+    size Assets::get_loaded_count() const
+    {
+        const std::scoped_lock lock(_mutex);
+        return _assets.size();
     }
 
     void Assets::handle_file_changed(const std::filesystem::path& path)
@@ -426,6 +445,6 @@ namespace tbx
             const std::scoped_lock lock(_mutex);
             _assets[id] = std::move(*refreshed);
         }
-        _events.get().asset_reloaded.emit({.id = id});
+        _events.get().asset_reloaded.emit(make_reloaded_event(id, relative));
     }
 }

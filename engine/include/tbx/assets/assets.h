@@ -44,32 +44,20 @@ namespace tbx
 
       public:
         /// @brief
-        /// Purpose: The loaded asset for a handle, loading it synchronously by its tracked
-        /// path when it is known but not resident — the renderer/material resolution path.
-        template <typename TAsset>
-        Result<std::reference_wrapper<TAsset>> acquire(AssetHandle<TAsset> handle);
+        /// Purpose: Number of resident (decoded) assets — debug/tooling.
+        size get_loaded_count() const;
 
         /// @brief
-        /// Purpose: The loaded asset for a handle; empty if not (yet) loaded.
+        /// Purpose: The asset a handle references, loading it asynchronously when it is not
+        /// resident: bytes read + decoded on a worker, stored on the main thread.
         template <typename TAsset>
-        std::optional<std::reference_wrapper<TAsset>> get(AssetHandle<TAsset> handle);
+        Task<Result<std::reference_wrapper<TAsset>>> load(AssetHandle<TAsset> handle);
 
         /// @brief
-        /// Purpose: Loads (or returns the already-loaded) asset at a relative path: bytes read
-        /// + decoded on a worker, stored on the main thread.
+        /// Purpose: The asset a handle references, decoded inline on the calling thread when
+        /// it is not already resident — the renderer/material/startup resolution path.
         template <typename TAsset>
-        Task<Result<AssetHandle<TAsset>>> load(std::string relative_path);
-
-        /// @brief
-        /// Purpose: Synchronous load for startup/resolver paths: decodes inline on the calling
-        /// thread and returns the handle.
-        template <typename TAsset>
-        Result<AssetHandle<TAsset>> load_now(const std::string& relative_path);
-
-        /// @brief
-        /// Purpose: A kit resolver over this asset system: kit/level references ("kits/x.kit")
-        /// load as Json assets, so sandbox layouts stream straight from files.
-        std::function<Result<Json>(const std::string&)> make_kit_resolver();
+        Result<std::reference_wrapper<TAsset>> load_now(AssetHandle<TAsset> handle);
 
         /// @brief
         /// Purpose: Sets the asset root and starts watching it for hot reload.
@@ -85,9 +73,22 @@ namespace tbx
         };
 
       private:
+        /// @brief
+        /// Purpose: A handle after identity resolution: the id plus the path to decode from.
+        struct ResolvedHandle
+        {
+            Uuid id = {};
+            std::string relative_path = {};
+        };
+
+      private:
         template <typename TAsset>
         Result<TAsset> decode(const std::filesystem::path& path);
 
+        template <typename TAsset>
+        std::optional<std::reference_wrapper<TAsset>> find_resident(const Uuid& id);
+
+        Result<ResolvedHandle> resolve_handle(const Uuid& id, const std::string& path);
         std::optional<std::string> find_relative_path(const Uuid& id);
         void index_meta_sidecars(); // caller holds _mutex
         Result<Uuid> prepare(const std::string& relative_path); // .meta sidecar identity

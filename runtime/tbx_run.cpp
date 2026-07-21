@@ -1,6 +1,7 @@
 #include "tbx/core/log.h"
 #include "tbx/core/typedefs.h"
 #include "tbx/app.h"
+#include "tbx/debug/debug_view.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/ui/ui.h"
@@ -64,10 +65,10 @@ static int run_scene_selftest()
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
-                .with(tbx::MeshRenderer {.mesh = "plane", .tint = tbx::Color {}});
+                .with(tbx::Renderer {.mesh = "plane", .tint = tbx::Color {}});
             sandbox.spawn("Cube")
                 .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
-                .with(tbx::MeshRenderer {
+                .with(tbx::Renderer {
                     .mesh = "cube",
                     .tint = tbx::Color {.r = 1.0f, .g = 0.1f, .b = 0.1f}});
             sandbox.spawn("Sun")
@@ -101,11 +102,11 @@ div { position: absolute; left: 0px; top: 0px; width: 220px; height: 220px;
 </rml>)");
             if (!document)
                 tbx::log_error("ui selftest document: {}", document.error());
+            tbx::debug::set_open(true); // exercised alongside the scene: text + overlay path
         }
 
         tbx::gpu::begin_frame();
-        tbx::gpu::render(sandbox);
-        tbx::ui::render();
+        tbx::get_render_graph().render(sandbox, tbx::get_assets());
 
         const auto& window = tbx::get_window();
         const tbx::Color center =

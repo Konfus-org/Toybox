@@ -4,74 +4,56 @@
 namespace tbx
 {
     template <typename TAsset>
-    Result<std::reference_wrapper<TAsset>> Assets::acquire(AssetHandle<TAsset> handle)
+    Task<Result<std::reference_wrapper<TAsset>>> Assets::load(AssetHandle<TAsset> handle)
     {
-        if (!handle.is_valid())
-            return fail("cannot acquire: the handle is nil");
-        if (auto resident = get(handle))
-            return ok(std::ref(resident->get()));
-        const auto relative_path = find_relative_path(handle.id);
-        if (!relative_path)
-            return fail("asset {} has no tracked path (load it once first)", handle.id.to_string());
-        auto loaded = load_now<TAsset>(*relative_path);
-        if (!loaded)
-            return std::unexpected(loaded.error());
-        if (auto resident = get(*loaded))
-            return ok(std::ref(resident->get()));
-        return fail("asset '{}' did not become resident", *relative_path);
+        auto resolved = resolve_handle(handle.id, handle.path);
+        if (!resolved)
+            co_return std::unexpected(resolved.error());
+        if (auto resident = find_resident<TAsset>(resolved->id))
+            co_return ok(std::ref(resident->get()));
+        if (resolved->relative_path.empty())
+            co_return fail("asset {} has no tracked path", resolved->id.to_string());
+
+        co_await _jobs.get().on_worker();
+        auto decoded = decode<TAsset>(resolve_path(resolved->relative_path));
+        co_await _jobs.get().on_main();
+        if (!decoded)
+            co_return std::unexpected(decoded.error());
+        store(resolved->id, resolved->relative_path, std::any(std::move(*decoded)));
+        if (auto resident = find_resident<TAsset>(resolved->id))
+            co_return ok(std::ref(resident->get()));
+        co_return fail("asset '{}' did not become resident", resolved->relative_path);
     }
 
     template <typename TAsset>
-    std::optional<std::reference_wrapper<TAsset>> Assets::get(AssetHandle<TAsset> handle)
+    Result<std::reference_wrapper<TAsset>> Assets::load_now(AssetHandle<TAsset> handle)
+    {
+        auto resolved = resolve_handle(handle.id, handle.path);
+        if (!resolved)
+            return std::unexpected(resolved.error());
+        if (auto resident = find_resident<TAsset>(resolved->id))
+            return ok(std::ref(resident->get()));
+        if (resolved->relative_path.empty())
+            return fail("asset {} has no tracked path", resolved->id.to_string());
+        auto decoded = decode<TAsset>(resolve_path(resolved->relative_path));
+        if (!decoded)
+            return std::unexpected(decoded.error());
+        store(resolved->id, resolved->relative_path, std::any(std::move(*decoded)));
+        if (auto resident = find_resident<TAsset>(resolved->id))
+            return ok(std::ref(resident->get()));
+        return fail("asset '{}' did not become resident", resolved->relative_path);
+    }
+
+    template <typename TAsset>
+    std::optional<std::reference_wrapper<TAsset>> Assets::find_resident(const Uuid& id)
     {
         const std::scoped_lock lock(_mutex);
-        const auto it = _assets.find(handle.id);
+        const auto it = _assets.find(id);
         if (it == _assets.end())
             return {};
         auto* asset = std::any_cast<TAsset>(&it->second);
         if (!asset)
             return {};
         return *asset;
-    }
-
-    template <typename TAsset>
-    Task<Result<AssetHandle<TAsset>>> Assets::load(std::string relative_path)
-    {
-        auto prepared = prepare(relative_path);
-        if (!prepared)
-            co_return std::unexpected(prepared.error());
-        const Uuid id = *prepared;
-        {
-            const std::scoped_lock lock(_mutex);
-            if (_assets.contains(id))
-                co_return AssetHandle<TAsset> {.id = id};
-        }
-
-        co_await _jobs.get().on_worker();
-        auto decoded = decode<TAsset>(resolve_path(relative_path));
-        co_await _jobs.get().on_main();
-        if (!decoded)
-            co_return std::unexpected(decoded.error());
-        store(id, relative_path, std::any(std::move(*decoded)));
-        co_return AssetHandle<TAsset> {.id = id};
-    }
-
-    template <typename TAsset>
-    Result<AssetHandle<TAsset>> Assets::load_now(const std::string& relative_path)
-    {
-        auto prepared = prepare(relative_path);
-        if (!prepared)
-            return std::unexpected(prepared.error());
-        const Uuid id = *prepared;
-        {
-            const std::scoped_lock lock(_mutex);
-            if (_assets.contains(id))
-                return ok(AssetHandle<TAsset> {.id = id});
-        }
-        auto decoded = decode<TAsset>(resolve_path(relative_path));
-        if (!decoded)
-            return std::unexpected(decoded.error());
-        store(id, relative_path, std::any(std::move(*decoded)));
-        return ok(AssetHandle<TAsset> {.id = id});
     }
 }

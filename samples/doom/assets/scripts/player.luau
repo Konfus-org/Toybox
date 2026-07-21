@@ -2,10 +2,10 @@
 -- lives here; the C++ side only renders and (in selftest) checks the outcome. All the vector
 -- and quaternion work goes through tbx.math (the engine's math library).
 
-local yaw = 0.0
-local pitch = 0.0
-local kills = 0
-local frame = 0
+local yaw: number = 0.0
+local pitch: number = 0.0
+local kills: number = 0
+local frame: number = 0
 local shot_instance = nil
 
 local UP = { x = 0.0, y = 1.0, z = 0.0 }
@@ -30,7 +30,7 @@ local function fire(toy, position, forward)
     shot_instance = tbx.sandbox.spawn_kit("kits/shot.kit", hit.position)
 end
 
-function update(toy, delta_time)
+function update(toy, delta_time: number)
     frame = frame + 1
     local is_selftest = toy:has_sticker("selftest")
 
@@ -52,16 +52,16 @@ function update(toy, delta_time)
 
     local position = toy.Transform.position
     local speed = 6.0 * delta_time
-    if tbx.input.is_down("W") then
+    if tbx.input.is_down(tbx.Key.W) then
         position = tbx.math.add(position, tbx.math.scale(flat, speed))
     end
-    if tbx.input.is_down("S") then
+    if tbx.input.is_down(tbx.Key.S) then
         position = tbx.math.subtract(position, tbx.math.scale(flat, speed))
     end
-    if tbx.input.is_down("D") then
+    if tbx.input.is_down(tbx.Key.D) then
         position = tbx.math.add(position, tbx.math.scale(right, speed))
     end
-    if tbx.input.is_down("A") then
+    if tbx.input.is_down(tbx.Key.A) then
         position = tbx.math.subtract(position, tbx.math.scale(right, speed))
     end
 
@@ -72,10 +72,10 @@ function update(toy, delta_time)
     end
     toy.Transform.position = position
 
-    if tbx.input.is_pressed("ESCAPE") then
+    if tbx.input.is_pressed(tbx.Key.ESCAPE) then
         tbx.quit()
     end
-    if tbx.input.is_mouse_pressed("LEFT") or (is_selftest and frame == 118) then
+    if tbx.input.is_mouse_pressed(tbx.MouseButton.LEFT) or (is_selftest and frame == 118) then
         fire(toy, position, forward)
     end
 

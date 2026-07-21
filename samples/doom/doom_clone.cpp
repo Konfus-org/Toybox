@@ -1,7 +1,6 @@
 #include "tbx/app.h"
 #include "tbx/core/log.h"
 #include "tbx/gfx/gpu.h"
-#include "tbx/ui/ui.h"
 #include <cstring>
 
 // The doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
@@ -20,8 +19,7 @@ int main(int argc, char** argv)
     auto app = App {
         .title = "Toybox Doom",
         .asset_root = SAMPLE_ASSETS_PATH,
-        .sandbox = "levels/arena.box",
-        .ui = "ui/hud.html"};
+        .sandbox = AssetHandle<Json>("levels/arena.box")};
     bool scored = false;
     bool streamed_room_seen = false;
 
@@ -51,8 +49,7 @@ int main(int argc, char** argv)
         }
 
         gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
-        gpu::render(sandbox, get_assets());
-        ui::render();
+        get_render_graph().render(sandbox, get_assets());
     }
 
     if (selftest)

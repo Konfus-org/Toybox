@@ -60,8 +60,21 @@ if(TBX_GFX_BACKEND STREQUAL "gl")
 endif()
 
 if(TBX_UI_BACKEND STREQUAL "rmlui")
-    # Text needs a font engine; "none" keeps the dependency footprint zero until fonts land.
-    set(RMLUI_FONT_ENGINE "none" CACHE STRING "" FORCE)
+    # Real text: the FreeType font engine over a vendored freetype (RmlUi picks up the
+    # Freetype::Freetype target instead of find_package).
+    set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(freetype
+        GIT_REPOSITORY https://github.com/freetype/freetype.git
+        GIT_TAG VER-2-13-3)
+    FetchContent_MakeAvailable(freetype)
+    if(NOT TARGET Freetype::Freetype)
+        add_library(Freetype::Freetype ALIAS freetype)
+    endif()
+    set(RMLUI_FONT_ENGINE "freetype" CACHE STRING "" FORCE)
     set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
     set(RMLUI_TESTS OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(rmlui

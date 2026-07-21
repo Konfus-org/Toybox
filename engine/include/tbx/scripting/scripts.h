@@ -105,6 +105,11 @@ namespace tbx
         /// alongside physics so scripts can do physics-rate work.
         void fixed_update(float fixed_delta_time);
 
+        /// @brief
+        /// Purpose: True when some backend runs files with the given extension (".luau") —
+        /// listeners use it to filter asset events down to script sources.
+        bool owns(std::string_view extension) const;
+
       private:
         std::optional<std::reference_wrapper<ScriptBackend>> route(const std::string& name);
 

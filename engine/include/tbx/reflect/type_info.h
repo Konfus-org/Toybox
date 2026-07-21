@@ -254,7 +254,7 @@ namespace tbx
                 list.clear();
                 list.reserve(ids.size());
                 for (const Uuid& id : ids)
-                    list.push_back(AssetHandle<TAsset> {.id = id});
+                    list.push_back(AssetHandle<TAsset>(id));
             };
             _info.get().fields.push_back(std::move(field));
             return *this;

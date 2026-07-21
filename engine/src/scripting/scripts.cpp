@@ -69,7 +69,7 @@ namespace tbx
         auto loaded = load_source(id, name, source);
         if (!loaded)
             return std::unexpected(loaded.error());
-        return ok(AssetHandle<ScriptSource> {.id = id});
+        return ok(AssetHandle<ScriptSource>(id));
     }
 
     Result<void> Scripts::reload_source(
@@ -86,6 +86,14 @@ namespace tbx
     Result<void> Scripts::reload_source(const std::string& name, const std::string_view source)
     {
         return reload_source(derived_script_id(name), name, source);
+    }
+
+    bool Scripts::owns(const std::string_view extension) const
+    {
+        for (const auto& backend : _backends)
+            if (backend->owns_extension(extension))
+                return true;
+        return false;
     }
 
     void Scripts::fixed_update(const float fixed_delta_time)

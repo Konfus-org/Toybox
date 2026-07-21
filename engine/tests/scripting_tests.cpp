@@ -212,6 +212,36 @@ end
         EXPECT_NEAR(position.z, 3.0f, 0.0001f);
     }
 
+    TEST(Scripts, InputEnumsAreExposedToScripts)
+    {
+        // Arrange
+        auto jobs = Jobs();
+        auto sandbox = Sandbox(jobs);
+        auto events = Events();
+        auto scripts = Scripts(sandbox, events);
+        const auto typed = scripts.load_source("typed", R"(
+function start(toy)
+    -- tbx.Key/tbx.MouseButton are enum tables; prove they exist and are numbers.
+    toy.Transform.position = {
+        x = tbx.Key.W,
+        y = tbx.Key.ESCAPE,
+        z = tbx.MouseButton.LEFT,
+    }
+end
+)");
+        ASSERT_TRUE(typed.has_value());
+        Toy toy = sandbox.spawn("Typist").with(Script {.source = *typed});
+
+        // Act
+        scripts.update(0.016f);
+
+        // Assert
+        const Vec3 position = toy.get_block<Transform>().position;
+        EXPECT_EQ(position.x, static_cast<float>(static_cast<int>(Key::W)));
+        EXPECT_EQ(position.y, static_cast<float>(static_cast<int>(Key::ESCAPE)));
+        EXPECT_EQ(position.z, static_cast<float>(static_cast<int>(MouseButton::LEFT)));
+    }
+
     TEST(Scripts, DisabledToysDoNotRunScripts)
     {
         // Arrange

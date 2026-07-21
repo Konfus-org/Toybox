@@ -1,6 +1,6 @@
 -- The enemy: walks toward the player on the ground plane, stopping just short.
 
-function update(toy, delta_time)
+function update(toy, delta_time: number)
     local player = tbx.sandbox.find("Player")
     if player == nil then
         return

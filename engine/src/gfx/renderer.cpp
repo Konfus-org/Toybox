@@ -2,12 +2,15 @@
 #include "tbx/core/log.h"
 #include "tbx/ecs/block.h"
 #include "tbx/gfx/gpu.h"
+#include "tbx/gfx/render_graph.h"
+#include "tbx/ui/ui.h"
 #include "tbx/app.h"
 #include "tbx/files/files.h"
 #include <chrono>
 #include <filesystem>
 #include <cmath>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tbx::gpu
@@ -46,6 +49,8 @@ namespace tbx::gpu
         std::unordered_map<Uuid, std::unique_ptr<Texture2d>> textures_by_asset;
         std::unordered_map<Uuid, CompiledPipeline> shaders_by_fragment;
         std::unordered_map<Uuid, CompiledPipeline> post_shaders_by_asset;
+        std::unordered_map<Uuid, uint64> ui_documents_by_asset;
+        std::unordered_set<Uuid> warned_assets;
         std::string lit_vertex_text;
         std::string post_vertex_text;
         std::chrono::steady_clock::time_point start_time;
@@ -212,53 +217,101 @@ namespace tbx::gpu
         return true;
     }
 
+    //// FAILURE STATES ////
+    // Old-Toybox style: a broken reference never crashes and never hides — the draw flashes a
+    // color naming the failure, and the log says why exactly once per asset.
+
+    static constexpr Color FAILURE_MODEL = Color {.r = 1.0f, .g = 0.0f, .b = 1.0f};    // magenta
+    static constexpr Color FAILURE_TEXTURE = Color {.r = 1.0f, .g = 1.0f, .b = 0.0f};  // yellow
+    static constexpr Color FAILURE_MATERIAL = Color {.r = 1.0f, .g = 0.0f, .b = 0.0f}; // red
+    static constexpr Color FAILURE_SHADER = Color {.r = 0.0f, .g = 1.0f, .b = 1.0f};   // cyan
+
+    static void warn_once(const Uuid& id, const std::string& message)
+    {
+        if (g_renderer.warned_assets.insert(id).second)
+            log_warn("{}", message);
+    }
+
+    static float get_failure_flash()
+    {
+        const float seconds =
+            std::chrono::duration<float>(std::chrono::steady_clock::now() - g_renderer.start_time)
+                .count();
+        return 0.55f + 0.45f * std::sin(seconds * 8.0f);
+    }
+
     //// ASSET RESOLUTION ////
 
-    static const Mesh& resolve_mesh(const MeshRenderer& renderer, Assets* assets)
+    /// @brief
+    /// Purpose: A mesh choice plus whether it is a failure stand-in.
+    struct ResolvedMesh
     {
-        if (assets && renderer.model.is_valid())
+        std::reference_wrapper<const Mesh> mesh;
+        bool is_failed = false;
+    };
+
+    static ResolvedMesh resolve_mesh(const Renderer& renderer, Assets& assets)
+    {
+        if (renderer.model.is_set())
         {
             const auto cached = g_renderer.meshes_by_asset.find(renderer.model.id);
             if (cached != g_renderer.meshes_by_asset.end())
-                return *cached->second;
-            if (const auto model = assets->acquire(renderer.model))
+                return {.mesh = *cached->second};
+            if (const auto model = assets.load_now(renderer.model))
             {
                 auto uploaded = upload_mesh(model->get().vertices, std::array {3, 3, 2});
                 const Mesh& result = *uploaded;
                 g_renderer.meshes_by_asset[renderer.model.id] = std::move(uploaded);
-                return result;
+                return {.mesh = result};
+            }
+            else
+            {
+                warn_once(renderer.model.id, "model unavailable: " + model.error());
+                return {.mesh = *g_renderer.cube, .is_failed = true};
             }
         }
         if (renderer.mesh == builtin::PLANE)
-            return *g_renderer.plane;
+            return {.mesh = *g_renderer.plane};
         if (renderer.mesh == builtin::SPHERE)
-            return *g_renderer.sphere;
-        return *g_renderer.cube;
-    }
-
-    static const Texture2d& resolve_texture_handle(
-        const AssetHandle<Texture>& handle,
-        Assets* assets)
-    {
-        if (assets && handle.is_valid())
-        {
-            const auto cached = g_renderer.textures_by_asset.find(handle.id);
-            if (cached != g_renderer.textures_by_asset.end())
-                return *cached->second;
-            if (const auto texture = assets->acquire(handle))
-            {
-                auto uploaded = upload_texture(
-                    texture->get().width, texture->get().height, texture->get().pixels);
-                const Texture2d& result = *uploaded;
-                g_renderer.textures_by_asset[handle.id] = std::move(uploaded);
-                return result;
-            }
-        }
-        return *g_renderer.white;
+            return {.mesh = *g_renderer.sphere};
+        return {.mesh = *g_renderer.cube};
     }
 
     /// @brief
-    /// Purpose: Everything one draw needs after material resolution.
+    /// Purpose: A texture choice plus whether it is a failure stand-in.
+    struct ResolvedTexture
+    {
+        std::reference_wrapper<const Texture2d> texture;
+        bool is_failed = false;
+    };
+
+    static ResolvedTexture resolve_texture_handle(
+        const AssetHandle<Texture>& handle,
+        Assets& assets)
+    {
+        if (!handle.is_set())
+            return {.texture = *g_renderer.white};
+        const auto cached = g_renderer.textures_by_asset.find(handle.id);
+        if (cached != g_renderer.textures_by_asset.end())
+            return {.texture = *cached->second};
+        if (const auto texture = assets.load_now(handle))
+        {
+            auto uploaded = upload_texture(
+                texture->get().width, texture->get().height, texture->get().pixels);
+            const Texture2d& result = *uploaded;
+            g_renderer.textures_by_asset[handle.id] = std::move(uploaded);
+            return {.texture = result};
+        }
+        else
+        {
+            warn_once(handle.id, "texture unavailable: " + texture.error());
+            return {.texture = *g_renderer.white, .is_failed = true};
+        }
+    }
+
+    /// @brief
+    /// Purpose: Everything one draw needs after material resolution; a set failure paints the
+    /// draw with that flashing color instead of its look.
     struct ResolvedSurface
     {
         std::reference_wrapper<const Shader> shader;
@@ -266,21 +319,26 @@ namespace tbx::gpu
         std::reference_wrapper<const Texture2d> texture;
         Color tint = {};
         Json uniforms = {};
+        std::optional<Color> failure = {};
     };
 
-    static ResolvedSurface resolve_surface(const MeshRenderer& renderer, Assets* assets)
+    static ResolvedSurface resolve_surface(const Renderer& renderer, Assets& assets)
     {
+        const auto base_texture = resolve_texture_handle(renderer.texture, assets);
         auto surface = ResolvedSurface {
             .shader = *g_renderer.lit_shader,
             .pipeline = *g_renderer.lit_pipeline,
-            .texture = resolve_texture_handle(renderer.texture, assets),
+            .texture = base_texture.texture,
             .tint = renderer.tint};
-        if (!assets || !renderer.material.is_valid())
+        if (base_texture.is_failed)
+            surface.failure = FAILURE_TEXTURE;
+        if (!renderer.material.is_set())
             return surface;
-        const auto material = assets->acquire(renderer.material);
+        const auto material = assets.load_now(renderer.material);
         if (!material)
         {
-            log_warn("material unavailable: {}", material.error());
+            warn_once(renderer.material.id, "material unavailable: " + material.error());
+            surface.failure = FAILURE_MATERIAL;
             return surface;
         }
 
@@ -291,12 +349,17 @@ namespace tbx::gpu
             .g = resolved.tint.g * renderer.tint.g,
             .b = resolved.tint.b * renderer.tint.b,
             .a = resolved.tint.a * renderer.tint.a};
-        if (resolved.texture.is_valid())
-            surface.texture = resolve_texture_handle(resolved.texture, assets);
+        if (resolved.texture.is_set())
+        {
+            const auto material_texture = resolve_texture_handle(resolved.texture, assets);
+            surface.texture = material_texture.texture;
+            if (material_texture.is_failed)
+                surface.failure = FAILURE_TEXTURE;
+        }
         surface.uniforms = resolved.uniforms;
 
         // A custom fragment stage pairs with the builtin lit vertex stage, cached by asset.
-        if (resolved.fragment.is_valid())
+        if (resolved.fragment.is_set())
         {
             const auto cached = g_renderer.shaders_by_fragment.find(resolved.fragment.id);
             if (cached != g_renderer.shaders_by_fragment.end())
@@ -304,7 +367,7 @@ namespace tbx::gpu
                 surface.shader = *cached->second.shader;
                 surface.pipeline = *cached->second.pipeline;
             }
-            else if (const auto source = assets->acquire(resolved.fragment))
+            else if (const auto source = assets.load_now(resolved.fragment))
             {
                 auto compiled = compile_shader(
                     g_renderer.lit_vertex_text.c_str(), source->get().text.c_str());
@@ -317,7 +380,16 @@ namespace tbx::gpu
                     surface.pipeline = *entry.pipeline;
                 }
                 else
-                    log_warn("material shader failed: {}", compiled.error());
+                {
+                    warn_once(
+                        resolved.fragment.id, "material shader failed: " + compiled.error());
+                    surface.failure = FAILURE_SHADER;
+                }
+            }
+            else
+            {
+                warn_once(resolved.fragment.id, "material shader unavailable: " + source.error());
+                surface.failure = FAILURE_SHADER;
             }
         }
         return surface;
@@ -325,12 +397,12 @@ namespace tbx::gpu
 
     /// @brief
     /// Purpose: A PostProcessing entry compiled against the builtin post vertex stage, cached
-    /// by asset id (failures cache too, so a broken shader logs once, not every frame).
+    /// by asset id (failures cache too, so a broken shader warns once and is skipped).
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
         const AssetHandle<ShaderSource>& handle,
-        Assets* assets)
+        Assets& assets)
     {
-        if (!assets || !handle.is_valid())
+        if (!handle.is_set())
             return {};
         const auto cached = g_renderer.post_shaders_by_asset.find(handle.id);
         if (cached != g_renderer.post_shaders_by_asset.end())
@@ -339,10 +411,10 @@ namespace tbx::gpu
                 return {};
             return cached->second;
         }
-        const auto source = assets->acquire(handle);
+        const auto source = assets.load_now(handle);
         if (!source)
         {
-            log_warn("post shader unavailable: {}", source.error());
+            warn_once(handle.id, "post shader unavailable: " + source.error());
             g_renderer.post_shaders_by_asset[handle.id] = {};
             return {};
         }
@@ -350,7 +422,7 @@ namespace tbx::gpu
             compile_shader(g_renderer.post_vertex_text.c_str(), source->get().text.c_str());
         if (!compiled)
         {
-            log_warn("post shader failed: {}", compiled.error());
+            warn_once(handle.id, "post shader failed: " + compiled.error());
             g_renderer.post_shaders_by_asset[handle.id] = {};
             return {};
         }
@@ -364,60 +436,78 @@ namespace tbx::gpu
         return entry;
     }
 
-    //// RENDER ////
+    //// FRAME CONTEXT (shared between the builtin passes of one frame) ////
 
-    // The raw pointer stays internal: null means "builtin primitives only" (no asset system in
-    // play); both public overloads below are the API.
-    static void render_internal(Sandbox& sandbox, Assets* assets)
+    struct FrameContext
     {
-        if (!ensure_renderer_ready())
-            return;
-        auto& registry = sandbox.get_registry();
-
-        // The first camera wins; no camera, no picture.
-        auto view_projection = Mat4(1.0f);
-        auto camera_position = Vec3(0.0f, 0.0f, 0.0f);
+        Mat4 view_projection = Mat4(1.0f);
+        Vec3 camera_position = Vec3(0.0f, 0.0f, 0.0f);
         bool has_camera = false;
+        Vec3 light_direction = Vec3(0.0f, -1.0f, 0.0f);
+        Color light_color = {};
+        float light_intensity = 1.0f;
+        Mat4 light_view_projection = Mat4(1.0f);
+        bool is_post_active = false;
+    };
+
+    static FrameContext g_frame = {};
+
+    static void refresh_camera(Sandbox& sandbox)
+    {
+        auto& registry = sandbox.get_registry();
+        g_frame.has_camera = false;
         for (const auto [entity, camera] : registry.view<Camera>().each())
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
-            camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            g_frame.camera_position = Vec3(world * Vec4(0.0f, 0.0f, 0.0f, 1.0f));
             const float aspect = get_viewport_height() > 0
                 ? static_cast<float>(get_viewport_width()) / get_viewport_height()
                 : 1.0f;
             const Mat4 projection = math::perspective(
                 math::radians(camera.fov_degrees), aspect, camera.near_plane, camera.far_plane);
-            view_projection = projection * math::inverse(world);
-            has_camera = true;
+            g_frame.view_projection = projection * math::inverse(world);
+            g_frame.has_camera = true;
             break;
         }
-        if (!has_camera)
-            return;
+    }
 
-        // The first directional light is the sun; light looks along its -Z.
-        auto light_direction = math::normalize(Vec3(-0.4f, -1.0f, -0.3f));
-        auto light_color = Color {};
-        float light_intensity = 1.0f;
+    static void refresh_lighting(Sandbox& sandbox)
+    {
+        auto& registry = sandbox.get_registry();
+        g_frame.light_direction = math::normalize(Vec3(-0.4f, -1.0f, -0.3f));
+        g_frame.light_color = Color {};
+        g_frame.light_intensity = 1.0f;
         for (const auto [entity, light] : registry.view<DirectionalLight>().each())
         {
             const Mat4 world = sandbox.get_world_matrix(Toy(sandbox, entity));
-            light_direction = math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
-            light_color = light.color;
-            light_intensity = light.intensity;
+            g_frame.light_direction =
+                math::normalize(Vec3(world * Vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+            g_frame.light_color = light.color;
+            g_frame.light_intensity = light.intensity;
             break;
         }
         const Mat4 light_view = math::look_at(
-            -light_direction * 30.0f,
+            -g_frame.light_direction * 30.0f,
             Vec3(0.0f, 0.0f, 0.0f),
             Vec3(0.0f, 1.0f, 0.0f));
-        const Mat4 light_view_projection =
+        g_frame.light_view_projection =
             math::orthographic(-25.0f, 25.0f, -25.0f, 25.0f, 0.1f, 100.0f) * light_view;
+    }
 
-        // Pass 1: depth from the light.
+    //// BUILTIN PASSES ////
+
+    static void render_shadow_pass(Sandbox& sandbox, Assets& assets)
+    {
+        if (!ensure_renderer_ready())
+            return;
+        auto& registry = sandbox.get_registry();
+        refresh_lighting(sandbox);
+
         begin_render_pass({.depth_target = *g_renderer.shadow_target});
         set_pipeline(*g_renderer.depth_pipeline);
-        set_uniform(*g_renderer.depth_shader, "u_light_view_projection", light_view_projection);
-        for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
+        set_uniform(
+            *g_renderer.depth_shader, "u_light_view_projection", g_frame.light_view_projection);
+        for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
@@ -425,22 +515,34 @@ namespace tbx::gpu
                 *g_renderer.depth_shader,
                 "u_model",
                 sandbox.get_world_matrix(Toy(sandbox, entity)));
-            draw(resolve_mesh(renderer, assets));
+            draw(resolve_mesh(renderer, assets).mesh);
         }
         end_render_pass();
+    }
+
+    static void render_geometry_pass(Sandbox& sandbox, Assets& assets)
+    {
+        if (!ensure_renderer_ready())
+            return;
+        auto& registry = sandbox.get_registry();
+        refresh_camera(sandbox);
+        refresh_lighting(sandbox);
+        g_frame.is_post_active = false;
+        if (!g_frame.has_camera)
+            return; // no camera, no picture
 
         // When a PostProcessing block lists shaders, the scene renders into an offscreen
-        // target and the chain fullscreen-passes it back onto the window at the end.
-        auto post_chain = std::vector<std::reference_wrapper<const CompiledPipeline>>();
+        // target; the post pass chains it back onto the swapchain (the two passes pair).
+        auto post_chain_probe = std::vector<std::reference_wrapper<const CompiledPipeline>>();
         for (const auto [entity, post] : registry.view<PostProcessing>().each())
         {
             for (const AssetHandle<ShaderSource>& handle : post.shaders)
-                if (const auto shader = resolve_post_shader(handle, assets))
-                    post_chain.push_back(*shader);
+                if (const auto stage = resolve_post_shader(handle, assets))
+                    post_chain_probe.push_back(*stage);
             break; // the first PostProcessing toy wins
         }
-        const bool has_post = !post_chain.empty();
-        if (has_post)
+        g_frame.is_post_active = !post_chain_probe.empty();
+        if (g_frame.is_post_active)
         {
             const int width = get_viewport_width();
             const int height = get_viewport_height();
@@ -456,36 +558,49 @@ namespace tbx::gpu
                  .clear_color = get_clear_color()});
         }
 
-        // Sky: the first Sky block paints the background along the view ray (depth writes
-        // off, so the scene draws over it).
+        // Sky: the first Sky block paints the background along the view ray.
         for (const auto [entity, sky] : registry.view<Sky>().each())
         {
             const Shader& sky_shader = *g_renderer.sky_shader;
             set_pipeline(*g_renderer.sky_pipeline);
-            set_uniform(sky_shader, "u_inverse_view_projection", math::inverse(view_projection));
-            set_uniform(sky_shader, "u_camera_position", camera_position);
+            set_uniform(
+                sky_shader, "u_inverse_view_projection", math::inverse(g_frame.view_projection));
+            set_uniform(sky_shader, "u_camera_position", g_frame.camera_position);
             set_uniform(sky_shader, "u_tint", sky.tint);
             set_uniform(sky_shader, "u_sky", 0);
-            bind_texture(resolve_texture_handle(sky.texture, assets), 0);
+            bind_texture(resolve_texture_handle(sky.texture, assets).texture, 0);
             draw(*g_renderer.fullscreen);
             break;
         }
 
-        // Pass 2: lit + shadowed + textured, material-driven per draw.
+        // Lit + shadowed + textured, material-driven per draw; failures flash their color.
+        const float flash = get_failure_flash();
         bind_depth_texture(*g_renderer.shadow_target, 0);
-        for (const auto [entity, renderer] : registry.view<MeshRenderer>().each())
+        for (const auto [entity, renderer] : registry.view<Renderer>().each())
         {
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
-            const ResolvedSurface surface = resolve_surface(renderer, assets);
+            const ResolvedMesh mesh = resolve_mesh(renderer, assets);
+            auto surface = resolve_surface(renderer, assets);
+            if (mesh.is_failed)
+                surface.failure = FAILURE_MODEL;
+            if (surface.failure)
+            {
+                surface.tint = Color {
+                    .r = surface.failure->r * flash,
+                    .g = surface.failure->g * flash,
+                    .b = surface.failure->b * flash};
+                surface.texture = *g_renderer.white;
+                surface.uniforms = {};
+            }
             const Shader& shader = surface.shader;
             set_pipeline(surface.pipeline);
-            set_uniform(shader, "u_view_projection", view_projection);
-            set_uniform(shader, "u_light_view_projection", light_view_projection);
-            set_uniform(shader, "u_light_direction", light_direction);
-            set_uniform(shader, "u_light_color", light_color);
-            set_uniform(shader, "u_light_intensity", light_intensity);
-            set_uniform(shader, "u_camera_position", camera_position);
+            set_uniform(shader, "u_view_projection", g_frame.view_projection);
+            set_uniform(shader, "u_light_view_projection", g_frame.light_view_projection);
+            set_uniform(shader, "u_light_direction", g_frame.light_direction);
+            set_uniform(shader, "u_light_color", g_frame.light_color);
+            set_uniform(shader, "u_light_intensity", g_frame.light_intensity);
+            set_uniform(shader, "u_camera_position", g_frame.camera_position);
             set_uniform(shader, "u_shadow_map", 0);
             set_uniform(shader, "u_albedo", 1);
             set_uniform(shader, "u_model", sandbox.get_world_matrix(Toy(sandbox, entity)));
@@ -493,50 +608,171 @@ namespace tbx::gpu
             set_uniform(shader, "u_uv_scale", 1.0f);
             apply_uniforms(shader, surface.uniforms); // reflection-typed material extras
             bind_texture(surface.texture, 1);
-            draw(resolve_mesh(renderer, assets));
+            draw(mesh.mesh);
         }
+    }
 
-        if (has_post)
+    static void render_post_pass(Sandbox& sandbox, Assets& assets)
+    {
+        if (!ensure_renderer_ready() || !g_frame.is_post_active)
+            return;
+        auto& registry = sandbox.get_registry();
+        auto post_chain = std::vector<std::reference_wrapper<const CompiledPipeline>>();
+        for (const auto [entity, post] : registry.view<PostProcessing>().each())
         {
-            // Ping-pong through the chain; the last pass lands on the window framebuffer.
-            const float time_seconds =
-                std::chrono::duration<float>(
-                    std::chrono::steady_clock::now() - g_renderer.start_time)
-                    .count();
-            const auto resolution = Vec2(
-                static_cast<float>(get_viewport_width()),
-                static_cast<float>(get_viewport_height()));
-            auto source = std::ref(*g_renderer.post_source);
-            auto swap = std::ref(*g_renderer.post_swap);
-            end_render_pass(); // close the scene's offscreen pass
-            for (size index = 0; index < post_chain.size(); ++index)
+            for (const AssetHandle<ShaderSource>& handle : post.shaders)
+                if (const auto stage = resolve_post_shader(handle, assets))
+                    post_chain.push_back(*stage);
+            break;
+        }
+        g_frame.is_post_active = false;
+        if (post_chain.empty())
+            return;
+
+        // Ping-pong through the chain; the last stage lands on the swapchain.
+        const float time_seconds =
+            std::chrono::duration<float>(std::chrono::steady_clock::now() - g_renderer.start_time)
+                .count();
+        const auto resolution = Vec2(
+            static_cast<float>(get_viewport_width()),
+            static_cast<float>(get_viewport_height()));
+        auto source = std::ref(*g_renderer.post_source);
+        auto swap = std::ref(*g_renderer.post_swap);
+        end_render_pass(); // close the geometry pass's offscreen target
+        for (size index = 0; index < post_chain.size(); ++index)
+        {
+            const bool is_last = index + 1 == post_chain.size();
+            if (is_last)
+                begin_render_pass({}); // the swapchain; the fullscreen draw covers it
+            else
+                begin_render_pass({.color_target = swap});
+            const CompiledPipeline& stage = post_chain[index];
+            set_pipeline(*stage.pipeline);
+            set_uniform(*stage.shader, "u_scene", 0);
+            set_uniform(*stage.shader, "u_resolution", resolution);
+            set_uniform(*stage.shader, "u_time", time_seconds);
+            bind_render_target_texture(source, 0);
+            draw(*g_renderer.fullscreen);
+            end_render_pass();
+            if (!is_last)
+                std::swap(source, swap);
+        }
+    }
+
+    static void render_ui_pass(Sandbox& sandbox, Assets& assets)
+    {
+        // Ui blocks own documents: load on first sight, show/hide with the block, unload when
+        // the toy goes away. Documents loaded directly through tbx::ui (debug view, tools)
+        // are untouched.
+        auto& registry = sandbox.get_registry();
+        auto seen = std::unordered_set<Uuid>();
+        for (const auto [entity, ui_block] : registry.view<Ui>().each())
+        {
+            if (!ui_block.document.is_set())
+                continue;
+            const Uuid key = ui_block.document.is_valid()
+                ? ui_block.document.id
+                : Uuid {.hi = hash(ui_block.document.path), .lo = ~hash(ui_block.document.path)};
+            auto found = g_renderer.ui_documents_by_asset.find(key);
+            if (found == g_renderer.ui_documents_by_asset.end())
             {
-                const bool is_last = index + 1 == post_chain.size();
-                if (is_last)
-                    begin_render_pass({}); // the swapchain; the fullscreen draw covers it
+                auto loaded_id = uint64(0);
+                if (const auto document = assets.load_now(ui_block.document))
+                {
+                    if (const auto shown = ui::load_document(document->get().text))
+                        loaded_id = *shown;
+                    else
+                        warn_once(key, "ui document failed: " + shown.error());
+                }
                 else
-                    begin_render_pass({.color_target = swap});
-                const CompiledPipeline& stage = post_chain[index];
-                set_pipeline(*stage.pipeline);
-                set_uniform(*stage.shader, "u_scene", 0);
-                set_uniform(*stage.shader, "u_resolution", resolution);
-                set_uniform(*stage.shader, "u_time", time_seconds);
-                bind_render_target_texture(source, 0);
-                draw(*g_renderer.fullscreen);
-                end_render_pass();
-                if (!is_last)
-                    std::swap(source, swap);
+                    warn_once(key, "ui document unavailable: " + document.error());
+                found = g_renderer.ui_documents_by_asset.emplace(key, loaded_id).first;
+            }
+            seen.insert(key);
+            if (found->second != 0)
+                ui::set_document_visible(
+                    found->second,
+                    ui_block.is_visible && registry.get<ToyHandle>(entity).is_enabled);
+        }
+        for (auto it = g_renderer.ui_documents_by_asset.begin();
+             it != g_renderer.ui_documents_by_asset.end();)
+        {
+            if (!seen.contains(it->first))
+            {
+                if (it->second != 0)
+                    ui::unload_document(it->second);
+                it = g_renderer.ui_documents_by_asset.erase(it);
+            }
+            else
+                ++it;
+        }
+        ui::render();
+    }
+}
+
+namespace tbx
+{
+    //// RENDER GRAPH ////
+
+    RenderGraph::RenderGraph()
+    {
+        _passes.push_back(make_shadow_pass());
+        _passes.push_back(make_geometry_pass());
+        _passes.push_back(make_post_pass());
+        _passes.push_back(make_ui_pass());
+    }
+
+    void RenderGraph::add_pass(RenderPass pass)
+    {
+        _passes.push_back(std::move(pass));
+    }
+
+    const std::vector<RenderPass>& RenderGraph::get_passes() const
+    {
+        return _passes;
+    }
+
+    void RenderGraph::remove_pass(const std::string_view name)
+    {
+        for (auto it = _passes.begin(); it != _passes.end(); ++it)
+        {
+            if (it->name == name)
+            {
+                _passes.erase(it);
+                return;
             }
         }
     }
 
-    void render(Sandbox& sandbox)
+    void RenderGraph::render(Sandbox& sandbox, Assets& assets)
     {
-        render_internal(sandbox, nullptr);
+        for (const RenderPass& pass : _passes)
+            if (pass.render)
+                pass.render(sandbox, assets);
     }
 
-    void render(Sandbox& sandbox, Assets& assets)
+    void RenderGraph::set_passes(std::vector<RenderPass> passes)
     {
-        render_internal(sandbox, &assets);
+        _passes = std::move(passes);
+    }
+
+    RenderPass make_shadow_pass()
+    {
+        return {.name = "shadow", .render = &gpu::render_shadow_pass};
+    }
+
+    RenderPass make_geometry_pass()
+    {
+        return {.name = "geometry", .render = &gpu::render_geometry_pass};
+    }
+
+    RenderPass make_post_pass()
+    {
+        return {.name = "post", .render = &gpu::render_post_pass};
+    }
+
+    RenderPass make_ui_pass()
+    {
+        return {.name = "ui", .render = &gpu::render_ui_pass};
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-// Builtin assets: always available, no files involved. MeshRenderer takes these mesh names
-// directly: sandbox.spawn("Crate").with(MeshRenderer {.mesh = builtin::CUBE}).
+// Builtin assets: always available, no files involved. Renderer takes these mesh names
+// directly: sandbox.spawn("Crate").with(Renderer {.mesh = builtin::CUBE}).
 namespace tbx::builtin
 {
     inline constexpr const char* CUBE = "cube";

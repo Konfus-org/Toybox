@@ -30,6 +30,9 @@ namespace tbx
     struct TBX_API AssetReloaded
     {
         Uuid id = {};
+        // The asset file's extension (".luau", ".png", ...) so listeners filter without a
+        // lookup; events must stay trivially copyable, hence the fixed buffer.
+        char extension[16] = {};
     };
 
     /// @brief

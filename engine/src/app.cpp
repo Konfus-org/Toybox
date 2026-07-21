@@ -1,5 +1,6 @@
 #include "tbx/app.h"
 #include "tbx/core/log.h"
+#include "tbx/debug/debug_view.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/audio/audio.h"
 #include "tbx/ui/ui.h"
@@ -22,10 +23,10 @@ namespace tbx
         Window window;
         Assets assets;
         Sandbox sandbox;
+        RenderGraph render_graph = {};
         Scripts scripts; // constructed last, destroyed first — the VM dies before its world
         std::chrono::steady_clock::time_point previous_frame;
         std::unordered_set<Uuid> acquired_script_sources;
-        uint64 ui_document = 0;
         bool quit_requested = false;
 
         explicit AppState(const App& app)
@@ -61,12 +62,12 @@ namespace tbx
             .field("fov_degrees", &Camera::fov_degrees)
             .field("near_plane", &Camera::near_plane)
             .field("far_plane", &Camera::far_plane);
-        register_block<MeshRenderer>("MeshRenderer")
-            .field("material", &MeshRenderer::material)
-            .field("model", &MeshRenderer::model)
-            .field("texture", &MeshRenderer::texture)
-            .field("mesh", &MeshRenderer::mesh)
-            .field("tint", &MeshRenderer::tint);
+        register_block<Renderer>("Renderer")
+            .field("material", &Renderer::material)
+            .field("model", &Renderer::model)
+            .field("texture", &Renderer::texture)
+            .field("mesh", &Renderer::mesh)
+            .field("tint", &Renderer::tint);
         register_block<DirectionalLight>("DirectionalLight")
             .field("color", &DirectionalLight::color)
             .field("intensity", &DirectionalLight::intensity);
@@ -78,6 +79,9 @@ namespace tbx
             .field("half_extents", &Collider::half_extents)
             .field("radius", &Collider::radius)
             .field("height", &Collider::height);
+        register_block<Ui>("Ui")
+            .field("document", &Ui::document)
+            .field("is_visible", &Ui::is_visible);
         register_block<Sky>("Sky")
             .field("texture", &Sky::texture)
             .field("tint", &Sky::tint);
@@ -112,8 +116,10 @@ namespace tbx
             &state,
             [&state](const AssetReloaded& reloaded)
             {
+                if (!state.scripts.owns(reloaded.extension))
+                    return; // not a script source — nothing to (re)register
                 const auto script =
-                    state.assets.get(AssetHandle<ScriptSource> {.id = reloaded.id});
+                    state.assets.load_now(AssetHandle<ScriptSource>(reloaded.id));
                 if (script)
                 {
                     if (const auto result = state.scripts.reload_source(
@@ -131,39 +137,31 @@ namespace tbx
 
         // Configured content is ordinary assets: the sandbox layout opens through the kit
         // resolver, the UI document loads and shows. Failures request a clean exit.
-        if (!app.sandbox.empty())
+        if (app.sandbox.is_set())
         {
-            const auto layout = state.assets.load_now<Json>(app.sandbox);
-            const auto body = layout ? state.assets.get(*layout) : std::nullopt;
-            if (!body)
+            // Kit/level references inside the layout are Json assets too; streaming may call
+            // the resolver from a worker, which the mutex-guarded asset maps support.
+            const auto resolver = [&assets = state.assets](const std::string& reference)
+                -> Result<Json>
             {
-                log_error(
-                    "sandbox '{}': {}",
-                    app.sandbox,
-                    layout ? "did not load" : layout.error());
+                auto body = assets.load_now(AssetHandle<Json>(reference));
+                if (!body)
+                    return std::unexpected(body.error());
+                return ok(Json(body->get()));
+            };
+            const auto layout = state.assets.load_now(app.sandbox);
+            if (!layout)
+            {
+                log_error("sandbox '{}': {}", app.sandbox.path, layout.error());
                 state.quit_requested = true;
             }
             else if (const auto opened = state.sandbox.open(
-                         {.kits = body->get(), .resolver = state.assets.make_kit_resolver()});
+                         {.kits = layout->get(), .resolver = resolver});
                      !opened)
             {
-                log_error("sandbox '{}': {}", app.sandbox, opened.error());
+                log_error("sandbox '{}': {}", app.sandbox.path, opened.error());
                 state.quit_requested = true;
             }
-        }
-        if (!app.ui.empty() && !state.window.is_headless())
-        {
-            const auto document = state.assets.load_now<UiDocument>(app.ui);
-            const auto body = document ? state.assets.get(*document) : std::nullopt;
-            if (!body)
-                log_error(
-                    "ui '{}': {}",
-                    app.ui,
-                    document ? std::string("did not load") : document.error());
-            else if (const auto shown = ui::load_document(body->get().text))
-                state.ui_document = *shown;
-            else
-                log_error("ui '{}': {}", app.ui, shown.error());
         }
 
         app.is_running = true;
@@ -194,6 +192,7 @@ namespace tbx
         if (!window_alive || state.quit_requested)
         {
             app.is_running = false;
+            debug::reset();
             ui::reset();
             audio::reset();
             physics::reset();
@@ -206,6 +205,11 @@ namespace tbx
         state.previous_frame = now;
         ++app.frame;
 
+        // The engine debug overlay rides F3.
+        if (input::is_pressed(Key::F3))
+            debug::toggle();
+        debug::update(app);
+
         // Script sources referenced by spawned toys are ordinary assets: acquire each once —
         // the store emits asset_reloaded and the boot glue hands it to the right backend.
         for (auto&& [entity, script] : state.sandbox.get_registry().view<Script>().each())
@@ -214,7 +218,7 @@ namespace tbx
                 || state.acquired_script_sources.contains(script.source.id))
                 continue;
             state.acquired_script_sources.insert(script.source.id);
-            if (const auto acquired = state.assets.acquire(script.source); !acquired)
+            if (const auto acquired = state.assets.load_now(script.source); !acquired)
                 log_error(
                     "script source '{}': {}",
                     script.source.id.to_string(),
@@ -265,6 +269,11 @@ namespace tbx
         return g_state->jobs;
     }
 
+    RenderGraph& get_render_graph()
+    {
+        return g_state->render_graph;
+    }
+
     Sandbox& get_sandbox()
     {
         return g_state->sandbox;
@@ -273,11 +282,6 @@ namespace tbx
     Scripts& get_scripts()
     {
         return g_state->scripts;
-    }
-
-    uint64 get_ui_document()
-    {
-        return g_state ? g_state->ui_document : 0;
     }
 
     Window& get_window()

@@ -4,6 +4,7 @@
 #include "tbx/core/typedefs.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/events/events.h"
+#include "tbx/gfx/render_graph.h"
 #include "tbx/jobs/jobs.h"
 #include "tbx/platform/window.h"
 #include "tbx/scripting/scripts.h"
@@ -24,8 +25,7 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::filesystem::path asset_root = {};
-        std::string sandbox = {}; // a .box layout (asset-relative) the boot opens
-        std::string ui = {};      // a .rml document (asset-relative) the boot shows
+        AssetHandle<Json> sandbox = {}; // a .box layout the boot opens
 
         // Per-frame data (written by run()).
         float delta_time = 0.0f;
@@ -49,7 +49,7 @@ namespace tbx
     TBX_API bool is_app_running();
 
     /// @brief
-    /// Purpose: Registers every builtin block (Transform, Camera, MeshRenderer,
+    /// Purpose: Registers every builtin block (Transform, Camera, Renderer,
     /// DirectionalLight, RigidBody, Collider, Script, AudioListener, AudioSource) — THE one registration call.
     /// Idempotent; run() and every subsystem entry point call it, tests may too.
     TBX_API void register_builtin_blocks();
@@ -74,13 +74,12 @@ namespace tbx
     TBX_API Sandbox& get_sandbox();
 
     /// @brief
-    /// Purpose: The scripting system.
-    TBX_API Scripts& get_scripts();
+    /// Purpose: The standard renderer (default pass list; hosts may reshape it).
+    TBX_API RenderGraph& get_render_graph();
 
     /// @brief
-    /// Purpose: The document App::ui loaded at boot (0 when none) — pass it to
-    /// ui::set_inline_style and friends.
-    TBX_API uint64 get_ui_document();
+    /// Purpose: The scripting system.
+    TBX_API Scripts& get_scripts();
 
     /// @brief
     /// Purpose: The OS window.

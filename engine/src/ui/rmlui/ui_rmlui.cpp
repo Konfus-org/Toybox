@@ -1,7 +1,9 @@
 #include "tbx/ui/ui.h"
 #include "tbx/core/log.h"
+#include "tbx/files/files.h"
 #include "tbx/gfx/gpu.h"
 #include <RmlUi/Core.h>
+#include <filesystem>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -16,6 +18,17 @@ namespace tbx::ui
         double GetElapsedTime() override
         {
             return elapsed;
+        }
+
+        bool LogMessage(Rml::Log::Type type, const Rml::String& message) override
+        {
+            if (type <= Rml::Log::LT_ERROR)
+                log_error("rmlui: {}", message);
+            else if (type == Rml::Log::LT_WARNING)
+                log_warn("rmlui: {}", message);
+            else
+                log_info("rmlui: {}", message);
+            return true;
         }
 
       public:
@@ -128,19 +141,11 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: Satisfies RmlUi's font-engine requirement while the "none" engine is selected
-    /// (no text yet — a FreeType-backed engine slots in later without touching this boundary).
-    class NullFontEngine final : public Rml::FontEngineInterface
-    {
-    };
-
-    /// @brief
     /// Purpose: The whole UI stack, torn down by reset() and rebuilt lazily.
     struct UiState
     {
         SystemInterface system = {};
         RenderInterface renderer = {};
-        NullFontEngine fonts = {};
         Rml::Context* context = nullptr; // owned by Rml until Rml::Shutdown
         std::unordered_map<uint64, Rml::ElementDocument*> documents;
         uint64 next_document_id = 1;
@@ -162,13 +167,24 @@ namespace tbx::ui
         auto state = std::make_unique<UiState>();
         Rml::SetSystemInterface(&state->system);
         Rml::SetRenderInterface(&state->renderer);
-        Rml::SetFontEngineInterface(&state->fonts);
         if (!Rml::Initialise())
         {
             log_error("RmlUi initialization failed; ui disabled");
             return nullptr;
         }
         state->is_initialized = true;
+
+        // Every face in the engine's font folder registers as a fallback-capable family.
+        const auto fonts = std::filesystem::path(TBX_RESOURCES_PATH) / "Fonts";
+        auto ec = std::error_code {};
+        for (const auto& entry : std::filesystem::directory_iterator(fonts, ec))
+        {
+            const auto extension = entry.path().extension().string();
+            if (extension != ".ttf" && extension != ".otf")
+                continue;
+            if (!Rml::LoadFontFace(entry.path().string(), true))
+                log_warn("font '{}' failed to load", entry.path().string());
+        }
         const int width = std::max(1, gpu::get_viewport_width());
         const int height = std::max(1, gpu::get_viewport_height());
         state->context = Rml::CreateContext("tbx", Rml::Vector2i(width, height));
@@ -210,18 +226,41 @@ namespace tbx::ui
         g_ui.reset();
     }
 
-    void set_inline_style(
-        const uint64 document_id,
-        const std::string& element_id,
-        const std::string& style)
+    /// @brief
+    /// Purpose: The element with the given id, searched across every loaded document.
+    static Rml::Element* find_element(const std::string& element_id)
+    {
+        if (!g_ui)
+            return nullptr;
+        for (const auto& [id, document] : g_ui->documents)
+            if (Rml::Element* element = document->GetElementById(element_id))
+                return element;
+        return nullptr;
+    }
+
+    void set_document_visible(const uint64 document_id, const bool is_visible)
     {
         if (!g_ui)
             return;
         const auto found = g_ui->documents.find(document_id);
         if (found == g_ui->documents.end())
             return;
-        if (Rml::Element* element = found->second->GetElementById(element_id))
+        if (is_visible)
+            found->second->Show();
+        else
+            found->second->Hide();
+    }
+
+    void set_inline_style(const std::string& element_id, const std::string& style)
+    {
+        if (Rml::Element* element = find_element(element_id))
             element->SetAttribute("style", style);
+    }
+
+    void set_text(const std::string& element_id, const std::string& text)
+    {
+        if (Rml::Element* element = find_element(element_id))
+            element->SetInnerRML(text);
     }
 
     void unload_document(const uint64 document_id)

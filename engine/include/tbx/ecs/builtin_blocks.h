@@ -1,16 +1,18 @@
 #pragma once
-#include "tbx/core/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/material.h"
 #include "tbx/assets/model.h"
 #include "tbx/assets/script_source.h"
 #include "tbx/assets/shader_source.h"
 #include "tbx/assets/texture.h"
+#include "tbx/assets/ui_document.h"
+#include "tbx/core/api.h"
 #include "tbx/core/color.h"
 #include "tbx/core/math.h"
 #include "tbx/core/typedefs.h"
 #include <string>
 #include <vector>
+
 
 // Every block the engine ships, in one place. Registration stays with each owning system
 // (sandbox registers Transform, gpu the render blocks, physics its blocks, scripting Script).
@@ -59,7 +61,7 @@ namespace tbx
     /// Purpose: Makes a toy visible: an imported model when the handle is set, otherwise a
     /// builtin primitive by name (tbx::builtin), textured when the texture handle is set,
     /// always tinted.
-    struct TBX_API MeshRenderer
+    struct TBX_API Renderer
     {
         AssetHandle<Material> material = {};
         AssetHandle<Model> model = {};
@@ -83,6 +85,15 @@ namespace tbx
     struct TBX_API Script
     {
         AssetHandle<ScriptSource> source = {};
+    };
+
+    /// @brief
+    /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and
+    /// is enabled (the renderer's ui pass manages loading/visibility).
+    struct Ui
+    {
+        AssetHandle<UiDocument> document = {};
+        bool is_visible = true;
     };
 
     /// @brief

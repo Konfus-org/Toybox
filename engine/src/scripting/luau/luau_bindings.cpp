@@ -425,14 +425,20 @@ namespace tbx
             return 0;
         }
         auto& assets = get_assets();
-        const auto handle = assets.load_now<Json>(reference);
-        const auto body = handle ? assets.get(*handle) : std::nullopt;
+        const auto body = assets.load_now(AssetHandle<Json>(reference));
         if (!body)
         {
-            luaL_error(lua, "kit '%s' did not load", reference);
+            luaL_error(lua, "kit '%s': %s", reference, body.error().c_str());
             return 0;
         }
-        const auto spawned = sandbox.spawn(body->get(), position, assets.make_kit_resolver());
+        const auto resolver = [&assets](const std::string& nested) -> Result<Json>
+        {
+            auto nested_body = assets.load_now(AssetHandle<Json>(nested));
+            if (!nested_body)
+                return std::unexpected(nested_body.error());
+            return ok(Json(nested_body->get()));
+        };
+        const auto spawned = sandbox.spawn(body->get(), position, resolver);
         if (!spawned)
         {
             luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());
@@ -621,8 +627,13 @@ namespace tbx
 
     static int ui_set_style(lua_State* lua)
     {
-        ui::set_inline_style(
-            get_ui_document(), luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
+        ui::set_inline_style(luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
+        return 0;
+    }
+
+    static int ui_set_text(lua_State* lua)
+    {
+        ui::set_text(luaL_checkstring(lua, 1), luaL_checkstring(lua, 2));
         return 0;
     }
 
@@ -632,68 +643,83 @@ namespace tbx
         return 0;
     }
 
-    static Key key_from_string(const char* name)
+    /// @brief
+    /// Purpose: One row of the script-facing key enum table (tbx.Key.NAME).
+    struct KeyEntry
     {
-        // Hand-written map: enum name arrays are deliberately not generated.
-        const uint64 hashed = hash(name);
-        if (std::strlen(name) == 1 && name[0] >= 'A' && name[0] <= 'Z')
-            return static_cast<Key>(static_cast<int>(Key::A) + (name[0] - 'A'));
-        if (hashed == hash("SPACE"))
-            return Key::SPACE;
-        if (hashed == hash("ESCAPE"))
-            return Key::ESCAPE;
-        if (hashed == hash("ENTER"))
-            return Key::ENTER;
-        if (hashed == hash("LEFT"))
-            return Key::LEFT;
-        if (hashed == hash("RIGHT"))
-            return Key::RIGHT;
-        if (hashed == hash("UP"))
-            return Key::UP;
-        if (hashed == hash("DOWN"))
-            return Key::DOWN;
-        if (hashed == hash("LEFT_SHIFT"))
-            return Key::LEFT_SHIFT;
-        if (hashed == hash("LEFT_CTRL"))
-            return Key::LEFT_CTRL;
-        if (hashed == hash("TAB"))
-            return Key::TAB;
-        return Key::UNKNOWN;
+        const char* name;
+        Key key;
+    };
+
+#define TBX_KEY_ENTRY(name) KeyEntry {#name, Key::name}
+    static constexpr KeyEntry KEY_TABLE[] = {
+        TBX_KEY_ENTRY(A), TBX_KEY_ENTRY(B), TBX_KEY_ENTRY(C), TBX_KEY_ENTRY(D),
+        TBX_KEY_ENTRY(E), TBX_KEY_ENTRY(F), TBX_KEY_ENTRY(G), TBX_KEY_ENTRY(H),
+        TBX_KEY_ENTRY(I), TBX_KEY_ENTRY(J), TBX_KEY_ENTRY(K), TBX_KEY_ENTRY(L),
+        TBX_KEY_ENTRY(M), TBX_KEY_ENTRY(N), TBX_KEY_ENTRY(O), TBX_KEY_ENTRY(P),
+        TBX_KEY_ENTRY(Q), TBX_KEY_ENTRY(R), TBX_KEY_ENTRY(S), TBX_KEY_ENTRY(T),
+        TBX_KEY_ENTRY(U), TBX_KEY_ENTRY(V), TBX_KEY_ENTRY(W), TBX_KEY_ENTRY(X),
+        TBX_KEY_ENTRY(Y), TBX_KEY_ENTRY(Z),
+        TBX_KEY_ENTRY(NUM_0), TBX_KEY_ENTRY(NUM_1), TBX_KEY_ENTRY(NUM_2),
+        TBX_KEY_ENTRY(NUM_3), TBX_KEY_ENTRY(NUM_4), TBX_KEY_ENTRY(NUM_5),
+        TBX_KEY_ENTRY(NUM_6), TBX_KEY_ENTRY(NUM_7), TBX_KEY_ENTRY(NUM_8),
+        TBX_KEY_ENTRY(NUM_9),
+        TBX_KEY_ENTRY(F1), TBX_KEY_ENTRY(F2), TBX_KEY_ENTRY(F3), TBX_KEY_ENTRY(F4),
+        TBX_KEY_ENTRY(F5), TBX_KEY_ENTRY(F6), TBX_KEY_ENTRY(F7), TBX_KEY_ENTRY(F8),
+        TBX_KEY_ENTRY(F9), TBX_KEY_ENTRY(F10), TBX_KEY_ENTRY(F11), TBX_KEY_ENTRY(F12),
+        TBX_KEY_ENTRY(ESCAPE), TBX_KEY_ENTRY(TAB), TBX_KEY_ENTRY(CAPS_LOCK),
+        TBX_KEY_ENTRY(SPACE), TBX_KEY_ENTRY(ENTER), TBX_KEY_ENTRY(BACKSPACE),
+        TBX_KEY_ENTRY(DEL), TBX_KEY_ENTRY(INSERT), TBX_KEY_ENTRY(HOME),
+        TBX_KEY_ENTRY(END), TBX_KEY_ENTRY(PAGE_UP), TBX_KEY_ENTRY(PAGE_DOWN),
+        TBX_KEY_ENTRY(LEFT), TBX_KEY_ENTRY(RIGHT), TBX_KEY_ENTRY(UP),
+        TBX_KEY_ENTRY(DOWN), TBX_KEY_ENTRY(LEFT_SHIFT), TBX_KEY_ENTRY(RIGHT_SHIFT),
+        TBX_KEY_ENTRY(LEFT_CTRL), TBX_KEY_ENTRY(RIGHT_CTRL), TBX_KEY_ENTRY(LEFT_ALT),
+        TBX_KEY_ENTRY(RIGHT_ALT), TBX_KEY_ENTRY(MINUS), TBX_KEY_ENTRY(EQUALS),
+        TBX_KEY_ENTRY(LEFT_BRACKET), TBX_KEY_ENTRY(RIGHT_BRACKET),
+        TBX_KEY_ENTRY(BACKSLASH), TBX_KEY_ENTRY(SEMICOLON), TBX_KEY_ENTRY(APOSTROPHE),
+        TBX_KEY_ENTRY(GRAVE), TBX_KEY_ENTRY(COMMA), TBX_KEY_ENTRY(PERIOD),
+        TBX_KEY_ENTRY(SLASH)};
+#undef TBX_KEY_ENTRY
+
+    /// @brief
+    /// Purpose: Input takes tbx.Key/tbx.MouseButton enum values — strongly typed, no strings.
+    static Key check_key(lua_State* lua, const int index)
+    {
+        const auto value = luaL_checkinteger(lua, index);
+        if (value <= 0 || value >= static_cast<int>(Key::COUNT))
+            luaL_error(lua, "expected a tbx.Key value");
+        return static_cast<Key>(value);
+    }
+
+    static MouseButton check_mouse_button(lua_State* lua, const int index)
+    {
+        const auto value = luaL_checkinteger(lua, index);
+        if (value < 0 || value >= static_cast<int>(MouseButton::COUNT))
+            luaL_error(lua, "expected a tbx.MouseButton value");
+        return static_cast<MouseButton>(value);
     }
 
     static int input_is_down(lua_State* lua)
     {
-        lua_pushboolean(lua, input::is_down(key_from_string(luaL_checkstring(lua, 1))));
+        lua_pushboolean(lua, input::is_down(check_key(lua, 1)));
         return 1;
     }
 
     static int input_is_pressed(lua_State* lua)
     {
-        lua_pushboolean(lua, input::is_pressed(key_from_string(luaL_checkstring(lua, 1))));
+        lua_pushboolean(lua, input::is_pressed(check_key(lua, 1)));
         return 1;
-    }
-
-    static MouseButton mouse_button_from_string(const char* name)
-    {
-        const uint64 hashed = hash(name);
-        if (hashed == hash("RIGHT") || hashed == hash("right"))
-            return MouseButton::RIGHT;
-        if (hashed == hash("MIDDLE") || hashed == hash("middle"))
-            return MouseButton::MIDDLE;
-        return MouseButton::LEFT;
     }
 
     static int input_is_mouse_down(lua_State* lua)
     {
-        lua_pushboolean(
-            lua, input::is_mouse_down(mouse_button_from_string(luaL_checkstring(lua, 1))));
+        lua_pushboolean(lua, input::is_mouse_down(check_mouse_button(lua, 1)));
         return 1;
     }
 
     static int input_is_mouse_pressed(lua_State* lua)
     {
-        lua_pushboolean(
-            lua, input::is_mouse_pressed(mouse_button_from_string(luaL_checkstring(lua, 1))));
+        lua_pushboolean(lua, input::is_mouse_pressed(check_mouse_button(lua, 1)));
         return 1;
     }
 
@@ -785,10 +811,30 @@ namespace tbx
         lua_setfield(lua, -2, "raycast");
         lua_setfield(lua, -2, "physics");
 
-        lua_createtable(lua, 0, 1);
+        lua_createtable(lua, 0, 2);
         lua_pushcfunction(lua, ui_set_style, "ui_set_style");
         lua_setfield(lua, -2, "set_style");
+        lua_pushcfunction(lua, ui_set_text, "ui_set_text");
+        lua_setfield(lua, -2, "set_text");
         lua_setfield(lua, -2, "ui");
+
+        // Strongly typed input enums: tbx.Key.W, tbx.MouseButton.LEFT.
+        lua_createtable(lua, 0, static_cast<int>(std::size(KEY_TABLE)));
+        for (const KeyEntry& entry : KEY_TABLE)
+        {
+            lua_pushinteger(lua, static_cast<int>(entry.key));
+            lua_setfield(lua, -2, entry.name);
+        }
+        lua_setfield(lua, -2, "Key");
+
+        lua_createtable(lua, 0, 3);
+        lua_pushinteger(lua, static_cast<int>(MouseButton::LEFT));
+        lua_setfield(lua, -2, "LEFT");
+        lua_pushinteger(lua, static_cast<int>(MouseButton::RIGHT));
+        lua_setfield(lua, -2, "RIGHT");
+        lua_pushinteger(lua, static_cast<int>(MouseButton::MIDDLE));
+        lua_setfield(lua, -2, "MIDDLE");
+        lua_setfield(lua, -2, "MouseButton");
 
         lua_createtable(lua, 0, 18);
         const luaL_Reg math_functions[] = {
