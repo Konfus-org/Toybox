@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset.h"
 #include "tbx/assets/assets.h"
 #include "tbx/audio/audio_listener.h"
 #include "tbx/audio/audio_source.h"
@@ -14,11 +15,11 @@
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/physics/rigid_body.h"
-#include "tbx/platform/window.h"
 #include "tbx/scripting/script.h"
 #include "tbx/scripting/scripts.h"
 #include "tbx/ui/ui_block.h"
 #include "tbx/utils/api.h"
+#include "tbx/utils/command_list.h"
 #include "tbx/utils/typedefs.h"
 #include <filesystem>
 #include <string>
@@ -29,7 +30,9 @@ namespace tbx
     /// Purpose: Graphics configuration applied at boot.
     struct TBX_API GraphicsSettings
     {
-        bool is_vsync_enabled = true;
+        bool is_vsync_enabled = false;
+        // True = the host owns rendering (run() skips the builtin graph).
+        bool is_custom_pipeline = false;
         int shadow_resolution = 2048;
     };
 
@@ -57,12 +60,15 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Per-frame data written by run() — runtime state, never serialized.
-    struct TBX_API AppState
+    /// Purpose: The app's lifecycle, advanced by run(): CREATED until the first run() boots,
+    /// RUNNING through the loop, QUIT_REQUESTED after quit() (or a boot failure), STOPPED
+    /// once run() has shut the frame loop down.
+    enum class AppStatus : uint8
     {
-        float delta_time = 0.0f;
-        uint64 frame = 0;
-        bool is_running = false;
+        CREATED = 0,
+        RUNNING,
+        QUIT_REQUESTED,
+        STOPPED
     };
 
     /// @brief
@@ -73,13 +79,12 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::string title = "Toybox";
-        AssetHandle<Box> sandbox = {};  // the .box the boot opens
+        AssetHandle<Box> sandbox = {}; // the .box the boot opens
         AssetHandle<Texture> icon = {}; // the window/taskbar icon
 
-        // Derived by load_app(), never serialized: where assets live and which .tapp this
-        // app came from (watched so changes re-apply live).
-        std::filesystem::path asset_root = {};
-        std::filesystem::path file = {};
+        // Derived, never serialized: where assets live — the host sets it (usually the
+        // .tapp's folder) and the live value survives .tapp hot reloads. Boot requires it.
+        std::filesystem::path root_dir = {};
     };
 
     /// @brief
@@ -96,61 +101,17 @@ namespace tbx
     /// Purpose: The application, as pure data: configuration in, per-frame data out. The
     /// whole runtime is one loop — `while (tbx::run(app)) { gpu::begin_frame(); ... }` — and
     /// run() fills state each iteration. The App is itself an asset: a .tapp file IS a
-    /// serialized App (config + settings; state stays runtime-only), decoded by load<App>
-    /// and re-applied live when the watched file changes.
-    struct TBX_API App
+    /// serialized App (config + settings; state stays runtime-only), decoded generically
+    /// through its reflected fields — tbx::load<App>(path) after reflection::initialize()
+    /// — and re-applied live when the watched file changes.
+    struct TBX_API App : Asset
     {
-        AppState state = {};
+        AppStatus status = AppStatus::CREATED;
         AppConfig config = {};
         AppSettings settings = {};
+        // Per-launch, never serialized — the host hands main()'s arguments over and the
+        // runtime honors the built-in options (see cmdline_handler.h).
+        CommandList commands = {};
     };
 
-    /// @brief
-    /// Purpose: Decodes a .tapp file into an App (missing keys keep their defaults;
-    /// sandbox/icon accept asset paths or uuids).
-    template <>
-    TBX_API Result<App> load<App>(const std::filesystem::path& path);
-
-    /// @brief
-    /// Purpose: Loads the app from its .tapp: load<App> plus the derived paths — the asset
-    /// root becomes the .tapp's folder and the file itself is remembered for live re-apply.
-    TBX_API Result<App> load_app(const std::filesystem::path& tapp_file);
-
-    /// @brief
-    /// Purpose: Runs one frame: presents the previous one, pumps OS events/jobs/events,
-    /// updates streaming/scripts/fixed-step, and stamps the App's frame data. The first call
-    /// boots the subsystems; returning false has already shut them down.
-    TBX_API bool run(App& app);
-
-    /// @brief
-    /// Purpose: Requests a clean exit — the next run() returns false.
-    TBX_API void quit();
-
-    /// @brief
-    /// Purpose: True between the first run() and shutdown — guards the get_* accessors for
-    /// callers (script bindings, tools) that may exist without a running app.
-    TBX_API bool is_app_running();
-
-    /// @brief
-    /// Purpose: Registers every builtin block (Transform, Camera, Renderer,
-    /// DirectionalLight, RigidBody, Collider, Script, AudioListener, AudioSource) — THE one
-    /// registration call. Idempotent; run() and every subsystem entry point call it, tests may too.
-    TBX_API void register_builtin_blocks();
-
-    // The runtime-owned objects run() booted, for hosts and systems (valid between the first
-    // run() and the run() that returns false). Everything else — assets, events, jobs,
-    // scripts, ui, audio, physics — is a module: call it directly (tbx::assets::load_now,
-    // tbx::events::key(), ...).
-
-    /// @brief
-    /// Purpose: THE world container.
-    TBX_API Sandbox& get_sandbox();
-
-    /// @brief
-    /// Purpose: The standard renderer (default pass list; hosts may reshape it).
-    TBX_API RenderGraph& get_render_graph();
-
-    /// @brief
-    /// Purpose: The OS window.
-    TBX_API Window& get_window();
 }

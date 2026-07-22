@@ -63,6 +63,6 @@ namespace tbx::files
         stream.write(text.data(), static_cast<std::streamsize>(text.size()));
         if (!stream)
             return fail("write failed for '{}'", path.string());
-        return {};
+        return ok();
     }
 }

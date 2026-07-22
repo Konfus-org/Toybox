@@ -1,7 +1,8 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/audio/audio_clip.h"
+#include "tbx/ecs/block.h"
+#include "tbx/utils/api.h"
 
 namespace tbx
 {
@@ -9,7 +10,7 @@ namespace tbx
     /// Purpose: Makes a toy emit sound: a clip played at the toy's position. A Collider on the
     /// same toy gives the source its spatial extent (shared Shape vocabulary — bigger shapes
     /// attenuate more gently); without one it is a point source.
-    struct TBX_API AudioSource
+    struct TBX_API AudioSource : Block
     {
         AssetHandle<AudioClip> clip = {};
         float volume = 1.0f;

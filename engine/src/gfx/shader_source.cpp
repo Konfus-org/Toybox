@@ -9,6 +9,8 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        return ShaderSource {.text = std::move(*text)};
+        auto source = ShaderSource();
+        source.text = std::move(*text);
+        return ok(std::move(source));
     }
 }

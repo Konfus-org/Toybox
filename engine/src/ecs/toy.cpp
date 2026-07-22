@@ -6,24 +6,29 @@ namespace tbx
 {
     //// TOY ////
 
+    ToyHandle& Toy::get_handle() const
+    {
+        return _sandbox->get().get_registry().get<ToyHandle>(_id);
+    }
+
     const std::string& Toy::get_name() const
     {
-        return _sandbox->get().get_registry().get<ToyHandle>(_id).name;
+        return get_handle().name;
     }
 
     Uuid Toy::get_uuid() const
     {
-        return _sandbox->get().get_registry().get<ToyHandle>(_id).uuid;
+        return get_handle().uuid;
     }
 
     bool Toy::is_enabled() const
     {
-        return _sandbox->get().get_registry().get<ToyHandle>(_id).is_enabled;
+        return get_handle().is_enabled;
     }
 
     void Toy::set_enabled(const bool is_enabled)
     {
-        _sandbox->get().get_registry().get<ToyHandle>(_id).is_enabled = is_enabled;
+        get_handle().is_enabled = is_enabled;
     }
 
     bool Toy::is_alive() const
@@ -56,7 +61,7 @@ namespace tbx
 
     void Toy::set_name(std::string name)
     {
-        _sandbox->get().get_registry().get<ToyHandle>(_id).name = std::move(name);
+        get_handle().name = std::move(name);
     }
 
     Toy& Toy::sticker(std::string name)

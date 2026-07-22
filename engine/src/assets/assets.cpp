@@ -1,92 +1,27 @@
 #include "tbx/assets/assets.h"
-#include "tbx/app.h"
-#include "tbx/ui/font.h"
 #include "tbx/debug/log.h"
+#include "tbx/events/events.h"
 #include "tbx/files/files.h"
 #include "tbx/files/watcher.h"
-#include "tbx/events/events.h"
+#include "tbx/reflection/type_registry.h"
 #include "tbx/serialization/json.h"
-#include "tbx/audio/audio_clip.h"
-#include "tbx/gfx/material.h"
-#include "tbx/gfx/model.h"
-#include "tbx/gfx/shader_source.h"
-#include "tbx/gfx/texture.h"
-#include "tbx/scripting/script_source.h"
-#include "tbx/ui/ui_document.h"
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-#include <algorithm>
 
 namespace tbx::assets
 {
-    //// ASSETS ////
-
     /// @brief
-    /// Purpose: One tracked asset: where it lives and how to re-decode it on change.
-    struct Entry
+    /// Purpose: The tracked path for an id, if any — the reverse of the identity map. The
+    /// caller holds the state mutex.
+    static std::optional<std::string> find_path_of_locked(const AssetsState& state, const Uuid& id)
     {
-        Uuid id = {};
-        std::string relative_path = {};
-    };
-
-    /// @brief
-    /// Purpose: The module's whole state, created on first use and torn down by purge().
-    struct AssetsState
-    {
-        std::filesystem::path _root = {};
-        mutable std::mutex _mutex; // guards _assets + _entries_by_path
-        std::unordered_map<Uuid, std::any> _assets;
-        std::unordered_map<Uuid, std::chrono::steady_clock::time_point> _last_access;
-        std::chrono::steady_clock::time_point _last_collect = std::chrono::steady_clock::now();
-        float _idle_lifetime_seconds = 60.0f;
-        std::unordered_map<std::string, Entry> _entries_by_path;
-        bool _is_indexed = false;
-        std::optional<FileWatcher> _watcher;
-    };
-
-    static std::unique_ptr<AssetsState> g_assets = {};
-
-    static AssetsState& ensure_assets_ready()
-    {
-        if (!g_assets)
-            g_assets = std::make_unique<AssetsState>();
-        return *g_assets;
-    }
-
-    static void handle_file_changed(const std::filesystem::path& path);
-    static void index_meta_sidecars(); // caller holds the state mutex
-
-    void set_root(std::filesystem::path root)
-    {
-        AssetsState& a = ensure_assets_ready();
-        a._root = std::move(root);
-        // The watcher reports on its own thread; marshal to the main thread ourselves.
-        a._watcher.emplace(
-            a._root,
-            [](const std::filesystem::path& path)
-            {
-                jobs::post_main([path] { handle_file_changed(path); });
-            });
-    }
-
-    std::filesystem::path resolve_path(const std::string& relative_path)
-    {
-        AssetsState& a = ensure_assets_ready();
-        // The app's asset root wins; the engine's resources folder is the second root, making
-        // engine-shipped models/textures/shaders ordinary assets.
-        const auto in_root = a._root / relative_path;
-        if (std::filesystem::exists(in_root))
-            return in_root;
-        const auto resources = std::filesystem::path(TBX_RESOURCES_PATH);
-        if (!resources.empty())
-        {
-            const auto in_resources = resources / relative_path;
-            if (std::filesystem::exists(in_resources))
-                return in_resources;
-        }
-        return in_root; // the read will surface the miss with a proper error
+        for (const auto& [path, tracked] : state.assets)
+            if (tracked == id)
+                return path;
+        return {};
     }
 
     /// @brief
@@ -106,74 +41,24 @@ namespace tbx::assets
         return Uuid::parse(text);
     }
 
-    Result<Uuid> prepare(const std::string& relative_path)
+    /// @brief
+    /// Purpose: Stamps an AssetReloaded event's fixed extension buffer from a path.
+    static events::AssetReloaded make_reloaded_event(const Uuid& id, const std::string& relative_path)
     {
-        AssetsState& a = ensure_assets_ready();
-        if (a._root.empty())
-            return fail("asset root is not set (Assets::set_root)");
-        {
-            const std::scoped_lock lock(a._mutex);
-            const auto entry = a._entries_by_path.find(relative_path);
-            if (entry != a._entries_by_path.end())
-                return entry->second.id;
-        }
-
-        // Identity-only .meta sidecar: {id, version, type}. Created only when missing (v1
-        // sidecars in resources/ are honored, never rewritten) so renames move the id with the
-        // file instead of breaking references.
-        const auto asset_path = resolve_path(relative_path);
-        const auto meta_path = asset_path.string() + ".meta";
-        auto id = Uuid {};
-        const bool meta_exists = std::filesystem::exists(meta_path);
-        if (meta_exists)
-        {
-            if (const auto text = files::read_text(meta_path))
-            {
-                const serialization::Json meta = serialization::parse(*text);
-                if (meta.is_object())
-                    id = parse_meta_id(meta);
-            }
-            if (id.is_nil())
-                return fail("'{}' exists but has no readable id", meta_path);
-        }
-        else
-        {
-            id = Uuid::generate();
-            auto meta = serialization::Json {
-                {"id", id.to_string()},
-                {"version", 1},
-                {"type", asset_path.extension().string()}};
-            if (auto written = files::write_text(meta_path, serialization::dump(meta, 4)); !written)
-                TBX_WARN("could not write '{}': {}", meta_path, written.error());
-        }
-        const std::scoped_lock lock(a._mutex);
-        a._entries_by_path[relative_path] = Entry {.id = id, .relative_path = relative_path};
-        return id;
+        auto event = events::AssetReloaded {.id = id};
+        const auto extension = std::filesystem::path(relative_path).extension().string();
+        const auto length = std::min(extension.size(), event.extension.size() - 1);
+        extension.copy(event.extension.data(), length);
+        return event;
     }
 
-    std::optional<std::string> find_relative_path(const Uuid& id)
+    /// @brief
+    /// Purpose: One-time read-only walk of both roots for existing *.meta sidecars (never
+    /// writes one) so kit uuid references resolve without something having loaded the asset
+    /// by path first. The caller holds the state mutex.
+    static void index_meta_sidecars(AssetsState& state)
     {
-        AssetsState& a = ensure_assets_ready();
-        const std::scoped_lock lock(a._mutex);
-        for (const auto& [path, entry] : a._entries_by_path)
-            if (entry.id == id)
-                return path;
-        index_meta_sidecars();
-        for (const auto& [path, entry] : a._entries_by_path)
-            if (entry.id == id)
-                return path;
-        return {};
-    }
-
-    void index_meta_sidecars()
-    {
-        AssetsState& a = ensure_assets_ready();
-        // Reads EXISTING sidecars only (no meta is ever written here), so any asset a kit
-        // references by uuid resolves without something having loaded it by path first.
-        if (a._is_indexed)
-            return;
-        a._is_indexed = true;
-        const auto index_root = [&](const std::filesystem::path& root)
+        const auto index_root = [&state](const std::filesystem::path& root)
         {
             if (root.empty() || !std::filesystem::exists(root))
                 return;
@@ -185,13 +70,13 @@ namespace tbx::assets
                 if (!it->is_regular_file() || it->path().extension() != ".meta")
                     continue;
                 const auto text = files::read_text(it->path());
-                if (!text || !serialization::is_valid(*text))
+                if (!text || !serialization::Json::accept(*text))
                     continue;
-                const serialization::Json meta = serialization::parse(*text);
+                const serialization::Json meta = serialization::Json::parse(*text, nullptr, false);
                 if (!meta.is_object())
                     continue;
                 const Uuid id = parse_meta_id(meta);
-                if (id.is_nil())
+                if (!id.is_valid())
                     continue;
                 auto asset_path = it->path();
                 asset_path.replace_extension(); // strip ".meta"; the asset's extension remains
@@ -202,213 +87,258 @@ namespace tbx::assets
                     ec.clear();
                     continue;
                 }
-                if (!a._entries_by_path.contains(relative))
-                    a._entries_by_path[relative] = Entry {.id = id, .relative_path = relative};
+                if (!state.assets.contains(relative))
+                    state.assets[relative] = id;
             }
         };
-        index_root(a._root); // the app root wins duplicate relative paths
+        index_root(state.root); // the app root wins duplicate relative paths
         index_root(std::filesystem::path(TBX_RESOURCES_PATH));
     }
 
     /// @brief
-    /// Purpose: Stamps an AssetReloaded event's fixed extension buffer from a path.
-    static AssetReloaded make_reloaded_event(const Uuid& id, const std::string& relative_path)
+    /// Purpose: The tracked relative path for an id, indexing the sidecars on a miss.
+    static std::optional<std::string> find_relative_path(AssetsState& state, const Uuid& id)
     {
-        auto event = AssetReloaded {.id = id};
-        const auto extension = std::filesystem::path(relative_path).extension().string();
-        const auto length = std::min(extension.size(), sizeof(event.extension) - 1);
-        extension.copy(event.extension, length);
-        return event;
+        const std::scoped_lock lock(state.mutex);
+        return find_path_of_locked(state, id);
     }
 
-    void store(const Uuid& id, const std::string& relative_path, std::any asset)
+    /// @brief
+    /// Purpose: Resolves a path to its id, minting an identity-only .meta sidecar
+    /// ({id, version, type}) when missing — v1 sidecars in resources/ are honored, never
+    /// rewritten — so renames move the id with the file instead of breaking references.
+    static Result<Uuid> prepare(AssetsState& state, const std::string& relative_path)
     {
-        AssetsState& a = ensure_assets_ready();
+        if (state.root.empty())
+            return fail("asset root is not set (assets::set_root)");
         {
-            const std::scoped_lock lock(a._mutex);
-            a._assets[id] = std::move(asset);
-            a._last_access[id] = std::chrono::steady_clock::now();
-            a._entries_by_path[relative_path].id = id;
+            const std::scoped_lock lock(state.mutex);
+            const auto tracked = state.assets.find(relative_path);
+            if (tracked != state.assets.end())
+                return tracked->second;
         }
-        // First loads announce too — glue (e.g. script registration) reacts uniformly.
-        events::asset_reloaded().emit(make_reloaded_event(id, relative_path));
-    }
 
-    Result<ResolvedHandle> resolve_handle(const Uuid& id, const std::string& path)
-    {
-        AssetsState& a = ensure_assets_ready();
-        if (!id.is_nil())
+        const auto asset_path = resolve_path(state, relative_path);
+        const auto meta_path = asset_path.string() + ".meta";
+        auto id = Uuid {};
+        if (std::filesystem::exists(meta_path))
         {
-            // Resolved identity; the tracked path (meta index) is where re-decodes come from.
-            const auto tracked = find_relative_path(id);
-            return ok(ResolvedHandle {
-                .id = id,
-                .relative_path = tracked ? *tracked : path});
-        }
-        if (path.empty())
-            return fail("cannot load: the handle references nothing (no id, no path)");
-        auto prepared = prepare(path);
-        if (!prepared)
-            return std::unexpected(prepared.error());
-        return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
-    }
-
-    void purge_unreferenced()
-    {
-        AssetsState& a = ensure_assets_ready();
-        const auto now = std::chrono::steady_clock::now();
-        auto unloaded = std::vector<AssetReloaded>(); // reuse the id+extension shape
-        {
-            const std::scoped_lock lock(a._mutex);
-            const float throttle = std::min(1.0f, a._idle_lifetime_seconds);
-            if (std::chrono::duration<float>(now - a._last_collect).count() < throttle)
-                return;
-            a._last_collect = now;
-            for (auto it = a._assets.begin(); it != a._assets.end();)
+            if (const auto text = files::read_text(meta_path))
             {
-                const auto accessed = a._last_access.find(it->first);
-                const float idle_seconds = accessed == a._last_access.end()
-                    ? a._idle_lifetime_seconds
-                    : std::chrono::duration<float>(now - accessed->second).count();
-                if (idle_seconds < a._idle_lifetime_seconds)
-                {
-                    ++it;
-                    continue;
-                }
-                auto relative = std::string();
-                for (const auto& [path, entry] : a._entries_by_path)
-                    if (entry.id == it->first)
-                    {
-                        relative = path;
-                        break;
-                    }
-                unloaded.push_back(make_reloaded_event(it->first, relative));
-                a._last_access.erase(it->first);
-                it = a._assets.erase(it);
+                const serialization::Json meta = serialization::Json::parse(*text, nullptr, false);
+                if (meta.is_object())
+                    id = parse_meta_id(meta);
             }
+            if (!id.is_valid())
+                return fail("'{}' exists but has no readable id", meta_path);
         }
-        for (const AssetReloaded& gone : unloaded)
+        else
         {
-            auto event = AssetUnloaded {.id = gone.id};
-            std::copy(std::begin(gone.extension), std::end(gone.extension), event.extension);
-            events::asset_unloaded().emit(event);
+            id = Uuid::generate();
+            const auto meta = serialization::Json {
+                {"id", id.to_string()},
+                {"version", 1},
+                {"type", asset_path.extension().string()}};
+            if (const auto written = files::write_text(meta_path, meta.dump(4));
+                !written)
+                TBX_WARN("could not write '{}': {}", meta_path, written.error());
         }
+        const std::scoped_lock lock(state.mutex);
+        state.assets[relative_path] = id;
+        return id;
     }
 
-    void set_idle_lifetime(const float seconds)
+    /// @brief
+    /// Purpose: Reacts to a watched file changing on disk (runs on the main thread): resident
+    /// assets re-decode and swap in place, tracked-but-idle ones just announce so subscribers
+    /// pull fresh data themselves.
+    static void handle_file_changed(
+        AssetsState& state,
+        events::EventsState& events,
+        const std::filesystem::path& path)
     {
-        AssetsState& a = ensure_assets_ready();
-        const std::scoped_lock lock(a._mutex);
-        a._idle_lifetime_seconds = seconds;
-    }
-
-    size get_loaded_count()
-    {
-        AssetsState& a = ensure_assets_ready();
-        const std::scoped_lock lock(a._mutex);
-        return a._assets.size();
-    }
-
-    void handle_file_changed(const std::filesystem::path& path)
-    {
-        AssetsState& a = ensure_assets_ready();
         auto ec = std::error_code {};
-        const auto relative = std::filesystem::relative(path, a._root, ec).generic_string();
+        const auto relative = std::filesystem::relative(path, state.root, ec).generic_string();
         auto id = Uuid {};
         auto is_resident = false;
         {
-            const std::scoped_lock lock(a._mutex);
-            const auto entry = a._entries_by_path.find(relative);
-            if (ec || entry == a._entries_by_path.end())
+            const std::scoped_lock lock(state.mutex);
+            const auto tracked = state.assets.find(relative);
+            if (ec || tracked == state.assets.end())
                 return; // not a tracked asset — nothing to announce
-            id = entry->second.id;
-            is_resident = a._assets.contains(id);
+            id = tracked->second;
+            is_resident = state.loaded_assets.contains(id);
         }
         if (!is_resident)
         {
             // Idle-collected (or never decoded here): subscribers pull fresh data themselves.
-            events::asset_reloaded().emit(make_reloaded_event(id, relative));
+            events.asset_reloaded.emit(make_reloaded_event(id, relative));
             return;
         }
 
         // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
-        // re-enters prepare), then swap the result back in.
-        enum class Kind
+        // re-enters prepare), then swap the result back in. The decoder is the asset facet
+        // on the reflected type (assets::register_asset<TAsset>(name)).
+        Result<std::any> (*load_asset)(
+            const std::filesystem::path&, const Uuid&, const std::string&) = nullptr;
         {
-            NONE, TEX, SCRIPT, JSON, MODEL, SHADER, CLIP, MAT, DOC, APP, FONT
-        };
-        auto kind = Kind::NONE;
-        {
-            const std::scoped_lock lock(a._mutex);
-            auto& stored = a._assets[id];
-            if (std::any_cast<Texture>(&stored))
-                kind = Kind::TEX;
-            else if (std::any_cast<ScriptSource>(&stored))
-                kind = Kind::SCRIPT;
-            else if (std::any_cast<serialization::Json>(&stored))
-                kind = Kind::JSON;
-            else if (std::any_cast<Model>(&stored))
-                kind = Kind::MODEL;
-            else if (std::any_cast<ShaderSource>(&stored))
-                kind = Kind::SHADER;
-            else if (std::any_cast<AudioClip>(&stored))
-                kind = Kind::CLIP;
-            else if (std::any_cast<Material>(&stored))
-                kind = Kind::MAT;
-            else if (std::any_cast<UiDocument>(&stored))
-                kind = Kind::DOC;
-            else if (std::any_cast<App>(&stored))
-                kind = Kind::APP;
-            else if (std::any_cast<Font>(&stored))
-                kind = Kind::FONT;
+            const std::scoped_lock lock(state.mutex);
+            const size shape = state.loaded_assets[id].data.type().hash_code();
+            for (const auto& type : reflection::get_type_registry().get_all())
+                if (type.get().asset_shape == shape && type.get().load_asset)
+                {
+                    load_asset = type.get().load_asset;
+                    break;
+                }
         }
 
-        auto refreshed = Result<std::any>(std::unexpected(std::string("unknown asset shape")));
-        auto redecode = [&path, &refreshed]<typename TAsset>()
-        {
-            auto decoded = tbx::load<TAsset>(path);
-            refreshed = decoded ? Result<std::any>(std::any(std::move(*decoded)))
-                                : std::unexpected(decoded.error());
-        };
-        switch (kind)
-        {
-            case Kind::TEX: redecode.template operator()<Texture>(); break;
-            case Kind::SCRIPT: redecode.template operator()<ScriptSource>(); break;
-            case Kind::JSON: redecode.template operator()<serialization::Json>(); break;
-            case Kind::MODEL: redecode.template operator()<Model>(); break;
-            case Kind::SHADER: redecode.template operator()<ShaderSource>(); break;
-            case Kind::CLIP: redecode.template operator()<AudioClip>(); break;
-            case Kind::MAT: redecode.template operator()<Material>(); break;
-            case Kind::DOC: redecode.template operator()<UiDocument>(); break;
-            case Kind::APP: redecode.template operator()<App>(); break;
-            case Kind::FONT: redecode.template operator()<Font>(); break;
-            case Kind::NONE: break;
-        }
+        auto refreshed = load_asset
+            ? load_asset(path, id, relative)
+            : Result<std::any>(std::unexpected(std::string(
+                  "unregistered asset type (assets::register_asset<T>(name) is missing)")));
         if (!refreshed)
         {
             TBX_ERROR("hot reload of '{}' failed: {}", relative, refreshed.error());
             return;
         }
         {
-            const std::scoped_lock lock(a._mutex);
-            a._assets[id] = std::move(*refreshed);
+            const std::scoped_lock lock(state.mutex);
+            state.loaded_assets[id].data = std::move(*refreshed);
         }
-        events::asset_reloaded().emit(make_reloaded_event(id, relative));
+        events.asset_reloaded.emit(make_reloaded_event(id, relative));
     }
 
-    std::any* find_resident_any(const Uuid& id)
+    //// BOUNDARY ////
+
+    std::optional<std::reference_wrapper<std::any>> find(
+        AssetsState& state,
+        const Uuid& id)
     {
-        AssetsState& a = ensure_assets_ready();
-        const std::scoped_lock lock(a._mutex);
-        const auto it = a._assets.find(id);
-        if (it == a._assets.end())
-            return nullptr;
-        a._last_access[id] = std::chrono::steady_clock::now(); // referenced: stays resident
-        return &it->second;
+        const std::scoped_lock lock(state.mutex);
+        const auto it = state.loaded_assets.find(id);
+        if (it == state.loaded_assets.end())
+            return {};
+        it->second.last_access = std::chrono::steady_clock::now(); // referenced: stays resident
+        return it->second.data;
     }
 
-    void purge()
+    size get_loaded_count(const AssetsState& state)
     {
-        g_assets.reset(); // stops the watcher and drops every resident asset
+        const std::scoped_lock lock(state.mutex);
+        return state.loaded_assets.size();
+    }
+
+    void update(AssetsState& state, events::EventsState& events)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        auto unloaded = std::vector<events::AssetReloaded>(); // reuse the id+extension shape
+        {
+            const std::scoped_lock lock(state.mutex);
+            const float throttle = std::min(1.0f, state.idle_lifetime_seconds);
+            if (std::chrono::duration<float>(now - state.last_purge).count() < throttle)
+                return;
+            state.last_purge = now;
+            for (auto it = state.loaded_assets.begin(); it != state.loaded_assets.end();)
+            {
+                const float idle_seconds =
+                    std::chrono::duration<float>(now - it->second.last_access).count();
+                if (idle_seconds < state.idle_lifetime_seconds)
+                {
+                    ++it;
+                    continue;
+                }
+                const auto relative = find_path_of_locked(state, it->first);
+                unloaded.push_back(make_reloaded_event(it->first, relative.value_or("")));
+                it = state.loaded_assets.erase(it);
+            }
+        }
+        for (const events::AssetReloaded& gone : unloaded)
+        {
+            auto event = events::AssetUnloaded {.id = gone.id, .extension = gone.extension};
+            events.asset_unloaded.emit(event);
+        }
+    }
+
+    Result<ResolvedHandle> resolve_handle(
+        AssetsState& state,
+        const Uuid& id,
+        const std::string& path)
+    {
+        if (id.is_valid())
+        {
+            // Resolved identity; the tracked path (meta index) is where re-decodes come from.
+            const auto tracked = find_relative_path(state, id);
+            return ok(ResolvedHandle {
+                .id = id,
+                .relative_path = tracked ? *tracked : path});
+        }
+        if (path.empty())
+            return fail("cannot load: the handle references nothing (no id, no path)");
+        const auto prepared = prepare(state, path);
+        if (!prepared)
+            return std::unexpected(prepared.error());
+        return ok(ResolvedHandle {.id = *prepared, .relative_path = path});
+    }
+
+    std::filesystem::path resolve_path(const AssetsState& state, const std::string& relative_path)
+    {
+        // The app's asset root wins; the engine's resources folder is the second root, making
+        // engine-shipped models/textures/shaders ordinary assets.
+        const auto in_root = state.root / relative_path;
+        if (std::filesystem::exists(in_root))
+            return in_root;
+        const auto resources = std::filesystem::path(TBX_RESOURCES_PATH);
+        if (!resources.empty())
+        {
+            const auto in_resources = resources / relative_path;
+            if (std::filesystem::exists(in_resources))
+                return in_resources;
+        }
+        return in_root; // the read will surface the miss with a proper error
+    }
+
+    void set_root(
+        AssetsState& state,
+        events::EventsState& events,
+        jobs::JobsState& jobs,
+        std::filesystem::path root)
+    {
+        state.root = std::move(root);
+        {
+            // One eager read-only sidecar walk fills the identity map up front, so assets
+            // referenced by uuid (kit references) resolve without a by-path load first.
+            const std::scoped_lock lock(state.mutex);
+            index_meta_sidecars(state);
+        }
+        // The watcher reports on its own thread; marshal to the main thread ourselves. The
+        // captures reference value-held members of the heap-stable RuntimeState (never the
+        // Runtime handle) and the callback must touch nothing but jobs::post_main — the
+        // posted work runs on the main thread.
+        state.watcher.emplace(
+            state.root,
+            [&state, &events, &jobs](const std::filesystem::path& path)
+            {
+                jobs::post_main(
+                    jobs,
+                    [&state, &events, path] { handle_file_changed(state, events, path); });
+            });
+    }
+
+    void store(
+        AssetsState& state,
+        events::EventsState& events,
+        const Uuid& id,
+        const std::string& relative_path,
+        std::any asset)
+    {
+        {
+            const std::scoped_lock lock(state.mutex);
+            state.loaded_assets[id] = LoadedAsset {
+                .data = std::move(asset),
+                .last_access = std::chrono::steady_clock::now()};
+            state.assets[relative_path] = id;
+        }
+        // First loads announce too — glue (e.g. script registration) reacts uniformly.
+        events.asset_reloaded.emit(make_reloaded_event(id, relative_path));
     }
 }

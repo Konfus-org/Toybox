@@ -10,6 +10,8 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        return UiDocument {.text = std::move(*text)};
+        auto document = UiDocument();
+        document.source = std::move(*text);
+        return ok(std::move(document));
     }
 }

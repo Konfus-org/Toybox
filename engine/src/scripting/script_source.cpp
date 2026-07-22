@@ -9,6 +9,9 @@ namespace tbx
         auto text = files::read_text(path);
         if (!text)
             return std::unexpected(text.error());
-        return ScriptSource {.name = path.filename().string(), .source = std::move(*text)};
+        auto source = ScriptSource();
+        source.name = path.filename().string();
+        source.source = std::move(*text);
+        return ok(std::move(source));
     }
 }

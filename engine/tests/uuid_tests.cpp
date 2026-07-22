@@ -24,7 +24,7 @@ namespace tbx::tests
         const Uuid parsed = Uuid::parse(malformed);
 
         // Assert
-        EXPECT_TRUE(parsed.is_nil());
+        EXPECT_FALSE(parsed.is_valid());
     }
 
     TEST(Uuid, GenerateProducesDistinctNonNilIds)
@@ -34,7 +34,7 @@ namespace tbx::tests
         const Uuid second = Uuid::generate();
 
         // Assert
-        EXPECT_FALSE(first.is_nil());
+        EXPECT_TRUE(first.is_valid());
         EXPECT_NE(first, second);
     }
 
@@ -47,6 +47,6 @@ namespace tbx::tests
         const Uuid parsed = Uuid::parse(non_hex);
 
         // Assert
-        EXPECT_TRUE(parsed.is_nil());
+        EXPECT_FALSE(parsed.is_valid());
     }
 }

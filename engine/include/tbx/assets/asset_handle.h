@@ -1,5 +1,4 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/utils/uuid.h"
 #include <string>
 #include <utility>
@@ -20,7 +19,7 @@ namespace tbx
 
         AssetHandle() = default;
 
-        explicit AssetHandle(const Uuid& asset_id)
+        explicit(false) AssetHandle(const Uuid& asset_id)
             : id(asset_id)
         {
         }
@@ -40,14 +39,14 @@ namespace tbx
         /// Purpose: True when the handle references anything at all (id or path).
         bool is_set() const
         {
-            return !id.is_nil() || !path.empty();
+            return id.is_valid() || !path.empty();
         }
 
         /// @brief
         /// Purpose: True when the identity is resolved (kit references, loaded handles).
         bool is_valid() const
         {
-            return !id.is_nil();
+            return id.is_valid();
         }
     };
 }

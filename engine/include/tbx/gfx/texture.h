@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset.h"
 #include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include <cstddef>
@@ -8,7 +9,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
-    struct TBX_API Texture
+    struct TBX_API Texture : Asset
     {
         int width = 0;
         int height = 0;
@@ -19,5 +20,10 @@ namespace tbx
     /// Purpose: Loads a Texture from disk (implementation lives next to the type).
     template <>
     TBX_API Result<Texture> load<Texture>(const std::filesystem::path& path);
+
+    /// @brief
+    /// Purpose: Writes the texture as a 32-bit BMP — screenshots and tooling; load<Texture>
+    /// reads it back.
+    TBX_API Result<void> save(const Texture& texture, const std::filesystem::path& path);
 
 }

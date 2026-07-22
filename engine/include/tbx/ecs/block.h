@@ -1,60 +1,14 @@
 #pragma once
 #include "tbx/utils/api.h"
-#include "tbx/utils/typedefs.h"
-#include "tbx/reflection/type_info.h"
-#include "tbx/ecs/registry.h"
-#include <cstddef>
-#include <optional>
-#include <unordered_map>
 
 namespace tbx
 {
     /// @brief
-    /// Purpose: Type-erased ECS accessors for one registered block type, so kit save/load and
-    /// the future editor can touch any toy's blocks through the reflection schema alone.
-    struct TBX_API BlockOperations
+    /// Purpose: Base of every block type (data attachable to toys). Deriving from it is what
+    /// makes a type a block: reflection::register_type detects the base and stamps the
+    /// type-erased ecs accessors onto the TypeInfo — block types are exactly the reflected
+    /// types whose block facet is set.
+    struct TBX_API Block
     {
-        std::byte* (*add_default)(Registry&, ToyId) = nullptr;
-        std::byte* (*get)(Registry&, ToyId) = nullptr;
-        bool (*has)(Registry&, ToyId) = nullptr;
-        void (*remove)(Registry&, ToyId) = nullptr;
     };
-
-    /// @brief
-    /// Purpose: The block-operations table keyed by type name hash; filled by register_block.
-    /// @details
-    /// Ownership: Process-lifetime, like the type registry. Thread Safety: Register on the main
-    /// thread during startup; lookups are reads afterwards.
-    class TBX_API BlockRegistry final
-    {
-      public:
-        /// @brief
-        /// Purpose: Stores the operations for a block type under its name hash.
-        void add(uint64 name_hash, BlockOperations operations);
-
-        /// @brief
-        /// Purpose: Every registered block type's name hash, for save-time enumeration.
-        std::vector<uint64> get_all_hashes() const;
-
-        /// @brief
-        /// Purpose: Looks up operations by type name hash; empty when the type is not a block.
-        std::optional<BlockOperations> find(uint64 name_hash) const;
-
-      private:
-        std::unordered_map<uint64, BlockOperations> _operations;
-    };
-
-    /// @brief
-    /// Purpose: The process-wide block-operations registry.
-    TBX_API BlockRegistry& get_block_registry();
-
-    /// @brief
-    /// Purpose: Registers a type as a Block (attachable to toys): reflection via
-    /// reflection::register_type
-    /// PLUS the ECS accessors kits and the editor need. Chain .version()/.field() off the
-    /// result exactly like register_type.
-    template <typename TBlock>
-    reflection::TypeRegistration<TBlock> register_block(std::string name);
 }
-
-#include "tbx/ecs/block.inl"

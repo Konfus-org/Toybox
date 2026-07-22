@@ -1,14 +1,26 @@
 #include "luau_bindings.h"
+#include "tbx/runtime.h"
 #include "tbx/debug/log.h"
 #include "tbx/scripting/scripts.h"
 #include <lua.h>
 #include <luacode.h>
 #include <lualib.h>
 #include <cstdlib>
+#include <memory>
 #include <unordered_map>
 
-namespace tbx
+namespace tbx::scripts
 {
+    /// @brief
+    /// Purpose: One compiled source this backend runs: bytecode plus its diagnostics name and
+    /// a reload generation live instances compare against — one map entry, one lookup.
+    struct CompiledScript
+    {
+        std::string bytecode = {};
+        std::string name = {};
+        uint32 generation = 1;
+    };
+
     /// @brief
     /// Purpose: One live script attachment: the Lua module-table instance for one toy.
     struct LuauInstance
@@ -25,12 +37,12 @@ namespace tbx
     class LuauBackend final : public ScriptBackend
     {
       public:
-        LuauBackend(Sandbox& sandbox)
-            : _sandbox(sandbox)
+        explicit LuauBackend(RuntimeState& runtime)
+            : _runtime(runtime)
         {
             _lua = luaL_newstate();
             luaL_openlibs(_lua);
-            open_tbx_bindings(_lua, sandbox);
+            open_tbx_bindings(_lua, runtime);
         }
 
         ~LuauBackend() override
@@ -61,9 +73,7 @@ namespace tbx
             auto compiled = compile_source(name, source);
             if (!compiled)
                 return std::unexpected(compiled.error());
-            _bytecode_by_id[id] = std::move(*compiled);
-            _name_by_id[id] = name;
-            _generation_by_id.try_emplace(id, 1);
+            _scripts_by_id[id] = CompiledScript {.bytecode = std::move(*compiled), .name = name};
             return ok();
         }
 
@@ -75,10 +85,14 @@ namespace tbx
             auto compiled = compile_source(name, source);
             if (!compiled)
                 return std::unexpected(compiled.error());
-            _bytecode_by_id[id] = std::move(*compiled);
-            _name_by_id[id] = name;
-            ++_generation_by_id[id]; // live instances restart on their next update
-            events::script_reloaded().emit({.id = id});
+            CompiledScript& script = _scripts_by_id[id];
+            const uint32 generation = script.generation + 1;
+            script = CompiledScript {
+                .bytecode = std::move(*compiled),
+                .name = name,
+                // Live instances restart on their next update.
+                .generation = generation};
+            _runtime.get().events.script_reloaded.emit({.id = id});
             return ok();
         }
 
@@ -95,22 +109,22 @@ namespace tbx
       private:
         void run_scripts(const char* function_name, const float delta_time)
         {
-            auto& registry = _sandbox.get().get_registry();
+            auto& registry = _runtime.get().sandbox.get_registry();
             for (const auto [entity, script] : registry.view<Script>().each())
             {
                 if (!registry.get<ToyHandle>(entity).is_enabled)
                     continue;
                 const Uuid id = script.source.id;
-                const auto bytecode = _bytecode_by_id.find(id);
-                if (bytecode == _bytecode_by_id.end())
+                const auto found = _scripts_by_id.find(id);
+                if (found == _scripts_by_id.end())
                     continue; // not this backend's source (another language, or still loading)
-                const uint32 generation = _generation_by_id[id];
+                const CompiledScript& source = found->second;
 
                 LuauInstance& instance = _instances[static_cast<uint32>(entity)];
                 const bool is_stale = instance.table_ref < 0 || instance.script_id != id
-                    || instance.generation != generation;
+                    || instance.generation != source.generation;
                 if (is_stale
-                    && !instantiate(instance, _name_by_id[id], bytecode->second, id, generation))
+                    && !instantiate(instance, source.name, source.bytecode, id, source.generation))
                     continue;
 
                 if (!instance.is_started)
@@ -126,9 +140,11 @@ namespace tbx
         {
             auto options = lua_CompileOptions {};
             size_t bytecode_size = 0;
-            char* bytecode = luau_compile(source.data(), source.size(), &options, &bytecode_size);
-            auto compiled = std::string(bytecode, bytecode_size);
-            std::free(bytecode);
+            // C boundary: luau_compile returns a malloc'd buffer the caller must free.
+            const auto bytecode = std::unique_ptr<char, decltype(&std::free)>(
+                luau_compile(source.data(), source.size(), &options, &bytecode_size),
+                &std::free);
+            auto compiled = std::string(bytecode.get(), bytecode_size);
 
             // Compile errors only surface at load time — validate now so callers hear them.
             if (luau_load(_lua, name.c_str(), compiled.data(), compiled.size(), 0) != 0)
@@ -191,7 +207,7 @@ namespace tbx
                 lua_pop(_lua, 2);
                 return;
             }
-            push_toy(_lua, _sandbox.get(), entity);
+            push_toy(_lua, _runtime.get().sandbox, entity);
             int argument_count = 1;
             if (delta_time)
             {
@@ -207,21 +223,16 @@ namespace tbx
         }
 
       private:
-        std::reference_wrapper<Sandbox> _sandbox;
+        std::reference_wrapper<RuntimeState> _runtime;
         lua_State* _lua = nullptr; // owned; closed in the destructor (C boundary)
-        std::unordered_map<Uuid, std::string> _bytecode_by_id;
-        std::unordered_map<Uuid, std::string> _name_by_id;
-        std::unordered_map<Uuid, uint32> _generation_by_id;
+        std::unordered_map<Uuid, CompiledScript> _scripts_by_id;
         std::unordered_map<uint32, LuauInstance> _instances; // keyed by ToyId value
     };
 
 
-}
 
-namespace tbx::scripts
-{
-    std::unique_ptr<ScriptBackend> make_luau_backend(Sandbox& sandbox)
+    std::unique_ptr<ScriptBackend> make_luau_backend(RuntimeState& runtime)
     {
-        return std::make_unique<LuauBackend>(sandbox);
+        return std::make_unique<LuauBackend>(runtime);
     }
 }

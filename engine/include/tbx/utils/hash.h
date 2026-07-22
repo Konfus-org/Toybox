@@ -20,10 +20,10 @@ namespace tbx
     }
 
     /// @brief
-    /// Purpose: Hashes a uuid identity.
+    /// Purpose: Hashes a uuid identity (delegates to std::hash<Uuid>, the formula's one home).
     constexpr uint64 hash(const Uuid& id)
     {
-        return id.hi ^ (id.lo * 0x9E3779B97F4A7C15ull);
+        return std::hash<Uuid>()(id);
     }
 
     /// @brief

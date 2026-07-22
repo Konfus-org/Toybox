@@ -8,7 +8,5 @@
     ],
     "metallic": 0.0,
     "roughness": 0.85,
-    "uniforms": {
-        "u_uv_scale": 2.0
-    }
+    "uv_scale": 2.0
 }

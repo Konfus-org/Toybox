@@ -1,9 +1,9 @@
 #pragma once
+#include "tbx/gfx/depth_target.h"
+#include "tbx/gfx/render_target.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/color.h"
 #include "tbx/utils/typedefs.h"
-#include "tbx/gfx/depth_target.h"
-#include "tbx/gfx/render_target.h"
 #include <functional>
 #include <optional>
 

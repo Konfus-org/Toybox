@@ -13,6 +13,7 @@ set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedd
 option(TBX_BUILD_TESTS "Build engine tests" OFF)
 option(TBX_BUILD_SAMPLES "Build the sample games" ON)
 option(TBX_BUILD_SHARED "Build the engine as a shared library (dll)" OFF)
+option(TBX_SANITIZE "Compile engine code (not third-party) with ASan+UBSan" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(tbx_backend)
@@ -60,17 +61,21 @@ target_include_directories(tbx PUBLIC
 target_include_directories(tbx PRIVATE thirdparty/stbimg/include)
 # Precompile the heavyweights every TU re-parses otherwise (std, math/serialization backend
 # headers, entt) — the single biggest incremental-build lever.
-target_precompile_headers(tbx PRIVATE
-    <algorithm> <any> <atomic> <chrono> <condition_variable> <coroutine> <filesystem>
-    <format> <functional> <memory> <mutex> <optional> <span> <string> <thread>
-    <unordered_map> <unordered_set> <variant> <vector>
-    <tbx_math_backend.h> <tbx_serialization_backend.h> <entt/entt.hpp>)
+target_precompile_headers(tbx PRIVATE engine/src/pch.h)
 # glm/nlohmann/entt types ARE the swappable public seams (tbx_math_backend.h,
 # tbx_serialization_backend.h, registry.h); every other third-party lib is private.
 target_link_libraries(tbx
     PUBLIC glm::glm nlohmann_json::nlohmann_json EnTT::EnTT
     PRIVATE spdlog::spdlog assimp::assimp
 )
+# Sanitizers cover ENGINE code only: PUBLIC propagates to everything linking tbx (tests,
+# samples, tbx_run) while vendored libraries build uninstrumented — RmlUi 6.0 in particular
+# has known benign UB (its NonCopyMoveable empty base) that would abort a run-to-first-error
+# UBSan. Mixed instrumentation links fine.
+if(TBX_SANITIZE)
+    target_compile_options(tbx PUBLIC -fsanitize=address,undefined -fno-sanitize-recover=undefined)
+    target_link_options(tbx PUBLIC -fsanitize=address,undefined)
+endif()
 if("luau" IN_LIST TBX_SCRIPTING_BACKENDS)
     target_link_libraries(tbx PRIVATE Luau.Compiler Luau.VM)
 endif()

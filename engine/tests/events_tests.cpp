@@ -7,15 +7,15 @@ namespace tbx::tests
     TEST(Events, EmitDeliversOnDrain)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto received = std::vector<int>();
-        events::window_resized().subscribe(
+        events.window_resized.subscribe(
             &received,
-            [&received](const WindowResized& e) { received.push_back(e.width); });
+            [&received](const events::WindowResized& e) { received.push_back(e.width); });
 
         // Act
-        events::window_resized().emit({.width = 800, .height = 600});
-        events::drain();
+        events.window_resized.emit({.width = 800, .height = 600});
+        events::update(events);
 
         // Assert
         ASSERT_EQ(received.size(), 1u);
@@ -25,14 +25,14 @@ namespace tbx::tests
     TEST(Events, EmitDoesNotDeliverBeforeDrain)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto received = 0;
-        events::window_resized().subscribe(
+        events.window_resized.subscribe(
             &received,
-            [&received](const WindowResized&) { ++received; });
+            [&received](const events::WindowResized&) { ++received; });
 
         // Act
-        events::window_resized().emit({.width = 800, .height = 600});
+        events.window_resized.emit({.width = 800, .height = 600});
 
         // Assert
         EXPECT_EQ(received, 0);
@@ -41,23 +41,23 @@ namespace tbx::tests
     TEST(Events, EmitDuringDrainLandsInNextFrame)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto deliveries = 0;
-        events::window_resized().subscribe(
+        events.window_resized.subscribe(
             &deliveries,
-            [&](const WindowResized& e)
+            [&](const events::WindowResized& e)
             {
                 ++deliveries;
                 // Re-emit once from inside dispatch; it must not run this drain.
                 if (e.width == 1)
-                    events::window_resized().emit({.width = 2, .height = 0});
+                    events.window_resized.emit({.width = 2, .height = 0});
             });
 
         // Act
-        events::window_resized().emit({.width = 1, .height = 0});
-        events::drain();
+        events.window_resized.emit({.width = 1, .height = 0});
+        events::update(events);
         const int after_first_drain = deliveries;
-        events::drain();
+        events::update(events);
 
         // Assert
         EXPECT_EQ(after_first_drain, 1);
@@ -67,19 +67,19 @@ namespace tbx::tests
     TEST(Events, UnsubscribeOwnerRemovesAllOwnerHandlers)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto owner_calls = 0;
         auto other_calls = 0;
         auto owner_tag = 1;
         auto other_tag = 2;
-        events::key().subscribe(&owner_tag, [&owner_calls](const KeyEvent&) { ++owner_calls; });
-        events::key().subscribe(&owner_tag, [&owner_calls](const KeyEvent&) { ++owner_calls; });
-        events::key().subscribe(&other_tag, [&other_calls](const KeyEvent&) { ++other_calls; });
+        events.key.subscribe(&owner_tag, [&owner_calls](const events::KeyEvent&) { ++owner_calls; });
+        events.key.subscribe(&owner_tag, [&owner_calls](const events::KeyEvent&) { ++owner_calls; });
+        events.key.subscribe(&other_tag, [&other_calls](const events::KeyEvent&) { ++other_calls; });
 
         // Act
-        events::key().unsubscribe_owner(&owner_tag);
-        events::key().emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
-        events::drain();
+        events.key.unsubscribe_owner(&owner_tag);
+        events.key.emit({.key = Key::SPACE, .is_down = true, .is_repeat = false});
+        events::update(events);
 
         // Assert
         EXPECT_EQ(owner_calls, 0);
@@ -89,17 +89,17 @@ namespace tbx::tests
     TEST(Events, UnsubscribeByTokenRemovesOnlyThatHandler)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto first_calls = 0;
         auto second_calls = 0;
         auto tag = 0;
-        const Token first = events::key().subscribe(&tag, [&](const KeyEvent&) { ++first_calls; });
-        events::key().subscribe(&tag, [&](const KeyEvent&) { ++second_calls; });
+        const Token first = events.key.subscribe(&tag, [&](const events::KeyEvent&) { ++first_calls; });
+        events.key.subscribe(&tag, [&](const events::KeyEvent&) { ++second_calls; });
 
         // Act
-        events::key().unsubscribe(first);
-        events::key().emit({.key = Key::A, .is_down = true, .is_repeat = false});
-        events::drain();
+        events.key.unsubscribe(first);
+        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events::update(events);
 
         // Assert
         EXPECT_EQ(first_calls, 0);
@@ -109,16 +109,16 @@ namespace tbx::tests
     TEST(Events, MixedSignalsDrainInEmissionOrder)
     {
         // Arrange
-        events::purge();
+        auto events = events::EventsState();
         auto order = std::vector<int>();
-        events::window_resized().subscribe(&order, [&](const WindowResized&) { order.push_back(1); });
-        events::key().subscribe(&order, [&](const KeyEvent&) { order.push_back(2); });
+        events.window_resized.subscribe(&order, [&](const events::WindowResized&) { order.push_back(1); });
+        events.key.subscribe(&order, [&](const events::KeyEvent&) { order.push_back(2); });
 
         // Act
-        events::window_resized().emit({.width = 1, .height = 1});
-        events::key().emit({.key = Key::A, .is_down = true, .is_repeat = false});
-        events::window_resized().emit({.width = 2, .height = 2});
-        events::drain();
+        events.window_resized.emit({.width = 1, .height = 1});
+        events.key.emit({.key = Key::A, .is_down = true, .is_repeat = false});
+        events.window_resized.emit({.width = 2, .height = 2});
+        events::update(events);
 
         // Assert
         ASSERT_EQ(order.size(), 3u);

@@ -10,12 +10,13 @@ namespace tbx
     struct SignalSubscriber
     {
         Token token = 0;
-        void* owner = nullptr;
+        // Identity-only tag (never dereferenced) grouping subscriptions for bulk removal.
+        const void* owner = nullptr;
         std::function<void(const TEvent&)> fn;
     };
 
     /// @brief
-    /// Purpose: A single event kind, declared as a named member of Events — adding an event
+    /// Purpose: A single event kind, declared as a named member of the events state — adding an event
     /// means adding a member, deliberately.
     /// @details
     /// Ownership: Subscriptions are owner-tagged so script reloads / the future editor can bulk
@@ -39,8 +40,9 @@ namespace tbx
         }
 
         /// @brief
-        /// Purpose: Registers a handler; the owner tag groups subscriptions for bulk removal.
-        Token subscribe(void* owner, std::function<void(const TEvent&)> fn)
+        /// Purpose: Registers a handler; the owner tag is identity-only (never dereferenced)
+        /// and groups subscriptions for bulk removal.
+        Token subscribe(const void* owner, std::function<void(const TEvent&)> fn)
         {
             const Token token = _next_token++;
             _subscribers.push_back({.token = token, .owner = owner, .fn = std::move(fn)});
@@ -58,7 +60,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Removes every subscription registered under the given owner tag.
-        void unsubscribe_owner(void* owner)
+        void unsubscribe_owner(const void* owner)
         {
             for (auto& subscriber : _subscribers)
                 if (subscriber.owner == owner)

@@ -1,4 +1,5 @@
 #include "tbx/app.h"
+#include "tbx/reflection/reflection.h"
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -7,7 +8,9 @@ namespace tbx::tests
 {
     TEST(App, TappFileDeserializesIntoTheAppStruct)
     {
-        // Arrange: a .tapp with every settings group, handles authored as paths.
+        // Arrange: a .tapp with every settings group, handles authored as paths. The App
+        // decodes generically through its reflected schema, so registration comes first.
+        reflection::initialize();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Game.tapp";
@@ -31,9 +34,9 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = load_app(tapp);
+        const auto loaded = load<App>(tapp);
 
-        // Assert: fields land, handles carry authoring paths, root is the .tapp's folder.
+        // Assert: fields land, handles carry authoring paths.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         const App& app = *loaded;
         EXPECT_EQ(app.config.title, "Configured");
@@ -47,12 +50,12 @@ namespace tbx::tests
         EXPECT_NEAR(app.settings.physics.gravity.y, -3.7f, 0.0001f);
         EXPECT_NEAR(app.settings.audio.master_volume, 0.5f, 0.0001f);
         EXPECT_NEAR(app.settings.assets.idle_lifetime_seconds, 5.0f, 0.0001f);
-        EXPECT_EQ(app.config.asset_root, config_root);
     }
 
     TEST(App, MissingTappKeysKeepDefaults)
     {
         // Arrange
+        reflection::initialize();
         const auto config_root = std::filesystem::temp_directory_path() / "tbx_app_test";
         std::filesystem::create_directories(config_root);
         const auto tapp = config_root / "Sparse.tapp";
@@ -62,13 +65,13 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = load_app(tapp);
+        const auto loaded = load<App>(tapp);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
         EXPECT_EQ(loaded->config.title, "Sparse");
         EXPECT_EQ(loaded->config.width, 1600);
-        EXPECT_TRUE(loaded->settings.graphics.is_vsync_enabled);
+        EXPECT_FALSE(loaded->settings.graphics.is_vsync_enabled); // vsync is off by default
         EXPECT_NEAR(loaded->settings.physics.fixed_timestep, 1.0f / 60.0f, 0.0001f);
     }
 }

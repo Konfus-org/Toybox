@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset.h"
 #include "tbx/assets/load.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/result.h"
@@ -11,7 +12,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded audio asset: interleaved float samples.
-    struct TBX_API AudioClip
+    struct TBX_API AudioClip : Asset
     {
         int channels = 0;
         int sample_rate = 0;
@@ -27,5 +28,4 @@ namespace tbx
     /// Purpose: Loads a AudioClip from disk (implementation lives next to the type).
     template <>
     TBX_API Result<AudioClip> load<AudioClip>(const std::filesystem::path& path);
-
 }

@@ -1,5 +1,8 @@
 #include "tbx/assets/assets.h"
-#include "tbx/serialization/serialization.h"
+#include "tbx/reflection/type_registration.h"
+#include "tbx/utils/hash.h"
+#include "tbx/runtime.h"
+#include "tbx/serialization/json.h"
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -7,7 +10,8 @@
 
 namespace tbx::tests
 {
-    struct TestHealth
+
+    struct TestHealth : Block
     {
         float hp = 100.0f;
         float armor = 0.0f;
@@ -19,7 +23,7 @@ namespace tbx::tests
         if (g_registered)
             return;
         g_registered = true;
-        register_block<TestHealth>("TestHealth")
+        reflection::register_type<TestHealth>("TestHealth")
             .field("hp", &TestHealth::hp)
             .field("armor", &TestHealth::armor);
     }
@@ -29,6 +33,8 @@ namespace tbx::tests
     /// same asset system a shipped game uses — no in-memory shortcuts.
     struct TestWorld
     {
+        Runtime toybox = Runtime();
+        RuntimeState& runtime = *toybox.state;
         std::filesystem::path root = {};
 
         TestWorld()
@@ -37,8 +43,7 @@ namespace tbx::tests
             root = std::filesystem::temp_directory_path() / "tbx_ecs_tests" / info->name();
             std::filesystem::remove_all(root);
             std::filesystem::create_directories(root);
-            assets::purge();
-            assets::set_root(root);
+            assets::set_root(runtime.assets, runtime.events, runtime.jobs, root);
         }
     };
 
@@ -47,7 +52,7 @@ namespace tbx::tests
     static void write_kit(const TestWorld& world, const std::string& name, const serialization::Json& body)
     {
         auto file = std::ofstream(world.root / name);
-        file << serialization::dump(body);
+        file << body.dump();
     }
 
     /// @brief
@@ -86,7 +91,7 @@ namespace tbx::tests
         EXPECT_TRUE(grunt.has_sticker("enemy"));
         EXPECT_FALSE(grunt.has_sticker("pickup"));
         EXPECT_EQ(grunt.get_block<TestHealth>().hp, 50.0f);
-        EXPECT_FALSE(grunt.get_uuid().is_nil());
+        EXPECT_TRUE(grunt.get_uuid().is_valid());
     }
 
     TEST(Sandbox, DespawnKillsToyAndOrphansChildren)
@@ -145,8 +150,9 @@ namespace tbx::tests
         const Kit kit = save(source, std::array {parent, child});
 
         // Act
+        auto runtime = Runtime();
         auto target = Sandbox();
-        const auto loaded = load(target, kit);
+        const auto loaded = load(target, runtime.state->assets, runtime.state->events, kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -171,14 +177,15 @@ namespace tbx::tests
         const Kit first = save(source, std::array {toy});
 
         // Act
+        auto runtime = Runtime();
         auto target = Sandbox();
-        ASSERT_TRUE(load(target, first).has_value());
+        ASSERT_TRUE(load(target, runtime.state->assets, runtime.state->events, first).has_value());
         const auto reloaded = target.find("Thing");
         ASSERT_TRUE(reloaded.has_value());
         const Kit second = save(target, std::array {*reloaded});
 
         // Assert: identical content modulo per-instantiation uuids.
-        EXPECT_EQ(normalize_kit(first.body), normalize_kit(second.body));
+        EXPECT_EQ(normalize_kit(to_json(first)), normalize_kit(to_json(second)));
     }
 
     TEST(Sandbox, NestedKitsInstantiateRecursively)
@@ -188,7 +195,7 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox();
-        write_kit(world, "prefab.kit", save(author, std::array {author.spawn("Pickup")}).body);
+        write_kit(world, "prefab.kit", to_json(save(author, std::array {author.spawn("Pickup")})));
         write_kit(
             world,
             "room.kit",
@@ -209,7 +216,7 @@ namespace tbx::tests
         // Act
         auto sandbox = Sandbox();
         const auto loaded =
-            sandbox.spawn(AssetHandle<Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
+            sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
 
         // Assert: offsets compose 100 + 10 + 1.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -239,7 +246,7 @@ namespace tbx::tests
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(AssetHandle<Kit>("a.kit"));
+        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -260,7 +267,7 @@ namespace tbx::tests
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(AssetHandle<Kit>("broken.kit"));
+        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("broken.kit"));
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -270,17 +277,16 @@ namespace tbx::tests
     TEST(Sandbox, UnknownBlockTypeIsSkippedNotFatal)
     {
         // Arrange
-        auto kit = serialization::Json {
-            {"toys",
-             serialization::Json::array({serialization::Json {
-                 {"uuid", "00"},
-                 {"name", "Survivor"},
-                 {"blocks",
-                  serialization::Json::array({serialization::Json {{"type", "EditorOnlyWidget"}, {"whatever", 1}}})}}})}};
+        auto runtime = Runtime();
         auto sandbox = Sandbox();
+        auto unknown_kit = Kit();
+        auto survivor = KitToy();
+        survivor.name = "Survivor";
+        survivor.blocks.push_back(KitBlock {.type = hash("EditorOnlyWidget"), .value = {}});
+        unknown_kit.toys.push_back(std::move(survivor));
 
         // Act
-        const auto loaded = load(sandbox, Kit {.body = kit});
+        const auto loaded = load(sandbox, runtime.state->assets, runtime.state->events, unknown_kit);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -293,31 +299,31 @@ namespace tbx::tests
         register_ecs_test_blocks();
         auto world = TestWorld();
         auto author = Sandbox();
-        write_kit(world, "room.kit", save(author, std::array {author.spawn("RoomToy")}).body);
+        write_kit(world, "room.kit", to_json(save(author, std::array {author.spawn("RoomToy")})));
         const auto box = Box {
             .kits = {
                 BoxEntry {.kit = AssetHandle<Kit>("room.kit"), .mode = KitMode::STREAMED}}};
         auto sandbox = Sandbox();
-        ASSERT_TRUE(sandbox.open(box).has_value());
+        ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
 
         // Act: focus inside the load band — the kit streams in (async).
-        sandbox.stream(Vec3(1.0f, 0.0f, 0.0f));
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(1.0f, 0.0f, 0.0f));
         for (int i = 0; i < 500 && sandbox.get_toy_count() == 0; ++i)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            jobs::drain_main();
+            jobs::update(world.runtime.jobs);
         }
         const size loaded_count = sandbox.get_toy_count();
 
         // Focus just outside the load band but inside the unload band — stays loaded.
-        sandbox.stream(Vec3(10.0f, 0.0f, 0.0f));
-        jobs::drain_main();
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(10.0f, 0.0f, 0.0f));
+        jobs::update(world.runtime.jobs);
         const size hysteresis_count = sandbox.get_toy_count();
 
         // Focus beyond the unload band — unloads.
-        sandbox.stream(Vec3(100.0f, 0.0f, 0.0f));
-        jobs::drain_main();
+        sandbox.stream(world.runtime.assets, world.runtime.events, world.runtime.jobs, Vec3(100.0f, 0.0f, 0.0f));
+        jobs::update(world.runtime.jobs);
 
         // Assert
         EXPECT_EQ(loaded_count, 1u);
@@ -330,12 +336,12 @@ namespace tbx::tests
         // Arrange
         auto world = TestWorld();
         auto author = Sandbox();
-        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
+        write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox();
 
         // Act
-        const auto result = sandbox.open(box);
+        const auto result = sandbox.open(world.runtime.assets, world.runtime.events, box);
 
         // Assert
         ASSERT_TRUE(result.has_value()) << result.error();
@@ -351,8 +357,9 @@ namespace tbx::tests
         const Kit kit = save(source, std::array {toy});
 
         // Act
+        auto runtime = Runtime();
         auto target = Sandbox();
-        ASSERT_TRUE(load(target, kit).has_value());
+        ASSERT_TRUE(load(target, runtime.state->assets, runtime.state->events, kit).has_value());
 
         // Assert
         const auto reloaded = target.find("Lamp");
@@ -366,10 +373,10 @@ namespace tbx::tests
         // Arrange
         auto world = TestWorld();
         auto author = Sandbox();
-        write_kit(world, "sky.kit", save(author, std::array {author.spawn("Skybox")}).body);
+        write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
         const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox();
-        ASSERT_TRUE(sandbox.open(box).has_value());
+        ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
         ASSERT_EQ(sandbox.get_toy_count(), 1u);
 
         // Act
@@ -377,7 +384,7 @@ namespace tbx::tests
 
         // Assert: empty, and a fresh open works again.
         EXPECT_EQ(sandbox.get_toy_count(), 0u);
-        EXPECT_TRUE(sandbox.open(box).has_value());
+        EXPECT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 1u);
     }
 

@@ -26,7 +26,16 @@
 - **RAII Over Create/Destroy**: Never expose create/destroy function pairs — creation returns an owning smart pointer (or value RAII type) whose destructor releases the resource (`Result<std::unique_ptr<gpu::Shader>>`, never `destroy_shader`).
 - **No Raw/Void Pointers**: Beyond the existing lifetimes rule, replace `void*` with modern alternatives — `std::span<std::byte>`/`std::byte*` for type-erased memory, `std::reference_wrapper`/`std::optional` for references; raw pointers only at true C boundaries (Lua userdata payloads), commented as such.
 - **Const By Default**: Locals, parameters, and methods are `const` unless mutation is the point.
-- **Third-Party Seams**: Every third-party library sits behind exactly one engine-owned boundary: compiled backends behind `tbx_backend()` folders (sdl/gl/jolt/luau), header-only libs behind one wrapper header (`core/math.h` = glm, `core/json.h` = nlohmann, `core/log.h` = spdlog, `ecs/registry.h` = entt). Nothing else includes a third-party header directly — swapping a lib touches its one seam.
+- **Third-Party Seams**: Every third-party library sits behind exactly one engine-owned boundary: compiled backends behind `tbx_backend()` folders (sdl/gl/jolt/luau), header-only libs behind one wrapper header (`core/math.h` = glm, `core/json.h` = nlohmann, `core/log.h` = spdlog, `ecs/registry.h` = entt). Importers are seams too: `src/gfx/model.cpp` is the assimp seam, `src/gfx/texture.cpp` the stb seam. Nothing else includes a third-party header directly — swapping a lib touches its one seam.
+
+## Blessed Exceptions
+
+Deliberate, narrow deviations from the rules above — each is load-bearing; do not copy the pattern anywhere new without a matching reason:
+
+- **Backend-seam pImpl**: subsystem state structs (`audio.h`, `physics.h`, `window.h`, `ui.h`) may forward-declare one nested `struct Backend;`/`State;`/`Simulation;` held by `std::unique_ptr` — the ONLY sanctioned way to keep backend types out of public headers. Exempt from the no-forward-declarations and no-nested-types rules.
+- **Cycle-breaking forward declarations**: `class Sandbox;` in `toy.h`/`kit.h` breaks a true circular pair; allowed only where two headers genuinely need each other.
+- **PCH**: `src/pch.h` may include third-party seam headers (including `<entt/entt.hpp>`) for build speed; all *usage* still goes through the seam headers.
+- **SteamAudio's SDL usage**: the steamaudio backend opens its output device through SDL directly (5 calls + 1 callback). A dedicated platform audio-output seam is the documented swap path if a non-SDL platform backend ever lands; until then the direct calls are the dead-simple choice.
 
 ## Writing Unit Tests
 
@@ -54,7 +63,7 @@
 ## File Layout & Formatting
 
 - Follow root `.clang-format`.
-- Use LF line endings.
+- Line endings: git normalizes to LF in the repository; the working tree is mixed (editors write LF, `.clang-format` is configured for CRLF). Don't hand-convert files or mass-reformat for endings alone — that churn buries real changes.
 - Keep `#include` directives contiguous.
 
 Strictly follow the below file layout:

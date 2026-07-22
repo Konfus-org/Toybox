@@ -18,12 +18,14 @@ uniform vec3 u_camera_position;
 uniform sampler2D u_shadow_map;
 uniform sampler2D u_albedo;
 uniform sampler2D u_normal_map;
-uniform sampler2D u_metallic_roughness_map;
+uniform sampler2D u_metallic_map;
+uniform sampler2D u_roughness_map;
 uniform float u_metallic;
 uniform float u_roughness;
 uniform vec4 u_emissive;
 uniform int u_has_normal_map;
-uniform int u_has_metallic_roughness_map;
+uniform int u_has_metallic_map;
+uniform int u_has_roughness_map;
 uniform float u_uv_scale;
 
 out vec4 out_color;
@@ -79,12 +81,11 @@ void main()
 
     float metallic = u_metallic;
     float roughness = u_roughness;
-    if (u_has_metallic_roughness_map == 1)
-    {
-        const vec3 sampled = texture(u_metallic_roughness_map, uv).rgb;
-        roughness *= sampled.g;
-        metallic *= sampled.b;
-    }
+    // Separate grayscale maps scale their factors (single channel, .r).
+    if (u_has_metallic_map == 1)
+        metallic *= texture(u_metallic_map, uv).r;
+    if (u_has_roughness_map == 1)
+        roughness *= texture(u_roughness_map, uv).r;
     roughness = clamp(roughness, 0.045, 1.0);
     metallic = clamp(metallic, 0.0, 1.0);
 

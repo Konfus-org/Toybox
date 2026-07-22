@@ -1,39 +1,43 @@
 #pragma once
+#include "tbx/assets/assets.h"
+#include "tbx/ecs/sandbox.h"
+#include "tbx/platform/input.h"
+#include "tbx/platform/window.h"
+#include "tbx/ui/ui.h"
+#include "tbx/ui/ui_document.h"
 #include "tbx/utils/api.h"
+#include "tbx/utils/typedefs.h"
 #include <functional>
 #include <optional>
 
-namespace tbx
-{
-    struct UiDocument;
-}
-
-// The engine's debug overlay: frame timing, world and asset counts, rendered through the UI
-// stack. tbx::run() toggles it with F3; tools may drive it directly.
+// The engine's debug overlay: a built-in feature bound to F3. One public verb — update() —
+// owns everything: the toggle, loading its document on first open, and refreshing the stats
+// it pushes into the ui bindings. The ui pass composites the state's document whenever it is
+// open and loaded.
 namespace tbx::debug::view
 {
     /// @brief
-    /// Purpose: The overlay's document while open (empty when closed) — the ui pass draws
-    /// it to a target like any other layer.
-    TBX_API std::optional<std::reference_wrapper<const UiDocument>> get_document();
+    /// Purpose: The debug overlay's state, held by value on the Runtime: its document text,
+    /// visibility, and smoothed timings. update() loads the document on first open.
+    struct TBX_API DebugState
+    {
+        UiDocument document = {};
+        uint64 frame = 0;
+        bool is_open = false;
+        float smoothed_delta = 0.0f;
+        float refresh_timer = 0.0f;
+    };
 
     /// @brief
-    /// Purpose: Whether the overlay is currently shown.
-    TBX_API bool is_open();
-
-    /// @brief
-    /// Purpose: Clears the overlay state; run() calls this at shutdown.
-    TBX_API void purge();
-
-    /// @brief
-    /// Purpose: Shows or hides the overlay (loads it on first show).
-    TBX_API void set_open(bool is_open);
-
-    /// @brief
-    /// Purpose: Flips the overlay.
-    TBX_API void toggle();
-
-    /// @brief
-    /// Purpose: Refreshes the overlay's numbers; called by tbx::run() every frame.
-    TBX_API void update(float delta_time);
+    /// Purpose: Runs the overlay for one frame — F3 toggles it, the first open loads its
+    /// document, and its stats land in the runtime's ui bindings. Called by tbx::run()
+    /// every frame.
+    TBX_API void update(
+        DebugState& state,
+        const input::InputState& input,
+        const Sandbox& sandbox,
+        const assets::AssetsState& assets,
+        const windows::WindowsState& windows,
+        ui::UiState& ui,
+        float delta_time);
 }

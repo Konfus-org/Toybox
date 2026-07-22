@@ -11,7 +11,9 @@ namespace tbx
 
     /// @brief
     /// Purpose: One queued-event record: which signal to dispatch through and where its payload
-    /// lives in the frame arena.
+    /// lives in the frame arena. The void pointers are a deliberate type-erasure boundary —
+    /// Signal<T>::emit erases itself and its payload here and Signal<T>::dispatch restores the
+    /// types; nothing else touches them.
     struct TBX_API QueuedEvent
     {
         void (*dispatch)(void* signal, const void* payload) = nullptr;
@@ -22,9 +24,9 @@ namespace tbx
     /// @brief
     /// Purpose: Per-frame linear arena of trivially-copyable events.
     /// @details
-    /// Ownership: Owned by Events. Thread Safety: push() is safe from any thread; drain() runs
-    /// on the main thread once per frame (Engine::pump()). Events emitted during a drain land
-    /// in the next frame — deterministic, no re-entrancy.
+    /// Ownership: Owned by the events module state. Thread Safety: push() is safe from any
+    /// thread; drain() runs on the main thread once per frame (the runtime's pump). Events
+    /// emitted during a drain land in the next frame — deterministic, no re-entrancy.
     class TBX_API EventQueue final
     {
       public:

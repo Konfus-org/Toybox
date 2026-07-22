@@ -1,4 +1,5 @@
 #include "tbx/debug/debug_view.h"
+#include "tbx/platform/input.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
 #include "tbx/ui/ui.h"
@@ -8,82 +9,49 @@
 
 namespace tbx::debug::view
 {
-    /// @brief
-    /// Purpose: Overlay bookkeeping: its document text, visibility, and smoothed timings.
-    struct DebugState
+    void update(
+        DebugState& state,
+        const input::InputState& input,
+        const Sandbox& sandbox,
+        const assets::AssetsState& assets,
+        const windows::WindowsState& windows,
+        ui::UiState& ui,
+        const float delta_time)
     {
-        UiDocument document = {};
-        uint64 frame = 0;
-        bool is_open = false;
-        float smoothed_delta = 0.0f;
-        float refresh_timer = 0.0f;
-    };
-
-    static DebugState g_debug = {};
-
-    std::optional<std::reference_wrapper<const UiDocument>> get_document()
-    {
-        if (!g_debug.is_open || g_debug.document.text.empty())
-            return {};
-        return std::cref(g_debug.document);
-    }
-
-    bool is_open()
-    {
-        return g_debug.is_open;
-    }
-
-    void purge()
-    {
-        g_debug = {};
-    }
-
-    void set_open(const bool is_open)
-    {
-        g_debug.is_open = is_open;
-        if (is_open && g_debug.document.text.empty())
+        ++state.frame;
+        // The overlay owns its own hotkey.
+        if (input::is_pressed(input, Key::F3))
+            state.is_open = !state.is_open;
+        if (!state.is_open)
+            return;
+        if (state.document.source.empty())
         {
+            // First open: the overlay document is an engine-shipped file.
             const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Ui" / "debug.rml";
             if (auto document = load<UiDocument>(path))
-                g_debug.document = std::move(*document);
+                state.document = std::move(*document);
             else
+            {
                 TBX_ERROR("debug view: {}", document.error());
+                state.is_open = false;
+                return;
+            }
         }
-    }
-
-    void toggle()
-    {
-        set_open(!g_debug.is_open);
-    }
-
-    void update(const float delta_time)
-    {
-        ++g_debug.frame;
-        if (!g_debug.is_open || g_debug.document.text.empty())
+        state.smoothed_delta = state.smoothed_delta <= 0.0f
+                                   ? delta_time
+                                   : state.smoothed_delta * 0.9f + delta_time * 0.1f;
+        state.refresh_timer -= delta_time;
+        if (state.refresh_timer > 0.0f)
             return;
-        g_debug.smoothed_delta = g_debug.smoothed_delta <= 0.0f
-            ? delta_time
-            : g_debug.smoothed_delta * 0.9f + delta_time * 0.1f;
-        g_debug.refresh_timer -= delta_time;
-        if (g_debug.refresh_timer > 0.0f)
-            return;
-        g_debug.refresh_timer = 0.25f;
+        state.refresh_timer = 0.25f;
 
-        const float fps =
-            g_debug.smoothed_delta > 0.0f ? 1.0f / g_debug.smoothed_delta : 0.0f;
-        ui::set_string(
-            "debug_fps",
-            std::format("{:.0f} fps  ({:.2f} ms)", fps, g_debug.smoothed_delta * 1000.0f));
-        ui::set_string("debug_frame", std::format("frame {}", g_debug.frame));
-        ui::set_string("debug_toys", std::format("toys: {}", get_sandbox().get_toy_count()));
-        ui::set_string(
-            "debug_assets",
-            std::format("assets resident: {}", assets::get_loaded_count()));
-        ui::set_string(
-            "debug_viewport",
-            std::format(
-                "viewport: {}x{}",
-                get_window().get_width(),
-                get_window().get_height()));
+        const float fps = state.smoothed_delta > 0.0f ? 1.0f / state.smoothed_delta : 0.0f;
+        ui.bindings["debug_fps"] = std::format("{:.0f} fps  ({:.2f} ms)", fps, state.smoothed_delta * 1000.0f);
+        ui.bindings["debug_frame"] = std::format("frame {}", state.frame);
+        ui.bindings["debug_toys"] = std::format("toys: {}", sandbox.get_toy_count());
+        ui.bindings["debug_assets"] = std::format("assets resident: {}", assets::get_loaded_count(assets));
+        const int width = windows.windows.empty() ? 0 : windows.windows.front().width;
+        const int height = windows.windows.empty() ? 0 : windows.windows.front().height;
+        ui.bindings["debug_viewport"] = std::format("viewport: {}x{}", width, height);
     }
 }

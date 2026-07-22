@@ -1,18 +1,37 @@
 #include "tbx/audio/audio.h"
+#include "tbx/ecs/sandbox.h"
+#include "tbx/audio/audio_source.h"
+#include "tbx/audio/audio_listener.h"
+#include "tbx/runtime.h"
 #include "tbx/math/transform.h"
 #include "tbx/physics/collider.h"
 #include "tbx/debug/log.h"
 #include <SDL3/SDL.h>
 #include <atomic>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <phonon.h>
+#include <type_traits>
 #include <unordered_map>
 
 namespace tbx::audio
 {
     static constexpr int SAMPLE_RATE = 48000;
     static constexpr int FRAME_SIZE = 1024;
+
+    /// @brief
+    /// Purpose: Deleter for the Steam Audio binaural effect C handle — release lives here
+    /// and nowhere else; every erase/clear of a Voice releases through it.
+    struct BinauralEffectReleaser
+    {
+        void operator()(IPLBinauralEffect effect) const
+        {
+            iplBinauralEffectRelease(&effect);
+        }
+    };
+    using BinauralEffectHolder =
+        std::unique_ptr<std::remove_pointer_t<IPLBinauralEffect>, BinauralEffectReleaser>;
 
     /// @brief
     /// Purpose: One playing source as the audio thread sees it: a clip reference, a cursor,
@@ -27,20 +46,22 @@ namespace tbx::audio
         bool is_looping = false;
         bool is_active = true;
         bool is_finished = false;
-        IPLBinauralEffect effect = nullptr;
+        BinauralEffectHolder effect = {};
     };
 
     /// @brief
-    /// Purpose: The whole audio engine, torn down by reset() and rebuilt lazily by update().
-    struct AudioState
+    /// Purpose: The whole audio engine behind the boundary, built lazily on the first update
+    /// (the destructor stops the SDL stream first, so the mixer callback is silent before
+    /// any buffer frees).
+    struct AudioState::Backend
     {
-        ~AudioState()
+        ~Backend()
         {
             if (stream)
                 SDL_DestroyAudioStream(stream);
-            for (auto& [key, voice] : voices)
-                if (voice.effect)
-                    iplBinauralEffectRelease(&voice.effect);
+            // The mixer is silent now; voices must release their effects BEFORE the context
+            // goes (member order alone would destroy the map after this body released it).
+            voices.clear();
             if (mono.data)
                 iplAudioBufferFree(context, &mono);
             if (stereo.data)
@@ -63,13 +84,14 @@ namespace tbx::audio
         std::vector<float> interleaved;
     };
 
-    static std::unique_ptr<AudioState> g_audio = {};
-    static std::atomic<float> g_master_volume = 1.0f;
+    AudioState::AudioState() = default;
+    AudioState::~AudioState() = default;
 
     //// DSP (audio thread) ////
 
-    static void mix_block(AudioState& state, const int frame_count)
+    static void mix_block(AudioState& audio, const int frame_count)
     {
+        AudioState::Backend& state = *audio.backend;
         state.interleaved.assign(static_cast<size>(frame_count) * 2, 0.0f);
         const std::scoped_lock lock(state.voices_mutex);
         for (auto& [key, voice] : state.voices)
@@ -112,11 +134,11 @@ namespace tbx::audio
             parameters.direction = voice.direction;
             parameters.interpolation = IPL_HRTFINTERPOLATION_NEAREST;
             parameters.spatialBlend = 1.0f;
-            parameters.hrtf = g_audio->hrtf;
-            iplBinauralEffectApply(voice.effect, &parameters, &state.mono, &state.stereo);
+            parameters.hrtf = state.hrtf;
+            iplBinauralEffectApply(voice.effect.get(), &parameters, &state.mono, &state.stereo);
 
             const float gain = voice.volume * voice.attenuation * state.listener_volume
-                * g_master_volume.load(std::memory_order_relaxed);
+                * audio.master_volume.load(std::memory_order_relaxed);
             for (int frame = 0; frame < frame_count; ++frame)
             {
                 state.interleaved[frame * 2 + 0] += state.stereo.data[0][frame] * gain;
@@ -128,17 +150,17 @@ namespace tbx::audio
     static void SDLCALL
         feed_device(void* userdata, SDL_AudioStream* stream, const int additional_amount, int)
     {
-        auto& state = *static_cast<AudioState*>(userdata);
+        auto& audio = *static_cast<AudioState*>(userdata);
         int remaining_bytes = additional_amount;
         while (remaining_bytes > 0)
         {
             const int block_bytes =
                 std::min(remaining_bytes, FRAME_SIZE * 2 * static_cast<int>(sizeof(float)));
             const int frame_count = block_bytes / (2 * static_cast<int>(sizeof(float)));
-            mix_block(state, frame_count);
+            mix_block(audio, frame_count);
             SDL_PutAudioStreamData(
                 stream,
-                state.interleaved.data(),
+                audio.backend->interleaved.data(),
                 frame_count * 2 * sizeof(float));
             remaining_bytes -= block_bytes;
         }
@@ -146,18 +168,19 @@ namespace tbx::audio
 
     //// SETUP ////
 
-    static AudioState* ensure_audio_ready()
+    static std::optional<std::reference_wrapper<AudioState::Backend>> ensure_audio_ready(
+        AudioState& audio)
     {
-        if (g_audio)
-            return g_audio.get();
-        auto state = std::make_unique<AudioState>();
+        if (audio.backend)
+            return *audio.backend;
+        auto state = std::make_unique<AudioState::Backend>();
 
         auto context_settings = IPLContextSettings {};
         context_settings.version = STEAMAUDIO_VERSION;
         if (iplContextCreate(&context_settings, &state->context) != IPL_STATUS_SUCCESS)
         {
             TBX_ERROR("Steam Audio context creation failed; audio disabled");
-            return nullptr;
+            return {};
         }
         auto audio_settings = IPLAudioSettings {};
         audio_settings.samplingRate = SAMPLE_RATE;
@@ -169,11 +192,15 @@ namespace tbx::audio
             != IPL_STATUS_SUCCESS)
         {
             TBX_ERROR("Steam Audio HRTF creation failed; audio disabled");
-            return nullptr;
+            return {};
         }
         iplAudioBufferAllocate(state->context, 1, FRAME_SIZE, &state->mono);
         iplAudioBufferAllocate(state->context, 2, FRAME_SIZE, &state->stereo);
 
+        // The callback receives the value-held AudioState (stable inside the heap-held
+        // RuntimeState): master volume + backend buffers together.
+        audio.backend = std::move(state);
+        AudioState::Backend& backend = *audio.backend;
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
             TBX_WARN("SDL audio unavailable ({}); spatializer runs silent", SDL_GetError());
         else
@@ -182,38 +209,32 @@ namespace tbx::audio
             spec.format = SDL_AUDIO_F32;
             spec.channels = 2;
             spec.freq = SAMPLE_RATE;
-            state->stream = SDL_OpenAudioDeviceStream(
+            backend.stream = SDL_OpenAudioDeviceStream(
                 SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
                 &spec,
                 feed_device,
-                state.get());
-            if (state->stream)
-                SDL_ResumeAudioStreamDevice(state->stream);
+                &audio);
+            if (backend.stream)
+                SDL_ResumeAudioStreamDevice(backend.stream);
             else
                 TBX_WARN("no audio playback device ({}); spatializer runs silent", SDL_GetError());
         }
-
-        g_audio = std::move(state);
-        return g_audio.get();
+        return backend;
     }
 
     //// BOUNDARY ////
 
-    void purge()
+    void update(
+        AudioState& audio,
+        Sandbox& sandbox,
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        const float)
     {
-        g_audio.reset();
-    }
-
-    void set_master_volume(const float volume)
-    {
-        g_master_volume.store(volume, std::memory_order_relaxed);
-    }
-
-    void update(Sandbox& sandbox, const float)
-    {
-        AudioState* state = ensure_audio_ready();
-        if (!state)
+        const auto ready = ensure_audio_ready(audio);
+        if (!ready)
             return;
+        AudioState::Backend& state = ready->get();
         auto& registry = sandbox.get_registry();
 
         // The first enabled listener frames the world; no listener, everything is silent.
@@ -224,12 +245,12 @@ namespace tbx::audio
             if (!registry.get<ToyHandle>(entity).is_enabled)
                 continue;
             listener_inverse = math::inverse(sandbox.get_world_matrix(Toy(sandbox, entity)));
-            state->listener_volume = listener.volume;
+            state.listener_volume = listener.volume;
             has_listener = true;
             break;
         }
 
-        const std::scoped_lock lock(state->voices_mutex);
+        const std::scoped_lock lock(state.voices_mutex);
 
         // Mirror playing sources into voices; spatial extent comes from the toy's Collider.
         for (const auto [entity, source] : registry.view<AudioSource>().each())
@@ -237,26 +258,22 @@ namespace tbx::audio
             const auto key = static_cast<uint32>(entity);
             const bool wants_voice = has_listener && registry.get<ToyHandle>(entity).is_enabled
                                      && source.is_playing && source.clip.is_valid();
-            auto existing = state->voices.find(key);
+            auto existing = state.voices.find(key);
 
             if (!wants_voice)
             {
-                if (existing != state->voices.end())
-                {
-                    if (existing->second.effect)
-                        iplBinauralEffectRelease(&existing->second.effect);
-                    state->voices.erase(existing);
-                }
+                if (existing != state.voices.end())
+                    state.voices.erase(existing); // the holder releases the effect
                 continue;
             }
 
-            if (existing == state->voices.end())
+            if (existing == state.voices.end())
             {
                 // Clips copy once into a shared cache so hot reloads never race the mixer.
-                auto& cached = state->clips[source.clip.id];
+                auto& cached = state.clips[source.clip.id];
                 if (!cached)
                 {
-                    const auto clip = assets::load_now(source.clip); // resolves by tracked path
+                    const auto clip = assets::load_now(assets, events, source.clip); // resolves by tracked path
                     if (!clip)
                         continue;
                     cached = std::make_shared<AudioClip>(clip->get());
@@ -267,13 +284,11 @@ namespace tbx::audio
                 audio_settings.samplingRate = SAMPLE_RATE;
                 audio_settings.frameSize = FRAME_SIZE;
                 auto effect_settings = IPLBinauralEffectSettings {};
-                effect_settings.hrtf = state->hrtf;
-                iplBinauralEffectCreate(
-                    state->context,
-                    &audio_settings,
-                    &effect_settings,
-                    &voice.effect);
-                existing = state->voices.emplace(key, std::move(voice)).first;
+                effect_settings.hrtf = state.hrtf;
+                auto effect = IPLBinauralEffect(nullptr);
+                iplBinauralEffectCreate(state.context, &audio_settings, &effect_settings, &effect);
+                voice.effect.reset(effect);
+                existing = state.voices.emplace(key, std::move(voice)).first;
             }
 
             Voice& voice = existing->second;
@@ -305,12 +320,24 @@ namespace tbx::audio
                              collider->half_extents.y,
                              collider->half_extents.z});
                         break;
+                    case Shape::MESH:
+                        break; // no analytic extent — point-source attenuation
                 }
             }
             voice.direction = IPLVector3 {direction.x, direction.y, direction.z};
             voice.attenuation = 1.0f / (1.0f + std::max(0.0f, distance - extent));
             voice.volume = source.volume;
             voice.is_looping = source.is_looping;
+        }
+
+        // Reap voices whose toy despawned (or lost its AudioSource) while playing — the
+        // mirror loop above never revisits them, so they would otherwise mix and hold their
+        // effects until shutdown (mirrors the physics body sweep).
+        for (auto it = state.voices.begin(); it != state.voices.end();)
+        {
+            const auto entity = static_cast<ToyId>(it->first);
+            const bool is_stale = !registry.valid(entity) || !registry.all_of<AudioSource>(entity);
+            it = is_stale ? state.voices.erase(it) : std::next(it);
         }
     }
 }

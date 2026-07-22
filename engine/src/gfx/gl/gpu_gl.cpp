@@ -2,19 +2,33 @@
 #include "tbx/debug/log.h"
 #include <glad/glad.h>
 #include <cstddef>
+#include <cstring>
 #include <memory>
 #include <numeric>
+#include <string_view>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 namespace tbx::gpu
 {
+    // Mirrors of current-context state owned by the process-global GL context —
+    // deliberately not Runtime state (main thread only, no teardown).
+    static int g_viewport_width = 0;
+    static int g_viewport_height = 0;
+    // The current pass's attachment height (UI scissor y-flip); mirrors of context
+    // state owned by the process-global GL context, deliberately not Runtime state.
+    static int g_drawable_height = 0;
+    static Color g_clear_color = {};
+
     //// HELPERS ////
 
-    static Result<GLuint> compile_stage(const GLenum stage, const char* source)
+    static Result<GLuint> compile_stage(const GLenum stage, const std::string_view source)
     {
         const GLuint shader = glCreateShader(stage);
-        glShaderSource(shader, 1, &source, nullptr);
+        const GLchar* text = source.data();
+        const auto length = static_cast<GLint>(source.size());
+        glShaderSource(shader, 1, &text, &length);
         glCompileShader(shader);
         GLint ok = GL_FALSE;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
@@ -63,12 +77,6 @@ namespace tbx::gpu
 
     //// GPU ////
 
-    static int g_viewport_width = 0;
-    static int g_viewport_height = 0;
-    static int g_drawable_width = 0;  // the current pass's attachment size (UI projection)
-    static int g_drawable_height = 0;
-    static Color g_clear_color = {};
-
     static void clear_attachments(const Color& color)
     {
         g_clear_color = color;
@@ -86,7 +94,6 @@ namespace tbx::gpu
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, g_viewport_width, g_viewport_height);
-        g_drawable_width = g_viewport_width;
         g_drawable_height = g_viewport_height;
         clear_attachments(description.clear);
     }
@@ -99,7 +106,6 @@ namespace tbx::gpu
             const DepthTarget& target = *description.depth_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_resolution(), target.get_resolution());
-            g_drawable_width = target.get_resolution();
             g_drawable_height = target.get_resolution();
             glDepthMask(GL_TRUE);
             glClear(GL_DEPTH_BUFFER_BIT);
@@ -110,14 +116,12 @@ namespace tbx::gpu
             const RenderTarget& target = *description.color_target;
             glBindFramebuffer(GL_FRAMEBUFFER, target.get_framebuffer());
             glViewport(0, 0, target.get_width(), target.get_height());
-            g_drawable_width = target.get_width();
             g_drawable_height = target.get_height();
         }
         else
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, g_viewport_width, g_viewport_height);
-            g_drawable_width = g_viewport_width;
             g_drawable_height = g_viewport_height;
         }
         if (description.load == LoadOperation::CLEAR)
@@ -128,7 +132,6 @@ namespace tbx::gpu
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, g_viewport_width, g_viewport_height);
-        g_drawable_width = g_viewport_width;
         g_drawable_height = g_viewport_height;
     }
 
@@ -138,8 +141,8 @@ namespace tbx::gpu
     }
 
     Result<std::unique_ptr<Shader>> compile_shader(
-        const char* vertex_source,
-        const char* fragment_source)
+        const std::string_view vertex_source,
+        const std::string_view fragment_source)
     {
         const auto vertex = compile_stage(GL_VERTEX_SHADER, vertex_source);
         if (!vertex)
@@ -313,11 +316,40 @@ namespace tbx::gpu
         return {.r = rgba[0], .g = rgba[1], .b = rgba[2], .a = rgba[3]};
     }
 
+    Result<void> screenshot(Texture& result)
+    {
+        const int width = g_viewport_width;
+        const int height = g_viewport_height;
+        if (width <= 0 || height <= 0)
+            return fail("screenshot: no drawable is current");
+        const size row_bytes = static_cast<size>(width) * 4;
+        auto bottom_up = std::vector<std::byte>(row_bytes * height);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, bottom_up.data());
+
+        // GL reads rows bottom-up; images are top-down.
+        result.width = width;
+        result.height = height;
+        result.pixels.resize(bottom_up.size());
+        for (int row = 0; row < height; ++row)
+            std::memcpy(
+                result.pixels.data() + static_cast<size>(row) * row_bytes,
+                bottom_up.data() + static_cast<size>(height - 1 - row) * row_bytes,
+                row_bytes);
+        return {};
+    }
+
+    void set_viewport(const int x, const int y, const int width, const int height)
+    {
+        // A per-camera sub-rect inside the current pass; the drawable mirror stays put so
+        // pass boundaries reset to the full window.
+        glViewport(x, y, width, height);
+    }
+
     void set_viewport(const int width, const int height)
     {
         g_viewport_width = width;
         g_viewport_height = height;
-        g_drawable_width = width;
         g_drawable_height = height;
         glViewport(0, 0, width, height);
     }

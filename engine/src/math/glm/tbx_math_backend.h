@@ -4,7 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 // The glm math backend's TYPE surface — the tbx::math functions are declared in
-// tbx/core/math.h and implemented by this backend's math_glm.cpp.
+// tbx/math/math.h and implemented by this backend's math_glm.cpp.
 namespace tbx
 {
     using Vec2 = glm::vec2;

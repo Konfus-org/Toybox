@@ -4,9 +4,9 @@
 namespace tbx::jobs
 {
     template <typename Fn>
-    auto run(Fn fn) -> Task<std::invoke_result_t<Fn>>
+    auto run(JobsState& jobs, Fn fn) -> Task<std::invoke_result_t<Fn>>
     {
-        co_await on_worker();
+        co_await on_worker(jobs);
         if constexpr (std::is_void_v<std::invoke_result_t<Fn>>)
             fn();
         else
@@ -72,16 +72,5 @@ namespace tbx::jobs
                 std::rethrow_exception(error);
             return std::move(*result);
         }
-    }
-}
-
-namespace tbx
-{
-    inline void ScheduleOn::await_suspend(std::coroutine_handle<> handle) const
-    {
-        if (resume_on_main)
-            jobs::post_main([handle] { handle.resume(); });
-        else
-            jobs::post_worker([handle] { handle.resume(); });
     }
 }

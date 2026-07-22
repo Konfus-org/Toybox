@@ -1,7 +1,9 @@
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
 #include "tbx/gfx/gpu.h"
-#include <cstring>
+#include "tbx/reflection/reflection.h"
+#include "tbx/runtime.h"
+#include "tbx/utils/command_list.h"
 #include <filesystem>
 
 // Toom — the doom clone, fully data-driven AND fully scripted: the App declares the level and HUD,
@@ -11,33 +13,37 @@
 
 int main(int argc, char** argv)
 {
-    bool selftest = false;
-    for (int i = 1; i < argc; ++i)
-        if (std::strcmp(argv[i], "--selftest") == 0)
-            selftest = true;
+    const auto commands = tbx::CommandList(argc, argv);
+    const bool selftest = commands.has("selftest");
 
     // Everything about the app — window, entry sandbox, icon, subsystem settings — lives in
-    // the .tapp; this file is only the loop and the selftest checks.
-    auto loaded = tbx::load_app(std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp");
+    // the .tapp; this file is only the loop and the selftest checks. The .tapp decodes
+    // generically through the reflected App schema, so registration comes first.
+    tbx::reflection::initialize();
+    const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
+    auto loaded = tbx::load<tbx::App>(tapp);
     if (!loaded)
     {
         TBX_ERROR("Toom.tapp: {}", loaded.error());
         return 1;
     }
-    tbx::App app = std::move(*loaded);
+    loaded->config.root_dir = tapp.parent_path(); // derived, never serialized
+    loaded->commands = commands; // the runtime honors -w/-h and --screenshot
 
     bool scored = false;
     bool streamed_room_seen = false;
 
-    while (tbx::run(app))
+    auto runtime = tbx::Runtime(std::move(*loaded));
+    while (tbx::run(runtime))
     {
-        auto& sandbox = tbx::get_sandbox();
+        const uint64 frame = runtime.state->frame.index;
+        auto& sandbox = runtime.state->sandbox;
 
         if (selftest)
         {
             // The "selftest" sticker tells player.luau to run the choreography: shoot the
             // hub enemy, then sprint north until the far room streams in.
-            if (app.state.frame == 1)
+            if (frame == 1)
             {
                 auto player = sandbox.find("Player");
                 if (!player)
@@ -51,11 +57,10 @@ int main(int argc, char** argv)
                 scored = true;
             if (sandbox.find("FarFloor"))
                 streamed_room_seen = true;
-            if (app.state.frame >= 300)
-                tbx::quit();
+            if (frame >= 300)
+                tbx::quit(runtime);
         }
 
-        tbx::gpu::render(sandbox);
     }
 
     if (selftest)

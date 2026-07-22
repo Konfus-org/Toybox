@@ -1,12 +1,16 @@
 #pragma once
-#include "tbx/utils/api.h"
-#include "tbx/utils/typedefs.h"
-#include "tbx/utils/uuid.h"
 #include "tbx/events/event_queue.h"
 #include "tbx/events/signal.h"
 #include "tbx/platform/keys.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
+#include <array>
 
-namespace tbx
+// The only events that exist, as named signals over one pump-drained queue — the state is
+// runtime.events: emit and subscribe on its members directly (runtime.events.key.emit(...))
+// and events::update dispatches everything queued once per frame.
+namespace tbx::events
 {
     /// @brief
     /// Purpose: Fired when the OS window's pixel size changes.
@@ -31,8 +35,9 @@ namespace tbx
     {
         Uuid id = {};
         // The asset file's extension (".luau", ".png", ...) so listeners filter without a
-        // lookup; events must stay trivially copyable, hence the fixed buffer.
-        char extension[16] = {};
+        // lookup; events must stay trivially copyable, hence the fixed buffer (zero-filled,
+        // so .data() is always a terminated C string).
+        std::array<char, 16> extension = {};
     };
 
     /// @brief
@@ -41,7 +46,7 @@ namespace tbx
     struct TBX_API AssetUnloaded
     {
         Uuid id = {};
-        char extension[16] = {};
+        std::array<char, 16> extension = {};
     };
 
     /// @brief
@@ -60,25 +65,23 @@ namespace tbx
         Uuid id = {};
     };
 
-}
-
-// The only events that exist, as named signals over one pump-drained queue. Module state is
-// created on first use; purge() drops every subscription and queued event.
-namespace tbx::events
-{
-    TBX_API Signal<AssetReloaded>& asset_reloaded();
-    TBX_API Signal<AssetUnloaded>& asset_unloaded();
-    TBX_API Signal<CollisionEvent>& collision();
-    TBX_API Signal<KeyEvent>& key();
-    TBX_API Signal<ScriptReloaded>& script_reloaded();
-    TBX_API Signal<WindowResized>& window_resized();
+    /// @brief
+    /// Purpose: The events module's state, held by value on the Runtime; adding an event
+    /// means adding a member, deliberately.
+    struct TBX_API EventsState
+    {
+        EventQueue queue;
+        Signal<KeyEvent> key {queue};
+        Signal<WindowResized> window_resized {queue};
+        Signal<AssetReloaded> asset_reloaded {queue};
+        Signal<AssetUnloaded> asset_unloaded {queue};
+        Signal<ScriptReloaded> script_reloaded {queue};
+        Signal<CollisionEvent> collision {queue};
+    };
 
     /// @brief
-    /// Purpose: Dispatches all queued events; called once per frame by the runtime's pump.
-    TBX_API void drain();
-
-    /// @brief
-    /// Purpose: Drops every subscription and queued event; the next call starts fresh. run()
-    /// calls this at shutdown.
-    TBX_API void purge();
+    /// Purpose: Dispatches everything queued since the last update, in emission order — the
+    /// events module's per-frame verb; tbx::run() calls it during the pump. Events emitted
+    /// during an update land in the next one.
+    TBX_API void update(EventsState& state);
 }

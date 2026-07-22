@@ -23,10 +23,12 @@ namespace tbx
         static Uuid parse(const std::string& text);
 
         /// @brief
-        /// Purpose: Reports whether this is the all-zero "no identity" value.
-        bool is_nil() const
+        /// Purpose: True when this carries any identity at all — the inverse of the all-zero
+        /// "no identity" value. Either half may be zero alone: v1-era numeric asset ids are
+        /// {0, number} and engine builtins keep small lo values.
+        bool is_valid() const
         {
-            return hi == 0 && lo == 0;
+            return hi != 0 || lo != 0;
         }
 
         /// @brief
@@ -40,8 +42,9 @@ namespace tbx
 template <>
 struct std::hash<tbx::Uuid>
 {
-    // ::size, not bare size — inside namespace std the latter finds std::size().
-    ::size operator()(const tbx::Uuid& id) const noexcept
+    // ::size, not bare size — inside namespace std the latter finds std::size(). This is
+    // THE uuid hash formula; tbx::hash(Uuid) delegates here so it lives exactly once.
+    constexpr ::size operator()(const tbx::Uuid& id) const noexcept
     {
         return id.hi ^ (id.lo * 0x9E3779B97F4A7C15ull);
     }

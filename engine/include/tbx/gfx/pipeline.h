@@ -1,7 +1,7 @@
 #pragma once
+#include "tbx/gfx/shader.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
-#include "tbx/gfx/shader.h"
 #include <functional>
 
 namespace tbx::gpu

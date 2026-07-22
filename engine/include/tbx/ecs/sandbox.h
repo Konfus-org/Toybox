@@ -1,19 +1,21 @@
 #pragma once
-#include "tbx/utils/api.h"
-#include "tbx/math/math.h"
-#include "tbx/utils/result.h"
-#include "tbx/utils/typedefs.h"
-#include "tbx/utils/uuid.h"
+#include "tbx/assets/assets.h"
 #include "tbx/ecs/block.h"
 #include "tbx/ecs/box.h"
 #include "tbx/ecs/toy.h"
-#include "tbx/math/transform.h"
 #include "tbx/jobs/jobs.h"
+#include "tbx/math/math.h"
+#include "tbx/math/transform.h"
 #include "tbx/serialization/json.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/result.h"
+#include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
 #include <functional>
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tbx
@@ -49,7 +51,8 @@ namespace tbx
         void for_each_sticker(std::string_view name, const std::function<void(Toy)>& callback);
 
         /// @brief
-        /// Purpose: A toy's parent, when it has one.
+        /// Purpose: A toy's parent, when it has one. Non-const because a Toy is a mutation
+        /// handle over its sandbox.
         std::optional<Toy> get_parent(Toy child);
 
         /// @brief
@@ -66,7 +69,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Composed world matrix walking the parent chain.
-        Mat4 get_world_matrix(Toy toy);
+        Mat4 get_world_matrix(Toy toy) const;
 
         /// @brief
         /// Purpose: Reparents a toy (pass a default Toy to clear the parent).
@@ -75,7 +78,7 @@ namespace tbx
         /// @brief
         /// Purpose: Opens a box: ALWAYS entries load immediately; STREAMED entries
         /// load/unload by distance to the streaming focus (see stream()).
-        Result<void> open(const Box& box);
+        Result<void> open(assets::AssetsState& assets, events::EventsState& events, const Box& box);
 
         /// @brief
         /// Purpose: Unloads everything: every kit instance, every toy, and all streaming
@@ -87,6 +90,8 @@ namespace tbx
         /// recursively through assets; cycles are errors; position offsets parentless toys)
         /// and returns the instance handle for despawn().
         Result<KitInstance> spawn(
+            assets::AssetsState& assets,
+            events::EventsState& events,
             const AssetHandle<Kit>& kit,
             const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
@@ -94,6 +99,8 @@ namespace tbx
         /// Purpose: Spawns an in-memory kit (the handle overload resolves through assets and
         /// lands here).
         Result<KitInstance> spawn(
+            assets::AssetsState& assets,
+            events::EventsState& events,
             const Kit& kit,
             const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
@@ -121,10 +128,17 @@ namespace tbx
         /// @brief
         /// Purpose: Sets the focus (typically player/camera position) and
         /// loads/unloads streamed kits by distance. Call once per frame.
-        void stream(const Vec3& focus);
+        void stream(
+            assets::AssetsState& assets,
+            events::EventsState& events,
+            jobs::JobsState& jobs,
+            const Vec3& focus);
 
       private:
-        void process_streaming();
+        void process_streaming(
+            assets::AssetsState& assets,
+            events::EventsState& events,
+            jobs::JobsState& jobs);
 
       private:
         static constexpr float STREAM_LOAD_MARGIN = 5.0f;
@@ -154,6 +168,8 @@ namespace tbx
         // instance bookkeeping and the asset system.
         friend TBX_API Result<KitInstance> load(
             Sandbox& sandbox,
+            assets::AssetsState& assets,
+            events::EventsState& events,
             const Kit& kit,
             const Vec3& root_position);
     };

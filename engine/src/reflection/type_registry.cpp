@@ -1,4 +1,4 @@
-#include "tbx/reflection/type_info.h"
+#include "tbx/reflection/reflection.h"
 #include "tbx/debug/log.h"
 
 namespace tbx::reflection
@@ -7,15 +7,12 @@ namespace tbx::reflection
 
     TypeInfo& TypeRegistry::add(TypeInfo info)
     {
+        // Idempotent on purpose: a name registered twice keeps its one record, so facets
+        // stack — register_asset<App>("App") stamps the asset facet onto the same TypeInfo
+        // register_type<App> built the .tapp schema on.
         for (auto& existing : _types)
-        {
             if (existing->name_hash == info.name_hash)
-            {
-                TBX_WARN("type '{}' re-registered; replacing its previous record", info.name);
-                *existing = std::move(info);
                 return *existing;
-            }
-        }
         _types.push_back(std::make_unique<TypeInfo>(std::move(info)));
         return *_types.back();
     }

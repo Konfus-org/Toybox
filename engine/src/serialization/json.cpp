@@ -1,4 +1,8 @@
-#include "tbx/serialization/json_walker.h"
+#include "tbx/serialization/json.h"
+#include "tbx/files/files.h"
+#include "tbx/math/math.h"
+#include "tbx/reflection/type_registry.h"
+#include "tbx/utils/color.h"
 #include <cstring>
 
 namespace tbx::serialization
@@ -60,7 +64,7 @@ namespace tbx::serialization
             {
                 // Resolved handles keep their identity; authoring-time handles keep the path.
                 const auto [id, asset_path] = field.read_asset(object);
-                if (id.is_nil() && !asset_path.empty())
+                if (!id.is_valid() && !asset_path.empty())
                     return asset_path;
                 return id.to_string();
             }
@@ -97,6 +101,19 @@ namespace tbx::serialization
                 if (!nested)
                     return Json::object();
                 return json_write(nested->get(), at);
+            }
+            case reflection::FieldKind::TYPE_LIST:
+            {
+                const auto nested =
+                    field.nested_hash ? reflection::describe(field.nested_hash->get())
+                                      : std::nullopt;
+                auto list = Json::array();
+                if (!nested)
+                    return list;
+                const size count = field.get_list_count(object);
+                for (size index = 0; index < count; ++index)
+                    list.push_back(json_write(nested->get(), field.get_list_element(object, index)));
+                return list;
             }
         }
         return {};
@@ -186,7 +203,7 @@ namespace tbx::serialization
                 auto stripped = text;
                 std::erase(stripped, '-');
                 const Uuid id = Uuid::parse(stripped);
-                if (id.is_nil())
+                if (!id.is_valid())
                     field.write_asset(object, Uuid {}, std::move(text));
                 else
                     field.write_asset(object, id, std::string());
@@ -218,6 +235,27 @@ namespace tbx::serialization
                     return fail("field '{}' has an unregistered nested type", field.name);
                 return json_read(nested->get(), at, value);
             }
+            case reflection::FieldKind::TYPE_LIST:
+            {
+                const auto nested =
+                    field.nested_hash ? reflection::describe(field.nested_hash->get())
+                                      : std::nullopt;
+                if (!nested)
+                    return fail("field '{}' has an unregistered element type", field.name);
+                if (!value.is_array())
+                    return fail("field '{}': expected an array", field.name);
+                field.resize_list(object, value.size());
+                for (size index = 0; index < value.size(); ++index)
+                {
+                    auto element = json_read(
+                        nested->get(),
+                        field.get_mutable_list_element(object, index),
+                        value.at(index));
+                    if (!element)
+                        return element;
+                }
+                return {};
+            }
         }
         return fail("field '{}' has an unknown kind", field.name);
     }
@@ -239,9 +277,11 @@ namespace tbx::serialization
         if (!data.is_object())
             return fail("'{}' data is not a JSON object", type.name);
 
-        auto working = data;
-        const uint32 stored_version = working.value(VERSION_KEY, 1u);
-        if (stored_version < type.version)
+        // Read straight from the caller's document; only a migration needs a mutable copy.
+        const uint32 stored_version = data.value(VERSION_KEY, 1u);
+        const bool needs_migration = stored_version < type.version;
+        auto migrated = Json();
+        if (needs_migration)
         {
             if (!type.migrate)
                 return fail(
@@ -249,8 +289,10 @@ namespace tbx::serialization
                     type.name,
                     stored_version,
                     type.version);
-            type.migrate(working, stored_version);
+            migrated = data;
+            type.migrate(migrated, stored_version);
         }
+        const Json& working = needs_migration ? migrated : data;
 
         for (const reflection::FieldInfo& field : type.fields)
         {
@@ -269,5 +311,32 @@ namespace tbx::serialization
             }
         }
         return {};
+    }
+}
+
+namespace tbx
+{
+    Result<void> read_registered_json(
+        const std::filesystem::path& path,
+        const reflection::TypeInfo& type,
+        std::byte* object)
+    {
+        const auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!serialization::Json::accept(*text))
+            return fail("'{}' is not valid JSON", path.string());
+        return serialization::json_read(type, object, serialization::Json::parse(*text));
+    }
+
+    template <>
+    Result<serialization::Json> load<serialization::Json>(const std::filesystem::path& path)
+    {
+        auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!serialization::Json::accept(*text))
+            return fail("'{}' is not valid JSON", path.string());
+        return serialization::Json::parse(*text);
     }
 }

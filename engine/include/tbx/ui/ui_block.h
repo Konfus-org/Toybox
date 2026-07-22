@@ -1,16 +1,16 @@
 #pragma once
 #include "tbx/assets/asset_handle.h"
+#include "tbx/ecs/block.h"
 #include "tbx/gfx/shader_source.h"
 #include "tbx/ui/ui_document.h"
 #include "tbx/utils/api.h"
-
 
 namespace tbx
 {
     /// @brief
     /// Purpose: On-screen UI owned by a toy: an RML document shown while the toy lives and
     /// is enabled (the render graph's ui pass manages loading/visibility).
-    struct TBX_API Ui
+    struct TBX_API Ui : Block
     {
         AssetHandle<UiDocument> document = {};
         AssetHandle<ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert

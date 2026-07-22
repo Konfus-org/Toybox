@@ -1,8 +1,10 @@
 #include "tbx/ecs/sandbox.h"
+#include "tbx/utils/hash.h"
 #include "tbx/assets/assets.h"
 #include "tbx/math/transform.h"
 #include "tbx/app.h"
 #include "tbx/debug/log.h"
+#include "tbx/reflection/reflection.h"
 
 namespace tbx
 {
@@ -10,7 +12,7 @@ namespace tbx
 
     Sandbox::Sandbox()
     {
-        register_builtin_blocks();
+        reflection::initialize();
     }
 
     Toy Sandbox::spawn(std::string name)
@@ -92,30 +94,46 @@ namespace tbx
         return Toy(*this, link->parent);
     }
 
-    Mat4 Sandbox::get_world_matrix(Toy toy)
+    Mat4 Sandbox::get_world_matrix(Toy toy) const
     {
-        const auto& transform = _registry.get_or_emplace<Transform>(toy.get_id());
-        const Mat4 local = math::translate(Mat4(1.0f), transform.position)
-            * math::to_mat4(transform.rotation) * math::scale(Mat4(1.0f), transform.scale);
-        const auto parent = get_parent(toy);
-        if (!parent)
-            return local;
-        return get_world_matrix(*parent) * local;
+        // A pure read walking the ParentLink chain by id: every toy gets its Transform at
+        // spawn, so a missing one is a default, never an insertion.
+        auto world = Mat4(1.0f);
+        for (auto at = toy.get_id(); at != NULL_TOY && _registry.valid(at);)
+        {
+            const auto* transform = _registry.try_get<Transform>(at);
+            const auto local_transform = transform ? *transform : Transform {};
+            const Mat4 local = math::translate(Mat4(1.0f), local_transform.position)
+                * math::to_mat4(local_transform.rotation)
+                * math::scale(Mat4(1.0f), local_transform.scale);
+            world = local * world;
+            const auto* link = _registry.try_get<ParentLink>(at);
+            at = link ? link->parent : NULL_TOY;
+        }
+        return world;
     }
 
     //// SANDBOX: KITS ////
 
-    Result<KitInstance> Sandbox::spawn(const AssetHandle<Kit>& kit, const Vec3& position)
+    Result<KitInstance> Sandbox::spawn(
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        const AssetHandle<Kit>& kit,
+        const Vec3& position)
     {
-        const auto loaded = assets::load_now(kit);
+        const auto loaded = assets::load_now(assets, events, kit);
         if (!loaded)
             return fail("kit '{}': {}", kit.path, loaded.error());
-        return load(*this, loaded->get(), position);
+        return load(*this, assets, events, loaded->get(), position);
     }
 
-    Result<KitInstance> Sandbox::spawn(const Kit& kit, const Vec3& position)
+    Result<KitInstance> Sandbox::spawn(
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        const Kit& kit,
+        const Vec3& position)
     {
-        return load(*this, kit, position);
+        return load(*this, assets, events, kit, position);
     }
 
     void Sandbox::despawn(KitInstance instance)
@@ -139,53 +157,51 @@ namespace tbx
         _registry.clear(); // every toy, kit-spawned or not
     }
 
-    Result<void> Sandbox::open(const Box& box)
+    Result<void> Sandbox::open(
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        const Box& box)
     {
-        try
+        for (const BoxEntry& entry : box.kits)
         {
-            for (const BoxEntry& entry : box.kits)
+            if (entry.mode == KitMode::ALWAYS)
             {
-                if (entry.mode == KitMode::ALWAYS)
-                {
-                    auto loaded = spawn(entry.kit, entry.position);
-                    if (!loaded)
-                        return std::unexpected(loaded.error());
-                    continue;
-                }
-
-                // Streamed: remember the entry + the bounds its kit saved; the body itself
-                // reloads on demand (assets cache it in the meantime).
-                const auto kit = assets::load_now(entry.kit);
-                if (!kit)
-                    return fail("kit '{}': {}", entry.kit.path, kit.error());
-                auto streamed = StreamedEntry {};
-                streamed.kit = entry.kit;
-                streamed.position = entry.position;
-                const serialization::Json bounds = kit->get().body.value("bounds", serialization::Json::object());
-                if (bounds.contains("center"))
-                    streamed.bounds_center = Vec3(
-                        bounds["center"].at(0).get<float>(),
-                        bounds["center"].at(1).get<float>(),
-                        bounds["center"].at(2).get<float>());
-                streamed.bounds_radius = bounds.value("radius", 0.0f);
-                _streamed_entries.push_back(std::move(streamed));
+                auto loaded = spawn(assets, events, entry.kit, entry.position);
+                if (!loaded)
+                    return std::unexpected(loaded.error());
+                continue;
             }
-        }
-        catch (const serialization::Json::exception& e)
-        {
-            return fail("malformed kit bounds: {}", e.what());
+
+            // Streamed: remember the entry + the bounds its kit saved; the kit itself
+            // reloads on demand (assets cache it in the meantime).
+            const auto kit = assets::load_now(assets, events, entry.kit);
+            if (!kit)
+                return fail("kit '{}': {}", entry.kit.path, kit.error());
+            auto streamed = StreamedEntry {};
+            streamed.kit = entry.kit;
+            streamed.position = entry.position;
+            streamed.bounds_center = kit->get().bounds_center;
+            streamed.bounds_radius = kit->get().bounds_radius;
+            _streamed_entries.push_back(std::move(streamed));
         }
         return {};
     }
 
-    void Sandbox::stream(const Vec3& focus)
+    void Sandbox::stream(
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        jobs::JobsState& jobs,
+        const Vec3& focus)
     {
         _stream_focus = focus;
         _has_stream_focus = true;
-        process_streaming();
+        process_streaming(assets, events, jobs);
     }
 
-    void Sandbox::process_streaming()
+    void Sandbox::process_streaming(
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        jobs::JobsState& jobs)
     {
         if (!_has_stream_focus)
             return;
@@ -207,14 +223,19 @@ namespace tbx
                 // worker never touches sandbox state, and the body is copied out so the
                 // asset cache may drop its copy at any time.
                 jobs::start(
-                    [](Sandbox& sandbox, size index, AssetHandle<Kit> kit) -> Task<void>
+                    [](assets::AssetsState& assets,
+                       events::EventsState& events,
+                       jobs::JobsState& jobs,
+                       Sandbox& sandbox,
+                       size index,
+                       AssetHandle<Kit> kit) -> Task<void>
                     {
-                        co_await jobs::on_worker();
-                        auto loaded = assets::load_now(kit);
+                        co_await jobs::on_worker(jobs);
+                        auto loaded = assets::load_now(assets, events, kit);
                         auto body = loaded
                             ? Result<Kit>(loaded->get())
                             : Result<Kit>(std::unexpected(loaded.error()));
-                        co_await jobs::on_main();
+                        co_await jobs::on_main(jobs);
                         StreamedEntry& target = sandbox._streamed_entries[index];
                         target.is_loading = false;
                         if (!body)
@@ -222,7 +243,7 @@ namespace tbx
                             TBX_ERROR("streamed kit '{}': {}", target.kit.path, body.error());
                             co_return;
                         }
-                        auto spawned = load(sandbox, *body, target.position);
+                        auto spawned = load(sandbox, assets, events, *body, target.position);
                         if (!spawned)
                         {
                             TBX_ERROR(
@@ -232,7 +253,7 @@ namespace tbx
                             co_return;
                         }
                         target.instance = *spawned;
-                    }(*this, i, entry.kit));
+                    }(assets, events, jobs, *this, i, entry.kit));
             }
             else if (is_loaded && distance >= entry.bounds_radius + STREAM_UNLOAD_MARGIN)
             {

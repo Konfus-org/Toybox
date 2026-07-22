@@ -1,10 +1,5 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/assets/assets.h"
-#include "tbx/utils/color.h"
-#include "tbx/math/math.h"
-#include "tbx/utils/result.h"
-#include "tbx/utils/typedefs.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/depth_target.h"
 #include "tbx/gfx/mesh.h"
@@ -12,14 +7,21 @@
 #include "tbx/gfx/render_pass.h"
 #include "tbx/gfx/render_target.h"
 #include "tbx/gfx/shader.h"
+#include "tbx/gfx/texture.h"
 #include "tbx/gfx/texture2d.h"
 #include "tbx/gfx/texture_binding.h"
+#include "tbx/math/math.h"
 #include "tbx/serialization/json.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/color.h"
+#include "tbx/utils/result.h"
+#include "tbx/utils/typedefs.h"
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 
 // The concrete GPU boundary (see cmake/tbx_backend.cmake). The selected gfx backend folder
 // (gfx/gl/) implements these; its library types/calls never escape that folder. The surface
@@ -40,6 +42,11 @@ namespace tbx::gpu
     };
 
     /// @brief
+    /// Purpose: Initializes the selected backend's GPU access; must run once after window
+    /// creation. Each backend loads its functions its own way — no platform types leak here.
+    TBX_API void initialize();
+
+    /// @brief
     /// Purpose: Acquires the frame and begins the swapchain render pass, cleared. Hosts call
     /// begin_frame, then draw (directly or via render()), then tbx::run presents.
     TBX_API void begin_frame(const FrameDescription& description = {});
@@ -56,8 +63,8 @@ namespace tbx::gpu
     /// @brief
     /// Purpose: Compiles and links a shader module from backend-native source (GLSL for gl/).
     TBX_API Result<std::unique_ptr<Shader>> compile_shader(
-        const char* vertex_source,
-        const char* fragment_source);
+        std::string_view vertex_source,
+        std::string_view fragment_source);
 
     /// @brief
     /// Purpose: Bakes a pipeline-state object (shader + depth/cull/blend).
@@ -81,13 +88,13 @@ namespace tbx::gpu
     TBX_API int get_viewport_width();
 
     /// @brief
-    /// Purpose: Initializes the selected backend's GPU access; must run once after window
-    /// creation. Each backend loads its functions its own way — no platform types leak here.
-    TBX_API void initialize();
-
-    /// @brief
     /// Purpose: Reads back one pixel from the current framebuffer — verification/tooling.
     TBX_API Color read_pixel(int x, int y);
+
+    /// @brief
+    /// Purpose: Reads the current framebuffer into an RGBA8 Texture (top-down rows) at the
+    /// current viewport size — capture right before the frame presents.
+    TBX_API Result<void> screenshot(Texture& result);
 
     /// @brief
     /// Purpose: The clear color of the most recent begin_frame()/CLEAR pass — offscreen
@@ -103,18 +110,17 @@ namespace tbx::gpu
     TBX_API void set_viewport(int width, int height);
 
     /// @brief
+    /// Purpose: Sets a sub-rectangle viewport for subsequent draws within the current pass
+    /// (camera viewports; origin bottom-left). Pass boundaries reset to the full drawable.
+    TBX_API void set_viewport(int x, int y, int width, int height);
+
+    /// @brief
     /// Purpose: Creates a square depth-only render target for shadow maps.
     TBX_API std::unique_ptr<DepthTarget> make_depth_target(int resolution);
 
     /// @brief
     /// Purpose: Creates an offscreen color+depth render target.
     TBX_API std::unique_ptr<RenderTarget> make_render_target(int width, int height);
-
-    /// @brief
-    /// Purpose: The easy default: renders the sandbox by running the app's render graph with
-    /// the app's assets. Not a backend function — author rendering by reshaping the graph
-    /// (get_render_graph()) or by driving passes/pipelines yourself.
-    TBX_API void render(Sandbox& sandbox);
 
     /// @brief
     /// Purpose: Applies a bag of named values ({"u_tint": [1,0,0,1], "u_shine": 0.5, ...}) to
@@ -130,6 +136,8 @@ namespace tbx::gpu
     /// Purpose: Sets a per-draw uniform by name (overloads per type) — the push-constant
     /// layer: name-keyed here, routed by each backend through its reflection (GL uniforms
     /// today; a uniform-buffer write in bind-group APIs).
+    /// C boundary: uniform names go null-terminated straight into the graphics API on the
+    /// per-draw hot path — const char* is deliberate.
     TBX_API void set_uniform(const Shader& shader, const char* name, const Mat4& value);
     TBX_API void set_uniform(const Shader& shader, const char* name, const Vec2& value);
     TBX_API void set_uniform(const Shader& shader, const char* name, const Vec3& value);

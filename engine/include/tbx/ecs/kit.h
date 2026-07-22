@@ -1,24 +1,68 @@
 #pragma once
+#include "tbx/assets/asset.h"
+#include "tbx/assets/asset_handle.h"
+#include "tbx/assets/assets.h"
 #include "tbx/assets/load.h"
 #include "tbx/ecs/toy.h"
+#include "tbx/events/events.h"
 #include "tbx/math/math.h"
 #include "tbx/serialization/json.h"
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
+#include "tbx/utils/uuid.h"
+#include <any>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace tbx
 {
     class Sandbox;
+    // Kit and KitReference reference each other (a kit holds references to other kits), so
+    // the type introduces itself before its definition below.
+    struct TBX_API Kit;
 
     /// @brief
-    /// Purpose: A set of things: toys (with their blocks and stickers) plus references to
-    /// other kits, recursively — one concept covering prefab, scene, level, and chunk. A kit
-    /// is an ordinary asset (AssetHandle<Kit>, .kit files); the body is its parsed serialized
-    /// form, and only the kit save/load pair below looks inside it.
-    struct TBX_API Kit
+    /// Purpose: One block on a kit toy, strongly typed in memory: the reflected type's name
+    /// hash plus a boxed instance of it (an empty value or unknown type skips on load).
+    struct TBX_API KitBlock
     {
-        serialization::Json body = {};
+        uint64 type = 0;
+        std::any value = {};
+    };
+
+    /// @brief
+    /// Purpose: One toy inside a kit: identity for parent links (fresh live uuids are minted
+    /// on load), enablement, stickers, and its blocks.
+    struct TBX_API KitToy
+    {
+        Uuid uuid = {};
+        std::string name = "Toy";
+        bool is_enabled = true;
+        Uuid parent = {}; // another kit toy's uuid; nil = root
+        std::vector<std::string> stickers = {};
+        std::vector<KitBlock> blocks = {};
+    };
+
+    /// @brief
+    /// Purpose: A nested kit reference: which kit and where it sits relative to the parent.
+    struct TBX_API KitReference
+    {
+        AssetHandle<Kit> kit = {};
+        Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
+    };
+
+    /// @brief
+    /// Purpose: A set of things, strongly typed in memory: toys (with their blocks and
+    /// stickers) plus references to other kits, recursively — one concept covering prefab,
+    /// scene, level, and chunk. A kit is an ordinary asset (AssetHandle<Kit>, .kit files);
+    /// JSON exists only at the load<Kit>/to_json serialize boundary.
+    struct TBX_API Kit : Asset
+    {
+        std::vector<KitToy> toys = {};
+        std::vector<KitReference> kits = {};
+        Vec3 bounds_center = Vec3(0.0f, 0.0f, 0.0f);
+        float bounds_radius = 0.0f;
     };
 
     /// @brief
@@ -30,13 +74,26 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Loads a .kit file (validated JSON kit body).
+    /// Purpose: Loads a .kit file — the deserialize half of the kit's JSON boundary.
     template <>
     TBX_API Result<Kit> load<Kit>(const std::filesystem::path& path);
 
     /// @brief
+    /// Purpose: The kit's on-disk JSON form ({toys, kits, bounds}) — the serialize half of
+    /// the boundary; blocks write through their reflected types.
+    TBX_API serialization::Json to_json(const Kit& kit);
+
+    /// @brief
     /// Purpose: Serializes chosen toys (blocks, stickers, parent links, bounds) as a kit.
     TBX_API Kit save(Sandbox& sandbox, std::span<const Toy> toys);
+
+    /// @brief
+    /// Purpose: Serializes the whole sandbox — every live toy — as a kit.
+    TBX_API Result<Kit> save(Sandbox& sandbox);
+
+    /// @brief
+    /// Purpose: Serializes one toy (with its blocks and stickers) as a kit.
+    TBX_API Result<Kit> save(const Toy& toy);
 
     /// @brief
     /// Purpose: Instantiates a kit into a sandbox — the load half of save() round-trips and
@@ -45,6 +102,8 @@ namespace tbx
     /// offsets every parentless toy.
     TBX_API Result<KitInstance> load(
         Sandbox& sandbox,
+        assets::AssetsState& assets,
+        events::EventsState& events,
         const Kit& kit,
         const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f));
 }

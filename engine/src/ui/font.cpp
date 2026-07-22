@@ -11,6 +11,8 @@ namespace tbx
             return std::unexpected(data.error());
         if (data->empty())
             return fail("'{}' is empty — not a font", path.string());
-        return Font {.data = std::move(*data)};
+        auto font = Font();
+        font.data = std::move(*data);
+        return ok(std::move(font));
     }
 }

@@ -37,7 +37,7 @@ namespace tbx::debug
     template <typename... TArgs>
     void log_message(
         const LogLevel level,
-        const char* source_file,
+        const std::string_view source_file,
         const int source_line,
         std::format_string<TArgs...> format,
         TArgs&&... args)

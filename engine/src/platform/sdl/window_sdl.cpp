@@ -1,27 +1,59 @@
 #include "tbx/platform/window.h"
 #include "tbx/debug/log.h"
+#include "tbx/gfx/gpu.h"
 #include "tbx/platform/input.h"
 #include <SDL3/SDL.h>
+#include <optional>
 
-namespace tbx
+namespace tbx::windows
 {
+    // One shared GL context serves every window (SDL makes it current against any of them):
+    // created with the first backend, destroyed when the last backend dies. GL-context
+    // mirrors are the sanctioned mutable process statics.
+    static SDL_GLContext g_gl_context = nullptr;
+    static int g_backend_count = 0;
+
     /// @brief
-    /// Purpose: SDL-side window state; lives behind the Window boundary so SDL types never
-    /// escape this backend folder.
-    struct Window::State
+    /// Purpose: SDL-side window handles; live behind the Window::Backend seam so SDL types
+    /// never escape this backend folder. Applied-* fields diff against the Window's data each
+    /// update. The destructor releases the OS window; the last one down takes the shared GL
+    /// context and SDL itself with it.
+    struct Window::Backend
     {
+        Backend() = default;
+        ~Backend()
+        {
+            if (window)
+                SDL_DestroyWindow(window);
+            --g_backend_count;
+            if (g_backend_count == 0)
+            {
+                if (g_gl_context)
+                {
+                    SDL_GL_DestroyContext(g_gl_context);
+                    g_gl_context = nullptr;
+                }
+                SDL_Quit();
+            }
+        }
+
+        Backend(const Backend&) = delete;
+        Backend& operator=(const Backend&) = delete;
+
         SDL_Window* window = nullptr;
-        SDL_GLContext gl_context = nullptr;
-        int width = 0;
-        int height = 0;
-        bool is_headless = false;
-        WindowState state = WindowState::OPEN;
+        SDL_WindowID id = 0;
+        std::string applied_title = {};
+        bool applied_vsync = false;
+        // Identity of the applied icon pixels: a re-set icon arrives as a freshly allocated
+        // vector, so the data pointer changing is a cheap change check.
+        const void* applied_icon = nullptr;
         CursorMode applied_cursor_mode = CursorMode::NORMAL;
+        bool is_first_frame = true;
     };
 
     //// TRANSLATION ////
 
-    static Key translate_key(SDL_Scancode scancode)
+    static Key translate_key(const SDL_Scancode scancode)
     {
         // Contiguous SDL ranges map onto contiguous Key ranges.
         if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z)
@@ -106,7 +138,7 @@ namespace tbx
         }
     }
 
-    static MouseButton translate_mouse_button(Uint8 button)
+    static MouseButton translate_mouse_button(const Uint8 button)
     {
         switch (button)
         {
@@ -121,93 +153,166 @@ namespace tbx
         }
     }
 
-    //// WINDOW ////
+    //// BACKEND LIFECYCLE ////
 
-    Window::Window(const WindowDescription& description)
+    static void open_backend(Window& window)
     {
-        _state = std::make_unique<State>();
-        _state->width = description.width;
-        _state->height = description.height;
-        _state->is_headless = description.is_headless;
-        if (description.is_headless)
-            return;
-
-        if (!SDL_Init(SDL_INIT_VIDEO))
+        if (g_backend_count == 0)
         {
-            TBX_ERROR("SDL_Init failed: {}", SDL_GetError());
-            std::abort();
+            if (!SDL_Init(SDL_INIT_VIDEO))
+            {
+                TBX_ERROR("SDL_Init failed: {}", SDL_GetError());
+                std::abort();
+            }
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+            SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         }
 
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-        _state->window = SDL_CreateWindow(
-            description.title.c_str(),
-            description.width,
-            description.height,
+        auto backend = std::make_unique<Window::Backend>();
+        ++g_backend_count; // paired with the decrement in ~Backend
+        backend->window = SDL_CreateWindow(
+            window.title.c_str(),
+            window.width,
+            window.height,
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-        if (!_state->window)
+        if (!backend->window)
         {
             TBX_ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
             std::abort();
         }
+        backend->id = SDL_GetWindowID(backend->window);
+        backend->applied_title = window.title;
 
-        _state->gl_context = SDL_GL_CreateContext(_state->window);
-        if (!_state->gl_context)
+        if (!g_gl_context)
         {
-            TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
-            std::abort();
+            g_gl_context = SDL_GL_CreateContext(backend->window);
+            if (!g_gl_context)
+            {
+                TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
+                std::abort();
+            }
+            gpu::initialize();
         }
-        SDL_GL_SetSwapInterval(1);
-        SDL_GetWindowSizeInPixels(_state->window, &_state->width, &_state->height);
+        SDL_GL_MakeCurrent(backend->window, g_gl_context);
+        // The swap interval sticks per window surface, not per context.
+        SDL_GL_SetSwapInterval(window.is_vsync_enabled ? 1 : 0);
+        backend->applied_vsync = window.is_vsync_enabled;
+
+        SDL_GetWindowSizeInPixels(backend->window, &window.width, &window.height);
+        // Custom-pipeline hosts call gpu::begin_frame between run() calls without touching
+        // the viewport; keep the gpu drawable mirror sized to the current window for them.
+        gpu::set_viewport(window.width, window.height);
+        window.backend = std::move(backend);
     }
 
-    Window::~Window()
+    static void apply_window_data(Window& window)
     {
-        if (_state->gl_context)
-            SDL_GL_DestroyContext(_state->gl_context);
-        if (_state->window)
+        Window::Backend& backend = *window.backend;
+        if (window.title != backend.applied_title)
         {
-            SDL_DestroyWindow(_state->window);
-            SDL_Quit();
+            SDL_SetWindowTitle(backend.window, window.title.c_str());
+            backend.applied_title = window.title;
         }
-    }
-
-    bool Window::is_headless() const
-    {
-        return _state->is_headless;
-    }
-
-    int Window::get_height() const
-    {
-        return _state->height;
-    }
-
-    WindowState Window::get_state() const
-    {
-        return _state->state;
-    }
-
-    void Window::pump()
-    {
-        if (_state->is_headless)
-            return;
-
-        // Gameplay asks for a cursor mode through input; the window owns the OS cursor, so
-        // the request is applied here. LOCKED = SDL relative mode: invisible, pinned to the
-        // window, movement arriving purely as deltas.
-        const CursorMode cursor_mode = input::get_cursor_mode();
-        if (cursor_mode != _state->applied_cursor_mode)
+        if (window.is_vsync_enabled != backend.applied_vsync)
         {
-            SDL_SetWindowRelativeMouseMode(_state->window, cursor_mode == CursorMode::LOCKED);
-            if (cursor_mode == CursorMode::NORMAL)
-                SDL_ShowCursor();
+            SDL_GL_MakeCurrent(backend.window, g_gl_context);
+            SDL_GL_SetSwapInterval(window.is_vsync_enabled ? 1 : 0);
+            backend.applied_vsync = window.is_vsync_enabled;
+        }
+        if (!window.icon_pixels.empty() && window.icon_pixels.data() != backend.applied_icon
+            && window.icon_width > 0 && window.icon_height > 0
+            && window.icon_pixels.size()
+                   >= static_cast<size>(window.icon_width) * window.icon_height * 4)
+        {
+            SDL_Surface* surface = SDL_CreateSurfaceFrom(
+                window.icon_width,
+                window.icon_height,
+                SDL_PIXELFORMAT_RGBA32,
+                // SDL takes a non-const pointer; the surface only reads and is destroyed
+                // below.
+                const_cast<std::byte*>(window.icon_pixels.data()),
+                window.icon_width * 4);
+            if (surface)
+            {
+                SDL_SetWindowIcon(backend.window, surface);
+                SDL_DestroySurface(surface);
+            }
             else
-                SDL_HideCursor();
-            _state->applied_cursor_mode = cursor_mode;
+                TBX_WARN("window icon surface failed: {}", SDL_GetError());
+            backend.applied_icon = window.icon_pixels.data();
+        }
+    }
+
+    //// EVENT ROUTING ////
+
+    static std::optional<std::reference_wrapper<Window>> find_window(
+        WindowsState& state,
+        const SDL_WindowID id)
+    {
+        for (Window& window : state.windows)
+            if (window.backend && window.backend->id == id)
+                return window;
+        return {};
+    }
+
+    static void close_window(Window& window)
+    {
+        // The OS window hides now but its backend lives until the Window itself dies: the
+        // shared GL context (and every GPU cache above it) must outlive this frame.
+        window.status = WindowStatus::CLOSED;
+        SDL_HideWindow(window.backend->window);
+    }
+
+    //// WINDOW ////
+
+    Window::Window() = default;
+    Window::~Window() = default;
+    Window::Window(Window&&) noexcept = default;
+    Window& Window::operator=(Window&&) noexcept = default;
+
+    //// WINDOWS ////
+
+    void update(
+        WindowsState& state,
+        input::InputState& input,
+        events::EventsState& events)
+    {
+        for (Window& window : state.windows)
+        {
+            if (window.status != WindowStatus::OPEN)
+                continue;
+            if (!window.backend)
+                open_backend(window);
+            Window::Backend& backend = *window.backend;
+            // Present what was drawn since the last update; a fresh backend has nothing yet.
+            if (!backend.is_first_frame)
+                SDL_GL_SwapWindow(backend.window);
+            backend.is_first_frame = false;
+            apply_window_data(window);
+        }
+        if (g_backend_count == 0)
+            return; // headless — no OS windows, nothing to pump
+
+        // Gameplay asks for a cursor mode through input; the main window owns the OS cursor.
+        // LOCKED = SDL relative mode: invisible, pinned to the window, movement arriving
+        // purely as deltas.
+        if (Window& main = state.windows.front(); main.backend)
+        {
+            const CursorMode cursor_mode = input.cursor_mode;
+            if (cursor_mode != main.backend->applied_cursor_mode)
+            {
+                SDL_SetWindowRelativeMouseMode(
+                    main.backend->window,
+                    cursor_mode == CursorMode::LOCKED);
+                if (cursor_mode == CursorMode::NORMAL)
+                    SDL_ShowCursor();
+                else
+                    SDL_HideCursor();
+                main.backend->applied_cursor_mode = cursor_mode;
+            }
         }
 
         auto event = SDL_Event {};
@@ -216,9 +321,14 @@ namespace tbx
             switch (event.type)
             {
                 case SDL_EVENT_QUIT:
+                    for (Window& window : state.windows)
+                        if (window.backend && window.status == WindowStatus::OPEN)
+                            close_window(window);
+                    break;
                 case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                    _state->state = WindowState::CLOSED;
-                    return;
+                    if (const auto window = find_window(state, event.window.windowID))
+                        close_window(window->get());
+                    break;
                 case SDL_EVENT_KEY_DOWN:
                 case SDL_EVENT_KEY_UP:
                 {
@@ -226,13 +336,14 @@ namespace tbx
                     if (key == Key::UNKNOWN)
                         break;
                     if (!event.key.repeat)
-                        input::feed_key(key, event.key.down);
-                    events::key().emit(
+                        input::feed_key(input, key, event.key.down);
+                    events.key.emit(
                         {.key = key, .is_down = event.key.down, .is_repeat = event.key.repeat != 0});
                     break;
                 }
                 case SDL_EVENT_MOUSE_MOTION:
                     input::feed_mouse_move(
+                        input,
                         Vec2(event.motion.x, event.motion.y),
                         Vec2(event.motion.xrel, event.motion.yrel));
                     break;
@@ -241,17 +352,24 @@ namespace tbx
                 {
                     const MouseButton button = translate_mouse_button(event.button.button);
                     if (button != MouseButton::COUNT)
-                        input::feed_mouse_button(button, event.button.down);
+                        input::feed_mouse_button(input, button, event.button.down);
                     break;
                 }
                 case SDL_EVENT_MOUSE_WHEEL:
-                    input::feed_scroll(event.wheel.y);
+                    input::feed_scroll(input, event.wheel.y);
                     break;
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                    _state->width = event.window.data1;
-                    _state->height = event.window.data2;
-                    events::window_resized().emit(
-                        {.width = _state->width, .height = _state->height});
+                    if (const auto window = find_window(state, event.window.windowID))
+                    {
+                        window->get().width = event.window.data1;
+                        window->get().height = event.window.data2;
+                        // The engine's render loop re-sizes the gpu drawable per window;
+                        // the mirror tracks the main window for custom-pipeline hosts.
+                        if (&window->get() == &state.windows.front())
+                            gpu::set_viewport(event.window.data1, event.window.data2);
+                        events.window_resized.emit(
+                            {.width = event.window.data1, .height = event.window.data2});
+                    }
                     break;
                 default:
                     break;
@@ -259,49 +377,9 @@ namespace tbx
         }
     }
 
-    void Window::set_title(const std::string& title)
+    void make_current(const Window& window)
     {
-        if (_state->window)
-            SDL_SetWindowTitle(_state->window, title.c_str());
-    }
-
-    void Window::set_vsync(const bool is_enabled)
-    {
-        if (_state->window)
-            SDL_GL_SetSwapInterval(is_enabled ? 1 : 0);
-    }
-
-    void Window::set_icon(
-        const int width,
-        const int height,
-        const std::span<const std::byte> rgba_pixels)
-    {
-        if (!_state->window || width <= 0 || height <= 0
-            || rgba_pixels.size() < static_cast<size>(width) * height * 4)
-            return;
-        SDL_Surface* surface = SDL_CreateSurfaceFrom(
-            width,
-            height,
-            SDL_PIXELFORMAT_RGBA32,
-            const_cast<std::byte*>(rgba_pixels.data()),
-            width * 4);
-        if (!surface)
-        {
-            TBX_WARN("window icon surface failed: {}", SDL_GetError());
-            return;
-        }
-        SDL_SetWindowIcon(_state->window, surface);
-        SDL_DestroySurface(surface);
-    }
-
-    void Window::swap()
-    {
-        if (_state->window)
-            SDL_GL_SwapWindow(_state->window);
-    }
-
-    int Window::get_width() const
-    {
-        return _state->width;
+        if (window.backend)
+            SDL_GL_MakeCurrent(window.backend->window, g_gl_context);
     }
 }

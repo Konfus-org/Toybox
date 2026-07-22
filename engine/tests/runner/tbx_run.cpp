@@ -2,16 +2,16 @@
 #include "tbx/utils/typedefs.h"
 #include "tbx/app.h"
 #include "tbx/debug/debug_view.h"
+#include "tbx/runtime.h"
 #include "tbx/assets/builtin.h"
 #include "tbx/ecs/sandbox.h"
 #include "tbx/gfx/gpu.h"
 #include "tbx/ui/ui.h"
+#include "tbx/utils/command_list.h"
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <cstring>
 #include <memory>
-#include <string>
 
 static constexpr const char* TRIANGLE_VERTEX_SHADER = R"(#version 460 core
 layout(location = 0) in vec3 in_position;
@@ -60,8 +60,10 @@ static int run_scene_selftest()
 {
     // The engine resources folder doubles as the asset root: the red cube's material is an
     // engine-shipped asset (color comes from materials now, not renderer tints).
-    auto app = tbx::App {
-        .config = {.title = "Toybox 2 scene", .asset_root = TBX_RESOURCES_PATH}};
+    auto app = tbx::App();
+    app.config.title = "Toybox 2 scene";
+    app.config.root_dir = TBX_RESOURCES_PATH;
+    auto runtime = tbx::Runtime(std::move(app));
     float shadowed_brightness = -1.0f;
     float unshadowed_brightness = -1.0f;
     bool cube_is_red = false;
@@ -69,13 +71,14 @@ static int run_scene_selftest()
     bool reflection_works = false;
     tbx::Toy camera = {};
     auto stats = SelftestStats {};
-    tbx::ui::bind(stats.frames, "scene_frames");
+    tbx::ui::bind(runtime.state->ui, stats.frames, "scene_frames");
 
-    while (tbx::run(app))
+    while (tbx::run(runtime))
     {
-        stats.frames = static_cast<int>(app.state.frame);
-        auto& sandbox = tbx::get_sandbox();
-        if (app.state.frame == 1)
+        const uint64 frame = runtime.state->frame.index;
+        auto& sandbox = runtime.state->sandbox;
+        stats.frames = static_cast<int>(frame);
+        if (frame == 1)
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
@@ -97,28 +100,26 @@ static int run_scene_selftest()
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).
-        if (app.state.frame == 3)
+        if (frame == 3)
             camera.get_block<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
-        if (app.state.frame == 5)
+        if (frame == 5)
             camera.get_block<tbx::Transform>() = tbx::Transform {
                 .position = tbx::Vec3(-2.0f, 10.0f, 0.0f),
                 .rotation = look_toward(tbx::Vec3(0.0f, -1.0f, 0.0f))};
 
-        if (app.state.frame == 1)
-            tbx::debug::view::set_open(true); // exercised alongside the scene: text + overlay path
+        if (frame == 1)
+            runtime.state->debug.is_open = true; // the scene exercises the overlay path
 
-        tbx::gpu::render(sandbox); // owns begin_frame; the ui pass renders Ui blocks
-
-        const auto& window = tbx::get_window();
-        const tbx::Color center =
-            tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
-        if (app.state.frame == 2)
+        // run() already rendered through the builtin graph; probe the backbuffer directly.
+        const auto& window = runtime.state->windows.windows.front();
+        const tbx::Color center = tbx::gpu::read_pixel(window.width / 2, window.height / 2);
+        if (frame == 2)
         {
             cube_is_red = center.r > 0.25f && center.r > center.g * 2.0f;
-    // Shader reflection: an arbitrary shader's uniform schema is discoverable and drivable.
-        {
+            // Shader reflection: an arbitrary shader's uniform schema is discoverable and
+            // drivable.
             auto probe = tbx::gpu::compile_shader(
                 R"(#version 460 core
 uniform mat4 u_model;
@@ -130,7 +131,7 @@ out vec4 c; void main() { c = vec4(1.0); })");
             if (probe)
             {
                 const auto info = tbx::gpu::reflect(**probe);
-                auto found = 0;
+                int found = 0;
                 for (const auto& uniform : info.uniforms)
                 {
                     if (uniform.name == "u_model" && uniform.kind == tbx::gpu::UniformKind::MAT4)
@@ -146,20 +147,19 @@ out vec4 c; void main() { c = vec4(1.0); })");
                 reflection_works = found == 3;
             }
         }
-        }
-        if (app.state.frame == 4)
+        if (frame == 4)
             shadowed_brightness = center.r + center.g + center.b;
-        if (app.state.frame == 6)
+        if (frame == 6)
             unshadowed_brightness = center.r + center.g + center.b;
-        if (app.state.frame == 6)
+        if (frame == 6)
         {
             // The UI panel owns the top-left corner (GL readback is y-up).
-            const tbx::Color corner = tbx::gpu::read_pixel(60, window.get_height() - 60);
+            const tbx::Color corner = tbx::gpu::read_pixel(60, window.height - 60);
             ui_panel_visible = corner.g > 0.8f && corner.r < 0.2f;
         }
 
-        if (app.state.frame >= 6)
-            tbx::quit();
+        if (frame >= 6)
+            tbx::quit(runtime);
     }
 
     const bool shadow_darkens = unshadowed_brightness > shadowed_brightness + 0.5f;
@@ -177,30 +177,30 @@ out vec4 c; void main() { c = vec4(1.0); })");
 
 int main(int argc, char** argv)
 {
-    int frame_limit = -1; // run until the window closes
-    bool selftest = false;
-    for (int i = 1; i < argc; ++i)
-    {
-        if (std::strcmp(argv[i], "--frames") == 0 && i + 1 < argc)
-            frame_limit = std::stoi(argv[++i]);
-        else if (std::strcmp(argv[i], "--selftest") == 0)
-        {
-            selftest = true;
-            if (frame_limit < 0)
-                frame_limit = 10;
-        }
-        else if (std::strcmp(argv[i], "--scene-selftest") == 0)
-            return run_scene_selftest();
-    }
+    const auto commands = tbx::CommandList(argc, argv);
+    if (commands.has("scene-selftest"))
+        return run_scene_selftest();
+    const bool selftest = commands.has("selftest");
+    // Default: run until the window closes; selftests probe and quit after a few frames.
+    const int frame_limit = commands.get<int>("frames", selftest ? 10 : -1);
 
-    auto app = tbx::App {.config = {.title = "Toybox 2"}};
+    // The runtime is declared before the GPU resources below, so scope exit releases them
+    // while the GL context is still alive — declaration order IS the teardown order.
+    // The triangle IS the host's own pipeline — opt out of the builtin graph.
+    auto app = tbx::App();
+    app.config.title = "Toybox 2";
+    app.config.root_dir = TBX_RESOURCES_PATH; // boot requires an asset root
+    app.settings.graphics.is_custom_pipeline = true;
+    app.commands = commands; // the runtime honors -w/-h and --screenshot
+    auto runtime = tbx::Runtime(std::move(app));
     bool selftest_passed = false;
     std::unique_ptr<tbx::gpu::Shader> shader = {};
     std::unique_ptr<tbx::gpu::Pipeline> pipeline = {};
     std::unique_ptr<tbx::gpu::Mesh> mesh = {};
 
-    while (tbx::run(app))
+    while (tbx::run(runtime))
     {
+        const uint64 frame = runtime.state->frame.index;
         if (!shader)
         {
             auto compiled =
@@ -222,24 +222,17 @@ int main(int argc, char** argv)
         if (selftest)
         {
             // The triangle covers the framebuffer center; the clear color does not.
-            const auto& window = tbx::get_window();
-            const tbx::Color center =
-                tbx::gpu::read_pixel(window.get_width() / 2, window.get_height() / 2);
+            const auto& window = runtime.state->windows.windows.front();
+            const tbx::Color center = tbx::gpu::read_pixel(window.width / 2, window.height / 2);
             const tbx::Color corner = tbx::gpu::read_pixel(2, 2);
             const bool center_is_triangle = center.r + center.g + center.b > 0.5f;
             const bool corner_is_clear = std::abs(corner.r - 0.08f) < 0.02f;
             selftest_passed = center_is_triangle && corner_is_clear;
         }
 
-        if (frame_limit >= 0 && app.state.frame >= static_cast<uint64>(frame_limit))
-            tbx::quit();
+        if (frame_limit >= 0 && frame >= static_cast<uint64>(frame_limit))
+            tbx::quit(runtime);
     }
-
-    // GPU resources must die before run() tears the context down... they already did not:
-    // release them explicitly before exit since the loop ended with the context gone.
-    pipeline.reset();
-    shader.reset();
-    mesh.reset();
 
     if (selftest)
     {

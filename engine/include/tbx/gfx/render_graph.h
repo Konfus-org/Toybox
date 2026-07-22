@@ -1,7 +1,13 @@
 #pragma once
 #include "tbx/assets/assets.h"
-#include "tbx/utils/api.h"
+#include "tbx/debug/debug_view.h"
 #include "tbx/ecs/sandbox.h"
+#include "tbx/events/events.h"
+#include "tbx/gfx/renderer_state.h"
+#include "tbx/platform/window.h"
+#include "tbx/ui/ui.h"
+#include "tbx/utils/api.h"
+#include "tbx/utils/uuid.h"
 #include <functional>
 #include <string>
 #include <string_view>
@@ -10,12 +16,30 @@
 namespace tbx
 {
     /// @brief
+    /// Purpose: Everything one frame of rendering reads and writes — the renderer's own
+    /// state plus the world, the states the builtin passes resolve through, and the window
+    /// being drawn. Built by run() (or a custom host) once per window per frame; passes
+    /// never see more of the runtime than this. is_main marks the first window — the one
+    /// carrying the shadow map, post chain, and UI.
+    struct TBX_API RenderContext
+    {
+        gpu::RendererState& renderer;
+        Sandbox& sandbox;
+        assets::AssetsState& assets;
+        events::EventsState& events;
+        ui::UiState& ui;
+        const debug::view::DebugState& debug;
+        const windows::Window& window;
+        bool is_main = true;
+    };
+
+    /// @brief
     /// Purpose: One pass of a frame — a named function drawing its slice through the tbx::gpu
     /// boundary (its own gpu render passes, pipelines, draws).
     struct TBX_API RenderPass
     {
         std::string name = {};
-        std::function<void(Sandbox& sandbox)> render = {};
+        std::function<void(RenderContext& context)> render = {};
     };
 
     /// @brief
@@ -56,7 +80,7 @@ namespace tbx
 
         /// @brief
         /// Purpose: Runs every pass in order — one full frame of rendering.
-        void render(Sandbox& sandbox);
+        void render(RenderContext& context);
 
       private:
         std::vector<RenderPass> _passes;
@@ -81,13 +105,10 @@ namespace tbx
     /// Purpose: Shows every enabled Ui block's document and renders the UI on top.
     TBX_API RenderPass make_ui_pass();
 
-    /// @brief
-    /// Purpose: Sets the shadow map resolution (applied when the shadow pass next runs).
-    TBX_API void set_shadow_resolution(int resolution);
 
     /// @brief
     /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
     /// compiled material pipelines, shown UI documents) — wired to the asset system's
     /// unload/reload events so caches follow asset lifetime instead of managing their own.
-    TBX_API void forget_asset(const Uuid& asset_id);
+    TBX_API void forget_asset(gpu::RendererState& renderer, const Uuid& asset_id);
 }

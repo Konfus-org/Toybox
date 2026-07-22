@@ -61,6 +61,13 @@ FetchContent_Declare(assimp
     PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/assimp_no_zi.cmake")
 FetchContent_MakeAvailable(glm spdlog nlohmann_json entt luau assimp)
 
+# Header-only seams ride into engine TUs through their interface include dirs; SYSTEM keeps
+# their headers out of our -Werror surface on every compiler (MSVC /external, clang -isystem).
+set_target_properties(EnTT PROPERTIES SYSTEM ON)
+set_target_properties(glm PROPERTIES SYSTEM ON)
+set_target_properties(nlohmann_json PROPERTIES SYSTEM ON)
+set_target_properties(spdlog PROPERTIES SYSTEM ON)
+
 if(TBX_PLATFORM_BACKEND STREQUAL "sdl")
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
@@ -132,6 +139,10 @@ if(TBX_PHYSICS_BACKEND STREQUAL "jolt")
     # Jolt's own /Zi collides (D9025) with the project-wide /Z7 embedded debug format, which
     # already covers its debug configs — so its hand-rolled symbol flag stays off.
     set(GENERATE_DEBUG_SYMBOLS OFF CACHE BOOL "" FORCE)
+    # Jolt defaults this OFF and leaks -D_HAS_EXCEPTIONS=0 through its INTERFACE defines into
+    # every consumer TU — which makes any engine `throw` (the nlohmann JSON boundary relies on
+    # exceptions) undefined behavior on MSVC (access violation instead of a catch).
+    set(CPP_EXCEPTIONS_ENABLED ON CACHE BOOL "" FORCE)
     FetchContent_Declare(JoltPhysics
         GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
         GIT_TAG v5.2.0

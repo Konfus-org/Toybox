@@ -1,4 +1,5 @@
 #pragma once
+#include "tbx/assets/asset.h"
 #include "tbx/assets/asset_handle.h"
 #include "tbx/assets/load.h"
 #include "tbx/ecs/kit.h"
@@ -30,13 +31,8 @@ namespace tbx
     /// @brief
     /// Purpose: A box of kits (.box files): the kit entries a sandbox opens with. ALWAYS
     /// entries load at open; STREAMED entries load/unload by distance.
-    struct TBX_API Box
+    struct TBX_API Box : Asset
     {
         std::vector<BoxEntry> kits = {};
     };
-
-    /// @brief
-    /// Purpose: Loads a .box file ({"kits": [{reference, mode, position}]}).
-    template <>
-    TBX_API Result<Box> load<Box>(const std::filesystem::path& path);
 }

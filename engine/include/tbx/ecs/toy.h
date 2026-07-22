@@ -120,6 +120,11 @@ namespace tbx
         Toy& with(TBlock block);
 
       private:
+        /// @brief
+        /// Purpose: The identity record every accessor reads/writes.
+        ToyHandle& get_handle() const;
+
+      private:
         std::optional<std::reference_wrapper<Sandbox>> _sandbox = {};
         ToyId _id = NULL_TOY;
     };

@@ -1,28 +1,43 @@
 #pragma once
-#include "tbx/utils/api.h"
 #include "tbx/assets/assets.h"
-#include "tbx/audio/audio_listener.h"
-#include "tbx/audio/audio_source.h"
 #include "tbx/ecs/sandbox.h"
+#include "tbx/events/events.h"
+#include "tbx/utils/api.h"
+#include <atomic>
+#include <memory>
 
-
-// The concrete audio boundary (see cmake/tbx_backend.cmake): audio/steamaudio/ implements it
-// and its library types never escape that folder. State lives in the backend's cpp;
-// initialization is lazy on first update.
+// The concrete audio boundary (see cmake/tbx_backend.cmake): audio/steamaudio/ implements
+// it and its library types never escape that folder. The state is runtime.audio; the master
+// volume is a plain (atomic) field.
 namespace tbx::audio
 {
     /// @brief
-    /// Purpose: Advances audio one frame: mirrors listener/source toys into the spatializer
-    /// (clips resolve through their handles) and keeps the output device fed. Called by
-    /// tbx::run() every frame.
-    TBX_API void update(Sandbox& sandbox, float delta_time);
+    /// Purpose: The audio module's state, held by value on the Runtime. The spatializer and
+    /// output device live behind the backend seam (audio/steamaudio/ defines Backend; library
+    /// types never escape that folder) and are built lazily on the first update.
+    struct TBX_API AudioState
+    {
+        AudioState();
+        ~AudioState();
+
+        AudioState(const AudioState&) = delete;
+        AudioState& operator=(const AudioState&) = delete;
+
+        // Written on the main thread, read on the audio thread.
+        std::atomic<float> master_volume = 1.0f;
+
+        struct Backend; // defined by the audio backend's .cpp
+        std::unique_ptr<Backend> backend;
+    };
 
     /// @brief
-    /// Purpose: Scales every mixed voice (applied on top of listener/source volumes).
-    void set_master_volume(float volume);
-
-    /// @brief
-    /// Purpose: Tears the audio engine down; the next update() starts fresh. run() calls this
-    /// at shutdown, tests between scenarios.
-    TBX_API void purge();
+    /// Purpose: Advances audio one frame: mirrors the sandbox's listener/source toys into
+    /// the spatializer (clips resolve through the asset states) and keeps the output device
+    /// fed. Called by tbx::run() every frame.
+    TBX_API void update(
+        AudioState& audio,
+        Sandbox& sandbox,
+        assets::AssetsState& assets,
+        events::EventsState& events,
+        float delta_time);
 }

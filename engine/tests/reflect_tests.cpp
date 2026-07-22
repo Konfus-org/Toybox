@@ -1,6 +1,6 @@
 #include "tbx/gfx/shader_source.h"
-#include "tbx/serialization/json_walker.h"
-#include "tbx/reflection/type_info.h"
+#include "tbx/serialization/json.h"
+#include "tbx/reflection/reflection.h"
 #include <gtest/gtest.h>
 
 namespace tbx::tests

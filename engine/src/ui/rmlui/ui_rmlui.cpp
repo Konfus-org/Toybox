@@ -4,11 +4,13 @@
 #include "tbx/gfx/gpu.h"
 #include "tbx/utils/hash.h"
 #include <RmlUi/Core.h>
+#include <array>
 #include <charconv>
 #include <filesystem>
 #include <format>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -110,7 +112,8 @@ namespace tbx::ui
                 dimensions.x,
                 dimensions.y,
                 std::span<const std::byte>(
-                    reinterpret_cast<const std::byte*>(source.data()), source.size()));
+                    reinterpret_cast<const std::byte*>(source.data()),
+                    source.size()));
             const auto handle = static_cast<Rml::TextureHandle>(_next_handle++);
             _textures[handle] = std::move(uploaded);
             return handle;
@@ -132,12 +135,17 @@ namespace tbx::ui
         {
             if (_scissor_enabled)
                 gpu::set_scissor(
-                    true, region.Left(), region.Top(), region.Width(), region.Height());
+                    true,
+                    region.Left(),
+                    region.Top(),
+                    region.Width(),
+                    region.Height());
         }
 
       public:
-        // Set by draw_to() around context rendering.
-        const gpu::Shader* shader = nullptr; // raw at the library boundary, like the contexts
+        // Set once when the pipeline compiles; non-owning views of UiState members with the
+        // exact same lifetime (raw at the RmlUi library boundary, like the contexts).
+        const gpu::Shader* shader = nullptr;
         const gpu::Texture2d* white_texture = nullptr;
 
       private:
@@ -160,15 +168,14 @@ namespace tbx::ui
     };
 
     /// @brief
-    /// Purpose: The whole UI stack, torn down by purge() and rebuilt lazily.
-    struct UiState
+    /// Purpose: The document/render stack behind the boundary, built lazily on the first
+    /// draw.
+    struct UiState::Backend
     {
         SystemInterface system = {};
         RenderInterface renderer = {};
-        std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash ^ target
-        std::unordered_map<std::string, std::string> bindings; // slot -> latest value
-        std::unordered_map<std::string, UiBinding> live_bindings; // evaluated every update
-        std::unique_ptr<gpu::Shader> shader;     // the builtin ui raster shaders (files)
+        std::unordered_map<uint64, DocumentEntry> documents; // keyed by content hash
+        std::unique_ptr<gpu::Shader> shader; // the builtin ui raster shaders (files)
         std::unique_ptr<gpu::Pipeline> pipeline; // premultiplied, no depth
         std::unique_ptr<gpu::Texture2d> white;
         // Registered face bytes: RmlUi references memory faces until Rml::Shutdown, so the
@@ -177,34 +184,39 @@ namespace tbx::ui
         uint64 frame = 1;
         bool is_initialized = false;
 
-        ~UiState()
+        ~Backend()
         {
             if (is_initialized)
                 Rml::Shutdown();
         }
     };
 
-    static std::unique_ptr<UiState> g_ui = {};
+    UiState::UiState() = default;
+    UiState::~UiState() = default;
+    UiState::UiState(UiState&& other) noexcept = default;
+    UiState& UiState::operator=(UiState&& other) noexcept = default;
+
     static constexpr uint64 UNDRAWN_FRAMES_BEFORE_CLOSE = 600;
 
-    static UiState* ensure_ui_ready()
+    static std::optional<std::reference_wrapper<UiState::Backend>> ensure_ui_ready(
+        UiState& ui_state)
     {
-        if (g_ui)
-            return g_ui.get();
-        auto state = std::make_unique<UiState>();
+        if (ui_state.backend)
+            return *ui_state.backend;
+        auto state = std::make_unique<UiState::Backend>();
         Rml::SetSystemInterface(&state->system);
         Rml::SetRenderInterface(&state->renderer);
         if (!Rml::Initialise())
         {
             TBX_ERROR("RmlUi initialization failed; ui disabled");
-            return nullptr;
+            return {};
         }
         state->is_initialized = true;
 
         // Fonts are not this boundary's policy: faces arrive as Font assets via set_font()
         // (the runtime registers the engine's builtin face at boot).
-        g_ui = std::move(state);
-        return g_ui.get();
+        ui_state.backend = std::move(state);
+        return *ui_state.backend;
     }
 
     //// BINDINGS ////
@@ -213,7 +225,7 @@ namespace tbx::ui
     /// Purpose: Pushes binding values into one element tree: data-text fills inner text,
     /// data-style replaces the style attribute. Applied values cache on the element so
     /// unchanged bindings never force relayout.
-    static void apply_bindings(UiState& state, Rml::Element* element)
+    static void apply_bindings(const UiState& state, Rml::Element* element)
     {
         if (const Rml::Variant* text_binding = element->GetAttribute("data-text"))
         {
@@ -229,29 +241,38 @@ namespace tbx::ui
             }
         }
         // Bars bind raw numbers: data-width="kills" data-width-scale="40" -> width in px.
-        for (const char* property : {"width", "height"})
+        // Attribute names are fixed - spelled out once so this per-element, per-frame walk
+        // never builds strings just to look them up.
+        struct SizeAttribute
         {
-            const auto attribute = std::format("data-{}", property);
-            const Rml::Variant* size_binding = element->GetAttribute(attribute);
+            const char* property;
+            const char* attribute;
+            const char* scale_attribute;
+            const char* applied_attribute;
+        };
+        static constexpr std::array<SizeAttribute, 2> SIZE_ATTRIBUTES = {
+            SizeAttribute {"width", "data-width", "data-width-scale", "data-applied-width"},
+            SizeAttribute {"height", "data-height", "data-height-scale", "data-applied-height"}};
+        for (const SizeAttribute& names : SIZE_ATTRIBUTES)
+        {
+            const Rml::Variant* size_binding = element->GetAttribute(names.attribute);
             if (!size_binding)
                 continue;
             const auto found = state.bindings.find(size_binding->Get<Rml::String>());
             if (found == state.bindings.end())
                 continue;
             auto scale = 1.0f;
-            if (const Rml::Variant* scale_attribute =
-                    element->GetAttribute(attribute + "-scale"))
+            if (const Rml::Variant* scale_attribute = element->GetAttribute(names.scale_attribute))
                 scale = scale_attribute->Get<float>();
             auto value = 0.0f;
-            const auto text = found->second;
+            const std::string& text = found->second;
             std::from_chars(text.data(), text.data() + text.size(), value);
             const auto pixels = std::format("{}px", value * scale);
-            const auto applied_key = std::format("data-applied-{}", property);
-            const Rml::Variant* applied = element->GetAttribute(applied_key);
+            const Rml::Variant* applied = element->GetAttribute(names.applied_attribute);
             if (!applied || applied->Get<Rml::String>() != pixels)
             {
-                element->SetProperty(property, pixels);
-                element->SetAttribute(applied_key, pixels);
+                element->SetProperty(names.property, pixels);
+                element->SetAttribute(names.applied_attribute, pixels);
             }
         }
         if (const Rml::Variant* style_binding = element->GetAttribute("data-style"))
@@ -277,7 +298,7 @@ namespace tbx::ui
     /// Purpose: The cached (context, document) pair for one document at one drawable size,
     /// created on first draw.
     static DocumentEntry* ensure_document(
-        UiState& state,
+        UiState::Backend& state,
         const UiDocument& document,
         const uint64 key,
         const int width,
@@ -286,8 +307,8 @@ namespace tbx::ui
         auto& entry = state.documents[key];
         if (!entry.context)
         {
-            entry.context = Rml::CreateContext(
-                std::format("tbx_{}", key), Rml::Vector2i(width, height));
+            entry.context =
+                Rml::CreateContext(std::format("tbx_{}", key), Rml::Vector2i(width, height));
             if (!entry.context)
             {
                 TBX_ERROR("RmlUi context creation failed");
@@ -305,7 +326,7 @@ namespace tbx::ui
         }
         if (!entry.document)
         {
-            entry.document = entry.context->LoadDocumentFromMemory(document.text);
+            entry.document = entry.context->LoadDocumentFromMemory(document.source);
             if (!entry.document)
             {
                 TBX_ERROR("ui document failed to parse");
@@ -317,7 +338,7 @@ namespace tbx::ui
         return &entry;
     }
 
-    static bool ensure_ui_pipeline(UiState& state)
+    static bool ensure_ui_pipeline(UiState::Backend& state)
     {
         if (state.pipeline)
             return true;
@@ -329,7 +350,7 @@ namespace tbx::ui
             TBX_ERROR("ui shaders missing under resources/Shaders/Tbx");
             return false;
         }
-        auto compiled = gpu::compile_shader(vertex->c_str(), fragment->c_str());
+        auto compiled = gpu::compile_shader(*vertex, *fragment);
         if (!compiled)
         {
             TBX_ERROR("ui shaders failed: {}", compiled.error());
@@ -342,19 +363,27 @@ namespace tbx::ui
              .is_depth_write_enabled = false,
              .cull = gpu::CullMode::NONE,
              .blend = gpu::BlendMode::PREMULTIPLIED});
-        constexpr std::byte WHITE[4] = {
-            std::byte {255}, std::byte {255}, std::byte {255}, std::byte {255}};
-        state.white = gpu::upload_texture(1, 1, WHITE);
+        constexpr std::byte white[4] = {
+            std::byte {255},
+            std::byte {255},
+            std::byte {255},
+            std::byte {255},
+        };
+        state.white = gpu::upload_texture(1, 1, white);
+        // The render interface renders through these for the rest of the state's life.
+        state.renderer.shader = state.shader.get();
+        state.renderer.white_texture = state.white.get();
         return true;
     }
 
     //// BOUNDARY ////
 
-    void draw(const UiDocument& document, const gpu::RenderTarget& target)
+    void draw(UiState& ui_state, const UiDocument& document, const gpu::RenderTarget& target)
     {
-        UiState* state = ensure_ui_ready();
-        if (!state)
+        const auto ready = ensure_ui_ready(ui_state);
+        if (!ready)
             return;
+        UiState::Backend* state = &ready->get();
         if (!ensure_ui_pipeline(*state))
             return;
 
@@ -367,30 +396,26 @@ namespace tbx::ui
         gpu::set_uniform(
             *state->shader,
             "u_screen",
-            Vec2(static_cast<float>(target.get_width()),
-                 static_cast<float>(target.get_height())));
-        state->renderer.shader = state->shader.get();
-        state->renderer.white_texture = state->white.get();
-
-        const uint64 key = hash(std::string_view(document.text));
-        if (DocumentEntry* cached = ensure_document(
-                *state, document, key, target.get_width(), target.get_height()))
+            Vec2(static_cast<float>(target.get_width()), static_cast<float>(target.get_height())));
+        const uint64 key = hash(std::string_view(document.source));
+        if (DocumentEntry* cached =
+                ensure_document(*state, document, key, target.get_width(), target.get_height()))
         {
             cached->last_drawn_frame = state->frame;
-            apply_bindings(*state, cached->document);
+            apply_bindings(ui_state, cached->document);
             cached->context->Update();
             cached->context->Render();
         }
-        state->renderer.shader = nullptr;
         gpu::set_scissor(false, 0, 0, 0, 0);
         gpu::end_render_pass();
     }
 
-    void set_font(const Font& font, const std::string& family)
+    void set_font(UiState& ui_state, const Font& font, const std::string& family)
     {
-        UiState* state = ensure_ui_ready();
-        if (!state)
+        const auto ready = ensure_ui_ready(ui_state);
+        if (!ready)
             return;
+        UiState::Backend* state = &ready->get();
         // The copy lands in the state first: RmlUi references the memory face until
         // Rml::Shutdown (which the state destructor runs before releasing these bytes).
         state->font_faces.push_back(font.data);
@@ -410,77 +435,22 @@ namespace tbx::ui
         }
     }
 
-    void purge()
+    void bind(UiState& state, UiBinding binding)
     {
-        g_ui.reset();
+        state.live_bindings[binding.name] = std::move(binding);
     }
 
-    void bind(UiBinding binding)
+    void update(UiState& ui_state, const float delta_time)
     {
-        if (UiState* state = ensure_ui_ready())
-            state->live_bindings[binding.name] = std::move(binding);
-    }
-
-    void unbind(const std::string& name)
-    {
-        if (g_ui)
-            g_ui->live_bindings.erase(name);
-    }
-
-    void set_string(const std::string& name, std::string value)
-    {
-        if (UiState* state = ensure_ui_ready())
-            state->bindings[name] = std::move(value);
-    }
-
-    void set_bool(const std::string& name, const bool value)
-    {
-        set_string(name, value ? "true" : "false");
-    }
-
-    void set_color(const std::string& name, const Color& value)
-    {
-        set_string(
-            name,
-            std::format(
-                "#{:02x}{:02x}{:02x}{:02x}",
-                static_cast<int>(value.r * 255.0f),
-                static_cast<int>(value.g * 255.0f),
-                static_cast<int>(value.b * 255.0f),
-                static_cast<int>(value.a * 255.0f)));
-    }
-
-    void set_float(const std::string& name, const float value)
-    {
-        set_string(name, std::format("{}", value));
-    }
-
-    void set_int(const std::string& name, const int value)
-    {
-        set_string(name, std::format("{}", value));
-    }
-
-    void set_vec2(const std::string& name, const Vec2& value)
-    {
-        set_string(name, std::format("{}, {}", value.x, value.y));
-    }
-
-    void set_vec3(const std::string& name, const Vec3& value)
-    {
-        set_string(name, std::format("{}, {}, {}", value.x, value.y, value.z));
-    }
-
-    void update(const float delta_time)
-    {
-        if (!g_ui)
-            return;
-        UiState& state = *g_ui;
-        state.system.elapsed += delta_time;
-
         // Live bindings feed their slots once per frame; apply_bindings diffs per element.
-        for (const auto& [name, binding] : state.live_bindings)
+        for (const auto& [name, binding] : ui_state.live_bindings)
             if (binding.source)
-                state.bindings[binding.name] = binding.source();
+                ui_state.bindings[binding.name] = binding.source();
+
+        if (!ui_state.backend)
+            return;
+        UiState::Backend& state = *ui_state.backend;
+        state.system.elapsed += delta_time;
 
         // What stopped being drawn retires; a changed asset simply hashes to a new entry.
         for (auto it = state.documents.begin(); it != state.documents.end();)

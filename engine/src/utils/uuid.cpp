@@ -18,7 +18,7 @@ namespace tbx
     {
         thread_local std::mt19937_64 rng(random_seed());
         auto id = Uuid {.hi = rng(), .lo = rng()};
-        if (id.is_nil())
+        if (!id.is_valid())
             id.lo = 1;
         return id;
     }

@@ -2,19 +2,19 @@
     "kits": [
         {
             "reference": "kits/environment.kit",
-            "mode": "always"
+            "mode": 0
         },
         {
             "reference": "kits/player.kit",
-            "mode": "always"
+            "mode": 0
         },
         {
             "reference": "kits/hub.kit",
-            "mode": "always"
+            "mode": 0
         },
         {
             "reference": "kits/far_room.kit",
-            "mode": "streamed",
+            "mode": 1,
             "position": [
                 0.0,
                 0.0,
