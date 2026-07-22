@@ -80,6 +80,10 @@ namespace tbx
         return fail("WAV has no data chunk");
     }
 
+}
+
+namespace tbx::assets
+{
     template <>
     Result<AudioClip> load<AudioClip>(const std::filesystem::path& path)
     {

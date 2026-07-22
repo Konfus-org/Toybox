@@ -445,7 +445,7 @@ namespace tbx
         const char* reference = luaL_checkstring(lua, 1);
         const Vec3 position = lua_istable(lua, 2) ? check_vector3(lua, 2) : Vec3(0.0f, 0.0f, 0.0f);
         const auto spawned =
-            state.sandbox.spawn(state.assets, state.events, AssetHandle<Kit>(reference), position);
+            state.sandbox.spawn(state.assets, state.events, assets::AssetHandle<Kit>(reference), position);
         if (!spawned)
         {
             luaL_error(lua, "kit '%s': %s", reference, spawned.error().c_str());

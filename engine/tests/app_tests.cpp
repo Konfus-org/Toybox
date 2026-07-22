@@ -34,7 +34,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = load<App>(tapp);
+        const auto loaded = assets::load<App>(tapp);
 
         // Assert: fields land, handles carry authoring paths.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -65,7 +65,7 @@ namespace tbx::tests
         }
 
         // Act
-        const auto loaded = load<App>(tapp);
+        const auto loaded = assets::load<App>(tapp);
 
         // Assert
         ASSERT_TRUE(loaded.has_value()) << loaded.error();

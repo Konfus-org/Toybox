@@ -1,7 +1,7 @@
 #include "tbx/ui/font.h"
 #include "tbx/files/files.h"
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<Font> load<Font>(const std::filesystem::path& path)

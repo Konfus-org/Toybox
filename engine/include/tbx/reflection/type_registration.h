@@ -21,14 +21,14 @@
 namespace tbx::reflection
 {
     /// @brief
-    /// Purpose: Detects AssetHandle<T> fields so they reflect as FieldKind::ASSET.
+    /// Purpose: Detects assets::AssetHandle<T> fields so they reflect as FieldKind::ASSET.
     template <typename T>
     struct IsAssetHandle : std::false_type
     {
     };
 
     template <typename TAsset>
-    struct IsAssetHandle<AssetHandle<TAsset>> : std::true_type
+    struct IsAssetHandle<assets::AssetHandle<TAsset>> : std::true_type
     {
     };
 
@@ -83,7 +83,7 @@ namespace tbx::reflection
     /// &Player::hp).method("heal", &Player::heal)... builds the TypeInfo at startup — no
     /// codegen. Facets stamp automatically from the type's bases: deriving tbx::Block adds
     /// the ecs accessors, deriving tbx::Asset adds the asset decode (register asset types
-    /// where their tbx::load<T> specialization is declared, e.g. in the app's registration
+    /// where their assets::load<T> specialization is declared, e.g. in the app's registration
     /// calls next to the type includes).
     template <typename T>
     class TypeRegistration final
@@ -148,7 +148,7 @@ namespace tbx::reflection
         /// Purpose: Registers a list-of-asset-handles member (e.g. PostProcessing::shaders);
         /// serialized as an array of uuid strings.
         template <typename TAsset>
-        TypeRegistration& field(std::string name, std::vector<AssetHandle<TAsset>> T::* member)
+        TypeRegistration& field(std::string name, std::vector<assets::AssetHandle<TAsset>> T::* member)
         {
             auto probe = T();
             const auto offset = static_cast<size>(
@@ -158,26 +158,26 @@ namespace tbx::reflection
             auto field = FieldInfo {};
             field.name = std::move(name);
             field.offset = offset;
-            field.size_bytes = sizeof(std::vector<AssetHandle<TAsset>>);
+            field.size_bytes = sizeof(std::vector<assets::AssetHandle<TAsset>>);
             field.kind = FieldKind::ASSET_LIST;
             field.read_asset_list = [offset](const std::byte* object)
             {
                 const auto& list = *std::launder(
-                    reinterpret_cast<const std::vector<AssetHandle<TAsset>>*>(object + offset));
+                    reinterpret_cast<const std::vector<assets::AssetHandle<TAsset>>*>(object + offset));
                 auto ids = std::vector<Uuid>();
                 ids.reserve(list.size());
-                for (const AssetHandle<TAsset>& handle : list)
+                for (const assets::AssetHandle<TAsset>& handle : list)
                     ids.push_back(handle.id);
                 return ids;
             };
             field.write_asset_list = [offset](std::byte* object, const std::vector<Uuid>& ids)
             {
                 auto& list = *std::launder(
-                    reinterpret_cast<std::vector<AssetHandle<TAsset>>*>(object + offset));
+                    reinterpret_cast<std::vector<assets::AssetHandle<TAsset>>*>(object + offset));
                 list.clear();
                 list.reserve(ids.size());
                 for (const Uuid& id : ids)
-                    list.push_back(AssetHandle<TAsset>(id));
+                    list.push_back(assets::AssetHandle<TAsset>(id));
             };
             _info.get().fields.push_back(std::move(field));
             return *this;
@@ -383,14 +383,14 @@ namespace tbx::reflection
                     return *block;
                 };
             }
-            if constexpr (std::derived_from<T, Asset>)
+            if constexpr (std::derived_from<T, assets::Asset>)
             {
                 info.asset_shape = typeid(T).hash_code();
                 info.load_asset = [](const std::filesystem::path& disk_path,
                                      const Uuid& id,
                                      const std::string& relative_path) -> Result<std::any>
                 {
-                    auto decoded = tbx::load<T>(disk_path);
+                    auto decoded = assets::load<T>(disk_path);
                     if (!decoded)
                         return std::unexpected(decoded.error());
                     decoded->id = id;

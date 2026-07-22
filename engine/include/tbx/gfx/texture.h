@@ -9,7 +9,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
-    struct TBX_API Texture : Asset
+    struct TBX_API Texture : assets::Asset
     {
         int width = 0;
         int height = 0;
@@ -17,13 +17,15 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Loads a Texture from disk (implementation lives next to the type).
-    template <>
-    TBX_API Result<Texture> load<Texture>(const std::filesystem::path& path);
-
-    /// @brief
     /// Purpose: Writes the texture as a 32-bit BMP — screenshots and tooling; load<Texture>
     /// reads it back.
     TBX_API Result<void> save(const Texture& texture, const std::filesystem::path& path);
+}
 
+namespace tbx::assets
+{
+    /// @brief
+    /// Purpose: Loads a Texture from disk (implementation lives next to the type).
+    template <>
+    TBX_API Result<Texture> load<Texture>(const std::filesystem::path& path);
 }

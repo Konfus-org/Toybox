@@ -8,7 +8,7 @@
 #define STBI_NO_STDIO
 #include <stb_image.h>
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<Texture> load<Texture>(const std::filesystem::path& path)
@@ -40,7 +40,10 @@ namespace tbx
             reinterpret_cast<const std::byte*>(pixels.get()) + width * height * 4);
         return texture;
     }
+}
 
+namespace tbx
+{
     Result<void> save(const Texture& texture, const std::filesystem::path& path)
     {
         const auto width = static_cast<uint32>(texture.width);

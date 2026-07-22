@@ -86,7 +86,7 @@ static int run_scene_selftest()
             sandbox.spawn("Cube")
                 .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
                 .with(tbx::Renderer {
-                    .material = tbx::AssetHandle<tbx::Material>("Materials/Tbx/red.mat"),
+                    .material = tbx::assets::AssetHandle<tbx::Material>("Materials/Tbx/red.mat"),
                     .model = tbx::builtin::CUBE});
             sandbox.spawn("Sun")
                 .with(tbx::Transform {
@@ -96,7 +96,7 @@ static int run_scene_selftest()
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
                          .with(tbx::Camera {});
             sandbox.spawn("Panel").with(tbx::Ui {
-                .document = tbx::AssetHandle<tbx::UiDocument>("Ui/selftest_panel.rml")});
+                .document = tbx::assets::AssetHandle<tbx::UiDocument>("Ui/selftest_panel.rml")});
         }
 
         // Probe positions: cube face, the shadow spot (+2,0,0), a matching lit spot (-2,0,0).

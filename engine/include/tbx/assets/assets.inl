@@ -35,7 +35,7 @@ namespace tbx::assets
         // Resolve on this thread so the worker section below touches nothing but the file.
         const auto disk_path = resolve_path(state, resolved->relative_path);
         co_await jobs::on_worker(jobs);
-        auto decoded = tbx::load<TAsset>(disk_path);
+        auto decoded = load<TAsset>(disk_path);
         co_await jobs::on_main(jobs);
         if (!decoded)
             co_return std::unexpected(decoded.error());
@@ -65,7 +65,7 @@ namespace tbx::assets
             return ok(std::ref(resident->get()));
         if (resolved->relative_path.empty())
             return fail("asset {} has no tracked path", resolved->id.to_string());
-        auto decoded = tbx::load<TAsset>(resolve_path(state, resolved->relative_path));
+        auto decoded = load<TAsset>(resolve_path(state, resolved->relative_path));
         if (!decoded)
             return std::unexpected(decoded.error());
         decoded->id = resolved->id; // a loaded asset knows its own handle

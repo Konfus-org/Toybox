@@ -79,8 +79,8 @@ namespace tbx
         int height = 900;
         bool is_headless = false;
         std::string title = "Toybox";
-        AssetHandle<Box> sandbox = {}; // the .box the boot opens
-        AssetHandle<Texture> icon = {}; // the window/taskbar icon
+        assets::AssetHandle<Box> sandbox = {}; // the .box the boot opens
+        assets::AssetHandle<Texture> icon = {}; // the window/taskbar icon
 
         // Derived, never serialized: where assets live — the host sets it (usually the
         // .tapp's folder) and the live value survives .tapp hot reloads. Boot requires it.
@@ -104,7 +104,7 @@ namespace tbx
     /// serialized App (config + settings; state stays runtime-only), decoded generically
     /// through its reflected fields — tbx::load<App>(path) after reflection::initialize()
     /// — and re-applied live when the watched file changes.
-    struct TBX_API App : Asset
+    struct TBX_API App : assets::Asset
     {
         AppStatus status = AppStatus::CREATED;
         AppConfig config = {};

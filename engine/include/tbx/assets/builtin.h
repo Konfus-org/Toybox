@@ -7,10 +7,10 @@
 // resolves to its generated primitive meshes: Renderer {.model = builtin::CUBE}.
 namespace tbx::builtin
 {
-    inline const AssetHandle<Model> CUBE =
-        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 1});
-    inline const AssetHandle<Model> PLANE =
-        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 2});
-    inline const AssetHandle<Model> SPHERE =
-        AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 3});
+    inline const assets::AssetHandle<Model> CUBE =
+        assets::AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 1});
+    inline const assets::AssetHandle<Model> PLANE =
+        assets::AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 2});
+    inline const assets::AssetHandle<Model> SPHERE =
+        assets::AssetHandle<Model>(Uuid {.hi = 0xb001000000000000ull, .lo = 3});
 }

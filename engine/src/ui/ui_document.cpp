@@ -1,7 +1,7 @@
 #include "tbx/ui/ui_document.h"
 #include "tbx/files/files.h"
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<UiDocument> load<UiDocument>(const std::filesystem::path& path)

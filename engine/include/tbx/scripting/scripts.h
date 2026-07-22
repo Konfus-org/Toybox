@@ -98,7 +98,7 @@ namespace tbx::scripts
     /// @brief
     /// Purpose: Compiles a source under a deterministic id derived from its name and returns
     /// the handle Script blocks use — the manual/test path.
-    TBX_API Result<AssetHandle<ScriptSource>> load_source(
+    TBX_API Result<assets::AssetHandle<ScriptSource>> load_source(
         ScriptsState& state,
         const std::string& name,
         std::string_view source);

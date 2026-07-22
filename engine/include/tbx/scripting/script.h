@@ -11,6 +11,6 @@ namespace tbx
     /// defines start(toy), update(toy, delta_time), and fixed_update(toy, delta_time).
     struct TBX_API Script : Block
     {
-        AssetHandle<ScriptSource> source = {};
+        assets::AssetHandle<ScriptSource> source = {};
     };
 }

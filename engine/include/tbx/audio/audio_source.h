@@ -12,7 +12,7 @@ namespace tbx
     /// attenuate more gently); without one it is a point source.
     struct TBX_API AudioSource : Block
     {
-        AssetHandle<AudioClip> clip = {};
+        assets::AssetHandle<AudioClip> clip = {};
         float volume = 1.0f;
         bool is_looping = false;
         bool is_playing = true;

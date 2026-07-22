@@ -216,7 +216,7 @@ namespace tbx::tests
         // Act
         auto sandbox = Sandbox();
         const auto loaded =
-            sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
+            sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<Kit>("level.kit"), Vec3(100.0f, 0.0f, 0.0f));
 
         // Assert: offsets compose 100 + 10 + 1.
         ASSERT_TRUE(loaded.has_value()) << loaded.error();
@@ -246,7 +246,7 @@ namespace tbx::tests
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("a.kit"));
+        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<Kit>("a.kit"));
 
         // Assert: error mentions the cycle and no partial toys survive.
         ASSERT_FALSE(loaded.has_value());
@@ -267,7 +267,7 @@ namespace tbx::tests
         auto sandbox = Sandbox();
 
         // Act
-        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, AssetHandle<Kit>("broken.kit"));
+        const auto loaded = sandbox.spawn(world.runtime.assets, world.runtime.events, assets::AssetHandle<Kit>("broken.kit"));
 
         // Assert
         EXPECT_FALSE(loaded.has_value());
@@ -302,7 +302,7 @@ namespace tbx::tests
         write_kit(world, "room.kit", to_json(save(author, std::array {author.spawn("RoomToy")})));
         const auto box = Box {
             .kits = {
-                BoxEntry {.kit = AssetHandle<Kit>("room.kit"), .mode = KitMode::STREAMED}}};
+                BoxEntry {.kit = assets::AssetHandle<Kit>("room.kit"), .mode = KitMode::STREAMED}}};
         auto sandbox = Sandbox();
         ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
         EXPECT_EQ(sandbox.get_toy_count(), 0u); // streamed entries do not preload
@@ -337,7 +337,7 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
-        const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
+        const auto box = Box {.kits = {BoxEntry {.kit = assets::AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox();
 
         // Act
@@ -374,7 +374,7 @@ namespace tbx::tests
         auto world = TestWorld();
         auto author = Sandbox();
         write_kit(world, "sky.kit", to_json(save(author, std::array {author.spawn("Skybox")})));
-        const auto box = Box {.kits = {BoxEntry {.kit = AssetHandle<Kit>("sky.kit")}}};
+        const auto box = Box {.kits = {BoxEntry {.kit = assets::AssetHandle<Kit>("sky.kit")}}};
         auto sandbox = Sandbox();
         ASSERT_TRUE(sandbox.open(world.runtime.assets, world.runtime.events, box).has_value());
         ASSERT_EQ(sandbox.get_toy_count(), 1u);

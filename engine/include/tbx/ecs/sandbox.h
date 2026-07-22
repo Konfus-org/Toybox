@@ -92,7 +92,7 @@ namespace tbx
         Result<KitInstance> spawn(
             assets::AssetsState& assets,
             events::EventsState& events,
-            const AssetHandle<Kit>& kit,
+            const assets::AssetHandle<Kit>& kit,
             const Vec3& position = Vec3(0.0f, 0.0f, 0.0f));
 
         /// @brief
@@ -147,7 +147,7 @@ namespace tbx
       private:
         struct StreamedEntry
         {
-            AssetHandle<Kit> kit = {};
+            assets::AssetHandle<Kit> kit = {};
             Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
             Vec3 bounds_center = Vec3(0.0f, 0.0f, 0.0f);
             float bounds_radius = 0.0f;

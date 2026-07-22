@@ -314,7 +314,7 @@ namespace tbx::serialization
     }
 }
 
-namespace tbx
+namespace tbx::assets
 {
     Result<void> read_registered_json(
         const std::filesystem::path& path,

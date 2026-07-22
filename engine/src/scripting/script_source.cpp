@@ -1,7 +1,7 @@
 #include "tbx/scripting/script_source.h"
 #include "tbx/files/files.h"
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<ScriptSource> load<ScriptSource>(const std::filesystem::path& path)

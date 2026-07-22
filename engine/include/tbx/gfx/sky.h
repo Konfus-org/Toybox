@@ -12,7 +12,7 @@ namespace tbx
     /// sandbox (the first wins), usually on a dedicated environment toy.
     struct TBX_API Sky : Block
     {
-        AssetHandle<Texture> texture = {};
+        assets::AssetHandle<Texture> texture = {};
         Color tint = {};
     };
 }

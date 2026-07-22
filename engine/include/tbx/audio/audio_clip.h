@@ -12,7 +12,7 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Decoded audio asset: interleaved float samples.
-    struct TBX_API AudioClip : Asset
+    struct TBX_API AudioClip : assets::Asset
     {
         int channels = 0;
         int sample_rate = 0;
@@ -24,6 +24,10 @@ namespace tbx
     /// pure over bytes so it unit-tests without files.
     TBX_API Result<AudioClip> parse_wav(std::span<const std::byte> bytes);
 
+}
+
+namespace tbx::assets
+{
     /// @brief
     /// Purpose: Loads a AudioClip from disk (implementation lives next to the type).
     template <>

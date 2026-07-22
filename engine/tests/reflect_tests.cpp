@@ -55,7 +55,7 @@ namespace tbx::tests
 
     struct TestChain
     {
-        std::vector<AssetHandle<ShaderSource>> shaders = {};
+        std::vector<assets::AssetHandle<ShaderSource>> shaders = {};
     };
 
     TEST(Reflect, RoundTripsAssetHandleLists)
@@ -64,8 +64,8 @@ namespace tbx::tests
         reflection::register_type<TestChain>("TestChain").field("shaders", &TestChain::shaders);
         const reflection::TypeInfo& type = reflection::get_type_registry().find("TestChain")->get();
         auto original = TestChain {};
-        original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));
-        original.shaders.push_back(AssetHandle<ShaderSource>(Uuid::generate()));
+        original.shaders.push_back(assets::AssetHandle<ShaderSource>(Uuid::generate()));
+        original.shaders.push_back(assets::AssetHandle<ShaderSource>(Uuid::generate()));
 
         // Act
         const serialization::Json data = serialization::json_write(type, original);

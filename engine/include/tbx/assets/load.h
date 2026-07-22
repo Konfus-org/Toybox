@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <utility>
 
-namespace tbx
+namespace tbx::assets
 {
     /// @brief
     /// Purpose: Boundary internal for the generic load: reads the file as JSON and populates
@@ -16,7 +16,7 @@ namespace tbx
         std::byte* object);
 
     /// @brief
-    /// Purpose: THE asset-load entry: tbx::load<Texture>(path) and friends. Types with real
+    /// Purpose: THE asset-load entry: assets::load<Texture>(path) and friends. Types with real
     /// decoders (stb, assimp, ...) implement a specialization next to their type; everything
     /// else decodes GENERICALLY — a registered type (reflection::register_type) reads as the
     /// JSON its save() writes, so plain data types never hand-write a loader.

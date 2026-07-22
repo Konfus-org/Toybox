@@ -16,14 +16,14 @@ namespace tbx
     /// a free-form uniforms bag applied through shader reflection so arbitrary shaders just
     /// work. The .mat file references shaders/textures by asset-relative path; decoding
     /// resolves them to handles.
-    struct TBX_API Material : Asset
+    struct TBX_API Material : assets::Asset
     {
-        AssetHandle<ShaderSource> vertex = {};
-        AssetHandle<ShaderSource> fragment = {};
-        AssetHandle<Texture> albedo_map = {};
-        AssetHandle<Texture> normal_map = {};
-        AssetHandle<Texture> metallic_map = {};
-        AssetHandle<Texture> roughness_map = {};
+        assets::AssetHandle<ShaderSource> vertex = {};
+        assets::AssetHandle<ShaderSource> fragment = {};
+        assets::AssetHandle<Texture> albedo_map = {};
+        assets::AssetHandle<Texture> normal_map = {};
+        assets::AssetHandle<Texture> metallic_map = {};
+        assets::AssetHandle<Texture> roughness_map = {};
         Color albedo = {};
         Color emissive = Color {.r = 0.0f, .g = 0.0f, .b = 0.0f};
         float metallic = 0.0f;

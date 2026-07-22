@@ -81,7 +81,7 @@ namespace tbx::scripts
         return backend->get().load_source(id, name, source);
     }
 
-    Result<AssetHandle<ScriptSource>> load_source(
+    Result<assets::AssetHandle<ScriptSource>> load_source(
         ScriptsState& state,
         const std::string& name,
         const std::string_view source)
@@ -90,7 +90,7 @@ namespace tbx::scripts
         auto loaded = load_source(state, id, name, source);
         if (!loaded)
             return std::unexpected(loaded.error());
-        return ok(AssetHandle<ScriptSource>(id));
+        return ok(assets::AssetHandle<ScriptSource>(id));
     }
 
     bool owns(const ScriptsState& state, const std::string_view extension)

@@ -13,6 +13,6 @@ namespace tbx
     /// One per sandbox (the first wins).
     struct TBX_API PostProcessing : Block
     {
-        std::vector<AssetHandle<ShaderSource>> shaders = {};
+        std::vector<assets::AssetHandle<ShaderSource>> shaders = {};
     };
 }

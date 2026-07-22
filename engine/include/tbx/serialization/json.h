@@ -41,29 +41,19 @@ namespace tbx::serialization
     {
         return json_read(type, reinterpret_cast<std::byte*>(&object), data);
     }
-}
-
-namespace tbx
-{
-    /// @brief
-    /// Purpose: Loads (and validates) a JSON document from disk. Lives at tbx scope because
-    /// it specializes the tbx::load primary template (assets/load.h).
-    template <>
-    TBX_API Result<serialization::Json> load<serialization::Json>(
-        const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: Serializes any registered type (reflection::register_type) to JSON. The
     /// Sandbox/Toy kit saves live next to Kit (ecs/kit.h) as plain overloads.
     template <typename T>
         requires(!std::is_pointer_v<T>)
-    Result<serialization::Json> save(const T& object)
+    Result<Json> save(const T& object)
     {
         const auto type = reflection::describe<T>();
         if (!type)
             return fail(
                 "cannot save: type is not registered (tbx::reflection::register_type it first)");
-        return ok(serialization::json_write(type->get(), object));
+        return ok(json_write(type->get(), object));
     }
 
     /// @brief
@@ -71,12 +61,22 @@ namespace tbx
     /// migrate hook runs for older versions.
     template <typename T>
         requires(!std::is_pointer_v<T>)
-    Result<void> load(T& object, const serialization::Json& data)
+    Result<void> load(T& object, const Json& data)
     {
         const auto type = reflection::describe<T>();
         if (!type)
             return fail(
                 "cannot load: type is not registered (tbx::reflection::register_type it first)");
-        return serialization::json_read(type->get(), object, data);
+        return json_read(type->get(), object, data);
     }
+}
+
+namespace tbx::assets
+{
+    /// @brief
+    /// Purpose: Loads (and validates) a JSON document from disk. Declared here because it
+    /// specializes the assets::load primary template (assets/load.h) next to the Json seam.
+    template <>
+    TBX_API Result<serialization::Json> load<serialization::Json>(
+        const std::filesystem::path& path);
 }

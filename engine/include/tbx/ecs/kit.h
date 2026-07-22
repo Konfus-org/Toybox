@@ -18,8 +18,6 @@
 namespace tbx
 {
     class Sandbox;
-    // Kit and KitReference reference each other (a kit holds references to other kits), so
-    // the type introduces itself before its definition below.
     struct TBX_API Kit;
 
     /// @brief
@@ -48,16 +46,16 @@ namespace tbx
     /// Purpose: A nested kit reference: which kit and where it sits relative to the parent.
     struct TBX_API KitReference
     {
-        AssetHandle<Kit> kit = {};
+        assets::AssetHandle<Kit> kit = {};
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
     };
 
     /// @brief
     /// Purpose: A set of things, strongly typed in memory: toys (with their blocks and
     /// stickers) plus references to other kits, recursively — one concept covering prefab,
-    /// scene, level, and chunk. A kit is an ordinary asset (AssetHandle<Kit>, .kit files);
+    /// scene, level, and chunk. A kit is an ordinary asset (assets::AssetHandle<Kit>, .kit files);
     /// JSON exists only at the load<Kit>/to_json serialize boundary.
-    struct TBX_API Kit : Asset
+    struct TBX_API Kit : assets::Asset
     {
         std::vector<KitToy> toys = {};
         std::vector<KitReference> kits = {};
@@ -72,11 +70,6 @@ namespace tbx
     {
         uint64 id = 0;
     };
-
-    /// @brief
-    /// Purpose: Loads a .kit file — the deserialize half of the kit's JSON boundary.
-    template <>
-    TBX_API Result<Kit> load<Kit>(const std::filesystem::path& path);
 
     /// @brief
     /// Purpose: The kit's on-disk JSON form ({toys, kits, bounds}) — the serialize half of
@@ -97,7 +90,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: Instantiates a kit into a sandbox — the load half of save() round-trips and
-    /// what Sandbox::spawn(AssetHandle<Kit>) runs on. Nested kit references resolve
+    /// what Sandbox::spawn(assets::AssetHandle<Kit>) runs on. Nested kit references resolve
     /// recursively through the sandbox's assets; cycles are load errors; root position
     /// offsets every parentless toy.
     TBX_API Result<KitInstance> load(
@@ -106,4 +99,12 @@ namespace tbx
         events::EventsState& events,
         const Kit& kit,
         const Vec3& root_position = Vec3(0.0f, 0.0f, 0.0f));
+}
+
+namespace tbx::assets
+{
+    /// @brief
+    /// Purpose: Loads a .kit file — the deserialize half of the kit's JSON boundary.
+    template <>
+    TBX_API Result<Kit> load<Kit>(const std::filesystem::path& path);
 }

@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-namespace tbx
+namespace tbx::assets
 {
     /// @brief
     /// Purpose: Typed reference to an asset. Identity is the uuid from the identity-only

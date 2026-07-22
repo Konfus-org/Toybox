@@ -118,7 +118,7 @@ namespace tbx
     Result<KitInstance> Sandbox::spawn(
         assets::AssetsState& assets,
         events::EventsState& events,
-        const AssetHandle<Kit>& kit,
+        const assets::AssetHandle<Kit>& kit,
         const Vec3& position)
     {
         const auto loaded = assets::load_now(assets, events, kit);
@@ -228,7 +228,7 @@ namespace tbx
                        jobs::JobsState& jobs,
                        Sandbox& sandbox,
                        size index,
-                       AssetHandle<Kit> kit) -> jobs::Task<void>
+                       assets::AssetHandle<Kit> kit) -> jobs::Task<void>
                     {
                         co_await jobs::on_worker(jobs);
                         auto loaded = assets::load_now(assets, events, kit);

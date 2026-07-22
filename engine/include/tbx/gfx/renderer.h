@@ -13,7 +13,7 @@ namespace tbx
     /// unset material renders the builtin white PBR surface.
     struct TBX_API Renderer : Block
     {
-        AssetHandle<Material> material = {};
-        AssetHandle<Model> model = {};
+        assets::AssetHandle<Material> material = {};
+        assets::AssetHandle<Model> model = {};
     };
 }

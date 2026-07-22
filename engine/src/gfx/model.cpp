@@ -5,7 +5,7 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<Model> load<Model>(const std::filesystem::path& path)

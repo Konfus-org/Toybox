@@ -341,7 +341,7 @@ namespace tbx::gpu
     static ResolvedTexture resolve_texture_handle(
         RenderContext& context,
         RendererState& state,
-        const AssetHandle<Texture>& handle)
+        const assets::AssetHandle<Texture>& handle)
     {
         if (!handle.is_set())
             return {.texture = *state.white};
@@ -521,7 +521,7 @@ namespace tbx::gpu
     static std::optional<std::reference_wrapper<const CompiledPipeline>> resolve_post_shader(
         RenderContext& context,
         RendererState& state,
-        const AssetHandle<ShaderSource>& handle)
+        const assets::AssetHandle<ShaderSource>& handle)
     {
         if (!handle.is_set())
             return {};
@@ -759,7 +759,7 @@ namespace tbx::gpu
         {
             for (const auto [entity, post] : registry.view<PostProcessing>().each())
             {
-                for (const AssetHandle<ShaderSource>& handle : post.shaders)
+                for (const assets::AssetHandle<ShaderSource>& handle : post.shaders)
                     if (const auto stage = resolve_post_shader(context, state, handle))
                         frame.post_chain.push_back(*stage);
                 break; // the first PostProcessing toy wins

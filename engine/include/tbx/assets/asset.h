@@ -3,7 +3,7 @@
 #include "tbx/utils/uuid.h"
 #include <string>
 
-namespace tbx
+namespace tbx::assets
 {
     /// @brief
     /// Purpose: Base of every asset type: the identity an asset was loaded under rides with

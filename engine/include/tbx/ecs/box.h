@@ -23,7 +23,7 @@ namespace tbx
     /// Purpose: One kit inside a box: which kit, how it loads, and where it sits.
     struct TBX_API BoxEntry
     {
-        AssetHandle<Kit> kit = {};
+        assets::AssetHandle<Kit> kit = {};
         KitMode mode = KitMode::ALWAYS;
         Vec3 position = Vec3(0.0f, 0.0f, 0.0f);
     };
@@ -31,7 +31,7 @@ namespace tbx
     /// @brief
     /// Purpose: A box of kits (.box files): the kit entries a sandbox opens with. ALWAYS
     /// entries load at open; STREAMED entries load/unload by distance.
-    struct TBX_API Box : Asset
+    struct TBX_API Box : assets::Asset
     {
         std::vector<BoxEntry> kits = {};
     };

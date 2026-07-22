@@ -22,7 +22,7 @@ namespace tbx::tests
 
         // Act
         const auto saved = save(original, path);
-        const auto loaded = load<Texture>(path);
+        const auto loaded = assets::load<Texture>(path);
 
         // Assert: the BMP written by save() decodes back to the exact same image.
         ASSERT_TRUE(saved.has_value()) << saved.error();

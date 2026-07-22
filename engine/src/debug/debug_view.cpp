@@ -28,7 +28,7 @@ namespace tbx::debug::view
         {
             // First open: the overlay document is an engine-shipped file.
             const auto path = std::filesystem::path(TBX_RESOURCES_PATH) / "Ui" / "debug.rml";
-            if (auto document = load<UiDocument>(path))
+            if (auto document = assets::load<UiDocument>(path))
                 state.document = std::move(*document);
             else
             {

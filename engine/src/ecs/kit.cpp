@@ -75,7 +75,7 @@ namespace tbx
                 std::erase(stripped, '-');
                 const Uuid id = Uuid::parse(stripped);
                 reference.kit =
-                    id.is_valid() ? AssetHandle<Kit>(id) : AssetHandle<Kit>(std::move(text));
+                    id.is_valid() ? assets::AssetHandle<Kit>(id) : assets::AssetHandle<Kit>(std::move(text));
                 if (entry.contains("position"))
                     reference.position = Vec3(
                         entry["position"].at(0).get<float>(),
@@ -96,17 +96,6 @@ namespace tbx
             return fail("malformed kit body: {}", e.what());
         }
         return ok(std::move(kit));
-    }
-
-    template <>
-    Result<Kit> load<Kit>(const std::filesystem::path& path)
-    {
-        const auto text = files::read_text(path);
-        if (!text)
-            return std::unexpected(text.error());
-        if (!serialization::Json::accept(*text))
-            return fail("'{}' is not a kit (JSON expected)", path.string());
-        return from_json(serialization::Json::parse(*text, nullptr, false));
     }
 
     serialization::Json to_json(const Kit& kit)
@@ -339,5 +328,19 @@ namespace tbx
         const auto instance = KitInstance {.id = sandbox._next_kit_instance_id++};
         sandbox._kit_instances[instance.id] = spawned;
         return instance;
+    }
+}
+
+namespace tbx::assets
+{
+    template <>
+    Result<Kit> load<Kit>(const std::filesystem::path& path)
+    {
+        const auto text = files::read_text(path);
+        if (!text)
+            return std::unexpected(text.error());
+        if (!serialization::Json::accept(*text))
+            return fail("'{}' is not a kit (JSON expected)", path.string());
+        return from_json(serialization::Json::parse(*text, nullptr, false));
     }
 }

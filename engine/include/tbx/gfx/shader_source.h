@@ -8,14 +8,17 @@ namespace tbx
 {
     /// @brief
     /// Purpose: Shader source asset — plain text, compiled by the gfx backend on use.
-    struct TBX_API ShaderSource : Asset
+    struct TBX_API ShaderSource : assets::Asset
     {
         std::string text = {};
     };
 
+}
+
+namespace tbx::assets
+{
     /// @brief
     /// Purpose: Loads a ShaderSource from disk (implementation lives next to the type).
     template <>
     TBX_API Result<ShaderSource> load<ShaderSource>(const std::filesystem::path& path);
-
 }

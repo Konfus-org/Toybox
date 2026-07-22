@@ -9,14 +9,17 @@ namespace tbx
     /// @brief
     /// Purpose: Decoded triangle mesh asset (assimp-imported, meshes merged, triangulated):
     /// interleaved position(3) + normal(3) + uv(2) floats.
-    struct TBX_API Model : Asset
+    struct TBX_API Model : assets::Asset
     {
         std::vector<float> vertices = {};
     };
 
+}
+
+namespace tbx::assets
+{
     /// @brief
     /// Purpose: Loads a Model from disk (implementation lives next to the type).
     template <>
     TBX_API Result<Model> load<Model>(const std::filesystem::path& path);
-
 }

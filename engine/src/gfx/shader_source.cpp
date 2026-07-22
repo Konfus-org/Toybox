@@ -1,7 +1,7 @@
 #include "tbx/gfx/shader_source.h"
 #include "tbx/files/files.h"
 
-namespace tbx
+namespace tbx::assets
 {
     template <>
     Result<ShaderSource> load<ShaderSource>(const std::filesystem::path& path)

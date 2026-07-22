@@ -90,7 +90,7 @@ namespace tbx
             if (const auto font = assets::load_now(
                     state.assets,
                     state.events,
-                    AssetHandle<Font>("Fonts/MontserratMedium.otf")))
+                    assets::AssetHandle<Font>("Fonts/MontserratMedium.otf")))
                 ui::set_font(state.ui, font->get(), "Montserrat");
             else
                 TBX_WARN("builtin ui font: {}", font.error());
@@ -109,7 +109,7 @@ namespace tbx
             if (const auto self = assets::load_now(
                     state.assets,
                     state.events,
-                    AssetHandle<App>(entry.path().filename().generic_string()));
+                    assets::AssetHandle<App>(entry.path().filename().generic_string()));
                 !self)
                 TBX_WARN("app config: {}", self.error());
             break; // the first .tapp is THE app file
@@ -123,7 +123,7 @@ namespace tbx
                 if (std::string_view(reloaded.extension.data()) != ".tapp")
                     return;
                 const auto fresh =
-                    assets::load_now(state.assets, state.events, AssetHandle<App>(reloaded.id));
+                    assets::load_now(state.assets, state.events, assets::AssetHandle<App>(reloaded.id));
                 if (!fresh)
                 {
                     TBX_ERROR("app config reload: {}", fresh.error());
@@ -159,7 +159,7 @@ namespace tbx
                 const auto script = assets::load_now(
                     state.assets,
                     state.events,
-                    AssetHandle<ScriptSource>(reloaded.id));
+                    assets::AssetHandle<ScriptSource>(reloaded.id));
                 if (script)
                 {
                     if (const auto result = scripts::reload_source(

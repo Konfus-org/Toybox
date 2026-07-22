@@ -21,7 +21,7 @@ int main(int argc, char** argv)
     // generically through the reflected App schema, so registration comes first.
     tbx::reflection::initialize();
     const auto tapp = std::filesystem::path(SAMPLE_ASSETS_PATH) / "Toom.tapp";
-    auto loaded = tbx::load<tbx::App>(tapp);
+    auto loaded = tbx::assets::load<tbx::App>(tapp);
     if (!loaded)
     {
         TBX_ERROR("Toom.tapp: {}", loaded.error());
