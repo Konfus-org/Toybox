@@ -221,7 +221,7 @@ namespace tbx
         // The windows present what was drawn since the last run() call, then pump OS events
         // (each window's first frame skips its present cleanly). The main window closing
         // stops the app; other windows just close.
-        input::update(state.input);
+        input::pump(state.input);
         windows::update(state.windows, state.input, state.events);
         const bool window_alive =
             state.windows.windows.empty()
