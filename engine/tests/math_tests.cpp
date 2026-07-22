@@ -2,7 +2,7 @@
 #include "tbx/math/math.h"
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     /// @brief
     /// Purpose: A camera at the origin looking down -Z: 60 degree fov, square aspect,

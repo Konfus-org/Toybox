@@ -7,7 +7,7 @@
 #include "../src/scripting/builtin_backends.h" // engine-internal: tests wire the VMs directly
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
 
     static constexpr const char* MOVER_SOURCE = R"(

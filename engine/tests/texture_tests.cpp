@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     TEST(Texture, SaveRoundTripsThroughLoad)
     {

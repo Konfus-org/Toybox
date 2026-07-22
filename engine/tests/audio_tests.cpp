@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <cstring>
 
-namespace tbx::tests
+namespace tbx
 {
     /// @brief
     /// Purpose: Builds a minimal PCM16 mono WAV in memory (no filesystem in unit tests).

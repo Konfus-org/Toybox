@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 
-namespace tbx::tests
+namespace tbx
 {
 
     struct TestHealth : Block

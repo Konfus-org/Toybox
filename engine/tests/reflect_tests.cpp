@@ -3,7 +3,7 @@
 #include "tbx/reflection/reflection.h"
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     enum class TestMode : uint8
     {

@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     /// @brief
     /// Purpose: A plain data asset for the DEFAULT format, with one property routed to the

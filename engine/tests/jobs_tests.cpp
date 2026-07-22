@@ -4,7 +4,7 @@
 #include <memory>
 #include <thread>
 
-namespace tbx::tests
+namespace tbx
 {
     TEST(Jobs, RunReturnsCallableResultOnSuccess)
     {

@@ -4,7 +4,7 @@
 #include "tbx/assets/assets.h"
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
 
     static constexpr float STEP = 1.0f / 60.0f;

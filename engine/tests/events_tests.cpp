@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-namespace tbx::tests
+namespace tbx
 {
     TEST(Events, EmitDeliversOnDrain)
     {

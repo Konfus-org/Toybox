@@ -8,7 +8,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     /// @brief
     /// Purpose: A minimal asset for the test: no hand-written loader — a Format::DEFAULT

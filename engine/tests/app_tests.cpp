@@ -5,7 +5,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
-namespace tbx::tests
+namespace tbx
 {
     TEST(App, TappFileDeserializesIntoTheAppStruct)
     {
