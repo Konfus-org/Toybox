@@ -2,7 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: GPU 2D texture (RGBA8) — RAII: the backend-defined destructor releases it.

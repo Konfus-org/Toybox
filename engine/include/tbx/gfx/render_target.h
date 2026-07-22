@@ -2,7 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Offscreen color+depth render target (post-processing, editor viewports) —

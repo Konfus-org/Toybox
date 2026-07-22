@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     // Mirrors of current-context state owned by the process-global GL context —
     // deliberately not Runtime state (main thread only, no teardown).

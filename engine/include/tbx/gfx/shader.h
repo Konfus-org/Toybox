@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: GPU shader module — RAII: the destructor (defined by the selected gfx

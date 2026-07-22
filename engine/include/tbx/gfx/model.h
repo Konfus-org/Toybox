@@ -4,7 +4,7 @@
 #include "tbx/utils/api.h"
 #include <vector>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Decoded triangle mesh asset (assimp-imported, meshes merged, triangulated):
@@ -21,5 +21,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a Model from disk (implementation lives next to the type).
     template <>
-    TBX_API Result<Model> load<Model>(const std::filesystem::path& path);
+    TBX_API Result<gfx::Model> load<gfx::Model>(const std::filesystem::path& path);
 }

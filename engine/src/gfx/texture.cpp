@@ -11,7 +11,7 @@
 namespace tbx::assets
 {
     template <>
-    Result<Texture> load<Texture>(const std::filesystem::path& path)
+    Result<gfx::Texture> load<gfx::Texture>(const std::filesystem::path& path)
     {
         auto bytes = files::read_bytes(path);
         if (!bytes)
@@ -32,7 +32,7 @@ namespace tbx::assets
             &stbi_image_free);
         if (!pixels)
             return fail("could not decode image '{}': {}", path.string(), stbi_failure_reason());
-        auto texture = Texture();
+        auto texture = gfx::Texture();
         texture.width = width;
         texture.height = height;
         texture.pixels.assign(
@@ -42,7 +42,7 @@ namespace tbx::assets
     }
 }
 
-namespace tbx
+namespace tbx::gfx
 {
     Result<void> save(const Texture& texture, const std::filesystem::path& path)
     {

@@ -7,7 +7,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/color.h"
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: PBR material asset (.mat): how a surface renders. Metallic-roughness workflow

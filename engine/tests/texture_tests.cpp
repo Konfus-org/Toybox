@@ -8,7 +8,7 @@ namespace tbx::tests
     TEST(Texture, SaveRoundTripsThroughLoad)
     {
         // Arrange: a 2x2 texture with four distinct opaque pixels.
-        auto original = Texture();
+        auto original = gfx::Texture();
         original.width = 2;
         original.height = 2;
         constexpr unsigned char BYTES[] = {
@@ -22,7 +22,7 @@ namespace tbx::tests
 
         // Act
         const auto saved = save(original, path);
-        const auto loaded = assets::load<Texture>(path);
+        const auto loaded = assets::load<gfx::Texture>(path);
 
         // Assert: the BMP written by save() decodes back to the exact same image.
         ASSERT_TRUE(saved.has_value()) << saved.error();
@@ -35,7 +35,7 @@ namespace tbx::tests
     TEST(Texture, SaveRejectsAnEmptyTexture)
     {
         // Arrange
-        const auto empty = Texture();
+        const auto empty = gfx::Texture();
         const auto path = std::filesystem::temp_directory_path() / "tbx_texture_empty.bmp";
 
         // Act

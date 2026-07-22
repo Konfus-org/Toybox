@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Decoded RGBA8 image asset.
@@ -17,7 +17,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: Writes the texture as a 32-bit BMP — screenshots and tooling; load<Texture>
+    /// Purpose: Writes the texture as a 32-bit BMP — screenshots and tooling; load<gfx::Texture>
     /// reads it back.
     TBX_API Result<void> save(const Texture& texture, const std::filesystem::path& path);
 }
@@ -27,5 +27,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a Texture from disk (implementation lives next to the type).
     template <>
-    TBX_API Result<Texture> load<Texture>(const std::filesystem::path& path);
+    TBX_API Result<gfx::Texture> load<gfx::Texture>(const std::filesystem::path& path);
 }

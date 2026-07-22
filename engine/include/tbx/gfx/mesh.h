@@ -2,7 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: GPU mesh — RAII: the destructor (defined by the selected gfx backend) releases

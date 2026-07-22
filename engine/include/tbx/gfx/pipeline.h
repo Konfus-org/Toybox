@@ -4,7 +4,7 @@
 #include "tbx/utils/typedefs.h"
 #include <functional>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Which triangle faces are discarded.

@@ -176,7 +176,7 @@ namespace tbx::assets
             return;
         }
 
-        // Identify the resident shape under the lock, decode OUTSIDE it (Material decode
+        // Identify the resident shape under the lock, decode OUTSIDE it (gfx::Material decode
         // re-enters prepare), then swap the result back in. The decoder is the asset facet
         // on the reflected type (assets::register_asset<TAsset>(name)).
         Result<std::any> (*load_asset)(

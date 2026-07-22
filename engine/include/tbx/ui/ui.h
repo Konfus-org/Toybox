@@ -65,7 +65,7 @@ namespace tbx::ui
     /// premultiplied alpha). Documents are cached by content behind the boundary — drawing
     /// every frame is the API; what is not drawn disappears. Shading is not the document's
     /// business: passes set gpu pipelines around the textures this produces.
-    TBX_API void draw(UiState& state, const UiDocument& document, const gpu::RenderTarget& target);
+    TBX_API void draw(UiState& state, const UiDocument& document, const gfx::RenderTarget& target);
 
     /// @brief
     /// Purpose: Registers a font face under a family name — documents reference it via

@@ -5,7 +5,7 @@
 #include "tbx/utils/api.h"
 #include <vector>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Full-screen post processing: just a list of fragment shaders, applied to the

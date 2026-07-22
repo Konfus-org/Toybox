@@ -50,7 +50,7 @@ namespace tbx::physics
     /// @brief
     /// Purpose: Advances the simulation one fixed step: mirrors the runtime sandbox's collider
     /// toys into the physics world (Shape::MESH colliders take their triangles from the toy's
-    /// Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
+    /// gfx::Renderer block, so mesh-collider toys must wear one), steps, writes dynamic poses back
     /// to Transforms, and emits collision events (delivered at the next pump drain).
     TBX_API void update(
         PhysicsState& physics,

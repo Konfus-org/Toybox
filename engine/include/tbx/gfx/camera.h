@@ -4,7 +4,7 @@
 #include "tbx/utils/api.h"
 #include <string>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: A viewpoint: perspective settings plus where it draws — a window (by name;

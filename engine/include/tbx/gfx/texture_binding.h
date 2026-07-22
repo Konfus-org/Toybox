@@ -6,7 +6,7 @@
 #include <functional>
 #include <variant>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: One texture bound for one draw, modern-API style (Vulkan/Metal/WebGPU bind

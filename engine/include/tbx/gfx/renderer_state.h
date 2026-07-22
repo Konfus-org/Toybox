@@ -18,7 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: A shader plus the pipeline-state object it draws with.

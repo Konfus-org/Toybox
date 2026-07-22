@@ -3,7 +3,7 @@
 #include <cstring>
 #include <span>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     //// HELPERS ////
 

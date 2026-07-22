@@ -25,7 +25,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     // Shader source is GLSL for now — when a second gfx backend lands, sources move behind the
     // backend seam alongside gpu.h's implementations. Vertex layout everywhere: position(3) +
@@ -1013,10 +1013,6 @@ namespace tbx::gpu
             composite_layer(0xFFFFFFFFu, overlay.document, {}, {});
     }
 
-}
-
-namespace tbx
-{
     //// RENDER GRAPH ////
 
     RenderGraph::RenderGraph()
@@ -1051,7 +1047,7 @@ namespace tbx
 
     void RenderGraph::render(RenderContext& context)
     {
-        gpu::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
+        gfx::begin_frame({.clear = Color {.r = 0.05f, .g = 0.05f, .b = 0.08f}});
         for (const RenderPass& pass : _passes)
             if (pass.render)
                 pass.render(context);
@@ -1064,25 +1060,25 @@ namespace tbx
 
     RenderPass make_shadow_pass()
     {
-        return {.name = "shadow", .render = &gpu::render_shadow_pass};
+        return {.name = "shadow", .render = &gfx::render_shadow_pass};
     }
 
     RenderPass make_geometry_pass()
     {
-        return {.name = "geometry", .render = &gpu::render_geometry_pass};
+        return {.name = "geometry", .render = &gfx::render_geometry_pass};
     }
 
     RenderPass make_post_pass()
     {
-        return {.name = "post", .render = &gpu::render_post_pass};
+        return {.name = "post", .render = &gfx::render_post_pass};
     }
 
     RenderPass make_ui_pass()
     {
-        return {.name = "ui", .render = &gpu::render_ui_pass};
+        return {.name = "ui", .render = &gfx::render_ui_pass};
     }
 
-    void forget_asset(gpu::RendererState& state, const Uuid& asset_id)
+    void forget_asset(gfx::RendererState& state, const Uuid& asset_id)
     {
         state.meshes_by_asset.erase(asset_id);
         state.textures_by_asset.erase(asset_id);

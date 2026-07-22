@@ -4,7 +4,7 @@
 #include "tbx/utils/api.h"
 #include <string>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Shader source asset — plain text, compiled by the gfx backend on use.
@@ -20,5 +20,5 @@ namespace tbx::assets
     /// @brief
     /// Purpose: Loads a ShaderSource from disk (implementation lives next to the type).
     template <>
-    TBX_API Result<ShaderSource> load<ShaderSource>(const std::filesystem::path& path);
+    TBX_API Result<gfx::ShaderSource> load<gfx::ShaderSource>(const std::filesystem::path& path);
 }

@@ -2,7 +2,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/typedefs.h"
 
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Depth-only render target for shadow passes — RAII via the backend.

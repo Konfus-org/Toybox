@@ -46,11 +46,11 @@ namespace tbx
         input::InputState input = {};
         windows::WindowsState windows = {};
         ecs::Sandbox sandbox = {};
-        RenderGraph render_graph = {};
+        gfx::RenderGraph render_graph = {};
         jobs::JobsState jobs = {};
         events::EventsState events = {};
         assets::AssetsState assets = {};
-        gpu::RendererState renderer = {};
+        gfx::RendererState renderer = {};
         scripts::ScriptsState scripts = {};
         physics::PhysicsState physics = {};
         audio::AudioState audio = {};

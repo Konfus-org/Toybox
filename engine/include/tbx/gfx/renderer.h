@@ -5,7 +5,7 @@
 #include "tbx/gfx/model.h"
 #include "tbx/utils/api.h"
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Makes a toy visible: a model surfaced by a material. Builtin primitives are

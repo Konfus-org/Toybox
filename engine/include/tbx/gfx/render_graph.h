@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: Everything one frame of rendering reads and writes — the renderer's own
@@ -23,7 +23,7 @@ namespace tbx
     /// carrying the shadow map, post chain, and UI.
     struct TBX_API RenderContext
     {
-        gpu::RendererState& renderer;
+        gfx::RendererState& renderer;
         ecs::Sandbox& sandbox;
         assets::AssetsState& assets;
         events::EventsState& events;
@@ -34,7 +34,7 @@ namespace tbx
     };
 
     /// @brief
-    /// Purpose: One pass of a frame — a named function drawing its slice through the tbx::gpu
+    /// Purpose: One pass of a frame — a named function drawing its slice through the tbx::gfx
     /// boundary (its own gpu render passes, pipelines, draws).
     struct TBX_API RenderPass
     {
@@ -44,7 +44,7 @@ namespace tbx
 
     /// @brief
     /// Purpose: The standard renderer: an ordered list of passes run every frame between
-    /// gpu::begin_frame and present. The default list renders a sandbox completely (shadow,
+    /// gfx::begin_frame and present. The default list renders a sandbox completely (shadow,
     /// geometry with sky, post, ui); games reorder, remove, or append passes — or build a
     /// graph from scratch — to author their own rendering.
     class TBX_API RenderGraph final
@@ -110,5 +110,5 @@ namespace tbx
     /// Purpose: Drops every render-side cache built from an asset (GPU meshes/textures,
     /// compiled material pipelines, shown UI documents) — wired to the asset system's
     /// unload/reload events so caches follow asset lifetime instead of managing their own.
-    TBX_API void forget_asset(gpu::RendererState& renderer, const Uuid& asset_id);
+    TBX_API void forget_asset(gfx::RendererState& renderer, const Uuid& asset_id);
 }

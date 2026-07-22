@@ -5,7 +5,7 @@
 #include "tbx/utils/api.h"
 #include "tbx/utils/color.h"
 
-namespace tbx
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: The sky: an equirectangular texture rendered behind everything. One per

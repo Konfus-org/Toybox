@@ -13,8 +13,8 @@ namespace tbx
     struct TBX_API Ui : ecs::Block
     {
         assets::AssetHandle<UiDocument> document = {};
-        assets::AssetHandle<ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert
-        assets::AssetHandle<ShaderSource> fragment = {}; // custom stage; unset = the builtin ui.frag
+        assets::AssetHandle<gfx::ShaderSource> vertex = {}; // custom stage; unset = the builtin ui.vert
+        assets::AssetHandle<gfx::ShaderSource> fragment = {}; // custom stage; unset = the builtin ui.frag
 
         // Anchors the document to the toy in the world: the ui pass projects the toy's
         // position and feeds the "anchor_<toy name>" slot a left/top style (or display:none

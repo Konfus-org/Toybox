@@ -16,7 +16,7 @@ namespace tbx::assets
         std::byte* object);
 
     /// @brief
-    /// Purpose: THE asset-load entry: assets::load<Texture>(path) and friends. Types with real
+    /// Purpose: THE asset-load entry: assets::load<gfx::Texture>(path) and friends. Types with real
     /// decoders (stb, assimp, ...) implement a specialization next to their type; everything
     /// else decodes GENERICALLY — a registered type (reflection::register_type) reads as the
     /// JSON its save() writes, so plain data types never hand-write a loader.

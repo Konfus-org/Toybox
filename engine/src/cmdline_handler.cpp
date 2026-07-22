@@ -42,9 +42,9 @@ namespace tbx::cmdline
                 path.stem().string() + "_" + std::to_string(shot) + path.extension().string());
 
         windows::make_current(window);
-        gpu::set_viewport(window.width, window.height);
-        auto capture = Texture();
-        if (const auto read = gpu::screenshot(capture); !read)
+        gfx::set_viewport(window.width, window.height);
+        auto capture = gfx::Texture();
+        if (const auto read = gfx::screenshot(capture); !read)
             TBX_ERROR("screenshot: {}", read.error());
         else if (const auto saved = save(capture, path); !saved)
             TBX_ERROR("screenshot '{}': {}", path.string(), saved.error());

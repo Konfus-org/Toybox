@@ -36,18 +36,18 @@ namespace tbx::reflection
             .field("position", &Transform::position)
             .field("rotation", &Transform::rotation)
             .field("scale", &Transform::scale);
-        register_type<Camera>("Camera")
-            .field("fov_degrees", &Camera::fov_degrees)
-            .field("near_plane", &Camera::near_plane)
-            .field("far_plane", &Camera::far_plane)
-            .field("window", &Camera::window)
-            .field("viewport", &Camera::viewport);
-        register_type<Renderer>("Renderer")
-            .field("material", &Renderer::material)
-            .field("model", &Renderer::model);
-        register_type<DirectionalLight>("DirectionalLight")
-            .field("color", &DirectionalLight::color)
-            .field("intensity", &DirectionalLight::intensity);
+        register_type<gfx::Camera>("Camera")
+            .field("fov_degrees", &gfx::Camera::fov_degrees)
+            .field("near_plane", &gfx::Camera::near_plane)
+            .field("far_plane", &gfx::Camera::far_plane)
+            .field("window", &gfx::Camera::window)
+            .field("viewport", &gfx::Camera::viewport);
+        register_type<gfx::Renderer>("Renderer")
+            .field("material", &gfx::Renderer::material)
+            .field("model", &gfx::Renderer::model);
+        register_type<gfx::DirectionalLight>("DirectionalLight")
+            .field("color", &gfx::DirectionalLight::color)
+            .field("intensity", &gfx::DirectionalLight::intensity);
         register_type<RigidBody>("RigidBody")
             .field("mass", &RigidBody::mass)
             .field("is_kinematic", &RigidBody::is_kinematic);
@@ -61,8 +61,8 @@ namespace tbx::reflection
             .field("vertex", &Ui::vertex)
             .field("fragment", &Ui::fragment)
             .field("is_world_anchored", &Ui::is_world_anchored);
-        register_type<Sky>("Sky").field("texture", &Sky::texture).field("tint", &Sky::tint);
-        register_type<PostProcessing>("PostProcessing").field("shaders", &PostProcessing::shaders);
+        register_type<gfx::Sky>("Sky").field("texture", &gfx::Sky::texture).field("tint", &gfx::Sky::tint);
+        register_type<gfx::PostProcessing>("PostProcessing").field("shaders", &gfx::PostProcessing::shaders);
         register_type<Script>("Script").field("source", &Script::source);
         register_type<AudioListener>("AudioListener").field("volume", &AudioListener::volume);
         register_type<AudioSource>("AudioSource")
@@ -76,29 +76,29 @@ namespace tbx::reflection
     /// Purpose: Registers every builtin asset type — deriving tbx::Asset is what makes them
     /// assets; register_type stamps the load/hot-reload facet from the base automatically.
     /// Types with real decoders (stb, assimp, raw text...) keep a load<T> specialization;
-    /// plain data types (Material, ecs::Box) decode generically through their fields. Idempotent.
+    /// plain data types (gfx::Material, ecs::Box) decode generically through their fields. Idempotent.
     static void register_builtin_assets()
     {
-        register_type<Texture>("Texture");
-        register_type<Model>("Model");
-        register_type<ShaderSource>("ShaderSource");
+        register_type<gfx::Texture>("Texture");
+        register_type<gfx::Model>("Model");
+        register_type<gfx::ShaderSource>("ShaderSource");
         register_type<AudioClip>("AudioClip");
         register_type<ScriptSource>("ScriptSource");
         register_type<UiDocument>("UiDocument");
         register_type<Font>("Font");
         register_type<ecs::Kit>("Kit");
-        register_type<Material>("Material")
-            .field("vertex", &Material::vertex)
-            .field("fragment", &Material::fragment)
-            .field("albedo_map", &Material::albedo_map)
-            .field("normal_map", &Material::normal_map)
-            .field("metallic_map", &Material::metallic_map)
-            .field("roughness_map", &Material::roughness_map)
-            .field("albedo", &Material::albedo)
-            .field("emissive", &Material::emissive)
-            .field("metallic", &Material::metallic)
-            .field("roughness", &Material::roughness)
-            .field("uv_scale", &Material::uv_scale);
+        register_type<gfx::Material>("Material")
+            .field("vertex", &gfx::Material::vertex)
+            .field("fragment", &gfx::Material::fragment)
+            .field("albedo_map", &gfx::Material::albedo_map)
+            .field("normal_map", &gfx::Material::normal_map)
+            .field("metallic_map", &gfx::Material::metallic_map)
+            .field("roughness_map", &gfx::Material::roughness_map)
+            .field("albedo", &gfx::Material::albedo)
+            .field("emissive", &gfx::Material::emissive)
+            .field("metallic", &gfx::Material::metallic)
+            .field("roughness", &gfx::Material::roughness)
+            .field("uv_scale", &gfx::Material::uv_scale);
         register_type<ecs::BoxEntry>("BoxEntry")
             .field("reference", &ecs::BoxEntry::kit)
             .field("mode", &ecs::BoxEntry::mode)

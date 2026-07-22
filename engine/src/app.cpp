@@ -145,7 +145,7 @@ namespace tbx
             &state,
             [&state](const events::AssetUnloaded& unloaded)
             {
-                forget_asset(state.renderer, unloaded.id);
+                gfx::forget_asset(state.renderer, unloaded.id);
             });
 
         // Changed .luau assets hot-reload their scripts; instances restart next update.
@@ -153,7 +153,7 @@ namespace tbx
             &state,
             [&state](const events::AssetReloaded& reloaded)
             {
-                forget_asset(state.renderer, reloaded.id); // re-upload GPU copies of the fresh data
+                gfx::forget_asset(state.renderer, reloaded.id); // re-upload GPU copies of the fresh data
                 if (!scripts::owns(state.scripts, reloaded.extension.data()))
                     return; // not a script source — nothing to (re)register
                 const auto script = assets::load_now(
@@ -287,8 +287,8 @@ namespace tbx
                 if (window.status != windows::WindowStatus::OPEN || !window.backend)
                     continue;
                 windows::make_current(window);
-                gpu::set_viewport(window.width, window.height);
-                auto context = RenderContext {
+                gfx::set_viewport(window.width, window.height);
+                auto context = gfx::RenderContext {
                     .renderer = state.renderer,
                     .sandbox = state.sandbox,
                     .assets = state.assets,

@@ -29,7 +29,7 @@
 // directly: explicit render passes (attachments + load operations), immutable pipeline-state
 // objects (no loose state toggles), and per-draw uniforms as a name-keyed push layer the
 // backend routes through shader reflection.
-namespace tbx::gpu
+namespace tbx::gfx
 {
     /// @brief
     /// Purpose: What a frame starts as: the swapchain pass's clear and an optional viewport

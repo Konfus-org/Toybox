@@ -194,7 +194,7 @@ namespace tbx::windows
                 TBX_ERROR("SDL_GL_CreateContext failed: {}", SDL_GetError());
                 std::abort();
             }
-            gpu::initialize();
+            gfx::initialize();
         }
         SDL_GL_MakeCurrent(backend->window, g_gl_context);
         // The swap interval sticks per window surface, not per context.
@@ -202,9 +202,9 @@ namespace tbx::windows
         backend->applied_vsync = window.is_vsync_enabled;
 
         SDL_GetWindowSizeInPixels(backend->window, &window.width, &window.height);
-        // Custom-pipeline hosts call gpu::begin_frame between run() calls without touching
+        // Custom-pipeline hosts call gfx::begin_frame between run() calls without touching
         // the viewport; keep the gpu drawable mirror sized to the current window for them.
-        gpu::set_viewport(window.width, window.height);
+        gfx::set_viewport(window.width, window.height);
         window.backend = std::move(backend);
     }
 
@@ -366,7 +366,7 @@ namespace tbx::windows
                         // The engine's render loop re-sizes the gpu drawable per window;
                         // the mirror tracks the main window for custom-pipeline hosts.
                         if (&window->get() == &state.windows.front())
-                            gpu::set_viewport(event.window.data1, event.window.data2);
+                            gfx::set_viewport(event.window.data1, event.window.data2);
                         events.window_resized.emit(
                             {.width = event.window.data1, .height = event.window.data2});
                     }

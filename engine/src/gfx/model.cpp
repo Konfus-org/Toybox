@@ -8,7 +8,7 @@
 namespace tbx::assets
 {
     template <>
-    Result<Model> load<Model>(const std::filesystem::path& path)
+    Result<gfx::Model> load<gfx::Model>(const std::filesystem::path& path)
     {
         auto importer = Assimp::Importer();
         // Lines/points must go: a 2-index face in the triangle list shifts every vertex after
@@ -25,7 +25,7 @@ namespace tbx::assets
                 "could not import model '{}': {}", path.string(), importer.GetErrorString());
 
         // Every mesh merges into one interleaved position+normal+uv triangle list.
-        auto model = Model {};
+        auto model = gfx::Model {};
         for (unsigned mesh_index = 0; mesh_index < scene->mNumMeshes; ++mesh_index)
         {
             const aiMesh* mesh = scene->mMeshes[mesh_index];

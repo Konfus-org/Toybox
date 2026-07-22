@@ -82,19 +82,19 @@ static int run_scene_selftest()
         {
             sandbox.spawn("Ground")
                 .with(tbx::Transform {.scale = tbx::Vec3(60.0f, 1.0f, 60.0f)})
-                .with(tbx::Renderer {.model = tbx::builtin::PLANE});
+                .with(tbx::gfx::Renderer {.model = tbx::builtin::PLANE});
             sandbox.spawn("Cube")
                 .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 0.0f)})
-                .with(tbx::Renderer {
-                    .material = tbx::assets::AssetHandle<tbx::Material>("Materials/Tbx/red.mat"),
+                .with(tbx::gfx::Renderer {
+                    .material = tbx::assets::AssetHandle<tbx::gfx::Material>("Materials/Tbx/red.mat"),
                     .model = tbx::builtin::CUBE});
             sandbox.spawn("Sun")
                 .with(tbx::Transform {
                     .rotation = look_toward(tbx::Vec3(1.0f, -1.0f, 0.0f))})
-                .with(tbx::DirectionalLight {.intensity = 1.0f});
+                .with(tbx::gfx::DirectionalLight {.intensity = 1.0f});
             camera = sandbox.spawn("Camera")
                          .with(tbx::Transform {.position = tbx::Vec3(0.0f, 2.0f, 8.0f)})
-                         .with(tbx::Camera {});
+                         .with(tbx::gfx::Camera {});
             sandbox.spawn("Panel").with(tbx::Ui {
                 .document = tbx::assets::AssetHandle<tbx::UiDocument>("Ui/selftest_panel.rml")});
         }
@@ -114,13 +114,13 @@ static int run_scene_selftest()
 
         // run() already rendered through the builtin graph; probe the backbuffer directly.
         const auto& window = runtime.state->windows.windows.front();
-        const tbx::Color center = tbx::gpu::read_pixel(window.width / 2, window.height / 2);
+        const tbx::Color center = tbx::gfx::read_pixel(window.width / 2, window.height / 2);
         if (frame == 2)
         {
             cube_is_red = center.r > 0.25f && center.r > center.g * 2.0f;
             // Shader reflection: an arbitrary shader's uniform schema is discoverable and
             // drivable.
-            auto probe = tbx::gpu::compile_shader(
+            auto probe = tbx::gfx::compile_shader(
                 R"(#version 460 core
 uniform mat4 u_model;
 uniform vec4 u_tint;
@@ -130,18 +130,18 @@ void main() { gl_Position = u_model * vec4(u_shine, u_tint.x, 0.0, 1.0); })",
 out vec4 c; void main() { c = vec4(1.0); })");
             if (probe)
             {
-                const auto info = tbx::gpu::reflect(**probe);
+                const auto info = tbx::gfx::reflect(**probe);
                 int found = 0;
                 for (const auto& uniform : info.uniforms)
                 {
-                    if (uniform.name == "u_model" && uniform.kind == tbx::gpu::UniformKind::MAT4)
+                    if (uniform.name == "u_model" && uniform.kind == tbx::gfx::UniformKind::MAT4)
                         ++found;
-                    if (uniform.name == "u_tint" && uniform.kind == tbx::gpu::UniformKind::VEC4)
+                    if (uniform.name == "u_tint" && uniform.kind == tbx::gfx::UniformKind::VEC4)
                         ++found;
-                    if (uniform.name == "u_shine" && uniform.kind == tbx::gpu::UniformKind::FLOAT)
+                    if (uniform.name == "u_shine" && uniform.kind == tbx::gfx::UniformKind::FLOAT)
                         ++found;
                 }
-                tbx::gpu::apply_uniforms(
+                tbx::gfx::apply_uniforms(
                     **probe,
                     tbx::serialization::Json {{"u_tint", {1.0, 0.0, 0.0, 1.0}}, {"u_shine", 0.5}});
                 reflection_works = found == 3;
@@ -154,7 +154,7 @@ out vec4 c; void main() { c = vec4(1.0); })");
         if (frame == 6)
         {
             // The UI panel owns the top-left corner (GL readback is y-up).
-            const tbx::Color corner = tbx::gpu::read_pixel(60, window.height - 60);
+            const tbx::Color corner = tbx::gfx::read_pixel(60, window.height - 60);
             ui_panel_visible = corner.g > 0.8f && corner.r < 0.2f;
         }
 
@@ -194,9 +194,9 @@ int main(int argc, char** argv)
     app.commands = commands; // the runtime honors -w/-h and --screenshot
     auto runtime = tbx::Runtime(std::move(app));
     bool selftest_passed = false;
-    std::unique_ptr<tbx::gpu::Shader> shader = {};
-    std::unique_ptr<tbx::gpu::Pipeline> pipeline = {};
-    std::unique_ptr<tbx::gpu::Mesh> mesh = {};
+    std::unique_ptr<tbx::gfx::Shader> shader = {};
+    std::unique_ptr<tbx::gfx::Pipeline> pipeline = {};
+    std::unique_ptr<tbx::gfx::Mesh> mesh = {};
 
     while (tbx::run(runtime))
     {
@@ -204,27 +204,27 @@ int main(int argc, char** argv)
         if (!shader)
         {
             auto compiled =
-                tbx::gpu::compile_shader(TRIANGLE_VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER);
+                tbx::gfx::compile_shader(TRIANGLE_VERTEX_SHADER, TRIANGLE_FRAGMENT_SHADER);
             if (!compiled)
             {
                 TBX_ERROR("{}", compiled.error());
                 return 1;
             }
             shader = std::move(*compiled);
-            pipeline = tbx::gpu::make_pipeline({.shader = *shader});
-            mesh = tbx::gpu::upload_mesh(TRIANGLE_VERTICES, std::array {3, 4});
+            pipeline = tbx::gfx::make_pipeline({.shader = *shader});
+            mesh = tbx::gfx::upload_mesh(TRIANGLE_VERTICES, std::array {3, 4});
         }
 
-        tbx::gpu::begin_frame();
-        tbx::gpu::set_pipeline(*pipeline);
-        tbx::gpu::draw(*mesh);
+        tbx::gfx::begin_frame();
+        tbx::gfx::set_pipeline(*pipeline);
+        tbx::gfx::draw(*mesh);
 
         if (selftest)
         {
             // The triangle covers the framebuffer center; the clear color does not.
             const auto& window = runtime.state->windows.windows.front();
-            const tbx::Color center = tbx::gpu::read_pixel(window.width / 2, window.height / 2);
-            const tbx::Color corner = tbx::gpu::read_pixel(2, 2);
+            const tbx::Color center = tbx::gfx::read_pixel(window.width / 2, window.height / 2);
+            const tbx::Color corner = tbx::gfx::read_pixel(2, 2);
             const bool center_is_triangle = center.r + center.g + center.b > 0.5f;
             const bool corner_is_clear = std::abs(corner.r - 0.08f) < 0.02f;
             selftest_passed = center_is_triangle && corner_is_clear;
